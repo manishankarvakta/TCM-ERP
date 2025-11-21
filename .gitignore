@@ -1,0 +1,10 @@
+# Docker volumes - contains persistent data
+volumes/
+
+# Environment files
+.env.docker
+.env.docker.local
+
+# Keep the directory structure
+!volumes/.gitkeep
+
