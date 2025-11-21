@@ -1,0 +1,40 @@
+name: "Enhancement / Improvement"
+description: "Use this template to suggest an improvement to existing functionality."
+title: "[Enhancement] "
+labels: ["enhancement"]
+assignees: []
+body:
+  - type: input
+    id: current
+    attributes:
+      label: Current Behavior
+      description: Describe how the system behaves currently.
+      placeholder: "Current behavior"
+
+  - type: input
+    id: improvement
+    attributes:
+      label: Proposed Improvement
+      description: Describe the desired improvement.
+      placeholder: "Improvement details"
+
+  - type: input
+    id: steps
+    attributes:
+      label: Implementation Steps
+      description: Steps to implement this enhancement.
+      placeholder: "1. Step 1\n2. Step 2"
+
+  - type: input
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Define when this enhancement is considered done.
+      placeholder: "- [ ] Condition 1\n- [ ] Condition 2"
+
+  - type: input
+    id: notes
+    attributes:
+      label: Notes / References
+      description: Optional notes or links to docs/mockups
+      placeholder: "Link to Figma, docs, etc."

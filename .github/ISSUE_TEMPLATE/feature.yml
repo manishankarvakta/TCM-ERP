@@ -1,0 +1,32 @@
+name: "Feature Request"
+description: "Use this template to request a new feature."
+title: "[Feature] "
+labels: ["feature"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Description
+        Describe the feature you want to add.
+
+  - type: input
+    id: steps
+    attributes:
+      label: Steps / Implementation Plan
+      description: Outline steps to implement this feature.
+      placeholder: "1. Step 1\n2. Step 2\n3. Step 3"
+
+  - type: input
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Define conditions for the feature to be considered done.
+      placeholder: "- [ ] Condition 1\n- [ ] Condition 2"
+
+  - type: input
+    id: notes
+    attributes:
+      label: Notes / References
+      description: Add optional notes, links, or mockups.
+      placeholder: "Link to Figma, docs, etc."
