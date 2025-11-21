@@ -1,0 +1,9 @@
+# Backend code reviewers
+/backend/ @backend-team @backend-lead
+
+# Frontend code reviewers
+/startup-mvp/ @frontend-team @frontend-lead
+
+# Docs / workflows / CI
+/docs/ @docs-owner
+.github/workflows/ @devops
