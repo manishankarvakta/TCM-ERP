@@ -19,11 +19,9 @@ export default async function RegistrationPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6  bg-white/40 backdrop-blur-sm dark:bg-black/40 p-8 rounded-lg">
       <div className="space-y-2 text-center lg:text-left">
-        <div className="flex justify-center lg:justify-start mb-4">
-          <Logo />
-        </div>
+        
         <h1 className="text-2xl font-semibold tracking-tight">Create an account</h1>
         <p className="text-sm text-muted-foreground">
           Enter your email below to create your account
