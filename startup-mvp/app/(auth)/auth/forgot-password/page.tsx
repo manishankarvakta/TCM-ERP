@@ -1,0 +1,36 @@
+import React from "react";
+import ForgotPasswordForm from "@/components/forms/forgot-password-form";
+import Link from "next/link";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Forgot Password | Startup MVP",
+  description: "Reset your password",
+};
+
+export default function ForgotPasswordPage() {
+  return (
+    <div className="w-full max-w-md">
+      <div className="mb-8 text-center">
+        <h1 className="text-3xl font-bold">Forgot Password</h1>
+        <p className="mt-2 text-muted-foreground">
+          {`Enter your email address and we'll send you a verification code`}
+        </p>
+      </div>
+
+      <div className="border rounded-lg p-6 bg-background">
+        <ForgotPasswordForm />
+      </div>
+
+      <div className="mt-6 text-center">
+        <Link
+          href="/login"
+          className="text-sm text-primary hover:underline"
+        >
+          Back to Login
+        </Link>
+      </div>
+    </div>
+  );
+}
+

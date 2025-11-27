@@ -1,0 +1,208 @@
+"use client";
+
+import { useState, useRef } from "react";
+import { Upload, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { getUploadPresignedUrl, confirmUpload } from "@/app/actions/files";
+
+interface DirectUploadProps {
+  onUploadComplete?: () => void;
+  currentPath: string;
+}
+
+interface UploadFile {
+  id: string;
+  file: File;
+  progress: number;
+  status: "pending" | "uploading" | "success" | "error";
+  error?: string;
+}
+
+export default function DirectUpload({ onUploadComplete, currentPath }: DirectUploadProps) {
+  const [uploads, setUploads] = useState<UploadFile[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const newUploads: UploadFile[] = files.map((file) => ({
+      id: Math.random().toString(36).substring(7),
+      file,
+      progress: 0,
+      status: "pending" as const,
+    }));
+
+    setUploads((prev) => [...prev, ...newUploads]);
+    setIsOpen(true);
+
+    // Start uploading each file
+    newUploads.forEach((upload) => {
+      uploadFile(upload);
+    });
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const uploadFile = async (upload: UploadFile) => {
+    try {
+      // Update status to uploading
+      setUploads((prev) =>
+        prev.map((u) => (u.id === upload.id ? { ...u, status: "uploading" } : u))
+      );
+
+      // Get presigned URL
+      const result = await getUploadPresignedUrl({
+        path: currentPath === "/" ? "" : currentPath.replace(/^\/+/, ""),
+        name: upload.file.name,
+        contentType: upload.file.type || undefined,
+      });
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || "Failed to get upload URL");
+      }
+
+      const { url, key } = result.data;
+
+      // Upload file to MinIO
+      const xhr = new XMLHttpRequest();
+
+      // Track upload progress
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) {
+          const progress = Math.round((e.loaded / e.total) * 100);
+          setUploads((prev) =>
+            prev.map((u) => (u.id === upload.id ? { ...u, progress } : u))
+          );
+        }
+      });
+
+      // Handle completion
+      xhr.addEventListener("load", async () => {
+        if (xhr.status === 200) {
+          // Get ETag from response headers
+          const etag = xhr.getResponseHeader("ETag")?.replace(/"/g, "");
+
+          // Confirm upload in database
+          const confirmResult = await confirmUpload({
+            key,
+            size: upload.file.size,
+            mimeType: upload.file.type || "application/octet-stream",
+            etag,
+          });
+
+          if (confirmResult.success) {
+            setUploads((prev) =>
+              prev.map((u) => (u.id === upload.id ? { ...u, status: "success", progress: 100 } : u))
+            );
+
+            // Call onUploadComplete after a short delay
+            setTimeout(() => {
+              onUploadComplete?.();
+            }, 500);
+          } else {
+            throw new Error(confirmResult.error || "Failed to confirm upload");
+          }
+        } else {
+          throw new Error(`Upload failed with status ${xhr.status}`);
+        }
+      });
+
+      // Handle errors
+      xhr.addEventListener("error", () => {
+        setUploads((prev) =>
+          prev.map((u) =>
+            u.id === upload.id
+              ? { ...u, status: "error", error: "Upload failed" }
+              : u
+          )
+        );
+      });
+
+      // Start upload
+      xhr.open("PUT", url);
+      xhr.setRequestHeader("Content-Type", upload.file.type || "application/octet-stream");
+      xhr.send(upload.file);
+    } catch (error) {
+      console.error("Upload error:", error);
+      setUploads((prev) =>
+        prev.map((u) =>
+          u.id === upload.id
+            ? { ...u, status: "error", error: error instanceof Error ? error.message : "Upload failed" }
+            : u
+        )
+      );
+    }
+  };
+
+  const removeUpload = (id: string) => {
+    setUploads((prev) => prev.filter((u) => u.id !== id));
+    if (uploads.length === 1) {
+      setIsOpen(false);
+    }
+  };
+
+  const handleButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={handleFileSelect}
+        />
+        <Button onClick={handleButtonClick} size="sm" className="bg-[#f2652d] hover:bg-[#f2652d]/90">
+          <Upload className="mr-2 h-4 w-4" />
+          Select Files
+        </Button>
+      </div>
+      
+      {uploads.length > 0 && (
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          {uploads.map((upload) => (
+            <div
+              key={upload.id}
+              className="flex items-center gap-3 rounded-lg border bg-card p-3"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{upload.file.name}</p>
+                <div className="mt-1">
+                  {upload.status === "uploading" && (
+                    <Progress value={upload.progress} className="h-2" />
+                  )}
+                  {upload.status === "success" && (
+                    <p className="text-xs text-green-600 dark:text-green-400">Upload complete</p>
+                  )}
+                  {upload.status === "error" && (
+                    <p className="text-xs text-destructive">{upload.error}</p>
+                  )}
+                </div>
+              </div>
+              {upload.status !== "uploading" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeUpload(upload.id)}
+                  className="h-8 w-8 p-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
