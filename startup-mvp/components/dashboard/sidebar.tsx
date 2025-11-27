@@ -13,7 +13,7 @@ import {
   FiFolder,
   FiBell,
 } from "react-icons/fi";
-import Logo from "../common/logo";
+import Logo from "@/components/layout/logo";
 
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: FiHome },
@@ -36,7 +36,7 @@ export default function DashboardSidebar() {
     <aside className="hidden w-64 border-r bg-background lg:block">
       <div className="flex h-full flex-col">
         <div className="flex h-16 items-center border-b px-6">
-          <Logo />
+          <Logo width={150} height={100} />
         </div>
         <nav className="flex-1 space-y-1 p-4">
           {menuItems.map((item) => {
