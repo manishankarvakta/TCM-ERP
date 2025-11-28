@@ -27,6 +27,7 @@ model User {
   notifications Notification[]
   createdNotifications Notification[] @relation("NotificationCreator")
   createdUnits  Unit[]                @relation("UnitCreator")
+  createdOrganizations Organization[] @relation("OrganizationCreator")
 
   @@index([status])
 }
@@ -156,6 +157,26 @@ model Unit {
 
   @@index([status])
   @@index([createdBy])
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  details   String?
+  address   String?
+  phone     String?
+  email     String?
+  website   String?
+  logo      String?
+  status    String   @default("active") // active, inactive, trash
+  createdBy String
+  creator   User     @relation("OrganizationCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdBy])
+  @@index([name])
 }
 
 model Category {

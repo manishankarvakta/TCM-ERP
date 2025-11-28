@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -25,7 +25,7 @@ import { MdWhatsapp } from "react-icons/md";
 import { HiEnvelope } from "react-icons/hi2";
 import { TbCreditCardPay, TbReceiptTax } from "react-icons/tb";
 import Profile from "./_components/Profile";
-import Organization from "./_components/Organization";
+import Organization from "./_components/organization/Organization";
 import Experience from "./_components/Experience";
 import Emails from "./_components/Emails";
 import Calendars from "./_components/Calendars";
@@ -67,36 +67,23 @@ export default function SettingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [advanced, setAdvanced] = useState(false);
-  const [activeSection, setActiveSection] = useState<SettingsSection>(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      return (params.get("section") as SettingsSection) || "profile";
-    }
-    return "profile";
-  });
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const section = params.get("section") as SettingsSection;
-      if (section === "emails" || section === "calendars" || section === "whatsapp" || section === "telegram" || section === "sms") {
-        return new Set(["accounts"]);
-      }
-    }
-    return new Set();
-  });
+  const [activeSection, setActiveSection] = useState<SettingsSection>("profile");
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [, startTransition] = useTransition();
 
   useEffect(() => {
+    // Sync state with URL params after mount to avoid hydration mismatch
     const section = searchParams.get("section") as SettingsSection;
     if (section && section !== activeSection) {
-      // Sync state with URL params - this is a valid use case for setState in useEffect
-      setActiveSection(section);
-      // Auto-expand parent items if a child is active
-      if (section === "emails" || section === "calendars" || section === "whatsapp" || section === "telegram" || section === "sms") {
-        setExpandedItems(new Set(["accounts"]));
-      }
+      startTransition(() => {
+        setActiveSection(section);
+        // Auto-expand parent items if a child is active
+        if (section === "emails" || section === "calendars" || section === "whatsapp" || section === "telegram" || section === "sms") {
+          setExpandedItems(new Set(["accounts"]));
+        }
+      });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [searchParams, activeSection]);
 
   const handleSectionChange = (section: SettingsSection) => {
     setActiveSection(section);
@@ -222,7 +209,15 @@ export default function SettingsPage() {
 
         {/* Navigation */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          {settingsMenu.map((category) => (
+          {settingsMenu
+            .filter((category) => {
+              // Hide Developers section if advanced is not enabled
+              if (category.category === "Developers" && !advanced) {
+                return false;
+              }
+              return true;
+            })
+            .map((category) => (
             <div key={category.category} className="space-y-2">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 {category.category}

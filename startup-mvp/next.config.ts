@@ -8,6 +8,22 @@ const nextConfig: NextConfig = {
   
   // Enable standalone output for Docker
   output: 'standalone',
+  
+  // Configure images for external sources (MinIO)
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '9000',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
+  },
 };
 
 export default nextConfig;
