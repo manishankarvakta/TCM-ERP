@@ -3,8 +3,10 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
+import { notifyUserAction } from "@/lib/notification";
 import { revalidatePath } from "next/cache";
 import { type Prisma } from "@prisma/client";
+import { NotificationType } from "@prisma/client";
 
 /**
  * Get paginated list of organizations with search
@@ -253,6 +255,15 @@ export async function createOrganization(input: {
       }
     );
 
+    // Create notification
+    await notifyUserAction({
+      userId: session.user.id,
+      action: "organization_created",
+      title: "Organization Created",
+      message: `Organization "${organization.name}" has been created successfully.`,
+      type: NotificationType.SUCCESS,
+    });
+
     // Revalidate organizations page
     revalidatePath("/dashboard/settings");
 
@@ -390,6 +401,16 @@ export async function updateOrganization(input: {
       }
     );
 
+    // Create notification
+    await notifyUserAction({
+      userId: session.user.id,
+      action: "organization_updated",
+      title: "Organization Updated",
+      message: `Organization "${organization.name}" has been updated. Changes: ${changes.join(", ")}.`,
+      type: NotificationType.INFO,
+      changes,
+    });
+
     // Revalidate organizations page
     revalidatePath("/dashboard/settings");
 
@@ -456,6 +477,15 @@ export async function deleteOrganization(organizationId: string) {
       }
     );
 
+    // Create notification
+    await notifyUserAction({
+      userId: session.user.id,
+      action: "organization_deleted",
+      title: "Organization Moved to Trash",
+      message: `Organization "${organizationToDelete.name}" has been moved to trash.`,
+      type: NotificationType.WARNING,
+    });
+
     // Revalidate organizations page
     revalidatePath("/dashboard/settings");
 
@@ -495,6 +525,14 @@ export async function bulkUpdateOrganizationStatus(
       };
     }
 
+    // Get organization names for logging
+    const organizations = await prisma.organization.findMany({
+      where: {
+        id: { in: organizationIds },
+      },
+      select: { id: true, name: true },
+    });
+
     // Update organizations
     await prisma.organization.updateMany({
       where: {
@@ -503,6 +541,28 @@ export async function bulkUpdateOrganizationStatus(
       data: {
         status,
       },
+    });
+
+    // Log bulk update for each organization
+    for (const org of organizations) {
+      await logItemUpdated(
+        session.user.id,
+        "Organization",
+        org.id,
+        ["status"],
+        org.name,
+        { name: org.name, status, changes: ["status"] }
+      );
+    }
+
+    // Create notification
+    const actionText = status === "active" ? "restored" : status === "trash" ? "moved to trash" : "deactivated";
+    await notifyUserAction({
+      userId: session.user.id,
+      action: "organization_bulk_updated",
+      title: "Organizations Updated",
+      message: `${organizations.length} organization(s) have been ${actionText}.`,
+      type: status === "active" ? NotificationType.SUCCESS : status === "trash" ? NotificationType.WARNING : NotificationType.INFO,
     });
 
     // Revalidate organizations page
@@ -541,12 +601,48 @@ export async function deleteOrganizationsPermanently(organizationIds: string[]) 
       };
     }
 
+    // Get organization names for logging
+    const organizations = await prisma.organization.findMany({
+      where: {
+        id: { in: organizationIds },
+        status: "trash", // Only allow deleting organizations that are in trash
+      },
+      select: { id: true, name: true },
+    });
+
+    if (organizations.length === 0) {
+      return {
+        success: false,
+        error: "No organizations found in trash",
+      };
+    }
+
+    // Log permanent deletion for each organization
+    for (const org of organizations) {
+      await logItemDeleted(
+        session.user.id,
+        "Organization",
+        org.id,
+        org.name,
+        { name: org.name }
+      );
+    }
+
     // Delete organizations permanently
     await prisma.organization.deleteMany({
       where: {
         id: { in: organizationIds },
         status: "trash", // Only allow deleting organizations that are in trash
       },
+    });
+
+    // Create notification
+    await notifyUserAction({
+      userId: session.user.id,
+      action: "organization_permanently_deleted",
+      title: "Organizations Permanently Deleted",
+      message: `${organizations.length} organization(s) have been permanently deleted.`,
+      type: NotificationType.ERROR,
     });
 
     // Revalidate organizations page
