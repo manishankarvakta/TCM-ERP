@@ -21,8 +21,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiRotateCw } from "react-icons/fi";
-import { deleteUnit, bulkUpdateUnitStatus, deleteUnitsPermanently } from "../_actions/unit.action";
+import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw } from "react-icons/fi";
+import { deleteItem, bulkUpdateItemStatus, deleteItemsPermanently } from "../_actions/item.action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,18 +36,22 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Decimal } from "@prisma/client/runtime/library";
 
-interface Unit {
+interface Item {
   id: string;
-  details: string;
-  symbol: string;
-  status: string;
-  createdBy: string;
-  creator: {
+  code: string;
+  description: string;
+  unitId: string;
+  unit: {
     id: string;
-    name: string | null;
-    email: string;
+    symbol: string;
+    details: string;
   };
+  unitPrice: Decimal;
+  category: string | null;
+  image: string | null;
+  status: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,25 +63,25 @@ interface Pagination {
   totalPages: number;
 }
 
-interface UnitsListClientProps {
-  initialUnits: Unit[];
+interface ItemsListClientProps {
+  initialItems: Item[];
   initialPagination: Pagination;
   initialSearch: string;
   isTrash?: boolean;
 }
 
-export default function UnitsListClient({
-  initialUnits,
+export default function ItemsListClient({
+  initialItems,
   initialPagination,
   initialSearch,
   isTrash = false,
-}: UnitsListClientProps) {
+}: ItemsListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(initialSearch);
-  const [deleteUnitId, setDeleteUnitId] = useState<string | null>(null);
-  const [restoreUnitId, setRestoreUnitId] = useState<string | null>(null);
-  const [selectedUnits, setSelectedUnits] = useState<Set<string>>(new Set());
+  const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
+  const [restoreItemId, setRestoreItemId] = useState<string | null>(null);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -91,30 +95,29 @@ export default function UnitsListClient({
       params.delete("search");
     }
     params.set("page", "1");
-    // Preserve tab parameter
     const tab = searchParams.get("tab") || "all";
     if (tab) {
       params.set("tab", tab);
     }
-    router.push(`/dashboard/items/units?${params.toString()}`);
+    router.push(`/dashboard/items?${params.toString()}`);
   };
 
   const handleDelete = async () => {
-    if (!deleteUnitId) return;
+    if (!deleteItemId) return;
 
     startTransition(async () => {
-      const result = await deleteUnit(deleteUnitId);
+      const result = await deleteItem(deleteItemId);
       if (result.success) {
-        setDeleteUnitId(null);
+        setDeleteItemId(null);
         toast({
           title: "Success",
-          description: "Unit moved to trash",
+          description: "Item moved to trash",
         });
         router.refresh();
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to delete unit",
+          description: result.error || "Failed to delete item",
           variant: "destructive",
         });
       }
@@ -122,34 +125,34 @@ export default function UnitsListClient({
   };
 
   const handleRestore = async () => {
-    if (!restoreUnitId) return;
+    if (!restoreItemId) return;
 
     startTransition(async () => {
-      const result = await bulkUpdateUnitStatus([restoreUnitId], "active");
+      const result = await bulkUpdateItemStatus([restoreItemId], "active");
       if (result.success) {
-        setRestoreUnitId(null);
+        setRestoreItemId(null);
         toast({
           title: "Success",
-          description: "Unit restored successfully",
+          description: "Item restored successfully",
         });
         router.refresh();
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to restore unit",
+          description: result.error || "Failed to restore item",
           variant: "destructive",
         });
       }
     });
   };
 
-  const handleSelectUnit = (unitId: string, checked: boolean) => {
-    setSelectedUnits((prev) => {
+  const handleSelectItem = (itemId: string, checked: boolean) => {
+    setSelectedItems((prev) => {
       const next = new Set(prev);
       if (checked) {
-        next.add(unitId);
+        next.add(itemId);
       } else {
-        next.delete(unitId);
+        next.delete(itemId);
       }
       return next;
     });
@@ -157,43 +160,43 @@ export default function UnitsListClient({
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedUnits(new Set(initialUnits.map((u) => u.id)));
+      setSelectedItems(new Set(initialItems.map((i) => i.id)));
     } else {
-      setSelectedUnits(new Set());
+      setSelectedItems(new Set());
     }
   };
 
   const handleBulkAction = async (action: string) => {
-    if (selectedUnits.size === 0) {
+    if (selectedItems.size === 0) {
       toast({
         title: "No selection",
-        description: "Please select at least one unit",
+        description: "Please select at least one item",
         variant: "destructive",
       });
       return;
     }
 
-    const unitIds = Array.from(selectedUnits);
+    const itemIds = Array.from(selectedItems);
 
     startTransition(async () => {
       let result;
       
       if (action === "trash") {
-        result = await bulkUpdateUnitStatus(unitIds, "trash");
+        result = await bulkUpdateItemStatus(itemIds, "trash");
       } else if (action === "active") {
-        result = await bulkUpdateUnitStatus(unitIds, "active");
+        result = await bulkUpdateItemStatus(itemIds, "active");
       } else if (action === "inactive") {
-        result = await bulkUpdateUnitStatus(unitIds, "inactive");
+        result = await bulkUpdateItemStatus(itemIds, "inactive");
       } else if (action === "restore") {
-        result = await bulkUpdateUnitStatus(unitIds, "active");
+        result = await bulkUpdateItemStatus(itemIds, "active");
       } else if (action === "delete-permanently") {
-        result = await deleteUnitsPermanently(unitIds);
+        result = await deleteItemsPermanently(itemIds);
       } else {
         return;
       }
 
       if (result.success) {
-        setSelectedUnits(new Set());
+        setSelectedItems(new Set());
         setBulkAction(null);
         toast({
           title: "Success",
@@ -210,8 +213,17 @@ export default function UnitsListClient({
     });
   };
 
-  const allSelected = initialUnits.length > 0 && selectedUnits.size === initialUnits.length;
-  const someSelected = selectedUnits.size > 0 && selectedUnits.size < initialUnits.length;
+  const allSelected = initialItems.length > 0 && selectedItems.size === initialItems.length;
+  const someSelected = selectedItems.size > 0 && selectedItems.size < initialItems.length;
+
+  const formatPrice = (price: Decimal | number) => {
+    const numPrice = typeof price === 'number' ? price : Number(price);
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+    }).format(numPrice);
+  };
 
   return (
     <div className="space-y-4">
@@ -220,7 +232,7 @@ export default function UnitsListClient({
         <div className="relative flex-1 max-w-sm">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by symbol or details..."
+            placeholder="Search by code, description, or category..."
             value={search}
             onChange={(e) => handleSearch(e.target.value)}
             className="pl-10"
@@ -239,9 +251,9 @@ export default function UnitsListClient({
 
         {/* Bulk Actions Dropdown */}
         <div className="flex items-center gap-2">
-          {selectedUnits.size > 0 && (
+          {selectedItems.size > 0 && (
             <span className="text-sm text-muted-foreground whitespace-nowrap">
-              {selectedUnits.size} selected
+              {selectedItems.size} selected
             </span>
           )}
           <DropdownMenu>
@@ -249,7 +261,7 @@ export default function UnitsListClient({
               <Button 
                 variant="outline" 
                 size="sm" 
-                disabled={isPending || selectedUnits.size === 0}
+                disabled={isPending || selectedItems.size === 0}
               >
                 <FiMoreVertical className="mr-2 h-4 w-4" />
                 Bulk Actions
@@ -263,7 +275,7 @@ export default function UnitsListClient({
                       setBulkAction("trash");
                       handleBulkAction("trash");
                     }}
-                    disabled={selectedUnits.size === 0}
+                    disabled={selectedItems.size === 0}
                   >
                     <FiTrash2 className="mr-2 h-4 w-4" />
                     Move to Trash
@@ -273,7 +285,7 @@ export default function UnitsListClient({
                       setBulkAction("active");
                       handleBulkAction("active");
                     }}
-                    disabled={selectedUnits.size === 0}
+                    disabled={selectedItems.size === 0}
                   >
                     <FiCheck className="mr-2 h-4 w-4" />
                     Activate
@@ -283,7 +295,7 @@ export default function UnitsListClient({
                       setBulkAction("inactive");
                       handleBulkAction("inactive");
                     }}
-                    disabled={selectedUnits.size === 0}
+                    disabled={selectedItems.size === 0}
                   >
                     <FiCircle className="mr-2 h-4 w-4" />
                     Deactivate
@@ -296,7 +308,7 @@ export default function UnitsListClient({
                       setBulkAction("restore");
                       handleBulkAction("restore");
                     }}
-                    disabled={selectedUnits.size === 0}
+                    disabled={selectedItems.size === 0}
                   >
                     <FiCheck className="mr-2 h-4 w-4" />
                     Restore
@@ -307,7 +319,7 @@ export default function UnitsListClient({
                       handleBulkAction("delete-permanently");
                     }}
                     className="text-destructive"
-                    disabled={selectedUnits.size === 0}
+                    disabled={selectedItems.size === 0}
                   >
                     <FiTrash2 className="mr-2 h-4 w-4" />
                     Delete Permanently
@@ -331,61 +343,88 @@ export default function UnitsListClient({
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead>Symbol</TableHead>
-              <TableHead>Details</TableHead>
+              <TableHead>Image</TableHead>
+              <TableHead>Code</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>Unit</TableHead>
+              <TableHead>Unit Price</TableHead>
+              <TableHead>Category</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Created By</TableHead>
               <TableHead>Created At</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {initialUnits.length === 0 ? (
+            {initialItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  {isTrash ? "No trashed units found" : "No units found"}
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                  {isTrash ? "No trashed items found" : "No items found"}
                 </TableCell>
               </TableRow>
             ) : (
-              initialUnits.map((unit) => {
-                const isSelected = selectedUnits.has(unit.id);
-                const unitStatus = unit.status || "active";
+              initialItems.map((item) => {
+                const isSelected = selectedItems.has(item.id);
+                const itemStatus = item.status || "active";
                 
                 return (
-                  <TableRow key={unit.id} className={cn(isSelected && "bg-muted/50")}>
+                  <TableRow key={item.id} className={cn(isSelected && "bg-muted/50")}>
                     <TableCell>
                       <Checkbox
                         checked={isSelected}
-                        onCheckedChange={(checked) => handleSelectUnit(unit.id, checked as boolean)}
-                        aria-label={`Select ${unit.symbol}`}
+                        onCheckedChange={(checked) => handleSelectItem(item.id, checked as boolean)}
+                        aria-label={`Select ${item.code}`}
                       />
                     </TableCell>
-                    <TableCell className="font-medium">{unit.symbol}</TableCell>
-                    <TableCell>{unit.details}</TableCell>
                     <TableCell>
-                      {unitStatus === "trash" ? (
+                      {item.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={item.image}
+                          alt={item.description}
+                          className="h-10 w-10 object-cover rounded border"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded border bg-muted flex items-center justify-center">
+                          <span className="text-xs text-muted-foreground">No image</span>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-medium">{item.code}</TableCell>
+                    <TableCell>{item.description}</TableCell>
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">
+                        {item.unit.symbol}
+                      </span>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {formatPrice(item.unitPrice)}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {item.category || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {itemStatus === "trash" ? (
                         <Badge variant="destructive">Trash</Badge>
-                      ) : unitStatus === "inactive" ? (
+                      ) : itemStatus === "inactive" ? (
                         <Badge variant="secondary">Inactive</Badge>
                       ) : (
                         <Badge variant="default">Active</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {unit.creator.name || unit.creator.email}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {format(new Date(unit.createdAt), "MMM d, yyyy")}
+                      {format(new Date(item.createdAt), "MMM d, yyyy")}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
                             <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/dashboard/items/units/details?id=${unit.id}`}>View</Link>
+                              <Link href={`/dashboard/items/details?id=${item.id}`}>
+                                <FiEye className="h-4 w-4" />
+                              </Link>
                             </Button>
                             <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/dashboard/items/units/${unit.id}`}>
+                              <Link href={`/dashboard/items/${item.id}`}>
                                 <FiEdit className="h-4 w-4" />
                               </Link>
                             </Button>
@@ -395,9 +434,9 @@ export default function UnitsListClient({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setRestoreUnitId(unit.id)}
+                            onClick={() => setRestoreItemId(item.id)}
                             className="text-green-600 hover:text-green-700"
-                            title="Restore unit"
+                            title="Restore item"
                             disabled={isPending}
                           >
                             <FiRotateCw className="h-4 w-4" />
@@ -406,7 +445,7 @@ export default function UnitsListClient({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setDeleteUnitId(unit.id)}
+                          onClick={() => setDeleteItemId(item.id)}
                           className="text-destructive hover:text-destructive"
                           title={isTrash ? "Delete permanently" : "Move to trash"}
                           disabled={isPending}
@@ -429,7 +468,7 @@ export default function UnitsListClient({
           <div className="text-sm text-muted-foreground">
             Showing {((initialPagination.page - 1) * initialPagination.limit) + 1} to{" "}
             {Math.min(initialPagination.page * initialPagination.limit, initialPagination.total)}{" "}
-            of {initialPagination.total} units
+            of {initialPagination.total} items
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -442,7 +481,7 @@ export default function UnitsListClient({
                 if (tab) {
                   params.set("tab", tab);
                 }
-                router.push(`/dashboard/items/units?${params.toString()}`);
+                router.push(`/dashboard/items?${params.toString()}`);
               }}
               disabled={initialPagination.page === 1}
             >
@@ -461,7 +500,7 @@ export default function UnitsListClient({
                 if (tab) {
                   params.set("tab", tab);
                 }
-                router.push(`/dashboard/items/units?${params.toString()}`);
+                router.push(`/dashboard/items?${params.toString()}`);
               }}
               disabled={initialPagination.page === initialPagination.totalPages}
             >
@@ -472,12 +511,12 @@ export default function UnitsListClient({
       )}
 
       {/* Restore Confirmation Dialog */}
-      <AlertDialog open={!!restoreUnitId} onOpenChange={() => setRestoreUnitId(null)}>
+      <AlertDialog open={!!restoreItemId} onOpenChange={() => setRestoreItemId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Restore Unit</AlertDialogTitle>
+            <AlertDialogTitle>Restore Item</AlertDialogTitle>
             <AlertDialogDescription>
-              This will restore the unit and make it active again. You can use it normally after restoration.
+              This will restore the item and make it active again. You can use it normally after restoration.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -487,42 +526,42 @@ export default function UnitsListClient({
               disabled={isPending}
               className="bg-green-600 text-white hover:bg-green-700"
             >
-              {isPending ? "Restoring..." : "Restore Unit"}
+              {isPending ? "Restoring..." : "Restore Item"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteUnitId} onOpenChange={() => setDeleteUnitId(null)}>
+      <AlertDialog open={!!deleteItemId} onOpenChange={() => setDeleteItemId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {isTrash ? "Delete Unit Permanently" : "Move Unit to Trash"}
+              {isTrash ? "Delete Item Permanently" : "Move Item to Trash"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {isTrash
-                ? "This action cannot be undone. This will permanently delete the unit and all associated data."
-                : "This will move the unit to trash. You can restore it later from the Trash tab."}
+                ? "This action cannot be undone. This will permanently delete the item and all associated data."
+                : "This will move the item to trash. You can restore it later from the Trash tab."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
-                if (isTrash && deleteUnitId) {
-                  const result = await deleteUnitsPermanently([deleteUnitId]);
+                if (isTrash && deleteItemId) {
+                  const result = await deleteItemsPermanently([deleteItemId]);
                   if (result.success) {
-                    setDeleteUnitId(null);
+                    setDeleteItemId(null);
                     toast({
                       title: "Success",
-                      description: "Unit deleted permanently",
+                      description: "Item deleted permanently",
                     });
                     router.refresh();
                   } else {
                     toast({
                       title: "Error",
-                      description: result.error || "Failed to delete unit",
+                      description: result.error || "Failed to delete item",
                       variant: "destructive",
                     });
                   }
@@ -541,4 +580,3 @@ export default function UnitsListClient({
     </div>
   );
 }
-
