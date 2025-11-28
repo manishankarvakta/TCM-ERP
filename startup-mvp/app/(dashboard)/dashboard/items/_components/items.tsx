@@ -49,7 +49,11 @@ interface Item {
     details: string;
   };
   unitPrice: Decimal;
-  category: string | null;
+  categoryId: string | null;
+  category: {
+    id: string;
+    name: string;
+  } | null;
   image: string | null;
   status: string;
   createdAt: Date;
@@ -400,7 +404,7 @@ export default function ItemsListClient({
                       {formatPrice(item.unitPrice)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {item.category || "-"}
+                      {item.category?.name || "-"}
                     </TableCell>
                     <TableCell>
                       {itemStatus === "trash" ? (

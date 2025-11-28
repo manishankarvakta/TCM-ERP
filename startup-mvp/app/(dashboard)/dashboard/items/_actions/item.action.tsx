@@ -42,7 +42,7 @@ export async function getItems(
       where.OR = [
         { code: { contains: search, mode: "insensitive" } },
         { description: { contains: search, mode: "insensitive" } },
-        { category: { contains: search, mode: "insensitive" } },
+        { category: { name: { contains: search, mode: "insensitive" } } },
       ];
     }
 
@@ -79,7 +79,13 @@ export async function getItems(
           },
         },
         unitPrice: true,
-        category: true,
+        categoryId: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         image: true,
         status: true,
         createdAt: true,
@@ -90,11 +96,17 @@ export async function getItems(
       },
     });
 
+    // Convert Decimal to number for serialization
+    const serializedItems = items.map((item) => ({
+      ...item,
+      unitPrice: Number(item.unitPrice),
+    }));
+
     const totalPages = Math.ceil(total / limit);
 
     return {
       success: true,
-      items,
+      items: serializedItems,
       pagination: {
         page,
         limit,
@@ -148,7 +160,13 @@ export async function getItemById(itemId: string) {
           },
         },
         unitPrice: true,
-        category: true,
+        categoryId: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         image: true,
         status: true,
         createdAt: true,
@@ -222,6 +240,49 @@ export async function getActiveUnits() {
 }
 
 /**
+ * Get all active categories for dropdown
+ */
+export async function getActiveCategories() {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        categories: [],
+      };
+    }
+
+    const categories = await prisma.category.findMany({
+      where: {
+        status: "active",
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return {
+      success: true,
+      categories,
+    };
+  } catch (error) {
+    console.error("getActiveCategories error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch categories",
+      categories: [],
+    };
+  }
+}
+
+/**
  * Create a new item
  */
 export async function createItem(input: {
@@ -229,7 +290,7 @@ export async function createItem(input: {
   description: string;
   unitId: string;
   unitPrice: number;
-  category?: string;
+  categoryId?: string;
   image?: string;
   status?: "active" | "inactive";
 }) {
@@ -264,7 +325,7 @@ export async function createItem(input: {
         description: input.description,
         unitId: input.unitId,
         unitPrice: input.unitPrice,
-        category: input.category || null,
+        categoryId: input.categoryId || null,
         image: input.image || null,
         status: input.status || "active",
       },
@@ -281,12 +342,24 @@ export async function createItem(input: {
           },
         },
         unitPrice: true,
-        category: true,
+        categoryId: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         image: true,
         status: true,
         createdAt: true,
       },
     });
+
+    // Convert Decimal to number for serialization
+    const serializedItem = {
+      ...item,
+      unitPrice: Number(item.unitPrice),
+    };
 
     // Log item creation
     await logItemCreated(
@@ -302,7 +375,7 @@ export async function createItem(input: {
 
     return {
       success: true,
-      item,
+      item: serializedItem,
     };
   } catch (error) {
     console.error("createItem error:", error);
@@ -323,7 +396,7 @@ export async function updateItem(input: {
   description: string;
   unitId: string;
   unitPrice: number;
-  category?: string;
+  categoryId?: string;
   image?: string;
   status?: "active" | "inactive";
 }) {
@@ -341,7 +414,7 @@ export async function updateItem(input: {
     // Check if item exists
     const existingItem = await prisma.item.findUnique({
       where: { id: input.id },
-      select: { id: true, code: true, description: true, unitId: true, unitPrice: true, category: true, image: true, status: true },
+      select: { id: true, code: true, description: true, unitId: true, unitPrice: true, categoryId: true, image: true, status: true },
     });
 
     if (!existingItem) {
@@ -373,7 +446,7 @@ export async function updateItem(input: {
       description: string;
       unitId: string;
       unitPrice: number;
-      category?: string | null;
+      categoryId?: string | null;
       image?: string | null;
       status?: string;
     } = {
@@ -381,7 +454,7 @@ export async function updateItem(input: {
       description: input.description,
       unitId: input.unitId,
       unitPrice: input.unitPrice,
-      category: input.category || null,
+      categoryId: input.categoryId || null,
     };
 
     if (input.image !== undefined) {
@@ -409,7 +482,13 @@ export async function updateItem(input: {
           },
         },
         unitPrice: true,
-        category: true,
+        categoryId: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         image: true,
         status: true,
         createdAt: true,
@@ -417,13 +496,19 @@ export async function updateItem(input: {
       },
     });
 
+    // Convert Decimal to number for serialization
+    const serializedItem = {
+      ...item,
+      unitPrice: Number(item.unitPrice),
+    };
+
     // Log item update - track what actually changed
     const changes: string[] = [];
     if (input.code !== existingItem.code) changes.push("code");
     if (input.description !== existingItem.description) changes.push("description");
     if (input.unitId !== existingItem.unitId) changes.push("unitId");
     if (input.unitPrice !== Number(existingItem.unitPrice)) changes.push("unitPrice");
-    if (input.category !== existingItem.category) changes.push("category");
+    if (input.categoryId !== existingItem.categoryId) changes.push("categoryId");
     if (input.image !== undefined && input.image !== existingItem.image) changes.push("image");
     if (input.status && input.status !== existingItem.status) changes.push("status");
 
@@ -443,7 +528,7 @@ export async function updateItem(input: {
 
     return {
       success: true,
-      item,
+      item: serializedItem,
     };
   } catch (error) {
     console.error("updateItem error:", error);

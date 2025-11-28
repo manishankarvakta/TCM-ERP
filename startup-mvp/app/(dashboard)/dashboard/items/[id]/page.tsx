@@ -26,6 +26,7 @@ export default async function EditItemPage({ params }: EditItemPageProps) {
           description: result.item.description,
           unitId: result.item.unitId,
           unitPrice: Number(result.item.unitPrice),
+          categoryId: result.item.categoryId,
           category: result.item.category,
           image: result.item.image,
           status: result.item.status,
