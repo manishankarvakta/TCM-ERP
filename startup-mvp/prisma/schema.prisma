@@ -158,6 +158,19 @@ model Unit {
   @@index([createdBy])
 }
 
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  status      String   @default("active") // active, inactive, trash
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  items       Item[]   @relation("ItemCategory")
+
+  @@index([name])
+  @@index([status])
+}
+
 model Item {
   id          String   @id @default(cuid())
   code        String   @unique
@@ -165,7 +178,8 @@ model Item {
   unitId      String
   unit        Unit     @relation("unit", fields: [unitId], references: [id], onDelete: Restrict)
   unitPrice   Decimal  @db.Decimal(10, 2)
-  category    String?
+  categoryId  String?
+  category    Category? @relation("ItemCategory", fields: [categoryId], references: [id], onDelete: SetNull)
   image       String?
   status      String   @default("active") // active, inactive, trash
   createdAt   DateTime @default(now())
@@ -173,6 +187,6 @@ model Item {
 
   @@index([code])
   @@index([unitId])
-  @@index([category])
+  @@index([categoryId])
   @@index([status])
 }
