@@ -152,7 +152,27 @@ model Unit {
   creator   User     @relation("UnitCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  items     Item[]   @relation("unit")
 
   @@index([status])
   @@index([createdBy])
+}
+
+model Item {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  description String
+  unitId      String
+  unit        Unit     @relation("unit", fields: [unitId], references: [id], onDelete: Restrict)
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  category    String?
+  image       String?
+  status      String   @default("active") // active, inactive, trash
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([code])
+  @@index([unitId])
+  @@index([category])
+  @@index([status])
 }

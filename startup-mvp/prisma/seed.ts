@@ -126,6 +126,7 @@ async function main() {
       { symbol: "unit", details: "Unit" },
     ];
 
+    const unitMap = new Map<string, string>();
     for (const unit of units) {
       const createdUnit = await prisma.unit.upsert({
         where: { 
@@ -139,7 +140,85 @@ async function main() {
           createdBy: adminUser.id,
         },
       });
+      unitMap.set(unit.symbol, createdUnit.id);
       console.log(`✅ Created/Updated unit: ${createdUnit.symbol} - ${createdUnit.details}`);
+    }
+
+    // Create sample items
+    const items = [
+      // Furniture Items
+      { code: "FURN-001", description: "Modern Sofa Set 3-Seater", unitId: unitMap.get("pcs")!, unitPrice: 1250.00, category: "Furniture", status: "active" },
+      { code: "FURN-002", description: "Dining Table 6-Seater", unitId: unitMap.get("pcs")!, unitPrice: 850.00, category: "Furniture", status: "active" },
+      { code: "FURN-003", description: "Office Chair Ergonomic", unitId: unitMap.get("pcs")!, unitPrice: 320.00, category: "Furniture", status: "active" },
+      { code: "FURN-004", description: "Coffee Table Glass Top", unitId: unitMap.get("pcs")!, unitPrice: 450.00, category: "Furniture", status: "active" },
+      
+      // Flooring Items
+      { code: "FLR-001", description: "Hardwood Flooring Oak", unitId: unitMap.get("sqft")!, unitPrice: 12.50, category: "Flooring", status: "active" },
+      { code: "FLR-002", description: "Ceramic Tile 12x12", unitId: unitMap.get("sqft")!, unitPrice: 8.75, category: "Flooring", status: "active" },
+      { code: "FLR-003", description: "Carpet Premium", unitId: unitMap.get("sqyd")!, unitPrice: 35.00, category: "Flooring", status: "active" },
+      { code: "FLR-004", description: "Vinyl Plank Flooring", unitId: unitMap.get("sqft")!, unitPrice: 6.25, category: "Flooring", status: "inactive" },
+      
+      // Paint & Finishes
+      { code: "PNT-001", description: "Interior Paint Premium White", unitId: unitMap.get("gal")!, unitPrice: 45.00, category: "Paint", status: "active" },
+      { code: "PNT-002", description: "Exterior Paint Weatherproof", unitId: unitMap.get("gal")!, unitPrice: 52.00, category: "Paint", status: "active" },
+      { code: "PNT-003", description: "Primer Base Coat", unitId: unitMap.get("gal")!, unitPrice: 28.00, category: "Paint", status: "active" },
+      { code: "PNT-004", description: "Varnish Clear Gloss", unitId: unitMap.get("qt")!, unitPrice: 18.50, category: "Paint", status: "active" },
+      
+      // Lighting
+      { code: "LGT-001", description: "LED Ceiling Light 12W", unitId: unitMap.get("pcs")!, unitPrice: 25.00, category: "Lighting", status: "active" },
+      { code: "LGT-002", description: "Chandelier 6-Light", unitId: unitMap.get("pcs")!, unitPrice: 350.00, category: "Lighting", status: "active" },
+      { code: "LGT-003", description: "Track Lighting Kit", unitId: unitMap.get("set")!, unitPrice: 125.00, category: "Lighting", status: "active" },
+      { code: "LGT-004", description: "LED Strip Light 5m", unitId: unitMap.get("roll")!, unitPrice: 45.00, category: "Lighting", status: "inactive" },
+      
+      // Wall Coverings
+      { code: "WAL-001", description: "Wallpaper Premium Pattern", unitId: unitMap.get("roll")!, unitPrice: 65.00, category: "Wall Coverings", status: "active" },
+      { code: "WAL-002", description: "Wall Panel MDF", unitId: unitMap.get("sqft")!, unitPrice: 15.00, category: "Wall Coverings", status: "active" },
+      { code: "WAL-003", description: "Decorative Molding", unitId: unitMap.get("lf")!, unitPrice: 8.50, category: "Wall Coverings", status: "active" },
+      
+      // Hardware & Accessories
+      { code: "HRD-001", description: "Door Handle Set Chrome", unitId: unitMap.get("set")!, unitPrice: 35.00, category: "Hardware", status: "active" },
+      { code: "HRD-002", description: "Cabinet Hinge Soft Close", unitId: unitMap.get("pair")!, unitPrice: 12.00, category: "Hardware", status: "active" },
+      { code: "HRD-003", description: "Drawer Slide 18 inch", unitId: unitMap.get("pair")!, unitPrice: 22.00, category: "Hardware", status: "active" },
+      { code: "HRD-004", description: "Screws Assorted Pack", unitId: unitMap.get("box")!, unitPrice: 15.00, category: "Hardware", status: "active" },
+      
+      // Fabrics & Textiles
+      { code: "FAB-001", description: "Curtain Fabric Premium", unitId: unitMap.get("yd")!, unitPrice: 28.00, category: "Fabrics", status: "active" },
+      { code: "FAB-002", description: "Upholstery Fabric", unitId: unitMap.get("yd")!, unitPrice: 35.00, category: "Fabrics", status: "active" },
+      { code: "FAB-003", description: "Cushion Cover Set", unitId: unitMap.get("set")!, unitPrice: 45.00, category: "Fabrics", status: "active" },
+      
+      // Bathroom
+      { code: "BTH-001", description: "Bathroom Tile 8x8", unitId: unitMap.get("sqft")!, unitPrice: 9.50, category: "Bathroom", status: "active" },
+      { code: "BTH-002", description: "Shower Glass Panel", unitId: unitMap.get("sqft")!, unitPrice: 85.00, category: "Bathroom", status: "active" },
+      { code: "BTH-003", description: "Vanity Mirror", unitId: unitMap.get("pcs")!, unitPrice: 125.00, category: "Bathroom", status: "active" },
+      
+      // Kitchen
+      { code: "KIT-001", description: "Kitchen Cabinet Base", unitId: unitMap.get("lf")!, unitPrice: 150.00, category: "Kitchen", status: "active" },
+      { code: "KIT-002", description: "Countertop Granite", unitId: unitMap.get("sqft")!, unitPrice: 75.00, category: "Kitchen", status: "active" },
+      { code: "KIT-003", description: "Kitchen Faucet Chrome", unitId: unitMap.get("pcs")!, unitPrice: 180.00, category: "Kitchen", status: "active" },
+    ];
+
+    for (const item of items) {
+      try {
+        const createdItem = await prisma.item.upsert({
+          where: { 
+            code: item.code,
+          },
+          update: {
+            status: item.status, // Update status if item exists
+          },
+          create: {
+            code: item.code,
+            description: item.description,
+            unitId: item.unitId,
+            unitPrice: item.unitPrice,
+            category: item.category,
+            status: item.status,
+          },
+        });
+        console.log(`✅ Created/Updated item: ${createdItem.code} - ${createdItem.description} (${item.status})`);
+      } catch (error) {
+        console.error(`❌ Failed to create item ${item.code}:`, error);
+      }
     }
   }
 
