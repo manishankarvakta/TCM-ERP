@@ -16,6 +16,8 @@ interface MediaSelectorProps {
   previewStyle?: "square" | "round" | "round-full";
   className?: string;
   required?: boolean;
+  width?: number; // Preview width in pixels
+  height?: number; // Preview height in pixels
 }
 
 export default function MediaSelector({
@@ -27,6 +29,8 @@ export default function MediaSelector({
   previewStyle = "square",
   className,
   required = false,
+  width = 96, // Default 96px (w-24)
+  height = 96, // Default 96px (h-24)
 }: MediaSelectorProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isImage, setIsImage] = useState(false);
@@ -82,7 +86,10 @@ export default function MediaSelector({
       
       <div className="flex flex-col justify-center items-center gap-4">
         {/* Preview */}
-        <div className={cn("relative border-2 border-dashed border-muted-foreground/25 bg-muted/50 overflow-hidden", getPreviewClasses(), value ? "w-24 h-24" : "w-24 h-24 flex items-center justify-center")}>
+        <div 
+          className={cn("relative border-2 border-dashed border-muted-foreground/25 bg-muted/50 overflow-hidden", getPreviewClasses(), value ? "" : "flex items-center justify-center")}
+          style={{ width: `${width}px`, height: `${height}px` }}
+        >
           {value ? (
             <>
               {isImage ? (

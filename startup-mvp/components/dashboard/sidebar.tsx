@@ -30,6 +30,7 @@ import {
 } from "react-icons/fi";
 import Logo from "@/components/layout/logo";
 import { SlCalculator } from "react-icons/sl";
+import { MdOutlineCategory } from "react-icons/md";
 
 interface SubMenuItem {
   href: string;
@@ -51,6 +52,7 @@ const menuItems: MenuItem[] = [
     icon: FiArchive,
     subMenu: [
       { href: "/dashboard/items", label: "All Items", icon: FiPackage },
+      { href: "/dashboard/items/category", label: "Categories", icon: MdOutlineCategory },
       { href: "/dashboard/items/units", label: "Units", icon: FiLayers },
     ],
   },

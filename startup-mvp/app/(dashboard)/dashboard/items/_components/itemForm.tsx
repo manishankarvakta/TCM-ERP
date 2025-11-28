@@ -316,6 +316,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                     onChange={(url) => setValue("image", url)}
                     allowedTypes={["image/*"]}
                     previewStyle="square"
+                    width={250}
+                    height={250}
                   />
                   {errors.image && (
                     <p className="text-sm text-destructive mt-2">{errors.image.message}</p>

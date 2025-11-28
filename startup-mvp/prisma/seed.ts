@@ -144,6 +144,54 @@ async function main() {
       console.log(`✅ Created/Updated unit: ${createdUnit.symbol} - ${createdUnit.details}`);
     }
 
+    // Create sample categories
+    const categories = [
+      { name: "Furniture", description: "Furniture items including sofas, tables, chairs, and other furniture pieces", status: "active" },
+      { name: "Flooring", description: "Flooring materials including hardwood, tiles, carpet, and vinyl", status: "active" },
+      { name: "Paint", description: "Paint and finishes including interior, exterior, primer, and varnish", status: "active" },
+      { name: "Lighting", description: "Lighting fixtures including ceiling lights, chandeliers, and LED strips", status: "active" },
+      { name: "Wall Coverings", description: "Wall coverings including wallpaper, wall panels, and decorative molding", status: "active" },
+      { name: "Hardware", description: "Hardware and accessories including door handles, hinges, and screws", status: "active" },
+      { name: "Fabrics", description: "Fabrics and textiles including curtain fabric, upholstery, and cushion covers", status: "active" },
+      { name: "Bathroom", description: "Bathroom fixtures and accessories including tiles, glass panels, and mirrors", status: "active" },
+      { name: "Kitchen", description: "Kitchen fixtures and accessories including cabinets, countertops, and faucets", status: "active" },
+      { name: "Windows", description: "Windows and window treatments including curtains, blinds, and window frames", status: "active" },
+      { name: "Doors", description: "Doors and door accessories including interior doors, exterior doors, and door frames", status: "active" },
+      { name: "Ceiling", description: "Ceiling materials and treatments including ceiling tiles, panels, and decorative elements", status: "active" },
+      { name: "Accessories", description: "Decorative accessories and home decor items", status: "active" },
+      { name: "Outdoor", description: "Outdoor furniture and accessories", status: "inactive" },
+    ];
+
+    for (const category of categories) {
+      try {
+        const existingCategory = await prisma.category.findFirst({
+          where: { name: category.name },
+        });
+
+        if (existingCategory) {
+          await prisma.category.update({
+            where: { id: existingCategory.id },
+            data: {
+              description: category.description,
+              status: category.status,
+            },
+          });
+          console.log(`✅ Updated category: ${category.name} (${category.status})`);
+        } else {
+          await prisma.category.create({
+            data: {
+              name: category.name,
+              description: category.description,
+              status: category.status,
+            },
+          });
+          console.log(`✅ Created category: ${category.name} (${category.status})`);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to create/update category ${category.name}:`, error);
+      }
+    }
+
     // Create sample items
     const items = [
       // Furniture Items

@@ -240,6 +240,8 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
                     onChange={(url) => setValue("image", url)}
                     allowedTypes={["image/*"]}
                     previewStyle="round-full"
+                    width={100}
+                    height={100}
                   />
                   {errors.image && (
                     <p className="text-sm text-destructive mt-2">{errors.image.message}</p>

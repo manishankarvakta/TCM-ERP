@@ -68,6 +68,9 @@ export default function UploadDialog({
   const [browseLoading, setBrowseLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewType, setPreviewType] = useState<"upload" | "browse" | null>(null);
+  const [fileUrls, setFileUrls] = useState<Map<string, string>>(new Map());
 
   const getFileIcon = (file: File) => {
     const mimeType = file.type;
@@ -411,6 +414,27 @@ export default function UploadDialog({
         // Filter out folders and only show files
         const files = result.data.files.filter((f) => !f.isFolder);
         setBrowseFiles(files);
+        
+        // Load public URLs for all image files
+        const imageFiles = files.filter((f) => f.mimeType.startsWith("image/") && f.storageKey);
+        const urlMap = new Map<string, string>();
+        
+        await Promise.all(
+          imageFiles.map(async (file) => {
+            if (file.storageKey) {
+              try {
+                const urlResult = await getPublicUrl({ key: file.storageKey });
+                if (urlResult.success && urlResult.data) {
+                  urlMap.set(file.id, urlResult.data.url);
+                }
+              } catch (error) {
+                console.error(`Failed to get URL for ${file.name}:`, error);
+              }
+            }
+          })
+        );
+        
+        setFileUrls(urlMap);
       } else {
         toast({
           title: "Error",
@@ -507,6 +531,8 @@ export default function UploadDialog({
       setSelectedFileId(null);
       setSearchQuery("");
       setActiveTab("upload");
+      setPreviewUrl(null);
+      setPreviewType(null);
       onClose();
     }
   };
@@ -578,7 +604,47 @@ export default function UploadDialog({
                         )}
                       >
                         <div className="flex-shrink-0">
-                          {getFileIcon(upload.file)}
+                          {upload.file.type.startsWith("image/") ? (
+                            <div 
+                              className="relative h-16 w-16 rounded-lg overflow-hidden bg-muted cursor-pointer border"
+                              onClick={() => {
+                                if (upload.status === "success" && upload.url) {
+                                  setPreviewUrl(upload.url);
+                                  setPreviewType("upload");
+                                } else {
+                                  // Create preview from file object for pending/uploading images
+                                  const reader = new FileReader();
+                                  reader.onload = (e) => {
+                                    if (e.target?.result) {
+                                      setPreviewUrl(e.target.result as string);
+                                      setPreviewType("upload");
+                                    }
+                                  };
+                                  reader.readAsDataURL(upload.file);
+                                }
+                              }}
+                            >
+                              {upload.status === "success" && upload.url ? (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img
+                                  src={upload.url}
+                                  alt={upload.file.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img
+                                  src={URL.createObjectURL(upload.file)}
+                                  alt={upload.file.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              )}
+                            </div>
+                          ) : (
+                            <div className="h-16 w-16 flex items-center justify-center">
+                              {getFileIcon(upload.file)}
+                            </div>
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
@@ -683,31 +749,86 @@ export default function UploadDialog({
                           "relative cursor-pointer transition-all hover:shadow-md",
                           isSelected && "ring-2 ring-primary border-primary"
                         )}
-                        onClick={() => handleBrowseFileSelect(file)}
+                        onClick={async () => {
+                          if (isImage && file.storageKey) {
+                            // For images, select and show preview
+                            await handleBrowseFileSelect(file);
+                            const url = fileUrls.get(file.id);
+                            if (url) {
+                              setPreviewUrl(url);
+                              setPreviewType("browse");
+                            } else {
+                              try {
+                                const result = await getPublicUrl({ key: file.storageKey });
+                                if (result.success && result.data) {
+                                  setFileUrls((prev) => new Map(prev).set(file.id, result.data!.url));
+                                  setPreviewUrl(result.data.url);
+                                  setPreviewType("browse");
+                                }
+                              } catch (error) {
+                                console.error("Failed to get preview URL:", error);
+                              }
+                            }
+                          } else {
+                            // For non-images, just select
+                            await handleBrowseFileSelect(file);
+                          }
+                        }}
                       >
                         <div className="p-3">
                           <div className="flex items-center justify-center mb-2 relative">
                             {isImage && file.storageKey ? (
-                              <div className="relative h-16 w-16 rounded-lg overflow-hidden bg-muted">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={`${process.env.NEXT_PUBLIC_MINIO_PUBLIC_URL || ""}/${process.env.NEXT_PUBLIC_MINIO_BUCKET_NAME || ""}/${file.storageKey}`}
-                                  alt={file.name}
-                                  className="h-full w-full object-cover"
-                                  onError={(e) => {
-                                    // Fallback to icon if image fails to load
-                                    const target = e.currentTarget;
-                                    target.style.display = "none";
-                                    const parent = target.parentElement;
-                                    if (parent) {
-                                      const iconElement = getBrowseFileIcon(file);
-                                      if (iconElement && parent) {
-                                        parent.innerHTML = "";
-                                        parent.appendChild(iconElement as unknown as Node);
+                              <div 
+                                className="relative h-16 w-16 rounded-lg overflow-hidden bg-muted cursor-pointer border"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  // First select the file
+                                  await handleBrowseFileSelect(file);
+                                  // Then open preview
+                                  const url = fileUrls.get(file.id);
+                                  if (url) {
+                                    setPreviewUrl(url);
+                                    setPreviewType("browse");
+                                  } else {
+                                    // Fallback: get URL on demand
+                                    try {
+                                      const result = await getPublicUrl({ key: file.storageKey! });
+                                      if (result.success && result.data) {
+                                        setFileUrls((prev) => new Map(prev).set(file.id, result.data!.url));
+                                        setPreviewUrl(result.data.url);
+                                        setPreviewType("browse");
                                       }
+                                    } catch (error) {
+                                      console.error("Failed to get preview URL:", error);
                                     }
-                                  }}
-                                />
+                                  }
+                                }}
+                              >
+                                {fileUrls.get(file.id) ? (
+                                  /* eslint-disable-next-line @next/next/no-img-element */
+                                  <img
+                                    src={fileUrls.get(file.id)!}
+                                    alt={file.name}
+                                    className="h-full w-full object-cover"
+                                    onError={(e) => {
+                                      // Fallback to icon if image fails to load
+                                      const target = e.currentTarget;
+                                      target.style.display = "none";
+                                      const parent = target.parentElement;
+                                      if (parent) {
+                                        const iconElement = getBrowseFileIcon(file);
+                                        if (iconElement && parent) {
+                                          parent.innerHTML = "";
+                                          parent.appendChild(iconElement as unknown as Node);
+                                        }
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="h-full w-full flex items-center justify-center">
+                                    {getBrowseFileIcon(file)}
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               getBrowseFileIcon(file)
@@ -748,6 +869,45 @@ export default function UploadDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Preview Modal */}
+      {previewUrl && (
+        <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
+          <DialogContent className="sm:max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Preview</DialogTitle>
+            </DialogHeader>
+            <div className="flex items-center justify-center min-h-[400px] max-h-[600px] bg-muted rounded-lg overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewUrl}
+                alt="Preview"
+                className="max-w-full max-h-full object-contain"
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setPreviewUrl(null)}>
+                Close
+              </Button>
+              <Button
+                onClick={() => {
+                  if (previewUrl) {
+                    setSelectedFileUrl(previewUrl);
+                    setPreviewUrl(null);
+                    // Call onSelect if provided and close the dialog
+                    if (onSelect) {
+                      onSelect(previewUrl);
+                      handleClose();
+                    }
+                  }
+                }}
+              >
+                Select This Image
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
   );
 }

@@ -204,6 +204,12 @@ export async function listFolder(input: {
   isFolder: boolean;
   createdAt: Date;
   updatedAt: Date;
+  owner: {
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
+  };
 }> }>> {
   try {
     const user = await getAuthenticatedUser();
@@ -229,6 +235,14 @@ export async function listFolder(input: {
         isFolder: true,
         createdAt: true,
         updatedAt: true,
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
       },
       orderBy: [
         { isFolder: "desc" }, // Folders first
