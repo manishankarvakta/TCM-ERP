@@ -16,8 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FiAlertCircle } from "react-icons/fi";
-import { createItem, updateItem, getActiveUnits } from "../_actions/item.action";
+import { FiAlertCircle, FiSearch } from "react-icons/fi";
+import { createItem, updateItem, getActiveUnits, getActiveCategories } from "../_actions/item.action";
 import MediaSelector from "@/components/MediaSelector";
 
 const itemFormSchema = z.object({
@@ -27,7 +27,7 @@ const itemFormSchema = z.object({
   unitPrice: z.string().min(1, "Unit price is required").refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
     message: "Unit price must be a valid number greater than or equal to 0",
   }),
-  category: z.string().optional().or(z.literal("")),
+  categoryId: z.string().optional().or(z.literal("")),
   image: z.string().url("Invalid image URL").optional().or(z.literal("")),
   status: z.enum(["active", "inactive"]),
 });
@@ -42,17 +42,26 @@ interface ItemFormProps {
     description: string;
     unitId: string;
     unitPrice: number;
-    category: string | null;
+    categoryId: string | null;
+    category?: {
+      id: string;
+      name: string;
+    } | null;
     image: string | null;
     status: string;
   };
 }
 
-
 interface Unit {
   id: string;
   symbol: string;
   details: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  description: string | null;
 }
 
 export default function ItemForm({ mode, initialData }: ItemFormProps) {
@@ -61,6 +70,9 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
   const [loading, setLoading] = useState(false);
   const [units, setUnits] = useState<Unit[]>([]);
   const [loadingUnits, setLoadingUnits] = useState(true);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+  const [categorySearch, setCategorySearch] = useState("");
 
   const {
     register,
@@ -77,7 +89,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           description: initialData.description,
           unitId: initialData.unitId,
           unitPrice: String(initialData.unitPrice),
-          category: initialData.category || "",
+          categoryId: initialData.categoryId || "",
           image: initialData.image || "",
           status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
         }
@@ -86,7 +98,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           description: "",
           unitId: "",
           unitPrice: "0",
-          category: "",
+          categoryId: "",
           image: "",
           status: "active",
         },
@@ -108,6 +120,22 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
     loadUnits();
   }, []);
 
+  useEffect(() => {
+    async function loadCategories() {
+      try {
+        const result = await getActiveCategories();
+        if (result.success) {
+          setCategories(result.categories);
+        }
+      } catch (err) {
+        console.error("Failed to load categories:", err);
+      } finally {
+        setLoadingCategories(false);
+      }
+    }
+    loadCategories();
+  }, []);
+
   const onSubmit = async (data: ItemFormData): Promise<void> => {
     try {
       setLoading(true);
@@ -119,7 +147,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           description: data.description,
           unitId: data.unitId,
           unitPrice: Number(data.unitPrice),
-          category: data.category || undefined,
+          categoryId: data.categoryId || undefined,
           image: data.image || undefined,
           status: data.status,
         });
@@ -136,7 +164,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           description: data.description,
           unitId: data.unitId,
           unitPrice: Number(data.unitPrice),
-          category: data.category || undefined,
+          categoryId: data.categoryId || undefined,
           image: data.image || undefined,
           status: data.status,
         });
@@ -251,16 +279,76 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="category">Category (Optional)</Label>
-                <Input
-                  id="category"
-                  type="text"
-                  placeholder="Category name"
-                  {...register("category")}
-                  disabled={loading}
+                <Label htmlFor="categoryId">Category (Optional)</Label>
+                <Controller
+                  name="categoryId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        setCategorySearch(""); // Clear search on selection
+                      }}
+                      disabled={loading || loadingCategories}
+                    >
+                      <SelectTrigger id="categoryId">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        <div className="p-2 border-b">
+                          <div className="relative">
+                            <FiSearch className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              placeholder="Search categories..."
+                              value={categorySearch}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                setCategorySearch(e.target.value);
+                              }}
+                              onKeyDown={(e) => {
+                                e.stopPropagation();
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                }
+                              }}
+                              className="pl-8"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        </div>
+                        <div className="max-h-[200px] overflow-y-auto">
+                          {categories
+                            .filter((category) =>
+                              categorySearch
+                                ? category.name.toLowerCase().includes(categorySearch.toLowerCase()) ||
+                                  (category.description &&
+                                    category.description.toLowerCase().includes(categorySearch.toLowerCase()))
+                                : true
+                            )
+                            .map((category) => (
+                              <SelectItem key={category.id} value={category.id}>
+                                {category.name}
+                              </SelectItem>
+                            ))}
+                          {categories.filter((category) =>
+                            categorySearch
+                              ? category.name.toLowerCase().includes(categorySearch.toLowerCase()) ||
+                                (category.description &&
+                                  category.description.toLowerCase().includes(categorySearch.toLowerCase()))
+                              : true
+                          ).length === 0 && (
+                            <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">
+                              No categories found
+                            </div>
+                          )}
+                        </div>
+                      </SelectContent>
+                    </Select>
+                  )}
                 />
-                {errors.category && (
-                  <p className="text-sm text-destructive">{errors.category.message}</p>
+                {errors.categoryId && (
+                  <p className="text-sm text-destructive">{errors.categoryId.message}</p>
                 )}
               </div>
 
