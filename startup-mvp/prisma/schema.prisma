@@ -26,6 +26,7 @@ model User {
   files         File[]
   notifications Notification[]
   createdNotifications Notification[] @relation("NotificationCreator")
+  createdUnits  Unit[]                @relation("UnitCreator")
 
   @@index([status])
 }
@@ -139,5 +140,19 @@ model Notification {
   @@index([isRead])
   @@index([createdAt])
   @@index([type])
+  @@index([createdBy])
+}
+
+model Unit {
+  id        String   @id @default(cuid())
+  details   String
+  symbol    String   @unique
+  status    String   @default("active") // active, inactive, trash
+  createdBy String
+  creator   User     @relation("UnitCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
   @@index([createdBy])
 }
