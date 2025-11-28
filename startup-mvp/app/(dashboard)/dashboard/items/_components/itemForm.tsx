@@ -73,6 +73,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [categorySearch, setCategorySearch] = useState("");
+  const [unitSearch, setUnitSearch] = useState("");
 
   const {
     register,
@@ -241,18 +242,61 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                     render={({ field }) => (
                       <Select
                         value={field.value}
-                        onValueChange={field.onChange}
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          setUnitSearch(""); // Clear search on selection
+                        }}
                         disabled={loading || loadingUnits}
                       >
                         <SelectTrigger id="unitId">
                           <SelectValue placeholder="Select unit" />
                         </SelectTrigger>
-                        <SelectContent>
-                          {units.map((unit) => (
-                            <SelectItem key={unit.id} value={unit.id}>
-                              {unit.symbol} - {unit.details}
-                            </SelectItem>
-                          ))}
+                        <SelectContent className="max-h-[300px]">
+                          <div className="p-2 border-b">
+                            <div className="relative">
+                              <FiSearch className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="Search units..."
+                                value={unitSearch}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  setUnitSearch(e.target.value);
+                                }}
+                                onKeyDown={(e) => {
+                                  e.stopPropagation();
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                  }
+                                }}
+                                className="pl-8"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                          </div>
+                          <div className="max-h-[200px] overflow-y-auto">
+                            {units
+                              .filter((unit) =>
+                                unitSearch
+                                  ? unit.symbol.toLowerCase().includes(unitSearch.toLowerCase()) ||
+                                    unit.details.toLowerCase().includes(unitSearch.toLowerCase())
+                                  : true
+                              )
+                              .map((unit) => (
+                                <SelectItem key={unit.id} value={unit.id}>
+                                  {unit.symbol} - {unit.details}
+                                </SelectItem>
+                              ))}
+                            {units.filter((unit) =>
+                              unitSearch
+                                ? unit.symbol.toLowerCase().includes(unitSearch.toLowerCase()) ||
+                                  unit.details.toLowerCase().includes(unitSearch.toLowerCase())
+                                : true
+                            ).length === 0 && (
+                              <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">
+                                No units found
+                              </div>
+                            )}
+                          </div>
                         </SelectContent>
                       </Select>
                     )}

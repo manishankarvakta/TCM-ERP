@@ -96,11 +96,17 @@ export async function getItems(
       },
     });
 
+    // Convert Decimal to number for serialization
+    const serializedItems = items.map((item) => ({
+      ...item,
+      unitPrice: Number(item.unitPrice),
+    }));
+
     const totalPages = Math.ceil(total / limit);
 
     return {
       success: true,
-      items,
+      items: serializedItems,
       pagination: {
         page,
         limit,
@@ -349,6 +355,12 @@ export async function createItem(input: {
       },
     });
 
+    // Convert Decimal to number for serialization
+    const serializedItem = {
+      ...item,
+      unitPrice: Number(item.unitPrice),
+    };
+
     // Log item creation
     await logItemCreated(
       session.user.id,
@@ -363,7 +375,7 @@ export async function createItem(input: {
 
     return {
       success: true,
-      item,
+      item: serializedItem,
     };
   } catch (error) {
     console.error("createItem error:", error);
@@ -484,13 +496,19 @@ export async function updateItem(input: {
       },
     });
 
+    // Convert Decimal to number for serialization
+    const serializedItem = {
+      ...item,
+      unitPrice: Number(item.unitPrice),
+    };
+
     // Log item update - track what actually changed
     const changes: string[] = [];
     if (input.code !== existingItem.code) changes.push("code");
     if (input.description !== existingItem.description) changes.push("description");
     if (input.unitId !== existingItem.unitId) changes.push("unitId");
     if (input.unitPrice !== Number(existingItem.unitPrice)) changes.push("unitPrice");
-    if (input.category !== existingItem.category) changes.push("category");
+    if (input.categoryId !== existingItem.categoryId) changes.push("categoryId");
     if (input.image !== undefined && input.image !== existingItem.image) changes.push("image");
     if (input.status && input.status !== existingItem.status) changes.push("status");
 
@@ -510,7 +528,7 @@ export async function updateItem(input: {
 
     return {
       success: true,
-      item,
+      item: serializedItem,
     };
   } catch (error) {
     console.error("updateItem error:", error);
