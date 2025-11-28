@@ -1,9 +1,11 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import { File, Folder, MoreVertical, Download, Trash2, Copy, Move, Eye, Edit, Image, Video, Music, Archive, Code, FileSpreadsheet, Presentation, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { getPublicUrl } from "@/app/actions/files";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,6 +41,12 @@ interface FileItem {
   isFolder: boolean;
   createdAt: Date;
   updatedAt: Date;
+  owner?: {
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
+  };
 }
 
 interface FileGridProps {
@@ -76,6 +84,36 @@ export default function FileGrid({
   onBulkDownload,
   onBulkDelete,
 }: FileGridProps) {
+  const [fileUrls, setFileUrls] = useState<Map<string, string>>(new Map());
+
+  // Load public URLs for image files
+  const loadImageUrls = useCallback(async () => {
+    const imageFiles = files.filter((f) => !f.isFolder && f.mimeType.startsWith("image/") && f.storageKey);
+    const urlMap = new Map<string, string>();
+
+    await Promise.all(
+      imageFiles.map(async (file) => {
+        if (file.storageKey && !fileUrls.has(file.id)) {
+          try {
+            const result = await getPublicUrl({ key: file.storageKey });
+            if (result.success && result.data) {
+              urlMap.set(file.id, result.data.url);
+            }
+          } catch (error) {
+            console.error(`Failed to get URL for ${file.name}:`, error);
+          }
+        }
+      })
+    );
+
+    if (urlMap.size > 0) {
+      setFileUrls((prev) => new Map([...prev, ...urlMap]));
+    }
+  }, [files, fileUrls]);
+
+  useEffect(() => {
+    loadImageUrls();
+  }, [loadImageUrls]);
   const getFileIcon = (file: FileItem) => {
     if (file.isFolder) {
       return (
@@ -203,8 +241,38 @@ export default function FileGrid({
                       />
                     </div>
                     
-                    <div className="flex items-center justify-center mb-3">
-                      {getFileIcon(file)}
+                    <div className="flex items-center justify-center mb-3 relative">
+                      {!file.isFolder && file.mimeType.startsWith("image/") && file.storageKey ? (
+                        <div className="relative h-20 w-20 rounded-lg overflow-hidden bg-muted border">
+                          {fileUrls.get(file.id) ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={fileUrls.get(file.id)!}
+                              alt={file.name}
+                              className="h-full w-full object-cover"
+                              onError={(e) => {
+                                // Fallback to icon if image fails to load
+                                const target = e.currentTarget;
+                                target.style.display = "none";
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  const iconElement = getFileIcon(file);
+                                  if (iconElement && parent) {
+                                    parent.innerHTML = "";
+                                    parent.appendChild(iconElement as unknown as Node);
+                                  }
+                                }
+                              }}
+                            />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center">
+                              {getFileIcon(file)}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        getFileIcon(file)
+                      )}
                     </div>
                     <div className="space-y-1">
                       <p className="text-sm font-medium truncate" title={file.name}>

@@ -749,7 +749,31 @@ export default function UploadDialog({
                           "relative cursor-pointer transition-all hover:shadow-md",
                           isSelected && "ring-2 ring-primary border-primary"
                         )}
-                        onClick={() => handleBrowseFileSelect(file)}
+                        onClick={async () => {
+                          if (isImage && file.storageKey) {
+                            // For images, select and show preview
+                            await handleBrowseFileSelect(file);
+                            const url = fileUrls.get(file.id);
+                            if (url) {
+                              setPreviewUrl(url);
+                              setPreviewType("browse");
+                            } else {
+                              try {
+                                const result = await getPublicUrl({ key: file.storageKey });
+                                if (result.success && result.data) {
+                                  setFileUrls((prev) => new Map(prev).set(file.id, result.data!.url));
+                                  setPreviewUrl(result.data.url);
+                                  setPreviewType("browse");
+                                }
+                              } catch (error) {
+                                console.error("Failed to get preview URL:", error);
+                              }
+                            }
+                          } else {
+                            // For non-images, just select
+                            await handleBrowseFileSelect(file);
+                          }
+                        }}
                       >
                         <div className="p-3">
                           <div className="flex items-center justify-center mb-2 relative">
@@ -758,6 +782,9 @@ export default function UploadDialog({
                                 className="relative h-16 w-16 rounded-lg overflow-hidden bg-muted cursor-pointer border"
                                 onClick={async (e) => {
                                   e.stopPropagation();
+                                  // First select the file
+                                  await handleBrowseFileSelect(file);
+                                  // Then open preview
                                   const url = fileUrls.get(file.id);
                                   if (url) {
                                     setPreviewUrl(url);
@@ -867,6 +894,11 @@ export default function UploadDialog({
                   if (previewUrl) {
                     setSelectedFileUrl(previewUrl);
                     setPreviewUrl(null);
+                    // Call onSelect if provided and close the dialog
+                    if (onSelect) {
+                      onSelect(previewUrl);
+                      handleClose();
+                    }
                   }
                 }}
               >

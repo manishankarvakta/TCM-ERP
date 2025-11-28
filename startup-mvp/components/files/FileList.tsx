@@ -1,6 +1,8 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import { File, Folder, MoreVertical, Download, Trash2, Copy, Move, Eye, Edit, Image, Video, Music, Archive, Code, FileSpreadsheet, Presentation, FileText, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
+import { getPublicUrl } from "@/app/actions/files";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -47,6 +49,12 @@ interface FileItem {
   isFolder: boolean;
   createdAt: Date;
   updatedAt: Date;
+  owner?: {
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
+  };
 }
 
 interface FileListProps {
@@ -84,6 +92,36 @@ export default function FileList({
   onBulkDownload,
   onBulkDelete,
 }: FileListProps) {
+  const [fileUrls, setFileUrls] = useState<Map<string, string>>(new Map());
+
+  // Load public URLs for image files
+  const loadImageUrls = useCallback(async () => {
+    const imageFiles = files.filter((f) => !f.isFolder && f.mimeType.startsWith("image/") && f.storageKey);
+    const urlMap = new Map<string, string>();
+
+    await Promise.all(
+      imageFiles.map(async (file) => {
+        if (file.storageKey && !fileUrls.has(file.id)) {
+          try {
+            const result = await getPublicUrl({ key: file.storageKey });
+            if (result.success && result.data) {
+              urlMap.set(file.id, result.data.url);
+            }
+          } catch (error) {
+            console.error(`Failed to get URL for ${file.name}:`, error);
+          }
+        }
+      })
+    );
+
+    if (urlMap.size > 0) {
+      setFileUrls((prev) => new Map([...prev, ...urlMap]));
+    }
+  }, [files, fileUrls]);
+
+  useEffect(() => {
+    loadImageUrls();
+  }, [loadImageUrls]);
   const getFileIcon = (file: FileItem) => {
     if (file.isFolder) {
       return (
@@ -256,7 +294,37 @@ export default function FileList({
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    {getFileIcon(file)}
+                    {!file.isFolder && file.mimeType.startsWith("image/") && file.storageKey ? (
+                      <div className="relative h-10 w-10 rounded overflow-hidden bg-muted border flex-shrink-0">
+                        {fileUrls.get(file.id) ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={fileUrls.get(file.id)!}
+                            alt={file.name}
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              // Fallback to icon if image fails to load
+                              const target = e.currentTarget;
+                              target.style.display = "none";
+                              const parent = target.parentElement;
+                              if (parent) {
+                                const iconElement = getFileIcon(file);
+                                if (iconElement && parent) {
+                                  parent.innerHTML = "";
+                                  parent.appendChild(iconElement as unknown as Node);
+                                }
+                              }
+                            }}
+                          />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center">
+                            {getFileIcon(file)}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      getFileIcon(file)
+                    )}
                     <span className="font-medium truncate" title={file.name}>
                       {file.name}
                     </span>
@@ -279,12 +347,18 @@ export default function FileList({
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={undefined} />
+                      <AvatarImage src={file.owner?.image || undefined} alt={file.owner?.name || file.owner?.email || "Owner"} />
                       <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                        {getInitials("Current User")}
+                        {file.owner?.name 
+                          ? getInitials(file.owner.name)
+                          : file.owner?.email 
+                            ? file.owner.email[0].toUpperCase()
+                            : 'U'}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="text-sm">Current User</span>
+                    <span className="text-sm">
+                      {file.owner?.name || file.owner?.email || "Unknown"}
+                    </span>
                   </div>
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
