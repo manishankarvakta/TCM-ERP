@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw } from "react-icons/fi";
-import { deleteItem, bulkUpdateItemStatus, deleteItemsPermanently } from "../_actions/item.action";
+import { deleteClient, bulkUpdateClientStatus, deleteClientsPermanently } from "../_actions/client.action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,26 +37,26 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Decimal } from "@prisma/client/runtime/library";
 
-interface Item {
+interface Client {
   id: string;
-  code: string;
-  description: string;
-  unitId: string;
-  unit: {
-    id: string;
-    symbol: string;
-    details: string;
-  };
-  unitPrice: Decimal;
-  categoryId: string | null;
-  category: {
-    id: string;
-    name: string;
-  } | null;
+  name: string | null;
+  email: string;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  country: string | null;
+  company: string | null;
   image: string | null;
   status: string;
+  createdBy: string;
+  createdByUser: {
+    id: string;
+    name: string | null;
+    email: string;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -67,25 +68,25 @@ interface Pagination {
   totalPages: number;
 }
 
-interface ItemsListClientProps {
-  initialItems: Item[];
+interface ClientsListClientProps {
+  initialClients: Client[];
   initialPagination: Pagination;
   initialSearch: string;
   isTrash?: boolean;
 }
 
-export default function ItemsListClient({
-  initialItems = [],
+export default function ClientsListClient({
+  initialClients = [],
   initialPagination,
   initialSearch,
   isTrash = false,
-}: ItemsListClientProps) {
+}: ClientsListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(initialSearch);
-  const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
-  const [restoreItemId, setRestoreItemId] = useState<string | null>(null);
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [deleteClientId, setDeleteClientId] = useState<string | null>(null);
+  const [restoreClientId, setRestoreClientId] = useState<string | null>(null);
+  const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
@@ -102,25 +103,25 @@ export default function ItemsListClient({
     if (tab) {
       params.set("tab", tab);
     }
-    router.push(`/dashboard/items?${params.toString()}`);
+    router.push(`/dashboard/clients?${params.toString()}`);
   };
 
   const handleDelete = async () => {
-    if (!deleteItemId) return;
+    if (!deleteClientId) return;
 
     startTransition(async () => {
-      const result = await deleteItem(deleteItemId);
+      const result = await deleteClient(deleteClientId);
       if (result.success) {
-        setDeleteItemId(null);
+        setDeleteClientId(null);
         toast({
           title: "Success",
-          description: "Item moved to trash",
+          description: "Client moved to trash",
         });
         router.refresh();
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to delete item",
+          description: result.error || "Failed to delete client",
           variant: "destructive",
         });
       }
@@ -128,78 +129,76 @@ export default function ItemsListClient({
   };
 
   const handleRestore = async () => {
-    if (!restoreItemId) return;
+    if (!restoreClientId) return;
 
     startTransition(async () => {
-      const result = await bulkUpdateItemStatus([restoreItemId], "active");
+      const result = await bulkUpdateClientStatus([restoreClientId], "active");
       if (result.success) {
-        setRestoreItemId(null);
+        setRestoreClientId(null);
         toast({
           title: "Success",
-          description: "Item restored successfully",
+          description: "Client restored successfully",
         });
         router.refresh();
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to restore item",
+          description: result.error || "Failed to restore client",
           variant: "destructive",
         });
       }
     });
   };
 
-  const handleSelectItem = (itemId: string, checked: boolean) => {
-    setSelectedItems((prev) => {
-      const next = new Set(prev);
-      if (checked) {
-        next.add(itemId);
-      } else {
-        next.delete(itemId);
-      }
-      return next;
-    });
+  const handleSelectClient = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedClients);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedClients(newSelected);
   };
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedItems(new Set(initialItems.map((i) => i.id)));
+      setSelectedClients(new Set(initialClients.map((client) => client.id)));
     } else {
-      setSelectedItems(new Set());
+      setSelectedClients(new Set());
     }
   };
 
   const handleBulkAction = async (action: string) => {
-    if (selectedItems.size === 0) {
+    if (selectedClients.size === 0) {
       toast({
         title: "No selection",
-        description: "Please select at least one item",
+        description: "Please select at least one client",
         variant: "destructive",
       });
       return;
     }
 
-    const itemIds = Array.from(selectedItems);
+    const clientIds = Array.from(selectedClients);
 
     startTransition(async () => {
       let result;
       
       if (action === "trash") {
-        result = await bulkUpdateItemStatus(itemIds, "trash");
+        result = await bulkUpdateClientStatus(clientIds, "trash");
       } else if (action === "active") {
-        result = await bulkUpdateItemStatus(itemIds, "active");
+        result = await bulkUpdateClientStatus(clientIds, "active");
       } else if (action === "inactive") {
-        result = await bulkUpdateItemStatus(itemIds, "inactive");
+        result = await bulkUpdateClientStatus(clientIds, "inactive");
       } else if (action === "restore") {
-        result = await bulkUpdateItemStatus(itemIds, "active");
+        result = await bulkUpdateClientStatus(clientIds, "active");
       } else if (action === "delete-permanently") {
-        result = await deleteItemsPermanently(itemIds);
+        result = await deleteClientsPermanently(clientIds);
       } else {
         return;
       }
 
       if (result.success) {
-        setSelectedItems(new Set());
+        setSelectedClients(new Set());
         toast({
           title: "Success",
           description: `Bulk action completed successfully`,
@@ -215,16 +214,19 @@ export default function ItemsListClient({
     });
   };
 
-  const allSelected = initialItems?.length > 0 && selectedItems.size === initialItems.length;
-
-  const formatPrice = (price: Decimal | number) => {
-    const numPrice = typeof price === 'number' ? price : Number(price);
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(numPrice);
+  const getInitials = (name: string | null, email: string) => {
+    if (name) {
+      return name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2);
+    }
+    return email[0].toUpperCase();
   };
+
+  const allSelected = initialClients.length > 0 && selectedClients.size === initialClients.length;
 
   return (
     <div className="space-y-4">
@@ -233,7 +235,7 @@ export default function ItemsListClient({
         <div className="relative flex-1 max-w-sm">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by code, description, or category..."
+            placeholder="Search by name, email, phone, or company..."
             value={search}
             onChange={(e) => handleSearch(e.target.value)}
             className="pl-10"
@@ -252,9 +254,9 @@ export default function ItemsListClient({
 
         {/* Bulk Actions Dropdown */}
         <div className="flex items-center gap-2">
-          {selectedItems.size > 0 && (
+          {selectedClients.size > 0 && (
             <span className="text-sm text-muted-foreground whitespace-nowrap">
-              {selectedItems.size} selected
+              {selectedClients.size} selected
             </span>
           )}
           <DropdownMenu>
@@ -262,7 +264,7 @@ export default function ItemsListClient({
               <Button 
                 variant="outline" 
                 size="sm" 
-                disabled={isPending || selectedItems.size === 0}
+                disabled={isPending || selectedClients.size === 0}
               >
                 <FiMoreVertical className="mr-2 h-4 w-4" />
                 Bulk Actions
@@ -273,21 +275,21 @@ export default function ItemsListClient({
                 <>
                   <DropdownMenuItem
                     onClick={() => handleBulkAction("trash")}
-                    disabled={selectedItems.size === 0}
+                    disabled={selectedClients.size === 0}
                   >
                     <FiTrash2 className="mr-2 h-4 w-4" />
                     Move to Trash
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => handleBulkAction("active")}
-                    disabled={selectedItems.size === 0}
+                    disabled={selectedClients.size === 0}
                   >
                     <FiCheck className="mr-2 h-4 w-4" />
                     Activate
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => handleBulkAction("inactive")}
-                    disabled={selectedItems.size === 0}
+                    disabled={selectedClients.size === 0}
                   >
                     <FiCircle className="mr-2 h-4 w-4" />
                     Deactivate
@@ -297,7 +299,7 @@ export default function ItemsListClient({
                 <>
                   <DropdownMenuItem
                     onClick={() => handleBulkAction("restore")}
-                    disabled={selectedItems.size === 0}
+                    disabled={selectedClients.size === 0}
                   >
                     <FiCheck className="mr-2 h-4 w-4" />
                     Restore
@@ -305,7 +307,7 @@ export default function ItemsListClient({
                   <DropdownMenuItem
                     onClick={() => handleBulkAction("delete-permanently")}
                     className="text-destructive"
-                    disabled={selectedItems.size === 0}
+                    disabled={selectedClients.size === 0}
                   >
                     <FiTrash2 className="mr-2 h-4 w-4" />
                     Delete Permanently
@@ -329,89 +331,72 @@ export default function ItemsListClient({
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead>Image</TableHead>
-              <TableHead>Code</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Unit</TableHead>
-              <TableHead>Unit Price</TableHead>
-              <TableHead>Category</TableHead>
+              <TableHead>Client</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Phone</TableHead>
+              <TableHead>Company</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created At</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {initialItems.length === 0 ? (
+            {initialClients.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                  {isTrash ? "No trashed items found" : "No items found"}
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  {isTrash ? "No trashed clients found" : "No clients found"}
                 </TableCell>
               </TableRow>
             ) : (
-              initialItems.map((item) => {
-                const isSelected = selectedItems.has(item.id);
-                const itemStatus = item.status || "active";
+              initialClients.map((client) => {
+                const isSelected = selectedClients.has(client.id);
+                const clientStatus = client.status || "active";
                 
                 return (
-                  <TableRow key={item.id} className={cn(isSelected && "bg-muted/50")}>
+                  <TableRow key={client.id} className={cn(isSelected && "bg-muted/50")}>
                     <TableCell>
                       <Checkbox
                         checked={isSelected}
-                        onCheckedChange={(checked) => handleSelectItem(item.id, checked as boolean)}
-                        aria-label={`Select ${item.code}`}
+                        onCheckedChange={(checked) => handleSelectClient(client.id, checked as boolean)}
+                        aria-label={`Select ${client.name || client.email}`}
                       />
                     </TableCell>
                     <TableCell>
-                      {item.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={item.image}
-                          alt={item.description}
-                          className="h-10 w-10 object-cover rounded border"
-                        />
-                      ) : (
-                        <div className="h-10 w-10 rounded border bg-muted flex items-center justify-center">
-                          <span className="text-xs text-muted-foreground">No image</span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={client.image || undefined} alt={client.name || client.email} />
+                          <AvatarFallback>{getInitials(client.name, client.email)}</AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium">{client.name || "No name"}</span>
+                      </div>
                     </TableCell>
-                    <TableCell className="font-medium">{item.code}</TableCell>
-                    <TableCell>{item.description}</TableCell>
+                    <TableCell className="text-muted-foreground">{client.email}</TableCell>
+                    <TableCell className="text-muted-foreground">{client.phone || "-"}</TableCell>
+                    <TableCell className="text-muted-foreground">{client.company || "-"}</TableCell>
                     <TableCell>
-                      <span className="text-sm text-muted-foreground">
-                        {item.unit.symbol}
-                      </span>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {formatPrice(item.unitPrice)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {item.category?.name || "-"}
-                    </TableCell>
-                    <TableCell>
-                      {itemStatus === "trash" ? (
+                      {clientStatus === "trash" ? (
                         <Badge variant="destructive">Trash</Badge>
-                      ) : itemStatus === "inactive" ? (
+                      ) : clientStatus === "inactive" ? (
                         <Badge variant="secondary">Inactive</Badge>
                       ) : (
                         <Badge variant="default">Active</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {format(new Date(item.createdAt), "MMM d, yyyy")}
+                      {format(new Date(client.createdAt), "MMM d, yyyy")}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
                             <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/dashboard/items/details?id=${item.id}`}>
-                                <FiEye className="h-4 w-4" />
+                              <Link href={`/dashboard/clients/${client.id}`}>
+                                <FiEdit className="h-4 w-4" />
                               </Link>
                             </Button>
                             <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/dashboard/items/${item.id}`}>
-                                <FiEdit className="h-4 w-4" />
+                              <Link href={`/dashboard/clients/details?id=${client.id}`}>
+                                <FiEye className="h-4 w-4" />
                               </Link>
                             </Button>
                           </>
@@ -420,9 +405,10 @@ export default function ItemsListClient({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setRestoreItemId(item.id)}
-                            className="text-green-600 hover:text-green-700"
-                            title="Restore item"
+                            onClick={() => {
+                              setRestoreClientId(client.id);
+                              handleRestore();
+                            }}
                             disabled={isPending}
                           >
                             <FiRotateCw className="h-4 w-4" />
@@ -431,7 +417,7 @@ export default function ItemsListClient({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setDeleteItemId(item.id)}
+                          onClick={() => setDeleteClientId(client.id)}
                           className="text-destructive hover:text-destructive"
                           title={isTrash ? "Delete permanently" : "Move to trash"}
                           disabled={isPending}
@@ -453,42 +439,39 @@ export default function ItemsListClient({
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
             Showing {((initialPagination.page - 1) * initialPagination.limit) + 1} to{" "}
-            {Math.min(initialPagination.page * initialPagination.limit, initialPagination.total)}{" "}
-            of {initialPagination.total} items
+            {Math.min(initialPagination.page * initialPagination.limit, initialPagination.total)} of{" "}
+            {initialPagination.total} clients
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
+              disabled={initialPagination.page === 1}
               onClick={() => {
                 const params = new URLSearchParams(searchParams.toString());
-                params.set("page", String(Math.max(1, initialPagination.page - 1)));
+                params.set("page", String(initialPagination.page - 1));
                 const tab = searchParams.get("tab") || "all";
                 if (tab) {
                   params.set("tab", tab);
                 }
-                router.push(`/dashboard/items?${params.toString()}`);
+                router.push(`/dashboard/clients?${params.toString()}`);
               }}
-              disabled={initialPagination.page === 1}
             >
               Previous
             </Button>
-            <span className="text-sm text-muted-foreground">
-              Page {initialPagination.page} of {initialPagination.totalPages}
-            </span>
             <Button
               variant="outline"
               size="sm"
+              disabled={initialPagination.page === initialPagination.totalPages}
               onClick={() => {
                 const params = new URLSearchParams(searchParams.toString());
-                params.set("page", String(Math.min(initialPagination.totalPages, initialPagination.page + 1)));
+                params.set("page", String(initialPagination.page + 1));
                 const tab = searchParams.get("tab") || "all";
                 if (tab) {
                   params.set("tab", tab);
                 }
-                router.push(`/dashboard/items?${params.toString()}`);
+                router.push(`/dashboard/clients?${params.toString()}`);
               }}
-              disabled={initialPagination.page === initialPagination.totalPages}
             >
               Next
             </Button>
@@ -496,58 +479,36 @@ export default function ItemsListClient({
         </div>
       )}
 
-      {/* Restore Confirmation Dialog */}
-      <AlertDialog open={!!restoreItemId} onOpenChange={() => setRestoreItemId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Restore Item</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will restore the item and make it active again. You can use it normally after restoration.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleRestore}
-              disabled={isPending}
-              className="bg-green-600 text-white hover:bg-green-700"
-            >
-              {isPending ? "Restoring..." : "Restore Item"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteItemId} onOpenChange={() => setDeleteItemId(null)}>
+      <AlertDialog open={!!deleteClientId} onOpenChange={() => setDeleteClientId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {isTrash ? "Delete Item Permanently" : "Move Item to Trash"}
+              {isTrash ? "Delete Client Permanently" : "Move Client to Trash"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {isTrash
-                ? "This action cannot be undone. This will permanently delete the item and all associated data."
-                : "This will move the item to trash. You can restore it later from the Trash tab."}
+                ? "This action cannot be undone. This will permanently delete the client and all associated data."
+                : "This will move the client to trash. You can restore it later from the Trash tab."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
-                if (isTrash && deleteItemId) {
-                  const result = await deleteItemsPermanently([deleteItemId]);
+                if (isTrash && deleteClientId) {
+                  const result = await deleteClientsPermanently([deleteClientId]);
                   if (result.success) {
-                    setDeleteItemId(null);
+                    setDeleteClientId(null);
                     toast({
                       title: "Success",
-                      description: "Item deleted permanently",
+                      description: "Client deleted permanently",
                     });
                     router.refresh();
                   } else {
                     toast({
                       title: "Error",
-                      description: result.error || "Failed to delete item",
+                      description: result.error || "Failed to delete client",
                       variant: "destructive",
                     });
                   }
@@ -566,3 +527,4 @@ export default function ItemsListClient({
     </div>
   );
 }
+

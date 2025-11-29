@@ -80,7 +80,16 @@ const menuItems: MenuItem[] = [
       { href: "/dashboard/accounts/accounts-payable", label: "Accounts Payable", icon: FiArrowUpRight },
     ],
   },
-  { href: "/dashboard/users", label: "Users", icon: FiUsers },
+  {
+    label: "Peoples",
+    icon: FiUsers,
+    subMenu: [
+      { href: "/dashboard/users", label: "Users", icon: FiUser },
+      { href: "/dashboard/clients", label: "Clients", icon: FiUser },
+      { href: "/dashboard/suppliers", label: "Suppliers", icon: FiUser },
+    ],
+  },
+  
   { href: "/dashboard/files", label: "Files", icon: FiFolder },
   { href: "/dashboard/notifications", label: "Notifications", icon: FiBell },
   { href: "/dashboard/analytics", label: "Analytics", icon: FiBarChart },
