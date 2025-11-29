@@ -28,6 +28,8 @@ model User {
   createdNotifications Notification[] @relation("NotificationCreator")
   createdUnits  Unit[]                @relation("UnitCreator")
   createdOrganizations Organization[] @relation("OrganizationCreator")
+  createdClients Client[]             @relation("ClientCreator")
+  createdSuppliers Supplier[]          @relation("SupplierCreator")
 
   @@index([status])
 }
@@ -210,4 +212,50 @@ model Item {
   @@index([unitId])
   @@index([categoryId])
   @@index([status])
+}
+
+model Client {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  phone         String?
+  address       String?
+  city          String?
+  state         String?
+  zip           String?
+  country       String?
+  company       String?
+  image         String?
+  createdBy     String
+  createdByUser User      @relation("ClientCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  status        String    @default("active") // active, inactive, trash
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status])
+  @@index([createdBy])
+  @@index([email])
+}
+
+model Supplier {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  phone         String?
+  address       String?
+  city          String?
+  state         String?
+  zip           String?
+  country       String?
+  company       String?
+  image         String?
+  createdBy     String
+  createdByUser User      @relation("SupplierCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  status        String    @default("active") // active, inactive, trash
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status])
+  @@index([createdBy])
+  @@index([email])
 }
