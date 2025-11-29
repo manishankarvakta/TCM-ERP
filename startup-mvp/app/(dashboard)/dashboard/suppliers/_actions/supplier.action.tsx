@@ -7,9 +7,9 @@ import { revalidatePath } from "next/cache";
 import { type Prisma } from "@prisma/client";
 
 /**
- * Get paginated list of clients with search
+ * Get paginated list of suppliers with search
  */
-export async function getClients(
+export async function getSuppliers(
   page: number = 1,
   limit: number = 10,
   search: string = "",
@@ -22,7 +22,7 @@ export async function getClients(
       return {
         success: false,
         error: "Unauthorized",
-        clients: [],
+        suppliers: [],
         pagination: {
           page: 1,
           limit: 10,
@@ -35,7 +35,7 @@ export async function getClients(
     const skip = (page - 1) * limit;
 
     // Build where clause for search and status
-    const where: Prisma.ClientWhereInput = {};
+    const where: Prisma.SupplierWhereInput = {};
     
     // Add search condition
     if (search) {
@@ -61,10 +61,10 @@ export async function getClients(
     }
 
     // Get total count
-    const total = await prisma.client.count({ where });
+    const total = await prisma.supplier.count({ where });
 
-    // Get clients
-    const clients = await prisma.client.findMany({
+    // Get suppliers
+    const suppliers = await prisma.supplier.findMany({
       where,
       skip,
       take: limit,
@@ -101,7 +101,7 @@ export async function getClients(
 
     return {
       success: true,
-      clients,
+      suppliers,
       pagination: {
         page,
         limit,
@@ -110,11 +110,11 @@ export async function getClients(
       },
     };
   } catch (error) {
-    console.error("getClients error:", error);
+    console.error("getSuppliers error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to fetch clients",
-      clients: [],
+      error: error instanceof Error ? error.message : "Failed to fetch suppliers",
+      suppliers: [],
       pagination: {
         page: 1,
         limit: 10,
@@ -126,9 +126,9 @@ export async function getClients(
 }
 
 /**
- * Get client by ID
+ * Get supplier by ID
  */
-export async function getClientById(clientId: string) {
+export async function getSupplierById(supplierId: string) {
   try {
     const session = await auth();
     
@@ -136,12 +136,12 @@ export async function getClientById(clientId: string) {
       return {
         success: false,
         error: "Unauthorized",
-        client: null,
+        supplier: null,
       };
     }
 
-    const client = await prisma.client.findUnique({
-      where: { id: clientId },
+    const supplier = await prisma.supplier.findUnique({
+      where: { id: supplierId },
       select: {
         id: true,
         name: true,
@@ -168,32 +168,32 @@ export async function getClientById(clientId: string) {
       },
     });
 
-    if (!client) {
+    if (!supplier) {
       return {
         success: false,
-        error: "Client not found",
-        client: null,
+        error: "Supplier not found",
+        supplier: null,
       };
     }
 
     return {
       success: true,
-      client,
+      supplier,
     };
   } catch (error) {
-    console.error("getClientById error:", error);
+    console.error("getSupplierById error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to fetch client",
-      client: null,
+      error: error instanceof Error ? error.message : "Failed to fetch supplier",
+      supplier: null,
     };
   }
 }
 
 /**
- * Create a new client
+ * Create a new supplier
  */
-export async function createClient(input: {
+export async function createSupplier(input: {
   name?: string;
   email: string;
   phone?: string;
@@ -213,25 +213,25 @@ export async function createClient(input: {
       return {
         success: false,
         error: "Unauthorized",
-        client: null,
+        supplier: null,
       };
     }
 
     // Check if email already exists
-    const existingClient = await prisma.client.findUnique({
+    const existingSupplier = await prisma.supplier.findUnique({
       where: { email: input.email },
     });
 
-    if (existingClient) {
+    if (existingSupplier) {
       return {
         success: false,
-        error: "Client with this email already exists",
-        client: null,
+        error: "Supplier with this email already exists",
+        supplier: null,
       };
     }
 
-    // Create client
-    const client = await prisma.client.create({
+    // Create supplier
+    const supplier = await prisma.supplier.create({
       data: {
         name: input.name || null,
         email: input.email,
@@ -264,41 +264,41 @@ export async function createClient(input: {
       },
     });
 
-    // Log client creation
+    // Log supplier creation
     await logItemCreated(
       session.user.id,
-      "Client",
-      client.id,
-      client.name || client.email,
+      "Supplier",
+      supplier.id,
+      supplier.name || supplier.email,
       { 
-        name: client.name, 
-        email: client.email,
-        phone: client.phone,
-        company: client.company,
+        name: supplier.name, 
+        email: supplier.email,
+        phone: supplier.phone,
+        company: supplier.company,
       }
     );
 
-    // Revalidate clients page
-    revalidatePath("/dashboard/clients");
+    // Revalidate suppliers page
+    revalidatePath("/dashboard/suppliers");
 
     return {
       success: true,
-      client,
+      supplier,
     };
   } catch (error) {
-    console.error("createClient error:", error);
+    console.error("createSupplier error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to create client",
-      client: null,
+      error: error instanceof Error ? error.message : "Failed to create supplier",
+      supplier: null,
     };
   }
 }
 
 /**
- * Update a client
+ * Update a supplier
  */
-export async function updateClient(input: {
+export async function updateSupplier(input: {
   id: string;
   name?: string;
   email: string;
@@ -319,40 +319,40 @@ export async function updateClient(input: {
       return {
         success: false,
         error: "Unauthorized",
-        client: null,
+        supplier: null,
       };
     }
 
-    // Check if client exists
-    const existingClient = await prisma.client.findUnique({
+    // Check if supplier exists
+    const existingSupplier = await prisma.supplier.findUnique({
       where: { id: input.id },
     });
 
-    if (!existingClient) {
+    if (!existingSupplier) {
       return {
         success: false,
-        error: "Client not found",
-        client: null,
+        error: "Supplier not found",
+        supplier: null,
       };
     }
 
     // Check if email is being changed and if new email already exists
-    if (input.email !== existingClient.email) {
-      const emailExists = await prisma.client.findUnique({
+    if (input.email !== existingSupplier.email) {
+      const emailExists = await prisma.supplier.findUnique({
         where: { email: input.email },
       });
 
       if (emailExists) {
         return {
           success: false,
-          error: "Client with this email already exists",
-          client: null,
+          error: "Supplier with this email already exists",
+          supplier: null,
         };
       }
     }
 
     // Build update data
-    const updateData: Prisma.ClientUpdateInput = {
+    const updateData: Prisma.SupplierUpdateInput = {
       name: input.name !== undefined ? (input.name || null) : undefined,
       email: input.email,
       phone: input.phone !== undefined ? (input.phone || null) : undefined,
@@ -369,8 +369,8 @@ export async function updateClient(input: {
       updateData.status = input.status;
     }
 
-    // Update client
-    const client = await prisma.client.update({
+    // Update supplier
+    const supplier = await prisma.supplier.update({
       where: { id: input.id },
       data: updateData,
       select: {
@@ -391,58 +391,58 @@ export async function updateClient(input: {
       },
     });
 
-    // Log client update - track what actually changed
+    // Log supplier update - track what actually changed
     const changes: string[] = [];
-    if (input.name !== existingClient.name) changes.push("name");
-    if (input.email !== existingClient.email) changes.push("email");
-    if (input.phone !== existingClient.phone) changes.push("phone");
-    if (input.address !== existingClient.address) changes.push("address");
-    if (input.city !== existingClient.city) changes.push("city");
-    if (input.state !== existingClient.state) changes.push("state");
-    if (input.zip !== existingClient.zip) changes.push("zip");
-    if (input.country !== existingClient.country) changes.push("country");
-    if (input.company !== existingClient.company) changes.push("company");
-    if (input.image !== undefined && input.image !== existingClient.image) changes.push("image");
-    if (input.status && input.status !== existingClient.status) changes.push("status");
+    if (input.name !== existingSupplier.name) changes.push("name");
+    if (input.email !== existingSupplier.email) changes.push("email");
+    if (input.phone !== existingSupplier.phone) changes.push("phone");
+    if (input.address !== existingSupplier.address) changes.push("address");
+    if (input.city !== existingSupplier.city) changes.push("city");
+    if (input.state !== existingSupplier.state) changes.push("state");
+    if (input.zip !== existingSupplier.zip) changes.push("zip");
+    if (input.country !== existingSupplier.country) changes.push("country");
+    if (input.company !== existingSupplier.company) changes.push("company");
+    if (input.image !== undefined && input.image !== existingSupplier.image) changes.push("image");
+    if (input.status && input.status !== existingSupplier.status) changes.push("status");
 
     await logItemUpdated(
       session.user.id,
-      "Client",
-      client.id,
+      "Supplier",
+      supplier.id,
       changes,
-      client.name || client.email,
+      supplier.name || supplier.email,
       { 
-        name: client.name, 
-        email: client.email,
-        phone: client.phone,
-        company: client.company,
+        name: supplier.name, 
+        email: supplier.email,
+        phone: supplier.phone,
+        company: supplier.company,
         changes 
       }
     );
 
-    // Revalidate clients page
-    revalidatePath("/dashboard/clients");
-    revalidatePath(`/dashboard/clients/${client.id}`);
-    revalidatePath(`/dashboard/clients/details?id=${client.id}`);
+    // Revalidate suppliers page
+    revalidatePath("/dashboard/suppliers");
+    revalidatePath(`/dashboard/suppliers/${supplier.id}`);
+    revalidatePath(`/dashboard/suppliers/details?id=${supplier.id}`);
 
     return {
       success: true,
-      client,
+      supplier,
     };
   } catch (error) {
-    console.error("updateClient error:", error);
+    console.error("updateSupplier error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to update client",
-      client: null,
+      error: error instanceof Error ? error.message : "Failed to update supplier",
+      supplier: null,
     };
   }
 }
 
 /**
- * Delete a client (moves to trash)
+ * Delete a supplier (moves to trash)
  */
-export async function deleteClient(clientId: string) {
+export async function deleteSupplier(supplierId: string) {
   try {
     const session = await auth();
     
@@ -453,59 +453,59 @@ export async function deleteClient(clientId: string) {
       };
     }
 
-    // Get client info before moving to trash for logging
-    const clientToDelete = await prisma.client.findUnique({
-      where: { id: clientId },
+    // Get supplier info before moving to trash for logging
+    const supplierToDelete = await prisma.supplier.findUnique({
+      where: { id: supplierId },
       select: { name: true, email: true, phone: true, company: true },
     });
 
-    if (!clientToDelete) {
+    if (!supplierToDelete) {
       return {
         success: false,
-        error: "Client not found",
+        error: "Supplier not found",
       };
     }
 
-    // Move client to trash (soft delete)
-    await prisma.client.update({
-      where: { id: clientId },
+    // Move supplier to trash (soft delete)
+    await prisma.supplier.update({
+      where: { id: supplierId },
       data: { status: "trash" },
     });
 
     // Log the deletion
     await logItemDeleted(
       session.user.id,
-      "Client",
-      clientId,
-      clientToDelete.name || clientToDelete.email,
+      "Supplier",
+      supplierId,
+      supplierToDelete.name || supplierToDelete.email,
       { 
-        name: clientToDelete.name, 
-        email: clientToDelete.email,
-        phone: clientToDelete.phone,
-        company: clientToDelete.company,
+        name: supplierToDelete.name, 
+        email: supplierToDelete.email,
+        phone: supplierToDelete.phone,
+        company: supplierToDelete.company,
       }
     );
 
-    // Revalidate clients page
-    revalidatePath("/dashboard/clients");
+    // Revalidate suppliers page
+    revalidatePath("/dashboard/suppliers");
 
     return {
       success: true,
     };
   } catch (error) {
-    console.error("deleteClient error:", error);
+    console.error("deleteSupplier error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to delete client",
+      error: error instanceof Error ? error.message : "Failed to delete supplier",
     };
   }
 }
 
 /**
- * Bulk update client status
+ * Bulk update supplier status
  */
-export async function bulkUpdateClientStatus(
-  clientIds: string[],
+export async function bulkUpdateSupplierStatus(
+  supplierIds: string[],
   status: "active" | "inactive" | "trash"
 ) {
   try {
@@ -518,62 +518,62 @@ export async function bulkUpdateClientStatus(
       };
     }
 
-    if (clientIds.length === 0) {
+    if (supplierIds.length === 0) {
       return {
         success: false,
-        error: "No clients selected",
+        error: "No suppliers selected",
       };
     }
 
-    // Get client names for logging
-    const clients = await prisma.client.findMany({
+    // Get supplier names for logging
+    const suppliers = await prisma.supplier.findMany({
       where: {
-        id: { in: clientIds },
+        id: { in: supplierIds },
       },
       select: { id: true, name: true, email: true },
     });
 
-    // Update clients
-    await prisma.client.updateMany({
+    // Update suppliers
+    await prisma.supplier.updateMany({
       where: {
-        id: { in: clientIds },
+        id: { in: supplierIds },
       },
       data: {
         status,
       },
     });
 
-    // Log bulk update for each client
-    for (const client of clients) {
+    // Log bulk update for each supplier
+    for (const supplier of suppliers) {
       await logItemUpdated(
         session.user.id,
-        "Client",
-        client.id,
+        "Supplier",
+        supplier.id,
         ["status"],
-        client.name || client.email,
-        { name: client.name, email: client.email, status, changes: ["status"] }
+        supplier.name || supplier.email,
+        { name: supplier.name, email: supplier.email, status, changes: ["status"] }
       );
     }
 
-    // Revalidate clients page
-    revalidatePath("/dashboard/clients");
+    // Revalidate suppliers page
+    revalidatePath("/dashboard/suppliers");
 
     return {
       success: true,
     };
   } catch (error) {
-    console.error("bulkUpdateClientStatus error:", error);
+    console.error("bulkUpdateSupplierStatus error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to update clients",
+      error: error instanceof Error ? error.message : "Failed to update suppliers",
     };
   }
 }
 
 /**
- * Delete clients permanently
+ * Delete suppliers permanently
  */
-export async function deleteClientsPermanently(clientIds: string[]) {
+export async function deleteSuppliersPermanently(supplierIds: string[]) {
   try {
     const session = await auth();
     
@@ -584,59 +584,59 @@ export async function deleteClientsPermanently(clientIds: string[]) {
       };
     }
 
-    if (clientIds.length === 0) {
+    if (supplierIds.length === 0) {
       return {
         success: false,
-        error: "No clients selected",
+        error: "No suppliers selected",
       };
     }
 
-    // Get client names for logging
-    const clients = await prisma.client.findMany({
+    // Get supplier names for logging
+    const suppliers = await prisma.supplier.findMany({
       where: {
-        id: { in: clientIds },
-        status: "trash", // Only allow deleting clients that are in trash
+        id: { in: supplierIds },
+        status: "trash", // Only allow deleting suppliers that are in trash
       },
       select: { id: true, name: true, email: true },
     });
 
-    if (clients.length === 0) {
+    if (suppliers.length === 0) {
       return {
         success: false,
-        error: "No clients found in trash",
+        error: "No suppliers found in trash",
       };
     }
 
-    // Log permanent deletion for each client
-    for (const client of clients) {
+    // Log permanent deletion for each supplier
+    for (const supplier of suppliers) {
       await logItemDeleted(
         session.user.id,
-        "Client",
-        client.id,
-        client.name || client.email,
-        { name: client.name, email: client.email }
+        "Supplier",
+        supplier.id,
+        supplier.name || supplier.email,
+        { name: supplier.name, email: supplier.email }
       );
     }
 
-    // Delete clients permanently
-    await prisma.client.deleteMany({
+    // Delete suppliers permanently
+    await prisma.supplier.deleteMany({
       where: {
-        id: { in: clientIds },
-        status: "trash", // Only allow deleting clients that are in trash
+        id: { in: supplierIds },
+        status: "trash", // Only allow deleting suppliers that are in trash
       },
     });
 
-    // Revalidate clients page
-    revalidatePath("/dashboard/clients");
+    // Revalidate suppliers page
+    revalidatePath("/dashboard/suppliers");
     
     return {
       success: true,
     };
   } catch (error) {
-    console.error("deleteClientsPermanently error:", error);
+    console.error("deleteSuppliersPermanently error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to delete clients",
+      error: error instanceof Error ? error.message : "Failed to delete suppliers",
     };
   }
 }
