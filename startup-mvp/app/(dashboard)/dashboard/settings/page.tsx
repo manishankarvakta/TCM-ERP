@@ -23,7 +23,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { MdWhatsapp } from "react-icons/md";
 import { HiEnvelope } from "react-icons/hi2";
-import { TbCreditCardPay, TbReceiptTax } from "react-icons/tb";
+import { TbCreditCardPay, TbReceiptTax, TbShieldCheck } from "react-icons/tb";
 import Profile from "./_components/Profile";
 import Organization from "./_components/organization/Organization";
 import Experience from "./_components/Experience";
@@ -40,6 +40,9 @@ import Members from "./_components/Members";
 import Security from "./_components/Security";
 import APIs from "./_components/APIs";
 import Webhooks from "./_components/Webhooks";
+import { SlEnvolopeLetter } from "react-icons/sl";
+import CoverLetter from "./_components/coverLetter";
+import TOS from "./_components/Tos";
 
 type SettingsSection = "profile" | 
                        "experience" | 
@@ -61,6 +64,8 @@ type SettingsSection = "profile" |
                        "telegram" | 
                        "sms" | 
                        "paymentMethods" | 
+                       "coverLetter" | 
+                       "tos" | 
                        "preferences";
 
 export default function SettingsPage() {
@@ -131,6 +136,13 @@ export default function SettingsPage() {
       ],
     },
     {
+      category: "Quotations",
+      items: [
+        { id: "coverLetter" as SettingsSection, label: "Cover Letter", icon: SlEnvolopeLetter, active: activeSection === "coverLetter" },
+        { id: "tos" as SettingsSection, label: "TOS", icon: TbShieldCheck, active: activeSection === "tos" },
+      ],
+    },
+    {
       category: "Notifications",
       items: [
         { id: "general" as SettingsSection, label: "General", icon: SettingsIcon, active: activeSection === "general" },
@@ -172,6 +184,10 @@ export default function SettingsPage() {
         return <PaymentMethods />;
       case "preferences":
         return <Preferences />;
+      case "coverLetter":
+        return <CoverLetter />;
+      case "tos":
+        return <TOS />;
       case "general":
         return <General />;
       case "members":

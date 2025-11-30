@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -909,6 +909,346 @@ async function main() {
       } catch (error) {
         console.error(`❌ Failed to create item ${item.code}:`, error);
       }
+    }
+
+    // Create sample quotations
+    if (adminUser) {
+      // Get some clients for quotations
+      const clients = await prisma.client.findMany({
+        take: 5,
+        where: { status: "active" },
+      });
+
+      // Get some items for quotation items
+      const items = await prisma.item.findMany({
+        take: 20,
+        where: { status: "active" },
+      });
+
+      if (clients.length > 0 && items.length > 0 && adminUser) {
+        interface QuotationItemSeed {
+          sl: number;
+          code?: string | null;
+          description?: string | null;
+          unitPrice: number;
+          quantity: number;
+          amount?: number;
+          sortOrder: number;
+          itemId?: string | null;
+          height?: number;
+          width?: number;
+          depth?: number;
+        }
+
+        interface ItemGroupSeed {
+          code?: string | null;
+          description: string;
+          quantity?: number | null;
+          sortOrder: number;
+          items: QuotationItemSeed[];
+        }
+
+        interface SectionSeed {
+          title: string;
+          note?: string | null;
+          discount?: number | null;
+          sortOrder: number;
+          items?: QuotationItemSeed[];
+          groups?: ItemGroupSeed[];
+        }
+
+        interface QuotationSeed {
+          quotationNumber: string;
+          subject: string;
+          submittedTo: string;
+          date: Date;
+          coverLetter?: string | null;
+          financialStatement?: string | null;
+          tos?: string | null;
+          total: number;
+          status: "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "REVISED";
+          clientId: string;
+          sections: SectionSeed[];
+        }
+
+        const quotations: QuotationSeed[] = [
+          {
+            quotationNumber: "QT-2024-001",
+            subject: "Interior Design Proposal - Living Room Renovation",
+            submittedTo: "John Smith",
+            date: new Date("2024-01-15"),
+            coverLetter: "Dear Mr. Smith,\n\nWe are pleased to submit this quotation for your living room renovation project. Our team has carefully reviewed your requirements and prepared a comprehensive proposal that includes all necessary materials and services.\n\nWe look forward to working with you on this exciting project.\n\nBest regards,\nInterior Design Team",
+            financialStatement: "Payment Terms:\n- 30% advance payment upon acceptance\n- 40% upon delivery of materials\n- 30% upon completion\n\nAll prices are valid for 30 days from the date of this quotation.",
+            tos: "Terms and Conditions:\n1. All materials are subject to availability\n2. Installation timeline: 4-6 weeks from order confirmation\n3. Warranty: 1 year on all materials and workmanship\n4. Changes to order may affect pricing and delivery timeline",
+            total: 0, // Will be calculated
+            status: "SENT" as const,
+            clientId: clients[0].id,
+            sections: [
+              {
+                title: "Furniture",
+                note: "Premium furniture selection for living room",
+                discount: null,
+                sortOrder: 1,
+                items: [
+                  { sl: 1, code: items[0]?.code, description: items[0]?.description, unitPrice: Number(items[0]?.unitPrice) || 1250, quantity: 1, amount: 0, sortOrder: 1, itemId: items[0]?.id },
+                  { sl: 2, code: items[1]?.code, description: items[1]?.description, unitPrice: Number(items[1]?.unitPrice) || 850, quantity: 1, amount: 0, sortOrder: 2, itemId: items[1]?.id },
+                ],
+              },
+              {
+                title: "Flooring",
+                note: "High-quality hardwood flooring",
+                discount: 5,
+                sortOrder: 2,
+                items: [
+                  { sl: 1, code: items[4]?.code, description: items[4]?.description, height: 2.4, width: 3.0, unitPrice: Number(items[4]?.unitPrice) || 12.50, quantity: 7.2, amount: 0, sortOrder: 1, itemId: items[4]?.id },
+                ],
+              },
+            ],
+          },
+          {
+            quotationNumber: "QT-2024-002",
+            subject: "Complete Home Interior Design Package",
+            submittedTo: "Sarah Johnson",
+            date: new Date("2024-01-20"),
+            coverLetter: "Dear Ms. Johnson,\n\nThank you for considering our services for your complete home interior design project. This quotation covers all rooms including living room, dining area, bedrooms, and kitchen.\n\nWe are committed to delivering exceptional quality and service.\n\nWarm regards,\nDesign Team",
+            financialStatement: "Payment Schedule:\n- 25% deposit\n- 50% at mid-point\n- 25% upon final completion",
+            tos: "Standard terms apply. 2-year warranty on all installations.",
+            total: 0,
+            status: "DRAFT" as const,
+            clientId: clients[1]?.id || clients[0].id,
+            sections: [
+              {
+                title: "Living Room",
+                note: "Modern living room setup",
+                discount: null,
+                sortOrder: 1,
+                groups: [
+                  {
+                    code: "LR-SET-01",
+                    description: "Living Room Furniture Set",
+                    quantity: 1,
+                    sortOrder: 1,
+                    items: [
+                      { sl: 1, code: items[0]?.code, description: items[0]?.description, unitPrice: Number(items[0]?.unitPrice) || 1250, quantity: 1, amount: 0, sortOrder: 1, itemId: items[0]?.id },
+                      { sl: 2, code: items[3]?.code, description: items[3]?.description, unitPrice: Number(items[3]?.unitPrice) || 450, quantity: 1, amount: 0, sortOrder: 2, itemId: items[3]?.id },
+                    ],
+                  },
+                ],
+                items: [
+                  { sl: 3, code: items[10]?.code, description: items[10]?.description, unitPrice: Number(items[10]?.unitPrice) || 25, quantity: 4, amount: 0, sortOrder: 3, itemId: items[10]?.id },
+                ],
+              },
+              {
+                title: "Kitchen",
+                note: "Kitchen fixtures and accessories",
+                discount: 10,
+                sortOrder: 2,
+                items: [
+                  { sl: 1, code: items[8]?.code, description: items[8]?.description, unitPrice: Number(items[8]?.unitPrice) || 45, quantity: 3, amount: 0, sortOrder: 1, itemId: items[8]?.id },
+                ],
+              },
+            ],
+          },
+          {
+            quotationNumber: "QT-2024-003",
+            subject: "Office Space Design and Furnishing",
+            submittedTo: "Michael Chen",
+            date: new Date("2024-02-01"),
+            coverLetter: "Dear Mr. Chen,\n\nWe are delighted to present this quotation for your office space design and furnishing project. Our proposal includes ergonomic furniture, modern lighting, and professional flooring solutions.\n\nThank you for your consideration.\n\nBest regards,\nCommercial Design Team",
+            financialStatement: null,
+            tos: null,
+            total: 0,
+            status: "ACCEPTED" as const,
+            clientId: clients[2]?.id || clients[0].id,
+            sections: [
+              {
+                title: "Office Furniture",
+                note: "Ergonomic office furniture",
+                discount: null,
+                sortOrder: 1,
+                items: [
+                  { sl: 1, code: items[2]?.code, description: items[2]?.description, unitPrice: Number(items[2]?.unitPrice) || 320, quantity: 10, amount: 0, sortOrder: 1, itemId: items[2]?.id },
+                ],
+              },
+              {
+                title: "Lighting",
+                note: "Professional office lighting",
+                discount: 5,
+                sortOrder: 2,
+                items: [
+                  { sl: 1, code: items[10]?.code, description: items[10]?.description, unitPrice: Number(items[10]?.unitPrice) || 25, quantity: 20, amount: 0, sortOrder: 1, itemId: items[10]?.id },
+                  { sl: 2, code: items[12]?.code, description: items[12]?.description, unitPrice: Number(items[12]?.unitPrice) || 125, quantity: 5, amount: 0, sortOrder: 2, itemId: items[12]?.id },
+                ],
+              },
+            ],
+          },
+          {
+            quotationNumber: "QT-2024-004",
+            subject: "Bathroom Renovation Package",
+            submittedTo: "Emily Davis",
+            date: new Date("2024-02-10"),
+            coverLetter: "Dear Ms. Davis,\n\nThis quotation covers the complete renovation of your master bathroom, including tiles, fixtures, lighting, and accessories.\n\nWe look forward to transforming your bathroom into a luxurious space.\n\nRegards,\nRenovation Team",
+            financialStatement: "Payment: 40% advance, 60% on completion",
+            tos: "1-year warranty. Installation: 3-4 weeks.",
+            total: 0,
+            status: "REJECTED" as const,
+            clientId: clients[3]?.id || clients[0].id,
+            sections: [
+              {
+                title: "Tiles and Flooring",
+                note: "Premium bathroom tiles",
+                discount: null,
+                sortOrder: 1,
+                items: [
+                  { sl: 1, code: items[5]?.code, description: items[5]?.description, height: 2.5, width: 2.0, unitPrice: Number(items[5]?.unitPrice) || 8.75, quantity: 5.0, amount: 0, sortOrder: 1, itemId: items[5]?.id },
+                ],
+              },
+            ],
+          },
+          {
+            quotationNumber: "QT-2024-005",
+            subject: "Bedroom Makeover - Complete Package",
+            submittedTo: "Robert Wilson",
+            date: new Date("2024-02-15"),
+            coverLetter: null,
+            financialStatement: null,
+            tos: null,
+            total: 0,
+            status: "DRAFT" as const,
+            clientId: clients[4]?.id || clients[0].id,
+            sections: [
+              {
+                title: "Furniture",
+                note: "Bedroom furniture set",
+                discount: 15,
+                sortOrder: 1,
+                items: [
+                  { sl: 1, code: items[1]?.code, description: items[1]?.description, unitPrice: Number(items[1]?.unitPrice) || 850, quantity: 1, amount: 0, sortOrder: 1, itemId: items[1]?.id },
+                ],
+              },
+              {
+                title: "Wall Coverings",
+                note: "Premium wallpaper",
+                discount: null,
+                sortOrder: 2,
+                items: [
+                  { sl: 1, code: items[15]?.code, description: items[15]?.description, unitPrice: Number(items[15]?.unitPrice) || 65, quantity: 8, amount: 0, sortOrder: 1, itemId: items[15]?.id },
+                ],
+              },
+            ],
+          },
+        ];
+
+        for (const quotationData of quotations) {
+          try {
+            // Calculate total for quotation items
+            let quotationTotal = 0;
+
+            // Process sections and calculate totals
+            const sectionsData = quotationData.sections.map((sectionData) => {
+              let sectionTotal = 0;
+
+              // Process direct items in section
+              const itemsData = (sectionData.items || []).map((itemData: QuotationItemSeed) => {
+                const amount = Number(itemData.unitPrice) * Number(itemData.quantity);
+                sectionTotal += amount;
+                return {
+                  sl: itemData.sl,
+                  code: itemData.code || null,
+                  description: itemData.description || null,
+                  unitPrice: new Prisma.Decimal(itemData.unitPrice),
+                  quantity: new Prisma.Decimal(itemData.quantity),
+                  amount: new Prisma.Decimal(amount),
+                  sortOrder: itemData.sortOrder,
+                  itemId: itemData.itemId || null,
+                  height: itemData.height ? new Prisma.Decimal(itemData.height) : null,
+                  width: itemData.width ? new Prisma.Decimal(itemData.width) : null,
+                  depth: itemData.depth ? new Prisma.Decimal(itemData.depth) : null,
+                };
+              });
+
+              // Process groups in section
+              const groupsData = (sectionData.groups || []).map((groupData: ItemGroupSeed) => {
+                const groupItemsData = (groupData.items || []).map((itemData: QuotationItemSeed) => {
+                  const amount = Number(itemData.unitPrice) * Number(itemData.quantity);
+                  sectionTotal += amount;
+                  return {
+                    sl: itemData.sl,
+                    code: itemData.code || null,
+                    description: itemData.description || null,
+                    unitPrice: new Prisma.Decimal(itemData.unitPrice),
+                    quantity: new Prisma.Decimal(itemData.quantity),
+                    amount: new Prisma.Decimal(amount),
+                    sortOrder: itemData.sortOrder,
+                    itemId: itemData.itemId || null,
+                    height: itemData.height ? new Prisma.Decimal(itemData.height) : null,
+                    width: itemData.width ? new Prisma.Decimal(itemData.width) : null,
+                    depth: itemData.depth ? new Prisma.Decimal(itemData.depth) : null,
+                  };
+                });
+
+                return {
+                  code: groupData.code || null,
+                  description: groupData.description,
+                  quantity: groupData.quantity ? new Prisma.Decimal(groupData.quantity) : null,
+                  sortOrder: groupData.sortOrder,
+                  items: {
+                    create: groupItemsData,
+                  },
+                };
+              });
+
+              // Apply discount if any
+              if (sectionData.discount) {
+                sectionTotal = sectionTotal * (1 - sectionData.discount / 100);
+              }
+
+              quotationTotal += sectionTotal;
+
+              return {
+                title: sectionData.title,
+                note: sectionData.note || null,
+                discount: sectionData.discount ? new Prisma.Decimal(sectionData.discount) : null,
+                sortOrder: sectionData.sortOrder,
+                preparedById: adminUser!.id,
+                items: {
+                  create: itemsData,
+                },
+                ...(groupsData.length > 0 && { groups: { create: groupsData } }),
+              };
+            });
+
+            // Create quotation with nested sections, groups, and items
+            const quotation = await prisma.quotation.create({
+              data: {
+                quotationNumber: quotationData.quotationNumber,
+                subject: quotationData.subject,
+                submittedTo: quotationData.submittedTo,
+                date: quotationData.date,
+                coverLetter: quotationData.coverLetter || null,
+                financialStatement: quotationData.financialStatement || null,
+                tos: quotationData.tos || null,
+                attachments: undefined,
+                total: new Prisma.Decimal(quotationTotal),
+                status: quotationData.status,
+                clientId: quotationData.clientId,
+                submittedById: adminUser!.id,
+                section: {
+                  create: sectionsData,
+                },
+              },
+            });
+
+            console.log(`✅ Created quotation: ${quotation.quotationNumber} - ${quotation.subject} (${quotation.status})`);
+          } catch (error) {
+            console.error(`❌ Failed to create quotation ${quotationData.quotationNumber}:`, error);
+          }
+        }
+      } else {
+        console.log("⚠️  Skipping quotation seeding: Need at least 1 client and 1 item");
+      }
+    } else {
+      console.log("⚠️  Skipping quotation seeding: Admin user not found");
     }
   }
 
