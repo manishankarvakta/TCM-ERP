@@ -91,8 +91,10 @@ export default function SettingsPage() {
   }, [searchParams, activeSection]);
 
   const handleSectionChange = (section: SettingsSection) => {
-    setActiveSection(section);
-    router.push(`/dashboard/settings?section=${section}`);
+    startTransition(() => {
+      setActiveSection(section);
+      router.push(`/dashboard/settings?section=${section}`);
+    });
   };
 
   const toggleExpand = (itemId: string) => {
