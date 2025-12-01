@@ -45,6 +45,9 @@ model User {
   createdSuppliers     Supplier[]     @relation("SupplierCreator")
   quotations           Quotation[]    @relation("SubmittedBy")
   sections             Section[]      @relation("PreparedBy")
+  createdCoverLetters  CoverLetter[]  @relation("CoverLetterCreator")
+  settings             Settings[]     @relation("SettingsUser")
+  createdSettings      Settings[]     @relation("SettingsCreator")
 
   @@index([status])
 }
@@ -392,3 +395,61 @@ model QuotationItem {
   @@index([sectionId])
   @@index([groupId])
 }
+
+// ============================================
+// COVER LETTERS
+// ============================================
+
+model CoverLetter {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  status    String   @default("active") // active, inactive, trash
+  createdBy String
+  creator   User     @relation("CoverLetterCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdBy])
+  @@index([title])
+}
+
+
+//SETTING DATA FOR MODULES
+model Settings {
+  id          String   @id @default(cuid())
+  userId      String?  @map("user_id")  // NULL = global/system settings
+  
+  title       String   @db.VarChar(255)
+  code        String   @db.VarChar(100)
+  category    String   @db.VarChar(100)
+  
+  settings    Json     @db.JsonB
+  
+  isActive    Boolean  @default(true) @map("is_active")
+  isDefault   Boolean  @default(false) @map("is_default")
+  isGlobal    Boolean  @default(false) @map("is_global")  // TRUE = system-wide, FALSE = user-specific
+  
+  displayOrder Int     @default(0) @map("display_order")
+  
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+  
+  // Relations
+  user        User?    @relation("SettingsUser", fields: [userId], references: [id], onDelete: Cascade)
+  creator     User?    @relation("SettingsCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  
+  // Indexes
+  @@index([userId])
+  @@index([code])
+  @@index([category])
+  @@index([userId, code])
+  @@index([userId, category])
+  @@index([isGlobal])
+  @@index([settings(ops: JsonbPathOps)], type: Gin)
+  
+  @@map("settings")
+}
+
