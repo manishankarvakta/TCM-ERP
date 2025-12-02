@@ -22,6 +22,8 @@ import {
 } from '@/components/ui/dialog';
 import { useState, useEffect } from 'react';
 import { getActiveClients } from '@/app/actions/clients';
+import { getActiveOrganizations } from '@/app/actions/organizations';
+import { getActiveCoverLetters } from '@/app/actions/quotation-helpers';
 import { createClient } from '@/app/(dashboard)/dashboard/clients/_actions/client.action';
 import { FiPlus, FiSearch } from 'react-icons/fi';
 import { useToast } from '@/hooks/use-toast';
@@ -30,21 +32,26 @@ interface QuotationBasicInfoCardProps {
   quotationNumber: string;
   date: string;
   subject: string;
+  organizationId?: string;
+  organizationName?: string;
   clientId?: string;
   clientName?: string;
   coverLetter?: string;
   shippingCharges?: number;
+  discount?: number;
   vatIncluded?: boolean;
-  aitIncluded?: boolean;
+  projectLocation?: string;
   status: string;
   onQuotationNumberChange: (value: string) => void;
   onDateChange: (value: string) => void;
   onSubjectChange: (value: string) => void;
+  onOrganizationChange: (organizationId: string, organizationName: string) => void;
   onClientChange: (clientId: string, clientName: string) => void;
   onCoverLetterChange: (value: string) => void;
   onShippingChargesChange: (value: number) => void;
+  onDiscountChange: (value: number) => void;
   onVatIncludedChange: (value: boolean) => void;
-  onAitIncludedChange: (value: boolean) => void;
+  onProjectLocationChange: (value: string) => void;
   onStatusChange: (value: string) => void;
 }
 
@@ -57,74 +64,47 @@ const STATUS_OPTIONS = [
   { value: 'REVISED', label: 'Revised' },
 ];
 
-// Cover letter templates/variables
-const COVER_LETTER_OPTIONS = [
-  { value: 'standard', label: 'Standard Cover Letter' },
-  { value: 'formal', label: 'Formal Cover Letter' },
-  { value: 'friendly', label: 'Friendly Cover Letter' },
-  { value: 'custom', label: 'Custom (Enter below)' },
-];
-
-const COVER_LETTER_TEMPLATES: Record<string, string> = {
-  standard: `Dear Sir/Madam,
-
-We are pleased to submit our quotation for your consideration. This quotation outlines the scope of work, materials, and estimated costs for your project.
-
-We look forward to the opportunity to work with you and are committed to delivering high-quality results.
-
-Please feel free to contact us if you have any questions or require further clarification.
-
-Best regards,
-Espacio Design Team`,
-  formal: `Dear Sir/Madam,
-
-We respectfully submit this quotation for your review and consideration. The enclosed proposal details the comprehensive scope of work, materials specification, and associated costs for your project.
-
-Our team is dedicated to providing exceptional service and ensuring the successful completion of your project. We are available to discuss any aspect of this quotation at your convenience.
-
-We appreciate your consideration and look forward to your response.
-
-Yours sincerely,
-Espacio Design Team`,
-  friendly: `Hi there,
-
-We're excited to share our quotation with you! This proposal includes everything we discussed - the work scope, materials, and pricing.
-
-We're really looking forward to working with you on this project. If you have any questions or want to chat about anything, just let us know!
-
-Thanks for considering us. We can't wait to get started!
-
-Best,
-Espacio Design Team`,
-};
+// Cover letter interface
+interface CoverLetter {
+  id: string;
+  title: string;
+  content: string;
+}
 
 export function QuotationBasicInfoCard({
   quotationNumber,
   date,
   subject,
+  organizationId,
+  organizationName,
   clientId,
   clientName,
   coverLetter,
   shippingCharges = 0,
+  discount = 0,
   vatIncluded = false,
-  aitIncluded: _aitIncluded = false,
+  projectLocation = '',
   status,
   onQuotationNumberChange,
   onDateChange,
   onSubjectChange,
+  onOrganizationChange,
   onClientChange,
   onCoverLetterChange,
   onShippingChargesChange,
+  onDiscountChange,
   onVatIncludedChange,
-  onAitIncludedChange: _onAitIncludedChange,
+  onProjectLocationChange,
   onStatusChange,
 }: QuotationBasicInfoCardProps) {
   const { toast } = useToast();
+  const [organizations, setOrganizations] = useState<Array<{ id: string; name: string | null }>>([]);
   const [clients, setClients] = useState<Array<{ id: string; name: string | null; email: string; company: string | null }>>([]);
   const [clientSearch, setClientSearch] = useState('');
   const [isClientDialogOpen, setIsClientDialogOpen] = useState(false);
   const [, setIsLoadingClients] = useState(false);
-  const [selectedCoverLetterTemplate, setSelectedCoverLetterTemplate] = useState('');
+  const [coverLetters, setCoverLetters] = useState<CoverLetter[]>([]);
+  const [selectedCoverLetterId, setSelectedCoverLetterId] = useState<string>('');
   const [customCoverLetter, setCustomCoverLetter] = useState(coverLetter || '');
 
   // New client form state
@@ -133,6 +113,17 @@ export function QuotationBasicInfoCard({
   const [newClientPhone, setNewClientPhone] = useState('');
   const [newClientCompany, setNewClientCompany] = useState('');
   const [isCreatingClient, setIsCreatingClient] = useState(false);
+
+  // Load organizations
+  useEffect(() => {
+    const loadOrganizations = async () => {
+      const result = await getActiveOrganizations();
+      if (result.success) {
+        setOrganizations(result.organizations);
+      }
+    };
+    loadOrganizations();
+  }, []);
 
   // Load clients
   useEffect(() => {
@@ -147,6 +138,31 @@ export function QuotationBasicInfoCard({
     loadClients();
   }, []);
 
+  // Load cover letters
+  useEffect(() => {
+    const loadCoverLetters = async () => {
+      const result = await getActiveCoverLetters();
+      if (result.success) {
+        setCoverLetters(result.coverLetters);
+        
+        // If cover letter is already set, try to find matching cover letter from database
+        if (coverLetter && !selectedCoverLetterId) {
+          const matchingCoverLetter = result.coverLetters.find(
+            (cl) => cl.content === coverLetter
+          );
+          if (matchingCoverLetter) {
+            setSelectedCoverLetterId(matchingCoverLetter.id);
+          } else {
+            // If no match, it's a custom cover letter
+            setSelectedCoverLetterId('custom');
+            setCustomCoverLetter(coverLetter);
+          }
+        }
+      }
+    };
+    loadCoverLetters();
+  }, [coverLetter, selectedCoverLetterId]);
+
   // Filter clients based on search
   const filteredClients = clients.filter((client) => {
     const searchLower = clientSearch.toLowerCase();
@@ -157,23 +173,27 @@ export function QuotationBasicInfoCard({
     );
   });
 
-  // Handle cover letter template selection
-  const handleCoverLetterTemplateChange = (value: string) => {
-    setSelectedCoverLetterTemplate(value);
+  // Handle cover letter selection
+  const handleCoverLetterChange = (value: string) => {
+    setSelectedCoverLetterId(value);
     if (value === 'custom') {
       // Keep custom text if already entered
       onCoverLetterChange(customCoverLetter);
-    } else if (value && COVER_LETTER_TEMPLATES[value]) {
-      onCoverLetterChange(COVER_LETTER_TEMPLATES[value]);
-    } else {
+    } else if (value === '') {
       onCoverLetterChange('');
+    } else {
+      // Find selected cover letter from database
+      const selectedCoverLetter = coverLetters.find((cl) => cl.id === value);
+      if (selectedCoverLetter) {
+        onCoverLetterChange(selectedCoverLetter.content);
+      }
     }
   };
 
   // Handle custom cover letter change
   const handleCustomCoverLetterChange = (value: string) => {
     setCustomCoverLetter(value);
-    if (selectedCoverLetterTemplate === 'custom') {
+    if (selectedCoverLetterId === 'custom') {
       onCoverLetterChange(value);
     }
   };
@@ -240,7 +260,39 @@ export function QuotationBasicInfoCard({
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-semibold">Quotation Details</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
+        <div>
+          <Label htmlFor="organization" className="text-xs">Organization</Label>
+          <Select
+            value={organizationId || undefined}
+            onValueChange={(value) => {
+              const selectedOrganization = organizations.find((org) => org.id === value);
+              if (selectedOrganization) {
+                onOrganizationChange(selectedOrganization.id, selectedOrganization.name || '');
+              }
+            }}
+          >
+            <SelectTrigger className="h-8 text-sm text-left">
+              <SelectValue placeholder="Select organization" />
+            </SelectTrigger>
+            <SelectContent>
+              {organizations.length === 0 ? (
+                <div className="p-2 text-sm text-gray-500 text-left">No organizations found</div>
+              ) : (
+                organizations.map((org) => (
+                  <SelectItem key={org.id} value={org.id} className="text-left">
+                    {org.name || 'Unnamed Organization'}
+                  </SelectItem>
+                ))
+              )}
+              {organizationName && organizationId && !organizations.find((org) => org.id === organizationId) && (
+                <SelectItem value={organizationId} disabled className="text-left">
+                  {organizationName} (Current Selection)
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
             <Label htmlFor="quotationNumber" className="text-xs">Quotation #</Label>
@@ -288,7 +340,7 @@ export function QuotationBasicInfoCard({
                   }
                 }}
               >
-                <SelectTrigger className="h-8 text-sm pl-8 w-full min-w-0">
+                <SelectTrigger className="h-8 text-sm pl-8 w-full min-w-0 text-left">
                   <SelectValue placeholder="Search and select client" className="truncate block" />
                 </SelectTrigger>
                 <SelectContent>
@@ -397,21 +449,26 @@ export function QuotationBasicInfoCard({
         <div>
           <Label htmlFor="coverLetter" className="text-xs">Cover Letter</Label>
           <Select
-            value={selectedCoverLetterTemplate || undefined}
-            onValueChange={handleCoverLetterTemplateChange}
+            value={selectedCoverLetterId || undefined}
+            onValueChange={handleCoverLetterChange}
           >
-            <SelectTrigger className="h-8 text-sm">
-              <SelectValue placeholder="Select cover letter template" />
+            <SelectTrigger className="h-8 text-sm text-left">
+              <SelectValue placeholder="Select cover letter" />
             </SelectTrigger>
             <SelectContent>
-              {COVER_LETTER_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
+              <SelectItem value="custom" className="text-left">Custom (Enter below)</SelectItem>
+              {coverLetters.length === 0 ? (
+                <div className="p-2 text-xs text-gray-500 text-left">No cover letters found</div>
+              ) : (
+                coverLetters.map((cl) => (
+                  <SelectItem key={cl.id} value={cl.id} className="text-left">
+                    {cl.title}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
-          {selectedCoverLetterTemplate === 'custom' && (
+          {selectedCoverLetterId === 'custom' && (
             <div className="mt-2">
               <textarea
                 value={customCoverLetter}
@@ -423,31 +480,46 @@ export function QuotationBasicInfoCard({
           )}
         </div>
 
-        {/* Shipping Charges */}
-        <div>
-          <Label htmlFor="shippingCharges" className="text-xs">Shipping Charges</Label>
-          <Input
-            id="shippingCharges"
-            type="number"
-            step="0.01"
-            min="0"
-            value={shippingCharges}
-            onChange={(e) => onShippingChargesChange(parseFloat(e.target.value) || 0)}
-            placeholder="0.00"
-            className="h-8 text-sm"
-          />
+        {/* Shipping Charges and Discount */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label htmlFor="shippingCharges" className="text-xs">Shipping Charges</Label>
+            <Input
+              id="shippingCharges"
+              type="number"
+              step="0.01"
+              min="0"
+              value={shippingCharges}
+              onChange={(e) => onShippingChargesChange(parseFloat(e.target.value) || 0)}
+              placeholder="0.00"
+              className="h-8 text-sm"
+            />
+          </div>
+          <div>
+            <Label htmlFor="discount" className="text-xs">Discount</Label>
+            <Input
+              id="discount"
+              type="number"
+              step="0.01"
+              min="0"
+              value={discount}
+              onChange={(e) => onDiscountChange(parseFloat(e.target.value) || 0)}
+              placeholder="0.00"
+              className="h-8 text-sm"
+            />
+          </div>
         </div>
 
         {/* Status */}
         <div>
           <Label htmlFor="status" className="text-xs">Status</Label>
           <Select value={status} onValueChange={onStatusChange}>
-            <SelectTrigger className="h-8 text-sm">
+            <SelectTrigger className="h-8 text-sm text-left">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {STATUS_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
+                <SelectItem key={option.value} value={option.value} className="text-left">
                   {option.label}
                 </SelectItem>
               ))}
@@ -455,7 +527,20 @@ export function QuotationBasicInfoCard({
           </Select>
         </div>
 
-        {/* VAT and AIT Checkboxes */}
+        {/* Project Location */}
+        <div>
+          <Label htmlFor="projectLocation" className="text-xs">Project Location</Label>
+          <Input
+            id="projectLocation"
+            type="text"
+            value={projectLocation}
+            onChange={(e) => onProjectLocationChange(e.target.value)}
+            placeholder="Enter project location"
+            className="h-8 text-sm"
+          />
+        </div>
+
+        {/* VAT Checkbox */}
         <div className="space-y-2">
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -464,10 +549,9 @@ export function QuotationBasicInfoCard({
               onCheckedChange={(checked) => onVatIncludedChange(checked === true)}
             />
             <Label htmlFor="vatIncluded" className="text-xs font-normal cursor-pointer">
-              VAT & AIT Included
+              VAT Included
             </Label>
           </div>
-          
         </div>
       </CardContent>
     </Card>

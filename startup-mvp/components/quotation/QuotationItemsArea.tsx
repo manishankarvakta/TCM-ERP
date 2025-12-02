@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -14,8 +15,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/utils/formatters';
-import { FiPlus, FiTrash2, FiEdit2, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiEdit2, FiChevronDown, FiChevronUp, FiSearch } from 'react-icons/fi';
 import { BsGripVertical } from 'react-icons/bs';
+import { getActiveItemsForDropdown } from '@/app/actions/items';
+import { useAppDispatch } from '@/lib/redux/hooks';
+import { updateSectionNote, updateSectionDiscount } from '@/lib/redux/slices/quotationSlice';
 import {
   DndContext,
   closestCenter,
@@ -50,10 +54,10 @@ interface QuotationItem {
   height?: number;
   width?: number;
   depth?: number;
+  unit?: string;
   unitPrice: number;
   quantity: number;
   amount: number;
-  note?: string;
   itemId?: string; // Reference to catalog item
 }
 
@@ -62,7 +66,14 @@ interface CatalogItem {
   code: string;
   description: string;
   unitPrice: number;
-  category: string | null;
+  category: {
+    id: string;
+    name: string;
+  } | null;
+  unit: {
+    id: string;
+    symbol: string;
+  } | null;
 }
 
 interface ItemGroup {
@@ -75,25 +86,27 @@ interface ItemGroup {
   isExpanded?: boolean;
 }
 
-interface Module {
+interface Section {
   id?: string;
   title: string;
   note?: string;
   discount?: number;
+  total?: number;
+  grandTotal?: number;
   sortOrder: number;
   items: QuotationItem[];
   groups: ItemGroup[];
 }
 
 interface QuotationItemsAreaProps {
-  modules: Module[];
-  onModulesChange: (modules: Module[]) => void;
+  sections: Section[];
+  onSectionsChange: (sections: Section[]) => void;
 }
 
 // Sortable Item Component
 function SortableItem({
   item,
-  moduleIndex,
+  sectionIndex,
   itemIndex,
   groupIndex,
   onUpdate,
@@ -101,7 +114,7 @@ function SortableItem({
   catalogItems,
 }: {
   item: QuotationItem;
-  moduleIndex: number;
+  sectionIndex: number;
   itemIndex: number;
   groupIndex?: number;
   onUpdate: (updates: Partial<QuotationItem>) => void;
@@ -117,6 +130,8 @@ function SortableItem({
     isDragging,
   } = useSortable({ id: item.id });
 
+  const [itemSearch, setItemSearch] = useState('');
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -125,7 +140,7 @@ function SortableItem({
 
   const handleItemSelect = (itemId: string) => {
     if (itemId === 'manual') {
-      onUpdate({ itemId: undefined });
+      onUpdate({ itemId: undefined, unit: undefined });
       return;
     }
 
@@ -136,9 +151,20 @@ function SortableItem({
         code: selectedItem.code,
         description: selectedItem.description,
         unitPrice: Number(selectedItem.unitPrice),
+        unit: selectedItem.unit?.symbol || undefined,
       });
     }
   };
+
+  // Filter items based on search
+  const filteredItems = catalogItems.filter((catalogItem) => {
+    const searchLower = itemSearch.toLowerCase();
+    return (
+      catalogItem.code.toLowerCase().includes(searchLower) ||
+      catalogItem.description.toLowerCase().includes(searchLower) ||
+      catalogItem.category?.name.toLowerCase().includes(searchLower)
+    );
+  });
 
   return (
     <TableRow
@@ -157,22 +183,47 @@ function SortableItem({
       </TableCell>
       <TableCell className="font-medium w-12">{item.sl}</TableCell>
       <TableCell>
-        <Select
-          value={item.itemId || 'manual'}
-          onValueChange={handleItemSelect}
-        >
-          <SelectTrigger className="h-8 w-32 text-xs">
-            <SelectValue placeholder="Select item" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[200px]">
-            <SelectItem value="manual">Manual Entry</SelectItem>
-            {catalogItems.map((catalogItem) => (
-              <SelectItem key={catalogItem.id} value={catalogItem.id}>
-                {catalogItem.code}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2 items-center w-full">
+          <div className="flex-1 relative w-full min-w-0">
+            {/* <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" /> */}
+            <Select
+              value={item.itemId || 'manual'}
+              onValueChange={handleItemSelect}
+            >
+              <SelectTrigger className="h-8 text-xs w-full min-w-0 text-left">
+                <SelectValue placeholder="Select item" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                <div className="p-2">
+                  <Input
+                    placeholder="Search items..."
+                    value={itemSearch}
+                    onChange={(e) => setItemSearch(e.target.value)}
+                    className="h-8 text-xs"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                <SelectItem value="manual" className="text-left">Manual Entry</SelectItem>
+                {filteredItems.length === 0 ? (
+                  <div className="p-2 text-xs text-gray-500 text-left">No items found</div>
+                ) : (
+                  filteredItems.map((catalogItem) => (
+                    <SelectItem key={catalogItem.id} value={catalogItem.id} className="text-left">
+                      <div className="flex flex-col">
+                        <span className="font-medium">{catalogItem.code}</span>
+                        {catalogItem.description && (
+                          <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                            {catalogItem.description}
+                          </span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </TableCell>
       <TableCell>
         <Input
@@ -186,22 +237,34 @@ function SortableItem({
         <div className="flex gap-1">
           <Input
             type="number"
+            step="0.01"
             value={item.height || ''}
-            onChange={(e) => onUpdate({ height: Number(e.target.value) })}
+            onChange={(e) => {
+              const height = e.target.value ? Number(e.target.value) : undefined;
+              onUpdate({ height });
+            }}
             placeholder="H"
             className="h-8 w-16 text-xs"
           />
           <Input
             type="number"
+            step="0.01"
             value={item.width || ''}
-            onChange={(e) => onUpdate({ width: Number(e.target.value) })}
+            onChange={(e) => {
+              const width = e.target.value ? Number(e.target.value) : undefined;
+              onUpdate({ width });
+            }}
             placeholder="W"
             className="h-8 w-16 text-xs"
           />
           <Input
             type="number"
+            step="0.01"
             value={item.depth || ''}
-            onChange={(e) => onUpdate({ depth: Number(e.target.value) })}
+            onChange={(e) => {
+              const depth = e.target.value ? Number(e.target.value) : undefined;
+              onUpdate({ depth });
+            }}
             placeholder="D"
             className="h-8 w-16 text-xs"
           />
@@ -217,13 +280,18 @@ function SortableItem({
         />
       </TableCell>
       <TableCell>
-        <Input
-          type="number"
-          step="0.01"
-          value={item.unitPrice}
-          onChange={(e) => onUpdate({ unitPrice: Number(e.target.value) })}
-          className="h-8 w-28 text-xs"
-        />
+        <div className="flex items-center gap-1">
+          <Input
+            type="number"
+            step="0.01"
+            value={item.unitPrice}
+            onChange={(e) => onUpdate({ unitPrice: Number(e.target.value) })}
+            className="h-8 w-24 text-xs"
+          />
+          {item.unit && (
+            <span className="text-xs text-muted-foreground whitespace-nowrap">{item.unit}</span>
+          )}
+        </div>
       </TableCell>
       <TableCell className="text-right font-semibold w-32">
         {formatCurrency(item.amount)}
@@ -244,10 +312,11 @@ function SortableItem({
 }
 
 export function QuotationItemsArea({
-  modules,
-  onModulesChange,
+  sections,
+  onSectionsChange,
 }: QuotationItemsAreaProps) {
-  const [editingModule, setEditingModule] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const [editingSection, setEditingSection] = useState<string | null>(null);
   const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(true);
   const sensors = useSensors(
@@ -261,12 +330,12 @@ export function QuotationItemsArea({
   useEffect(() => {
     const fetchItems = async () => {
       try {
-        const response = await fetch('/api/items');
-        const data = await response.json();
-        if (response.ok && !data.error) {
-          setCatalogItems(data);
+        setIsLoadingItems(true);
+        const result = await getActiveItemsForDropdown();
+        if (result.success) {
+          setCatalogItems(result.items);
         } else {
-          console.error('Error fetching items:', data.error || data.details);
+          console.error('Error fetching items:', result.error);
         }
       } catch (error) {
         console.error('Error fetching items:', error);
@@ -280,28 +349,35 @@ export function QuotationItemsArea({
 
   const generateId = () => `item-${Date.now()}-${Math.random()}`;
 
-  const addModule = () => {
-    const newModule: Module = {
-      title: `Module ${modules.length + 1}`,
-      sortOrder: modules.length,
+  const addSection = () => {
+    const newSection: Section = {
+      title: `Section ${sections.length + 1}`,
+      sortOrder: sections.length,
       items: [],
       groups: [],
     };
-    onModulesChange([...modules, newModule]);
+    onSectionsChange([...sections, newSection]);
   };
 
-  const updateModule = (index: number, updates: Partial<Module>) => {
-    const updated = [...modules];
-    updated[index] = { ...updated[index], ...updates };
-    onModulesChange(updated);
+  const updateSection = (index: number, updates: Partial<Section>) => {
+    const updated = [...sections];
+    const section = { ...updated[index], ...updates };
+    // Calculate totals for the updated section
+    const totals = calculateSectionTotals(section);
+    updated[index] = {
+      ...section,
+      total: totals.total,
+      grandTotal: totals.grandTotal,
+    };
+    onSectionsChange(updated);
   };
 
-  const removeModule = (index: number) => {
-    onModulesChange(modules.filter((_, i) => i !== index));
+  const removeSection = (index: number) => {
+    onSectionsChange(sections.filter((_, i) => i !== index));
   };
 
-  const addItemToModule = (moduleIndex: number, groupId?: string) => {
-    const module = modules[moduleIndex];
+  const addItemToSection = (sectionIndex: number, groupId?: string) => {
+    const section = sections[sectionIndex];
     const newItem: QuotationItem = {
       id: generateId(),
       sl: 1,
@@ -310,145 +386,266 @@ export function QuotationItemsArea({
       amount: 0,
     };
 
-    const updated = [...modules];
-
-    if (groupId) {
-      // Add to group
-      const groupIndex = module.groups.findIndex((g) => g.id === groupId);
-      if (groupIndex !== -1) {
-        const group = module.groups[groupIndex];
-        const itemsInGroup = group.items.length;
-        newItem.sl = itemsInGroup + 1;
-        updated[moduleIndex].groups[groupIndex].items.push(newItem);
-        // Update group quantity
-        updated[moduleIndex].groups[groupIndex].quantity =
-          updated[moduleIndex].groups[groupIndex].items.length;
+    // Create deep copy of sections
+    const updated = sections.map((s, idx) => {
+      if (idx !== sectionIndex) return s;
+      
+      let updatedSection: Section;
+      if (groupId) {
+        // Add to group
+        const groupIndex = section.groups.findIndex((g) => g.id === groupId);
+        if (groupIndex !== -1) {
+          const group = section.groups[groupIndex];
+          const itemsInGroup = group.items.length;
+          newItem.sl = itemsInGroup + 1;
+          
+          updatedSection = {
+            ...s,
+            groups: s.groups.map((g, gIdx) => {
+              if (gIdx !== groupIndex) return g;
+              const updatedItems = [...g.items, newItem];
+              return {
+                ...g,
+                items: updatedItems,
+                quantity: calculateGroupQuantity(updatedItems),
+              };
+            }),
+          };
+        } else {
+          return s;
+        }
+      } else {
+        // Add to section directly
+        const itemsInSection = section.items.length;
+        newItem.sl = itemsInSection + 1;
+        updatedSection = {
+          ...s,
+          items: [...s.items, newItem],
+        };
       }
-    } else {
-      // Add to module directly
-      const itemsInModule = module.items.length;
-      newItem.sl = itemsInModule + 1;
-      updated[moduleIndex].items.push(newItem);
-    }
-
-    onModulesChange(updated);
+      // Calculate totals for the updated section
+      const totals = calculateSectionTotals(updatedSection);
+      return {
+        ...updatedSection,
+        total: totals.total,
+        grandTotal: totals.grandTotal,
+      };
+    });
+    
+    onSectionsChange(updated);
   };
 
-  const addGroupToModule = (moduleIndex: number) => {
-    const module = modules[moduleIndex];
+  const addGroupToSection = (sectionIndex: number) => {
+    const section = sections[sectionIndex];
     const newGroup: ItemGroup = {
       id: generateId(),
-      description: `Group ${module.groups.length + 1}`,
-      sortOrder: module.groups.length,
+      description: `Group ${section.groups.length + 1}`,
+      sortOrder: section.groups.length,
       items: [],
       quantity: 0,
       isExpanded: true,
     };
-    const updated = [...modules];
-    updated[moduleIndex].groups.push(newGroup);
-    onModulesChange(updated);
+    
+    // Create deep copy with new group added
+    const updated = sections.map((s, idx) => {
+      if (idx !== sectionIndex) return s;
+      const updatedSection = {
+        ...s,
+        groups: [...s.groups, newGroup],
+      };
+      // Calculate totals for the updated section (should be same since group is empty)
+      const totals = calculateSectionTotals(updatedSection);
+      return {
+        ...updatedSection,
+        total: totals.total,
+        grandTotal: totals.grandTotal,
+      };
+    });
+    
+    onSectionsChange(updated);
   };
 
   const updateItem = (
-    moduleIndex: number,
+    sectionIndex: number,
     itemIndex: number,
     groupIndex: number | undefined,
     updates: Partial<QuotationItem>
   ) => {
-    const updated = [...modules];
-    let item: QuotationItem;
+    const updated = sections.map((s, sIdx) => {
+      if (sIdx !== sectionIndex) return s;
 
-    if (groupIndex !== undefined) {
-      item = updated[moduleIndex].groups[groupIndex].items[itemIndex];
-    } else {
-      item = updated[moduleIndex].items[itemIndex];
-    }
+      let updatedSection: Section;
+      if (groupIndex !== undefined) {
+        const group = s.groups[groupIndex];
+        const item = group.items[itemIndex];
+        const updatedItem = { ...item, ...updates };
 
-    const updatedItem = { ...item, ...updates };
+        // Calculate amount based on dimensions
+        if (
+          updates.unitPrice !== undefined ||
+          updates.quantity !== undefined ||
+          updates.height !== undefined ||
+          updates.width !== undefined ||
+          updates.depth !== undefined
+        ) {
+          updatedItem.amount = calculateItemAmount(updatedItem);
+        }
 
-    // Calculate amount
-    if (updates.unitPrice !== undefined || updates.quantity !== undefined) {
-      updatedItem.amount =
-        (updatedItem.unitPrice || 0) * (updatedItem.quantity || 0);
-    }
+        updatedSection = {
+          ...s,
+          groups: s.groups.map((g, gIdx) => {
+            if (gIdx !== groupIndex) return g;
+            const updatedItems = g.items.map((it, iIdx) => 
+              iIdx === itemIndex ? updatedItem : it
+            );
+            return {
+              ...g,
+              items: updatedItems,
+              quantity: calculateGroupQuantity(updatedItems),
+            };
+          }),
+        };
+      } else {
+        const item = s.items[itemIndex];
+        const updatedItem = { ...item, ...updates };
 
-    if (groupIndex !== undefined) {
-      updated[moduleIndex].groups[groupIndex].items[itemIndex] = updatedItem;
-      // Update group quantity
-      updated[moduleIndex].groups[groupIndex].quantity =
-        updated[moduleIndex].groups[groupIndex].items.length;
-    } else {
-      updated[moduleIndex].items[itemIndex] = updatedItem;
-    }
+        // Calculate amount based on dimensions
+        if (
+          updates.unitPrice !== undefined ||
+          updates.quantity !== undefined ||
+          updates.height !== undefined ||
+          updates.width !== undefined ||
+          updates.depth !== undefined
+        ) {
+          updatedItem.amount = calculateItemAmount(updatedItem);
+        }
 
-    onModulesChange(updated);
+        updatedSection = {
+          ...s,
+          items: s.items.map((it, iIdx) => 
+            iIdx === itemIndex ? updatedItem : it
+          ),
+        };
+      }
+      // Calculate totals for the updated section
+      const totals = calculateSectionTotals(updatedSection);
+      return {
+        ...updatedSection,
+        total: totals.total,
+        grandTotal: totals.grandTotal,
+      };
+    });
+
+    onSectionsChange(updated);
   };
 
   const removeItem = (
-    moduleIndex: number,
+    sectionIndex: number,
     itemIndex: number,
     groupIndex: number | undefined
   ) => {
-    const updated = [...modules];
+    const updated = sections.map((s, sIdx) => {
+      if (sIdx !== sectionIndex) return s;
 
-    if (groupIndex !== undefined) {
-      updated[moduleIndex].groups[groupIndex].items = updated[moduleIndex].groups[
-        groupIndex
-      ].items.filter((_, i) => i !== itemIndex);
-      // Recalculate SL numbers
-      updated[moduleIndex].groups[groupIndex].items.forEach((item, i) => {
-        item.sl = i + 1;
-      });
-      // Update group quantity
-      updated[moduleIndex].groups[groupIndex].quantity =
-        updated[moduleIndex].groups[groupIndex].items.length;
-    } else {
-      updated[moduleIndex].items = updated[moduleIndex].items.filter(
-        (_, i) => i !== itemIndex
-      );
-      // Recalculate SL numbers
-      updated[moduleIndex].items.forEach((item, i) => {
-        item.sl = i + 1;
-      });
-    }
+      let updatedSection: Section;
+      if (groupIndex !== undefined) {
+        updatedSection = {
+          ...s,
+          groups: s.groups.map((g, gIdx) => {
+            if (gIdx !== groupIndex) return g;
+            const filteredItems = g.items.filter((_, i) => i !== itemIndex);
+            // Recalculate SL numbers
+            const itemsWithUpdatedSl = filteredItems.map((item, i) => ({
+              ...item,
+              sl: i + 1,
+            }));
+            return {
+              ...g,
+              items: itemsWithUpdatedSl,
+              quantity: calculateGroupQuantity(itemsWithUpdatedSl),
+            };
+          }),
+        };
+      } else {
+        const filteredItems = s.items.filter((_, i) => i !== itemIndex);
+        // Recalculate SL numbers
+        const itemsWithUpdatedSl = filteredItems.map((item, i) => ({
+          ...item,
+          sl: i + 1,
+        }));
+        updatedSection = {
+          ...s,
+          items: itemsWithUpdatedSl,
+        };
+      }
+      // Calculate totals for the updated section
+      const totals = calculateSectionTotals(updatedSection);
+      return {
+        ...updatedSection,
+        total: totals.total,
+        grandTotal: totals.grandTotal,
+      };
+    });
 
-    onModulesChange(updated);
+    onSectionsChange(updated);
   };
 
   const updateGroup = (
-    moduleIndex: number,
+    sectionIndex: number,
     groupIndex: number,
     updates: Partial<ItemGroup>
   ) => {
-    const updated = [...modules];
-    updated[moduleIndex].groups[groupIndex] = {
-      ...updated[moduleIndex].groups[groupIndex],
-      ...updates,
-    };
-    onModulesChange(updated);
+    const updated = sections.map((s, sIdx) => {
+      if (sIdx !== sectionIndex) return s;
+      return {
+        ...s,
+        groups: s.groups.map((g, gIdx) => {
+          if (gIdx !== groupIndex) return g;
+          return { ...g, ...updates };
+        }),
+      };
+    });
+    onSectionsChange(updated);
   };
 
-  const removeGroup = (moduleIndex: number, groupIndex: number) => {
-    const updated = [...modules];
-    updated[moduleIndex].groups = updated[moduleIndex].groups.filter(
-      (_, i) => i !== groupIndex
-    );
-    onModulesChange(updated);
+  const removeGroup = (sectionIndex: number, groupIndex: number) => {
+    const updated = sections.map((s, sIdx) => {
+      if (sIdx !== sectionIndex) return s;
+      const updatedSection = {
+        ...s,
+        groups: s.groups.filter((_, i) => i !== groupIndex),
+      };
+      // Calculate totals for the updated section
+      const totals = calculateSectionTotals(updatedSection);
+      return {
+        ...updatedSection,
+        total: totals.total,
+        grandTotal: totals.grandTotal,
+      };
+    });
+    onSectionsChange(updated);
   };
 
-  const toggleGroupExpanded = (moduleIndex: number, groupIndex: number) => {
-    const updated = [...modules];
-    const group = updated[moduleIndex].groups[groupIndex];
-    group.isExpanded = !group.isExpanded;
-    onModulesChange(updated);
+  const toggleGroupExpanded = (sectionIndex: number, groupIndex: number) => {
+    const updated = sections.map((s, sIdx) => {
+      if (sIdx !== sectionIndex) return s;
+      return {
+        ...s,
+        groups: s.groups.map((g, gIdx) => {
+          if (gIdx !== groupIndex) return g;
+          return { ...g, isExpanded: !g.isExpanded };
+        }),
+      };
+    });
+    onSectionsChange(updated);
   };
 
-  const handleDragEnd = (event: DragEndEvent, moduleIndex: number) => {
+  const handleDragEnd = (event: DragEndEvent, sectionIndex: number) => {
     const { active, over } = event;
 
     if (!over || active.id === over.id) return;
 
-    const module = modules[moduleIndex];
+    const section = sections[sectionIndex];
     const activeId = active.id as string;
     const overId = over.id as string;
 
@@ -460,20 +657,20 @@ export function QuotationItemsArea({
     let activeItemIndex = -1;
     let overItemIndex = -1;
 
-    // Search in module items
-    activeItemIndex = module.items.findIndex((item) => item.id === activeId);
+    // Search in section items
+    activeItemIndex = section.items.findIndex((item) => item.id === activeId);
     if (activeItemIndex !== -1) {
-      activeItem = module.items[activeItemIndex];
+      activeItem = section.items[activeItemIndex];
     }
 
     // Search in groups
     if (!activeItem) {
-      for (let i = 0; i < module.groups.length; i++) {
-        const index = module.groups[i].items.findIndex(
+      for (let i = 0; i < section.groups.length; i++) {
+        const index = section.groups[i].items.findIndex(
           (item) => item.id === activeId
         );
         if (index !== -1) {
-          activeItem = module.groups[i].items[index];
+          activeItem = section.groups[i].items[index];
           activeGroupIndex = i;
           activeItemIndex = index;
           break;
@@ -482,16 +679,16 @@ export function QuotationItemsArea({
     }
 
     // Find over item
-    overItemIndex = module.items.findIndex((item) => item.id === overId);
+    overItemIndex = section.items.findIndex((item) => item.id === overId);
     if (overItemIndex !== -1) {
-      overItem = module.items[overItemIndex];
+      overItem = section.items[overItemIndex];
     } else {
-      for (let i = 0; i < module.groups.length; i++) {
-        const index = module.groups[i].items.findIndex(
+      for (let i = 0; i < section.groups.length; i++) {
+        const index = section.groups[i].items.findIndex(
           (item) => item.id === overId
         );
         if (index !== -1) {
-          overItem = module.groups[i].items[index];
+          overItem = section.groups[i].items[index];
           overGroupIndex = i;
           overItemIndex = index;
           break;
@@ -501,110 +698,184 @@ export function QuotationItemsArea({
 
     if (!activeItem || !overItem) return;
 
-    const updated = [...modules];
-
-    // Same container (module or same group)
+    // Same container (section or same group)
     if (
       activeGroupIndex === undefined &&
       overGroupIndex === undefined
     ) {
-      // Both in module items
-      updated[moduleIndex].items = arrayMove(
-        module.items,
+      // Both in section items
+      const movedItems = arrayMove(
+        section.items,
         activeItemIndex,
         overItemIndex
       );
-      // Recalculate SL
-      updated[moduleIndex].items.forEach((item, i) => {
-        item.sl = i + 1;
+      const itemsWithUpdatedSl = movedItems.map((item, i) => ({
+        ...item,
+        sl: i + 1,
+      }));
+      
+      const updated = sections.map((s, idx) => {
+        if (idx !== sectionIndex) return s;
+        const updatedSection = { ...s, items: itemsWithUpdatedSl };
+        // Calculate totals for the updated section
+        const totals = calculateSectionTotals(updatedSection);
+        return {
+          ...updatedSection,
+          total: totals.total,
+          grandTotal: totals.grandTotal,
+        };
       });
+      onSectionsChange(updated);
     } else if (
       activeGroupIndex !== undefined &&
       overGroupIndex !== undefined &&
       activeGroupIndex === overGroupIndex
     ) {
       // Both in same group
-      updated[moduleIndex].groups[activeGroupIndex].items = arrayMove(
-        module.groups[activeGroupIndex].items,
+      const group = section.groups[activeGroupIndex];
+      const movedItems = arrayMove(
+        group.items,
         activeItemIndex,
         overItemIndex
       );
-      // Recalculate SL
-      updated[moduleIndex].groups[activeGroupIndex].items.forEach(
-        (item, i) => {
-          item.sl = i + 1;
-        }
-      );
+      const itemsWithUpdatedSl = movedItems.map((item, i) => ({
+        ...item,
+        sl: i + 1,
+      }));
+      
+      const updated = sections.map((s, idx) => {
+        if (idx !== sectionIndex) return s;
+        const updatedSection = {
+          ...s,
+          groups: s.groups.map((g, gIdx) => {
+            if (gIdx !== activeGroupIndex) return g;
+            return {
+              ...g,
+              items: itemsWithUpdatedSl,
+              quantity: calculateGroupQuantity(itemsWithUpdatedSl),
+            };
+          }),
+        };
+        // Calculate totals for the updated section
+        const totals = calculateSectionTotals(updatedSection);
+        return {
+          ...updatedSection,
+          total: totals.total,
+          grandTotal: totals.grandTotal,
+        };
+      });
+      onSectionsChange(updated);
     } else {
       // Moving between containers
-      // Remove from source
-      if (activeGroupIndex !== undefined) {
-        updated[moduleIndex].groups[activeGroupIndex].items.splice(
-          activeItemIndex,
-          1
-        );
-        updated[moduleIndex].groups[activeGroupIndex].quantity =
-          updated[moduleIndex].groups[activeGroupIndex].items.length;
-      } else {
-        updated[moduleIndex].items.splice(activeItemIndex, 1);
-      }
+      const updated = sections.map((s, idx) => {
+        if (idx !== sectionIndex) return s;
+        
+        // Remove from source
+        let newItems = [...s.items];
+        const newGroups = s.groups.map((g) => ({ ...g, items: [...g.items] }));
+        
+        if (activeGroupIndex !== undefined) {
+          newGroups[activeGroupIndex].items = newGroups[activeGroupIndex].items.filter(
+            (_, i) => i !== activeItemIndex
+          );
+          newGroups[activeGroupIndex].quantity = calculateGroupQuantity(newGroups[activeGroupIndex].items);
+        } else {
+          newItems = newItems.filter((_, i) => i !== activeItemIndex);
+        }
 
-      // Add to destination
-      if (overGroupIndex !== undefined) {
-        const insertIndex =
-          overItemIndex === -1
-            ? updated[moduleIndex].groups[overGroupIndex].items.length
-            : overItemIndex;
-        updated[moduleIndex].groups[overGroupIndex].items.splice(
-          insertIndex,
-          0,
-          activeItem
-        );
-        // Recalculate SL
-        updated[moduleIndex].groups[overGroupIndex].items.forEach(
-          (item, i) => {
-            item.sl = i + 1;
+        // Add to destination (activeItem is guaranteed to be non-null here)
+        if (activeItem) {
+          if (overGroupIndex !== undefined) {
+            const insertIndex =
+              overItemIndex === -1
+                ? newGroups[overGroupIndex].items.length
+                : overItemIndex;
+            newGroups[overGroupIndex].items.splice(insertIndex, 0, activeItem);
+            // Recalculate SL
+            newGroups[overGroupIndex].items = newGroups[overGroupIndex].items.map(
+              (item, i) => ({ ...item, sl: i + 1 })
+            );
+            newGroups[overGroupIndex].quantity = calculateGroupQuantity(newGroups[overGroupIndex].items);
+          } else {
+            const insertIndex =
+              overItemIndex === -1
+                ? newItems.length
+                : overItemIndex;
+            newItems.splice(insertIndex, 0, activeItem);
+            // Recalculate SL
+            newItems = newItems.map((item, i) => ({ ...item, sl: i + 1 }));
           }
-        );
-        updated[moduleIndex].groups[overGroupIndex].quantity =
-          updated[moduleIndex].groups[overGroupIndex].items.length;
-      } else {
-        const insertIndex =
-          overItemIndex === -1
-            ? updated[moduleIndex].items.length
-            : overItemIndex;
-        updated[moduleIndex].items.splice(insertIndex, 0, activeItem);
-        // Recalculate SL
-        updated[moduleIndex].items.forEach((item, i) => {
-          item.sl = i + 1;
-        });
-      }
+        }
+        
+        const updatedSection = {
+          ...s,
+          items: newItems,
+          groups: newGroups,
+        };
+        // Calculate totals for the updated section
+        const totals = calculateSectionTotals(updatedSection);
+        return {
+          ...updatedSection,
+          total: totals.total,
+          grandTotal: totals.grandTotal,
+        };
+      });
+      onSectionsChange(updated);
     }
-
-    onModulesChange(updated);
   };
 
-  const calculateModuleTotal = (module: Module): number => {
-    let total = module.items.reduce((sum, item) => sum + (item.amount || 0), 0);
-    module.groups.forEach((group) => {
-      total += group.items.reduce((sum, item) => sum + (item.amount || 0), 0);
+  // Calculate item amount based on dimensions
+  const calculateItemAmount = (item: QuotationItem): number => {
+    const h = item.height;
+    const w = item.width;
+    const d = item.depth;
+    const unitPrice = item.unitPrice || 0;
+    const quantity = item.quantity || 0;
+
+    // If height, width, and depth are all present and non-zero, use: h * w * d * unitPrice * quantity
+    if (h != null && w != null && d != null && h > 0 && w > 0 && d > 0) {
+      return h * w * d * unitPrice * quantity;
+    }
+    
+    // Otherwise: unitPrice * quantity
+    return unitPrice * quantity;
+  };
+
+  // Calculate group quantity as sum of all item quantities
+  const calculateGroupQuantity = (items: QuotationItem[]): number => {
+    return items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  };
+
+  // Calculate section totals (total and grandTotal)
+  const calculateSectionTotals = (section: Section) => {
+    let sectionTotal = section.items.reduce((sum, item) => sum + (item.amount || 0), 0);
+    section.groups.forEach((group) => {
+      sectionTotal += group.items.reduce((sum, item) => sum + (item.amount || 0), 0);
     });
-    if (module.discount) {
-      total = total * (1 - module.discount / 100);
-    }
-    return total;
+    // Calculate grandTotal = total - discount
+    const discount = section.discount || 0;
+    const grandTotal = Math.max(0, sectionTotal - discount);
+    return {
+      total: sectionTotal,
+      grandTotal: grandTotal,
+    };
   };
 
-  const grandTotal = modules.reduce(
-    (sum, module) => sum + calculateModuleTotal(module),
+  const calculateSectionTotal = (section: Section): number => {
+    const totals = calculateSectionTotals(section);
+    return totals.grandTotal;
+  };
+
+  const grandTotal = sections.reduce(
+    (sum, section) => sum + calculateSectionTotal(section),
     0
   );
 
   // Get all item IDs for sortable context
-  const getAllItemIds = (module: Module): string[] => {
+  const getAllItemIds = (section: Section): string[] => {
     const ids: string[] = [];
-    module.items.forEach((item) => ids.push(item.id));
-    module.groups.forEach((group) => {
+    section.items.forEach((item) => ids.push(item.id));
+    section.groups.forEach((group) => {
       group.items.forEach((item) => ids.push(item.id));
     });
     return ids;
@@ -614,31 +885,31 @@ export function QuotationItemsArea({
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">Quotation Items</h2>
-        <Button type="button" onClick={addModule} size="sm">
+        <Button type="button" onClick={addSection} size="sm">
           <FiPlus className="w-4 h-4 mr-2" />
-          Add Module
+          Add Section
         </Button>
       </div>
 
-      {modules.length === 0 ? (
+      {sections.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            <p>No modules added. Click "Add Module" to get started.</p>
+            <p>No sections added. Click &quot;Add Section&quot; to get started.</p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
-          {modules.map((module, moduleIndex) => {
-            const moduleTotal = calculateModuleTotal(module);
-            const isEditing = editingModule === `${moduleIndex}`;
-            const allItemIds = getAllItemIds(module);
+          {sections.map((section, sectionIndex) => {
+            const sectionTotal = calculateSectionTotal(section);
+            const isEditing = editingSection === `${sectionIndex}`;
+            const allItemIds = getAllItemIds(section);
 
             return (
               <DndContext
-                key={moduleIndex}
+                key={sectionIndex}
                 sensors={sensors}
                 collisionDetection={closestCenter}
-                onDragEnd={(e) => handleDragEnd(e, moduleIndex)}
+                onDragEnd={(e) => handleDragEnd(e, sectionIndex)}
               >
                 <Card>
                   <CardHeader className="pb-3">
@@ -646,63 +917,84 @@ export function QuotationItemsArea({
                       <div className="flex-1">
                         {isEditing ? (
                           <Input
-                            value={module.title}
+                            value={section.title}
                             onChange={(e) =>
-                              updateModule(moduleIndex, { title: e.target.value })
+                              updateSection(sectionIndex, { title: e.target.value })
                             }
                             className="font-semibold mb-2"
-                            onBlur={() => setEditingModule(null)}
+                            onBlur={() => setEditingSection(null)}
                             autoFocus
                           />
                         ) : (
                           <CardTitle
                             className="text-base cursor-pointer"
-                            onClick={() => setEditingModule(`${moduleIndex}`)}
+                            onClick={() => setEditingSection(`${sectionIndex}`)}
                           >
-                            {module.title}
+                            {section.title}
                           </CardTitle>
                         )}
-                        {module.note && (
+                        {section.note && (
                           <p className="text-xs text-muted-foreground mt-1">
-                            {module.note}
+                            {section.note}
                           </p>
                         )}
                       </div>
                       <div className="flex gap-2 items-center">
                         <Badge variant="outline">
-                          {formatCurrency(moduleTotal)}
+                          {formatCurrency(sectionTotal)}
                         </Badge>
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => removeModule(moduleIndex)}
+                          onClick={() => removeSection(sectionIndex)}
                         >
                           <FiTrash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
 
-                    {/* Module Actions */}
-                    <div className="flex gap-2 mt-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addGroupToModule(moduleIndex)}
-                      >
-                        <FiPlus className="w-4 h-4 mr-2" />
-                        Add Group
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addItemToModule(moduleIndex)}
-                      >
-                        <FiPlus className="w-4 h-4 mr-2" />
-                        Add Item
-                      </Button>
+                    {/* Section Actions */}
+                    <div className="flex gap-2 mt-3 items-center justify-between">
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addGroupToSection(sectionIndex)}
+                        >
+                          <FiPlus className="w-4 h-4 mr-2" />
+                          Add Group
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addItemToSection(sectionIndex)}
+                        >
+                          <FiPlus className="w-4 h-4 mr-2" />
+                          Add Item
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor={`section-discount-${sectionIndex}`} className="text-xs whitespace-nowrap">
+                          Discount Amount:
+                        </Label>
+                        <Input
+                          id={`section-discount-${sectionIndex}`}
+                          type="number"
+                          value={section.discount || ''}
+                          onChange={(e) => {
+                            const discount = e.target.value ? parseFloat(e.target.value) : undefined;
+                            updateSection(sectionIndex, { discount });
+                            dispatch(updateSectionDiscount({ sectionIndex, discount }));
+                          }}
+                          placeholder="0.00"
+                          className="h-8 text-sm w-32"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
                     </div>
                   </CardHeader>
 
@@ -713,7 +1005,7 @@ export function QuotationItemsArea({
                     >
                       <div className="space-y-4">
                         {/* Groups - Show First */}
-                        {module.groups.map((group, groupIndex) => (
+                        {section.groups.map((group, groupIndex) => (
                           <Card
                             key={group.id}
                             className="border px-[-2] bg-muted/30"
@@ -726,7 +1018,7 @@ export function QuotationItemsArea({
                                     variant="ghost"
                                     size="sm"
                                     onClick={() =>
-                                      toggleGroupExpanded(moduleIndex, groupIndex)
+                                      toggleGroupExpanded(sectionIndex, groupIndex)
                                     }
                                     className="h-6 w-6 p-0"
                                   >
@@ -740,7 +1032,7 @@ export function QuotationItemsArea({
                                     <Input
                                       value={group.code || ''}
                                       onChange={(e) =>
-                                        updateGroup(moduleIndex, groupIndex, {
+                                        updateGroup(sectionIndex, groupIndex, {
                                           code: e.target.value,
                                         })
                                       }
@@ -750,7 +1042,7 @@ export function QuotationItemsArea({
                                     <Input
                                       value={group.description}
                                       onChange={(e) =>
-                                        updateGroup(moduleIndex, groupIndex, {
+                                        updateGroup(sectionIndex, groupIndex, {
                                           description: e.target.value,
                                         })
                                       }
@@ -766,7 +1058,7 @@ export function QuotationItemsArea({
                                         variant="ghost"
                                         size="sm"
                                         onClick={() =>
-                                          removeGroup(moduleIndex, groupIndex)
+                                          removeGroup(sectionIndex, groupIndex)
                                         }
                                         className="h-8 w-8 p-0"
                                       >
@@ -779,7 +1071,7 @@ export function QuotationItemsArea({
                                             variant="outline"
                                             size="sm"
                                             onClick={() =>
-                                              addItemToModule(moduleIndex, group.id)
+                                              addItemToSection(sectionIndex, group.id)
                                             }
                                             className="h-7 text-xs"
                                           >
@@ -817,13 +1109,13 @@ export function QuotationItemsArea({
                                         <SortableItem
                                           key={item.id}
                                           item={item}
-                                          moduleIndex={moduleIndex}
+                                          sectionIndex={sectionIndex}
                                           itemIndex={itemIndex}
                                           groupIndex={groupIndex}
                                           catalogItems={catalogItems}
                                           onUpdate={(updates) =>
                                             updateItem(
-                                              moduleIndex,
+                                              sectionIndex,
                                               itemIndex,
                                               groupIndex,
                                               updates
@@ -831,7 +1123,7 @@ export function QuotationItemsArea({
                                           }
                                           onRemove={() =>
                                             removeItem(
-                                              moduleIndex,
+                                              sectionIndex,
                                               itemIndex,
                                               groupIndex
                                             )
@@ -846,8 +1138,8 @@ export function QuotationItemsArea({
                           </Card>
                         ))}
 
-                        {/* Direct Module Items - Show After Groups */}
-                        {module.items.length > 0 && (
+                        {/* Direct Section Items - Show After Groups */}
+                        {section.items.length > 0 && (
                           <div className="overflow-x-auto">
                             <Table>
                               <TableHeader>
@@ -864,23 +1156,23 @@ export function QuotationItemsArea({
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {module.items.map((item, itemIndex) => (
+                                {section.items.map((item, itemIndex) => (
                                   <SortableItem
                                     key={item.id}
                                     item={item}
-                                    moduleIndex={moduleIndex}
+                                    sectionIndex={sectionIndex}
                                     itemIndex={itemIndex}
                                     catalogItems={catalogItems}
                                     onUpdate={(updates) =>
                                       updateItem(
-                                        moduleIndex,
+                                        sectionIndex,
                                         itemIndex,
                                         undefined,
                                         updates
                                       )
                                     }
                                     onRemove={() =>
-                                      removeItem(moduleIndex, itemIndex, undefined)
+                                      removeItem(sectionIndex, itemIndex, undefined)
                                     }
                                   />
                                 ))}
@@ -890,6 +1182,25 @@ export function QuotationItemsArea({
                         )}
                       </div>
                     </SortableContext>
+
+                    {/* Section Note Field */}
+                    <div className="mt-4 pt-4 border-t">
+                      <Label htmlFor={`section-note-${sectionIndex}`} className="text-xs mb-1">
+                        Note
+                      </Label>
+                      <Textarea
+                        id={`section-note-${sectionIndex}`}
+                        value={section.note || ''}
+                        onChange={(e) => {
+                          const note = e.target.value;
+                          updateSection(sectionIndex, { note });
+                          dispatch(updateSectionNote({ sectionIndex, note }));
+                        }}
+                        placeholder="Enter section note"
+                        className="text-sm min-h-[20px] w-full"
+                        rows={2}
+                      />
+                    </div>
                   </CardContent>
                 </Card>
               </DndContext>

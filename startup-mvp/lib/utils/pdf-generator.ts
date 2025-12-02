@@ -5,18 +5,18 @@ import { formatDate, formatCurrency } from './formatters';
 
 // Helper function to get unit description
 const getUnitDescription = (item: any): string => {
-  // For now, we'll use PC as default, but this can be enhanced
-  return 'PC';
+  // Use unit from item if available, otherwise default to PC
+  return item.unit || 'PC';
 };
 
-// Helper function to combine all items from a module (groups + direct items)
-const getAllModuleItems = (module: any): any[] => {
+// Helper function to combine all items from a section (groups + direct items)
+const getAllSectionItems = (section: any): any[] => {
   const allItems: any[] = [];
   let slCounter = 1;
 
   // Add items from groups first
-  if (module.groups && module.groups.length > 0) {
-    module.groups.forEach((group: any) => {
+  if (section.groups && section.groups.length > 0) {
+    section.groups.forEach((group: any) => {
       if (group.items && group.items.length > 0) {
         group.items.forEach((item: any) => {
           allItems.push({
@@ -30,8 +30,8 @@ const getAllModuleItems = (module: any): any[] => {
   }
 
   // Add direct items
-  if (module.items && module.items.length > 0) {
-    module.items.forEach((item: any) => {
+  if (section.items && section.items.length > 0) {
+    section.items.forEach((item: any) => {
       allItems.push({
         ...item,
         box: item.code || '',
@@ -47,18 +47,50 @@ const getAllModuleItems = (module: any): any[] => {
 const loadImageAsBase64 = async (imagePath: string): Promise<string | null> => {
   try {
     const response = await fetch(imagePath);
+    if (!response.ok) {
+      console.warn(`Image not found at ${imagePath}, skipping logo`);
+      return null;
+    }
+    
     const blob = await response.blob();
+    
+    // Check if the blob is actually an image
+    if (!blob.type.startsWith('image/')) {
+      console.warn(`File at ${imagePath} is not an image, skipping logo`);
+      return null;
+    }
+    
+    // Check if blob has content
+    if (blob.size === 0) {
+      console.warn(`Image at ${imagePath} is empty, skipping logo`);
+      return null;
+    }
+    
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64String = reader.result as string;
-        resolve(base64String);
+        try {
+          const base64String = reader.result as string;
+          // Validate base64 string
+          if (!base64String || !base64String.startsWith('data:image/')) {
+            console.warn(`Invalid image data from ${imagePath}, skipping logo`);
+            resolve(null);
+            return;
+          }
+          resolve(base64String);
+        } catch (error) {
+          console.warn(`Error processing image data from ${imagePath}:`, error);
+          resolve(null);
+        }
       };
-      reader.onerror = reject;
+      reader.onerror = () => {
+        console.warn(`Error reading image file from ${imagePath}, skipping logo`);
+        resolve(null); // Resolve with null instead of rejecting
+      };
       reader.readAsDataURL(blob);
     });
   } catch (error) {
-    console.error('Error loading image:', error);
+    console.warn(`Error loading image from ${imagePath}, skipping logo:`, error);
     return null;
   }
 };
@@ -94,14 +126,20 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   try {
     const logoBase64 = await loadImageAsBase64('/clientLogo.png');
     if (logoBase64) {
-      const logoWidth = 40;
-      const logoHeight = 40;
-      const logoX = margin + 5;
-      const logoY = yPos;
-      doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
+      try {
+        const logoWidth = 40;
+        const logoHeight = 40;
+        const logoX = margin + 5;
+        const logoY = yPos;
+        doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
+      } catch (imageError) {
+        console.warn('Error adding logo image to PDF, continuing without logo:', imageError);
+        // Continue without logo - PDF generation should not fail
+      }
     }
   } catch (error) {
-    console.error('Error loading logo:', error);
+    console.warn('Error loading logo, continuing without logo:', error);
+    // Continue without logo - PDF generation should not fail
   }
 
   // Company Name (Right side of header)
@@ -133,10 +171,16 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   try {
     const logoBase64 = await loadImageAsBase64('/clientLogo.png');
     if (logoBase64) {
-      doc.addImage(logoBase64, 'PNG', centerX - largeLogoSize / 2, yPos, largeLogoSize, largeLogoSize);
+      try {
+        doc.addImage(logoBase64, 'PNG', centerX - largeLogoSize / 2, yPos, largeLogoSize, largeLogoSize);
+      } catch (imageError) {
+        console.warn('Error adding large logo to PDF, continuing without logo:', imageError);
+        // Continue without logo
+      }
     }
   } catch (error) {
     // If logo fails, continue without it
+    console.warn('Error loading large logo, continuing without logo:', error);
   }
   yPos += largeLogoSize + 20;
 
@@ -231,13 +275,19 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   try {
     const logoBase64 = await loadImageAsBase64('/clientLogo.png');
     if (logoBase64) {
-      const logoSize = 30;
-      const logoXBottom = pageWidth - margin - logoSize - 5;
-      const logoYBottom = pageHeight - margin - logoSize - 5;
-      doc.addImage(logoBase64, 'PNG', logoXBottom, logoYBottom, logoSize, logoSize);
+      try {
+        const logoSize = 30;
+        const logoXBottom = pageWidth - margin - logoSize - 5;
+        const logoYBottom = pageHeight - margin - logoSize - 5;
+        doc.addImage(logoBase64, 'PNG', logoXBottom, logoYBottom, logoSize, logoSize);
+      } catch (imageError) {
+        console.warn('Error adding bottom logo to PDF, continuing without logo:', imageError);
+        // Continue without logo
+      }
     }
   } catch (error) {
     // Continue without logo
+    console.warn('Error loading bottom logo, continuing without logo:', error);
   }
 
   // ============================================
@@ -301,28 +351,36 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   doc.text('Financial Statement:', margin + 10, yPos);
   yPos += 5;
 
-  // Calculate module totals for financial statement
-  const hasModules = quotation.modules && Array.isArray(quotation.modules) && quotation.modules.length > 0;
+  // Calculate section totals for financial statement
+  const hasSections = (quotation.section || quotation.sections) && Array.isArray(quotation.section || quotation.sections) && (quotation.section || quotation.sections).length > 0;
+  const sections = quotation.section || quotation.sections || [];
   const financialStatementData: any[] = [];
   let grandTotal = 0;
 
-  if (hasModules) {
-    quotation.modules.forEach((module: any, index: number) => {
-      const allItems = getAllModuleItems(module);
-      let moduleTotal = 0;
-      allItems.forEach((item: any) => {
-        moduleTotal += Number(item.amount || 0);
-      });
-      if (module.discount) {
-        moduleTotal = moduleTotal * (1 - Number(module.discount) / 100);
+  if (hasSections) {
+    sections.forEach((section: any, index: number) => {
+      // Use grandTotal if available (already calculated with discount), otherwise calculate
+      let sectionTotal = 0;
+      if (section.grandTotal != null) {
+        sectionTotal = Number(section.grandTotal || 0);
+      } else {
+        // Calculate from items
+        const allItems = getAllSectionItems(section);
+        allItems.forEach((item: any) => {
+          sectionTotal += Number(item.amount || 0);
+        });
+        // Apply discount (amount-based, not percentage)
+        if (section.discount) {
+          sectionTotal = Math.max(0, sectionTotal - Number(section.discount));
+        }
       }
-      grandTotal += moduleTotal;
+      grandTotal += sectionTotal;
       
-      // Combine SL number and module name in first column, Amount in second
-      const moduleName = module.title || `Module ${index + 1}`;
+      // Combine SL number and section name in first column, Amount in second
+      const sectionName = section.title || `Section ${index + 1}`;
       financialStatementData.push([
-        `${index + 1}: ${moduleName}`,
-        formatCurrency(moduleTotal),
+        `${index + 1}: ${sectionName}`,
+        formatCurrency(sectionTotal),
       ]);
     });
   }
@@ -360,7 +418,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
       lineColor: [0, 0, 0],
     },
     columnStyles: {
-      0: { cellWidth: 'auto', halign: 'left' }, // SL with module name
+      0: { cellWidth: 'auto', halign: 'left' }, // SL with section name
       1: { cellWidth: 60, halign: 'right' }, // Amount Tk
     },
     margin: { left: margin + 10, right: margin + 10 },
@@ -438,16 +496,16 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   });
 
   // ============================================
-  // PAGES 3+: QUOTATION TABLES (One module per page)
+  // PAGES 3+: QUOTATION TABLES (One section per page)
   // ============================================
-  // hasModules already declared above
+  // hasSections already declared above
   const hasPhases = quotation.phases && Array.isArray(quotation.phases) && quotation.phases.length > 0;
   const hasItems = quotation.items && Array.isArray(quotation.items) && quotation.items.length > 0;
 
-  if (hasModules) {
-    // New module-based structure - Each module on a new page
-    quotation.modules.forEach((module: any, moduleIndex: number) => {
-      // New page for each module
+  if (hasSections) {
+    // New section-based structure - Each section on a new page
+    sections.forEach((section: any, sectionIndex: number) => {
+      // New page for each section
       doc.addPage();
       doc.setFillColor(255, 255, 255);
       doc.rect(0, 0, pageWidth, pageHeight, 'F');
@@ -457,19 +515,19 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
       // Section title outside the table, above it
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.text(module.title || `Module ${moduleIndex + 1}`, margin + 5, yPos);
+      doc.text(section.title || `Section ${sectionIndex + 1}`, margin + 5, yPos);
       yPos += 10;
 
       // Prepare table data with groups, items, and notes
       const tableData: any[] = [];
 
-      // Calculate module total
-      let moduleTotal = 0;
+      // Calculate section total
+      let sectionTotal = 0;
       let slCounter = 1;
 
       // 2. Process groups first (groups appear before direct items)
       // Create a copy of the array before sorting to avoid read-only issues
-      const sortedGroups = [...(module.groups || [])].sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      const sortedGroups = [...(section.groups || [])].sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
       
       sortedGroups.forEach((group: any) => {
         // Group header row - spans Code and Description columns
@@ -533,7 +591,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
             }
             
             tableData.push(row);
-            moduleTotal += Number(item.amount || 0);
+            sectionTotal += Number(item.amount || 0);
           } catch (itemError) {
             console.error('Error processing group item:', itemError, item);
             // Continue with next item
@@ -562,8 +620,8 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
         }
       });
 
-      // 7. Direct module items (not in groups) - Create a copy of the array before sorting to avoid read-only issues
-      const sortedDirectItems = [...(module.items || [])].sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      // 7. Direct section items (not in groups) - Create a copy of the array before sorting to avoid read-only issues
+      const sortedDirectItems = [...(section.items || [])].sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
       
       sortedDirectItems.forEach((item: any) => {
         try {
@@ -607,17 +665,20 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
           }
           
           tableData.push(row);
-          moduleTotal += Number(item.amount || 0);
+          sectionTotal += Number(item.amount || 0);
         } catch (itemError) {
           console.error('Error processing direct item:', itemError, item);
           // Continue with next item
         }
       });
 
-      // Apply discount if any
-      if (module.discount) {
-        moduleTotal = moduleTotal * (1 - Number(module.discount) / 100);
+      // Apply discount if any (amount-based, not percentage)
+      if (section.discount) {
+        sectionTotal = Math.max(0, sectionTotal - Number(section.discount));
       }
+
+      // Use grandTotal if available, otherwise use calculated total
+      const finalTotal = section.grandTotal != null ? Number(section.grandTotal || 0) : sectionTotal;
 
       // 8. Total row - Create new objects to avoid read-only issues
       tableData.push([
@@ -627,16 +688,16 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
           styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 },
         },
         {
-          content: formatCurrency(moduleTotal),
+          content: formatCurrency(finalTotal),
           styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 },
         },
       ]);
 
-      // 9. Module Note row - Create new object to avoid read-only issues
-      if (module.note) {
+      // 9. Section Note row - Create new object to avoid read-only issues
+      if (section.note) {
         tableData.push([
           {
-            content: `Note: ${String(module.note)}`,
+            content: `Note: ${String(section.note)}`,
             colSpan: 11,
             styles: { fontStyle: 'italic', fontSize: 7, halign: 'left' },
           },
@@ -644,8 +705,8 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
       }
 
       // 10. Prepared By row - Create new object to avoid read-only issues
-      const preparedByName = module.preparedBy?.name || quotation.submittedBy?.name || quotation.submittedBy || 'N/A';
-      const preparedByRole = module.preparedBy?.role || '';
+      const preparedByName = section.preparedBy?.name || quotation.submittedBy?.name || quotation.submittedBy || 'N/A';
+      const preparedByRole = section.preparedBy?.role || '';
       const preparedByText = preparedByRole 
         ? `Prepared By: ${String(preparedByName)}, ${String(preparedByRole)}`
         : `Prepared By: ${String(preparedByName)}`;
@@ -660,11 +721,11 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
 
       // Generate table with exact design matching screenshot
       try {
-        // Ensure we have at least one row if module is empty
+        // Ensure we have at least one row if section is empty
         if (tableData.length === 0) {
           tableData.push([
             {
-              content: 'No items in this module',
+              content: 'No items in this section',
               colSpan: 11,
               styles: { halign: 'center', fontStyle: 'italic', fontSize: 8 },
             },
@@ -735,10 +796,10 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
           },
         });
       } catch (tableError) {
-        console.error('Error generating table for module:', tableError, module);
+        console.error('Error generating table for section:', tableError, section);
         // Add a simple text fallback
         doc.setFontSize(10);
-        doc.text(`Error generating table for ${module.title || 'module'}. Please check the console.`, margin + 5, yPos);
+        doc.text(`Error generating table for ${section.title || 'section'}. Please check the console.`, margin + 5, yPos);
         yPos += 10;
       }
 

@@ -23,11 +23,12 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
 
   const quotation = result.data;
 
+  console.log('quotation', quotation);
   // Note: PDF download will need to be handled in a client component
   // This is a server component, so we'll create a separate client component for the download button
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="min-h-screen">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <Link href="/dashboard/quotations">

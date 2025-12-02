@@ -127,6 +127,12 @@ export async function getQuotation(id: string) {
             company: true,
           },
         },
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         submittedBy: {
           select: {
             id: true,
@@ -193,9 +199,66 @@ export async function getQuotation(id: string) {
       };
     }
 
+    // Serialize Decimal values to numbers for client components
+    const serializedQuotation = {
+      ...quotation,
+      total: Number(quotation.total),
+      discount: quotation.discount ? Number(quotation.discount) : null,
+      grandTotal: quotation.grandTotal ? Number(quotation.grandTotal) : null,
+      shippingCharges: quotation.shippingCharges ? Number(quotation.shippingCharges) : null,
+      vatIncluded: quotation.vatIncluded,
+      projectLocation: quotation.projectLocation,
+      client: quotation.client,
+      organization: quotation.organization || null,
+      organizationId: quotation.organizationId || null,
+      submittedBy: quotation.submittedBy,
+      section: quotation.section?.map((section) => ({
+        ...section,
+        discount: section.discount ? Number(section.discount) : null,
+        total: section.total ? Number(section.total) : null,
+        grandTotal: section.grandTotal ? Number(section.grandTotal) : null,
+        groups: section.groups?.map((group) => ({
+          ...group,
+          quantity: group.quantity ? Number(group.quantity) : null,
+          items: group.items?.map((item) => ({
+            ...item,
+            height: item.height ? Number(item.height) : null,
+            width: item.width ? Number(item.width) : null,
+            depth: item.depth ? Number(item.depth) : null,
+            unit: item.unit || null,
+            unitPrice: Number(item.unitPrice),
+            quantity: Number(item.quantity),
+            unitShutter: item.unitShutter ? Number(item.unitShutter) : null,
+            totalShutter: item.totalShutter ? Number(item.totalShutter) : null,
+            amount: Number(item.amount),
+            item: item.item ? {
+              ...item.item,
+              unitPrice: Number(item.item.unitPrice),
+            } : null,
+          })),
+        })),
+        items: section.items?.map((item) => ({
+          ...item,
+          height: item.height ? Number(item.height) : null,
+          width: item.width ? Number(item.width) : null,
+          depth: item.depth ? Number(item.depth) : null,
+          unit: item.unit || null,
+          unitPrice: Number(item.unitPrice),
+          quantity: Number(item.quantity),
+          unitShutter: item.unitShutter ? Number(item.unitShutter) : null,
+          totalShutter: item.totalShutter ? Number(item.totalShutter) : null,
+          amount: Number(item.amount),
+          item: item.item ? {
+            ...item.item,
+            unitPrice: Number(item.item.unitPrice),
+          } : null,
+        })),
+      })),
+    };
+
     return {
       success: true,
-      data: quotation,
+      data: serializedQuotation,
     };
   } catch (error) {
     console.error('Error fetching quotation:', error);
@@ -264,71 +327,76 @@ export async function createQuotation(data: any) {
       };
     }
 
-    // Handle user (submittedBy)
-    let submittedById = data.submittedById || session.user.id;
-    if (!submittedById && data.submittedBy) {
-      const existingUser = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { email: data.submittedByContact || '' },
-            { name: data.submittedBy },
-          ],
-        },
-      });
-
-      if (existingUser) {
-        submittedById = existingUser.id;
-      } else {
-        const email = data.submittedByContact?.includes('@')
-          ? data.submittedByContact
-          : `${data.submittedBy.toLowerCase().replace(/\s+/g, '.')}@example.com`;
-        
-        const newUser = await prisma.user.create({
-          data: {
-            name: data.submittedBy,
-            email: email,
-            password: 'temp', // Should be handled properly in production
-            role: 'user',
-          },
-        });
-        submittedById = newUser.id;
-      }
-    }
+    // Use current session user for submittedById
+    const submittedById = session.user.id;
 
     // Map modules to sections (form uses "modules", Prisma uses "sections")
     const sections = data.sections || data.modules || [];
     
-    // Calculate total from sections
+    // Calculate total from sections (use grandTotal if available, otherwise calculate)
     let total = 0;
     if (sections && Array.isArray(sections)) {
       sections.forEach((section: any) => {
-        let sectionTotal = 0;
+        // Use grandTotal if available (already calculated with discount)
+        if (section.grandTotal != null) {
+          total += Number(section.grandTotal || 0);
+        } else {
+          // Otherwise calculate from items
+          let sectionTotal = 0;
 
-        // Sum direct items
-        if (section.items && Array.isArray(section.items)) {
-          section.items.forEach((item: any) => {
-            sectionTotal += Number(item.amount || 0);
-          });
+          // Sum direct items
+          if (section.items && Array.isArray(section.items)) {
+            section.items.forEach((item: any) => {
+              sectionTotal += Number(item.amount || 0);
+            });
+          }
+
+          // Sum items in groups
+          if (section.groups && Array.isArray(section.groups)) {
+            section.groups.forEach((group: any) => {
+              if (group.items && Array.isArray(group.items)) {
+                group.items.forEach((item: any) => {
+                  sectionTotal += Number(item.amount || 0);
+                });
+              }
+            });
+          }
+
+          // Apply discount (amount-based, not percentage)
+          if (section.discount) {
+            sectionTotal = Math.max(0, sectionTotal - Number(section.discount));
+          }
+
+          total += sectionTotal;
         }
-
-        // Sum items in groups
-        if (section.groups && Array.isArray(section.groups)) {
-          section.groups.forEach((group: any) => {
-            if (group.items && Array.isArray(group.items)) {
-              group.items.forEach((item: any) => {
-                sectionTotal += Number(item.amount || 0);
-              });
-            }
-          });
-        }
-
-        // Apply discount
-        if (section.discount) {
-          sectionTotal = sectionTotal * (1 - Number(section.discount) / 100);
-        }
-
-        total += sectionTotal;
       });
+    }
+
+    // Get TOS content if not provided
+    let tosContent = data.tos;
+    if (!tosContent) {
+      try {
+        const { getTOSContent } = await import('@/app/actions/quotation-helpers');
+        const tosResult = await getTOSContent();
+        tosContent = tosResult.success ? tosResult.content : null;
+      } catch (error) {
+        console.error('Error fetching TOS content:', error);
+        tosContent = null;
+      }
+    }
+
+    // Get cover letter content if not provided
+    let coverLetterContent = data.coverLetter;
+    if (!coverLetterContent && data.selectedCoverLetterId && data.selectedCoverLetterId !== 'custom') {
+      try {
+        const { getCoverLetterById } = await import('@/app/(dashboard)/dashboard/settings/_actions/coverLetter.action');
+        const coverLetterResult = await getCoverLetterById(data.selectedCoverLetterId);
+        if (coverLetterResult.success && coverLetterResult.coverLetter) {
+          coverLetterContent = coverLetterResult.coverLetter.content;
+        }
+      } catch (error) {
+        console.error('Error fetching cover letter:', error);
+      }
     }
 
     // Create quotation
@@ -336,28 +404,32 @@ export async function createQuotation(data: any) {
       data: {
         quotationNumber: data.quotationNumber || `QT-${Date.now()}`,
         subject: data.subject || '',
-        submittedTo: data.submittedTo || '',
         date: data.date ? new Date(data.date) : new Date(),
-        coverLetter: data.coverLetter || null,
-        financialStatement: data.financialStatement || null,
-        tos: data.tos || null,
-        attachments: data.attachments || null,
-        total: new Prisma.Decimal(total),
+        coverLetter: coverLetterContent || null,
+        tos: tosContent || null,
+        total: total > 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
         status: data.status || 'DRAFT',
         clientId: clientId,
-        submittedById: submittedById,
+        organizationId: data.organizationId || null,
+        submittedById: submittedById, // Always use session user
+        shippingCharges: data.shippingCharges ? new Prisma.Decimal(data.shippingCharges) : new Prisma.Decimal(0),
+        vatIncluded: data.vatIncluded || false,
+        projectLocation: data.projectLocation || null,
         section: {
           create: (sections || []).map((section: any, sectionIndex: number) => ({
             title: section.title || `Section ${sectionIndex + 1}`,
             note: section.note || null,
-            discount: section.discount ? new Prisma.Decimal(section.discount) : null,
+        discount: section.discount ? new Prisma.Decimal(section.discount) : new Prisma.Decimal(0),
+        total: section.total ? new Prisma.Decimal(section.total) : new Prisma.Decimal(0),
+        grandTotal: section.grandTotal ? new Prisma.Decimal(section.grandTotal) : new Prisma.Decimal(0),
             sortOrder: section.sortOrder ?? sectionIndex,
             preparedById: section.preparedById || session.user.id,
             groups: {
               create: (section.groups || []).map((group: any, groupIndex: number) => ({
                 code: group.code || null,
                 description: group.description || '',
-                quantity: group.quantity ? new Prisma.Decimal(group.quantity) : null,
+                quantity: group.quantity ? new Prisma.Decimal(group.quantity) : new Prisma.Decimal(0),
+                number: group.number || null,
                 sortOrder: group.sortOrder ?? groupIndex,
                 items: {
                   create: (group.items || []).map((item: any, itemIndex: number) => ({
@@ -367,14 +439,14 @@ export async function createQuotation(data: any) {
                     height: item.height ? new Prisma.Decimal(item.height) : null,
                     width: item.width ? new Prisma.Decimal(item.width) : null,
                     depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                    unit: item.unit || null,
                     unitPrice: new Prisma.Decimal(item.unitPrice || 0),
                     quantity: new Prisma.Decimal(item.quantity || 0),
                     unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
                     totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
                     amount: new Prisma.Decimal(item.amount || 0),
-                    note: item.note || null,
                     sortOrder: item.sortOrder ?? itemIndex,
-                    itemId: item.itemId || null,
+                    itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
                   })),
                 },
               })),
@@ -387,14 +459,14 @@ export async function createQuotation(data: any) {
                 height: item.height ? new Prisma.Decimal(item.height) : null,
                 width: item.width ? new Prisma.Decimal(item.width) : null,
                 depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                unit: item.unit || null,
                 unitPrice: new Prisma.Decimal(item.unitPrice || 0),
                 quantity: new Prisma.Decimal(item.quantity || 0),
                 unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
                 totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
                 amount: new Prisma.Decimal(item.amount || 0),
-                note: item.note || null,
                 sortOrder: item.sortOrder ?? itemIndex,
-                itemId: item.itemId || null,
+                itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
               })),
             },
           })),
@@ -445,6 +517,10 @@ export async function createQuotation(data: any) {
  * Update quotation
  */
 export async function updateQuotation(id: string, data: any) {
+  console.log('updateQuotation called with id:', id);
+  console.log('updateQuotation data keys:', Object.keys(data || {}));
+  console.log('updateQuotation sections count:', (data?.sections || data?.modules || []).length);
+  
   try {
     const session = await auth();
     
@@ -511,67 +587,46 @@ export async function updateQuotation(id: string, data: any) {
       };
     }
 
-    // Handle user (submittedBy)
-    let submittedById = data.submittedById || session.user.id;
-    if (!submittedById && data.submittedBy) {
-      const existingUser = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { email: data.submittedByContact || '' },
-            { name: data.submittedBy },
-          ],
-        },
-      });
-
-      if (existingUser) {
-        submittedById = existingUser.id;
-      } else {
-        const email = data.submittedByContact?.includes('@')
-          ? data.submittedByContact
-          : `${data.submittedBy.toLowerCase().replace(/\s+/g, '.')}@example.com`;
-        
-        const newUser = await prisma.user.create({
-          data: {
-            name: data.submittedBy,
-            email: email,
-            password: 'temp',
-            role: 'user',
-          },
-        });
-        submittedById = newUser.id;
-      }
-    }
+    // Use current session user for submittedById
+    const submittedById = session.user.id;
 
     // Map modules to sections (form uses "modules", Prisma uses "sections")
     const sections = data.sections || data.modules || [];
     
-    // Calculate total from sections
+    // Calculate total from sections (use grandTotal if available, otherwise calculate)
     let total = 0;
     if (sections && Array.isArray(sections)) {
       sections.forEach((section: any) => {
-        let sectionTotal = 0;
+        // Use grandTotal if available (already calculated with discount)
+        if (section.grandTotal != null) {
+          total += Number(section.grandTotal || 0);
+        } else {
+          // Otherwise calculate from items
+          let sectionTotal = 0;
 
-        if (section.items && Array.isArray(section.items)) {
-          section.items.forEach((item: any) => {
-            sectionTotal += Number(item.amount || 0);
-          });
+          if (section.items && Array.isArray(section.items)) {
+            section.items.forEach((item: any) => {
+              sectionTotal += Number(item.amount || 0);
+            });
+          }
+
+          if (section.groups && Array.isArray(section.groups)) {
+            section.groups.forEach((group: any) => {
+              if (group.items && Array.isArray(group.items)) {
+                group.items.forEach((item: any) => {
+                  sectionTotal += Number(item.amount || 0);
+                });
+              }
+            });
+          }
+
+          // Apply discount (amount-based, not percentage)
+          if (section.discount) {
+            sectionTotal = Math.max(0, sectionTotal - Number(section.discount));
+          }
+
+          total += sectionTotal;
         }
-
-        if (section.groups && Array.isArray(section.groups)) {
-          section.groups.forEach((group: any) => {
-            if (group.items && Array.isArray(group.items)) {
-              group.items.forEach((item: any) => {
-                sectionTotal += Number(item.amount || 0);
-              });
-            }
-          });
-        }
-
-        if (section.discount) {
-          sectionTotal = sectionTotal * (1 - Number(section.discount) / 100);
-        }
-
-        total += sectionTotal;
       });
     }
 
@@ -580,34 +635,68 @@ export async function updateQuotation(id: string, data: any) {
       where: { quotationId: id },
     });
 
+    // Get TOS content if not provided
+    let tosContent = data.tos;
+    if (!tosContent) {
+      try {
+        const { getTOSContent } = await import('@/app/actions/quotation-helpers');
+        const tosResult = await getTOSContent();
+        tosContent = tosResult.success ? tosResult.content : null;
+      } catch (error) {
+        console.error('Error fetching TOS content:', error);
+        tosContent = null;
+      }
+    }
+
+    // Get cover letter content if not provided
+    let coverLetterContent = data.coverLetter;
+    if (!coverLetterContent && data.selectedCoverLetterId && data.selectedCoverLetterId !== 'custom') {
+      try {
+        const { getCoverLetterById } = await import('@/app/(dashboard)/dashboard/settings/_actions/coverLetter.action');
+        const coverLetterResult = await getCoverLetterById(data.selectedCoverLetterId);
+        if (coverLetterResult.success && coverLetterResult.coverLetter) {
+          coverLetterContent = coverLetterResult.coverLetter.content;
+        }
+      } catch (error) {
+        console.error('Error fetching cover letter:', error);
+      }
+    }
+
     // Update quotation with new sections
     const quotation = await prisma.quotation.update({
       where: { id },
       data: {
         quotationNumber: data.quotationNumber || existingQuotation.quotationNumber,
         subject: data.subject || existingQuotation.subject,
-        submittedTo: data.submittedTo || existingQuotation.submittedTo,
         date: data.date ? new Date(data.date) : existingQuotation.date,
-        coverLetter: data.coverLetter !== undefined ? (data.coverLetter || null) : existingQuotation.coverLetter,
+        coverLetter: coverLetterContent !== undefined ? (coverLetterContent || null) : existingQuotation.coverLetter,
         financialStatement: data.financialStatement !== undefined ? (data.financialStatement || null) : existingQuotation.financialStatement,
-        tos: data.tos !== undefined ? (data.tos || null) : existingQuotation.tos,
-        attachments: data.attachments !== undefined ? data.attachments : existingQuotation.attachments,
-        total: new Prisma.Decimal(total),
+        tos: tosContent !== undefined ? (tosContent || null) : existingQuotation.tos,
+        total: total >= 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
+        discount: data.discount !== undefined ? (data.discount ? new Prisma.Decimal(data.discount) : new Prisma.Decimal(0)) : (existingQuotation.discount || new Prisma.Decimal(0)),
+        grandTotal: total >= 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
         status: data.status || existingQuotation.status,
         clientId: clientId,
+        organizationId: data.organizationId !== undefined && data.organizationId !== '' ? (data.organizationId || null) : existingQuotation.organizationId,
         submittedById: submittedById,
+        shippingCharges: data.shippingCharges !== undefined ? (data.shippingCharges ? new Prisma.Decimal(data.shippingCharges) : new Prisma.Decimal(0)) : existingQuotation.shippingCharges,
+        vatIncluded: data.vatIncluded !== undefined ? data.vatIncluded : existingQuotation.vatIncluded,
+        projectLocation: data.projectLocation !== undefined ? (data.projectLocation || null) : existingQuotation.projectLocation,
         section: {
           create: (sections || []).map((section: any, sectionIndex: number) => ({
             title: section.title || `Section ${sectionIndex + 1}`,
             note: section.note || null,
-            discount: section.discount ? new Prisma.Decimal(section.discount) : null,
+        discount: section.discount ? new Prisma.Decimal(section.discount) : new Prisma.Decimal(0),
+        total: section.total ? new Prisma.Decimal(section.total) : new Prisma.Decimal(0),
+        grandTotal: section.grandTotal ? new Prisma.Decimal(section.grandTotal) : new Prisma.Decimal(0),
             sortOrder: section.sortOrder ?? sectionIndex,
             preparedById: section.preparedById || session.user.id,
             groups: {
               create: (section.groups || []).map((group: any, groupIndex: number) => ({
                 code: group.code || null,
                 description: group.description || '',
-                quantity: group.quantity ? new Prisma.Decimal(group.quantity) : null,
+                quantity: group.quantity ? new Prisma.Decimal(group.quantity) : new Prisma.Decimal(0),
+                number: group.number || null,
                 sortOrder: group.sortOrder ?? groupIndex,
                 items: {
                   create: (group.items || []).map((item: any, itemIndex: number) => ({
@@ -617,14 +706,14 @@ export async function updateQuotation(id: string, data: any) {
                     height: item.height ? new Prisma.Decimal(item.height) : null,
                     width: item.width ? new Prisma.Decimal(item.width) : null,
                     depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                    unit: item.unit || null,
                     unitPrice: new Prisma.Decimal(item.unitPrice || 0),
                     quantity: new Prisma.Decimal(item.quantity || 0),
                     unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
                     totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
                     amount: new Prisma.Decimal(item.amount || 0),
-                    note: item.note || null,
                     sortOrder: item.sortOrder ?? itemIndex,
-                    itemId: item.itemId || null,
+                    itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
                   })),
                 },
               })),
@@ -637,14 +726,14 @@ export async function updateQuotation(id: string, data: any) {
                 height: item.height ? new Prisma.Decimal(item.height) : null,
                 width: item.width ? new Prisma.Decimal(item.width) : null,
                 depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                unit: item.unit || null,
                 unitPrice: new Prisma.Decimal(item.unitPrice || 0),
                 quantity: new Prisma.Decimal(item.quantity || 0),
                 unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
                 totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
                 amount: new Prisma.Decimal(item.amount || 0),
-                note: item.note || null,
                 sortOrder: item.sortOrder ?? itemIndex,
-                itemId: item.itemId || null,
+                itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
               })),
             },
           })),
@@ -678,12 +767,31 @@ export async function updateQuotation(id: string, data: any) {
     revalidatePath('/dashboard/quotations');
     revalidatePath(`/dashboard/quotations/${id}`);
     
+    console.log('Update successful, quotation ID:', quotation.id);
+    console.log('Updated quotation number:', quotation.quotationNumber);
+    
     return {
       success: true,
       data: quotation,
     };
   } catch (error) {
     console.error('Error updating quotation:', error);
+    const sections = data.sections || data.modules || [];
+    console.error('Update data received:', JSON.stringify({
+      id,
+      sectionsCount: sections?.length || 0,
+      hasClientId: !!data.clientId,
+      hasOrganizationId: !!data.organizationId,
+      firstSectionTitle: sections?.[0]?.title,
+      quotationNumber: data.quotationNumber,
+      subject: data.subject,
+    }, null, 2));
+    
+    // Log the full error if it's a Prisma error
+    if (error && typeof error === 'object' && 'message' in error) {
+      console.error('Full error details:', error);
+    }
+    
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to update quotation',

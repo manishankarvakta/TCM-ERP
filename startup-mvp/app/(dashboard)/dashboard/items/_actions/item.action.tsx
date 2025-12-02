@@ -283,6 +283,68 @@ export async function getActiveCategories() {
 }
 
 /**
+ * Get all active items for dropdown selection
+ */
+export async function getActiveItems() {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        items: [],
+      };
+    }
+
+    const items = await prisma.item.findMany({
+      where: {
+        status: "active",
+      },
+      select: {
+        id: true,
+        code: true,
+        description: true,
+        unitPrice: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        unit: {
+          select: {
+            id: true,
+            symbol: true,
+          },
+        },
+      },
+      orderBy: {
+        code: "asc",
+      },
+    });
+
+    // Convert Decimal to number for serialization
+    const serializedItems = items.map((item) => ({
+      ...item,
+      unitPrice: Number(item.unitPrice),
+    }));
+
+    return {
+      success: true,
+      items: serializedItems,
+    };
+  } catch (error) {
+    console.error("getActiveItems error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch items",
+      items: [],
+    };
+  }
+}
+
+/**
  * Create a new item
  */
 export async function createItem(input: {
