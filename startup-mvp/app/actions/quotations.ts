@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { auth } from '@/lib/auth';
+import { notifyItemCreated, notifyItemUpdated, notifyItemDeleted } from '@/lib/notification';
+import { createUserLog, LogAction } from '@/lib/user-log';
 
 /**
  * Get all quotations with relations
@@ -125,12 +127,19 @@ export async function getQuotation(id: string) {
             phone: true,
             address: true,
             company: true,
+            image: true,
           },
         },
         organization: {
           select: {
             id: true,
             name: true,
+            details: true,
+            address: true,
+            phone: true,
+            email: true,
+            website: true,
+            logo: true,
           },
         },
         submittedBy: {
@@ -499,6 +508,29 @@ export async function createQuotation(data: any) {
 
     revalidatePath('/dashboard/quotations');
     
+    // Create notification for quotation creation
+    await notifyItemCreated(
+      session.user.id,
+      'Quotation',
+      quotation.quotationNumber
+    );
+    
+    // Log quotation creation
+    await createUserLog({
+      userId: session.user.id,
+      action: LogAction.ITEM_CREATED,
+      details: `Quotation "${quotation.quotationNumber}" created successfully`,
+      metadata: {
+        quotationId: quotation.id,
+        quotationNumber: quotation.quotationNumber,
+        subject: quotation.subject,
+        clientId: quotation.clientId,
+        organizationId: quotation.organizationId || null,
+        total: Number(quotation.total || 0),
+        status: quotation.status,
+      },
+    });
+    
     return {
       success: true,
       data: quotation,
@@ -770,6 +802,43 @@ export async function updateQuotation(id: string, data: any) {
     console.log('Update successful, quotation ID:', quotation.id);
     console.log('Updated quotation number:', quotation.quotationNumber);
     
+    // Track changes for notification
+    const changes: string[] = [];
+    if (data.subject && data.subject !== existingQuotation.subject) {
+      changes.push('subject');
+    }
+    if (data.status && data.status !== existingQuotation.status) {
+      changes.push('status');
+    }
+    if (data.organizationId !== undefined && data.organizationId !== existingQuotation.organizationId) {
+      changes.push('organization');
+    }
+    if (data.sections || data.modules) {
+      changes.push('sections');
+    }
+    
+    // Create notification for quotation update
+    await notifyItemUpdated(
+      session.user.id,
+      'Quotation',
+      quotation.quotationNumber,
+      changes.length > 0 ? changes : undefined
+    );
+    
+    // Log quotation update
+    await createUserLog({
+      userId: session.user.id,
+      action: LogAction.ITEM_UPDATED,
+      details: `Quotation "${quotation.quotationNumber}" updated successfully`,
+      metadata: {
+        quotationId: quotation.id,
+        quotationNumber: quotation.quotationNumber,
+        changes: changes.length > 0 ? changes : ['general update'],
+        total: Number(quotation.total || 0),
+        status: quotation.status,
+      },
+    });
+    
     return {
       success: true,
       data: quotation,
@@ -826,12 +895,35 @@ export async function deleteQuotation(id: string) {
       };
     }
 
+    // Store quotation details before deletion for logging
+    const quotationNumber = existingQuotation.quotationNumber;
+    const quotationSubject = existingQuotation.subject;
+    
     // Delete quotation (cascade will handle sections, groups, items)
     await prisma.quotation.delete({
       where: { id },
     });
 
     revalidatePath('/dashboard/quotations');
+    
+    // Create notification for quotation deletion
+    await notifyItemDeleted(
+      session.user.id,
+      'Quotation',
+      quotationNumber
+    );
+    
+    // Log quotation deletion
+    await createUserLog({
+      userId: session.user.id,
+      action: LogAction.ITEM_DELETED,
+      details: `Quotation "${quotationNumber}" deleted successfully`,
+      metadata: {
+        quotationId: id,
+        quotationNumber: quotationNumber,
+        subject: quotationSubject,
+      },
+    });
     
     return {
       success: true,

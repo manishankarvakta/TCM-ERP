@@ -46,7 +46,9 @@ const getAllSectionItems = (section: any): any[] => {
 // Helper function to load image as base64
 const loadImageAsBase64 = async (imagePath: string): Promise<string | null> => {
   try {
-    const response = await fetch(imagePath);
+    // Handle both absolute URLs and relative paths
+    const url = imagePath.startsWith('http') ? imagePath : imagePath;
+    const response = await fetch(url);
     if (!response.ok) {
       console.warn(`Image not found at ${imagePath}, skipping logo`);
       return null;
@@ -95,6 +97,23 @@ const loadImageAsBase64 = async (imagePath: string): Promise<string | null> => {
   }
 };
 
+// Helper function to get image dimensions and calculate width based on desired height
+const getImageDimensions = (base64String: string, desiredHeight: number): Promise<{ width: number; height: number } | null> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const aspectRatio = img.width / img.height;
+      const calculatedWidth = desiredHeight * aspectRatio;
+      resolve({ width: calculatedWidth, height: desiredHeight });
+    };
+    img.onerror = () => {
+      console.warn('Error loading image to get dimensions');
+      resolve(null);
+    };
+    img.src = base64String;
+  });
+};
+
 // Draw page border
 const drawPageBorder = (doc: jsPDF, margin: number) => {
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -111,6 +130,19 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   const margin = 15;
   let yPos = margin + 10;
 
+  // Get organization data from quotation
+  const organization = quotation.organization || null;
+  const orgName = organization?.name || 'Organization';
+  const orgAddress = organization?.address || '';
+  const orgPhone = organization?.phone || '';
+  const orgEmail = organization?.email || '';
+  const orgWebsite = organization?.website || '';
+  const orgLogo = organization?.logo || null;
+
+  // Get client data from quotation
+  const client = quotation.client || null;
+  const clientLogo = client?.image || null;
+
   // ============================================
   // PAGE 1: COVER PAGE
   // ============================================
@@ -122,67 +154,111 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   // Draw border
   drawPageBorder(doc, margin);
 
-  // Load and add client logo
+  // Load and add organization logo at top left (or fallback to default)
+  // Fixed height: 100px, width auto (maintain aspect ratio)
+  const orgLogoPath = orgLogo || '/clientLogo.png';
+  const topLogoHeight = 100; // Fixed height in pixels (will be converted to mm)
   try {
-    const logoBase64 = await loadImageAsBase64('/clientLogo.png');
+    const logoBase64 = await loadImageAsBase64(orgLogoPath);
     if (logoBase64) {
       try {
-        const logoWidth = 40;
-        const logoHeight = 40;
-        const logoX = margin + 5;
-        const logoY = yPos;
-        doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
+        const dimensions = await getImageDimensions(logoBase64, topLogoHeight);
+        if (dimensions) {
+          // Convert pixels to mm (1mm ≈ 3.779527559 pixels at 96 DPI)
+          const logoHeightMM = topLogoHeight / 3.779527559;
+          const logoWidthMM = dimensions.width / 3.779527559;
+          const logoX = margin + 5;
+          const logoY = yPos;
+          doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidthMM, logoHeightMM);
+        }
       } catch (imageError) {
-        console.warn('Error adding logo image to PDF, continuing without logo:', imageError);
+        console.warn('Error adding organization logo image to PDF, continuing without logo:', imageError);
         // Continue without logo - PDF generation should not fail
       }
     }
   } catch (error) {
-    console.warn('Error loading logo, continuing without logo:', error);
+    console.warn('Error loading organization logo, continuing without logo:', error);
     // Continue without logo - PDF generation should not fail
   }
 
-  // Company Name (Right side of header)
+  // Organization Name (Right side of header)
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  const companyName = 'Tilottoma Eco Kitchen & Furniture Industry Ltd';
-  doc.text(companyName, pageWidth - margin - 5, yPos + 5, { align: 'right' });
+  doc.text(orgName, pageWidth - margin - 5, yPos + 5, { align: 'right' });
   yPos += 25;
 
-  // Company Address and Contact Information (Right aligned)
+  // Organization Address and Contact Information (Right aligned)
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  const companyInfo = [
-    'Vill: Baupara, Ward No:21, P.O:Bhawal Mirzapur Sadar, Gazipur, Bangladesh.',
-    'Phone: 8652259, 9668808',
-    'Fax: +88-2-9663184',
-    'E-mail: info@mykitchen-bd.com',
-    'Web: www.mykitchen-bd.com',
-  ];
+  const orgInfo: string[] = [];
   
-  companyInfo.forEach((info) => {
+  if (orgAddress) {
+    orgInfo.push(orgAddress);
+  }
+  if (orgPhone) {
+    orgInfo.push(`Phone: ${orgPhone}`);
+  }
+  if (orgEmail) {
+    orgInfo.push(`E-mail: ${orgEmail}`);
+  }
+  if (orgWebsite) {
+    orgInfo.push(`Web: ${orgWebsite}`);
+  }
+  
+  // If no organization info, add a placeholder
+  if (orgInfo.length === 0) {
+    orgInfo.push('Organization information not available');
+  }
+  
+  orgInfo.forEach((info) => {
     doc.text(info, pageWidth - margin - 5, yPos, { align: 'right' });
     yPos += 4;
   });
 
-  // Central Large Logo (if available)
+  // Central Large Logo - Use client logo (or fallback to default)
+  // Fixed height: 100px, width auto (maintain aspect ratio)
   const centerX = pageWidth / 2;
-  const largeLogoSize = 50;
+  const centerLogoHeight = 100; // Fixed height in pixels
+  const clientLogoPath = clientLogo || '/clientLogo.png';
+  let centerLogoHeightMM = 0;
+  
+  // Debug: Log client logo information
+  if (clientLogo) {
+    console.log('Client logo path:', clientLogo);
+  } else {
+    console.log('No client logo found, using fallback:', clientLogoPath);
+  }
+  
   try {
-    const logoBase64 = await loadImageAsBase64('/clientLogo.png');
+    const logoBase64 = await loadImageAsBase64(clientLogoPath);
     if (logoBase64) {
       try {
-        doc.addImage(logoBase64, 'PNG', centerX - largeLogoSize / 2, yPos, largeLogoSize, largeLogoSize);
+        const dimensions = await getImageDimensions(logoBase64, centerLogoHeight);
+        if (dimensions) {
+          // Convert pixels to mm (1mm ≈ 3.779527559 pixels at 96 DPI)
+          centerLogoHeightMM = centerLogoHeight / 3.779527559;
+          const centerLogoWidthMM = dimensions.width / 3.779527559;
+          doc.addImage(logoBase64, 'PNG', centerX - centerLogoWidthMM / 2, yPos, centerLogoWidthMM, centerLogoHeightMM);
+          console.log('Client logo added successfully, dimensions:', dimensions);
+        } else {
+          console.warn('Could not get dimensions for client logo');
+        }
       } catch (imageError) {
-        console.warn('Error adding large logo to PDF, continuing without logo:', imageError);
+        console.warn('Error adding client logo to PDF, continuing without logo:', imageError);
         // Continue without logo
       }
+    } else {
+      console.warn('Client logo not loaded, path:', clientLogoPath, 'clientLogo value:', clientLogo);
     }
   } catch (error) {
     // If logo fails, continue without it
-    console.warn('Error loading large logo, continuing without logo:', error);
+    console.warn('Error loading client logo, continuing without logo:', error);
   }
-  yPos += largeLogoSize + 20;
+  // Use the actual logo height or default if logo wasn't loaded
+  if (centerLogoHeightMM === 0) {
+    centerLogoHeightMM = centerLogoHeight / 3.779527559;
+  }
+  yPos += centerLogoHeightMM + 20;
 
   // Document Title: FINANCIAL PROPOSAL (Blue, Bold, Centered)
   doc.setTextColor(0, 0, 255); // Blue color
@@ -267,27 +343,38 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 255); // Blue
-  doc.text('Hot Line: 01642912617-8', margin + 5, footerY);
-  doc.text('E-mail: Sales@mykitchen-bd.com', pageWidth - margin - 5, footerY, { align: 'right' });
+  if (orgPhone) {
+    doc.text(`Hot Line: ${orgPhone}`, margin + 5, footerY);
+  }
+  if (orgEmail) {
+    doc.text(`E-mail: ${orgEmail}`, pageWidth - margin - 5, footerY, { align: 'right' });
+  }
   doc.setTextColor(0, 0, 0); // Reset to black
 
-  // Company Logo at Bottom Right Corner
+  // Organization Logo at Bottom Right Corner
+  // Fixed height: 50px, width auto (maintain aspect ratio)
+  const bottomLogoHeight = 50; // Fixed height in pixels
   try {
-    const logoBase64 = await loadImageAsBase64('/clientLogo.png');
+    const logoBase64 = await loadImageAsBase64(orgLogoPath);
     if (logoBase64) {
       try {
-        const logoSize = 30;
-        const logoXBottom = pageWidth - margin - logoSize - 5;
-        const logoYBottom = pageHeight - margin - logoSize - 5;
-        doc.addImage(logoBase64, 'PNG', logoXBottom, logoYBottom, logoSize, logoSize);
+        const dimensions = await getImageDimensions(logoBase64, bottomLogoHeight);
+        if (dimensions) {
+          // Convert pixels to mm (1mm ≈ 3.779527559 pixels at 96 DPI)
+          const bottomLogoHeightMM = bottomLogoHeight / 3.779527559;
+          const bottomLogoWidthMM = dimensions.width / 3.779527559;
+          const logoXBottom = pageWidth - margin - bottomLogoWidthMM - 5;
+          const logoYBottom = pageHeight - margin - bottomLogoHeightMM - 5;
+          doc.addImage(logoBase64, 'PNG', logoXBottom, logoYBottom, bottomLogoWidthMM, bottomLogoHeightMM);
+        }
       } catch (imageError) {
-        console.warn('Error adding bottom logo to PDF, continuing without logo:', imageError);
+        console.warn('Error adding bottom organization logo to PDF, continuing without logo:', imageError);
         // Continue without logo
       }
     }
   } catch (error) {
     // Continue without logo
-    console.warn('Error loading bottom logo, continuing without logo:', error);
+    console.warn('Error loading bottom organization logo, continuing without logo:', error);
   }
 
   // ============================================
