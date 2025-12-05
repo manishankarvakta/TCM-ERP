@@ -1,104 +1,194 @@
-import { getQuotations, deleteQuotation } from '@/app/actions/quotations';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { FiPlus, FiEye, FiEdit, FiTrash2 } from 'react-icons/fi';
-import { formatDate, formatCurrency } from '@/lib/utils/formatters';
-import DeleteQuotationButton from './_components/DeleteQuotationButton';
+import React from "react";
+import { getQuotations } from "@/app/actions/quotations";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Link from "next/link";
+import { FiPlus } from "react-icons/fi";
+import QuotationsListClient from "@/components/quotation/quotations-list-client";
 
-export default async function QuotationsPage() {
-  const result = await getQuotations();
+interface QuotationsPageProps {
+  searchParams: Promise<{
+    page?: string;
+    search?: string;
+    tab?: string;
+  }>;
+}
+
+export default async function QuotationsPage({ searchParams }: QuotationsPageProps) {
+  const params = await searchParams;
+  const page = parseInt(params.page || "1", 10);
+  const search = params.search || "";
+  const tab = params.tab || "all";
+
+  const result = await getQuotations(page, 10, search, tab);
 
   if (!result.success) {
     return (
-      <div className="min-h-screen p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center text-red-500">
-            {result.error || 'Error loading quotations'}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Quotations</h1>
+            <p className="text-sm text-muted-foreground">Manage quotations in your system</p>
           </div>
+        </div>
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+          <p className="text-sm text-destructive">
+            {result.error || "Error loading quotations"}
+          </p>
         </div>
       </div>
     );
   }
 
-  const quotations = result.data || [];
-
   return (
-    <div className="min-h-screen p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold">Quotations</h1>
-          <Link href="/dashboard/quotations/new">
-            <Button>
-              <FiPlus className="w-4 h-4 mr-2" />
-              New Quotation
-            </Button>
-          </Link>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Quotations</h1>
+          <p className="text-sm text-muted-foreground">Manage quotations in your system</p>
         </div>
-
-        {quotations.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-gray-500 mb-4">No quotations found</p>
-              <Link href="/dashboard/quotations/new">
-                <Button>Create Your First Quotation</Button>
-              </Link>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4">
-            {quotations.map((quotation) => (
-              <Card key={quotation.id}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle>{quotation.quotationNumber}</CardTitle>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {quotation.subject}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Link href={`/dashboard/quotations/${quotation.id}`}>
-                        <Button variant="outline" size="sm">
-                          <FiEye className="w-4 h-4" />
-                        </Button>
-                      </Link>
-                      <Link href={`/dashboard/quotations/${quotation.id}/edit`}>
-                        <Button variant="outline" size="sm">
-                          <FiEdit className="w-4 h-4" />
-                        </Button>
-                      </Link>
-                      <DeleteQuotationButton quotationId={quotation.id} />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <p className="text-gray-500">Client</p>
-                      <p className="font-medium">{quotation.client?.name || quotation.client?.company || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Date</p>
-                      <p className="font-medium">{formatDate(quotation.date)}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Status</p>
-                      <p className="font-medium capitalize">{quotation.status}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Total</p>
-                      <p className="font-medium text-lg">
-                        {formatCurrency(Number(quotation.total))}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+        {tab !== "trash" && (
+          <Button asChild>
+            <Link href="/dashboard/quotations/new">
+              <FiPlus className="mr-2 h-4 w-4" />
+              New Quotation
+            </Link>
+          </Button>
         )}
       </div>
+
+      <Tabs defaultValue={tab} className="w-full">
+        <TabsList>
+          <TabsTrigger value="all" asChild>
+            <Link href="/dashboard/quotations?tab=all&page=1">All</Link>
+          </TabsTrigger>
+          <TabsTrigger value="DRAFT" asChild>
+            <Link href="/dashboard/quotations?tab=DRAFT&page=1">Draft</Link>
+          </TabsTrigger>
+          <TabsTrigger value="SENT" asChild>
+            <Link href="/dashboard/quotations?tab=SENT&page=1">Sent</Link>
+          </TabsTrigger>
+          <TabsTrigger value="ACCEPTED" asChild>
+            <Link href="/dashboard/quotations?tab=ACCEPTED&page=1">Accepted</Link>
+          </TabsTrigger>
+          <TabsTrigger value="REJECTED" asChild>
+            <Link href="/dashboard/quotations?tab=REJECTED&page=1">Rejected</Link>
+          </TabsTrigger>
+          <TabsTrigger value="EXPIRED" asChild>
+            <Link href="/dashboard/quotations?tab=EXPIRED&page=1">Expired</Link>
+          </TabsTrigger>
+          <TabsTrigger value="REVISED" asChild>
+            <Link href="/dashboard/quotations?tab=REVISED&page=1">Revised</Link>
+          </TabsTrigger>
+          <TabsTrigger value="trash" asChild>
+            <Link href="/dashboard/quotations?tab=trash&page=1">Trash</Link>
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="all" className="mt-4">
+          <QuotationsListClient
+            initialQuotations={result.quotations || []}
+            initialPagination={result.pagination || {
+              page: 1,
+              limit: 10,
+              total: 0,
+              totalPages: 0,
+            }}
+            initialSearch={search}
+            isTrash={false}
+          />
+        </TabsContent>
+        <TabsContent value="DRAFT" className="mt-4">
+          <QuotationsListClient
+            initialQuotations={result.quotations || []}
+            initialPagination={result.pagination || {
+              page: 1,
+              limit: 10,
+              total: 0,
+              totalPages: 0,
+            }}
+            initialSearch={search}
+            isTrash={false}
+          />
+        </TabsContent>
+        <TabsContent value="SENT" className="mt-4">
+          <QuotationsListClient
+            initialQuotations={result.quotations || []}
+            initialPagination={result.pagination || {
+              page: 1,
+              limit: 10,
+              total: 0,
+              totalPages: 0,
+            }}
+            initialSearch={search}
+            isTrash={false}
+          />
+        </TabsContent>
+        <TabsContent value="ACCEPTED" className="mt-4">
+          <QuotationsListClient
+            initialQuotations={result.quotations || []}
+            initialPagination={result.pagination || {
+              page: 1,
+              limit: 10,
+              total: 0,
+              totalPages: 0,
+            }}
+            initialSearch={search}
+            isTrash={false}
+          />
+        </TabsContent>
+        <TabsContent value="REJECTED" className="mt-4">
+          <QuotationsListClient
+            initialQuotations={result.quotations || []}
+            initialPagination={result.pagination || {
+              page: 1,
+              limit: 10,
+              total: 0,
+              totalPages: 0,
+            }}
+            initialSearch={search}
+            isTrash={false}
+          />
+        </TabsContent>
+        <TabsContent value="EXPIRED" className="mt-4">
+          <QuotationsListClient
+            initialQuotations={result.quotations || []}
+            initialPagination={result.pagination || {
+              page: 1,
+              limit: 10,
+              total: 0,
+              totalPages: 0,
+            }}
+            initialSearch={search}
+            isTrash={false}
+          />
+        </TabsContent>
+        <TabsContent value="REVISED" className="mt-4">
+          <QuotationsListClient
+            initialQuotations={result.quotations || []}
+            initialPagination={result.pagination || {
+              page: 1,
+              limit: 10,
+              total: 0,
+              totalPages: 0,
+            }}
+            initialSearch={search}
+            isTrash={false}
+          />
+        </TabsContent>
+        <TabsContent value="trash" className="mt-4">
+          <QuotationsListClient
+            initialQuotations={result.quotations || []}
+            initialPagination={result.pagination || {
+              page: 1,
+              limit: 10,
+              total: 0,
+              totalPages: 0,
+            }}
+            initialSearch={search}
+            isTrash={true}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

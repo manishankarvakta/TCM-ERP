@@ -938,6 +938,7 @@ async function main() {
           height?: number;
           width?: number;
           depth?: number;
+          unit?: string | null;
         }
 
         interface ItemGroupSeed {
@@ -952,6 +953,8 @@ async function main() {
           title: string;
           note?: string | null;
           discount?: number | null;
+          total?: number;
+          grandTotal?: number;
           sortOrder: number;
           items?: QuotationItemSeed[];
           groups?: ItemGroupSeed[];
@@ -960,27 +963,39 @@ async function main() {
         interface QuotationSeed {
           quotationNumber: string;
           subject: string;
-          submittedTo: string;
           date: Date;
           coverLetter?: string | null;
           financialStatement?: string | null;
           tos?: string | null;
-          total: number;
           status: "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "REVISED";
+          isTrash?: boolean;
           clientId: string;
+          organizationId?: string | null;
+          shippingCharges?: number;
+          discount?: number;
+          vatIncluded?: boolean;
+          projectLocation?: string | null;
           sections: SectionSeed[];
         }
+
+        // Get an organization for quotations
+        const organization = await prisma.organization.findFirst({
+          where: { status: "active" },
+        });
 
         const quotations: QuotationSeed[] = [
           {
             quotationNumber: "QT-2024-001",
             subject: "Interior Design Proposal - Living Room Renovation",
-            submittedTo: "John Smith",
             date: new Date("2024-01-15"),
+            organizationId: organization?.id || null,
+            shippingCharges: 500,
+            discount: 0,
+            vatIncluded: false,
+            projectLocation: "Dhaka, Bangladesh",
             coverLetter: "Dear Mr. Smith,\n\nWe are pleased to submit this quotation for your living room renovation project. Our team has carefully reviewed your requirements and prepared a comprehensive proposal that includes all necessary materials and services.\n\nWe look forward to working with you on this exciting project.\n\nBest regards,\nInterior Design Team",
             financialStatement: "Payment Terms:\n- 30% advance payment upon acceptance\n- 40% upon delivery of materials\n- 30% upon completion\n\nAll prices are valid for 30 days from the date of this quotation.",
             tos: "Terms and Conditions:\n1. All materials are subject to availability\n2. Installation timeline: 4-6 weeks from order confirmation\n3. Warranty: 1 year on all materials and workmanship\n4. Changes to order may affect pricing and delivery timeline",
-            total: 0, // Will be calculated
             status: "SENT" as const,
             clientId: clients[0].id,
             sections: [
@@ -990,8 +1005,8 @@ async function main() {
                 discount: null,
                 sortOrder: 1,
                 items: [
-                  { sl: 1, code: items[0]?.code, description: items[0]?.description, unitPrice: Number(items[0]?.unitPrice) || 1250, quantity: 1, amount: 0, sortOrder: 1, itemId: items[0]?.id },
-                  { sl: 2, code: items[1]?.code, description: items[1]?.description, unitPrice: Number(items[1]?.unitPrice) || 850, quantity: 1, amount: 0, sortOrder: 2, itemId: items[1]?.id },
+                  { sl: 1, code: items[0]?.code, description: items[0]?.description, unitPrice: Number(items[0]?.unitPrice) || 1250, quantity: 1, amount: 0, sortOrder: 1, itemId: items[0]?.id, unit: items[0]?.unit?.symbol || null },
+                  { sl: 2, code: items[1]?.code, description: items[1]?.description, unitPrice: Number(items[1]?.unitPrice) || 850, quantity: 1, amount: 0, sortOrder: 2, itemId: items[1]?.id, unit: items[1]?.unit?.symbol || null },
                 ],
               },
               {
@@ -1000,7 +1015,7 @@ async function main() {
                 discount: 5,
                 sortOrder: 2,
                 items: [
-                  { sl: 1, code: items[4]?.code, description: items[4]?.description, height: 2.4, width: 3.0, unitPrice: Number(items[4]?.unitPrice) || 12.50, quantity: 7.2, amount: 0, sortOrder: 1, itemId: items[4]?.id },
+                  { sl: 1, code: items[4]?.code, description: items[4]?.description, height: 2.4, width: 3.0, unitPrice: Number(items[4]?.unitPrice) || 12.50, quantity: 7.2, amount: 0, sortOrder: 1, itemId: items[4]?.id, unit: items[4]?.unit?.symbol || "sqft" },
                 ],
               },
             ],
@@ -1008,12 +1023,15 @@ async function main() {
           {
             quotationNumber: "QT-2024-002",
             subject: "Complete Home Interior Design Package",
-            submittedTo: "Sarah Johnson",
             date: new Date("2024-01-20"),
+            organizationId: organization?.id || null,
+            shippingCharges: 1000,
+            discount: 500,
+            vatIncluded: true,
+            projectLocation: "Chittagong, Bangladesh",
             coverLetter: "Dear Ms. Johnson,\n\nThank you for considering our services for your complete home interior design project. This quotation covers all rooms including living room, dining area, bedrooms, and kitchen.\n\nWe are committed to delivering exceptional quality and service.\n\nWarm regards,\nDesign Team",
             financialStatement: "Payment Schedule:\n- 25% deposit\n- 50% at mid-point\n- 25% upon final completion",
             tos: "Standard terms apply. 2-year warranty on all installations.",
-            total: 0,
             status: "DRAFT" as const,
             clientId: clients[1]?.id || clients[0].id,
             sections: [
@@ -1029,13 +1047,13 @@ async function main() {
                     quantity: 1,
                     sortOrder: 1,
                     items: [
-                      { sl: 1, code: items[0]?.code, description: items[0]?.description, unitPrice: Number(items[0]?.unitPrice) || 1250, quantity: 1, amount: 0, sortOrder: 1, itemId: items[0]?.id },
-                      { sl: 2, code: items[3]?.code, description: items[3]?.description, unitPrice: Number(items[3]?.unitPrice) || 450, quantity: 1, amount: 0, sortOrder: 2, itemId: items[3]?.id },
+                      { sl: 1, code: items[0]?.code, description: items[0]?.description, unitPrice: Number(items[0]?.unitPrice) || 1250, quantity: 1, amount: 0, sortOrder: 1, itemId: items[0]?.id, unit: items[0]?.unit?.symbol || null },
+                      { sl: 2, code: items[3]?.code, description: items[3]?.description, unitPrice: Number(items[3]?.unitPrice) || 450, quantity: 1, amount: 0, sortOrder: 2, itemId: items[3]?.id, unit: items[3]?.unit?.symbol || null },
                     ],
                   },
                 ],
                 items: [
-                  { sl: 3, code: items[10]?.code, description: items[10]?.description, unitPrice: Number(items[10]?.unitPrice) || 25, quantity: 4, amount: 0, sortOrder: 3, itemId: items[10]?.id },
+                  { sl: 3, code: items[10]?.code, description: items[10]?.description, unitPrice: Number(items[10]?.unitPrice) || 25, quantity: 4, amount: 0, sortOrder: 3, itemId: items[10]?.id, unit: items[10]?.unit?.symbol || null },
                 ],
               },
               {
@@ -1044,7 +1062,7 @@ async function main() {
                 discount: 10,
                 sortOrder: 2,
                 items: [
-                  { sl: 1, code: items[8]?.code, description: items[8]?.description, unitPrice: Number(items[8]?.unitPrice) || 45, quantity: 3, amount: 0, sortOrder: 1, itemId: items[8]?.id },
+                  { sl: 1, code: items[8]?.code, description: items[8]?.description, unitPrice: Number(items[8]?.unitPrice) || 45, quantity: 3, amount: 0, sortOrder: 1, itemId: items[8]?.id, unit: items[8]?.unit?.symbol || null },
                 ],
               },
             ],
@@ -1052,12 +1070,15 @@ async function main() {
           {
             quotationNumber: "QT-2024-003",
             subject: "Office Space Design and Furnishing",
-            submittedTo: "Michael Chen",
             date: new Date("2024-02-01"),
+            organizationId: organization?.id || null,
+            shippingCharges: 0,
+            discount: 0,
+            vatIncluded: false,
+            projectLocation: "Sylhet, Bangladesh",
             coverLetter: "Dear Mr. Chen,\n\nWe are delighted to present this quotation for your office space design and furnishing project. Our proposal includes ergonomic furniture, modern lighting, and professional flooring solutions.\n\nThank you for your consideration.\n\nBest regards,\nCommercial Design Team",
             financialStatement: null,
             tos: null,
-            total: 0,
             status: "ACCEPTED" as const,
             clientId: clients[2]?.id || clients[0].id,
             sections: [
@@ -1067,7 +1088,7 @@ async function main() {
                 discount: null,
                 sortOrder: 1,
                 items: [
-                  { sl: 1, code: items[2]?.code, description: items[2]?.description, unitPrice: Number(items[2]?.unitPrice) || 320, quantity: 10, amount: 0, sortOrder: 1, itemId: items[2]?.id },
+                  { sl: 1, code: items[2]?.code, description: items[2]?.description, unitPrice: Number(items[2]?.unitPrice) || 320, quantity: 10, amount: 0, sortOrder: 1, itemId: items[2]?.id, unit: items[2]?.unit?.symbol || null },
                 ],
               },
               {
@@ -1076,8 +1097,8 @@ async function main() {
                 discount: 5,
                 sortOrder: 2,
                 items: [
-                  { sl: 1, code: items[10]?.code, description: items[10]?.description, unitPrice: Number(items[10]?.unitPrice) || 25, quantity: 20, amount: 0, sortOrder: 1, itemId: items[10]?.id },
-                  { sl: 2, code: items[12]?.code, description: items[12]?.description, unitPrice: Number(items[12]?.unitPrice) || 125, quantity: 5, amount: 0, sortOrder: 2, itemId: items[12]?.id },
+                  { sl: 1, code: items[10]?.code, description: items[10]?.description, unitPrice: Number(items[10]?.unitPrice) || 25, quantity: 20, amount: 0, sortOrder: 1, itemId: items[10]?.id, unit: items[10]?.unit?.symbol || null },
+                  { sl: 2, code: items[12]?.code, description: items[12]?.description, unitPrice: Number(items[12]?.unitPrice) || 125, quantity: 5, amount: 0, sortOrder: 2, itemId: items[12]?.id, unit: items[12]?.unit?.symbol || null },
                 ],
               },
             ],
@@ -1085,12 +1106,15 @@ async function main() {
           {
             quotationNumber: "QT-2024-004",
             subject: "Bathroom Renovation Package",
-            submittedTo: "Emily Davis",
             date: new Date("2024-02-10"),
+            organizationId: organization?.id || null,
+            shippingCharges: 300,
+            discount: 200,
+            vatIncluded: false,
+            projectLocation: "Rajshahi, Bangladesh",
             coverLetter: "Dear Ms. Davis,\n\nThis quotation covers the complete renovation of your master bathroom, including tiles, fixtures, lighting, and accessories.\n\nWe look forward to transforming your bathroom into a luxurious space.\n\nRegards,\nRenovation Team",
             financialStatement: "Payment: 40% advance, 60% on completion",
             tos: "1-year warranty. Installation: 3-4 weeks.",
-            total: 0,
             status: "REJECTED" as const,
             clientId: clients[3]?.id || clients[0].id,
             sections: [
@@ -1100,7 +1124,7 @@ async function main() {
                 discount: null,
                 sortOrder: 1,
                 items: [
-                  { sl: 1, code: items[5]?.code, description: items[5]?.description, height: 2.5, width: 2.0, unitPrice: Number(items[5]?.unitPrice) || 8.75, quantity: 5.0, amount: 0, sortOrder: 1, itemId: items[5]?.id },
+                  { sl: 1, code: items[5]?.code, description: items[5]?.description, height: 2.5, width: 2.0, unitPrice: Number(items[5]?.unitPrice) || 8.75, quantity: 5.0, amount: 0, sortOrder: 1, itemId: items[5]?.id, unit: items[5]?.unit?.symbol || "sqft" },
                 ],
               },
             ],
@@ -1108,12 +1132,15 @@ async function main() {
           {
             quotationNumber: "QT-2024-005",
             subject: "Bedroom Makeover - Complete Package",
-            submittedTo: "Robert Wilson",
             date: new Date("2024-02-15"),
+            organizationId: organization?.id || null,
+            shippingCharges: 400,
+            discount: 0,
+            vatIncluded: true,
+            projectLocation: "Khulna, Bangladesh",
             coverLetter: null,
             financialStatement: null,
             tos: null,
-            total: 0,
             status: "DRAFT" as const,
             clientId: clients[4]?.id || clients[0].id,
             sections: [
@@ -1123,7 +1150,7 @@ async function main() {
                 discount: 15,
                 sortOrder: 1,
                 items: [
-                  { sl: 1, code: items[1]?.code, description: items[1]?.description, unitPrice: Number(items[1]?.unitPrice) || 850, quantity: 1, amount: 0, sortOrder: 1, itemId: items[1]?.id },
+                  { sl: 1, code: items[1]?.code, description: items[1]?.description, unitPrice: Number(items[1]?.unitPrice) || 850, quantity: 1, amount: 0, sortOrder: 1, itemId: items[1]?.id, unit: items[1]?.unit?.symbol || null },
                 ],
               },
               {
@@ -1132,7 +1159,7 @@ async function main() {
                 discount: null,
                 sortOrder: 2,
                 items: [
-                  { sl: 1, code: items[15]?.code, description: items[15]?.description, unitPrice: Number(items[15]?.unitPrice) || 65, quantity: 8, amount: 0, sortOrder: 1, itemId: items[15]?.id },
+                  { sl: 1, code: items[15]?.code, description: items[15]?.description, unitPrice: Number(items[15]?.unitPrice) || 65, quantity: 8, amount: 0, sortOrder: 1, itemId: items[15]?.id, unit: items[15]?.unit?.symbol || null },
                 ],
               },
             ],
@@ -1150,40 +1177,68 @@ async function main() {
 
               // Process direct items in section
               const itemsData = (sectionData.items || []).map((itemData: QuotationItemSeed) => {
-                const amount = Number(itemData.unitPrice) * Number(itemData.quantity);
+                // Calculate amount: if h, w, d are present, use h*w*d*unitPrice*quantity, otherwise unitPrice*quantity
+                let amount = 0;
+                const h = itemData.height || 0;
+                const w = itemData.width || 0;
+                const d = itemData.depth || 0;
+                const unitPrice = itemData.unitPrice || 0;
+                const quantity = itemData.quantity || 0;
+                
+                if (h > 0 && w > 0 && d > 0) {
+                  amount = h * w * d * unitPrice * quantity;
+                } else {
+                  amount = unitPrice * quantity;
+                }
+                
                 sectionTotal += amount;
                 return {
                   sl: itemData.sl,
                   code: itemData.code || null,
                   description: itemData.description || null,
-                  unitPrice: new Prisma.Decimal(itemData.unitPrice),
-                  quantity: new Prisma.Decimal(itemData.quantity),
+                  unitPrice: new Prisma.Decimal(unitPrice),
+                  quantity: new Prisma.Decimal(quantity),
                   amount: new Prisma.Decimal(amount),
                   sortOrder: itemData.sortOrder,
                   itemId: itemData.itemId || null,
                   height: itemData.height ? new Prisma.Decimal(itemData.height) : null,
                   width: itemData.width ? new Prisma.Decimal(itemData.width) : null,
                   depth: itemData.depth ? new Prisma.Decimal(itemData.depth) : null,
+                  unit: itemData.unit || null,
                 };
               });
 
               // Process groups in section
               const groupsData = (sectionData.groups || []).map((groupData: ItemGroupSeed) => {
                 const groupItemsData = (groupData.items || []).map((itemData: QuotationItemSeed) => {
-                  const amount = Number(itemData.unitPrice) * Number(itemData.quantity);
+                  // Calculate amount: if h, w, d are present, use h*w*d*unitPrice*quantity, otherwise unitPrice*quantity
+                  let amount = 0;
+                  const h = itemData.height || 0;
+                  const w = itemData.width || 0;
+                  const d = itemData.depth || 0;
+                  const unitPrice = itemData.unitPrice || 0;
+                  const quantity = itemData.quantity || 0;
+                  
+                  if (h > 0 && w > 0 && d > 0) {
+                    amount = h * w * d * unitPrice * quantity;
+                  } else {
+                    amount = unitPrice * quantity;
+                  }
+                  
                   sectionTotal += amount;
                   return {
                     sl: itemData.sl,
                     code: itemData.code || null,
                     description: itemData.description || null,
-                    unitPrice: new Prisma.Decimal(itemData.unitPrice),
-                    quantity: new Prisma.Decimal(itemData.quantity),
+                    unitPrice: new Prisma.Decimal(unitPrice),
+                    quantity: new Prisma.Decimal(quantity),
                     amount: new Prisma.Decimal(amount),
                     sortOrder: itemData.sortOrder,
                     itemId: itemData.itemId || null,
                     height: itemData.height ? new Prisma.Decimal(itemData.height) : null,
                     width: itemData.width ? new Prisma.Decimal(itemData.width) : null,
                     depth: itemData.depth ? new Prisma.Decimal(itemData.depth) : null,
+                    unit: itemData.unit || null,
                   };
                 });
 
@@ -1198,17 +1253,18 @@ async function main() {
                 };
               });
 
-              // Apply discount if any
-              if (sectionData.discount) {
-                sectionTotal = sectionTotal * (1 - sectionData.discount / 100);
-              }
+              // Apply discount if any (amount-based, not percentage)
+              const sectionDiscount = sectionData.discount || 0;
+              const sectionGrandTotal = Math.max(0, sectionTotal - sectionDiscount);
 
-              quotationTotal += sectionTotal;
+              quotationTotal += sectionGrandTotal;
 
               return {
                 title: sectionData.title,
                 note: sectionData.note || null,
-                discount: sectionData.discount ? new Prisma.Decimal(sectionData.discount) : null,
+                discount: sectionDiscount > 0 ? new Prisma.Decimal(sectionDiscount) : new Prisma.Decimal(0),
+                total: new Prisma.Decimal(sectionTotal),
+                grandTotal: new Prisma.Decimal(sectionGrandTotal),
                 sortOrder: sectionData.sortOrder,
                 preparedById: adminUser!.id,
                 items: {
@@ -1218,20 +1274,30 @@ async function main() {
               };
             });
 
+            // Calculate quotation-level totals
+            const quotationDiscount = quotationData.discount || 0;
+            const quotationShippingCharges = quotationData.shippingCharges || 0;
+            const quotationGrandTotal = quotationTotal + quotationShippingCharges - quotationDiscount;
+
             // Create quotation with nested sections, groups, and items
             const quotation = await prisma.quotation.create({
               data: {
                 quotationNumber: quotationData.quotationNumber,
                 subject: quotationData.subject,
-                submittedTo: quotationData.submittedTo,
                 date: quotationData.date,
                 coverLetter: quotationData.coverLetter || null,
                 financialStatement: quotationData.financialStatement || null,
                 tos: quotationData.tos || null,
-                attachments: undefined,
                 total: new Prisma.Decimal(quotationTotal),
+                discount: quotationDiscount > 0 ? new Prisma.Decimal(quotationDiscount) : new Prisma.Decimal(0),
+                grandTotal: new Prisma.Decimal(Math.max(0, quotationGrandTotal)),
+                shippingCharges: quotationShippingCharges > 0 ? new Prisma.Decimal(quotationShippingCharges) : new Prisma.Decimal(0),
+                vatIncluded: quotationData.vatIncluded || false,
+                projectLocation: quotationData.projectLocation || null,
                 status: quotationData.status,
+                isTrash: quotationData.isTrash || false,
                 clientId: quotationData.clientId,
+                organizationId: quotationData.organizationId || null,
                 submittedById: adminUser!.id,
                 section: {
                   create: sectionsData,

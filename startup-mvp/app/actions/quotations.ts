@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, QuotationStatus } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { notifyItemCreated, notifyItemUpdated, notifyItemDeleted } from '@/lib/notification';
 import { createUserLog, LogAction } from '@/lib/user-log';
@@ -10,7 +10,12 @@ import { createUserLog, LogAction } from '@/lib/user-log';
 /**
  * Get all quotations with relations
  */
-export async function getQuotations() {
+export async function getQuotations(
+  page: number = 1,
+  limit: number = 10,
+  search: string = '',
+  status?: string
+) {
   try {
     const session = await auth();
     
@@ -18,11 +23,60 @@ export async function getQuotations() {
       return {
         success: false,
         error: 'Unauthorized',
-        data: [],
+        quotations: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          totalPages: 0,
+        },
       };
     }
 
+    const skip = (page - 1) * limit;
+    const isTrashTab = status === 'trash';
+
+    // Build where clause - use AND array to properly combine filters
+    const whereConditions: any[] = [];
+    
+    // Set trash filter
+    if (isTrashTab) {
+      // Show only trashed items
+      whereConditions.push({ isTrash: true });
+    } else {
+      // For all other tabs, exclude trashed items
+      whereConditions.push({ isTrash: false });
+      
+      // Set status filter if specific status is requested
+      if (status && status !== 'all') {
+        const statusUpper = status.toUpperCase();
+        if (Object.values(QuotationStatus).includes(statusUpper as QuotationStatus)) {
+          whereConditions.push({ status: statusUpper as QuotationStatus });
+        }
+      }
+    }
+
+    // Add search filter
+    if (search) {
+      whereConditions.push({
+        OR: [
+          { quotationNumber: { contains: search, mode: 'insensitive' } },
+          { subject: { contains: search, mode: 'insensitive' } },
+          { client: { name: { contains: search, mode: 'insensitive' } } },
+          { client: { company: { contains: search, mode: 'insensitive' } } },
+        ],
+      });
+    }
+
+    // Combine all conditions with AND
+    const where = whereConditions.length > 0 ? { AND: whereConditions } : {};
+
+    // Get total count
+    const total = await prisma.quotation.count({ where });
+
+    // Get quotations
     const quotations = await prisma.quotation.findMany({
+      where,
       include: {
         client: {
           select: {
@@ -30,6 +84,7 @@ export async function getQuotations() {
             name: true,
             email: true,
             company: true,
+            image: true,
           },
         },
         submittedBy: {
@@ -37,66 +92,65 @@ export async function getQuotations() {
             id: true,
             name: true,
             email: true,
+            image: true,
           },
         },
-        section: {
-          include: {
-            preparedBy: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-            groups: {
-              include: {
-                items: {
-                  include: {
-                    item: {
-                      select: {
-                        id: true,
-                        code: true,
-                        description: true,
-                        unitPrice: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-            items: {
-              include: {
-                item: {
-                  select: {
-                    id: true,
-                    code: true,
-                    description: true,
-                    unitPrice: true,
-                  },
-                },
-              },
-            },
+        organization: {
+          select: {
+            id: true,
+            name: true,
           },
-          orderBy: {
-            sortOrder: 'asc',
+        },
+        updatedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
           },
         },
       },
       orderBy: {
         createdAt: 'desc',
       },
+      skip,
+      take: limit,
     });
+
+    const totalPages = Math.ceil(total / limit);
+
+    // Serialize Decimal values to numbers for client components
+    const serializedQuotations = quotations.map((quotation) => ({
+      ...quotation,
+      total: Number(quotation.total || 0),
+      discount: quotation.discount ? Number(quotation.discount) : null,
+      grandTotal: quotation.grandTotal ? Number(quotation.grandTotal) : null,
+      shippingCharges: quotation.shippingCharges ? Number(quotation.shippingCharges) : null,
+      isTrash: quotation.isTrash || false,
+    }));
 
     return {
       success: true,
-      data: quotations,
+      quotations: serializedQuotations,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
     };
   } catch (error) {
     console.error('Error fetching quotations:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to fetch quotations',
-      data: [],
+      quotations: [],
+      pagination: {
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 0,
+      },
     };
   }
 }
@@ -147,6 +201,14 @@ export async function getQuotation(id: string) {
             id: true,
             name: true,
             email: true,
+          },
+        },
+        updatedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
           },
         },
         section: {
@@ -424,6 +486,7 @@ export async function createQuotation(data: any) {
         shippingCharges: data.shippingCharges ? new Prisma.Decimal(data.shippingCharges) : new Prisma.Decimal(0),
         vatIncluded: data.vatIncluded || false,
         projectLocation: data.projectLocation || null,
+        isTrash: false, // Default to false - quotations are not in trash by default
         section: {
           create: (sections || []).map((section: any, sectionIndex: number) => ({
             title: section.title || `Section ${sectionIndex + 1}`,
@@ -506,7 +569,7 @@ export async function createQuotation(data: any) {
       },
     });
 
-    revalidatePath('/dashboard/quotations');
+    revalidatePath('/dashboard/quotations', 'page');
     
     // Create notification for quotation creation
     await notifyItemCreated(
@@ -701,6 +764,7 @@ export async function updateQuotation(id: string, data: any) {
         quotationNumber: data.quotationNumber || existingQuotation.quotationNumber,
         subject: data.subject || existingQuotation.subject,
         date: data.date ? new Date(data.date) : existingQuotation.date,
+        updatedById: session.user.id, // Set the user who updated the quotation
         coverLetter: coverLetterContent !== undefined ? (coverLetterContent || null) : existingQuotation.coverLetter,
         financialStatement: data.financialStatement !== undefined ? (data.financialStatement || null) : existingQuotation.financialStatement,
         tos: tosContent !== undefined ? (tosContent || null) : existingQuotation.tos,
@@ -774,6 +838,7 @@ export async function updateQuotation(id: string, data: any) {
       include: {
         client: true,
         submittedBy: true,
+        updatedBy: true,
         section: {
           include: {
             preparedBy: true,
@@ -796,8 +861,8 @@ export async function updateQuotation(id: string, data: any) {
       },
     });
 
-    revalidatePath('/dashboard/quotations');
-    revalidatePath(`/dashboard/quotations/${id}`);
+    revalidatePath('/dashboard/quotations', 'page');
+    revalidatePath(`/dashboard/quotations/${id}`, 'page');
     
     console.log('Update successful, quotation ID:', quotation.id);
     console.log('Updated quotation number:', quotation.quotationNumber);
@@ -895,33 +960,33 @@ export async function deleteQuotation(id: string) {
       };
     }
 
-    // Store quotation details before deletion for logging
-    const quotationNumber = existingQuotation.quotationNumber;
-    const quotationSubject = existingQuotation.subject;
-    
-    // Delete quotation (cascade will handle sections, groups, items)
-    await prisma.quotation.delete({
+    // Move to trash instead of permanent delete
+    await prisma.quotation.update({
       where: { id },
+      data: {
+        isTrash: true,
+      },
     });
 
-    revalidatePath('/dashboard/quotations');
+    revalidatePath('/dashboard/quotations', 'page');
+    revalidatePath(`/dashboard/quotations/${id}`, 'page');
     
-    // Create notification for quotation deletion
+    // Create notification for quotation moved to trash
     await notifyItemDeleted(
       session.user.id,
       'Quotation',
-      quotationNumber
+      existingQuotation.quotationNumber
     );
     
-    // Log quotation deletion
+    // Log quotation moved to trash
     await createUserLog({
       userId: session.user.id,
       action: LogAction.ITEM_DELETED,
-      details: `Quotation "${quotationNumber}" deleted successfully`,
+      details: `Quotation "${existingQuotation.quotationNumber}" moved to trash`,
       metadata: {
         quotationId: id,
-        quotationNumber: quotationNumber,
-        subject: quotationSubject,
+        quotationNumber: existingQuotation.quotationNumber,
+        subject: existingQuotation.subject,
       },
     });
     
@@ -930,9 +995,287 @@ export async function deleteQuotation(id: string) {
     };
   } catch (error) {
     console.error('Error deleting quotation:', error);
+    console.error('Quotation ID:', id);
+    if (error && typeof error === 'object' && 'message' in error) {
+      console.error('Full error details:', error);
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to delete quotation',
+    };
+  }
+}
+
+/**
+ * Bulk update quotation status
+ */
+export async function bulkUpdateQuotationStatus(
+  quotationIds: string[],
+  status: QuotationStatus | string
+) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: 'Unauthorized',
+      };
+    }
+
+    if (quotationIds.length === 0) {
+      return {
+        success: false,
+        error: 'No quotations selected',
+      };
+    }
+
+    // Handle trash/restore operations
+    if (status === 'TRASH') {
+      // Move to trash
+      await prisma.quotation.updateMany({
+        where: {
+          id: { in: quotationIds },
+        },
+        data: {
+          isTrash: true,
+        },
+      });
+    } else if (status === 'DRAFT' || status === QuotationStatus.DRAFT) {
+      // Check if this is a restore operation (from trash)
+      const quotations = await prisma.quotation.findMany({
+        where: {
+          id: { in: quotationIds },
+          isTrash: true,
+        },
+        select: {
+          id: true,
+        },
+      });
+      
+      // If any quotations are in trash, restore them
+      if (quotations.length > 0) {
+        await prisma.quotation.updateMany({
+          where: {
+            id: { in: quotations.map(q => q.id) },
+          },
+          data: {
+            isTrash: false,
+          },
+        });
+      }
+      
+      // Update status to DRAFT for all selected quotations
+      await prisma.quotation.updateMany({
+        where: {
+          id: { in: quotationIds },
+        },
+        data: {
+          status: QuotationStatus.DRAFT,
+        },
+      });
+    } else {
+      // Update status for other status changes
+      let statusEnum: QuotationStatus;
+      if (typeof status === 'string') {
+        const statusUpper = status.toUpperCase();
+        if (!Object.values(QuotationStatus).includes(statusUpper as QuotationStatus)) {
+          return {
+            success: false,
+            error: `Invalid status: ${status}`,
+          };
+        }
+        statusEnum = statusUpper as QuotationStatus;
+      } else {
+        statusEnum = status;
+      }
+
+      await prisma.quotation.updateMany({
+        where: {
+          id: { in: quotationIds },
+        },
+        data: {
+          status: statusEnum,
+        },
+      });
+    }
+
+    // Get quotation details for logging
+    const quotations = await prisma.quotation.findMany({
+      where: {
+        id: { in: quotationIds },
+      },
+      select: {
+        id: true,
+        quotationNumber: true,
+        subject: true,
+        isTrash: true,
+      },
+    });
+
+    // Log bulk update
+    const isTrashOperation = status === 'TRASH';
+    const isRestoreOperation = status === 'DRAFT' || status === QuotationStatus.DRAFT;
+    
+    for (const quotation of quotations) {
+      if (isTrashOperation) {
+        await createUserLog({
+          userId: session.user.id,
+          action: LogAction.ITEM_DELETED,
+          details: `Quotation "${quotation.quotationNumber}" moved to trash`,
+          metadata: {
+            quotationId: quotation.id,
+            quotationNumber: quotation.quotationNumber,
+            isTrash: true,
+          },
+        });
+      } else if (isRestoreOperation && quotation.isTrash) {
+        await createUserLog({
+          userId: session.user.id,
+          action: LogAction.ITEM_UPDATED,
+          details: `Quotation "${quotation.quotationNumber}" restored from trash`,
+          metadata: {
+            quotationId: quotation.id,
+            quotationNumber: quotation.quotationNumber,
+            isTrash: false,
+            status: 'DRAFT',
+          },
+        });
+      } else {
+        const statusStr = typeof status === 'string' ? status : String(status);
+        await createUserLog({
+          userId: session.user.id,
+          action: LogAction.ITEM_UPDATED,
+          details: `Quotation "${quotation.quotationNumber}" status updated to ${statusStr}`,
+          metadata: {
+            quotationId: quotation.id,
+            quotationNumber: quotation.quotationNumber,
+            status: statusStr,
+          },
+        });
+      }
+    }
+
+    // Create notification
+    if (isTrashOperation) {
+      await notifyItemDeleted(
+        session.user.id,
+        'Quotation',
+        `${quotations.length} quotation(s)`
+      );
+    } else {
+      const actionText = isRestoreOperation ? 'restored from trash' : `status updated to ${typeof status === 'string' ? status.toLowerCase() : String(status).toLowerCase()}`;
+      await notifyItemUpdated(
+        session.user.id,
+        'Quotation',
+        `${quotations.length} quotation(s)`,
+        [actionText]
+      );
+    }
+
+    // Revalidate quotations list page
+    revalidatePath('/dashboard/quotations', 'page');
+    // Revalidate individual quotation pages for each updated quotation
+    for (const quotation of quotations) {
+      revalidatePath(`/dashboard/quotations/${quotation.id}`, 'page');
+    }
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error('Error updating quotation status:', error);
+    console.error('Status received:', status);
+    console.error('Quotation IDs:', quotationIds);
+    if (error && typeof error === 'object' && 'message' in error) {
+      console.error('Full error details:', error);
+    }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update quotation status',
+    };
+  }
+}
+
+/**
+ * Delete quotations permanently
+ */
+export async function deleteQuotationsPermanently(quotationIds: string[]) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: 'Unauthorized',
+      };
+    }
+
+    if (quotationIds.length === 0) {
+      return {
+        success: false,
+        error: 'No quotations selected',
+      };
+    }
+
+    // Get quotation details for logging before deletion
+    const quotations = await prisma.quotation.findMany({
+      where: {
+        id: { in: quotationIds },
+        isTrash: true, // Only allow permanent deletion of trashed items
+      },
+      select: {
+        id: true,
+        quotationNumber: true,
+        subject: true,
+      },
+    });
+
+    if (quotations.length === 0) {
+      return {
+        success: false,
+        error: 'No trashed quotations found to delete',
+      };
+    }
+
+    // Delete quotations permanently (cascade will handle sections, groups, items)
+    await prisma.quotation.deleteMany({
+      where: {
+        id: { in: quotations.map(q => q.id) },
+      },
+    });
+
+    // Log permanent deletion
+    for (const quotation of quotations) {
+      await createUserLog({
+        userId: session.user.id,
+        action: LogAction.ITEM_DELETED,
+        details: `Quotation "${quotation.quotationNumber}" permanently deleted`,
+        metadata: {
+          quotationId: quotation.id,
+          quotationNumber: quotation.quotationNumber,
+          subject: quotation.subject,
+        },
+      });
+    }
+
+    // Create notification
+    await notifyItemDeleted(
+      session.user.id,
+      'Quotation',
+      `${quotations.length} quotation(s)`
+    );
+
+    revalidatePath('/dashboard/quotations', 'page');
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error('Error deleting quotations permanently:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete quotations',
     };
   }
 }

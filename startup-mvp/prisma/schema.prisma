@@ -46,6 +46,7 @@ model User {
   createdClients       Client[]       @relation("ClientCreator")
   createdSuppliers     Supplier[]     @relation("SupplierCreator")
   quotations           Quotation[]    @relation("SubmittedBy")
+  updatedQuotations    Quotation[]    @relation("UpdatedBy")
   sections             Section[]      @relation("PreparedBy")
   createdCoverLetters  CoverLetter[]  @relation("CoverLetterCreator")
   settings             Settings[]     @relation("SettingsUser")
@@ -311,10 +312,14 @@ model Quotation {
   submittedById String
   submittedBy   User   @relation("SubmittedBy", fields: [submittedById], references: [id])
 
+  updatedById String?
+  updatedBy   User?   @relation("UpdatedBy", fields: [updatedById], references: [id])
+
   // Additional fields
   shippingCharges Decimal? @db.Decimal(10, 2)
   vatIncluded     Boolean? @default(false)
   projectLocation String?
+  isTrash         Boolean  @default(false) // Trash management - true if in trash
 
   section Section[]
 
@@ -324,7 +329,9 @@ model Quotation {
   @@index([clientId])
   @@index([organizationId])
   @@index([submittedById])
+  @@index([updatedById])
   @@index([status])
+  @@index([isTrash])
 }
 
 // Section within a quotation (e.g., different sections/phases)

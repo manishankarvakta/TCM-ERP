@@ -475,7 +475,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   // Add grand total row with orange-brown background
   financialStatementData.push([
     {
-      content: 'Grand Total (BDT)',
+      content: 'Grand Total (৳)',
       styles: { fontStyle: 'bold', halign: 'right' },
     },
     {
