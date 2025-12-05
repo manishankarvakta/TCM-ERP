@@ -463,7 +463,7 @@ export function QuotationBasicInfoCard({
                 coverLetters.map((cl) => (
                   <SelectItem key={cl.id} value={cl.id} className="text-left">
                     {cl.title}
-                  </SelectItem>
+                </SelectItem>
                 ))
               )}
             </SelectContent>
@@ -482,18 +482,18 @@ export function QuotationBasicInfoCard({
 
         {/* Shipping Charges and Discount */}
         <div className="grid grid-cols-2 gap-2">
-          <div>
-            <Label htmlFor="shippingCharges" className="text-xs">Shipping Charges</Label>
-            <Input
-              id="shippingCharges"
-              type="number"
-              step="0.01"
-              min="0"
-              value={shippingCharges}
-              onChange={(e) => onShippingChargesChange(parseFloat(e.target.value) || 0)}
-              placeholder="0.00"
-              className="h-8 text-sm"
-            />
+        <div>
+          <Label htmlFor="shippingCharges" className="text-xs">Shipping Charges</Label>
+          <Input
+            id="shippingCharges"
+            type="number"
+            step="0.01"
+            min="0"
+            value={shippingCharges}
+            onChange={(e) => onShippingChargesChange(parseFloat(e.target.value) || 0)}
+            placeholder="0.00"
+            className="h-8 text-sm"
+          />
           </div>
           <div>
             <Label htmlFor="discount" className="text-xs">Discount</Label>

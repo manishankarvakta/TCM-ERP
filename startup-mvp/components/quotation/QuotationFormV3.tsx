@@ -368,7 +368,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
   const onFormSubmit = (data: QuotationFormValues) => {
     console.log('Form submitted with data:', data);
     console.log('Sections state:', sections);
-    
+
     // Prepare quotation data matching Prisma schema
     const quotation = {
       quotationNumber: data.quotationNumber,

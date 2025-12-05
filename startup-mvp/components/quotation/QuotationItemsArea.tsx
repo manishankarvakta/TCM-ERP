@@ -186,13 +186,13 @@ function SortableItem({
         <div className="flex gap-2 items-center w-full">
           <div className="flex-1 relative w-full min-w-0">
             {/* <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" /> */}
-            <Select
-              value={item.itemId || 'manual'}
-              onValueChange={handleItemSelect}
-            >
+        <Select
+          value={item.itemId || 'manual'}
+          onValueChange={handleItemSelect}
+        >
               <SelectTrigger className="h-8 text-xs w-full min-w-0 text-left">
-                <SelectValue placeholder="Select item" />
-              </SelectTrigger>
+            <SelectValue placeholder="Select item" />
+          </SelectTrigger>
               <SelectContent className="max-h-[300px]">
                 <div className="p-2">
                   <Input
@@ -217,11 +217,11 @@ function SortableItem({
                           </span>
                         )}
                       </div>
-                    </SelectItem>
+              </SelectItem>
                   ))
                 )}
-              </SelectContent>
-            </Select>
+          </SelectContent>
+        </Select>
           </div>
         </div>
       </TableCell>
@@ -281,13 +281,13 @@ function SortableItem({
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
-          <Input
-            type="number"
-            step="0.01"
-            value={item.unitPrice}
-            onChange={(e) => onUpdate({ unitPrice: Number(e.target.value) })}
+        <Input
+          type="number"
+          step="0.01"
+          value={item.unitPrice}
+          onChange={(e) => onUpdate({ unitPrice: Number(e.target.value) })}
             className="h-8 w-24 text-xs"
-          />
+        />
           {item.unit && (
             <span className="text-xs text-muted-foreground whitespace-nowrap">{item.unit}</span>
           )}
@@ -389,15 +389,15 @@ export function QuotationItemsArea({
     // Create deep copy of sections
     const updated = sections.map((s, idx) => {
       if (idx !== sectionIndex) return s;
-      
+
       let updatedSection: Section;
-      if (groupId) {
-        // Add to group
+    if (groupId) {
+      // Add to group
         const groupIndex = section.groups.findIndex((g) => g.id === groupId);
-        if (groupIndex !== -1) {
+      if (groupIndex !== -1) {
           const group = section.groups[groupIndex];
-          const itemsInGroup = group.items.length;
-          newItem.sl = itemsInGroup + 1;
+        const itemsInGroup = group.items.length;
+        newItem.sl = itemsInGroup + 1;
           
           updatedSection = {
             ...s,
@@ -413,8 +413,8 @@ export function QuotationItemsArea({
           };
         } else {
           return s;
-        }
-      } else {
+      }
+    } else {
         // Add to section directly
         const itemsInSection = section.items.length;
         newItem.sl = itemsInSection + 1;
@@ -422,7 +422,7 @@ export function QuotationItemsArea({
           ...s,
           items: [...s.items, newItem],
         };
-      }
+    }
       // Calculate totals for the updated section
       const totals = calculateSectionTotals(updatedSection);
       return {
@@ -475,7 +475,7 @@ export function QuotationItemsArea({
       if (sIdx !== sectionIndex) return s;
 
       let updatedSection: Section;
-      if (groupIndex !== undefined) {
+    if (groupIndex !== undefined) {
         const group = s.groups[groupIndex];
         const item = group.items[itemIndex];
         const updatedItem = { ...item, ...updates };
@@ -507,7 +507,7 @@ export function QuotationItemsArea({
         };
       } else {
         const item = s.items[itemIndex];
-        const updatedItem = { ...item, ...updates };
+    const updatedItem = { ...item, ...updates };
 
         // Calculate amount based on dimensions
         if (
@@ -548,13 +548,13 @@ export function QuotationItemsArea({
       if (sIdx !== sectionIndex) return s;
 
       let updatedSection: Section;
-      if (groupIndex !== undefined) {
+    if (groupIndex !== undefined) {
         updatedSection = {
           ...s,
           groups: s.groups.map((g, gIdx) => {
             if (gIdx !== groupIndex) return g;
             const filteredItems = g.items.filter((_, i) => i !== itemIndex);
-            // Recalculate SL numbers
+      // Recalculate SL numbers
             const itemsWithUpdatedSl = filteredItems.map((item, i) => ({
               ...item,
               sl: i + 1,
@@ -566,9 +566,9 @@ export function QuotationItemsArea({
             };
           }),
         };
-      } else {
+    } else {
         const filteredItems = s.items.filter((_, i) => i !== itemIndex);
-        // Recalculate SL numbers
+      // Recalculate SL numbers
         const itemsWithUpdatedSl = filteredItems.map((item, i) => ({
           ...item,
           sl: i + 1,
@@ -585,7 +585,7 @@ export function QuotationItemsArea({
         total: totals.total,
         grandTotal: totals.grandTotal,
       };
-    });
+      });
 
     onSectionsChange(updated);
   };
@@ -603,7 +603,7 @@ export function QuotationItemsArea({
           if (gIdx !== groupIndex) return g;
           return { ...g, ...updates };
         }),
-      };
+    };
     });
     onSectionsChange(updated);
   };
@@ -770,43 +770,43 @@ export function QuotationItemsArea({
       const updated = sections.map((s, idx) => {
         if (idx !== sectionIndex) return s;
         
-        // Remove from source
+      // Remove from source
         let newItems = [...s.items];
         const newGroups = s.groups.map((g) => ({ ...g, items: [...g.items] }));
         
-        if (activeGroupIndex !== undefined) {
+      if (activeGroupIndex !== undefined) {
           newGroups[activeGroupIndex].items = newGroups[activeGroupIndex].items.filter(
             (_, i) => i !== activeItemIndex
-          );
+        );
           newGroups[activeGroupIndex].quantity = calculateGroupQuantity(newGroups[activeGroupIndex].items);
-        } else {
+      } else {
           newItems = newItems.filter((_, i) => i !== activeItemIndex);
-        }
+      }
 
         // Add to destination (activeItem is guaranteed to be non-null here)
         if (activeItem) {
-          if (overGroupIndex !== undefined) {
-            const insertIndex =
-              overItemIndex === -1
+      if (overGroupIndex !== undefined) {
+        const insertIndex =
+          overItemIndex === -1
                 ? newGroups[overGroupIndex].items.length
-                : overItemIndex;
+            : overItemIndex;
             newGroups[overGroupIndex].items.splice(insertIndex, 0, activeItem);
-            // Recalculate SL
+        // Recalculate SL
             newGroups[overGroupIndex].items = newGroups[overGroupIndex].items.map(
               (item, i) => ({ ...item, sl: i + 1 })
-            );
+        );
             newGroups[overGroupIndex].quantity = calculateGroupQuantity(newGroups[overGroupIndex].items);
-          } else {
-            const insertIndex =
-              overItemIndex === -1
+      } else {
+        const insertIndex =
+          overItemIndex === -1
                 ? newItems.length
-                : overItemIndex;
+            : overItemIndex;
             newItems.splice(insertIndex, 0, activeItem);
-            // Recalculate SL
+        // Recalculate SL
             newItems = newItems.map((item, i) => ({ ...item, sl: i + 1 }));
-          }
-        }
-        
+      }
+    }
+
         const updatedSection = {
           ...s,
           items: newItems,
@@ -957,24 +957,24 @@ export function QuotationItemsArea({
                     {/* Section Actions */}
                     <div className="flex gap-2 mt-3 items-center justify-between">
                       <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
                           onClick={() => addGroupToSection(sectionIndex)}
-                        >
-                          <FiPlus className="w-4 h-4 mr-2" />
-                          Add Group
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
+                      >
+                        <FiPlus className="w-4 h-4 mr-2" />
+                        Add Group
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
                           onClick={() => addItemToSection(sectionIndex)}
-                        >
-                          <FiPlus className="w-4 h-4 mr-2" />
-                          Add Item
-                        </Button>
+                      >
+                        <FiPlus className="w-4 h-4 mr-2" />
+                        Add Item
+                      </Button>
                       </div>
                       <div className="flex items-center gap-2">
                         <Label htmlFor={`section-discount-${sectionIndex}`} className="text-xs whitespace-nowrap">

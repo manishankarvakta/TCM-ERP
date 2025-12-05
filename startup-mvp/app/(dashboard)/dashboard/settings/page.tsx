@@ -92,8 +92,8 @@ export default function SettingsPage() {
 
   const handleSectionChange = (section: SettingsSection) => {
     startTransition(() => {
-      setActiveSection(section);
-      router.push(`/dashboard/settings?section=${section}`);
+    setActiveSection(section);
+    router.push(`/dashboard/settings?section=${section}`);
     });
   };
 
