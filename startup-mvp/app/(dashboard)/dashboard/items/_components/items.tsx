@@ -49,11 +49,13 @@ interface Item {
     details: string;
   };
   unitPrice: Decimal;
-  categoryId: string | null;
-  category: {
+  categories: {
     id: string;
-    name: string;
-  } | null;
+    category: {
+      id: string;
+      name: string;
+    };
+  }[];
   image: string | null;
   status: string;
   createdAt: Date;
@@ -386,7 +388,17 @@ export default function ItemsListClient({
                       {formatPrice(item.unitPrice)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {item.category?.name || "-"}
+                      {item.categories && item.categories.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {item.categories.map((itemCategory) => (
+                            <Badge key={itemCategory.id} variant="secondary" className="text-xs">
+                              {itemCategory.category.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        "-"
+                      )}
                     </TableCell>
                     <TableCell>
                       {itemStatus === "trash" ? (

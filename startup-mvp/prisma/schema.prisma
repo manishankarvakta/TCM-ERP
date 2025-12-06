@@ -204,38 +204,49 @@ model Organization {
 }
 
 model Category {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   name        String
   description String?
-  status      String   @default("active") // active, inactive, trash
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  items       Item[]   @relation("ItemCategory")
+  status      String         @default("active") // active, inactive, trash
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  items       ItemCategory[]
 
   @@index([name])
   @@index([status])
 }
 
 model Item {
-  id          String    @id @default(cuid())
-  code        String    @unique
+  id          String         @id @default(cuid())
+  code        String         @unique
   description String
   unitId      String
-  unit        Unit      @relation("unit", fields: [unitId], references: [id], onDelete: Restrict)
-  unitPrice   Decimal   @db.Decimal(10, 2)
-  categoryId  String?
-  category    Category? @relation("ItemCategory", fields: [categoryId], references: [id], onDelete: SetNull)
+  unit        Unit           @relation("unit", fields: [unitId], references: [id], onDelete: Restrict)
+  unitPrice   Decimal        @db.Decimal(10, 2)
   image       String?
-  status      String    @default("active") // active, inactive, trash
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  status      String         @default("active") // active, inactive, trash
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
+  categories  ItemCategory[]
   quotationItems QuotationItem[]
 
   @@index([code])
   @@index([unitId])
-  @@index([categoryId])
   @@index([status])
+}
+
+model ItemCategory {
+  id         String   @id @default(cuid())
+  itemId     String
+  categoryId String
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([itemId, categoryId])
+  @@index([itemId])
+  @@index([categoryId])
 }
 
 model Client {

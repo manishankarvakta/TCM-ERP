@@ -95,8 +95,18 @@ export default async function ItemDetailsPage({ searchParams }: ItemDetailsPageP
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">Category</label>
-                  <p className="text-base">{item.category?.name || "-"}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Categories</label>
+                  {item.categories && item.categories.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {item.categories.map((itemCategory) => (
+                        <Badge key={itemCategory.id} variant="secondary">
+                          {itemCategory.category.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-base">-</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">

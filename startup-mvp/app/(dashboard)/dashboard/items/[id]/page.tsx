@@ -26,8 +26,11 @@ export default async function EditItemPage({ params }: EditItemPageProps) {
           description: result.item.description,
           unitId: result.item.unitId,
           unitPrice: Number(result.item.unitPrice),
-          categoryId: result.item.categoryId,
-          category: result.item.category,
+          categoryIds: result.item.categories?.map(c => c.category.id) || [],
+          categories: result.item.categories?.map(c => ({
+            id: c.category.id,
+            name: c.category.name,
+          })) || [],
           image: result.item.image,
           status: result.item.status,
         }}
