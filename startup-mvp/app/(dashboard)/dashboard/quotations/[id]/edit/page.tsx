@@ -50,6 +50,7 @@ export default async function EditQuotationPage({ params }: EditQuotationPagePro
       total: section.total ? Number(section.total) : null,
       grandTotal: section.grandTotal ? Number(section.grandTotal) : null,
       sortOrder: section.sortOrder,
+      categoryId: section.categoryId || undefined,
       preparedById: section.preparedById,
       groups: section.groups?.map((group: any) => ({
         id: group.id,

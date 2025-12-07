@@ -354,6 +354,7 @@ model Section {
   total     Decimal? @db.Decimal(12, 2)
   grandTotal Decimal? @db.Decimal(12, 2)
   sortOrder Int      @default(0)
+  categoryId String?
 
   quotationId String
   quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)

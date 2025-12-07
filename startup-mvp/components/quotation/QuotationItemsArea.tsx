@@ -18,6 +18,7 @@ import { formatCurrency } from '@/lib/utils/formatters';
 import { FiPlus, FiTrash2, FiEdit2, FiChevronDown, FiChevronUp, FiSearch } from 'react-icons/fi';
 import { BsGripVertical } from 'react-icons/bs';
 import { getActiveItemsForDropdown } from '@/app/actions/items';
+import { getActiveCategories } from '@/app/(dashboard)/dashboard/items/_actions/item.action';
 import { useAppDispatch } from '@/lib/redux/hooks';
 import { updateSectionNote, updateSectionDiscount } from '@/lib/redux/slices/quotationSlice';
 import {
@@ -66,10 +67,10 @@ interface CatalogItem {
   code: string;
   description: string;
   unitPrice: number;
-  category: {
+  categories: Array<{
     id: string;
     name: string;
-  } | null;
+  }>;
   unit: {
     id: string;
     symbol: string;
@@ -94,6 +95,7 @@ interface Section {
   total?: number;
   grandTotal?: number;
   sortOrder: number;
+  categoryId?: string;
   items: QuotationItem[];
   groups: ItemGroup[];
 }
@@ -112,6 +114,7 @@ function SortableItem({
   onUpdate,
   onRemove,
   catalogItems,
+  sectionCategoryId,
 }: {
   item: QuotationItem;
   sectionIndex: number;
@@ -120,6 +123,7 @@ function SortableItem({
   onUpdate: (updates: Partial<QuotationItem>) => void;
   onRemove: () => void;
   catalogItems: CatalogItem[];
+  sectionCategoryId?: string;
 }) {
   const {
     attributes,
@@ -156,14 +160,21 @@ function SortableItem({
     }
   };
 
-  // Filter items based on search
+  // Filter items based on search and category
   const filteredItems = catalogItems.filter((catalogItem) => {
+    // Filter by category if section has a category selected
+    if (sectionCategoryId) {
+      const hasCategory = catalogItem.categories.some((cat) => cat.id === sectionCategoryId);
+      if (!hasCategory) return false;
+    }
+    
+    // Filter by search
     const searchLower = itemSearch.toLowerCase();
-    return (
+    const matchesSearch =
       catalogItem.code.toLowerCase().includes(searchLower) ||
       catalogItem.description.toLowerCase().includes(searchLower) ||
-      catalogItem.category?.name.toLowerCase().includes(searchLower)
-    );
+      catalogItem.categories.some((cat) => cat.name.toLowerCase().includes(searchLower));
+    return matchesSearch;
   });
 
   return (
@@ -319,6 +330,8 @@ export function QuotationItemsArea({
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(true);
+  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
+  const [categorySearch, setCategorySearch] = useState<{ [key: number]: string }>({});
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -326,25 +339,47 @@ export function QuotationItemsArea({
     })
   );
 
-  // Fetch catalog items from database
+  // Fetch catalog items and categories from database
   useEffect(() => {
-    const fetchItems = async () => {
+    const fetchData = async () => {
       try {
         setIsLoadingItems(true);
-        const result = await getActiveItemsForDropdown();
-        if (result.success) {
-          setCatalogItems(result.items);
+        const [itemsResult, categoriesResult] = await Promise.all([
+          getActiveItemsForDropdown(),
+          getActiveCategories(),
+        ]);
+        
+        if (itemsResult.success) {
+          // Transform items to match CatalogItem interface
+          const transformedItems: CatalogItem[] = (itemsResult.items || []).map((item: {
+            id: string;
+            code: string;
+            description: string;
+            unitPrice: number;
+            categories?: Array<{ category: { id: string; name: string } }>;
+            unit: { id: string; symbol: string } | null;
+          }) => ({
+            ...item,
+            categories: item.categories?.map((ic) => ic.category) || [],
+          }));
+          setCatalogItems(transformedItems);
         } else {
-          console.error('Error fetching items:', result.error);
+          console.error('Error fetching items:', itemsResult.error);
+        }
+        
+        if (categoriesResult.success) {
+          setCategories(categoriesResult.categories);
+        } else {
+          console.error('Error fetching categories:', categoriesResult.error);
         }
       } catch (error) {
-        console.error('Error fetching items:', error);
+        console.error('Error fetching data:', error);
       } finally {
         setIsLoadingItems(false);
       }
     };
 
-    fetchItems();
+    fetchData();
   }, []);
 
   const generateId = () => `item-${Date.now()}-${Math.random()}`;
@@ -957,6 +992,44 @@ export function QuotationItemsArea({
                     {/* Section Actions */}
                     <div className="flex gap-2 mt-3 items-center justify-between">
                       <div className="flex gap-2">
+                      <Select
+                        value={section.categoryId || 'all'}
+                        onValueChange={(value) => {
+                          updateSection(sectionIndex, { categoryId: value === 'all' ? undefined : value });
+                        }}
+                      >
+                        <SelectTrigger className="h-8 w-[180px] text-xs">
+                          <SelectValue placeholder="Select Category" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          <div className="p-2">
+                            <Input
+                              placeholder="Search categories..."
+                              value={categorySearch[sectionIndex] || ''}
+                              onChange={(e) => {
+                                setCategorySearch((prev) => ({
+                                  ...prev,
+                                  [sectionIndex]: e.target.value,
+                                }));
+                              }}
+                              className="h-8 text-xs"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <SelectItem value="all" className="text-left">All Categories</SelectItem>
+                          {categories
+                            .filter((category) => {
+                              const search = categorySearch[sectionIndex] || '';
+                              if (!search) return true;
+                              return category.name.toLowerCase().includes(search.toLowerCase());
+                            })
+                            .map((category) => (
+                              <SelectItem key={category.id} value={category.id} className="text-left">
+                                {category.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
                       <Button
                         type="button"
                         variant="outline"
@@ -1113,6 +1186,7 @@ export function QuotationItemsArea({
                                           itemIndex={itemIndex}
                                           groupIndex={groupIndex}
                                           catalogItems={catalogItems}
+                                          sectionCategoryId={section.categoryId}
                                           onUpdate={(updates) =>
                                             updateItem(
                                               sectionIndex,
@@ -1163,6 +1237,7 @@ export function QuotationItemsArea({
                                     sectionIndex={sectionIndex}
                                     itemIndex={itemIndex}
                                     catalogItems={catalogItems}
+                                    sectionCategoryId={section.categoryId}
                                     onUpdate={(updates) =>
                                       updateItem(
                                         sectionIndex,

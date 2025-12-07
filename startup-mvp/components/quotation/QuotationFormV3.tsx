@@ -52,7 +52,7 @@ const quotationSchema = z.object({
   projectLocation: z.string().optional(),
   
   // Sections with items
-  sections: z.array(
+      sections: z.array(
     z.object({
       title: z.string().min(1, 'Section title is required'),
       note: z.string().optional(),
@@ -60,6 +60,7 @@ const quotationSchema = z.object({
       total: z.number().optional(),
       grandTotal: z.number().optional(),
       sortOrder: z.number().default(0),
+      categoryId: z.string().optional().nullable(),
       items: z.array(
         z.object({
           sl: z.number(),
@@ -122,6 +123,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
       total: section.total ?? 0,
       grandTotal: section.grandTotal ?? 0,
       sortOrder: section.sortOrder ?? sectionIndex,
+      categoryId: section.categoryId || null,
       items: (section.items || []).map((item: any, index: number) => ({
         sl: item.sl ?? index + 1,
         code: item.code || null,
@@ -400,6 +402,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
         total: section.total ?? 0,
         grandTotal: section.grandTotal ?? 0,
         sortOrder: section.sortOrder ?? 0,
+        categoryId: section.categoryId || null,
         groups: (section.groups || []).map((group: any) => ({
           code: group.code || null,
           description: group.description || 'Untitled Group',
@@ -472,6 +475,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
         total: section.total,
         grandTotal: section.grandTotal,
         sortOrder: section.sortOrder,
+        categoryId: section.categoryId || null,
         groups: section.groups.map((group: any) => ({
           code: group.code || '',
           description: group.description,

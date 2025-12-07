@@ -314,10 +314,14 @@ export async function getActiveItems() {
         code: true,
         description: true,
         unitPrice: true,
-        category: {
+        categories: {
           select: {
-            id: true,
-            name: true,
+            category: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
         unit: {

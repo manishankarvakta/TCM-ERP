@@ -27,6 +27,7 @@ interface Section {
   grandTotal?: number;
   discount?: number;
   sortOrder: number;
+  categoryId?: string;
   items: QuotationItem[];
   groups: ItemGroup[];
 }

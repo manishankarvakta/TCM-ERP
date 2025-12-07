@@ -288,6 +288,7 @@ export async function getQuotation(id: string) {
         discount: section.discount ? Number(section.discount) : null,
         total: section.total ? Number(section.total) : null,
         grandTotal: section.grandTotal ? Number(section.grandTotal) : null,
+        categoryId: section.categoryId || null,
         groups: section.groups?.map((group) => ({
           ...group,
           quantity: group.quantity ? Number(group.quantity) : null,
@@ -495,6 +496,7 @@ export async function createQuotation(data: any) {
         total: section.total ? new Prisma.Decimal(section.total) : new Prisma.Decimal(0),
         grandTotal: section.grandTotal ? new Prisma.Decimal(section.grandTotal) : new Prisma.Decimal(0),
             sortOrder: section.sortOrder ?? sectionIndex,
+            categoryId: section.categoryId || null,
             preparedById: section.preparedById || session.user.id,
             groups: {
               create: (section.groups || []).map((group: any, groupIndex: number) => ({
@@ -786,6 +788,7 @@ export async function updateQuotation(id: string, data: any) {
         total: section.total ? new Prisma.Decimal(section.total) : new Prisma.Decimal(0),
         grandTotal: section.grandTotal ? new Prisma.Decimal(section.grandTotal) : new Prisma.Decimal(0),
             sortOrder: section.sortOrder ?? sectionIndex,
+            categoryId: section.categoryId || null,
             preparedById: section.preparedById || session.user.id,
             groups: {
               create: (section.groups || []).map((group: any, groupIndex: number) => ({
