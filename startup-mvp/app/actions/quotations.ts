@@ -254,6 +254,34 @@ export async function getQuotation(id: string) {
                 sortOrder: 'asc',
               },
             },
+            categoryGroups: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+                items: {
+                  include: {
+                    item: {
+                      select: {
+                        id: true,
+                        code: true,
+                        description: true,
+                        unitPrice: true,
+                      },
+                    },
+                  },
+                  orderBy: {
+                    sortOrder: 'asc',
+                  },
+                },
+              },
+              orderBy: {
+                sortOrder: 'asc',
+              },
+            },
           },
           orderBy: {
             sortOrder: 'asc',
@@ -324,6 +352,30 @@ export async function getQuotation(id: string) {
             ...item.item,
             unitPrice: Number(item.item.unitPrice),
           } : null,
+        })),
+        categoryGroups: section.categoryGroups?.map((categoryGroup) => ({
+          ...categoryGroup,
+          categoryId: categoryGroup.categoryId || null,
+          category: categoryGroup.category ? {
+            id: categoryGroup.category.id,
+            name: categoryGroup.category.name,
+          } : null,
+          items: categoryGroup.items?.map((item) => ({
+            ...item,
+            height: item.height ? Number(item.height) : null,
+            width: item.width ? Number(item.width) : null,
+            depth: item.depth ? Number(item.depth) : null,
+            unit: item.unit || null,
+            unitPrice: Number(item.unitPrice),
+            quantity: Number(item.quantity),
+            unitShutter: item.unitShutter ? Number(item.unitShutter) : null,
+            totalShutter: item.totalShutter ? Number(item.totalShutter) : null,
+            amount: Number(item.amount),
+            item: item.item ? {
+              ...item.item,
+              unitPrice: Number(item.item.unitPrice),
+            } : null,
+          })),
         })),
       })),
     };
@@ -428,6 +480,17 @@ export async function createQuotation(data: any) {
             section.groups.forEach((group: any) => {
               if (group.items && Array.isArray(group.items)) {
                 group.items.forEach((item: any) => {
+                  sectionTotal += Number(item.amount || 0);
+                });
+              }
+            });
+          }
+
+          // Sum items in category groups
+          if (section.categoryGroups && Array.isArray(section.categoryGroups)) {
+            section.categoryGroups.forEach((categoryGroup: any) => {
+              if (categoryGroup.items && Array.isArray(categoryGroup.items)) {
+                categoryGroup.items.forEach((item: any) => {
                   sectionTotal += Number(item.amount || 0);
                 });
               }
@@ -543,6 +606,30 @@ export async function createQuotation(data: any) {
                 itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
               })),
             },
+            categoryGroups: {
+              create: (section.categoryGroups || []).map((categoryGroup: any, categoryGroupIndex: number) => ({
+                categoryId: categoryGroup.categoryId || null,
+                sortOrder: categoryGroup.sortOrder ?? categoryGroupIndex,
+                items: {
+                  create: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
+                    sl: item.sl ?? itemIndex + 1,
+                    code: item.code || null,
+                    description: item.description || null,
+                    height: item.height ? new Prisma.Decimal(item.height) : null,
+                    width: item.width ? new Prisma.Decimal(item.width) : null,
+                    depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                    unit: item.unit || null,
+                    unitPrice: new Prisma.Decimal(item.unitPrice || 0),
+                    quantity: new Prisma.Decimal(item.quantity || 0),
+                    unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
+                    totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
+                    amount: new Prisma.Decimal(item.amount || 0),
+                    sortOrder: item.sortOrder ?? itemIndex,
+                    itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
+                  })),
+                },
+              })),
+            },
           })),
         },
       },
@@ -564,6 +651,16 @@ export async function createQuotation(data: any) {
             items: {
               include: {
                 item: true,
+              },
+            },
+            categoryGroups: {
+              include: {
+                category: true,
+                items: {
+                  include: {
+                    item: true,
+                  },
+                },
               },
             },
           },
@@ -717,6 +814,17 @@ export async function updateQuotation(id: string, data: any) {
             });
           }
 
+          // Sum items in category groups
+          if (section.categoryGroups && Array.isArray(section.categoryGroups)) {
+            section.categoryGroups.forEach((categoryGroup: any) => {
+              if (categoryGroup.items && Array.isArray(categoryGroup.items)) {
+                categoryGroup.items.forEach((item: any) => {
+                  sectionTotal += Number(item.amount || 0);
+                });
+              }
+            });
+          }
+
           // Apply discount (amount-based, not percentage)
           if (section.discount) {
             sectionTotal = Math.max(0, sectionTotal - Number(section.discount));
@@ -835,6 +943,30 @@ export async function updateQuotation(id: string, data: any) {
                 itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
               })),
             },
+            categoryGroups: {
+              create: (section.categoryGroups || []).map((categoryGroup: any, categoryGroupIndex: number) => ({
+                categoryId: categoryGroup.categoryId || null,
+                sortOrder: categoryGroup.sortOrder ?? categoryGroupIndex,
+                items: {
+                  create: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
+                    sl: item.sl ?? itemIndex + 1,
+                    code: item.code || null,
+                    description: item.description || null,
+                    height: item.height ? new Prisma.Decimal(item.height) : null,
+                    width: item.width ? new Prisma.Decimal(item.width) : null,
+                    depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                    unit: item.unit || null,
+                    unitPrice: new Prisma.Decimal(item.unitPrice || 0),
+                    quantity: new Prisma.Decimal(item.quantity || 0),
+                    unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
+                    totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
+                    amount: new Prisma.Decimal(item.amount || 0),
+                    sortOrder: item.sortOrder ?? itemIndex,
+                    itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
+                  })),
+                },
+              })),
+            },
           })),
         },
       },
@@ -857,6 +989,16 @@ export async function updateQuotation(id: string, data: any) {
             items: {
               include: {
                 item: true,
+              },
+            },
+            categoryGroups: {
+              include: {
+                category: true,
+                items: {
+                  include: {
+                    item: true,
+                  },
+                },
               },
             },
           },

@@ -212,6 +212,7 @@ model Category {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
   items       ItemCategory[]
+  categoryGroups CategoryGroup[]
 
   @@index([name])
   @@index([status])
@@ -423,6 +424,7 @@ model Section {
   preparedBy   User?   @relation("PreparedBy", fields: [preparedById], references: [id])
 
   groups ItemGroup[]
+  categoryGroups CategoryGroup[]
   items  QuotationItem[] // Direct items not in groups
 
   createdAt DateTime @default(now())
@@ -439,6 +441,7 @@ model ItemGroup {
   quantity    Decimal? @db.Decimal(10, 2) // Group-level quantity if applicable
   number      Int?     // Additional number field
   sortOrder   Int      @default(0)
+  moduleGroupId String? // Reference to ModuleGroup template
 
   sectionId String
   section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
@@ -449,6 +452,25 @@ model ItemGroup {
   updatedAt DateTime @updatedAt
 
   @@index([sectionId])
+}
+
+// Category Group (grouping items by category within a section)
+model CategoryGroup {
+  id        String   @id @default(cuid())
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  sortOrder Int      @default(0)
+
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  items QuotationItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sectionId])
+  @@index([categoryId])
 }
 
 // Quotation Item (links Item catalog to quotation with specific details)
@@ -476,12 +498,15 @@ model QuotationItem {
   itemId String? // Optional: reference to catalog item
   item   Item?   @relation(fields: [itemId], references: [id])
 
-  // Item can be directly in section or in a group
+  // Item can be directly in section, in a group, or in a category group
   sectionId String?
   section   Section? @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
   groupId String?
   group   ItemGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  categoryGroupId String?
+  categoryGroup   CategoryGroup? @relation(fields: [categoryGroupId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -489,6 +514,7 @@ model QuotationItem {
   @@index([itemId])
   @@index([sectionId])
   @@index([groupId])
+  @@index([categoryGroupId])
 }
 
 // ============================================

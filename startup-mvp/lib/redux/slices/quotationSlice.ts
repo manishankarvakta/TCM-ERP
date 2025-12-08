@@ -19,6 +19,25 @@ interface QuotationItem {
   itemId?: string | null;
 }
 
+
+interface ItemGroup {
+  id?: string;
+  code?: string;
+  description: string;
+  quantity?: number;
+  number?: number;
+  sortOrder: number;
+  items: QuotationItem[];
+  moduleGroupId?: string | null; // Reference to ModuleGroup template
+}
+
+interface CategoryGroup {
+  id?: string;
+  categoryId?: string;
+  sortOrder: number;
+  items: QuotationItem[];
+}
+
 interface Section {
   id?: string;
   title: string;
@@ -30,17 +49,7 @@ interface Section {
   categoryId?: string;
   items: QuotationItem[];
   groups: ItemGroup[];
-}
-
-interface ItemGroup {
-  id?: string;
-  code?: string;
-  description: string;
-  quantity?: number;
-  number?: number;
-  sortOrder: number;
-  items: QuotationItem[];
-  moduleGroupId?: string | null; // Reference to ModuleGroup template
+  categoryGroups?: CategoryGroup[];
 }
 
 interface Quotation {
@@ -100,6 +109,17 @@ const recalculateSectionTotals = (state: QuotationState, sectionIndex: number) =
     });
   }
   
+  // Sum items in category groups
+  if (section.categoryGroups) {
+    section.categoryGroups.forEach((categoryGroup: CategoryGroup) => {
+      if (categoryGroup.items) {
+        categoryGroup.items.forEach((item: QuotationItem) => {
+          sectionTotal += item.amount || 0;
+        });
+      }
+    });
+  }
+  
   // Calculate grandTotal = total - discount
   const discount = section.discount || 0;
   const grandTotal = Math.max(0, sectionTotal - discount);
@@ -145,6 +165,17 @@ const quotationSlice = createSlice({
           section.groups.forEach((group: ItemGroup) => {
             if (group.items) {
               group.items.forEach((item: QuotationItem) => {
+                sectionTotal += item.amount || 0;
+              });
+            }
+          });
+        }
+        
+        // Sum items in category groups
+        if (section.categoryGroups) {
+          section.categoryGroups.forEach((categoryGroup: CategoryGroup) => {
+            if (categoryGroup.items) {
+              categoryGroup.items.forEach((item: QuotationItem) => {
                 sectionTotal += item.amount || 0;
               });
             }

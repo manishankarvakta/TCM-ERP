@@ -90,6 +90,14 @@ interface ItemGroup {
   moduleGroupId?: string | null; // Reference to ModuleGroup template
 }
 
+interface CategoryGroup {
+  id: string;
+  categoryId?: string;
+  sortOrder: number;
+  items: QuotationItem[];
+  isExpanded?: boolean;
+}
+
 interface Section {
   id?: string;
   title: string;
@@ -101,6 +109,7 @@ interface Section {
   categoryId?: string;
   items: QuotationItem[];
   groups: ItemGroup[];
+  categoryGroups?: CategoryGroup[];
 }
 
 interface QuotationItemsAreaProps {
@@ -202,47 +211,57 @@ function SortableItem({
       </TableCell>
       <TableCell className="font-medium w-12">{item.sl}</TableCell>
       <TableCell>
-        <div className="flex gap-2 items-center w-full">
-          <div className="flex-1 relative w-full min-w-0">
-            {/* <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" /> */}
-        <Select
-          value={item.itemId || 'manual'}
-          onValueChange={handleItemSelect}
-        >
-              <SelectTrigger className="h-8 text-xs w-full min-w-0 text-left">
-            <SelectValue placeholder="Select item" />
-          </SelectTrigger>
-              <SelectContent className="max-h-[300px]">
-                <div className="p-2">
-                  <Input
-                    placeholder="Search items..."
-                    value={itemSearch}
-                    onChange={(e) => setItemSearch(e.target.value)}
-                    className="h-8 text-xs"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
-                <SelectItem value="manual" className="text-left">Manual Entry</SelectItem>
-                {filteredItems.length === 0 ? (
-                  <div className="p-2 text-xs text-gray-500 text-left">No items found</div>
-                ) : (
-                  filteredItems.map((catalogItem) => (
-                    <SelectItem key={catalogItem.id} value={catalogItem.id} className="text-left">
-                      <div className="flex flex-col">
-                        <span className="font-medium">{catalogItem.code}</span>
-                        {catalogItem.description && (
-                          <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-                            {catalogItem.description}
-                          </span>
-                        )}
-                      </div>
-              </SelectItem>
-                  ))
-                )}
-          </SelectContent>
-        </Select>
+        {groupIndex !== undefined ? (
+          // For group items, show code as input field (items come from ModuleGroup)
+          <Input
+            value={item.code || ''}
+            onChange={(e) => onUpdate({ code: e.target.value })}
+            placeholder="Code"
+            className="h-8 text-xs min-w-[150px]"
+          />
+        ) : (
+          // For non-group items, show item dropdown select
+          <div className="flex gap-2 items-center w-full">
+            <div className="flex-1 relative w-full min-w-0">
+              <Select
+                value={item.itemId || 'manual'}
+                onValueChange={handleItemSelect}
+              >
+                <SelectTrigger className="h-8 text-xs w-full min-w-0 text-left">
+                  <SelectValue placeholder="Select item" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  <div className="p-2">
+                    <Input
+                      placeholder="Search items..."
+                      value={itemSearch}
+                      onChange={(e) => setItemSearch(e.target.value)}
+                      className="h-8 text-xs"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                  <SelectItem value="manual" className="text-left">Manual Entry</SelectItem>
+                  {filteredItems.length === 0 ? (
+                    <div className="p-2 text-xs text-gray-500 text-left">No items found</div>
+                  ) : (
+                    filteredItems.map((catalogItem) => (
+                      <SelectItem key={catalogItem.id} value={catalogItem.id} className="text-left">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{catalogItem.code}</span>
+                          {catalogItem.description && (
+                            <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                              {catalogItem.description}
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        </div>
+        )}
       </TableCell>
       <TableCell>
         <Input
@@ -403,7 +422,7 @@ export function QuotationItemsArea({
   const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(true);
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
-  const [categorySearch, setCategorySearch] = useState<{ [key: number]: string }>({});
+  const [categorySearch, setCategorySearch] = useState<{ [key: string]: string }>({});
   const [moduleGroups, setModuleGroups] = useState<Array<{ id: string; name: string; code: string | null }>>([]);
   const [isLoadingModuleGroups, setIsLoadingModuleGroups] = useState(true);
   const [units, setUnits] = useState<Array<{ id: string; symbol: string; details: string }>>([]);
@@ -502,6 +521,7 @@ export function QuotationItemsArea({
       sortOrder: sections.length,
       items: [],
       groups: [],
+      categoryGroups: [],
     };
     onSectionsChange([...sections, newSection]);
   };
@@ -523,7 +543,7 @@ export function QuotationItemsArea({
     onSectionsChange(sections.filter((_, i) => i !== index));
   };
 
-  const addItemToSection = (sectionIndex: number, groupId?: string) => {
+  const addItemToSection = (sectionIndex: number, groupId?: string, categoryGroupId?: string) => {
     const section = sections[sectionIndex];
     const newItem: QuotationItem = {
       id: generateId(),
@@ -538,13 +558,35 @@ export function QuotationItemsArea({
       if (idx !== sectionIndex) return s;
 
       let updatedSection: Section;
-    if (groupId) {
-      // Add to group
+      if (categoryGroupId) {
+        // Add to category group
+        const categoryGroupIndex = (section.categoryGroups || []).findIndex((cg) => cg.id === categoryGroupId);
+        if (categoryGroupIndex !== -1) {
+          const categoryGroup = section.categoryGroups![categoryGroupIndex];
+          const itemsInCategoryGroup = categoryGroup.items.length;
+          newItem.sl = itemsInCategoryGroup + 1;
+          
+          updatedSection = {
+            ...s,
+            categoryGroups: (s.categoryGroups || []).map((cg, cgIdx) => {
+              if (cgIdx !== categoryGroupIndex) return cg;
+              const updatedItems = [...cg.items, newItem];
+              return {
+                ...cg,
+                items: updatedItems,
+              };
+            }),
+          };
+        } else {
+          return s;
+        }
+      } else if (groupId) {
+        // Add to group
         const groupIndex = section.groups.findIndex((g) => g.id === groupId);
-      if (groupIndex !== -1) {
+        if (groupIndex !== -1) {
           const group = section.groups[groupIndex];
-        const itemsInGroup = group.items.length;
-        newItem.sl = itemsInGroup + 1;
+          const itemsInGroup = group.items.length;
+          newItem.sl = itemsInGroup + 1;
           
           updatedSection = {
             ...s,
@@ -560,8 +602,8 @@ export function QuotationItemsArea({
           };
         } else {
           return s;
-      }
-    } else {
+        }
+      } else {
         // Add to section directly
         const itemsInSection = section.items.length;
         newItem.sl = itemsInSection + 1;
@@ -569,7 +611,7 @@ export function QuotationItemsArea({
           ...s,
           items: [...s.items, newItem],
         };
-    }
+      }
       // Calculate totals for the updated section
       const totals = calculateSectionTotals(updatedSection);
       return {
@@ -612,17 +654,134 @@ export function QuotationItemsArea({
     onSectionsChange(updated);
   };
 
+  const addCategoryGroupToSection = (sectionIndex: number) => {
+    const section = sections[sectionIndex];
+    const newCategoryGroup: CategoryGroup = {
+      id: generateId(),
+      sortOrder: (section.categoryGroups?.length || 0),
+      items: [],
+      isExpanded: true,
+    };
+    
+    // Create deep copy with new category group added
+    const updated = sections.map((s, idx) => {
+      if (idx !== sectionIndex) return s;
+      const updatedSection = {
+        ...s,
+        categoryGroups: [...(s.categoryGroups || []), newCategoryGroup],
+      };
+      // Calculate totals for the updated section
+      const totals = calculateSectionTotals(updatedSection);
+      return {
+        ...updatedSection,
+        total: totals.total,
+        grandTotal: totals.grandTotal,
+      };
+    });
+    
+    onSectionsChange(updated);
+  };
+
+  const removeCategoryGroup = (sectionIndex: number, categoryGroupIndex: number) => {
+    const updated = sections.map((s, sIdx) => {
+      if (sIdx !== sectionIndex) return s;
+      const updatedSection = {
+        ...s,
+        categoryGroups: (s.categoryGroups || []).filter((_, i) => i !== categoryGroupIndex),
+      };
+      // Calculate totals for the updated section
+      const totals = calculateSectionTotals(updatedSection);
+      return {
+        ...updatedSection,
+        total: totals.total,
+        grandTotal: totals.grandTotal,
+      };
+    });
+    onSectionsChange(updated);
+  };
+
+  const updateCategoryGroup = (
+    sectionIndex: number,
+    categoryGroupIndex: number,
+    updates: Partial<CategoryGroup>
+  ) => {
+    const updated = sections.map((s, sIdx) => {
+      if (sIdx !== sectionIndex) return s;
+      const updatedSection = {
+        ...s,
+        categoryGroups: (s.categoryGroups || []).map((cg, cgIdx) => {
+          if (cgIdx !== categoryGroupIndex) return cg;
+          return { ...cg, ...updates };
+        }),
+      };
+      // Calculate totals for the updated section
+      const totals = calculateSectionTotals(updatedSection);
+      return {
+        ...updatedSection,
+        total: totals.total,
+        grandTotal: totals.grandTotal,
+      };
+    });
+    onSectionsChange(updated);
+  };
+
+  const toggleCategoryGroupExpanded = (sectionIndex: number, categoryGroupIndex: number) => {
+    const updated = sections.map((s, sIdx) => {
+      if (sIdx !== sectionIndex) return s;
+      const updatedSection = {
+        ...s,
+        categoryGroups: (s.categoryGroups || []).map((cg, cgIdx) => {
+          if (cgIdx !== categoryGroupIndex) return cg;
+          return { ...cg, isExpanded: !cg.isExpanded };
+        }),
+      };
+      return updatedSection;
+    });
+    onSectionsChange(updated);
+  };
+
   const updateItem = (
     sectionIndex: number,
     itemIndex: number,
     groupIndex: number | undefined,
+    categoryGroupIndex: number | undefined,
     updates: Partial<QuotationItem>
   ) => {
     const updated = sections.map((s, sIdx) => {
       if (sIdx !== sectionIndex) return s;
 
       let updatedSection: Section;
-      if (groupIndex !== undefined) {
+      if (categoryGroupIndex !== undefined) {
+        // Update item in category group
+        const categoryGroup = (s.categoryGroups || [])[categoryGroupIndex];
+        const item = categoryGroup.items[itemIndex];
+        const updatedItem = { ...item, ...updates };
+
+        // Calculate amount based on dimensions
+        if (
+          updates.unitPrice !== undefined ||
+          updates.quantity !== undefined ||
+          updates.height !== undefined ||
+          updates.width !== undefined ||
+          updates.depth !== undefined
+        ) {
+          updatedItem.amount = calculateItemAmount(updatedItem);
+        }
+
+        updatedSection = {
+          ...s,
+          categoryGroups: (s.categoryGroups || []).map((cg, cgIdx) => {
+            if (cgIdx !== categoryGroupIndex) return cg;
+            const updatedItems = cg.items.map((it, iIdx) => 
+              iIdx === itemIndex ? updatedItem : it
+            );
+            return {
+              ...cg,
+              items: updatedItems,
+            };
+          }),
+        };
+      } else if (groupIndex !== undefined) {
         const group = s.groups[groupIndex];
         const item = group.items[itemIndex];
         const updatedItem = { ...item, ...updates };
@@ -689,13 +848,32 @@ export function QuotationItemsArea({
   const removeItem = (
     sectionIndex: number,
     itemIndex: number,
-    groupIndex: number | undefined
+    groupIndex: number | undefined,
+    categoryGroupIndex: number | undefined
   ) => {
     const updated = sections.map((s, sIdx) => {
       if (sIdx !== sectionIndex) return s;
 
       let updatedSection: Section;
-    if (groupIndex !== undefined) {
+      if (categoryGroupIndex !== undefined) {
+        // Remove item from category group
+        updatedSection = {
+          ...s,
+          categoryGroups: (s.categoryGroups || []).map((cg, cgIdx) => {
+            if (cgIdx !== categoryGroupIndex) return cg;
+            const filteredItems = cg.items.filter((_, i) => i !== itemIndex);
+            // Recalculate SL numbers
+            const itemsWithUpdatedSl = filteredItems.map((item, i) => ({
+              ...item,
+              sl: i + 1,
+            }));
+            return {
+              ...cg,
+              items: itemsWithUpdatedSl,
+            };
+          }),
+        };
+      } else if (groupIndex !== undefined) {
         updatedSection = {
           ...s,
           groups: s.groups.map((g, gIdx) => {
@@ -801,6 +979,8 @@ export function QuotationItemsArea({
     let overItem: QuotationItem | null = null;
     let activeGroupIndex: number | undefined = undefined;
     let overGroupIndex: number | undefined = undefined;
+    let activeCategoryGroupIndex: number | undefined = undefined;
+    let overCategoryGroupIndex: number | undefined = undefined;
     let activeItemIndex = -1;
     let overItemIndex = -1;
 
@@ -825,11 +1005,27 @@ export function QuotationItemsArea({
       }
     }
 
+    // Search in category groups
+    if (!activeItem && section.categoryGroups) {
+      for (let i = 0; i < section.categoryGroups.length; i++) {
+        const index = section.categoryGroups[i].items.findIndex(
+          (item) => item.id === activeId
+        );
+        if (index !== -1) {
+          activeItem = section.categoryGroups[i].items[index];
+          activeCategoryGroupIndex = i;
+          activeItemIndex = index;
+          break;
+        }
+      }
+    }
+
     // Find over item
     overItemIndex = section.items.findIndex((item) => item.id === overId);
     if (overItemIndex !== -1) {
       overItem = section.items[overItemIndex];
     } else {
+      // Search in groups
       for (let i = 0; i < section.groups.length; i++) {
         const index = section.groups[i].items.findIndex(
           (item) => item.id === overId
@@ -841,14 +1037,31 @@ export function QuotationItemsArea({
           break;
         }
       }
+      
+      // Search in category groups
+      if (!overItem && section.categoryGroups) {
+        for (let i = 0; i < section.categoryGroups.length; i++) {
+          const index = section.categoryGroups[i].items.findIndex(
+            (item) => item.id === overId
+          );
+          if (index !== -1) {
+            overItem = section.categoryGroups[i].items[index];
+            overCategoryGroupIndex = i;
+            overItemIndex = index;
+            break;
+          }
+        }
+      }
     }
 
     if (!activeItem || !overItem) return;
 
-    // Same container (section or same group)
+    // Same container (section, same group, or same category group)
     if (
       activeGroupIndex === undefined &&
-      overGroupIndex === undefined
+      overGroupIndex === undefined &&
+      activeCategoryGroupIndex === undefined &&
+      overCategoryGroupIndex === undefined
     ) {
       // Both in section items
       const movedItems = arrayMove(
@@ -912,52 +1125,106 @@ export function QuotationItemsArea({
         };
       });
       onSectionsChange(updated);
+    } else if (
+      activeCategoryGroupIndex !== undefined &&
+      overCategoryGroupIndex !== undefined &&
+      activeCategoryGroupIndex === overCategoryGroupIndex
+    ) {
+      // Both in same category group
+      const categoryGroup = section.categoryGroups![activeCategoryGroupIndex];
+      const movedItems = arrayMove(
+        categoryGroup.items,
+        activeItemIndex,
+        overItemIndex
+      );
+      const itemsWithUpdatedSl = movedItems.map((item, i) => ({
+        ...item,
+        sl: i + 1,
+      }));
+      
+      const updated = sections.map((s, idx) => {
+        if (idx !== sectionIndex) return s;
+        const updatedSection = {
+          ...s,
+          categoryGroups: (s.categoryGroups || []).map((cg, cgIdx) => {
+            if (cgIdx !== activeCategoryGroupIndex) return cg;
+            return {
+              ...cg,
+              items: itemsWithUpdatedSl,
+            };
+          }),
+        };
+        // Calculate totals for the updated section
+        const totals = calculateSectionTotals(updatedSection);
+        return {
+          ...updatedSection,
+          total: totals.total,
+          grandTotal: totals.grandTotal,
+        };
+      });
+      onSectionsChange(updated);
     } else {
       // Moving between containers
       const updated = sections.map((s, idx) => {
         if (idx !== sectionIndex) return s;
         
-      // Remove from source
+        // Remove from source
         let newItems = [...s.items];
         const newGroups = s.groups.map((g) => ({ ...g, items: [...g.items] }));
+        const newCategoryGroups = (s.categoryGroups || []).map((cg) => ({ ...cg, items: [...cg.items] }));
         
-      if (activeGroupIndex !== undefined) {
+        if (activeGroupIndex !== undefined) {
           newGroups[activeGroupIndex].items = newGroups[activeGroupIndex].items.filter(
             (_, i) => i !== activeItemIndex
-        );
+          );
           newGroups[activeGroupIndex].quantity = calculateGroupQuantity(newGroups[activeGroupIndex].items);
-      } else {
+        } else if (activeCategoryGroupIndex !== undefined) {
+          newCategoryGroups[activeCategoryGroupIndex].items = newCategoryGroups[activeCategoryGroupIndex].items.filter(
+            (_, i) => i !== activeItemIndex
+          );
+        } else {
           newItems = newItems.filter((_, i) => i !== activeItemIndex);
-      }
+        }
 
         // Add to destination (activeItem is guaranteed to be non-null here)
         if (activeItem) {
-      if (overGroupIndex !== undefined) {
-        const insertIndex =
-          overItemIndex === -1
+          if (overGroupIndex !== undefined) {
+            const insertIndex =
+              overItemIndex === -1
                 ? newGroups[overGroupIndex].items.length
-            : overItemIndex;
+                : overItemIndex;
             newGroups[overGroupIndex].items.splice(insertIndex, 0, activeItem);
-        // Recalculate SL
+            // Recalculate SL
             newGroups[overGroupIndex].items = newGroups[overGroupIndex].items.map(
               (item, i) => ({ ...item, sl: i + 1 })
-        );
+            );
             newGroups[overGroupIndex].quantity = calculateGroupQuantity(newGroups[overGroupIndex].items);
-      } else {
-        const insertIndex =
-          overItemIndex === -1
+          } else if (overCategoryGroupIndex !== undefined) {
+            const insertIndex =
+              overItemIndex === -1
+                ? newCategoryGroups[overCategoryGroupIndex].items.length
+                : overItemIndex;
+            newCategoryGroups[overCategoryGroupIndex].items.splice(insertIndex, 0, activeItem);
+            // Recalculate SL
+            newCategoryGroups[overCategoryGroupIndex].items = newCategoryGroups[overCategoryGroupIndex].items.map(
+              (item, i) => ({ ...item, sl: i + 1 })
+            );
+          } else {
+            const insertIndex =
+              overItemIndex === -1
                 ? newItems.length
-            : overItemIndex;
+                : overItemIndex;
             newItems.splice(insertIndex, 0, activeItem);
-        // Recalculate SL
+            // Recalculate SL
             newItems = newItems.map((item, i) => ({ ...item, sl: i + 1 }));
-      }
-    }
+          }
+        }
 
         const updatedSection = {
           ...s,
           items: newItems,
           groups: newGroups,
+          categoryGroups: newCategoryGroups,
         };
         // Calculate totals for the updated section
         const totals = calculateSectionTotals(updatedSection);
@@ -1051,6 +1318,11 @@ export function QuotationItemsArea({
     section.groups.forEach((group) => {
       group.items.forEach((item) => ids.push(item.id));
     });
+    if (section.categoryGroups) {
+      section.categoryGroups.forEach((categoryGroup) => {
+        categoryGroup.items.forEach((item) => ids.push(item.id));
+      });
+    }
     return ids;
   };
 
@@ -1148,6 +1420,15 @@ export function QuotationItemsArea({
                       >
                         <FiPlus className="w-4 h-4 mr-2" />
                         Add Item
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                          onClick={() => addCategoryGroupToSection(sectionIndex)}
+                      >
+                        <FiPlus className="w-4 h-4 mr-2" />
+                        Add Category
                       </Button>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1374,6 +1655,7 @@ export function QuotationItemsArea({
                                                   sectionIndex,
                                                   itemIndex,
                                                   groupIndex,
+                                                  undefined,
                                                   updates
                                                 )
                                               }
@@ -1381,7 +1663,8 @@ export function QuotationItemsArea({
                                                 removeItem(
                                                   sectionIndex,
                                                   itemIndex,
-                                                  groupIndex
+                                                  groupIndex,
+                                                  undefined
                                                 )
                                               }
                                             />
@@ -1409,6 +1692,188 @@ export function QuotationItemsArea({
                                         </span>
                                       </div>
                                     </div>
+                          </Card>
+                        ))}
+
+                        {/* Category Groups - Show After Groups */}
+                        {(section.categoryGroups || []).map((categoryGroup, categoryGroupIndex) => (
+                          <Card
+                            key={categoryGroup.id}
+                            className="border px-[-2] bg-muted/30"
+                          >
+                            <CardHeader className="pb-2">
+                              <div className="flex justify-between items-center">
+                                <div className="flex-1 flex items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      toggleCategoryGroupExpanded(sectionIndex, categoryGroupIndex)
+                                    }
+                                    className="h-6 w-6 p-0"
+                                  >
+                                    {categoryGroup.isExpanded ? (
+                                      <FiChevronUp className="w-4 h-4" />
+                                    ) : (
+                                      <FiChevronDown className="w-4 h-4" />
+                                    )}
+                                  </Button>
+                                  <div className="flex-1 space-y-2">
+                                    {/* Top Row: Category Select, Add Item Button, Delete Button */}
+                                    <div className="flex items-center gap-2">
+                                      <Select
+                                        value={categoryGroup.categoryId || 'none'}
+                                        onValueChange={(categoryId) => {
+                                          if (categoryId === 'none') {
+                                            updateCategoryGroup(sectionIndex, categoryGroupIndex, {
+                                              categoryId: undefined,
+                                            });
+                                          } else {
+                                            updateCategoryGroup(sectionIndex, categoryGroupIndex, {
+                                              categoryId: categoryId,
+                                            });
+                                          }
+                                        }}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs text-left flex-1">
+                                          <SelectValue placeholder="Select Category" />
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-[300px]">
+                                          <div className="p-2 border-b">
+                                            <div className="relative">
+                                              <FiSearch className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                              <Input
+                                                placeholder="Search categories..."
+                                                value={categorySearch[`${sectionIndex}-${categoryGroupIndex}`] || ''}
+                                                onChange={(e) => {
+                                                  setCategorySearch((prev) => ({
+                                                    ...prev,
+                                                    [`${sectionIndex}-${categoryGroupIndex}`]: e.target.value,
+                                                  }));
+                                                }}
+                                                onKeyDown={(e) => {
+                                                  e.stopPropagation();
+                                                  if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                  }
+                                                }}
+                                                className="pl-8 h-8 text-xs"
+                                                onClick={(e) => e.stopPropagation()}
+                                              />
+                                            </div>
+                                          </div>
+                                          <div className="max-h-[200px] overflow-y-auto">
+                                            <SelectItem value="none" className="text-left">None</SelectItem>
+                                            {categories
+                                              .filter((category) => {
+                                                const search = categorySearch[`${sectionIndex}-${categoryGroupIndex}`] || '';
+                                                if (!search) return true;
+                                                return category.name.toLowerCase().includes(search.toLowerCase());
+                                              })
+                                              .map((category) => (
+                                                <SelectItem key={category.id} value={category.id} className="text-left">
+                                                  {category.name}
+                                                </SelectItem>
+                                              ))}
+                                          </div>
+                                        </SelectContent>
+                                      </Select>
+                                      {categoryGroup.isExpanded && (
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() =>
+                                            addItemToSection(sectionIndex, undefined, categoryGroup.id)
+                                          }
+                                          className="h-8 text-xs"
+                                        >
+                                          <FiPlus className="w-3 h-3 mr-1" />
+                                          Add Item
+                                        </Button>
+                                      )}
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          removeCategoryGroup(sectionIndex, categoryGroupIndex)
+                                        }
+                                        className="h-8 w-8 p-0"
+                                      >
+                                        <FiTrash2 className="w-4 h-4 text-red-500" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardHeader>
+
+                            {categoryGroup.isExpanded && (
+                              <CardContent>
+                                {categoryGroup.items.length > 0 && (
+                                  <>
+                                    <div className="overflow-x-auto">
+                                      <Table>
+                                        <TableHeader>
+                                          <TableRow>
+                                            <TableHead className="w-8"></TableHead>
+                                            <TableHead className="w-12">SL</TableHead>
+                                            <TableHead>Code</TableHead>
+                                            <TableHead>Description</TableHead>
+                                            <TableHead className="w-56">Dimensions</TableHead>
+                                            <TableHead className="w-24">Qty</TableHead>
+                                            <TableHead className="w-32">Unit Price</TableHead>
+                                            <TableHead className="w-32 text-right">Amount</TableHead>
+                                            <TableHead className="w-12"></TableHead>
+                                          </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                          {categoryGroup.items.map((item, itemIndex) => (
+                                            <SortableItem
+                                              key={item.id}
+                                              item={item}
+                                              sectionIndex={sectionIndex}
+                                              itemIndex={itemIndex}
+                                              catalogItems={catalogItems}
+                                              sectionCategoryId={categoryGroup.categoryId}
+                                              onUpdate={(updates) =>
+                                                updateItem(
+                                                  sectionIndex,
+                                                  itemIndex,
+                                                  undefined,
+                                                  categoryGroupIndex,
+                                                  updates
+                                                )
+                                              }
+                                              onRemove={() =>
+                                                removeItem(sectionIndex, itemIndex, undefined, categoryGroupIndex)
+                                              }
+                                            />
+                                          ))}
+                                        </TableBody>
+                                      </Table>
+                                    </div>
+                                  </>
+                                )}
+                              </CardContent>
+                            )}
+                            {/* Category Group Totals */}
+                            <div className="flex justify-end items-center gap-4 py-4 px-4 border-t">
+                              <div className="flex items-center gap-2">
+                                <Label className="text-xs font-medium">Total Items:</Label>
+                                <span className="text-xs font-semibold">{categoryGroup.items.length}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Label className="text-xs font-medium">Total Amount:</Label>
+                                <span className="text-xs font-semibold">
+                                  {formatCurrency(
+                                    categoryGroup.items.reduce((sum, item) => sum + (item.amount || 0), 0)
+                                  )}
+                                </span>
+                              </div>
+                            </div>
                           </Card>
                         ))}
 
@@ -1443,11 +1908,12 @@ export function QuotationItemsArea({
                                         sectionIndex,
                                         itemIndex,
                                         undefined,
+                                        undefined,
                                         updates
                                       )
                                     }
                                     onRemove={() =>
-                                      removeItem(sectionIndex, itemIndex, undefined)
+                                      removeItem(sectionIndex, itemIndex, undefined, undefined)
                                     }
                                   />
                                 ))}

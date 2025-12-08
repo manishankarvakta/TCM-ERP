@@ -146,6 +146,61 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                     </div>
                   )}
 
+                  {/* Category Groups */}
+                  {section.categoryGroups && section.categoryGroups.length > 0 && (
+                    <div className="space-y-4 mb-6">
+                      {section.categoryGroups.map((categoryGroup, categoryGroupIndex: number) => (
+                        <div key={categoryGroup.id || categoryGroupIndex} className="border rounded-lg p-4 bg-muted/30">
+                          <h4 className="font-semibold mb-2">
+                            {categoryGroup.category?.name || 'Uncategorized'}
+                          </h4>
+                          {categoryGroup.items && categoryGroup.items.length > 0 && (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b">
+                                    <th className="text-left p-2">SL</th>
+                                    <th className="text-left p-2">Code</th>
+                                    <th className="text-left p-2">Description</th>
+                                    <th className="text-right p-2">Qty</th>
+                                    <th className="text-right p-2">Unit Price</th>
+                                    <th className="text-right p-2">Amount</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {categoryGroup.items?.map((item, itemIndex: number) => (
+                                    <tr key={item.id || itemIndex} className="border-b">
+                                      <td className="p-2">{item.sl}</td>
+                                      <td className="p-2">{item.code || '-'}</td>
+                                      <td className="p-2">{item.description || '-'}</td>
+                                      <td className="text-right p-2">{Number(item.quantity)}</td>
+                                      <td className="text-right p-2">{formatCurrency(Number(item.unitPrice))}</td>
+                                      <td className="text-right p-2 font-medium">
+                                        {formatCurrency(Number(item.amount))}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                                <tfoot>
+                                  <tr className="border-t font-medium">
+                                    <td colSpan={3} className="p-2 text-right">Total Items:</td>
+                                    <td className="text-right p-2">{categoryGroup.items.length}</td>
+                                    <td className="text-right p-2">Total Amount:</td>
+                                    <td className="text-right p-2">
+                                      {formatCurrency(
+                                        categoryGroup.items.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+                                      )}
+                                    </td>
+                                  </tr>
+                                </tfoot>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Direct Items */}
                   {section.items && section.items.length > 0 && (
                     <div className="overflow-x-auto">
@@ -196,8 +251,18 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                           }
                         });
                       }
-                      if (discountValue != null) {
-                        sectionTotal = sectionTotal * (1 - discountValue / 100);
+                      if (section.categoryGroups) {
+                        section.categoryGroups.forEach((categoryGroup) => {
+                          if (categoryGroup.items) {
+                            categoryGroup.items.forEach((item) => {
+                              sectionTotal += Number(item.amount || 0);
+                            });
+                          }
+                        });
+                      }
+                      // Apply discount (amount-based, not percentage)
+                      if (discountValue != null && discountValue > 0) {
+                        sectionTotal = Math.max(0, sectionTotal - discountValue);
                       }
                       return (
                         <p className="text-lg font-semibold">

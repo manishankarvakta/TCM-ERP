@@ -954,6 +954,12 @@ async function main() {
           items: QuotationItemSeed[];
         }
 
+        interface CategoryGroupSeed {
+          categoryId?: string | null;
+          sortOrder: number;
+          items: QuotationItemSeed[];
+        }
+
         interface SectionSeed {
           title: string;
           note?: string | null;
@@ -963,6 +969,7 @@ async function main() {
           sortOrder: number;
           items?: QuotationItemSeed[];
           groups?: ItemGroupSeed[];
+          categoryGroups?: CategoryGroupSeed[];
         }
 
         interface QuotationSeed {
@@ -1069,6 +1076,16 @@ async function main() {
                 items: [
                   { sl: 1, code: items[8]?.code, description: items[8]?.description, unitPrice: Number(items[8]?.unitPrice) || 45, quantity: 3, amount: 0, sortOrder: 1, itemId: items[8]?.id, unit: items[8]?.unit?.symbol || null },
                 ],
+                categoryGroups: categories.length > 0 ? [
+                  {
+                    categoryId: categories[0]?.id || null,
+                    sortOrder: 1,
+                    items: [
+                      { sl: 1, code: items[5]?.code, description: items[5]?.description, unitPrice: Number(items[5]?.unitPrice) || 35, quantity: 2, amount: 0, sortOrder: 1, itemId: items[5]?.id, unit: items[5]?.unit?.symbol || null },
+                      { sl: 2, code: items[6]?.code, description: items[6]?.description, unitPrice: Number(items[6]?.unitPrice) || 28, quantity: 3, amount: 0, sortOrder: 2, itemId: items[6]?.id, unit: items[6]?.unit?.symbol || null },
+                    ],
+                  },
+                ] : [],
               },
             ],
           },
@@ -1258,6 +1275,49 @@ async function main() {
                 };
               });
 
+              // Process category groups in section
+              const categoryGroupsData = (sectionData.categoryGroups || []).map((categoryGroupData: CategoryGroupSeed) => {
+                const categoryGroupItemsData = (categoryGroupData.items || []).map((itemData: QuotationItemSeed) => {
+                  // Calculate amount: if h, w, d are present, use h*w*d*unitPrice*quantity, otherwise unitPrice*quantity
+                  let amount = 0;
+                  const h = itemData.height || 0;
+                  const w = itemData.width || 0;
+                  const d = itemData.depth || 0;
+                  const unitPrice = itemData.unitPrice || 0;
+                  const quantity = itemData.quantity || 0;
+                  
+                  if (h > 0 && w > 0 && d > 0) {
+                    amount = h * w * d * unitPrice * quantity;
+                  } else {
+                    amount = unitPrice * quantity;
+                  }
+                  
+                  sectionTotal += amount;
+                  return {
+                    sl: itemData.sl,
+                    code: itemData.code || null,
+                    description: itemData.description || null,
+                    unitPrice: new Prisma.Decimal(unitPrice),
+                    quantity: new Prisma.Decimal(quantity),
+                    amount: new Prisma.Decimal(amount),
+                    sortOrder: itemData.sortOrder,
+                    itemId: itemData.itemId || null,
+                    height: itemData.height ? new Prisma.Decimal(itemData.height) : null,
+                    width: itemData.width ? new Prisma.Decimal(itemData.width) : null,
+                    depth: itemData.depth ? new Prisma.Decimal(itemData.depth) : null,
+                    unit: itemData.unit || null,
+                  };
+                });
+
+                return {
+                  categoryId: categoryGroupData.categoryId || null,
+                  sortOrder: categoryGroupData.sortOrder,
+                  items: {
+                    create: categoryGroupItemsData,
+                  },
+                };
+              });
+
               // Apply discount if any (amount-based, not percentage)
               const sectionDiscount = sectionData.discount || 0;
               const sectionGrandTotal = Math.max(0, sectionTotal - sectionDiscount);
@@ -1276,6 +1336,7 @@ async function main() {
                   create: itemsData,
                 },
                 ...(groupsData.length > 0 && { groups: { create: groupsData } }),
+                ...(categoryGroupsData.length > 0 && { categoryGroups: { create: categoryGroupsData } }),
               };
             });
 

@@ -100,6 +100,27 @@ const quotationSchema = z.object({
           ).default([]),
         })
       ).default([]),
+      categoryGroups: z.array(
+        z.object({
+          categoryId: z.string().optional().nullable(),
+          sortOrder: z.number().default(0),
+          items: z.array(
+            z.object({
+              sl: z.number(),
+              code: z.string().optional().nullable(),
+              description: z.string().optional().nullable(),
+              height: z.number().optional().nullable(),
+              width: z.number().optional().nullable(),
+              depth: z.number().optional().nullable(),
+              unit: z.string().optional().nullable(),
+              unitPrice: z.number().min(0).default(0),
+              quantity: z.number().min(0).default(0),
+              amount: z.number().min(0).default(0),
+              itemId: z.string().optional().nullable(),
+            })
+          ).default([]),
+        })
+      ).default([]),
     })
   ).min(1, 'At least one section is required'),
 });
@@ -159,6 +180,26 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           amount: item.amount ?? 0,
           itemId: item.itemId || null,
           id: item.id || `item-${Date.now()}-${groupIndex}-${itemIndex}-${Math.random()}`,
+        })),
+      })),
+      categoryGroups: (section.categoryGroups || []).map((categoryGroup: any, categoryGroupIndex: number) => ({
+        categoryId: categoryGroup.categoryId || null,
+        sortOrder: categoryGroup.sortOrder ?? categoryGroupIndex,
+        id: categoryGroup.id || `categoryGroup-${Date.now()}-${categoryGroupIndex}-${Math.random()}`,
+        isExpanded: categoryGroup.isExpanded !== undefined ? categoryGroup.isExpanded : true,
+        items: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
+          sl: item.sl ?? itemIndex + 1,
+          code: item.code || null,
+          description: item.description || null,
+          height: item.height ?? null,
+          width: item.width ?? null,
+          depth: item.depth ?? null,
+          unit: item.unit || null,
+          unitPrice: item.unitPrice ?? 0,
+          quantity: item.quantity ?? 0,
+          amount: item.amount ?? 0,
+          itemId: item.itemId || null,
+          id: item.id || `item-${Date.now()}-${categoryGroupIndex}-${itemIndex}-${Math.random()}`,
         })),
       })),
     }));
@@ -436,6 +477,23 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           amount: item.amount ?? 0,
           itemId: item.itemId || null,
         })),
+        categoryGroups: (section.categoryGroups || []).map((categoryGroup: any) => ({
+          categoryId: categoryGroup.categoryId || null,
+          sortOrder: categoryGroup.sortOrder ?? 0,
+          items: (categoryGroup.items || []).map((item: any) => ({
+            sl: item.sl ?? 0,
+            code: item.code || null,
+            description: item.description || null,
+            height: item.height ?? null,
+            width: item.width ?? null,
+            depth: item.depth ?? null,
+            unit: item.unit || null,
+            unitPrice: item.unitPrice ?? 0,
+            quantity: item.quantity ?? 0,
+            amount: item.amount ?? 0,
+            itemId: item.itemId || null,
+          })),
+        })),
       })),
     };
     
@@ -507,6 +565,23 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           quantity: item.quantity,
           amount: item.amount,
           itemId: item.itemId || null,
+        })),
+        categoryGroups: (section.categoryGroups || []).map((categoryGroup: any) => ({
+          categoryId: categoryGroup.categoryId || null,
+          sortOrder: categoryGroup.sortOrder ?? 0,
+          items: (categoryGroup.items || []).map((item: any) => ({
+            sl: item.sl ?? 0,
+            code: item.code || null,
+            description: item.description || null,
+            height: item.height ?? null,
+            width: item.width ?? null,
+            depth: item.depth ?? null,
+            unit: item.unit || null,
+            unitPrice: item.unitPrice ?? 0,
+            quantity: item.quantity ?? 0,
+            amount: item.amount ?? 0,
+            itemId: item.itemId || null,
+          })),
         })),
       })),
     };
