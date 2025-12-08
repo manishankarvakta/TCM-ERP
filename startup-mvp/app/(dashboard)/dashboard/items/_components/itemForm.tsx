@@ -353,9 +353,9 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                 ) : categories.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No categories available</p>
                 ) : (
-                  <Controller
+                <Controller
                     name="categoryIds"
-                    control={control}
+                  control={control}
                     render={({ field }) => {
                       const categoryOptions: MultiSelectOption[] = categories.map((category) => ({
                         label: category.name,
@@ -376,7 +376,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                       );
                     }}
                   />
-                )}
+                  )}
                 {errors.categoryIds && (
                   <p className="text-sm text-destructive">{errors.categoryIds.message}</p>
                 )}

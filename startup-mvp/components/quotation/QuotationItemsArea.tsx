@@ -15,10 +15,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/utils/formatters';
+import { calculateKitchenModule, type AreaUnit } from '@/lib/calculateKitchenModule';
 import { FiPlus, FiTrash2, FiEdit2, FiChevronDown, FiChevronUp, FiSearch } from 'react-icons/fi';
 import { BsGripVertical } from 'react-icons/bs';
 import { getActiveItemsForDropdown } from '@/app/actions/items';
-import { getActiveCategories } from '@/app/(dashboard)/dashboard/items/_actions/item.action';
+import { getActiveCategories, getActiveUnits } from '@/app/(dashboard)/dashboard/items/_actions/item.action';
+import { getActiveGroups, getModuleGroupById } from '@/app/(dashboard)/dashboard/items/groups/_actions/group.action';
 import { useAppDispatch } from '@/lib/redux/hooks';
 import { updateSectionNote, updateSectionDiscount } from '@/lib/redux/slices/quotationSlice';
 import {
@@ -85,6 +87,7 @@ interface ItemGroup {
   sortOrder: number;
   items: QuotationItem[];
   isExpanded?: boolean;
+  moduleGroupId?: string | null; // Reference to ModuleGroup template
 }
 
 interface Section {
@@ -115,6 +118,8 @@ function SortableItem({
   onRemove,
   catalogItems,
   sectionCategoryId,
+  units,
+  isLoadingUnits,
 }: {
   item: QuotationItem;
   sectionIndex: number;
@@ -124,6 +129,8 @@ function SortableItem({
   onRemove: () => void;
   catalogItems: CatalogItem[];
   sectionCategoryId?: string;
+  units?: Array<{ id: string; symbol: string; details: string }>;
+  isLoadingUnits?: boolean;
 }) {
   const {
     attributes,
@@ -135,6 +142,7 @@ function SortableItem({
   } = useSortable({ id: item.id });
 
   const [itemSearch, setItemSearch] = useState('');
+  const [unitSearch, setUnitSearch] = useState('');
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -292,19 +300,82 @@ function SortableItem({
         />
       </TableCell>
       <TableCell>
-        <div className="flex items-center gap-1">
         <Input
           type="number"
           step="0.01"
           value={item.unitPrice}
           onChange={(e) => onUpdate({ unitPrice: Number(e.target.value) })}
-            className="h-8 w-24 text-xs"
+          className="h-8 w-24 text-xs"
         />
-          {item.unit && (
-            <span className="text-xs text-muted-foreground whitespace-nowrap">{item.unit}</span>
-          )}
-        </div>
       </TableCell>
+      {groupIndex !== undefined && units && (
+        <TableCell>
+          <Select
+            value={units.find((u) => u.symbol === item.unit)?.id || 'none'}
+            onValueChange={(value) => {
+              if (value === 'none') {
+                onUpdate({ unit: undefined });
+              } else {
+                const selectedUnit = units.find((u) => u.id === value);
+                onUpdate({ unit: selectedUnit ? selectedUnit.symbol : undefined });
+              }
+            }}
+            disabled={isLoadingUnits}
+          >
+            <SelectTrigger className="h-8 w-32 text-xs text-left">
+              <SelectValue placeholder="Unit" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px]">
+              <div className="p-2 border-b">
+                <div className="relative">
+                  <FiSearch className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search units..."
+                    value={unitSearch}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      setUnitSearch(e.target.value);
+                    }}
+                    onKeyDown={(e) => {
+                      e.stopPropagation();
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                      }
+                    }}
+                    className="pl-8 h-8 text-xs"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              </div>
+              <div className="max-h-[200px] overflow-y-auto">
+                <SelectItem value="none" className="text-left">None</SelectItem>
+                {units
+                  .filter((unit) =>
+                    unitSearch
+                      ? unit.symbol.toLowerCase().includes(unitSearch.toLowerCase()) ||
+                        unit.details.toLowerCase().includes(unitSearch.toLowerCase())
+                      : true
+                  )
+                  .map((unit) => (
+                    <SelectItem key={unit.id} value={unit.id} className="text-left">
+                      {unit.symbol} - {unit.details}
+                    </SelectItem>
+                  ))}
+                {units.filter((unit) =>
+                  unitSearch
+                    ? unit.symbol.toLowerCase().includes(unitSearch.toLowerCase()) ||
+                      unit.details.toLowerCase().includes(unitSearch.toLowerCase())
+                    : true
+                ).length === 0 && (
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">
+                    No units found
+                  </div>
+                )}
+              </div>
+            </SelectContent>
+          </Select>
+        </TableCell>
+      )}
       <TableCell className="text-right font-semibold w-32">
         {formatCurrency(item.amount)}
       </TableCell>
@@ -333,12 +404,52 @@ export function QuotationItemsArea({
   const [isLoadingItems, setIsLoadingItems] = useState(true);
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [categorySearch, setCategorySearch] = useState<{ [key: number]: string }>({});
+  const [moduleGroups, setModuleGroups] = useState<Array<{ id: string; name: string; code: string | null }>>([]);
+  const [isLoadingModuleGroups, setIsLoadingModuleGroups] = useState(true);
+  const [units, setUnits] = useState<Array<{ id: string; symbol: string; details: string }>>([]);
+  const [isLoadingUnits, setIsLoadingUnits] = useState(true);
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Fetch module groups
+  useEffect(() => {
+    const fetchModuleGroups = async () => {
+      try {
+        setIsLoadingModuleGroups(true);
+        const result = await getActiveGroups();
+        if (result.success && result.groups) {
+          setModuleGroups(result.groups.map(g => ({ id: g.id, name: g.name, code: g.code })));
+        }
+      } catch (error) {
+        console.error('Failed to fetch module groups:', error);
+      } finally {
+        setIsLoadingModuleGroups(false);
+      }
+    };
+    fetchModuleGroups();
+  }, []);
+
+  // Fetch units
+  useEffect(() => {
+    const fetchUnits = async () => {
+      try {
+        setIsLoadingUnits(true);
+        const result = await getActiveUnits();
+        if (result.success && result.units) {
+          setUnits(result.units);
+        }
+      } catch (error) {
+        console.error('Failed to fetch units:', error);
+      } finally {
+        setIsLoadingUnits(false);
+      }
+    };
+    fetchUnits();
+  }, []);
 
   // Fetch catalog items and categories from database
   useEffect(() => {
@@ -511,12 +622,12 @@ export function QuotationItemsArea({
       if (sIdx !== sectionIndex) return s;
 
       let updatedSection: Section;
-    if (groupIndex !== undefined) {
+      if (groupIndex !== undefined) {
         const group = s.groups[groupIndex];
         const item = group.items[itemIndex];
         const updatedItem = { ...item, ...updates };
 
-        // Calculate amount based on dimensions
+        // Calculate amount based on dimensions (use kitchen module calculation for group items)
         if (
           updates.unitPrice !== undefined ||
           updates.quantity !== undefined ||
@@ -524,7 +635,7 @@ export function QuotationItemsArea({
           updates.width !== undefined ||
           updates.depth !== undefined
         ) {
-          updatedItem.amount = calculateItemAmount(updatedItem);
+          updatedItem.amount = calculateItemAmount(updatedItem, true); // true for group items
         }
 
         updatedSection = {
@@ -861,12 +972,38 @@ export function QuotationItemsArea({
   };
 
   // Calculate item amount based on dimensions
-  const calculateItemAmount = (item: QuotationItem): number => {
+  const calculateItemAmount = (item: QuotationItem, isGroupItem: boolean = false): number => {
     const h = item.height;
     const w = item.width;
     const d = item.depth;
     const unitPrice = item.unitPrice || 0;
     const quantity = item.quantity || 0;
+
+    // For group items, use kitchen module calculation if dimensions are present
+    if (isGroupItem && h != null && w != null && d != null && h > 0 && w > 0 && d > 0) {
+      try {
+        // Check if the unit is a valid area unit for kitchen module calculation
+        const unit = item.unit?.toLowerCase();
+        if (unit === 'sqft' || unit === 'sqm' || unit === 'sqin') {
+          const result = calculateKitchenModule({
+            widthIn: w,
+            depthIn: d,
+            heightIn: h,
+            shelves: 0, // Default to 0 shelves, can be extended later
+            unit: unit as AreaUnit,
+            unitPrice: unitPrice,
+            qty: quantity,
+          });
+          return result.total.cost;
+        }
+        // If unit is not a valid area unit, fall back to standard calculation
+        return h * w * d * unitPrice * quantity;
+      } catch (error) {
+        console.error('Error calculating kitchen module:', error);
+        // Fall back to standard calculation on error
+        return h * w * d * unitPrice * quantity;
+      }
+    }
 
     // If height, width, and depth are all present and non-zero, use: h * w * d * unitPrice * quantity
     if (h != null && w != null && d != null && h > 0 && w > 0 && d > 0) {
@@ -993,44 +1130,7 @@ export function QuotationItemsArea({
                     {/* Section Actions */}
                     <div className="flex gap-2 mt-3 items-center justify-between">
                       <div className="flex gap-2">
-                      <Select
-                        value={section.categoryId || 'all'}
-                        onValueChange={(value) => {
-                          updateSection(sectionIndex, { categoryId: value === 'all' ? undefined : value });
-                        }}
-                      >
-                        <SelectTrigger className="h-8 w-[180px] text-xs">
-                          <SelectValue placeholder="Select Category" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[300px]">
-                          <div className="p-2">
-                            <Input
-                              placeholder="Search categories..."
-                              value={categorySearch[sectionIndex] || ''}
-                              onChange={(e) => {
-                                setCategorySearch((prev) => ({
-                                  ...prev,
-                                  [sectionIndex]: e.target.value,
-                                }));
-                              }}
-                              className="h-8 text-xs"
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </div>
-                          <SelectItem value="all" className="text-left">All Categories</SelectItem>
-                          {categories
-                            .filter((category) => {
-                              const search = categorySearch[sectionIndex] || '';
-                              if (!search) return true;
-                              return category.name.toLowerCase().includes(search.toLowerCase());
-                            })
-                            .map((category) => (
-                              <SelectItem key={category.id} value={category.id} className="text-left">
-                                {category.name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
+                      
                       <Button
                         type="button"
                         variant="outline"
@@ -1102,18 +1202,135 @@ export function QuotationItemsArea({
                                       <FiChevronDown className="w-4 h-4" />
                                     )}
                                   </Button>
-                                  <div className="flex-1 grid grid-cols-3 gap-2 pb-4">
+                                  <div className="flex-1 space-y-2">
+                                    {/* Top Row: Group Select, Code, Add Item Button, Delete Button */}
+                                    <div className="flex items-center gap-2">
+                                      <Select
+                                        value={group.moduleGroupId || 'none'}
+                                        onValueChange={async (moduleGroupId) => {
+                                          if (moduleGroupId && moduleGroupId !== 'none') {
+                                            // Fetch the ModuleGroup and populate items
+                                            const result = await getModuleGroupById(moduleGroupId);
+                                            if (result.success && result.group) {
+                                              const moduleGroup = result.group;
+                                            // Convert ModuleGroup items to QuotationItems
+                                            const newItems: QuotationItem[] = moduleGroup.items.map((item, index) => {
+                                              const quotationItem: QuotationItem = {
+                                                id: generateId(),
+                                                sl: index + 1,
+                                                code: item.code || undefined,
+                                                description: item.description || undefined,
+                                                height: item.height || undefined,
+                                                width: item.width || undefined,
+                                                depth: item.depth || undefined,
+                                                unit: item.unit || undefined,
+                                                unitPrice: item.unitPrice,
+                                                quantity: item.quantity,
+                                                amount: 0, // Will be calculated below
+                                                itemId: item.itemId || undefined,
+                                              };
+                                              // Calculate amount using kitchen module calculation for group items
+                                              quotationItem.amount = calculateItemAmount(quotationItem, true);
+                                              return quotationItem;
+                                            });
+                                              
+                                              // Update the group with ModuleGroup data
+                                              const updated = sections.map((s, sIdx) => {
+                                                if (sIdx !== sectionIndex) return s;
+                                                const updatedSection = {
+                                                  ...s,
+                                                  groups: s.groups.map((g, gIdx) => {
+                                                    if (gIdx !== groupIndex) return g;
+                                                    return {
+                                                      ...g,
+                                                      moduleGroupId: moduleGroupId,
+                                                      code: moduleGroup.code || g.code,
+                                                      description: moduleGroup.description || g.description,
+                                                      items: newItems,
+                                                      quantity: calculateGroupQuantity(newItems),
+                                                      isExpanded: true, // Auto-expand when ModuleGroup is selected
+                                                    };
+                                                  }),
+                                                };
+                                                const totals = calculateSectionTotals(updatedSection);
+                                                return {
+                                                  ...updatedSection,
+                                                  total: totals.total,
+                                                  grandTotal: totals.grandTotal,
+                                                };
+                                              });
+                                              onSectionsChange(updated);
+                                            }
+                                          } else {
+                                            // Clear ModuleGroup selection
+                                            updateGroup(sectionIndex, groupIndex, {
+                                              moduleGroupId: null,
+                                            });
+                                          }
+                                        }}
+                                        disabled={isLoadingModuleGroups}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs text-left flex-1">
+                                          <SelectValue placeholder="Select Group" />
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-[300px]">
+                                          <SelectItem value="none" className="text-left">None</SelectItem>
+                                          {moduleGroups.map((mg) => (
+                                            <SelectItem key={mg.id} value={mg.id} className="text-left">
+                                              {mg.code ? `${mg.code} - ${mg.name}` : mg.name}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
                                     <Input
                                       value={group.code || ''}
                                       onChange={(e) =>
-                                        updateGroup(sectionIndex, groupIndex, {
+                                          updateGroup(sectionIndex, groupIndex, {
                                           code: e.target.value,
                                         })
                                       }
                                       placeholder="Group Code"
-                                      className="h-8 text-xs"
+                                        className="h-8 text-xs w-32"
                                     />
-                                    <Input
+                                      {group.isExpanded && (
+                                      <Button
+                                        type="button"
+                                          variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                            addItemToSection(sectionIndex, group.id)
+                                        }
+                                          className="h-8 text-xs"
+                                      >
+                                          <FiPlus className="w-3 h-3 mr-1" />
+                                          Add Item
+                                      </Button>
+                                      )}
+                                          <Button
+                                            type="button"
+                                        variant="ghost"
+                                            size="sm"
+                                            onClick={() =>
+                                          removeGroup(sectionIndex, groupIndex)
+                                            }
+                                        className="h-8 w-8 p-0"
+                                          >
+                                        <FiTrash2 className="w-4 h-4 text-red-500" />
+                                          </Button>
+                                        </div>
+                                   
+                                  </div>
+                                </div>
+                              </div>
+                             
+                            </CardHeader>
+
+                            {group.isExpanded && (
+                              <CardContent>
+                                {group.items.length > 0 && (
+                                  <>
+                                   {/* Second Row: Description */}
+                                   <Textarea
                                       value={group.description}
                                       onChange={(e) =>
                                         updateGroup(sectionIndex, groupIndex, {
@@ -1121,95 +1338,77 @@ export function QuotationItemsArea({
                                         })
                                       }
                                       placeholder="Group Description"
-                                      className="h-8 text-xs"
+                                      className="text-xs min-h-[20px]"
+                                      rows={2}
                                     />
-                                    <div className="flex items-center gap-2 justify-end">
-                                      <Label className="text-xs whitespace-nowrap">
-                                        Qty: {group.quantity || 0}
-                                      </Label>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                          removeGroup(sectionIndex, groupIndex)
-                                        }
-                                        className="h-8 w-8 p-0"
-                                      >
-                                        <FiTrash2 className="w-4 h-4 text-red-500" />
-                                      </Button>
-                                      {group.isExpanded && (
-                                        <div className="">
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() =>
-                                              addItemToSection(sectionIndex, group.id)
-                                            }
-                                            className="h-7 text-xs"
-                                          >
-                                            <FiPlus className="w-3 h-3 mr-1" />
-                                            Add Item to Group
-                                          </Button>
-                                        </div>
-                                      )}
+                                    <div className="overflow-x-auto">
+                                      <Table>
+                                        <TableHeader>
+                                          <TableRow>
+                                            <TableHead className="w-8"></TableHead>
+                                            <TableHead className="w-12">SL</TableHead>
+                                            <TableHead>Code</TableHead>
+                                            <TableHead>Description</TableHead>
+                                            <TableHead className="w-56">Dimensions</TableHead>
+                                            <TableHead className="w-24">Qty</TableHead>
+                                            <TableHead className="w-32">Unit Price</TableHead>
+                                            <TableHead className="w-32">Unit</TableHead>
+                                            <TableHead className="w-32 text-right">Amount</TableHead>
+                                            <TableHead className="w-12"></TableHead>
+                                          </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                          {group.items.map((item, itemIndex) => (
+                                            <SortableItem
+                                              key={item.id}
+                                              item={item}
+                                              sectionIndex={sectionIndex}
+                                              itemIndex={itemIndex}
+                                              groupIndex={groupIndex}
+                                              catalogItems={catalogItems}
+                                              sectionCategoryId={section.categoryId}
+                                              units={units}
+                                              isLoadingUnits={isLoadingUnits}
+                                              onUpdate={(updates) =>
+                                                updateItem(
+                                                  sectionIndex,
+                                                  itemIndex,
+                                                  groupIndex,
+                                                  updates
+                                                )
+                                              }
+                                              onRemove={() =>
+                                                removeItem(
+                                                  sectionIndex,
+                                                  itemIndex,
+                                                  groupIndex
+                                                )
+                                              }
+                                            />
+                                          ))}
+                                        </TableBody>
+                                      </Table>
                                     </div>
-                                  </div>
-                                </div>
-                              </div>
-                             
-                            </CardHeader>
-
-                            {group.isExpanded && group.items.length > 0 && (
-                              <CardContent>
-                                <div className="overflow-x-auto">
-                                  <Table>
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead className="w-8"></TableHead>
-                                        <TableHead className="w-12">SL</TableHead>
-                                        <TableHead>Code</TableHead>
-                                        <TableHead>Description</TableHead>
-                                        <TableHead className="w-56">Dimensions</TableHead>
-                                        <TableHead className="w-24">Qty</TableHead>
-                                        <TableHead className="w-32">Unit Price</TableHead>
-                                        <TableHead className="w-32 text-right">Amount</TableHead>
-                                        <TableHead className="w-12"></TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {group.items.map((item, itemIndex) => (
-                                        <SortableItem
-                                          key={item.id}
-                                          item={item}
-                                          sectionIndex={sectionIndex}
-                                          itemIndex={itemIndex}
-                                          groupIndex={groupIndex}
-                                          catalogItems={catalogItems}
-                                          sectionCategoryId={section.categoryId}
-                                          onUpdate={(updates) =>
-                                            updateItem(
-                                              sectionIndex,
-                                              itemIndex,
-                                              groupIndex,
-                                              updates
-                                            )
-                                          }
-                                          onRemove={() =>
-                                            removeItem(
-                                              sectionIndex,
-                                              itemIndex,
-                                              groupIndex
-                                            )
-                                          }
-                                        />
-                                      ))}
-                                    </TableBody>
-                                  </Table>
-                                </div>
+                                    
+                                  </>
+                                )}
                               </CardContent>
                             )}
+                                {/* Group Totals */}
+                                <div className="flex justify-end items-center gap-4 py-4 px-4 border-t">
+                                      <div className="flex items-center gap-2">
+                                        <Label className="text-xs font-medium">Total Quantity:</Label>
+                                        <span className="text-xs font-semibold">{group.quantity || 0}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <Label className="text-xs font-medium">Total Amount:</Label>
+                                        <span className="text-xs font-semibold">
+                                          {formatCurrency(
+                                            group.items.reduce((sum, item) => sum + (item.amount || 0), 0)
+                                          )}
+                                        </span>
+                                      </div>
+                                    </div>
                           </Card>
                         ))}
 

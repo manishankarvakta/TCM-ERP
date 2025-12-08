@@ -40,6 +40,7 @@ interface ItemGroup {
   number?: number;
   sortOrder: number;
   items: QuotationItem[];
+  moduleGroupId?: string | null; // Reference to ModuleGroup template
 }
 
 interface Quotation {

@@ -656,6 +656,95 @@ export async function deleteGroupPermanently(id: string) {
 }
 
 /**
+ * Get ModuleGroup by ID with all items (for populating quotation groups)
+ */
+export async function getModuleGroupById(id: string) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        group: null,
+      };
+    }
+
+    const group = await prisma.moduleGroup.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        description: true,
+        quantity: true,
+        number: true,
+        items: {
+          select: {
+            id: true,
+            sl: true,
+            code: true,
+            description: true,
+            height: true,
+            width: true,
+            depth: true,
+            unit: true,
+            unitPrice: true,
+            quantity: true,
+            unitShutter: true,
+            totalShutter: true,
+            amount: true,
+            note: true,
+            sortOrder: true,
+            itemId: true,
+          },
+          orderBy: {
+            sortOrder: "asc",
+          },
+        },
+      },
+    });
+
+    if (!group) {
+      return {
+        success: false,
+        error: "Group not found",
+        group: null,
+      };
+    }
+
+    // Serialize Decimal fields
+    const serializedGroup = {
+      ...group,
+      quantity: group.quantity ? Number(group.quantity) : null,
+      items: group.items.map((item) => ({
+        ...item,
+        height: item.height ? Number(item.height) : null,
+        width: item.width ? Number(item.width) : null,
+        depth: item.depth ? Number(item.depth) : null,
+        unitPrice: Number(item.unitPrice),
+        quantity: Number(item.quantity),
+        unitShutter: item.unitShutter ? Number(item.unitShutter) : null,
+        totalShutter: item.totalShutter ? Number(item.totalShutter) : null,
+        amount: Number(item.amount),
+      })),
+    };
+
+    return {
+      success: true,
+      group: serializedGroup,
+    };
+  } catch (error) {
+    console.error("getModuleGroupById error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch group",
+      group: null,
+    };
+  }
+}
+
+/**
  * Get all active groups for dropdown
  */
 export async function getActiveGroups() {
