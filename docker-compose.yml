@@ -2,6 +2,11 @@
 # This version is optimized for Dokploy deployment platform
 # Dokploy manages environment variables through its UI
 # Dokploy uses its own network (dokploy-network) for service communication
+#
+# IMPORTANT: This is a Docker Compose file, NOT a Dockerfile
+# In Dokploy, select "Docker Compose" as the deployment type, not "Dockerfile"
+
+version: '3.8'
 
 services:
   # PostgreSQL Database
