@@ -4,7 +4,7 @@
 
 services:
   # PostgreSQL Database
-  postgres:
+  espacio-postgres:
     image: postgres:16-alpine
     container_name: startup-mvp-postgres
     restart: unless-stopped
@@ -25,7 +25,7 @@ services:
       - app-network
 
   # MinIO Object Storage
-  minio:
+  espacio-minio:
     image: minio/minio:latest
     container_name: startup-mvp-minio
     restart: unless-stopped
@@ -47,16 +47,16 @@ services:
       - app-network
 
   # MinIO Client for bucket initialization
-  minio-setup:
+  espacio-minio-setup:
     image: minio/mc:latest
     container_name: startup-mvp-minio-setup
     depends_on:
-      minio:
+      espacio-minio:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
       sleep 5;
-      /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
+      /usr/bin/mc alias set myminio http://espacio-minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
       /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || true;
       /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || true;
       exit 0;
@@ -65,7 +65,7 @@ services:
       - app-network
 
   # Next.js Application
-  app:
+  espacio-app:
     build:
       context: ./startup-mvp
       dockerfile: Dockerfile
@@ -75,14 +75,14 @@ services:
       - "${APP_PORT:-3000}:3000"
     environment:
       # Database
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@espacio-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
       
       # NextAuth
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-I5p97Jpv0Xr7Zz7Ay8W6+O2eLmBR6N2gllGrZO01Szo=}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       
       # MinIO
-      MINIO_ENDPOINT: minio
+      MINIO_ENDPOINT: espacio-minio
       MINIO_PORT: 9000
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
@@ -91,7 +91,7 @@ services:
       MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
       
       # Redis (optional)
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_URL: ${REDIS_URL:-redis://espacio-redis:6379}
       
       # Email Configuration
       SMTP_HOST: ${SMTP_HOST:-}
@@ -108,9 +108,9 @@ services:
       # Node Environment
       NODE_ENV: production
     depends_on:
-      postgres:
+      espacio-postgres:
         condition: service_healthy
-      minio:
+      espacio-minio:
         condition: service_healthy
     networks:
       - app-network
@@ -125,7 +125,7 @@ services:
       "
 
   # Redis (optional, if you're using it)
-  redis:
+  espacio-redis:
     image: redis:7-alpine
     container_name: startup-mvp-redis
     restart: unless-stopped
