@@ -2,7 +2,6 @@ services:
   # PostgreSQL Database
   espacio-postgres:
     image: postgres:16-alpine
-    container_name: espacio-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -23,7 +22,6 @@ services:
   # MinIO Object Storage
   espacio-minio:
     image: minio/minio:latest
-    container_name: espacio-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -45,20 +43,16 @@ services:
   # MinIO Client for bucket initialization
   espacio-minio-setup:
     image: minio/mc:latest
-    container_name: espacio-minio-setup
     restart: "no"
     depends_on:
       espacio-minio:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      echo 'Waiting for MinIO to be ready...';
+      echo 'Waiting for MinIO...';
       sleep 10;
-      echo 'Setting up MinIO alias...';
       /usr/bin/mc alias set myminio http://espacio-minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD};
-      echo 'Creating bucket...';
       /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-uploads} --ignore-existing;
-      echo 'Setting bucket policy...';
       /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-uploads};
       echo 'MinIO setup completed';
       exit 0;
@@ -66,10 +60,9 @@ services:
     networks:
       - app-network
 
-  # Redis (optional)
+  # Redis
   espacio-redis:
     image: redis:7-alpine
-    container_name: espacio-redis
     restart: unless-stopped
     ports:
       - "${REDIS_PORT:-6379}:6379"
@@ -89,48 +82,30 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        NODE_ENV: production
-    container_name: espacio-app
     restart: unless-stopped
     ports:
       - "${APP_PORT:-3000}:3000"
     environment:
-      # Database
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@espacio-postgres:5432/${POSTGRES_DB:-espaciodb}?schema=public
-      
-      # NextAuth
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       NEXTAUTH_URL: ${NEXTAUTH_URL}
-      
-      # MinIO - Internal connection
       MINIO_ENDPOINT: espacio-minio
       MINIO_PORT: 9000
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-uploads}
-      
-      # MinIO - Public URL (for browser access)
       MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL}
       NEXT_PUBLIC_MINIO_URL: ${NEXT_PUBLIC_MINIO_URL}
-      
-      # Redis
       REDIS_URL: redis://espacio-redis:6379
-      
-      # Email Configuration
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_SECURE: ${SMTP_SECURE:-false}
       SMTP_USER: ${SMTP_USER}
       SMTP_PASS: ${SMTP_PASS}
       EMAIL_FROM: ${EMAIL_FROM}
-      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-"Espacio"}
-      
-      # App URL
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Espacio}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
-      
-      # Node Environment
       NODE_ENV: production
     depends_on:
       espacio-postgres:
@@ -142,19 +117,16 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
 
-# Use a custom network instead of external dokploy-network
-# Dokploy will handle networking automatically
 networks:
   app-network:
     driver: bridge
 
-# Named volumes for data persistence
 volumes:
   postgres_data:
     driver: local
