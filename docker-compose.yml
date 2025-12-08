@@ -51,6 +51,7 @@ services:
   espacio-minio-setup:
     image: minio/mc:latest
     container_name: startup-mvp-minio-setup
+    restart: "no"
     depends_on:
       espacio-minio:
         condition: service_healthy
@@ -115,6 +116,12 @@ services:
         condition: service_healthy
     networks:
       - dokploy-network
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000', (r) => {process.exit(r.statusCode ? 0 : 1)}).on('error', () => process.exit(1))\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     command: >
       sh -c "
       echo 'Waiting for database to be ready...';
