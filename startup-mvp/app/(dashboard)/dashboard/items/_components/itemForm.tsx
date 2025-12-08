@@ -28,6 +28,9 @@ const itemFormSchema = z.object({
   unitPrice: z.string().min(1, "Unit price is required").refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
     message: "Unit price must be a valid number greater than or equal to 0",
   }),
+  costPrice: z.string().min(1, "Cost price is required").refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
+    message: "Cost price must be a valid number greater than or equal to 0",
+  }),
   categoryIds: z.array(z.string()).default([]),
   image: z.string().url("Invalid image URL").optional().or(z.literal("")),
   status: z.enum(["active", "inactive"]),
@@ -43,6 +46,7 @@ interface ItemFormProps {
     description: string;
     unitId: string;
     unitPrice: number;
+    costPrice?: number;
     categoryIds?: string[];
     categories?: {
       id: string;
@@ -90,6 +94,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           description: initialData.description,
           unitId: initialData.unitId,
           unitPrice: String(initialData.unitPrice),
+          costPrice: String(initialData.costPrice || 0),
           categoryIds: initialData.categoryIds || initialData.categories?.map(c => c.id) || [],
           image: initialData.image || "",
           status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
@@ -99,6 +104,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           description: "",
           unitId: "",
           unitPrice: "0",
+          costPrice: "0",
           categoryIds: [],
           image: "",
           status: "active",
@@ -149,6 +155,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           description: data.description,
           unitId: data.unitId,
           unitPrice: Number(data.unitPrice),
+          costPrice: Number(data.costPrice),
           categoryIds: data.categoryIds || [],
           image: data.image || undefined,
           status: data.status,
@@ -166,6 +173,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           description: data.description,
           unitId: data.unitId,
           unitPrice: Number(data.unitPrice),
+          costPrice: Number(data.costPrice),
           categoryIds: data.categoryIds || [],
           image: data.image || undefined,
           status: data.status,
@@ -234,7 +242,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="unitId">Unit</Label>
                   <Controller
@@ -319,6 +327,21 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                   />
                   {errors.unitPrice && (
                     <p className="text-sm text-destructive">{errors.unitPrice.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="costPrice">Cost Price</Label>
+                  <Input
+                    id="costPrice"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    {...register("costPrice")}
+                    disabled={loading}
+                  />
+                  {errors.costPrice && (
+                    <p className="text-sm text-destructive">{errors.costPrice.message}</p>
                   )}
                 </div>
               </div>

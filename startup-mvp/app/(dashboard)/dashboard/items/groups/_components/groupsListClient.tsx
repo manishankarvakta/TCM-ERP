@@ -1,0 +1,434 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import Link from "next/link";
+import { FiSearch, FiEdit, FiTrash2, FiX, FiMoreVertical, FiEye, FiRotateCw } from "react-icons/fi";
+import { deleteGroup, deleteGroupPermanently } from "../_actions/group.action";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+
+interface Group {
+  id: string;
+  name: string;
+  code: string | null;
+  description: string | null;
+  quantity: number | null;
+  number: number | null;
+  sortOrder: number;
+  status: string;
+  createdBy: string;
+  creator: {
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
+  };
+  items: Array<{
+    id: string;
+    sl: number;
+    code: string | null;
+    description: string | null;
+    quantity: number;
+    unitPrice: number;
+    amount: number;
+  }>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+interface GroupsListClientProps {
+  initialGroups?: Group[];
+  initialPagination?: Pagination;
+  initialSearch?: string;
+  isTrash?: boolean;
+}
+
+export default function GroupsListClient({
+  initialGroups = [],
+  initialPagination,
+  initialSearch = "",
+  isTrash = false,
+}: GroupsListClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
+  const [search, setSearch] = useState(initialSearch);
+  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
+  const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null);
+  const [permanentDeleteGroupId, setPermanentDeleteGroupId] = useState<string | null>(null);
+  const [restoreGroupId, setRestoreGroupId] = useState<string | null>(null);
+
+  const allSelected = initialGroups.length > 0 && selectedGroups.size === initialGroups.length;
+  const someSelected = selectedGroups.size > 0 && selectedGroups.size < initialGroups.length;
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedGroups(new Set(initialGroups.map((g) => g.id)));
+    } else {
+      setSelectedGroups(new Set());
+    }
+  };
+
+  const handleSelectGroup = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedGroups);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedGroups(newSelected);
+  };
+
+  const handleDelete = (id: string) => {
+    setDeleteGroupId(id);
+  };
+
+  const handleRestore = (id: string) => {
+    setRestoreGroupId(id);
+  };
+
+  const confirmDelete = () => {
+    if (!deleteGroupId) return;
+    
+    const id = deleteGroupId;
+    setDeleteGroupId(null);
+
+    startTransition(async () => {
+      const result = await deleteGroup(id);
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Group moved to trash",
+        });
+        const params = new URLSearchParams(searchParams.toString());
+        router.push(`/dashboard/items/groups?${params.toString()}`);
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to delete group",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
+  const confirmPermanentDelete = () => {
+    if (!permanentDeleteGroupId) return;
+    
+    const id = permanentDeleteGroupId;
+    setPermanentDeleteGroupId(null);
+
+    startTransition(async () => {
+      const result = await deleteGroupPermanently(id);
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Group permanently deleted",
+        });
+        const params = new URLSearchParams(searchParams.toString());
+        router.push(`/dashboard/items/groups?${params.toString()}`);
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to delete group permanently",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
+  const getStatusBadge = (status: string) => {
+    if (status === "trash") {
+      return <Badge variant="destructive">Trash</Badge>;
+    } else if (status === "inactive") {
+      return <Badge variant="secondary">Inactive</Badge>;
+    } else {
+      return <Badge variant="default">Active</Badge>;
+    }
+  };
+
+  const getInitials = (name: string | null, email: string) => {
+    if (name) {
+      return name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2);
+    }
+    return email[0].toUpperCase();
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Search */}
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1 max-w-sm">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search groups..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("search", search);
+                params.set("page", "1");
+                router.push(`/dashboard/items/groups?${params.toString()}`);
+              }
+            }}
+            className="pl-9"
+          />
+          {search && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+              onClick={() => {
+                setSearch("");
+                const params = new URLSearchParams(searchParams.toString());
+                params.delete("search");
+                params.set("page", "1");
+                router.push(`/dashboard/items/groups?${params.toString()}`);
+              }}
+            >
+              <FiX className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={handleSelectAll}
+                  aria-label="Select all"
+                />
+              </TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Code</TableHead>
+              <TableHead>Items Count</TableHead>
+              <TableHead>Created By</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Created At</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {initialGroups.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  {isTrash ? "No trashed groups found" : "No groups found"}
+                </TableCell>
+              </TableRow>
+            ) : (
+              initialGroups.map((group) => {
+                const isSelected = selectedGroups.has(group.id);
+                const groupStatus = group.status || "active";
+                
+                return (
+                  <TableRow key={group.id} className={cn(isSelected && "bg-muted/50")}>
+                    <TableCell>
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) => handleSelectGroup(group.id, checked as boolean)}
+                        aria-label={`Select ${group.name}`}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">{group.name}</TableCell>
+                    <TableCell>{group.code || "-"}</TableCell>
+                    <TableCell>{group.items.length}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {group.creator.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={group.creator.image}
+                            alt={group.creator.name || group.creator.email}
+                            className="h-6 w-6 rounded-full"
+                          />
+                        ) : (
+                          <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
+                            {getInitials(group.creator.name, group.creator.email)}
+                          </div>
+                        )}
+                        <span className="text-sm">
+                          {group.creator.name || group.creator.email}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{getStatusBadge(groupStatus)}</TableCell>
+                    <TableCell>{format(new Date(group.createdAt), "MMM d, yyyy")}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-0">
+                        {!isTrash && (
+                          <>
+                            <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0">
+                              <Link href={`/dashboard/items/groups/${group.id}`}>
+                                <FiEye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0">
+                              <Link href={`/dashboard/items/groups/${group.id}/edit`}>
+                                <FiEdit className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(group.id)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <FiTrash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </>
+                        )}
+                        {isTrash && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRestore(group.id)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <FiRotateCw className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setPermanentDeleteGroupId(group.id)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <FiTrash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Pagination */}
+      {initialPagination && initialPagination.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Showing {((initialPagination.page - 1) * initialPagination.limit) + 1} to{" "}
+            {Math.min(initialPagination.page * initialPagination.limit, initialPagination.total)} of{" "}
+            {initialPagination.total} groups
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={initialPagination.page === 1}
+              onClick={() => {
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("page", String(initialPagination.page - 1));
+                router.push(`/dashboard/items/groups?${params.toString()}`);
+              }}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={initialPagination.page >= initialPagination.totalPages}
+              onClick={() => {
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("page", String(initialPagination.page + 1));
+                router.push(`/dashboard/items/groups?${params.toString()}`);
+              }}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteGroupId} onOpenChange={(open) => !open && setDeleteGroupId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Move to Trash</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to move this group to trash? This action can be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground">
+              Move to Trash
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Permanent Delete Confirmation Dialog */}
+      <AlertDialog open={!!permanentDeleteGroupId} onOpenChange={(open) => !open && setPermanentDeleteGroupId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently Delete Group</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete this group? This action cannot be undone and all associated items will be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPermanentDelete} className="bg-destructive text-destructive-foreground">
+              Delete Permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+

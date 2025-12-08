@@ -835,54 +835,54 @@ async function main() {
     // Create sample items
     const items = [
       // Furniture Items
-      { code: "FURN-001", description: "Modern Sofa Set 3-Seater", unitId: unitMap.get("pcs")!, unitPrice: 1250.00, categoryName: "Furniture", status: "active" },
-      { code: "FURN-002", description: "Dining Table 6-Seater", unitId: unitMap.get("pcs")!, unitPrice: 850.00, categoryName: "Furniture", status: "active" },
-      { code: "FURN-003", description: "Office Chair Ergonomic", unitId: unitMap.get("pcs")!, unitPrice: 320.00, categoryName: "Furniture", status: "active" },
-      { code: "FURN-004", description: "Coffee Table Glass Top", unitId: unitMap.get("pcs")!, unitPrice: 450.00, categoryName: "Furniture", status: "active" },
+      { code: "FURN-001", description: "Modern Sofa Set 3-Seater", unitId: unitMap.get("pcs")!, unitPrice: 1250.00, costPrice: 950.00, categoryName: "Furniture", status: "active" },
+      { code: "FURN-002", description: "Dining Table 6-Seater", unitId: unitMap.get("pcs")!, unitPrice: 850.00, costPrice: 650.00, categoryName: "Furniture", status: "active" },
+      { code: "FURN-003", description: "Office Chair Ergonomic", unitId: unitMap.get("pcs")!, unitPrice: 320.00, costPrice: 240.00, categoryName: "Furniture", status: "active" },
+      { code: "FURN-004", description: "Coffee Table Glass Top", unitId: unitMap.get("pcs")!, unitPrice: 450.00, costPrice: 340.00, categoryName: "Furniture", status: "active" },
       
       // Flooring Items
-      { code: "FLR-001", description: "Hardwood Flooring Oak", unitId: unitMap.get("sqft")!, unitPrice: 12.50, categoryName: "Flooring", status: "active" },
-      { code: "FLR-002", description: "Ceramic Tile 12x12", unitId: unitMap.get("sqft")!, unitPrice: 8.75, categoryName: "Flooring", status: "active" },
-      { code: "FLR-003", description: "Carpet Premium", unitId: unitMap.get("sqyd")!, unitPrice: 35.00, categoryName: "Flooring", status: "active" },
-      { code: "FLR-004", description: "Vinyl Plank Flooring", unitId: unitMap.get("sqft")!, unitPrice: 6.25, categoryName: "Flooring", status: "inactive" },
+      { code: "FLR-001", description: "Hardwood Flooring Oak", unitId: unitMap.get("sqft")!, unitPrice: 12.50, costPrice: 9.50, categoryName: "Flooring", status: "active" },
+      { code: "FLR-002", description: "Ceramic Tile 12x12", unitId: unitMap.get("sqft")!, unitPrice: 8.75, costPrice: 6.50, categoryName: "Flooring", status: "active" },
+      { code: "FLR-003", description: "Carpet Premium", unitId: unitMap.get("sqyd")!, unitPrice: 35.00, costPrice: 26.00, categoryName: "Flooring", status: "active" },
+      { code: "FLR-004", description: "Vinyl Plank Flooring", unitId: unitMap.get("sqft")!, unitPrice: 6.25, costPrice: 4.75, categoryName: "Flooring", status: "inactive" },
       
       // Paint & Finishes
-      { code: "PNT-001", description: "Interior Paint Premium White", unitId: unitMap.get("gal")!, unitPrice: 45.00, categoryName: "Paint", status: "active" },
-      { code: "PNT-002", description: "Exterior Paint Weatherproof", unitId: unitMap.get("gal")!, unitPrice: 52.00, categoryName: "Paint", status: "active" },
-      { code: "PNT-003", description: "Primer Base Coat", unitId: unitMap.get("gal")!, unitPrice: 28.00, categoryName: "Paint", status: "active" },
-      { code: "PNT-004", description: "Varnish Clear Gloss", unitId: unitMap.get("qt")!, unitPrice: 18.50, categoryName: "Paint", status: "active" },
+      { code: "PNT-001", description: "Interior Paint Premium White", unitId: unitMap.get("gal")!, unitPrice: 45.00, costPrice: 34.00, categoryName: "Paint", status: "active" },
+      { code: "PNT-002", description: "Exterior Paint Weatherproof", unitId: unitMap.get("gal")!, unitPrice: 52.00, costPrice: 39.00, categoryName: "Paint", status: "active" },
+      { code: "PNT-003", description: "Primer Base Coat", unitId: unitMap.get("gal")!, unitPrice: 28.00, costPrice: 21.00, categoryName: "Paint", status: "active" },
+      { code: "PNT-004", description: "Varnish Clear Gloss", unitId: unitMap.get("qt")!, unitPrice: 18.50, costPrice: 14.00, categoryName: "Paint", status: "active" },
       
       // Lighting
-      { code: "LGT-001", description: "LED Ceiling Light 12W", unitId: unitMap.get("pcs")!, unitPrice: 25.00, categoryName: "Lighting", status: "active" },
-      { code: "LGT-002", description: "Chandelier 6-Light", unitId: unitMap.get("pcs")!, unitPrice: 350.00, categoryName: "Lighting", status: "active" },
-      { code: "LGT-003", description: "Track Lighting Kit", unitId: unitMap.get("set")!, unitPrice: 125.00, categoryName: "Lighting", status: "active" },
-      { code: "LGT-004", description: "LED Strip Light 5m", unitId: unitMap.get("roll")!, unitPrice: 45.00, categoryName: "Lighting", status: "inactive" },
+      { code: "LGT-001", description: "LED Ceiling Light 12W", unitId: unitMap.get("pcs")!, unitPrice: 25.00, costPrice: 19.00, categoryName: "Lighting", status: "active" },
+      { code: "LGT-002", description: "Chandelier 6-Light", unitId: unitMap.get("pcs")!, unitPrice: 350.00, costPrice: 265.00, categoryName: "Lighting", status: "active" },
+      { code: "LGT-003", description: "Track Lighting Kit", unitId: unitMap.get("set")!, unitPrice: 125.00, costPrice: 95.00, categoryName: "Lighting", status: "active" },
+      { code: "LGT-004", description: "LED Strip Light 5m", unitId: unitMap.get("roll")!, unitPrice: 45.00, costPrice: 34.00, categoryName: "Lighting", status: "inactive" },
       
       // Wall Coverings
-      { code: "WAL-001", description: "Wallpaper Premium Pattern", unitId: unitMap.get("roll")!, unitPrice: 65.00, categoryName: "Wall Coverings", status: "active" },
-      { code: "WAL-002", description: "Wall Panel MDF", unitId: unitMap.get("sqft")!, unitPrice: 15.00, categoryName: "Wall Coverings", status: "active" },
-      { code: "WAL-003", description: "Decorative Molding", unitId: unitMap.get("lf")!, unitPrice: 8.50, categoryName: "Wall Coverings", status: "active" },
+      { code: "WAL-001", description: "Wallpaper Premium Pattern", unitId: unitMap.get("roll")!, unitPrice: 65.00, costPrice: 49.00, categoryName: "Wall Coverings", status: "active" },
+      { code: "WAL-002", description: "Wall Panel MDF", unitId: unitMap.get("sqft")!, unitPrice: 15.00, costPrice: 11.50, categoryName: "Wall Coverings", status: "active" },
+      { code: "WAL-003", description: "Decorative Molding", unitId: unitMap.get("lf")!, unitPrice: 8.50, costPrice: 6.50, categoryName: "Wall Coverings", status: "active" },
       
       // Hardware & Accessories
-      { code: "HRD-001", description: "Door Handle Set Chrome", unitId: unitMap.get("set")!, unitPrice: 35.00, categoryName: "Hardware", status: "active" },
-      { code: "HRD-002", description: "Cabinet Hinge Soft Close", unitId: unitMap.get("pair")!, unitPrice: 12.00, categoryName: "Hardware", status: "active" },
-      { code: "HRD-003", description: "Drawer Slide 18 inch", unitId: unitMap.get("pair")!, unitPrice: 22.00, categoryName: "Hardware", status: "active" },
-      { code: "HRD-004", description: "Screws Assorted Pack", unitId: unitMap.get("box")!, unitPrice: 15.00, categoryName: "Hardware", status: "active" },
+      { code: "HRD-001", description: "Door Handle Set Chrome", unitId: unitMap.get("set")!, unitPrice: 35.00, costPrice: 26.50, categoryName: "Hardware", status: "active" },
+      { code: "HRD-002", description: "Cabinet Hinge Soft Close", unitId: unitMap.get("pair")!, unitPrice: 12.00, costPrice: 9.00, categoryName: "Hardware", status: "active" },
+      { code: "HRD-003", description: "Drawer Slide 18 inch", unitId: unitMap.get("pair")!, unitPrice: 22.00, costPrice: 16.50, categoryName: "Hardware", status: "active" },
+      { code: "HRD-004", description: "Screws Assorted Pack", unitId: unitMap.get("box")!, unitPrice: 15.00, costPrice: 11.50, categoryName: "Hardware", status: "active" },
       
       // Fabrics & Textiles
-      { code: "FAB-001", description: "Curtain Fabric Premium", unitId: unitMap.get("yd")!, unitPrice: 28.00, categoryName: "Fabrics", status: "active" },
-      { code: "FAB-002", description: "Upholstery Fabric", unitId: unitMap.get("yd")!, unitPrice: 35.00, categoryName: "Fabrics", status: "active" },
-      { code: "FAB-003", description: "Cushion Cover Set", unitId: unitMap.get("set")!, unitPrice: 45.00, categoryName: "Fabrics", status: "active" },
+      { code: "FAB-001", description: "Curtain Fabric Premium", unitId: unitMap.get("yd")!, unitPrice: 28.00, costPrice: 21.00, categoryName: "Fabrics", status: "active" },
+      { code: "FAB-002", description: "Upholstery Fabric", unitId: unitMap.get("yd")!, unitPrice: 35.00, costPrice: 26.50, categoryName: "Fabrics", status: "active" },
+      { code: "FAB-003", description: "Cushion Cover Set", unitId: unitMap.get("set")!, unitPrice: 45.00, costPrice: 34.00, categoryName: "Fabrics", status: "active" },
       
       // Bathroom
-      { code: "BTH-001", description: "Bathroom Tile 8x8", unitId: unitMap.get("sqft")!, unitPrice: 9.50, categoryName: "Bathroom", status: "active" },
-      { code: "BTH-002", description: "Shower Glass Panel", unitId: unitMap.get("sqft")!, unitPrice: 85.00, categoryName: "Bathroom", status: "active" },
-      { code: "BTH-003", description: "Vanity Mirror", unitId: unitMap.get("pcs")!, unitPrice: 125.00, categoryName: "Bathroom", status: "active" },
+      { code: "BTH-001", description: "Bathroom Tile 8x8", unitId: unitMap.get("sqft")!, unitPrice: 9.50, costPrice: 7.25, categoryName: "Bathroom", status: "active" },
+      { code: "BTH-002", description: "Shower Glass Panel", unitId: unitMap.get("sqft")!, unitPrice: 85.00, costPrice: 64.00, categoryName: "Bathroom", status: "active" },
+      { code: "BTH-003", description: "Vanity Mirror", unitId: unitMap.get("pcs")!, unitPrice: 125.00, costPrice: 95.00, categoryName: "Bathroom", status: "active" },
       
       // Kitchen
-      { code: "KIT-001", description: "Kitchen Cabinet Base", unitId: unitMap.get("lf")!, unitPrice: 150.00, categoryName: "Kitchen", status: "active" },
-      { code: "KIT-002", description: "Countertop Granite", unitId: unitMap.get("sqft")!, unitPrice: 75.00, categoryName: "Kitchen", status: "active" },
-      { code: "KIT-003", description: "Kitchen Faucet Chrome", unitId: unitMap.get("pcs")!, unitPrice: 180.00, categoryName: "Kitchen", status: "active" },
+      { code: "KIT-001", description: "Kitchen Cabinet Base", unitId: unitMap.get("lf")!, unitPrice: 150.00, costPrice: 113.00, categoryName: "Kitchen", status: "active" },
+      { code: "KIT-002", description: "Countertop Granite", unitId: unitMap.get("sqft")!, unitPrice: 75.00, costPrice: 57.00, categoryName: "Kitchen", status: "active" },
+      { code: "KIT-003", description: "Kitchen Faucet Chrome", unitId: unitMap.get("pcs")!, unitPrice: 180.00, costPrice: 136.00, categoryName: "Kitchen", status: "active" },
     ];
 
     for (const item of items) {
@@ -894,15 +894,20 @@ async function main() {
           },
           update: {
             status: item.status, // Update status if item exists
-            categoryId: categoryId, // Update categoryId if item exists
+            costPrice: item.costPrice || 0, // Update costPrice if item exists
           },
           create: {
             code: item.code,
             description: item.description,
             unitId: item.unitId,
             unitPrice: item.unitPrice,
-            categoryId: categoryId,
+            costPrice: item.costPrice || 0,
             status: item.status,
+            categories: categoryId ? {
+              create: {
+                categoryId: categoryId,
+              },
+            } : undefined,
           },
         });
         console.log(`✅ Created/Updated item: ${createdItem.code} - ${createdItem.description} (${item.status})`);
@@ -1318,7 +1323,135 @@ async function main() {
     }
   }
 
-  console.log("✅ Seed completed successfully!");
+    // Create sample groups
+    if (adminUser) {
+      const groups = [
+        {
+          name: "Standard Kitchen Cabinet Set",
+          code: "GRP-KIT-001",
+          description: "Complete kitchen cabinet group with base and wall units",
+          quantity: 1,
+          number: 1,
+          sortOrder: 0,
+          status: "active",
+          items: [
+            { sl: 1, code: "KIT-BASE-001", description: "Base Cabinet 36 inch", height: 34, width: 36, depth: 24, unit: "pcs", unitPrice: 150.00, quantity: 5, amount: 0, sortOrder: 0 },
+            { sl: 2, code: "KIT-WALL-001", description: "Wall Cabinet 30 inch", height: 30, width: 30, depth: 12, unit: "pcs", unitPrice: 120.00, quantity: 4, amount: 0, sortOrder: 1 },
+            { sl: 3, code: "KIT-CT-001", description: "Granite Countertop", height: null, width: null, depth: null, unit: "sqft", unitPrice: 75.00, quantity: 25, amount: 0, sortOrder: 2 },
+          ],
+        },
+        {
+          name: "Bathroom Fixture Package",
+          code: "GRP-BTH-001",
+          description: "Complete bathroom fixture group including tiles and accessories",
+          quantity: 1,
+          number: 2,
+          sortOrder: 1,
+          status: "active",
+          items: [
+            { sl: 1, code: "BTH-TILE-001", description: "Ceramic Wall Tile 8x8", height: 8, width: 8, depth: null, unit: "sqft", unitPrice: 9.50, quantity: 50, amount: 0, sortOrder: 0 },
+            { sl: 2, code: "BTH-GLASS-001", description: "Shower Glass Panel", height: 72, width: 36, depth: 0.5, unit: "sqft", unitPrice: 85.00, quantity: 18, amount: 0, sortOrder: 1 },
+            { sl: 3, code: "BTH-VANITY-001", description: "Bathroom Vanity 48 inch", height: 34, width: 48, depth: 21, unit: "pcs", unitPrice: 350.00, quantity: 1, amount: 0, sortOrder: 2 },
+          ],
+        },
+        {
+          name: "Living Room Furniture Set",
+          code: "GRP-LIV-001",
+          description: "Complete living room furniture group",
+          quantity: 1,
+          number: 3,
+          sortOrder: 2,
+          status: "active",
+          items: [
+            { sl: 1, code: "LIV-SOFA-001", description: "3-Seater Sofa", height: null, width: null, depth: null, unit: "pcs", unitPrice: 1250.00, quantity: 1, amount: 0, sortOrder: 0 },
+            { sl: 2, code: "LIV-TABLE-001", description: "Coffee Table Glass Top", height: null, width: null, depth: null, unit: "pcs", unitPrice: 450.00, quantity: 1, amount: 0, sortOrder: 1 },
+            { sl: 3, code: "LIV-CURTAIN-001", description: "Curtain Fabric Premium", height: null, width: null, depth: null, unit: "yd", unitPrice: 28.00, quantity: 12, amount: 0, sortOrder: 2 },
+          ],
+        },
+        {
+          name: "Master Bedroom Package",
+          code: "GRP-BED-001",
+          description: "Complete master bedroom furniture and fixtures",
+          quantity: 1,
+          number: 4,
+          sortOrder: 3,
+          status: "active",
+          items: [
+            { sl: 1, code: "BED-WARDROBE-001", description: "Sliding Door Wardrobe 8ft", height: 96, width: 96, depth: 24, unit: "pcs", unitPrice: 800.00, quantity: 1, amount: 0, sortOrder: 0 },
+            { sl: 2, code: "BED-BED-001", description: "King Size Bed Frame", height: null, width: null, depth: null, unit: "pcs", unitPrice: 650.00, quantity: 1, amount: 0, sortOrder: 1 },
+            { sl: 3, code: "BED-DRESSER-001", description: "Dresser with Mirror", height: 60, width: 48, depth: 20, unit: "pcs", unitPrice: 420.00, quantity: 1, amount: 0, sortOrder: 2 },
+          ],
+        },
+        {
+          name: "Office Setup Package",
+          code: "GRP-OFF-001",
+          description: "Complete office furniture and accessories",
+          quantity: 1,
+          number: 5,
+          sortOrder: 4,
+          status: "active",
+          items: [
+            { sl: 1, code: "OFF-DESK-001", description: "Executive Desk 72 inch", height: 30, width: 72, depth: 36, unit: "pcs", unitPrice: 550.00, quantity: 1, amount: 0, sortOrder: 0 },
+            { sl: 2, code: "OFF-CHAIR-001", description: "Ergonomic Office Chair", height: null, width: null, depth: null, unit: "pcs", unitPrice: 320.00, quantity: 1, amount: 0, sortOrder: 1 },
+            { sl: 3, code: "OFF-SHELF-001", description: "Wall Mounted Bookshelf", height: 72, width: 36, depth: 12, unit: "pcs", unitPrice: 180.00, quantity: 2, amount: 0, sortOrder: 2 },
+          ],
+        },
+      ];
+
+      for (const groupData of groups) {
+        try {
+          // Calculate amounts for items
+          const itemsWithAmounts = groupData.items.map((item) => {
+            let amount = 0;
+            if (item.height && item.width && item.depth && item.height > 0 && item.width > 0 && item.depth > 0) {
+              amount = item.height * item.width * item.depth * item.unitPrice * item.quantity;
+            } else if (item.height && item.width && item.height > 0 && item.width > 0) {
+              amount = item.height * item.width * item.unitPrice * item.quantity;
+            } else {
+              amount = item.unitPrice * item.quantity;
+            }
+            return { ...item, amount };
+          });
+
+          const group = await prisma.moduleGroup.create({
+            data: {
+              name: groupData.name,
+              code: groupData.code,
+              description: groupData.description,
+              quantity: groupData.quantity ? new Prisma.Decimal(groupData.quantity) : null,
+              number: groupData.number || null,
+              sortOrder: groupData.sortOrder,
+              status: groupData.status,
+              createdBy: adminUser.id,
+              items: {
+                create: itemsWithAmounts.map((item) => ({
+                  sl: item.sl,
+                  code: item.code || null,
+                  description: item.description || null,
+                  height: item.height ? new Prisma.Decimal(item.height) : null,
+                  width: item.width ? new Prisma.Decimal(item.width) : null,
+                  depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                  unit: item.unit || null,
+                  unitPrice: new Prisma.Decimal(item.unitPrice),
+                  quantity: new Prisma.Decimal(item.quantity),
+                  amount: new Prisma.Decimal(item.amount),
+                  sortOrder: item.sortOrder,
+                  itemId: null, // Custom items, not linked to catalog
+                })),
+              },
+            },
+          });
+
+          console.log(`✅ Created group: ${group.name} (${group.code})`);
+        } catch (error) {
+          console.error(`❌ Failed to create group ${groupData.name}:`, error);
+        }
+      }
+    } else {
+      console.log("⚠️  Skipping group seeding: Admin user not found");
+    }
+
+    console.log("✅ Seed completed successfully!");
 }
 
 main()

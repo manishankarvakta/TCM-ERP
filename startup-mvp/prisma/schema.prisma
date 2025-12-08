@@ -49,6 +49,7 @@ model User {
   updatedQuotations    Quotation[]    @relation("UpdatedBy")
   sections             Section[]      @relation("PreparedBy")
   createdCoverLetters  CoverLetter[]  @relation("CoverLetterCreator")
+  createdModuleGroups  ModuleGroup[]  @relation("ModuleGroupCreator")
   settings             Settings[]     @relation("SettingsUser")
   createdSettings      Settings[]     @relation("SettingsCreator")
 
@@ -223,6 +224,7 @@ model Item {
   unitId      String
   unit        Unit           @relation("unit", fields: [unitId], references: [id], onDelete: Restrict)
   unitPrice   Decimal        @db.Decimal(10, 2)
+  costPrice   Decimal        @default(0) @db.Decimal(10, 2)
   image       String?
   status      String         @default("active") // active, inactive, trash
   createdAt   DateTime       @default(now())
@@ -230,10 +232,68 @@ model Item {
 
   categories  ItemCategory[]
   quotationItems QuotationItem[]
+  moduleGroupItems ModuleGroupItem[] @relation("ModuleGroupItem")
 
   @@index([code])
   @@index([unitId])
   @@index([status])
+}
+
+// Module Group (Template/Preset for quotation groups)
+model ModuleGroup {
+  id          String   @id @default(cuid())
+  name        String   // Module/Group name
+  code        String?  // Optional code
+  description String?  @db.Text
+  quantity    Decimal? @db.Decimal(10, 2) // Group-level quantity if applicable
+  number      Int?     // Additional number field
+  sortOrder   Int      @default(0)
+  status      String   @default("active") // active, inactive, trash
+  createdBy   String
+  creator     User     @relation("ModuleGroupCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items ModuleGroupItem[]
+
+  @@index([status])
+  @@index([createdBy])
+  @@index([name])
+}
+
+// Module Group Item (Template items within a module group)
+model ModuleGroupItem {
+  id          String  @id @default(cuid())
+  sl          Int     // Serial number/line number
+  code        String? // Can override or use catalog code
+  description String? // Can override catalog description
+
+  // Dimensions
+  height Decimal? @db.Decimal(10, 2)
+  width  Decimal? @db.Decimal(10, 2)
+  depth  Decimal? @db.Decimal(10, 2)
+
+  unit        String? // Unit of measurement
+  unitPrice   Decimal @db.Decimal(10, 2)
+  quantity    Decimal @db.Decimal(10, 2)
+  unitShutter Decimal? @db.Decimal(10, 2) // Shutters per unit
+  totalShutter Decimal? @db.Decimal(10, 2) // Total shutters (calculated)
+  amount      Decimal @db.Decimal(12, 2) // Total amount for this item
+
+  note      String? @db.Text
+  sortOrder Int     @default(0)
+
+  itemId String? // Optional: reference to catalog item
+  item   Item?   @relation("ModuleGroupItem", fields: [itemId], references: [id], onDelete: SetNull)
+
+  moduleGroupId String
+  moduleGroup   ModuleGroup @relation(fields: [moduleGroupId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([itemId])
+  @@index([moduleGroupId])
 }
 
 model ItemCategory {

@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidatePath } from "next/cache";
-import { type Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 /**
  * Get paginated list of items with search
@@ -79,6 +79,7 @@ export async function getItems(
           },
         },
         unitPrice: true,
+        costPrice: true,
         categories: {
           select: {
             id: true,
@@ -164,6 +165,7 @@ export async function getItemById(itemId: string) {
           },
         },
         unitPrice: true,
+        costPrice: true,
         categories: {
           select: {
             id: true,
@@ -314,6 +316,7 @@ export async function getActiveItems() {
         code: true,
         description: true,
         unitPrice: true,
+        costPrice: true,
         categories: {
           select: {
             category: {
@@ -364,6 +367,7 @@ export async function createItem(input: {
   description: string;
   unitId: string;
   unitPrice: number;
+  costPrice: number;
   categoryIds?: string[];
   image?: string;
   status?: "active" | "inactive";
@@ -398,7 +402,8 @@ export async function createItem(input: {
         code: input.code,
         description: input.description,
         unitId: input.unitId,
-        unitPrice: input.unitPrice,
+        unitPrice: new Prisma.Decimal(input.unitPrice),
+        costPrice: new Prisma.Decimal(input.costPrice),
         image: input.image || null,
         status: input.status || "active",
         categories: input.categoryIds && input.categoryIds.length > 0
@@ -422,6 +427,7 @@ export async function createItem(input: {
           },
         },
         unitPrice: true,
+        costPrice: true,
         categories: {
           select: {
             id: true,
@@ -480,6 +486,7 @@ export async function updateItem(input: {
   description: string;
   unitId: string;
   unitPrice: number;
+  costPrice: number;
   categoryIds?: string[];
   image?: string;
   status?: "active" | "inactive";
@@ -542,7 +549,8 @@ export async function updateItem(input: {
       code: string;
       description: string;
       unitId: string;
-      unitPrice: number;
+      unitPrice: Prisma.Decimal;
+      costPrice: Prisma.Decimal;
       image?: string | null;
       status?: string;
       categories?: {
@@ -553,7 +561,8 @@ export async function updateItem(input: {
       code: input.code,
       description: input.description,
       unitId: input.unitId,
-      unitPrice: input.unitPrice,
+      unitPrice: new Prisma.Decimal(input.unitPrice),
+      costPrice: new Prisma.Decimal(input.costPrice),
     };
 
     if (input.image !== undefined) {
@@ -591,6 +600,7 @@ export async function updateItem(input: {
           },
         },
         unitPrice: true,
+        costPrice: true,
         categories: {
           select: {
             id: true,

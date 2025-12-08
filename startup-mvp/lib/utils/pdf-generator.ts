@@ -154,40 +154,94 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   // Draw border
   drawPageBorder(doc, margin);
 
-  // Load and add organization logo at top left (or fallback to default)
-  // Fixed height: 100px, width auto (maintain aspect ratio)
-  const orgLogoPath = orgLogo || '/clientLogo.png';
-  const topLogoHeight = 100; // Fixed height in pixels (will be converted to mm)
+  // ============================================
+  // TOP SECTION: 2-COLUMN LAYOUT
+  // ============================================
+  
+  const topSectionY = yPos;
+  const columnGap = 10; // Gap between columns
+  const columnWidth = (pageWidth - 2 * margin - columnGap) / 2; // Divide available width into 2 columns
+  const leftColumnX = margin + 5;
+  const rightColumnX = margin + 5 + columnWidth + columnGap;
+  let leftColumnY = topSectionY;
+  let rightColumnY = topSectionY;
+
+  // LEFT COLUMN: Hi-Tech Logo and Company Details
+  const hiTechLogoPath = '/hi-tech.png';
+  const topLogoHeight = 80; // Fixed height in pixels (reduced from 100px)
+  
   try {
-    const logoBase64 = await loadImageAsBase64(orgLogoPath);
-    if (logoBase64) {
+    const hiTechLogoBase64 = await loadImageAsBase64(hiTechLogoPath);
+    if (hiTechLogoBase64) {
       try {
-        const dimensions = await getImageDimensions(logoBase64, topLogoHeight);
+        const dimensions = await getImageDimensions(hiTechLogoBase64, topLogoHeight);
         if (dimensions) {
           // Convert pixels to mm (1mm ≈ 3.779527559 pixels at 96 DPI)
           const logoHeightMM = topLogoHeight / 3.779527559;
           const logoWidthMM = dimensions.width / 3.779527559;
-          const logoX = margin + 5;
-          const logoY = yPos;
-          doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidthMM, logoHeightMM);
+          doc.addImage(hiTechLogoBase64, 'PNG', leftColumnX, leftColumnY, logoWidthMM, logoHeightMM);
+          leftColumnY += logoHeightMM + 5; // Add spacing after logo
         }
       } catch (imageError) {
-        console.warn('Error adding organization logo image to PDF, continuing without logo:', imageError);
-        // Continue without logo - PDF generation should not fail
+        console.warn('Error adding hi-tech logo to PDF, continuing without logo:', imageError);
+      }
+    }
+  } catch (error) {
+    console.warn('Error loading hi-tech logo, continuing without logo:', error);
+  }
+
+  // Company details below hi-tech logo
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  const companyDetails = [
+    'Office: 28, Land View Commercial, Gulshan-2, Dhaka',
+    'Factory: Plot-10202, Mogardia Bazar, Satarkul, Madani Avenue',
+    'Phone: 01923 5980080, 01950 507407',
+    'Email: info@espaciodb.com',
+    'Web: https://espaciobd.com'
+  ];
+  
+  companyDetails.forEach((detail) => {
+    const lines = doc.splitTextToSize(detail, columnWidth - 5);
+    lines.forEach((line: string) => {
+      doc.text(line, leftColumnX, leftColumnY);
+      leftColumnY += 4;
+    });
+  });
+
+  // RIGHT COLUMN: Organization Logo and Info
+  const orgLogoPath = orgLogo || '/clientLogo.png';
+  const rightMargin = 5; // Margin from the right edge of the page
+  const rightColumnEndX = pageWidth - margin - rightMargin; // End position for right alignment with margin from page edge
+  
+  try {
+    const orgLogoBase64 = await loadImageAsBase64(orgLogoPath);
+    if (orgLogoBase64) {
+      try {
+        const dimensions = await getImageDimensions(orgLogoBase64, topLogoHeight);
+        if (dimensions) {
+          // Convert pixels to mm (1mm ≈ 3.779527559 pixels at 96 DPI)
+          const logoHeightMM = topLogoHeight / 3.779527559;
+          const logoWidthMM = dimensions.width / 3.779527559;
+          // Position logo at the right edge of the column (right-aligned)
+          const logoX = rightColumnEndX - logoWidthMM;
+          doc.addImage(orgLogoBase64, 'PNG', logoX, rightColumnY, logoWidthMM, logoHeightMM);
+          rightColumnY += logoHeightMM + 5; // Add spacing after logo
+        }
+      } catch (imageError) {
+        console.warn('Error adding organization logo to PDF, continuing without logo:', imageError);
       }
     }
   } catch (error) {
     console.warn('Error loading organization logo, continuing without logo:', error);
-    // Continue without logo - PDF generation should not fail
   }
 
-  // Organization Name (Right side of header)
-  doc.setFontSize(14);
+  // Organization Name and Info below logo (right-aligned)
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text(orgName, pageWidth - margin - 5, yPos + 5, { align: 'right' });
-  yPos += 25;
+  doc.text(orgName, rightColumnEndX, rightColumnY, { align: 'right' });
+  rightColumnY += 5;
 
-  // Organization Address and Contact Information (Right aligned)
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   const orgInfo: string[] = [];
@@ -211,9 +265,15 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   }
   
   orgInfo.forEach((info) => {
-    doc.text(info, pageWidth - margin - 5, yPos, { align: 'right' });
-    yPos += 4;
+    const lines = doc.splitTextToSize(info, columnWidth - 5);
+    lines.forEach((line: string) => {
+      doc.text(line, rightColumnEndX, rightColumnY, { align: 'right' });
+      rightColumnY += 4;
+    });
   });
+
+  // Update yPos to the bottom of the top section (use the maximum of both columns)
+  yPos = Math.max(leftColumnY, rightColumnY) + 10;
 
   // Central Large Logo - Use client logo (or fallback to default)
   // Fixed height: 100px, width auto (maintain aspect ratio)

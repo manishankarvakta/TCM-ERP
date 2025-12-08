@@ -95,6 +95,11 @@ export default async function ItemDetailsPage({ searchParams }: ItemDetailsPageP
                 </div>
 
                 <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Cost Price</label>
+                  <p className="text-base font-medium">{formatPrice(item.costPrice || 0)}</p>
+                </div>
+
+                <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Categories</label>
                   {item.categories && item.categories.length > 0 ? (
                     <div className="flex flex-wrap gap-2">

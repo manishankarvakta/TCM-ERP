@@ -49,11 +49,12 @@ interface Item {
     details: string;
   };
   unitPrice: Decimal;
+  costPrice: Decimal;
   categories: {
     id: string;
-    category: {
-      id: string;
-      name: string;
+  category: {
+    id: string;
+    name: string;
     };
   }[];
   image: string | null;
@@ -336,6 +337,7 @@ export default function ItemsListClient({
               <TableHead>Description</TableHead>
               <TableHead>Unit</TableHead>
               <TableHead>Unit Price</TableHead>
+              <TableHead>Cost Price</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created At</TableHead>
@@ -345,7 +347,7 @@ export default function ItemsListClient({
           <TableBody>
             {initialItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed items found" : "No items found"}
                 </TableCell>
               </TableRow>
@@ -386,6 +388,9 @@ export default function ItemsListClient({
                     </TableCell>
                     <TableCell className="font-medium">
                       {formatPrice(item.unitPrice)}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {formatPrice(item.costPrice)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {item.categories && item.categories.length > 0 ? (

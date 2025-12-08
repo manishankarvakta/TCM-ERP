@@ -280,6 +280,7 @@ function SortableItem({
             className="h-8 w-16 text-xs"
           />
         </div>
+        
       </TableCell>
       <TableCell>
         <Input
