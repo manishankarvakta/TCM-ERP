@@ -1,22 +1,26 @@
 # Dokploy Deployment Guide
 
-This guide explains how to deploy the application using Dokploy with the `docker-compose.dokploy.yml` configuration.
+This guide explains how to deploy the application using Dokploy with the `docker-compose.yml` configuration.
 
-## Differences from Standard Docker Compose
+## Differences from Local Docker Compose
 
-The `docker-compose.dokploy.yml` file has been optimized for Dokploy with the following changes:
+The `docker-compose.yml` file has been optimized for Dokploy with the following changes:
 
 ### 1. Network Configuration
-- **Standard**: Uses custom `app-network` (bridge driver)
-- **Dokploy**: Uses external `dokploy-network` (managed by Dokploy)
+- **Local**: Uses custom `app-network` (bridge driver) with bind mounts
+- **Dokploy**: Uses `app-network` (bridge driver) with named volumes for better portability
 
 ### 2. Environment Variables
-- **Standard**: Uses default values with `${VAR:-default}` syntax
-- **Dokploy**: References variables directly (no defaults) - Dokploy UI manages all environment variables
+- **Local**: Uses default values with `${VAR:-default}` syntax in `docker-compose.local.yml`
+- **Dokploy**: Uses default values but can be overridden via Dokploy UI environment variables
 
 ### 3. Volume Management
-- **Standard**: Uses bind mounts (`./volumes/postgres`, `./volumes/minio`, etc.)
+- **Local**: Uses bind mounts (`./volumes/postgres`, `./volumes/minio`, etc.) in `docker-compose.local.yml`
 - **Dokploy**: Uses named volumes (`postgres_data`, `minio_data`, `redis_data`) for better portability and Dokploy management
+
+### 4. Service Names
+- All services use the `espacio-` prefix for better organization
+- Services: `espacio-postgres`, `espacio-minio`, `espacio-minio-setup`, `espacio-redis`, `espacio-app`
 
 ## Required Environment Variables in Dokploy
 
@@ -26,7 +30,7 @@ Set these environment variables in Dokploy's UI:
 ```
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=your-secure-password
-POSTGRES_DB=startup_mvp
+POSTGRES_DB=espaciodb
 POSTGRES_PORT=5432
 ```
 
@@ -36,9 +40,10 @@ MINIO_ROOT_USER=minioadmin
 MINIO_ROOT_PASSWORD=your-secure-password
 MINIO_PORT=9000
 MINIO_CONSOLE_PORT=9001
-MINIO_BUCKET_NAME=startup-mvp-files
+MINIO_BUCKET_NAME=uploads
 MINIO_USE_SSL=false
 MINIO_PUBLIC_URL=http://your-domain:9000
+NEXT_PUBLIC_MINIO_URL=http://your-domain:9000
 ```
 
 ### Application Configuration
@@ -50,21 +55,21 @@ NEXT_PUBLIC_APP_URL=https://your-domain.com
 NODE_ENV=production
 ```
 
-### Redis Configuration (Optional)
+### Redis Configuration
 ```
 REDIS_PORT=6379
-REDIS_URL=redis://redis:6379
+REDIS_URL=redis://espacio-redis:6379
 ```
 
 ### Email Configuration
 ```
-SMTP_HOST=mail.techsoulbd.com
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=no-reply@techsoulbd.com
+SMTP_HOST=your-smtp-host
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@domain.com
 SMTP_PASS=your-email-password
-EMAIL_FROM=no-reply@techsoulbd.com
-EMAIL_FROM_NAME=Startup MVP
+EMAIL_FROM=your-email@domain.com
+EMAIL_FROM_NAME=Espacio
 ```
 
 ## Deployment Steps
@@ -73,9 +78,11 @@ EMAIL_FROM_NAME=Startup MVP
    - Dokploy should automatically create the `dokploy-network`
    - If not, create it manually: `docker network create dokploy-network`
 
-2. **Upload docker-compose.dokploy.yml**
+2. **Upload docker-compose.yml**
    - In Dokploy UI, create a new application
-   - Upload or paste the contents of `docker-compose.dokploy.yml`
+   - Select "Docker Compose" as the deployment type (NOT "Dockerfile")
+   - Upload or paste the contents of `docker-compose.yml`
+   - **Important**: Ensure the build context is set to `./startup-mvp` and dockerfile is `Dockerfile`
 
 3. **Configure Environment Variables**
    - Add all required environment variables in Dokploy's environment section
@@ -92,19 +99,21 @@ EMAIL_FROM_NAME=Startup MVP
 
 ## Important Notes
 
-- **Network**: The `dokploy-network` must exist before deployment. Dokploy typically creates this automatically.
-- **Volumes**: Named volumes are managed by Dokploy and persist data across deployments.
+- **Network**: The `app-network` is created automatically by Docker Compose.
+- **Volumes**: Named volumes are managed by Docker and persist data across deployments.
 - **Secrets**: Never commit sensitive values. Use Dokploy's secret management features.
 - **Ports**: Ensure ports don't conflict with other services in Dokploy.
-- **Build Context**: The build context points to `./startup-mvp` - ensure this path is correct in your Dokploy setup.
+- **Build Context**: The build context is `./startup-mvp` and dockerfile is `Dockerfile` - ensure this path is correct in your Dokploy setup.
+- **Service Names**: All services use the `espacio-` prefix for better organization.
+- **Health Checks**: All services have health checks configured for better reliability.
 
 ## Troubleshooting
 
 ### Network Issues
 If you see network-related errors:
 ```bash
-docker network ls | grep dokploy
-docker network create dokploy-network  # Only if it doesn't exist
+docker network ls | grep app-network
+# The app-network is created automatically by docker-compose
 ```
 
 ### Environment Variable Issues
@@ -132,7 +141,7 @@ If migrating from `docker-compose.yml`:
    ```
 
 3. **Deploy to Dokploy**:
-   - Use `docker-compose.dokploy.yml` in Dokploy
+   - Use `docker-compose.yml` in Dokploy
    - Configure environment variables
    - Deploy
 

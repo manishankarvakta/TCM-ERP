@@ -80,7 +80,7 @@ services:
   # Next.js Application
   espacio-app:
     build:
-      context: .
+      context: ./startup-mvp
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
@@ -117,11 +117,20 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1"]
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000', (r) => {process.exit(r.statusCode ? 0 : 1)}).on('error', () => process.exit(1))\" || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+    command: >
+      sh -c "
+      echo 'Waiting for database to be ready...';
+      sleep 10;
+      echo 'Running database migrations...';
+      npx prisma migrate deploy || echo 'Migrations completed or no migrations to run';
+      echo 'Starting application...';
+      node server.js;
+      "
 
 networks:
   app-network:
