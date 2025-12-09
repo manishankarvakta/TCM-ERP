@@ -656,6 +656,246 @@ export async function deleteGroupPermanently(id: string) {
 }
 
 /**
+ * Restore group from trash
+ */
+export async function restoreGroup(id: string) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+      };
+    }
+
+    const group = await prisma.moduleGroup.findUnique({
+      where: { id },
+    });
+
+    if (!group) {
+      return {
+        success: false,
+        error: "Group not found",
+      };
+    }
+
+    if (group.status !== "trash") {
+      return {
+        success: false,
+        error: "Only trashed groups can be restored",
+      };
+    }
+
+    // Restore to active status
+    await prisma.moduleGroup.update({
+      where: { id },
+      data: {
+        status: "active",
+      },
+    });
+
+    // Notify and log
+    await notifyItemUpdated({
+      userId: session.user.id,
+      itemType: "Group",
+      itemName: group.name,
+    });
+
+    await createUserLog({
+      userId: session.user.id,
+      action: LogAction.UPDATE,
+      details: `Restored group from trash: ${group.name}`,
+    });
+
+    revalidatePath("/dashboard/items/groups", "page");
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("restoreGroup error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to restore group",
+    };
+  }
+}
+
+/**
+ * Bulk update group status
+ */
+export async function bulkUpdateGroupStatus(
+  groupIds: string[],
+  status: "active" | "inactive" | "trash"
+) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+      };
+    }
+
+    if (!groupIds || groupIds.length === 0) {
+      return {
+        success: false,
+        error: "No groups selected",
+      };
+    }
+
+    // Update all groups
+    const result = await prisma.moduleGroup.updateMany({
+      where: {
+        id: { in: groupIds },
+      },
+      data: {
+        status,
+      },
+    });
+
+    // Get updated groups for logging
+    const updatedGroups = await prisma.moduleGroup.findMany({
+      where: {
+        id: { in: groupIds },
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    // Log bulk action
+    await createUserLog({
+      userId: session.user.id,
+      action: LogAction.UPDATE,
+      details: `Bulk updated ${result.count} group(s) to ${status}`,
+      metadata: {
+        groupIds,
+        status,
+        count: result.count,
+      },
+    });
+
+    // Notify for each group
+    for (const group of updatedGroups) {
+      if (status === "trash") {
+        await notifyItemDeleted({
+          userId: session.user.id,
+          itemType: "Group",
+          itemName: group.name,
+        });
+      } else {
+        await notifyItemUpdated({
+          userId: session.user.id,
+          itemType: "Group",
+          itemName: group.name,
+        });
+      }
+    }
+
+    revalidatePath("/dashboard/items/groups", "page");
+
+    return {
+      success: true,
+      count: result.count,
+    };
+  } catch (error) {
+    console.error("bulkUpdateGroupStatus error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to update group status",
+    };
+  }
+}
+
+/**
+ * Delete groups permanently (bulk)
+ */
+export async function deleteGroupsPermanently(groupIds: string[]) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+      };
+    }
+
+    if (!groupIds || groupIds.length === 0) {
+      return {
+        success: false,
+        error: "No groups selected",
+      };
+    }
+
+    // Get groups before deletion for logging
+    const groups = await prisma.moduleGroup.findMany({
+      where: {
+        id: { in: groupIds },
+        status: "trash", // Only allow permanent deletion of trashed groups
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+      },
+    });
+
+    if (groups.length === 0) {
+      return {
+        success: false,
+        error: "No trashed groups found to delete permanently",
+      };
+    }
+
+    // Delete permanently (cascade will handle items)
+    const result = await prisma.moduleGroup.deleteMany({
+      where: {
+        id: { in: groups.map((g) => g.id) },
+        status: "trash",
+      },
+    });
+
+    // Log permanent deletion
+    await createUserLog({
+      userId: session.user.id,
+      action: LogAction.ITEM_DELETED,
+      details: `Permanently deleted ${result.count} group(s)`,
+      metadata: {
+        groupIds: groups.map((g) => g.id),
+        count: result.count,
+      },
+    });
+
+    // Notify for each group
+    for (const group of groups) {
+      await notifyItemDeleted({
+        userId: session.user.id,
+        itemType: "Group",
+        itemName: group.name,
+      });
+    }
+
+    revalidatePath("/dashboard/items/groups", "page");
+
+    return {
+      success: true,
+      count: result.count,
+    };
+  } catch (error) {
+    console.error("deleteGroupsPermanently error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to delete groups permanently",
+    };
+  }
+}
+
+/**
  * Get ModuleGroup by ID with all items (for populating quotation groups)
  */
 export async function getModuleGroupById(id: string) {

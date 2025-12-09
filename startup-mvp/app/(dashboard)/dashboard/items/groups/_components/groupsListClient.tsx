@@ -21,8 +21,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import { FiSearch, FiEdit, FiTrash2, FiX, FiMoreVertical, FiEye, FiRotateCw } from "react-icons/fi";
-import { deleteGroup, deleteGroupPermanently } from "../_actions/group.action";
+import { FiSearch, FiEdit, FiTrash2, FiX, FiMoreVertical, FiEye, FiRotateCw, FiCheck, FiCircle } from "react-icons/fi";
+import { deleteGroup, deleteGroupPermanently, bulkUpdateGroupStatus, deleteGroupsPermanently, restoreGroup } from "../_actions/group.action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -95,6 +95,7 @@ export default function GroupsListClient({
   const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null);
   const [permanentDeleteGroupId, setPermanentDeleteGroupId] = useState<string | null>(null);
   const [restoreGroupId, setRestoreGroupId] = useState<string | null>(null);
+  const [bulkAction, setBulkAction] = useState<string | null>(null);
 
   const allSelected = initialGroups.length > 0 && selectedGroups.size === initialGroups.length;
   const someSelected = selectedGroups.size > 0 && selectedGroups.size < initialGroups.length;
@@ -125,6 +126,77 @@ export default function GroupsListClient({
     setRestoreGroupId(id);
   };
 
+  const confirmRestore = () => {
+    if (!restoreGroupId) return;
+    
+    const id = restoreGroupId;
+    setRestoreGroupId(null);
+
+    startTransition(async () => {
+      const result = await restoreGroup(id);
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Group restored successfully",
+        });
+        router.refresh();
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to restore group",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
+  const handleBulkAction = async (action: string) => {
+    if (selectedGroups.size === 0) {
+      toast({
+        title: "No selection",
+        description: "Please select at least one group",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const groupIds = Array.from(selectedGroups);
+
+    startTransition(async () => {
+      let result;
+      
+      if (action === "trash") {
+        result = await bulkUpdateGroupStatus(groupIds, "trash");
+      } else if (action === "active") {
+        result = await bulkUpdateGroupStatus(groupIds, "active");
+      } else if (action === "inactive") {
+        result = await bulkUpdateGroupStatus(groupIds, "inactive");
+      } else if (action === "restore") {
+        result = await bulkUpdateGroupStatus(groupIds, "active");
+      } else if (action === "delete-permanently") {
+        result = await deleteGroupsPermanently(groupIds);
+      } else {
+        return;
+      }
+
+      if (result.success) {
+        setSelectedGroups(new Set());
+        setBulkAction(null);
+        toast({
+          title: "Success",
+          description: `Bulk action completed successfully`,
+        });
+        router.refresh();
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to perform bulk action",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
   const confirmDelete = () => {
     if (!deleteGroupId) return;
     
@@ -138,8 +210,7 @@ export default function GroupsListClient({
           title: "Success",
           description: "Group moved to trash",
         });
-        const params = new URLSearchParams(searchParams.toString());
-        router.push(`/dashboard/items/groups?${params.toString()}`);
+        router.refresh();
       } else {
         toast({
           title: "Error",
@@ -163,8 +234,7 @@ export default function GroupsListClient({
           title: "Success",
           description: "Group permanently deleted",
         });
-        const params = new URLSearchParams(searchParams.toString());
-        router.push(`/dashboard/items/groups?${params.toString()}`);
+        router.refresh();
       } else {
         toast({
           title: "Error",
@@ -199,8 +269,8 @@ export default function GroupsListClient({
 
   return (
     <div className="space-y-4">
-      {/* Search */}
-      <div className="flex items-center gap-4">
+      {/* Search and Bulk Actions */}
+      <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-sm">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -233,6 +303,73 @@ export default function GroupsListClient({
               <FiX className="h-4 w-4" />
             </Button>
           )}
+        </div>
+
+        {/* Bulk Actions Dropdown */}
+        <div className="flex items-center gap-2">
+          {selectedGroups.size > 0 && (
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              {selectedGroups.size} selected
+            </span>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                disabled={isPending || selectedGroups.size === 0}
+              >
+                <FiMoreVertical className="mr-2 h-4 w-4" />
+                Bulk Actions
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {!isTrash ? (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("trash")}
+                    disabled={selectedGroups.size === 0}
+                    className="text-destructive"
+                  >
+                    <FiTrash2 className="mr-2 h-4 w-4" />
+                    Move to Trash
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("active")}
+                    disabled={selectedGroups.size === 0}
+                  >
+                    <FiCheck className="mr-2 h-4 w-4" />
+                    Activate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("inactive")}
+                    disabled={selectedGroups.size === 0}
+                  >
+                    <FiCircle className="mr-2 h-4 w-4" />
+                    Deactivate
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("restore")}
+                    disabled={selectedGroups.size === 0}
+                  >
+                    <FiRotateCw className="mr-2 h-4 w-4" />
+                    Restore
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("delete-permanently")}
+                    className="text-destructive"
+                    disabled={selectedGroups.size === 0}
+                  >
+                    <FiTrash2 className="mr-2 h-4 w-4" />
+                    Delete Permanently
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -424,6 +561,24 @@ export default function GroupsListClient({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmPermanentDelete} className="bg-destructive text-destructive-foreground">
               Delete Permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Restore Confirmation Dialog */}
+      <AlertDialog open={!!restoreGroupId} onOpenChange={(open) => !open && setRestoreGroupId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore Group</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to restore this group? It will be moved back to active status.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRestore}>
+              Restore
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

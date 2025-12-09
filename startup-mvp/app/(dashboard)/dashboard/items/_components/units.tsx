@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw } from "react-icons/fi";
+import { FiSearch, FiEdit, FiTrash2, FiEye, FiRotateCw, FiCheck, FiCircle, FiMoreVertical } from "react-icons/fi";
 import { deleteUnit, bulkUpdateUnitStatus, deleteUnitsPermanently } from "../_actions/unit.action";
 import {
   AlertDialog,
@@ -78,7 +78,6 @@ export default function UnitsListClient({
   const [deleteUnitId, setDeleteUnitId] = useState<string | null>(null);
   const [restoreUnitId, setRestoreUnitId] = useState<string | null>(null);
   const [selectedUnits, setSelectedUnits] = useState<Set<string>>(new Set());
-  const [bulkAction, setBulkAction] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
@@ -160,17 +159,28 @@ export default function UnitsListClient({
     }
   };
 
-  const handleBulkAction = async () => {
-    if (!bulkAction || selectedUnits.size === 0) return;
+  const handleBulkAction = async (action: string) => {
+    if (selectedUnits.size === 0) {
+      toast({
+        title: "No selection",
+        description: "Please select at least one unit",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const unitIds = Array.from(selectedUnits);
     startTransition(async () => {
       let result;
-      if (bulkAction === "trash") {
+      if (action === "trash") {
         result = await bulkUpdateUnitStatus(unitIds, "trash");
-      } else if (bulkAction === "restore") {
+      } else if (action === "active") {
         result = await bulkUpdateUnitStatus(unitIds, "active");
-      } else if (bulkAction === "delete") {
+      } else if (action === "inactive") {
+        result = await bulkUpdateUnitStatus(unitIds, "inactive");
+      } else if (action === "restore") {
+        result = await bulkUpdateUnitStatus(unitIds, "active");
+      } else if (action === "delete") {
         result = await deleteUnitsPermanently(unitIds);
       } else {
         return;
@@ -178,7 +188,6 @@ export default function UnitsListClient({
 
       if (result.success) {
         setSelectedUnits(new Set());
-        setBulkAction(null);
         toast({
           title: "Success",
           description: `Bulk action completed successfully`,
@@ -212,57 +221,71 @@ export default function UnitsListClient({
             />
           </div>
         </div>
-        {selectedUnits.size > 0 && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
+        {/* Bulk Actions Dropdown - Always visible on the right */}
+        <div className="flex items-center gap-2">
+          {selectedUnits.size > 0 && (
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
               {selectedUnits.size} selected
             </span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  Bulk Actions
-                  <FiMoreVertical className="ml-2 h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {isTrash ? (
-                  <>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setBulkAction("restore");
-                        handleBulkAction();
-                      }}
-                    >
-                      <FiRotateCw className="mr-2 h-4 w-4" />
-                      Restore
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setBulkAction("delete");
-                        handleBulkAction();
-                      }}
-                      className="text-destructive"
-                    >
-                      <FiTrash2 className="mr-2 h-4 w-4" />
-                      Delete Permanently
-                    </DropdownMenuItem>
-                  </>
-                ) : (
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                disabled={isPending || selectedUnits.size === 0}
+              >
+                <FiMoreVertical className="mr-2 h-4 w-4" />
+                Bulk Actions
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {!isTrash ? (
+                <>
                   <DropdownMenuItem
-                    onClick={() => {
-                      setBulkAction("trash");
-                      handleBulkAction();
-                    }}
-                    className="text-destructive"
+                    onClick={() => handleBulkAction("trash")}
+                    disabled={selectedUnits.size === 0}
                   >
                     <FiTrash2 className="mr-2 h-4 w-4" />
                     Move to Trash
                   </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("active")}
+                    disabled={selectedUnits.size === 0}
+                  >
+                    <FiCheck className="mr-2 h-4 w-4" />
+                    Activate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("inactive")}
+                    disabled={selectedUnits.size === 0}
+                  >
+                    <FiCircle className="mr-2 h-4 w-4" />
+                    Deactivate
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("restore")}
+                    disabled={selectedUnits.size === 0}
+                  >
+                    <FiCheck className="mr-2 h-4 w-4" />
+                    Restore
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("delete")}
+                    className="text-destructive"
+                    disabled={selectedUnits.size === 0}
+                  >
+                    <FiTrash2 className="mr-2 h-4 w-4" />
+                    Delete Permanently
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Table */}
@@ -328,68 +351,54 @@ export default function UnitsListClient({
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         {isTrash ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setRestoreUnitId(unit.id);
-                              handleRestore();
-                            }}
-                            disabled={isPending}
-                          >
-                            <FiRotateCw className="h-4 w-4" />
-                          </Button>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setRestoreUnitId(unit.id);
+                                handleRestore();
+                              }}
+                              disabled={isPending}
+                              title="Restore"
+                            >
+                              <FiRotateCw className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeleteUnitId(unit.id)}
+                              disabled={isPending}
+                              title="Delete Permanently"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <FiTrash2 className="h-4 w-4" />
+                            </Button>
+                          </>
                         ) : (
                           <>
-                            <Button variant="ghost" size="sm" asChild>
+                            <Button variant="ghost" size="sm" asChild title="Edit">
                               <Link href={`/dashboard/items/units/${unit.id}`}>
                                 <FiEdit className="h-4 w-4" />
                               </Link>
                             </Button>
-                            <Button variant="ghost" size="sm" asChild>
+                            <Button variant="ghost" size="sm" asChild title="View Details">
                               <Link href={`/dashboard/items/units/details?id=${unit.id}`}>
                                 <FiEye className="h-4 w-4" />
                               </Link>
                             </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeleteUnitId(unit.id)}
+                              disabled={isPending}
+                              title="Move to Trash"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <FiTrash2 className="h-4 w-4" />
+                            </Button>
                           </>
                         )}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <FiMoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {isTrash ? (
-                              <>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setRestoreUnitId(unit.id);
-                                    handleRestore();
-                                  }}
-                                >
-                                  <FiRotateCw className="mr-2 h-4 w-4" />
-                                  Restore
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => setDeleteUnitId(unit.id)}
-                                  className="text-destructive"
-                                >
-                                  <FiTrash2 className="mr-2 h-4 w-4" />
-                                  Delete Permanently
-                                </DropdownMenuItem>
-                              </>
-                            ) : (
-                              <DropdownMenuItem
-                                onClick={() => setDeleteUnitId(unit.id)}
-                                className="text-destructive"
-                              >
-                                <FiTrash2 className="mr-2 h-4 w-4" />
-                                Move to Trash
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
                       </div>
                     </TableCell>
                   </TableRow>

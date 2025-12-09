@@ -62,6 +62,7 @@ interface QuotationItem {
   quantity: number;
   amount: number;
   itemId?: string; // Reference to catalog item
+  moduleGroupItemId?: string; // Reference to selected module group item
 }
 
 interface CatalogItem {
@@ -129,6 +130,7 @@ function SortableItem({
   sectionCategoryId,
   units,
   isLoadingUnits,
+  groupModuleGroupItems,
 }: {
   item: QuotationItem;
   sectionIndex: number;
@@ -140,6 +142,19 @@ function SortableItem({
   sectionCategoryId?: string;
   units?: Array<{ id: string; symbol: string; details: string }>;
   isLoadingUnits?: boolean;
+  groupModuleGroupItems?: Array<{
+    id: string;
+    sl: number;
+    code?: string;
+    description?: string;
+    height?: number;
+    width?: number;
+    depth?: number;
+    unit?: string;
+    unitPrice: number;
+    quantity: number;
+    itemId?: string;
+  }>;
 }) {
   const {
     attributes,
@@ -151,6 +166,7 @@ function SortableItem({
   } = useSortable({ id: item.id });
 
   const [itemSearch, setItemSearch] = useState('');
+  const [groupItemSearch, setGroupItemSearch] = useState('');
   const [unitSearch, setUnitSearch] = useState('');
 
   const style = {
@@ -177,6 +193,39 @@ function SortableItem({
     }
   };
 
+  const handleGroupItemSelect = (groupItemId: string) => {
+    if (!groupModuleGroupItems) return;
+
+    if (groupItemId === 'manual') {
+      // Allow manual entry when no module group item is chosen
+      onUpdate({
+        moduleGroupItemId: undefined,
+        itemId: undefined,
+      });
+      return;
+    }
+
+    const selectedGroupItem = groupModuleGroupItems.find((i) => i.id === groupItemId);
+    if (selectedGroupItem) {
+      const updates: Partial<QuotationItem> = {
+        moduleGroupItemId: selectedGroupItem.id,
+        code: selectedGroupItem.code,
+        description: selectedGroupItem.description,
+        height: selectedGroupItem.height,
+        width: selectedGroupItem.width,
+        depth: selectedGroupItem.depth,
+        unit: selectedGroupItem.unit,
+        unitPrice: selectedGroupItem.unitPrice,
+        quantity: selectedGroupItem.quantity,
+        itemId: selectedGroupItem.itemId,
+      };
+      // Calculate amount after updating fields
+      const updatedItem = { ...item, ...updates };
+      updates.amount = calculateItemAmount(updatedItem, true);
+      onUpdate(updates);
+    }
+  };
+
   // Filter items based on search and category
   const filteredItems = catalogItems.filter((catalogItem) => {
     // Filter by category if section has a category selected
@@ -193,6 +242,15 @@ function SortableItem({
       catalogItem.categories.some((cat) => cat.name.toLowerCase().includes(searchLower));
     return matchesSearch;
   });
+
+  // Filter group items based on search
+  const filteredGroupItems = groupModuleGroupItems?.filter((groupItem) => {
+    const searchLower = groupItemSearch.toLowerCase();
+    const matchesSearch =
+      (groupItem.code || '').toLowerCase().includes(searchLower) ||
+      (groupItem.description || '').toLowerCase().includes(searchLower);
+    return matchesSearch;
+  }) || [];
 
   return (
     <TableRow
@@ -212,13 +270,61 @@ function SortableItem({
       <TableCell className="font-medium w-12">{item.sl}</TableCell>
       <TableCell>
         {groupIndex !== undefined ? (
-          // For group items, show code as input field (items come from ModuleGroup)
-          <Input
-            value={item.code || ''}
-            onChange={(e) => onUpdate({ code: e.target.value })}
-            placeholder="Code"
-            className="h-8 text-xs min-w-[150px]"
-          />
+          // For group items, show code as dropdown with search (items come from selected ModuleGroup)
+          groupModuleGroupItems && groupModuleGroupItems.length > 0 ? (
+            <div className="flex gap-2 items-center w-full">
+              <div className="flex-1 relative w-full min-w-0">
+                <Select
+                  value={item.moduleGroupItemId || 'manual'}
+                  onValueChange={handleGroupItemSelect}
+                >
+                  <SelectTrigger className="h-8 text-xs w-full min-w-0 text-left">
+                    <SelectValue placeholder="Select item">
+                      {item.code || 'Select item'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    <SelectItem value="manual" className="text-left text-xs">
+                      Manual entry
+                    </SelectItem>
+                    <div className="p-2">
+                      <Input
+                        placeholder="Search items..."
+                        value={groupItemSearch}
+                        onChange={(e) => setGroupItemSearch(e.target.value)}
+                        className="h-8 text-xs"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    {filteredGroupItems.length === 0 ? (
+                      <div className="p-2 text-xs text-gray-500 text-left">No items found</div>
+                    ) : (
+                      filteredGroupItems.map((groupItem) => (
+                        <SelectItem key={groupItem.id} value={groupItem.id} className="text-left">
+                          <div className="flex flex-col">
+                            <span className="font-medium">{groupItem.code || 'No Code'}</span>
+                            {groupItem.description && (
+                              <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                {groupItem.description}
+                              </span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          ) : (
+            // Fallback to input if no group items available
+            <Input
+              value={item.code || ''}
+              onChange={(e) => onUpdate({ code: e.target.value })}
+              placeholder="Code"
+              className="h-8 text-xs min-w-[150px]"
+            />
+          )
         ) : (
           // For non-group items, show item dropdown select
           <div className="flex gap-2 items-center w-full">
@@ -425,6 +531,19 @@ export function QuotationItemsArea({
   const [categorySearch, setCategorySearch] = useState<{ [key: string]: string }>({});
   const [moduleGroups, setModuleGroups] = useState<Array<{ id: string; name: string; code: string | null }>>([]);
   const [isLoadingModuleGroups, setIsLoadingModuleGroups] = useState(true);
+  const [moduleGroupItems, setModuleGroupItems] = useState<{ [groupId: string]: Array<{
+    id: string;
+    sl: number;
+    code?: string;
+    description?: string;
+    height?: number;
+    width?: number;
+    depth?: number;
+    unit?: string;
+    unitPrice: number;
+    quantity: number;
+    itemId?: string;
+  }> }>({});
   const [units, setUnits] = useState<Array<{ id: string; symbol: string; details: string }>>([]);
   const [isLoadingUnits, setIsLoadingUnits] = useState(true);
   const sensors = useSensors(
@@ -1490,60 +1609,44 @@ export function QuotationItemsArea({
                                         value={group.moduleGroupId || 'none'}
                                         onValueChange={async (moduleGroupId) => {
                                           if (moduleGroupId && moduleGroupId !== 'none') {
-                                            // Fetch the ModuleGroup and populate items
+                                            // Fetch the ModuleGroup but only populate code and description, NOT items
                                             const result = await getModuleGroupById(moduleGroupId);
                                             if (result.success && result.group) {
                                               const moduleGroup = result.group;
-                                            // Convert ModuleGroup items to QuotationItems
-                                            const newItems: QuotationItem[] = moduleGroup.items.map((item, index) => {
-                                              const quotationItem: QuotationItem = {
-                                                id: generateId(),
-                                                sl: index + 1,
-                                                code: item.code || undefined,
-                                                description: item.description || undefined,
-                                                height: item.height || undefined,
-                                                width: item.width || undefined,
-                                                depth: item.depth || undefined,
-                                                unit: item.unit || undefined,
-                                                unitPrice: item.unitPrice,
-                                                quantity: item.quantity,
-                                                amount: 0, // Will be calculated below
-                                                itemId: item.itemId || undefined,
-                                              };
-                                              // Calculate amount using kitchen module calculation for group items
-                                              quotationItem.amount = calculateItemAmount(quotationItem, true);
-                                              return quotationItem;
-                                            });
                                               
-                                              // Update the group with ModuleGroup data
-                                              const updated = sections.map((s, sIdx) => {
-                                                if (sIdx !== sectionIndex) return s;
-                                                const updatedSection = {
-                                                  ...s,
-                                                  groups: s.groups.map((g, gIdx) => {
-                                                    if (gIdx !== groupIndex) return g;
-                                                    return {
-                                                      ...g,
-                                                      moduleGroupId: moduleGroupId,
-                                                      code: moduleGroup.code || g.code,
-                                                      description: moduleGroup.description || g.description,
-                                                      items: newItems,
-                                                      quantity: calculateGroupQuantity(newItems),
-                                                      isExpanded: true, // Auto-expand when ModuleGroup is selected
-                                                    };
-                                                  }),
-                                                };
-                                                const totals = calculateSectionTotals(updatedSection);
-                                                return {
-                                                  ...updatedSection,
-                                                  total: totals.total,
-                                                  grandTotal: totals.grandTotal,
-                                                };
+                                              // Store moduleGroup items for later use in dropdown
+                                              setModuleGroupItems(prev => ({
+                                                ...prev,
+                                                [group.id]: moduleGroup.items.map((item) => ({
+                                                  id: item.id,
+                                                  sl: item.sl,
+                                                  code: item.code || undefined,
+                                                  description: item.description || undefined,
+                                                  height: item.height || undefined,
+                                                  width: item.width || undefined,
+                                                  depth: item.depth || undefined,
+                                                  unit: item.unit || undefined,
+                                                  unitPrice: item.unitPrice,
+                                                  quantity: item.quantity,
+                                                  itemId: item.itemId || undefined,
+                                                }))
+                                              }));
+                                              
+                                              // Update the group with ModuleGroup code and description only, keep existing items
+                                              updateGroup(sectionIndex, groupIndex, {
+                                                moduleGroupId: moduleGroupId,
+                                                code: moduleGroup.code || group.code,
+                                                description: moduleGroup.description || group.description,
+                                                isExpanded: true, // Auto-expand when ModuleGroup is selected
                                               });
-                                              onSectionsChange(updated);
                                             }
                                           } else {
                                             // Clear ModuleGroup selection
+                                            setModuleGroupItems(prev => {
+                                              const newItems = { ...prev };
+                                              delete newItems[group.id];
+                                              return newItems;
+                                            });
                                             updateGroup(sectionIndex, groupIndex, {
                                               moduleGroupId: null,
                                             });
@@ -1650,6 +1753,7 @@ export function QuotationItemsArea({
                                               sectionCategoryId={section.categoryId}
                                               units={units}
                                               isLoadingUnits={isLoadingUnits}
+                                              groupModuleGroupItems={group.moduleGroupId ? moduleGroupItems[group.id] : undefined}
                                               onUpdate={(updates) =>
                                                 updateItem(
                                                   sectionIndex,

@@ -105,6 +105,7 @@ export async function getItems(
     const serializedItems = items.map((item) => ({
       ...item,
       unitPrice: Number(item.unitPrice),
+      costPrice: item.costPrice !== null && item.costPrice !== undefined ? Number(item.costPrice) : null,
     }));
 
     const totalPages = Math.ceil(total / limit);
@@ -343,6 +344,7 @@ export async function getActiveItems() {
     const serializedItems = items.map((item) => ({
       ...item,
       unitPrice: Number(item.unitPrice),
+      costPrice: item.costPrice !== null && item.costPrice !== undefined ? Number(item.costPrice) : null,
     }));
 
     return {
