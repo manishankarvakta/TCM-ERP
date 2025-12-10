@@ -44,6 +44,7 @@ const quotationSchema = z.object({
   subject: z.string().min(1, 'Subject is required'),
   hotline: z.string().optional(),
   email: z.string().optional(),
+  status: z.enum(['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'REVISED']),
   phases: z.array(
     z.object({
       phaseNumber: z.number(),
@@ -118,14 +119,27 @@ export function QuotationFormV2({ initialData, onSubmit }: QuotationFormV2Props)
       subject: initialData?.subject || '',
       hotline: initialData?.hotline || '',
       email: initialData?.email || '',
-      phases: initialData?.phases?.map((p) => ({
+      status: (initialData?.status as 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'REVISED') || 'DRAFT',
+      phases: (initialData?.phases?.map((p) => ({
         ...p,
+        phaseNumber: typeof p.phaseNumber === 'number' ? p.phaseNumber : Number(p.phaseNumber || 0),
+        estimatedDuration:
+          typeof p.estimatedDuration === 'number'
+            ? p.estimatedDuration
+            : p.estimatedDuration
+            ? Number(p.estimatedDuration)
+            : undefined,
         startDate: p.startDate
           ? typeof p.startDate === 'string'
             ? p.startDate
             : new Date(p.startDate).toISOString().split('T')[0]
           : undefined,
-      })) || [
+        sections: (p.sections || []).map((s) => ({
+          ...s,
+          slNo: typeof s.slNo === 'number' ? s.slNo : Number(s.slNo || 0),
+          sectionType: (s.sectionType as 'INTERIOR' | 'CIVIL' | 'GENERAL' | undefined) || 'GENERAL',
+        })),
+      })) as QuotationFormValues['phases']) || [
         {
           phaseNumber: 1,
           phaseName: '',
@@ -186,10 +200,10 @@ export function QuotationFormV2({ initialData, onSubmit }: QuotationFormV2Props)
       (phase.sections || []).forEach((section, sectionIndex) => {
         (section.pwdItems || []).forEach((item, itemIndex) => {
           const schedule = {
-            rateDhakaMym: item.rateDhakaMym ?? null,
-            rateChatSyl: item.rateChatSyl ?? null,
-            rateKhulBariGop: item.rateKhulBariGop ?? null,
-            rateRajRange: item.rateRajRange ?? null,
+            rateDhakaMym: item.rateDhakaMym ?? undefined,
+            rateChatSyl: item.rateChatSyl ?? undefined,
+            rateKhulBariGop: item.rateKhulBariGop ?? undefined,
+            rateRajRange: item.rateRajRange ?? undefined,
           };
           const newRate = getPWDRateForLocation(schedule, selectedLocation);
           

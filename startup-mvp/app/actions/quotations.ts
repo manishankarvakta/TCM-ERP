@@ -568,6 +568,7 @@ export async function createQuotation(data: any) {
                 quantity: group.quantity ? new Prisma.Decimal(group.quantity) : new Prisma.Decimal(0),
                 number: group.number || null,
                 sortOrder: group.sortOrder ?? groupIndex,
+                moduleGroupId: group.moduleGroupId && group.moduleGroupId !== '' ? group.moduleGroupId : null,
                 items: {
                   create: (group.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,
@@ -584,6 +585,7 @@ export async function createQuotation(data: any) {
                     amount: new Prisma.Decimal(item.amount || 0),
                     sortOrder: item.sortOrder ?? itemIndex,
                     itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
+                    moduleGroupItemId: item.moduleGroupItemId && item.moduleGroupItemId !== '' ? item.moduleGroupItemId : null,
                   })),
                 },
               })),
@@ -905,6 +907,7 @@ export async function updateQuotation(id: string, data: any) {
                 quantity: group.quantity ? new Prisma.Decimal(group.quantity) : new Prisma.Decimal(0),
                 number: group.number || null,
                 sortOrder: group.sortOrder ?? groupIndex,
+                moduleGroupId: group.moduleGroupId && group.moduleGroupId !== '' ? group.moduleGroupId : null,
                 items: {
                   create: (group.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,
@@ -921,6 +924,7 @@ export async function updateQuotation(id: string, data: any) {
                     amount: new Prisma.Decimal(item.amount || 0),
                     sortOrder: item.sortOrder ?? itemIndex,
                     itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
+                    moduleGroupItemId: item.moduleGroupItemId && item.moduleGroupItemId !== '' ? item.moduleGroupItemId : null,
                   })),
                 },
               })),

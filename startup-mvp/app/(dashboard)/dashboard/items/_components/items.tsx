@@ -36,7 +36,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Decimal } from "@prisma/client/runtime/library";
 
 interface Item {
   id: string;
@@ -48,8 +47,8 @@ interface Item {
     symbol: string;
     details: string;
   };
-  unitPrice: Decimal;
-  costPrice: Decimal;
+  unitPrice: number;
+  costPrice: number | null;
   categories: {
     id: string;
   category: {
@@ -220,13 +219,12 @@ export default function ItemsListClient({
 
   const allSelected = initialItems?.length > 0 && selectedItems.size === initialItems.length;
 
-  const formatPrice = (price: Decimal | number) => {
-    const numPrice = typeof price === 'number' ? price : Number(price);
+  const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2,
-    }).format(numPrice);
+    }).format(price);
   };
 
   return (
@@ -390,7 +388,7 @@ export default function ItemsListClient({
                       {formatPrice(item.unitPrice)}
                     </TableCell>
                     <TableCell className="font-medium">
-                      {formatPrice(item.costPrice)}
+                      {formatPrice(item.costPrice ?? 0)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {item.categories && item.categories.length > 0 ? (

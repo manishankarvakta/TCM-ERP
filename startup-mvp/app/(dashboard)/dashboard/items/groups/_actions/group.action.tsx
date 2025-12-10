@@ -39,7 +39,6 @@ export async function getGroups(
     // Search filter
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
         { code: { contains: search, mode: "insensitive" } },
         { description: { contains: search, mode: "insensitive" } },
       ];
@@ -66,11 +65,8 @@ export async function getGroups(
       take: limit,
       select: {
         id: true,
-        name: true,
         code: true,
         description: true,
-        quantity: true,
-        number: true,
         sortOrder: true,
         status: true,
         createdBy: true,
@@ -88,7 +84,6 @@ export async function getGroups(
             sl: true,
             code: true,
             description: true,
-            quantity: true,
             unitPrice: true,
             amount: true,
           },
@@ -107,10 +102,8 @@ export async function getGroups(
     // Serialize Decimal fields
     const serializedGroups = groups.map((mg) => ({
       ...mg,
-      quantity: mg.quantity ? Number(mg.quantity) : null,
       items: mg.items.map((item) => ({
         ...item,
-        quantity: Number(item.quantity),
         unitPrice: Number(item.unitPrice),
         amount: Number(item.amount),
       })),
@@ -161,11 +154,8 @@ export async function getGroupById(groupId: string) {
       where: { id: groupId },
       select: {
         id: true,
-        name: true,
         code: true,
         description: true,
-        quantity: true,
-        number: true,
         sortOrder: true,
         status: true,
         createdBy: true,
@@ -187,28 +177,11 @@ export async function getGroupById(groupId: string) {
             width: true,
             depth: true,
             unit: true,
+            baseUnit: true,
+            baseUnitPrice: true,
             unitPrice: true,
-            quantity: true,
-            unitShutter: true,
-            totalShutter: true,
             amount: true,
-            note: true,
             sortOrder: true,
-            itemId: true,
-            item: {
-              select: {
-                id: true,
-                code: true,
-                description: true,
-                unit: {
-                  select: {
-                    id: true,
-                    symbol: true,
-                    details: true,
-                  },
-                },
-              },
-            },
           },
           orderBy: {
             sortOrder: "asc",
@@ -230,16 +203,14 @@ export async function getGroupById(groupId: string) {
     // Serialize Decimal fields
     const serializedGroup = {
       ...group,
-      quantity: group.quantity ? Number(group.quantity) : null,
       items: group.items.map((item) => ({
         ...item,
         height: item.height ? Number(item.height) : null,
         width: item.width ? Number(item.width) : null,
         depth: item.depth ? Number(item.depth) : null,
+        baseUnit: item.baseUnit !== null && item.baseUnit !== undefined ? item.baseUnit : null,
+        baseUnitPrice: item.baseUnitPrice !== null && item.baseUnitPrice !== undefined ? Number(item.baseUnitPrice) : null,
         unitPrice: Number(item.unitPrice),
-        quantity: Number(item.quantity),
-        unitShutter: item.unitShutter ? Number(item.unitShutter) : null,
-        totalShutter: item.totalShutter ? Number(item.totalShutter) : null,
         amount: Number(item.amount),
       })),
     };
@@ -262,11 +233,8 @@ export async function getGroupById(groupId: string) {
  * Create a new group
  */
 export async function createGroup(input: {
-  name: string;
   code?: string;
   description?: string;
-  quantity?: number;
-  number?: number;
   sortOrder?: number;
   status?: "active" | "inactive";
   items: Array<{
@@ -277,14 +245,11 @@ export async function createGroup(input: {
     width?: number;
     depth?: number;
     unit?: string;
+    baseUnit?: string;
+    baseUnitPrice?: number;
     unitPrice: number;
-    quantity: number;
-    unitShutter?: number;
-    totalShutter?: number;
     amount: number;
-    note?: string;
     sortOrder: number;
-    itemId?: string;
   }>;
 }) {
   try {
@@ -301,11 +266,8 @@ export async function createGroup(input: {
     // Create group with items
     const group = await prisma.moduleGroup.create({
       data: {
-        name: input.name,
         code: input.code || null,
         description: input.description || null,
-        quantity: input.quantity ? new Prisma.Decimal(input.quantity) : null,
-        number: input.number || null,
         sortOrder: input.sortOrder || 0,
         status: input.status || "active",
         createdBy: session.user.id,
@@ -318,14 +280,11 @@ export async function createGroup(input: {
             width: item.width ? new Prisma.Decimal(item.width) : null,
             depth: item.depth ? new Prisma.Decimal(item.depth) : null,
             unit: item.unit || null,
+            baseUnit: item.baseUnit || null,
+            baseUnitPrice: item.baseUnitPrice ? new Prisma.Decimal(item.baseUnitPrice) : null,
             unitPrice: new Prisma.Decimal(item.unitPrice),
-            quantity: new Prisma.Decimal(item.quantity),
-            unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
-            totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
             amount: new Prisma.Decimal(item.amount),
-            note: item.note || null,
             sortOrder: item.sortOrder,
-            itemId: item.itemId || null,
           })),
         },
       },
@@ -337,31 +296,22 @@ export async function createGroup(input: {
             email: true,
           },
         },
-        items: {
-          include: {
-            item: {
-              select: {
-                id: true,
-                code: true,
-                description: true,
-              },
-            },
-          },
-        },
+        items: true,
       },
     });
 
     // Notify and log
-    await notifyItemCreated({
-      userId: session.user.id,
-      itemType: "Group",
-      itemName: group.name,
-    });
+    const groupLabel = group.code || "Untitled Group";
+    await notifyItemCreated(
+      session.user.id,
+      "Group",
+      groupLabel
+    );
 
     await createUserLog({
       userId: session.user.id,
-      action: LogAction.CREATE,
-      details: `Created group: ${group.name}`,
+      action: LogAction.ITEM_CREATED,
+      details: `Created group: ${groupLabel}`,
     });
 
     revalidatePath("/dashboard/items/groups", "page");
@@ -386,11 +336,8 @@ export async function createGroup(input: {
  */
 export async function updateGroup(input: {
   id: string;
-  name: string;
   code?: string;
   description?: string;
-  quantity?: number;
-  number?: number;
   sortOrder?: number;
   status?: "active" | "inactive";
   items: Array<{
@@ -402,14 +349,11 @@ export async function updateGroup(input: {
     width?: number;
     depth?: number;
     unit?: string;
+    baseUnit?: string;
+    baseUnitPrice?: number;
     unitPrice: number;
-    quantity: number;
-    unitShutter?: number;
-    totalShutter?: number;
     amount: number;
-    note?: string;
     sortOrder: number;
-    itemId?: string;
   }>;
 }) {
   try {
@@ -445,11 +389,8 @@ export async function updateGroup(input: {
     const group = await prisma.moduleGroup.update({
       where: { id: input.id },
       data: {
-        name: input.name,
         code: input.code || null,
         description: input.description || null,
-        quantity: input.quantity ? new Prisma.Decimal(input.quantity) : null,
-        number: input.number || null,
         sortOrder: input.sortOrder || 0,
         status: input.status || "active",
         items: {
@@ -461,14 +402,11 @@ export async function updateGroup(input: {
             width: item.width ? new Prisma.Decimal(item.width) : null,
             depth: item.depth ? new Prisma.Decimal(item.depth) : null,
             unit: item.unit || null,
+            baseUnit: item.baseUnit || null,
+            baseUnitPrice: item.baseUnitPrice ? new Prisma.Decimal(item.baseUnitPrice) : null,
             unitPrice: new Prisma.Decimal(item.unitPrice),
-            quantity: new Prisma.Decimal(item.quantity),
-            unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
-            totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
             amount: new Prisma.Decimal(item.amount),
-            note: item.note || null,
             sortOrder: item.sortOrder,
-            itemId: item.itemId || null,
           })),
         },
       },
@@ -480,31 +418,22 @@ export async function updateGroup(input: {
             email: true,
           },
         },
-        items: {
-          include: {
-            item: {
-              select: {
-                id: true,
-                code: true,
-                description: true,
-              },
-            },
-          },
-        },
+        items: true,
       },
     });
 
     // Notify and log
-    await notifyItemUpdated({
-      userId: session.user.id,
-      itemType: "Group",
-      itemName: group.name,
-    });
+    const groupLabel = group.code || "Untitled Group";
+    await notifyItemUpdated(
+      session.user.id,
+      "Group",
+      groupLabel
+    );
 
     await createUserLog({
       userId: session.user.id,
-      action: LogAction.UPDATE,
-      details: `Updated group: ${group.name}`,
+      action: LogAction.ITEM_UPDATED,
+      details: `Updated group: ${groupLabel}`,
     });
 
     revalidatePath("/dashboard/items/groups", "page");
@@ -558,16 +487,17 @@ export async function deleteGroup(id: string) {
     });
 
     // Notify and log
-    await notifyItemDeleted({
-      userId: session.user.id,
-      itemType: "Group",
-      itemName: group.name,
-    });
+    const groupLabel = group.code || "Untitled Group";
+    await notifyItemDeleted(
+      session.user.id,
+      "Group",
+      groupLabel
+    );
 
     await createUserLog({
       userId: session.user.id,
-      action: LogAction.DELETE,
-      details: `Moved group to trash: ${group.name}`,
+      action: LogAction.ITEM_DELETED,
+      details: `Moved group to trash: ${groupLabel}`,
     });
 
     revalidatePath("/dashboard/items/groups", "page");
@@ -623,23 +553,24 @@ export async function deleteGroupPermanently(id: string) {
     });
 
     // Log permanent deletion
+    const groupLabel = group.code || "Untitled Group";
     await createUserLog({
       userId: session.user.id,
       action: LogAction.ITEM_DELETED,
-      details: `Group "${group.name}" permanently deleted`,
+      details: `Group "${groupLabel}" permanently deleted`,
       metadata: {
         groupId: group.id,
-        groupName: group.name,
+        groupName: groupLabel,
         code: group.code,
       },
     });
 
     // Notify
-    await notifyItemDeleted({
-      userId: session.user.id,
-      itemType: "Group",
-      itemName: group.name,
-    });
+    await notifyItemDeleted(
+      session.user.id,
+      "Group",
+      groupLabel
+    );
 
     revalidatePath("/dashboard/items/groups", "page");
 
@@ -696,16 +627,17 @@ export async function restoreGroup(id: string) {
     });
 
     // Notify and log
-    await notifyItemUpdated({
-      userId: session.user.id,
-      itemType: "Group",
-      itemName: group.name,
-    });
+    const groupLabel = group.code || "Untitled Group";
+    await notifyItemUpdated(
+      session.user.id,
+      "Group",
+      groupLabel
+    );
 
     await createUserLog({
       userId: session.user.id,
-      action: LogAction.UPDATE,
-      details: `Restored group from trash: ${group.name}`,
+      action: LogAction.ITEM_UPDATED,
+      details: `Restored group from trash: ${groupLabel}`,
     });
 
     revalidatePath("/dashboard/items/groups", "page");
@@ -763,14 +695,14 @@ export async function bulkUpdateGroupStatus(
       },
       select: {
         id: true,
-        name: true,
+        code: true,
       },
     });
 
     // Log bulk action
     await createUserLog({
       userId: session.user.id,
-      action: LogAction.UPDATE,
+      action: LogAction.ITEM_UPDATED,
       details: `Bulk updated ${result.count} group(s) to ${status}`,
       metadata: {
         groupIds,
@@ -781,18 +713,19 @@ export async function bulkUpdateGroupStatus(
 
     // Notify for each group
     for (const group of updatedGroups) {
+      const groupLabel = group.code || "Untitled Group";
       if (status === "trash") {
-        await notifyItemDeleted({
-          userId: session.user.id,
-          itemType: "Group",
-          itemName: group.name,
-        });
+        await notifyItemDeleted(
+          session.user.id,
+          "Group",
+          groupLabel
+        );
       } else {
-        await notifyItemUpdated({
-          userId: session.user.id,
-          itemType: "Group",
-          itemName: group.name,
-        });
+        await notifyItemUpdated(
+          session.user.id,
+          "Group",
+          groupLabel
+        );
       }
     }
 
@@ -840,7 +773,6 @@ export async function deleteGroupsPermanently(groupIds: string[]) {
       },
       select: {
         id: true,
-        name: true,
         code: true,
       },
     });
@@ -873,11 +805,12 @@ export async function deleteGroupsPermanently(groupIds: string[]) {
 
     // Notify for each group
     for (const group of groups) {
-      await notifyItemDeleted({
-        userId: session.user.id,
-        itemType: "Group",
-        itemName: group.name,
-      });
+      const groupLabel = group.code || "Untitled Group";
+      await notifyItemDeleted(
+        session.user.id,
+        "Group",
+        groupLabel
+      );
     }
 
     revalidatePath("/dashboard/items/groups", "page");
@@ -914,11 +847,8 @@ export async function getModuleGroupById(id: string) {
       where: { id },
       select: {
         id: true,
-        name: true,
         code: true,
         description: true,
-        quantity: true,
-        number: true,
         items: {
           select: {
             id: true,
@@ -929,14 +859,11 @@ export async function getModuleGroupById(id: string) {
             width: true,
             depth: true,
             unit: true,
+            baseUnit: true,
+            baseUnitPrice: true,
             unitPrice: true,
-            quantity: true,
-            unitShutter: true,
-            totalShutter: true,
             amount: true,
-            note: true,
             sortOrder: true,
-            itemId: true,
           },
           orderBy: {
             sortOrder: "asc",
@@ -956,16 +883,14 @@ export async function getModuleGroupById(id: string) {
     // Serialize Decimal fields
     const serializedGroup = {
       ...group,
-      quantity: group.quantity ? Number(group.quantity) : null,
       items: group.items.map((item) => ({
         ...item,
         height: item.height ? Number(item.height) : null,
         width: item.width ? Number(item.width) : null,
         depth: item.depth ? Number(item.depth) : null,
+        baseUnit: item.baseUnit !== null && item.baseUnit !== undefined ? item.baseUnit : null,
+        baseUnitPrice: item.baseUnitPrice !== null && item.baseUnitPrice !== undefined ? Number(item.baseUnitPrice) : null,
         unitPrice: Number(item.unitPrice),
-        quantity: Number(item.quantity),
-        unitShutter: item.unitShutter ? Number(item.unitShutter) : null,
-        totalShutter: item.totalShutter ? Number(item.totalShutter) : null,
         amount: Number(item.amount),
       })),
     };
@@ -1005,18 +930,14 @@ export async function getActiveGroups() {
       },
       select: {
         id: true,
-        name: true,
         code: true,
         description: true,
-        quantity: true,
-        number: true,
         items: {
           select: {
             id: true,
             sl: true,
             code: true,
             description: true,
-            quantity: true,
             unitPrice: true,
             amount: true,
           },
@@ -1026,17 +947,15 @@ export async function getActiveGroups() {
         },
       },
       orderBy: {
-        name: "asc",
+        code: "asc",
       },
     });
 
     // Serialize Decimal fields
     const serializedGroups = groups.map((mg) => ({
       ...mg,
-      quantity: mg.quantity ? Number(mg.quantity) : null,
       items: mg.items.map((item) => ({
         ...item,
-        quantity: Number(item.quantity),
         unitPrice: Number(item.unitPrice),
         amount: Number(item.amount),
       })),

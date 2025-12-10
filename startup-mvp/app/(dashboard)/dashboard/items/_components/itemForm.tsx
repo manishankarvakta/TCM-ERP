@@ -31,7 +31,7 @@ const itemFormSchema = z.object({
   costPrice: z.string().min(1, "Cost price is required").refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
     message: "Cost price must be a valid number greater than or equal to 0",
   }),
-  categoryIds: z.array(z.string()).default([]),
+  categoryIds: z.array(z.string()).optional(),
   image: z.string().url("Invalid image URL").optional().or(z.literal("")),
   status: z.enum(["active", "inactive"]),
 });

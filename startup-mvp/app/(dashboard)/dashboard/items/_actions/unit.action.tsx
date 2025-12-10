@@ -218,7 +218,7 @@ export async function createUnit(input: {
     );
 
     // Revalidate units page
-    revalidatePath("/dashboard/items/units");
+    revalidatePath("/dashboard/items/units", "page");
 
     return {
       success: true,
@@ -312,9 +312,9 @@ export async function updateUnit(input: {
     );
 
     // Revalidate units page
-    revalidatePath("/dashboard/items/units");
-    revalidatePath(`/dashboard/items/units/${unit.id}`);
-    revalidatePath(`/dashboard/items/units/details?id=${unit.id}`);
+    revalidatePath("/dashboard/items/units", "page");
+    revalidatePath(`/dashboard/items/units/${unit.id}`, "page");
+    revalidatePath(`/dashboard/items/units/details?id=${unit.id}`, "page");
 
     return {
       success: true,
@@ -334,10 +334,13 @@ export async function updateUnit(input: {
  * Delete a unit (moves to trash)
  */
 export async function deleteUnit(unitId: string) {
+  console.log("deleteUnit server action called with unitId:", unitId);
   try {
     const session = await auth();
+    console.log("Session:", session ? "authenticated" : "not authenticated");
     
     if (!session?.user) {
+      console.log("Unauthorized - no session");
       return {
         success: false,
         error: "Unauthorized",
@@ -358,10 +361,12 @@ export async function deleteUnit(unitId: string) {
     }
 
     // Move unit to trash (soft delete)
-    await prisma.unit.update({
+    console.log("Updating unit to trash status...");
+    const updatedUnit = await prisma.unit.update({
       where: { id: unitId },
       data: { status: "trash" },
     });
+    console.log("Unit updated to trash:", updatedUnit.id);
 
     // Log the deletion
     await logItemDeleted(
@@ -373,7 +378,7 @@ export async function deleteUnit(unitId: string) {
     );
 
     // Revalidate units page
-    revalidatePath("/dashboard/items/units");
+    revalidatePath("/dashboard/items/units", "page");
 
     return {
       success: true,
@@ -394,10 +399,13 @@ export async function bulkUpdateUnitStatus(
   unitIds: string[],
   status: "active" | "inactive" | "trash"
 ) {
+  console.log("bulkUpdateUnitStatus server action called with unitIds:", unitIds, "status:", status);
   try {
     const session = await auth();
+    console.log("Session:", session ? "authenticated" : "not authenticated");
     
     if (!session?.user) {
+      console.log("Unauthorized - no session");
       return {
         success: false,
         error: "Unauthorized",
@@ -405,6 +413,7 @@ export async function bulkUpdateUnitStatus(
     }
 
     if (unitIds.length === 0) {
+      console.log("No units selected");
       return {
         success: false,
         error: "No units selected",
@@ -412,7 +421,8 @@ export async function bulkUpdateUnitStatus(
     }
 
     // Update units
-    await prisma.unit.updateMany({
+    console.log("Updating units...");
+    const result = await prisma.unit.updateMany({
       where: {
         id: { in: unitIds },
       },
@@ -420,9 +430,10 @@ export async function bulkUpdateUnitStatus(
         status,
       },
     });
+    console.log("Units updated:", result.count);
 
     // Revalidate units page
-    revalidatePath("/dashboard/items/units");
+    revalidatePath("/dashboard/items/units", "page");
 
     return {
       success: true,
@@ -440,10 +451,13 @@ export async function bulkUpdateUnitStatus(
  * Delete units permanently
  */
 export async function deleteUnitsPermanently(unitIds: string[]) {
+  console.log("deleteUnitsPermanently server action called with unitIds:", unitIds);
   try {
     const session = await auth();
+    console.log("Session:", session ? "authenticated" : "not authenticated");
     
     if (!session?.user) {
+      console.log("Unauthorized - no session");
       return {
         success: false,
         error: "Unauthorized",
@@ -457,19 +471,142 @@ export async function deleteUnitsPermanently(unitIds: string[]) {
       };
     }
 
-    // Delete units permanently
-    await prisma.unit.deleteMany({
+    // Check if units exist and are in trash
+    const unitsToDelete = await prisma.unit.findMany({
       where: {
         id: { in: unitIds },
         status: "trash", // Only allow deleting units that are in trash
       },
+      select: {
+        id: true,
+        symbol: true,
+        details: true,
+      },
     });
 
-    // Revalidate units page
-    revalidatePath("/dashboard/items/units");
+    if (unitsToDelete.length === 0) {
+      return {
+        success: false,
+        error: "No trashed units found to delete permanently. Units must be in trash before permanent deletion.",
+      };
+    }
+
+    // Check if any items are using these units
+    const itemsUsingUnits = await prisma.item.findMany({
+      where: {
+        unitId: { in: unitsToDelete.map((u) => u.id) },
+      },
+      select: {
+        id: true,
+        code: true,
+        unitId: true,
+      },
+    });
+
+    if (itemsUsingUnits.length > 0) {
+      // Group items by unitId to show which units are in use
+      const unitsInUse = new Set(itemsUsingUnits.map((item) => item.unitId));
+      const unitsInUseList = unitsToDelete.filter((unit) => unitsInUse.has(unit.id));
+      const unitsInUseDetails = unitsInUseList
+        .map((unit) => `${unit.symbol} (${unit.details})`)
+        .join(", ");
+
+      // Check if we can delete any units (those not in use)
+      const unitsNotInUse = unitsToDelete.filter((unit) => !unitsInUse.has(unit.id));
+      
+      if (unitsNotInUse.length === 0) {
+        // None can be deleted
+        return {
+          success: false,
+          error: `Cannot delete units that are in use by items. The following unit(s) are referenced by items: ${unitsInUseDetails}. Please remove or update items using these units first.`,
+        };
+      }
+
+      // Try to delete only the units not in use
+      try {
+        const unitIdsToDelete = unitsNotInUse.map((u) => u.id);
+        const result = await prisma.unit.deleteMany({
+          where: {
+            id: { in: unitIdsToDelete },
+            status: "trash",
+          },
+        });
+
+        // Verify that units were actually deleted
+        if (result.count === 0) {
+          return {
+            success: false,
+            error: "No units were deleted. Please ensure the units are in trash status.",
+          };
+        }
+
+        // Log permanent deletion for each deleted unit
+        for (const unit of unitsNotInUse) {
+          await logItemDeleted(
+            session.user.id,
+            "Unit",
+            unit.id,
+            `${unit.symbol} - ${unit.details}`,
+            { symbol: unit.symbol, details: unit.details, permanent: true }
+          );
+        }
+
+        // Revalidate all relevant paths
+        revalidatePath("/dashboard/items/units", "page");
+        revalidatePath("/dashboard/items", "page");
+        revalidatePath("/dashboard/items", "layout");
+
+        return {
+          success: true,
+          count: result.count,
+          warning: `${result.count} unit(s) deleted. ${unitsInUseList.length} unit(s) could not be deleted because they are in use by items: ${unitsInUseDetails}`,
+        };
+      } catch (error) {
+        console.error("deleteUnitsPermanently error (partial delete):", error);
+        return {
+          success: false,
+          error: `Failed to delete units. Some units are in use by items: ${unitsInUseDetails}. Please remove or update items using these units first.`,
+        };
+      }
+    }
+
+    // Delete units permanently (no items are using them)
+    // Use the IDs from unitsToDelete which are already confirmed to be in trash
+    const unitIdsToDelete = unitsToDelete.map((u) => u.id);
+    const result = await prisma.unit.deleteMany({
+      where: {
+        id: { in: unitIdsToDelete },
+        status: "trash", // Double-check status to ensure safety
+      },
+    });
+
+    // Verify that units were actually deleted
+    if (result.count === 0) {
+      return {
+        success: false,
+        error: "No units were deleted. Please ensure the units are in trash status.",
+      };
+    }
+
+    // Log permanent deletion for each deleted unit
+    for (const unit of unitsToDelete) {
+      await logItemDeleted(
+        session.user.id,
+        "Unit",
+        unit.id,
+        `${unit.symbol} - ${unit.details}`,
+        { symbol: unit.symbol, details: unit.details, permanent: true }
+      );
+    }
+
+    // Revalidate all relevant paths where units are displayed
+    revalidatePath("/dashboard/items/units", "page");
+    revalidatePath("/dashboard/items", "page");
+    revalidatePath("/dashboard/items", "layout");
     
     return {
       success: true,
+      count: result.count,
     };
   } catch (error) {
     console.error("deleteUnitsPermanently error:", error);

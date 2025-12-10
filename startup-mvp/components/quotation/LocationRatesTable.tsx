@@ -41,6 +41,7 @@ export function LocationRatesTable({
             };
             const rateKey = rateKeyMap[location] as keyof LocationRates;
             const rate = rates[rateKey] || 0;
+            const rateNumber = typeof rate === 'string' ? parseFloat(rate) || 0 : rate;
             const isSelected = selectedLocation === location;
             
             return (
@@ -50,7 +51,7 @@ export function LocationRatesTable({
               >
                 <td className="p-2">{LOCATION_DISPLAY_NAMES[location]}</td>
                 <td className="p-2 text-right">
-                  {formatCurrency(rate)}
+                  {formatCurrency(rateNumber)}
                   {isSelected && ' ✓'}
                 </td>
               </tr>

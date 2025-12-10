@@ -39,11 +39,8 @@ import { cn } from "@/lib/utils";
 
 interface Group {
   id: string;
-  name: string;
   code: string | null;
   description: string | null;
-  quantity: number | null;
-  number: number | null;
   sortOrder: number;
   status: string;
   createdBy: string;
@@ -58,7 +55,6 @@ interface Group {
     sl: number;
     code: string | null;
     description: string | null;
-    quantity: number;
     unitPrice: number;
     amount: number;
   }>;
@@ -385,7 +381,6 @@ export default function GroupsListClient({
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead>Name</TableHead>
               <TableHead>Code</TableHead>
               <TableHead>Items Count</TableHead>
               <TableHead>Created By</TableHead>
@@ -397,7 +392,7 @@ export default function GroupsListClient({
           <TableBody>
             {initialGroups.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed groups found" : "No groups found"}
                 </TableCell>
               </TableRow>
@@ -405,6 +400,7 @@ export default function GroupsListClient({
               initialGroups.map((group) => {
                 const isSelected = selectedGroups.has(group.id);
                 const groupStatus = group.status || "active";
+                const groupLabel = group.code || "Untitled Group";
                 
                 return (
                   <TableRow key={group.id} className={cn(isSelected && "bg-muted/50")}>
@@ -412,11 +408,10 @@ export default function GroupsListClient({
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={(checked) => handleSelectGroup(group.id, checked as boolean)}
-                        aria-label={`Select ${group.name}`}
+                        aria-label={`Select ${groupLabel}`}
                       />
                     </TableCell>
-                    <TableCell className="font-medium">{group.name}</TableCell>
-                    <TableCell>{group.code || "-"}</TableCell>
+                    <TableCell className="font-medium">{group.code || "-"}</TableCell>
                     <TableCell>{group.items.length}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

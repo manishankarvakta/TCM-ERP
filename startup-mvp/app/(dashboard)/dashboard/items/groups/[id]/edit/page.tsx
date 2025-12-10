@@ -15,6 +15,7 @@ export default async function EditGroupPage({ params }: EditGroupPageProps) {
   if (!result.success || !result.group) {
     notFound();
   }
+  console.log(result);
 
   return (
     <div className="space-y-6">
@@ -22,11 +23,8 @@ export default async function EditGroupPage({ params }: EditGroupPageProps) {
         mode="edit"
         initialData={{
           id: result.group.id,
-          name: result.group.name,
           code: result.group.code || undefined,
           description: result.group.description || undefined,
-          quantity: result.group.quantity || undefined,
-          number: result.group.number || undefined,
           sortOrder: result.group.sortOrder,
           status: result.group.status,
           items: result.group.items.map((item) => ({
@@ -38,14 +36,11 @@ export default async function EditGroupPage({ params }: EditGroupPageProps) {
             width: item.width || undefined,
             depth: item.depth || undefined,
             unit: item.unit || undefined,
+            baseUnit: item.baseUnit || undefined,
+            baseUnitPrice: item.baseUnitPrice || undefined,
             unitPrice: item.unitPrice,
-            quantity: item.quantity,
-            unitShutter: item.unitShutter || undefined,
-            totalShutter: item.totalShutter || undefined,
             amount: item.amount,
-            note: item.note || undefined,
             sortOrder: item.sortOrder,
-            itemId: item.itemId || undefined,
           })),
         }}
       />

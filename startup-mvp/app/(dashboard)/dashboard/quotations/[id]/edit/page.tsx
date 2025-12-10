@@ -17,6 +17,8 @@ export default async function EditQuotationPage({ params }: EditQuotationPagePro
     notFound();
   }
 
+  console.log(result.data);
+
   const quotation = result.data;
 
   // Convert quotation from database to form data format
@@ -58,6 +60,7 @@ export default async function EditQuotationPage({ params }: EditQuotationPagePro
         description: group.description,
         quantity: group.quantity ? Number(group.quantity) : null,
         sortOrder: group.sortOrder,
+        moduleGroupId: group.moduleGroupId || null,
         items: group.items?.map((item: any) => ({
           id: item.id,
           sl: item.sl,
@@ -74,6 +77,7 @@ export default async function EditQuotationPage({ params }: EditQuotationPagePro
           amount: Number(item.amount),
           sortOrder: item.sortOrder,
           itemId: item.itemId || null,
+          moduleGroupItemId: item.moduleGroupItemId || null,
           item: item.item ? {
             id: item.item.id,
             code: item.item.code || '',

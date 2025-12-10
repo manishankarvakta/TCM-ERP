@@ -23,16 +23,6 @@ import {
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiEye, FiRotateCw, FiCheck, FiCircle, FiMoreVertical } from "react-icons/fi";
 import { deleteUnit, bulkUpdateUnitStatus, deleteUnitsPermanently } from "../_actions/unit.action";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -75,9 +65,8 @@ export default function UnitsListClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(initialSearch);
-  const [deleteUnitId, setDeleteUnitId] = useState<string | null>(null);
-  const [restoreUnitId, setRestoreUnitId] = useState<string | null>(null);
   const [selectedUnits, setSelectedUnits] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
@@ -97,44 +86,90 @@ export default function UnitsListClient({
     router.push(`/dashboard/items/units?${params.toString()}`);
   };
 
-  const handleDelete = async () => {
-    if (!deleteUnitId) return;
-
+  const handleDelete = async (unitId: string) => {
+    console.log("handleDelete called with unitId:", unitId);
     startTransition(async () => {
-      const result = await deleteUnit(deleteUnitId);
-      if (result.success) {
-        setDeleteUnitId(null);
-        toast({
-          title: "Success",
-          description: "Unit moved to trash",
-        });
-        router.refresh();
-      } else {
+      try {
+        console.log("Calling deleteUnit server action...");
+        const result = await deleteUnit(unitId);
+        console.log("deleteUnit result:", result);
+        if (result.success) {
+          toast({
+            title: "Success",
+            description: "Unit moved to trash",
+          });
+          router.refresh();
+        } else {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to delete unit",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error in handleDelete:", error);
         toast({
           title: "Error",
-          description: result.error || "Failed to delete unit",
+          description: error instanceof Error ? error.message : "Failed to delete unit",
           variant: "destructive",
         });
       }
     });
   };
 
-  const handleRestore = async () => {
-    if (!restoreUnitId) return;
-
+  const handleRestore = async (unitId: string) => {
     startTransition(async () => {
-      const result = await bulkUpdateUnitStatus([restoreUnitId], "active");
-      if (result.success) {
-        setRestoreUnitId(null);
-        toast({
-          title: "Success",
-          description: "Unit restored successfully",
-        });
-        router.refresh();
-      } else {
+      try {
+        const result = await bulkUpdateUnitStatus([unitId], "active");
+        if (result.success) {
+          toast({
+            title: "Success",
+            description: "Unit restored successfully",
+          });
+          router.refresh();
+        } else {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to restore unit",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
         toast({
           title: "Error",
-          description: result.error || "Failed to restore unit",
+          description: error instanceof Error ? error.message : "Failed to restore unit",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
+  const handleDeletePermanently = async (unitId: string) => {
+    console.log("handleDeletePermanently called with unitId:", unitId);
+    startTransition(async () => {
+      try {
+        console.log("Calling deleteUnitsPermanently server action...");
+        const result = await deleteUnitsPermanently([unitId]);
+        console.log("deleteUnitsPermanently result:", result);
+        if (result.success) {
+          const count = ('count' in result && typeof result.count === 'number') ? result.count : 1;
+          toast({
+            title: "Success",
+            description: count > 0 ? "Unit deleted permanently" : "Unit deletion completed",
+          });
+          router.refresh();
+        } else {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to delete unit",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error in handleDeletePermanently:", error);
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to delete unit",
           variant: "destructive",
         });
       }
@@ -160,6 +195,7 @@ export default function UnitsListClient({
   };
 
   const handleBulkAction = async (action: string) => {
+    console.log("handleBulkAction called with action:", action, "selectedUnits:", Array.from(selectedUnits));
     if (selectedUnits.size === 0) {
       toast({
         title: "No selection",
@@ -170,33 +206,71 @@ export default function UnitsListClient({
     }
 
     const unitIds = Array.from(selectedUnits);
-    startTransition(async () => {
-      let result;
-      if (action === "trash") {
-        result = await bulkUpdateUnitStatus(unitIds, "trash");
-      } else if (action === "active") {
-        result = await bulkUpdateUnitStatus(unitIds, "active");
-      } else if (action === "inactive") {
-        result = await bulkUpdateUnitStatus(unitIds, "inactive");
-      } else if (action === "restore") {
-        result = await bulkUpdateUnitStatus(unitIds, "active");
-      } else if (action === "delete") {
-        result = await deleteUnitsPermanently(unitIds);
-      } else {
-        return;
-      }
+    console.log("Processing bulk action for unitIds:", unitIds);
 
-      if (result.success) {
-        setSelectedUnits(new Set());
-        toast({
-          title: "Success",
-          description: `Bulk action completed successfully`,
-        });
-        router.refresh();
-      } else {
+    startTransition(async () => {
+      try {
+        let result;
+        
+        if (action === "trash") {
+          console.log("Calling bulkUpdateUnitStatus with trash...");
+          result = await bulkUpdateUnitStatus(unitIds, "trash");
+        } else if (action === "active") {
+          console.log("Calling bulkUpdateUnitStatus with active...");
+          result = await bulkUpdateUnitStatus(unitIds, "active");
+        } else if (action === "inactive") {
+          console.log("Calling bulkUpdateUnitStatus with inactive...");
+          result = await bulkUpdateUnitStatus(unitIds, "inactive");
+        } else if (action === "restore") {
+          console.log("Calling bulkUpdateUnitStatus with active (restore)...");
+          result = await bulkUpdateUnitStatus(unitIds, "active");
+        } else if (action === "delete-permanently") {
+          console.log("Calling deleteUnitsPermanently...");
+          result = await deleteUnitsPermanently(unitIds);
+        } else {
+          console.log("Unknown action:", action);
+          return;
+        }
+
+        console.log("Bulk action result:", result);
+
+        if (result.success) {
+          setSelectedUnits(new Set());
+          setBulkAction(null);
+          const warning = ('warning' in result && typeof result.warning === 'string') ? result.warning : undefined;
+          const count = ('count' in result && typeof result.count === 'number') ? result.count : undefined;
+          
+          // Show appropriate success message based on action
+          let successMessage = "Bulk action completed successfully";
+          if (action === "trash") {
+            successMessage = `${unitIds.length} unit(s) moved to trash`;
+          } else if (action === "active") {
+            successMessage = `${unitIds.length} unit(s) activated`;
+          } else if (action === "inactive") {
+            successMessage = `${unitIds.length} unit(s) deactivated`;
+          } else if (action === "restore") {
+            successMessage = `${unitIds.length} unit(s) restored`;
+          } else if (action === "delete-permanently") {
+            successMessage = count !== undefined ? `${count} unit(s) deleted permanently` : `${unitIds.length} unit(s) deleted permanently`;
+          }
+          
+          toast({
+            title: warning ? "Partial Success" : "Success",
+            description: warning || successMessage,
+          });
+          router.refresh();
+        } else {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to perform bulk action",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error in handleBulkAction:", error);
         toast({
           title: "Error",
-          description: result.error || "Failed to perform bulk action",
+          description: error instanceof Error ? error.message : "Failed to perform bulk action",
           variant: "destructive",
         });
       }
@@ -204,7 +278,6 @@ export default function UnitsListClient({
   };
 
   const allSelected = initialUnits.length > 0 && selectedUnits.size === initialUnits.length;
-  const someSelected = selectedUnits.size > 0 && selectedUnits.size < initialUnits.length;
 
   return (
     <div className="space-y-4">
@@ -243,21 +316,30 @@ export default function UnitsListClient({
               {!isTrash ? (
                 <>
                   <DropdownMenuItem
-                    onClick={() => handleBulkAction("trash")}
+                    onClick={() => {
+                      setBulkAction("trash");
+                      handleBulkAction("trash");
+                    }}
                     disabled={selectedUnits.size === 0}
                   >
                     <FiTrash2 className="mr-2 h-4 w-4" />
                     Move to Trash
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => handleBulkAction("active")}
+                    onClick={() => {
+                      setBulkAction("active");
+                      handleBulkAction("active");
+                    }}
                     disabled={selectedUnits.size === 0}
                   >
                     <FiCheck className="mr-2 h-4 w-4" />
                     Activate
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => handleBulkAction("inactive")}
+                    onClick={() => {
+                      setBulkAction("inactive");
+                      handleBulkAction("inactive");
+                    }}
                     disabled={selectedUnits.size === 0}
                   >
                     <FiCircle className="mr-2 h-4 w-4" />
@@ -267,14 +349,17 @@ export default function UnitsListClient({
               ) : (
                 <>
                   <DropdownMenuItem
-                    onClick={() => handleBulkAction("restore")}
+                    onClick={() => {
+                      setBulkAction("restore");
+                      handleBulkAction("restore");
+                    }}
                     disabled={selectedUnits.size === 0}
                   >
                     <FiCheck className="mr-2 h-4 w-4" />
                     Restore
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => handleBulkAction("delete")}
+                    onClick={() => handleBulkAction("delete-permanently")}
                     className="text-destructive"
                     disabled={selectedUnits.size === 0}
                   >
@@ -355,10 +440,7 @@ export default function UnitsListClient({
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
-                                setRestoreUnitId(unit.id);
-                                handleRestore();
-                              }}
+                              onClick={() => handleRestore(unit.id)}
                               disabled={isPending}
                               title="Restore"
                             >
@@ -367,7 +449,7 @@ export default function UnitsListClient({
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => setDeleteUnitId(unit.id)}
+                              onClick={() => handleDeletePermanently(unit.id)}
                               disabled={isPending}
                               title="Delete Permanently"
                               className="text-destructive hover:text-destructive"
@@ -390,7 +472,7 @@ export default function UnitsListClient({
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => setDeleteUnitId(unit.id)}
+                              onClick={() => handleDelete(unit.id)}
                               disabled={isPending}
                               title="Move to Trash"
                               className="text-destructive hover:text-destructive"
@@ -454,51 +536,6 @@ export default function UnitsListClient({
         </div>
       )}
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteUnitId} onOpenChange={() => setDeleteUnitId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {isTrash ? "Delete Unit Permanently" : "Move Unit to Trash"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {isTrash
-                ? "This action cannot be undone. This will permanently delete the unit and all associated data."
-                : "This will move the unit to trash. You can restore it later from the Trash tab."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async () => {
-                if (isTrash && deleteUnitId) {
-                  const result = await deleteUnitsPermanently([deleteUnitId]);
-                  if (result.success) {
-                    setDeleteUnitId(null);
-                    toast({
-                      title: "Success",
-                      description: "Unit deleted permanently",
-                    });
-                    router.refresh();
-                  } else {
-                    toast({
-                      title: "Error",
-                      description: result.error || "Failed to delete unit",
-                      variant: "destructive",
-                    });
-                  }
-                } else {
-                  handleDelete();
-                }
-              }}
-              disabled={isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isPending ? (isTrash ? "Deleting..." : "Moving...") : isTrash ? "Delete Permanently" : "Move to Trash"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

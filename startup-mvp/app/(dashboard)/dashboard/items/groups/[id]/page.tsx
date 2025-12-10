@@ -36,23 +36,17 @@ export default async function GroupDetailsPage({ params }: GroupDetailsPageProps
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboard/items/groups">
-              <FiArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold">Group Details</h1>
-            <p className="text-sm text-muted-foreground">View group information</p>
-          </div>
-        </div>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/dashboard/items/groups">
+            <FiArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Link>
+        </Button>
         {groupStatus !== "trash" && (
           <Button asChild>
             <Link href={`/dashboard/items/groups/${group.id}/edit`}>
               <FiEdit className="mr-2 h-4 w-4" />
-              Edit Group
+              Edit
             </Link>
           </Button>
         )}
@@ -60,64 +54,25 @@ export default async function GroupDetailsPage({ params }: GroupDetailsPageProps
 
       <Card>
         <CardHeader>
-          <CardTitle>Group Information</CardTitle>
-          <CardDescription>Detailed information about the group</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Name</label>
-              <p className="text-base font-medium">{group.name}</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>{group.code || "Untitled Group"}</CardTitle>
+              <CardDescription>
+                {group.description || "No description"}
+              </CardDescription>
             </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Code</label>
-              <p className="text-base">{group.code || "-"}</p>
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-muted-foreground">Description</label>
-              <p className="text-base">{group.description || "-"}</p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Quantity</label>
-              <p className="text-base">{group.quantity || "-"}</p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Number</label>
-              <p className="text-base">{group.number || "-"}</p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Status</label>
-              <div>
-                {groupStatus === "trash" ? (
-                  <Badge variant="destructive">Trash</Badge>
-                ) : groupStatus === "inactive" ? (
-                  <Badge variant="secondary">Inactive</Badge>
-                ) : (
-                  <Badge variant="default">Active</Badge>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Created By</label>
-              <p className="text-base">{group.creator.name || group.creator.email}</p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Created At</label>
-              <p className="text-base">{format(new Date(group.createdAt), "MMM d, yyyy 'at' h:mm a")}</p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-              <p className="text-base">{format(new Date(group.updatedAt), "MMM d, yyyy 'at' h:mm a")}</p>
+            <div>
+              {groupStatus === "trash" ? (
+                <Badge variant="destructive">Trash</Badge>
+              ) : groupStatus === "inactive" ? (
+                <Badge variant="secondary">Inactive</Badge>
+              ) : (
+                <Badge variant="default">Active</Badge>
+              )}
             </div>
           </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
 
           {/* Items Table */}
           {group.items && group.items.length > 0 && (
@@ -129,23 +84,53 @@ export default async function GroupDetailsPage({ params }: GroupDetailsPageProps
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>SL</TableHead>
+                      <TableHead className="w-12">SL</TableHead>
                       <TableHead>Code</TableHead>
                       <TableHead>Description</TableHead>
+                      {(group.items.some(item => item.height || item.width || item.depth)) && (
+                        <>
+                          <TableHead className="w-16">H</TableHead>
+                          <TableHead className="w-16">W</TableHead>
+                          <TableHead className="w-16">D</TableHead>
+                        </>
+                      )}
+                      <TableHead>Unit</TableHead>
+                      {(group.items.some(item => item.baseUnit && item.baseUnitPrice)) && (
+                        <>
+                          <TableHead>Base Unit</TableHead>
+                          <TableHead>Base Price</TableHead>
+                        </>
+                      )}
                       <TableHead>Unit Price</TableHead>
-                      <TableHead>Quantity</TableHead>
-                      <TableHead>Amount</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {group.items.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell>{item.sl}</TableCell>
-                        <TableCell>{item.code || "-"}</TableCell>
+                        <TableCell className="font-medium">{item.code || "-"}</TableCell>
                         <TableCell>{item.description || "-"}</TableCell>
+                        {(group.items.some(i => i.height || i.width || i.depth)) && (
+                          <>
+                            <TableCell>{item.height ? item.height.toFixed(2) : "-"}</TableCell>
+                            <TableCell>{item.width ? item.width.toFixed(2) : "-"}</TableCell>
+                            <TableCell>{item.depth ? item.depth.toFixed(2) : "-"}</TableCell>
+                          </>
+                        )}
+                        <TableCell>{item.unit || "-"}</TableCell>
+                        {(group.items.some(i => i.baseUnit && i.baseUnitPrice)) && (
+                          <>
+                            <TableCell>{item.baseUnit || "-"}</TableCell>
+                            <TableCell>
+                              {item.baseUnitPrice ? formatCurrency(item.baseUnitPrice) : "-"}
+                            </TableCell>
+                          </>
+                        )}
                         <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
-                        <TableCell>{item.quantity}</TableCell>
-                        <TableCell className="font-medium">{formatCurrency(item.amount)}</TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrency(item.amount)}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

@@ -165,6 +165,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
         quantity: group.quantity ?? 0,
         number: group.number ?? 0,
         sortOrder: group.sortOrder ?? groupIndex,
+        moduleGroupId: group.moduleGroupId || null,
         id: group.id || `group-${Date.now()}-${groupIndex}-${Math.random()}`,
         isExpanded: group.isExpanded !== undefined ? group.isExpanded : true,
         items: (group.items || []).map((item: any, itemIndex: number) => ({
@@ -179,6 +180,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           quantity: item.quantity ?? 0,
           amount: item.amount ?? 0,
           itemId: item.itemId || null,
+          moduleGroupItemId: item.moduleGroupItemId || null,
           id: item.id || `item-${Date.now()}-${groupIndex}-${itemIndex}-${Math.random()}`,
         })),
       })),
@@ -450,6 +452,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           quantity: group.quantity ?? 0,
           number: group.number ?? 0,
           sortOrder: group.sortOrder ?? 0,
+          moduleGroupId: group.moduleGroupId || null,
           items: (group.items || []).map((item: any) => ({
             sl: item.sl ?? 0,
             code: item.code || null,
@@ -462,6 +465,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
             quantity: item.quantity ?? 0,
             amount: item.amount ?? 0,
             itemId: item.itemId || null,
+            moduleGroupItemId: item.moduleGroupItemId || null,
           })),
         })),
         items: (section.items || []).map((item: any) => ({

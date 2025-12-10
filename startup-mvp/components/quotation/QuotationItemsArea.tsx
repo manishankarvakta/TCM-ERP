@@ -131,6 +131,7 @@ function SortableItem({
   units,
   isLoadingUnits,
   groupModuleGroupItems,
+  groupModuleGroupId,
 }: {
   item: QuotationItem;
   sectionIndex: number;
@@ -152,9 +153,11 @@ function SortableItem({
     depth?: number;
     unit?: string;
     unitPrice: number;
+    amount: number;
     quantity: number;
     itemId?: string;
   }>;
+  groupModuleGroupId?: string | null;
 }) {
   const {
     attributes,
@@ -207,6 +210,11 @@ function SortableItem({
 
     const selectedGroupItem = groupModuleGroupItems.find((i) => i.id === groupItemId);
     if (selectedGroupItem) {
+      // For group items: unitPrice = selected item's amount, amount = quantity × unitPrice
+      const quantity = selectedGroupItem.quantity && selectedGroupItem.quantity > 0 ? selectedGroupItem.quantity : 1;
+      const unitPrice = selectedGroupItem.amount; // Use amount as unitPrice
+      const amount = quantity * unitPrice; // Simple calculation: quantity × unitPrice
+      
       const updates: Partial<QuotationItem> = {
         moduleGroupItemId: selectedGroupItem.id,
         code: selectedGroupItem.code,
@@ -215,13 +223,11 @@ function SortableItem({
         width: selectedGroupItem.width,
         depth: selectedGroupItem.depth,
         unit: selectedGroupItem.unit,
-        unitPrice: selectedGroupItem.unitPrice,
-        quantity: selectedGroupItem.quantity,
+        unitPrice: unitPrice,
+        quantity: quantity,
+        amount: amount,
         itemId: selectedGroupItem.itemId,
       };
-      // Calculate amount after updating fields
-      const updatedItem = { ...item, ...updates };
-      updates.amount = calculateItemAmount(updatedItem, true);
       onUpdate(updates);
     }
   };
@@ -252,6 +258,11 @@ function SortableItem({
     return matchesSearch;
   }) || [];
 
+  // Find the selected module group item to display in SelectValue
+  const selectedModuleGroupItem = item.moduleGroupItemId 
+    ? groupModuleGroupItems?.find((gi) => gi.id === item.moduleGroupItemId)
+    : null;
+
   return (
     <TableRow
       ref={setNodeRef}
@@ -271,7 +282,8 @@ function SortableItem({
       <TableCell>
         {groupIndex !== undefined ? (
           // For group items, show code as dropdown with search (items come from selected ModuleGroup)
-          groupModuleGroupItems && groupModuleGroupItems.length > 0 ? (
+          // Show Select if group has moduleGroupId, even if items are still loading
+          groupModuleGroupId ? (
             <div className="flex gap-2 items-center w-full">
               <div className="flex-1 relative w-full min-w-0">
                 <Select
@@ -280,7 +292,10 @@ function SortableItem({
                 >
                   <SelectTrigger className="h-8 text-xs w-full min-w-0 text-left">
                     <SelectValue placeholder="Select item">
-                      {item.code || 'Select item'}
+                      {selectedModuleGroupItem 
+                        ? (selectedModuleGroupItem.code || selectedModuleGroupItem.description || 'Selected item')
+                        : (item.code || 'Select item')
+                      }
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
@@ -296,8 +311,12 @@ function SortableItem({
                         onClick={(e) => e.stopPropagation()}
                       />
                     </div>
-                    {filteredGroupItems.length === 0 ? (
-                      <div className="p-2 text-xs text-gray-500 text-left">No items found</div>
+                    {!groupModuleGroupItems || groupModuleGroupItems.length === 0 ? (
+                      <div className="p-2 text-xs text-gray-500 text-left">
+                        {groupModuleGroupItems === undefined ? 'Loading items...' : 'No items found'}
+                      </div>
+                    ) : filteredGroupItems.length === 0 ? (
+                      <div className="p-2 text-xs text-gray-500 text-left">No items match your search</div>
                     ) : (
                       filteredGroupItems.map((groupItem) => (
                         <SelectItem key={groupItem.id} value={groupItem.id} className="text-left">
@@ -529,7 +548,7 @@ export function QuotationItemsArea({
   const [isLoadingItems, setIsLoadingItems] = useState(true);
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [categorySearch, setCategorySearch] = useState<{ [key: string]: string }>({});
-  const [moduleGroups, setModuleGroups] = useState<Array<{ id: string; name: string; code: string | null }>>([]);
+  const [moduleGroups, setModuleGroups] = useState<Array<{ id: string; code: string | null; description: string | null }>>([]);
   const [isLoadingModuleGroups, setIsLoadingModuleGroups] = useState(true);
   const [moduleGroupItems, setModuleGroupItems] = useState<{ [groupId: string]: Array<{
     id: string;
@@ -541,6 +560,7 @@ export function QuotationItemsArea({
     depth?: number;
     unit?: string;
     unitPrice: number;
+    amount: number;
     quantity: number;
     itemId?: string;
   }> }>({});
@@ -560,7 +580,7 @@ export function QuotationItemsArea({
         setIsLoadingModuleGroups(true);
         const result = await getActiveGroups();
         if (result.success && result.groups) {
-          setModuleGroups(result.groups.map(g => ({ id: g.id, name: g.name, code: g.code })));
+          setModuleGroups(result.groups.map(g => ({ id: g.id, code: g.code, description: g.description })));
         }
       } catch (error) {
         console.error('Failed to fetch module groups:', error);
@@ -588,6 +608,64 @@ export function QuotationItemsArea({
     };
     fetchUnits();
   }, []);
+
+  // Load moduleGroupItems for groups that have moduleGroupId
+  useEffect(() => {
+    const loadModuleGroupItems = async () => {
+      const groupsToLoad: Array<{ groupId: string; moduleGroupId: string }> = [];
+      
+      sections.forEach((section) => {
+        section.groups.forEach((group) => {
+          if (group.moduleGroupId && !moduleGroupItems[group.id]) {
+            groupsToLoad.push({ groupId: group.id, moduleGroupId: group.moduleGroupId });
+          }
+        });
+      });
+      
+      if (groupsToLoad.length === 0) return;
+      
+      // Load all module groups in parallel
+      const loadPromises = groupsToLoad.map(async ({ groupId, moduleGroupId }) => {
+        const result = await getModuleGroupById(moduleGroupId);
+        if (result.success && result.group) {
+          return {
+            groupId,
+            items: result.group.items.map((item) => ({
+              id: item.id,
+              sl: item.sl,
+              code: item.code || undefined,
+              description: item.description || undefined,
+              height: item.height || undefined,
+              width: item.width || undefined,
+              depth: item.depth || undefined,
+              unit: item.unit || undefined,
+              unitPrice: item.unitPrice,
+              amount: item.amount,
+              quantity: item.quantity,
+              itemId: item.itemId || undefined,
+            })),
+          };
+        }
+        return null;
+      });
+      
+      const results = await Promise.all(loadPromises);
+      const newModuleGroupItems: typeof moduleGroupItems = {};
+      
+      results.forEach((result) => {
+        if (result) {
+          newModuleGroupItems[result.groupId] = result.items;
+        }
+      });
+      
+      if (Object.keys(newModuleGroupItems).length > 0) {
+        setModuleGroupItems((prev) => ({ ...prev, ...newModuleGroupItems }));
+      }
+    };
+    
+    loadModuleGroupItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sections]);
 
   // Fetch catalog items and categories from database
   useEffect(() => {
@@ -905,15 +983,12 @@ export function QuotationItemsArea({
         const item = group.items[itemIndex];
         const updatedItem = { ...item, ...updates };
 
-        // Calculate amount based on dimensions (use kitchen module calculation for group items)
+        // For group items: simple calculation = quantity × unitPrice
         if (
           updates.unitPrice !== undefined ||
-          updates.quantity !== undefined ||
-          updates.height !== undefined ||
-          updates.width !== undefined ||
-          updates.depth !== undefined
+          updates.quantity !== undefined
         ) {
-          updatedItem.amount = calculateItemAmount(updatedItem, true); // true for group items
+          updatedItem.amount = (updatedItem.quantity || 0) * (updatedItem.unitPrice || 0);
         }
 
         updatedSection = {
@@ -1627,6 +1702,7 @@ export function QuotationItemsArea({
                                                   depth: item.depth || undefined,
                                                   unit: item.unit || undefined,
                                                   unitPrice: item.unitPrice,
+                                                  amount: item.amount,
                                                   quantity: item.quantity,
                                                   itemId: item.itemId || undefined,
                                                 }))
@@ -1655,13 +1731,18 @@ export function QuotationItemsArea({
                                         disabled={isLoadingModuleGroups}
                                       >
                                         <SelectTrigger className="h-8 text-xs text-left flex-1">
-                                          <SelectValue placeholder="Select Group" />
+                                          <SelectValue placeholder="Select Group">
+                                            {group.moduleGroupId ? (() => {
+                                              const selectedGroup = moduleGroups.find(mg => mg.id === group.moduleGroupId);
+                                              return selectedGroup?.code || 'Select Group';
+                                            })() : 'Select Group'}
+                                          </SelectValue>
                                         </SelectTrigger>
                                         <SelectContent className="max-h-[300px]">
                                           <SelectItem value="none" className="text-left">None</SelectItem>
                                           {moduleGroups.map((mg) => (
                                             <SelectItem key={mg.id} value={mg.id} className="text-left">
-                                              {mg.code ? `${mg.code} - ${mg.name}` : mg.name}
+                                              {mg.code || 'Unnamed Group'}
                                             </SelectItem>
                                           ))}
                                         </SelectContent>
@@ -1754,6 +1835,7 @@ export function QuotationItemsArea({
                                               units={units}
                                               isLoadingUnits={isLoadingUnits}
                                               groupModuleGroupItems={group.moduleGroupId ? moduleGroupItems[group.id] : undefined}
+                                              groupModuleGroupId={group.moduleGroupId || null}
                                               onUpdate={(updates) =>
                                                 updateItem(
                                                   sectionIndex,
