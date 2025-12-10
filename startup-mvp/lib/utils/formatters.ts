@@ -1,10 +1,9 @@
 export function formatDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return new Intl.DateTimeFormat('en-IN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  }).format(d);
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
 }
 
 export function formatNumber(num: number, decimals: number = 2): string {
@@ -12,12 +11,10 @@ export function formatNumber(num: number, decimals: number = 2): string {
 }
 
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-BD', {
-    style: 'currency',
-    currency: 'BDT',
-    maximumFractionDigits: 2,
+  return `৳ ${new Intl.NumberFormat('en-BD', {
     minimumFractionDigits: 2,
-  }).format(amount);
+    maximumFractionDigits: 2,
+  }).format(amount)}`;
 }
 
 export function formatBDT(amount: number): string {

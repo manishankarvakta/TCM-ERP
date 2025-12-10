@@ -44,7 +44,12 @@ model User {
   createdClients       Client[]       @relation("ClientCreator")
   createdSuppliers     Supplier[]     @relation("SupplierCreator")
   quotations           Quotation[]    @relation("SubmittedBy")
+  updatedQuotations    Quotation[]    @relation("UpdatedBy")
   sections             Section[]      @relation("PreparedBy")
+  createdCoverLetters  CoverLetter[]  @relation("CoverLetterCreator")
+  createdModuleGroups  ModuleGroup[]  @relation("ModuleGroupCreator")
+  settings             Settings[]     @relation("SettingsUser")
+  createdSettings      Settings[]     @relation("SettingsCreator")
 
   @@index([status])
 }
@@ -177,19 +182,20 @@ model Unit {
 }
 
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  details   String?
-  address   String?
-  phone     String?
-  email     String?
-  website   String?
-  logo      String?
-  status    String   @default("active") // active, inactive, trash
-  createdBy String
-  creator   User     @relation("OrganizationCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String      @id @default(cuid())
+  name       String
+  details    String?
+  address    String?
+  phone      String?
+  email      String?
+  website    String?
+  logo       String?
+  status     String      @default("active") // active, inactive, trash
+  createdBy  String
+  creator    User        @relation("OrganizationCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  quotations Quotation[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 
   @@index([status])
   @@index([createdBy])
@@ -197,38 +203,103 @@ model Organization {
 }
 
 model Category {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  status      String   @default("active") // active, inactive, trash
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  items       Item[]   @relation("ItemCategory")
+  id             String          @id @default(cuid())
+  name           String
+  description    String?
+  status         String          @default("active") // active, inactive, trash
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  items          ItemCategory[]
+  categoryGroups CategoryGroup[]
 
   @@index([name])
   @@index([status])
 }
 
 model Item {
-  id          String    @id @default(cuid())
-  code        String    @unique
+  id          String   @id @default(cuid())
+  code        String   @unique
   description String
   unitId      String
-  unit        Unit      @relation("unit", fields: [unitId], references: [id], onDelete: Restrict)
-  unitPrice   Decimal   @db.Decimal(10, 2)
-  categoryId  String?
-  category    Category? @relation("ItemCategory", fields: [categoryId], references: [id], onDelete: SetNull)
+  unit        Unit     @relation("unit", fields: [unitId], references: [id], onDelete: Restrict)
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  costPrice   Decimal  @default(0) @db.Decimal(10, 2)
   image       String?
-  status      String    @default("active") // active, inactive, trash
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  status      String   @default("active") // active, inactive, trash
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
+  categories     ItemCategory[]
   quotationItems QuotationItem[]
 
   @@index([code])
   @@index([unitId])
-  @@index([categoryId])
   @@index([status])
+}
+
+// Module Group (Template/Preset for quotation groups)
+model ModuleGroup {
+  id          String   @id @default(cuid())
+  code        String? // Optional code
+  description String?  @db.Text
+  sortOrder   Int      @default(0)
+  status      String   @default("active") // active, inactive, trash
+  createdBy   String
+  creator     User     @relation("ModuleGroupCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items ModuleGroupItem[]
+
+  @@index([status])
+  @@index([createdBy])
+}
+
+// Module Group Item (Template items within a module group)
+model ModuleGroupItem {
+  id          String  @id @default(cuid())
+  sl          Int // Serial number/line number
+  code        String? // Can override or use catalog code
+  description String? // Can override catalog description
+
+  // Dimensions
+  height Decimal? @db.Decimal(10, 2)
+  width  Decimal? @db.Decimal(10, 2)
+  depth  Decimal? @db.Decimal(10, 2)
+
+  unit          String? // Unit of measurement
+  baseUnit      String? // Base unit for price calculation (sqm, sqft)
+  baseUnitPrice Decimal? @db.Decimal(10, 2) // Price per base unit
+  unitPrice     Decimal  @db.Decimal(10, 2)
+  amount        Decimal  @db.Decimal(12, 2) // Total amount for this item
+
+  sortOrder Int @default(0)
+
+  // Deprecated: kept for backward compatibility, will be removed in migration
+  quantity Decimal? @db.Decimal(10, 2)
+
+  moduleGroupId String
+  moduleGroup   ModuleGroup @relation(fields: [moduleGroupId], references: [id], onDelete: Cascade)
+
+  quotationItems QuotationItem[] // Items in quotations that reference this template
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([moduleGroupId])
+}
+
+model ItemCategory {
+  id         String   @id @default(cuid())
+  itemId     String
+  categoryId String
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([itemId, categoryId])
+  @@index([itemId])
+  @@index([categoryId])
 }
 
 model Client {
@@ -287,20 +358,32 @@ model Quotation {
   id                 String          @id @default(cuid())
   quotationNumber    String          @unique // Auto-generated quotation number
   subject            String
-  submittedTo        String // Contact person name
   date               DateTime        @default(now())
   coverLetter        String?         @db.Text
   financialStatement String?         @db.Text
   tos                String?         @db.Text // Terms of Service
-  attachments        Json? // Array of file URLs/paths
-  total              Decimal         @db.Decimal(12, 2)
-  status             QuotationStatus @default(DRAFT) // DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED
+  total              Decimal?        @db.Decimal(12, 2)
+  discount           Decimal?        @db.Decimal(5, 2) // Percentage discount
+  grandTotal         Decimal?        @db.Decimal(12, 2)
+  status             QuotationStatus @default(DRAFT) // DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED, REVISED
 
   clientId String
   client   Client @relation(fields: [clientId], references: [id])
 
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
   submittedById String
   submittedBy   User   @relation("SubmittedBy", fields: [submittedById], references: [id])
+
+  updatedById String?
+  updatedBy   User?   @relation("UpdatedBy", fields: [updatedById], references: [id])
+
+  // Additional fields
+  shippingCharges Decimal? @db.Decimal(10, 2)
+  vatIncluded     Boolean? @default(false)
+  projectLocation String?
+  isTrash         Boolean  @default(false) // Trash management - true if in trash
 
   section Section[]
 
@@ -308,17 +391,23 @@ model Quotation {
   updatedAt DateTime @updatedAt
 
   @@index([clientId])
+  @@index([organizationId])
   @@index([submittedById])
+  @@index([updatedById])
   @@index([status])
+  @@index([isTrash])
 }
 
 // Section within a quotation (e.g., different sections/phases)
 model Section {
-  id        String   @id @default(cuid())
-  title     String
-  note      String?  @db.Text
-  discount  Decimal? @db.Decimal(5, 2) // Percentage discount
-  sortOrder Int      @default(0)
+  id         String   @id @default(cuid())
+  title      String
+  note       String?  @db.Text
+  discount   Decimal? @db.Decimal(5, 2) // Percentage discount
+  total      Decimal? @db.Decimal(12, 2)
+  grandTotal Decimal? @db.Decimal(12, 2)
+  sortOrder  Int      @default(0)
+  categoryId String?
 
   quotationId String
   quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
@@ -326,8 +415,9 @@ model Section {
   preparedById String?
   preparedBy   User?   @relation("PreparedBy", fields: [preparedById], references: [id])
 
-  groups ItemGroup[]
-  items  QuotationItem[] // Direct items not in groups
+  groups         ItemGroup[]
+  categoryGroups CategoryGroup[]
+  items          QuotationItem[] // Direct items not in groups
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -337,11 +427,13 @@ model Section {
 
 // Item Group (optional grouping within a module)
 model ItemGroup {
-  id          String   @id @default(cuid())
-  code        String?
-  description String
-  quantity    Decimal? @db.Decimal(10, 2) // Group-level quantity if applicable
-  sortOrder   Int      @default(0)
+  id            String   @id @default(cuid())
+  code          String?
+  description   String
+  quantity      Decimal? @db.Decimal(10, 2) // Group-level quantity if applicable
+  number        Int? // Additional number field
+  sortOrder     Int      @default(0)
+  moduleGroupId String? // Reference to ModuleGroup template
 
   sectionId String
   section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
@@ -352,6 +444,25 @@ model ItemGroup {
   updatedAt DateTime @updatedAt
 
   @@index([sectionId])
+}
+
+// Category Group (grouping items by category within a section)
+model CategoryGroup {
+  id         String    @id @default(cuid())
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  sortOrder  Int       @default(0)
+
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  items QuotationItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sectionId])
+  @@index([categoryId])
 }
 
 // Quotation Item (links Item catalog to quotation with specific details)
@@ -366,6 +477,7 @@ model QuotationItem {
   width  Decimal? @db.Decimal(10, 2)
   depth  Decimal? @db.Decimal(10, 2)
 
+  unit         String? // Unit of measurement
   unitPrice    Decimal  @db.Decimal(10, 2)
   quantity     Decimal  @db.Decimal(10, 2)
   unitShutter  Decimal? @db.Decimal(10, 2) // Shutters per unit
@@ -378,12 +490,18 @@ model QuotationItem {
   itemId String? // Optional: reference to catalog item
   item   Item?   @relation(fields: [itemId], references: [id])
 
-  // Item can be directly in module or in a group
+  moduleGroupItemId String? // Optional: reference to ModuleGroupItem template
+  moduleGroupItem   ModuleGroupItem? @relation(fields: [moduleGroupItemId], references: [id], onDelete: SetNull)
+
+  // Item can be directly in section, in a group, or in a category group
   sectionId String?
   section   Section? @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
   groupId String?
   group   ItemGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  categoryGroupId String?
+  categoryGroup   CategoryGroup? @relation(fields: [categoryGroupId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -391,4 +509,61 @@ model QuotationItem {
   @@index([itemId])
   @@index([sectionId])
   @@index([groupId])
+  @@index([categoryGroupId])
+  @@index([moduleGroupItemId])
+}
+
+// ============================================
+// COVER LETTERS
+// ============================================
+
+model CoverLetter {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  status    String   @default("active") // active, inactive, trash
+  createdBy String
+  creator   User     @relation("CoverLetterCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdBy])
+  @@index([title])
+}
+
+//SETTING DATA FOR MODULES
+model Settings {
+  id     String  @id @default(cuid())
+  userId String? @map("user_id") // NULL = global/system settings
+
+  title    String @db.VarChar(255)
+  code     String @db.VarChar(100)
+  category String @db.VarChar(100)
+
+  settings Json @db.JsonB
+
+  isActive  Boolean @default(true) @map("is_active")
+  isDefault Boolean @default(false) @map("is_default")
+  isGlobal  Boolean @default(false) @map("is_global") // TRUE = system-wide, FALSE = user-specific
+
+  displayOrder Int @default(0) @map("display_order")
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  user    User? @relation("SettingsUser", fields: [userId], references: [id], onDelete: Cascade)
+  creator User? @relation("SettingsCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  // Indexes
+  @@index([userId])
+  @@index([code])
+  @@index([category])
+  @@index([userId, code])
+  @@index([userId, category])
+  @@index([isGlobal])
+  @@index([settings(ops: JsonbPathOps)], type: Gin)
+  @@map("settings")
 }

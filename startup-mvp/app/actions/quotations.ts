@@ -2,13 +2,20 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, QuotationStatus } from '@prisma/client';
 import { auth } from '@/lib/auth';
+import { notifyItemCreated, notifyItemUpdated, notifyItemDeleted } from '@/lib/notification';
+import { createUserLog, LogAction } from '@/lib/user-log';
 
 /**
  * Get all quotations with relations
  */
-export async function getQuotations() {
+export async function getQuotations(
+  page: number = 1,
+  limit: number = 10,
+  search: string = '',
+  status?: string
+) {
   try {
     const session = await auth();
     
@@ -16,11 +23,60 @@ export async function getQuotations() {
       return {
         success: false,
         error: 'Unauthorized',
-        data: [],
+        quotations: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          totalPages: 0,
+        },
       };
     }
 
+    const skip = (page - 1) * limit;
+    const isTrashTab = status === 'trash';
+
+    // Build where clause - use AND array to properly combine filters
+    const whereConditions: any[] = [];
+    
+    // Set trash filter
+    if (isTrashTab) {
+      // Show only trashed items
+      whereConditions.push({ isTrash: true });
+    } else {
+      // For all other tabs, exclude trashed items
+      whereConditions.push({ isTrash: false });
+      
+      // Set status filter if specific status is requested
+      if (status && status !== 'all') {
+        const statusUpper = status.toUpperCase();
+        if (Object.values(QuotationStatus).includes(statusUpper as QuotationStatus)) {
+          whereConditions.push({ status: statusUpper as QuotationStatus });
+        }
+      }
+    }
+
+    // Add search filter
+    if (search) {
+      whereConditions.push({
+        OR: [
+          { quotationNumber: { contains: search, mode: 'insensitive' } },
+          { subject: { contains: search, mode: 'insensitive' } },
+          { client: { name: { contains: search, mode: 'insensitive' } } },
+          { client: { company: { contains: search, mode: 'insensitive' } } },
+        ],
+      });
+    }
+
+    // Combine all conditions with AND
+    const where = whereConditions.length > 0 ? { AND: whereConditions } : {};
+
+    // Get total count
+    const total = await prisma.quotation.count({ where });
+
+    // Get quotations
     const quotations = await prisma.quotation.findMany({
+      where,
       include: {
         client: {
           select: {
@@ -28,6 +84,7 @@ export async function getQuotations() {
             name: true,
             email: true,
             company: true,
+            image: true,
           },
         },
         submittedBy: {
@@ -35,66 +92,65 @@ export async function getQuotations() {
             id: true,
             name: true,
             email: true,
+            image: true,
           },
         },
-        section: {
-          include: {
-            preparedBy: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-            groups: {
-              include: {
-                items: {
-                  include: {
-                    item: {
-                      select: {
-                        id: true,
-                        code: true,
-                        description: true,
-                        unitPrice: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-            items: {
-              include: {
-                item: {
-                  select: {
-                    id: true,
-                    code: true,
-                    description: true,
-                    unitPrice: true,
-                  },
-                },
-              },
-            },
+        organization: {
+          select: {
+            id: true,
+            name: true,
           },
-          orderBy: {
-            sortOrder: 'asc',
+        },
+        updatedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
           },
         },
       },
       orderBy: {
         createdAt: 'desc',
       },
+      skip,
+      take: limit,
     });
+
+    const totalPages = Math.ceil(total / limit);
+
+    // Serialize Decimal values to numbers for client components
+    const serializedQuotations = quotations.map((quotation) => ({
+      ...quotation,
+      total: Number(quotation.total || 0),
+      discount: quotation.discount ? Number(quotation.discount) : null,
+      grandTotal: quotation.grandTotal ? Number(quotation.grandTotal) : null,
+      shippingCharges: quotation.shippingCharges ? Number(quotation.shippingCharges) : null,
+      isTrash: quotation.isTrash || false,
+    }));
 
     return {
       success: true,
-      data: quotations,
+      quotations: serializedQuotations,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
     };
   } catch (error) {
     console.error('Error fetching quotations:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to fetch quotations',
-      data: [],
+      quotations: [],
+      pagination: {
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 0,
+      },
     };
   }
 }
@@ -125,6 +181,19 @@ export async function getQuotation(id: string) {
             phone: true,
             address: true,
             company: true,
+            image: true,
+          },
+        },
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            details: true,
+            address: true,
+            phone: true,
+            email: true,
+            website: true,
+            logo: true,
           },
         },
         submittedBy: {
@@ -132,6 +201,14 @@ export async function getQuotation(id: string) {
             id: true,
             name: true,
             email: true,
+          },
+        },
+        updatedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
           },
         },
         section: {
@@ -177,6 +254,34 @@ export async function getQuotation(id: string) {
                 sortOrder: 'asc',
               },
             },
+            categoryGroups: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+                items: {
+                  include: {
+                    item: {
+                      select: {
+                        id: true,
+                        code: true,
+                        description: true,
+                        unitPrice: true,
+                      },
+                    },
+                  },
+                  orderBy: {
+                    sortOrder: 'asc',
+                  },
+                },
+              },
+              orderBy: {
+                sortOrder: 'asc',
+              },
+            },
           },
           orderBy: {
             sortOrder: 'asc',
@@ -193,9 +298,91 @@ export async function getQuotation(id: string) {
       };
     }
 
+    // Serialize Decimal values to numbers for client components
+    const serializedQuotation = {
+      ...quotation,
+      total: Number(quotation.total),
+      discount: quotation.discount ? Number(quotation.discount) : null,
+      grandTotal: quotation.grandTotal ? Number(quotation.grandTotal) : null,
+      shippingCharges: quotation.shippingCharges ? Number(quotation.shippingCharges) : null,
+      vatIncluded: quotation.vatIncluded,
+      projectLocation: quotation.projectLocation,
+      client: quotation.client,
+      organization: quotation.organization || null,
+      organizationId: quotation.organizationId || null,
+      submittedBy: quotation.submittedBy,
+      section: quotation.section?.map((section) => ({
+        ...section,
+        discount: section.discount ? Number(section.discount) : null,
+        total: section.total ? Number(section.total) : null,
+        grandTotal: section.grandTotal ? Number(section.grandTotal) : null,
+        categoryId: section.categoryId || null,
+        groups: section.groups?.map((group) => ({
+          ...group,
+          quantity: group.quantity ? Number(group.quantity) : null,
+          items: group.items?.map((item) => ({
+            ...item,
+            height: item.height ? Number(item.height) : null,
+            width: item.width ? Number(item.width) : null,
+            depth: item.depth ? Number(item.depth) : null,
+            unit: item.unit || null,
+            unitPrice: Number(item.unitPrice),
+            quantity: Number(item.quantity),
+            unitShutter: item.unitShutter ? Number(item.unitShutter) : null,
+            totalShutter: item.totalShutter ? Number(item.totalShutter) : null,
+            amount: Number(item.amount),
+            item: item.item ? {
+              ...item.item,
+              unitPrice: Number(item.item.unitPrice),
+            } : null,
+          })),
+        })),
+        items: section.items?.map((item) => ({
+          ...item,
+          height: item.height ? Number(item.height) : null,
+          width: item.width ? Number(item.width) : null,
+          depth: item.depth ? Number(item.depth) : null,
+          unit: item.unit || null,
+          unitPrice: Number(item.unitPrice),
+          quantity: Number(item.quantity),
+          unitShutter: item.unitShutter ? Number(item.unitShutter) : null,
+          totalShutter: item.totalShutter ? Number(item.totalShutter) : null,
+          amount: Number(item.amount),
+          item: item.item ? {
+            ...item.item,
+            unitPrice: Number(item.item.unitPrice),
+          } : null,
+        })),
+        categoryGroups: section.categoryGroups?.map((categoryGroup) => ({
+          ...categoryGroup,
+          categoryId: categoryGroup.categoryId || null,
+          category: categoryGroup.category ? {
+            id: categoryGroup.category.id,
+            name: categoryGroup.category.name,
+          } : null,
+          items: categoryGroup.items?.map((item) => ({
+            ...item,
+            height: item.height ? Number(item.height) : null,
+            width: item.width ? Number(item.width) : null,
+            depth: item.depth ? Number(item.depth) : null,
+            unit: item.unit || null,
+            unitPrice: Number(item.unitPrice),
+            quantity: Number(item.quantity),
+            unitShutter: item.unitShutter ? Number(item.unitShutter) : null,
+            totalShutter: item.totalShutter ? Number(item.totalShutter) : null,
+            amount: Number(item.amount),
+            item: item.item ? {
+              ...item.item,
+              unitPrice: Number(item.item.unitPrice),
+            } : null,
+          })),
+        })),
+      })),
+    };
+
     return {
       success: true,
-      data: quotation,
+      data: serializedQuotation,
     };
   } catch (error) {
     console.error('Error fetching quotation:', error);
@@ -264,71 +451,87 @@ export async function createQuotation(data: any) {
       };
     }
 
-    // Handle user (submittedBy)
-    let submittedById = data.submittedById || session.user.id;
-    if (!submittedById && data.submittedBy) {
-      const existingUser = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { email: data.submittedByContact || '' },
-            { name: data.submittedBy },
-          ],
-        },
-      });
-
-      if (existingUser) {
-        submittedById = existingUser.id;
-      } else {
-        const email = data.submittedByContact?.includes('@')
-          ? data.submittedByContact
-          : `${data.submittedBy.toLowerCase().replace(/\s+/g, '.')}@example.com`;
-        
-        const newUser = await prisma.user.create({
-          data: {
-            name: data.submittedBy,
-            email: email,
-            password: 'temp', // Should be handled properly in production
-            role: 'user',
-          },
-        });
-        submittedById = newUser.id;
-      }
-    }
+    // Use current session user for submittedById
+    const submittedById = session.user.id;
 
     // Map modules to sections (form uses "modules", Prisma uses "sections")
     const sections = data.sections || data.modules || [];
     
-    // Calculate total from sections
+    // Calculate total from sections (use grandTotal if available, otherwise calculate)
     let total = 0;
     if (sections && Array.isArray(sections)) {
       sections.forEach((section: any) => {
-        let sectionTotal = 0;
+        // Use grandTotal if available (already calculated with discount)
+        if (section.grandTotal != null) {
+          total += Number(section.grandTotal || 0);
+        } else {
+          // Otherwise calculate from items
+          let sectionTotal = 0;
 
-        // Sum direct items
-        if (section.items && Array.isArray(section.items)) {
-          section.items.forEach((item: any) => {
-            sectionTotal += Number(item.amount || 0);
-          });
+          // Sum direct items
+          if (section.items && Array.isArray(section.items)) {
+            section.items.forEach((item: any) => {
+              sectionTotal += Number(item.amount || 0);
+            });
+          }
+
+          // Sum items in groups
+          if (section.groups && Array.isArray(section.groups)) {
+            section.groups.forEach((group: any) => {
+              if (group.items && Array.isArray(group.items)) {
+                group.items.forEach((item: any) => {
+                  sectionTotal += Number(item.amount || 0);
+                });
+              }
+            });
+          }
+
+          // Sum items in category groups
+          if (section.categoryGroups && Array.isArray(section.categoryGroups)) {
+            section.categoryGroups.forEach((categoryGroup: any) => {
+              if (categoryGroup.items && Array.isArray(categoryGroup.items)) {
+                categoryGroup.items.forEach((item: any) => {
+                  sectionTotal += Number(item.amount || 0);
+                });
+              }
+            });
+          }
+
+          // Apply discount (amount-based, not percentage)
+          if (section.discount) {
+            sectionTotal = Math.max(0, sectionTotal - Number(section.discount));
+          }
+
+          total += sectionTotal;
         }
-
-        // Sum items in groups
-        if (section.groups && Array.isArray(section.groups)) {
-          section.groups.forEach((group: any) => {
-            if (group.items && Array.isArray(group.items)) {
-              group.items.forEach((item: any) => {
-                sectionTotal += Number(item.amount || 0);
-              });
-            }
-          });
-        }
-
-        // Apply discount
-        if (section.discount) {
-          sectionTotal = sectionTotal * (1 - Number(section.discount) / 100);
-        }
-
-        total += sectionTotal;
       });
+    }
+
+    // Get TOS content if not provided
+    let tosContent = data.tos;
+    if (!tosContent) {
+      try {
+        const { getTOSContent } = await import('@/app/actions/quotation-helpers');
+        const tosResult = await getTOSContent();
+        tosContent = tosResult.success ? tosResult.content : null;
+      } catch (error) {
+        console.error('Error fetching TOS content:', error);
+        tosContent = null;
+      }
+    }
+
+    // Get cover letter content if not provided
+    let coverLetterContent = data.coverLetter;
+    if (!coverLetterContent && data.selectedCoverLetterId && data.selectedCoverLetterId !== 'custom') {
+      try {
+        const { getCoverLetterById } = await import('@/app/(dashboard)/dashboard/settings/_actions/coverLetter.action');
+        const coverLetterResult = await getCoverLetterById(data.selectedCoverLetterId);
+        if (coverLetterResult.success && coverLetterResult.coverLetter) {
+          coverLetterContent = coverLetterResult.coverLetter.content;
+        }
+      } catch (error) {
+        console.error('Error fetching cover letter:', error);
+      }
     }
 
     // Create quotation
@@ -336,29 +539,36 @@ export async function createQuotation(data: any) {
       data: {
         quotationNumber: data.quotationNumber || `QT-${Date.now()}`,
         subject: data.subject || '',
-        submittedTo: data.submittedTo || '',
         date: data.date ? new Date(data.date) : new Date(),
-        coverLetter: data.coverLetter || null,
-        financialStatement: data.financialStatement || null,
-        tos: data.tos || null,
-        attachments: data.attachments || null,
-        total: new Prisma.Decimal(total),
+        coverLetter: coverLetterContent || null,
+        tos: tosContent || null,
+        total: total > 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
         status: data.status || 'DRAFT',
         clientId: clientId,
-        submittedById: submittedById,
+        organizationId: data.organizationId || null,
+        submittedById: submittedById, // Always use session user
+        shippingCharges: data.shippingCharges ? new Prisma.Decimal(data.shippingCharges) : new Prisma.Decimal(0),
+        vatIncluded: data.vatIncluded || false,
+        projectLocation: data.projectLocation || null,
+        isTrash: false, // Default to false - quotations are not in trash by default
         section: {
           create: (sections || []).map((section: any, sectionIndex: number) => ({
             title: section.title || `Section ${sectionIndex + 1}`,
             note: section.note || null,
-            discount: section.discount ? new Prisma.Decimal(section.discount) : null,
+        discount: section.discount ? new Prisma.Decimal(section.discount) : new Prisma.Decimal(0),
+        total: section.total ? new Prisma.Decimal(section.total) : new Prisma.Decimal(0),
+        grandTotal: section.grandTotal ? new Prisma.Decimal(section.grandTotal) : new Prisma.Decimal(0),
             sortOrder: section.sortOrder ?? sectionIndex,
+            categoryId: section.categoryId || null,
             preparedById: section.preparedById || session.user.id,
             groups: {
               create: (section.groups || []).map((group: any, groupIndex: number) => ({
                 code: group.code || null,
                 description: group.description || '',
-                quantity: group.quantity ? new Prisma.Decimal(group.quantity) : null,
+                quantity: group.quantity ? new Prisma.Decimal(group.quantity) : new Prisma.Decimal(0),
+                number: group.number || null,
                 sortOrder: group.sortOrder ?? groupIndex,
+                moduleGroupId: group.moduleGroupId && group.moduleGroupId !== '' ? group.moduleGroupId : null,
                 items: {
                   create: (group.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,
@@ -367,14 +577,15 @@ export async function createQuotation(data: any) {
                     height: item.height ? new Prisma.Decimal(item.height) : null,
                     width: item.width ? new Prisma.Decimal(item.width) : null,
                     depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                    unit: item.unit || null,
                     unitPrice: new Prisma.Decimal(item.unitPrice || 0),
                     quantity: new Prisma.Decimal(item.quantity || 0),
                     unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
                     totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
                     amount: new Prisma.Decimal(item.amount || 0),
-                    note: item.note || null,
                     sortOrder: item.sortOrder ?? itemIndex,
-                    itemId: item.itemId || null,
+                    itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
+                    moduleGroupItemId: item.moduleGroupItemId && item.moduleGroupItemId !== '' ? item.moduleGroupItemId : null,
                   })),
                 },
               })),
@@ -387,14 +598,38 @@ export async function createQuotation(data: any) {
                 height: item.height ? new Prisma.Decimal(item.height) : null,
                 width: item.width ? new Prisma.Decimal(item.width) : null,
                 depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                unit: item.unit || null,
                 unitPrice: new Prisma.Decimal(item.unitPrice || 0),
                 quantity: new Prisma.Decimal(item.quantity || 0),
                 unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
                 totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
                 amount: new Prisma.Decimal(item.amount || 0),
-                note: item.note || null,
                 sortOrder: item.sortOrder ?? itemIndex,
-                itemId: item.itemId || null,
+                itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
+              })),
+            },
+            categoryGroups: {
+              create: (section.categoryGroups || []).map((categoryGroup: any, categoryGroupIndex: number) => ({
+                categoryId: categoryGroup.categoryId || null,
+                sortOrder: categoryGroup.sortOrder ?? categoryGroupIndex,
+                items: {
+                  create: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
+                    sl: item.sl ?? itemIndex + 1,
+                    code: item.code || null,
+                    description: item.description || null,
+                    height: item.height ? new Prisma.Decimal(item.height) : null,
+                    width: item.width ? new Prisma.Decimal(item.width) : null,
+                    depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                    unit: item.unit || null,
+                    unitPrice: new Prisma.Decimal(item.unitPrice || 0),
+                    quantity: new Prisma.Decimal(item.quantity || 0),
+                    unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
+                    totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
+                    amount: new Prisma.Decimal(item.amount || 0),
+                    sortOrder: item.sortOrder ?? itemIndex,
+                    itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
+                  })),
+                },
               })),
             },
           })),
@@ -420,12 +655,45 @@ export async function createQuotation(data: any) {
                 item: true,
               },
             },
+            categoryGroups: {
+              include: {
+                category: true,
+                items: {
+                  include: {
+                    item: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
     });
 
-    revalidatePath('/dashboard/quotations');
+    revalidatePath('/dashboard/quotations', 'page');
+    
+    // Create notification for quotation creation
+    await notifyItemCreated(
+      session.user.id,
+      'Quotation',
+      quotation.quotationNumber
+    );
+    
+    // Log quotation creation
+    await createUserLog({
+      userId: session.user.id,
+      action: LogAction.ITEM_CREATED,
+      details: `Quotation "${quotation.quotationNumber}" created successfully`,
+      metadata: {
+        quotationId: quotation.id,
+        quotationNumber: quotation.quotationNumber,
+        subject: quotation.subject,
+        clientId: quotation.clientId,
+        organizationId: quotation.organizationId || null,
+        total: Number(quotation.total || 0),
+        status: quotation.status,
+      },
+    });
     
     return {
       success: true,
@@ -445,6 +713,10 @@ export async function createQuotation(data: any) {
  * Update quotation
  */
 export async function updateQuotation(id: string, data: any) {
+  console.log('updateQuotation called with id:', id);
+  console.log('updateQuotation data keys:', Object.keys(data || {}));
+  console.log('updateQuotation sections count:', (data?.sections || data?.modules || []).length);
+  
   try {
     const session = await auth();
     
@@ -511,67 +783,57 @@ export async function updateQuotation(id: string, data: any) {
       };
     }
 
-    // Handle user (submittedBy)
-    let submittedById = data.submittedById || session.user.id;
-    if (!submittedById && data.submittedBy) {
-      const existingUser = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { email: data.submittedByContact || '' },
-            { name: data.submittedBy },
-          ],
-        },
-      });
-
-      if (existingUser) {
-        submittedById = existingUser.id;
-      } else {
-        const email = data.submittedByContact?.includes('@')
-          ? data.submittedByContact
-          : `${data.submittedBy.toLowerCase().replace(/\s+/g, '.')}@example.com`;
-        
-        const newUser = await prisma.user.create({
-          data: {
-            name: data.submittedBy,
-            email: email,
-            password: 'temp',
-            role: 'user',
-          },
-        });
-        submittedById = newUser.id;
-      }
-    }
+    // Use current session user for submittedById
+    const submittedById = session.user.id;
 
     // Map modules to sections (form uses "modules", Prisma uses "sections")
     const sections = data.sections || data.modules || [];
     
-    // Calculate total from sections
+    // Calculate total from sections (use grandTotal if available, otherwise calculate)
     let total = 0;
     if (sections && Array.isArray(sections)) {
       sections.forEach((section: any) => {
-        let sectionTotal = 0;
+        // Use grandTotal if available (already calculated with discount)
+        if (section.grandTotal != null) {
+          total += Number(section.grandTotal || 0);
+        } else {
+          // Otherwise calculate from items
+          let sectionTotal = 0;
 
-        if (section.items && Array.isArray(section.items)) {
-          section.items.forEach((item: any) => {
-            sectionTotal += Number(item.amount || 0);
-          });
+          if (section.items && Array.isArray(section.items)) {
+            section.items.forEach((item: any) => {
+              sectionTotal += Number(item.amount || 0);
+            });
+          }
+
+          if (section.groups && Array.isArray(section.groups)) {
+            section.groups.forEach((group: any) => {
+              if (group.items && Array.isArray(group.items)) {
+                group.items.forEach((item: any) => {
+                  sectionTotal += Number(item.amount || 0);
+                });
+              }
+            });
+          }
+
+          // Sum items in category groups
+          if (section.categoryGroups && Array.isArray(section.categoryGroups)) {
+            section.categoryGroups.forEach((categoryGroup: any) => {
+              if (categoryGroup.items && Array.isArray(categoryGroup.items)) {
+                categoryGroup.items.forEach((item: any) => {
+                  sectionTotal += Number(item.amount || 0);
+                });
+              }
+            });
+          }
+
+          // Apply discount (amount-based, not percentage)
+          if (section.discount) {
+            sectionTotal = Math.max(0, sectionTotal - Number(section.discount));
+          }
+
+          total += sectionTotal;
         }
-
-        if (section.groups && Array.isArray(section.groups)) {
-          section.groups.forEach((group: any) => {
-            if (group.items && Array.isArray(group.items)) {
-              group.items.forEach((item: any) => {
-                sectionTotal += Number(item.amount || 0);
-              });
-            }
-          });
-        }
-
-        if (section.discount) {
-          sectionTotal = sectionTotal * (1 - Number(section.discount) / 100);
-        }
-
-        total += sectionTotal;
       });
     }
 
@@ -580,35 +842,72 @@ export async function updateQuotation(id: string, data: any) {
       where: { quotationId: id },
     });
 
+    // Get TOS content if not provided
+    let tosContent = data.tos;
+    if (!tosContent) {
+      try {
+        const { getTOSContent } = await import('@/app/actions/quotation-helpers');
+        const tosResult = await getTOSContent();
+        tosContent = tosResult.success ? tosResult.content : null;
+      } catch (error) {
+        console.error('Error fetching TOS content:', error);
+        tosContent = null;
+      }
+    }
+
+    // Get cover letter content if not provided
+    let coverLetterContent = data.coverLetter;
+    if (!coverLetterContent && data.selectedCoverLetterId && data.selectedCoverLetterId !== 'custom') {
+      try {
+        const { getCoverLetterById } = await import('@/app/(dashboard)/dashboard/settings/_actions/coverLetter.action');
+        const coverLetterResult = await getCoverLetterById(data.selectedCoverLetterId);
+        if (coverLetterResult.success && coverLetterResult.coverLetter) {
+          coverLetterContent = coverLetterResult.coverLetter.content;
+        }
+      } catch (error) {
+        console.error('Error fetching cover letter:', error);
+      }
+    }
+
     // Update quotation with new sections
     const quotation = await prisma.quotation.update({
       where: { id },
       data: {
         quotationNumber: data.quotationNumber || existingQuotation.quotationNumber,
         subject: data.subject || existingQuotation.subject,
-        submittedTo: data.submittedTo || existingQuotation.submittedTo,
         date: data.date ? new Date(data.date) : existingQuotation.date,
-        coverLetter: data.coverLetter !== undefined ? (data.coverLetter || null) : existingQuotation.coverLetter,
+        updatedById: session.user.id, // Set the user who updated the quotation
+        coverLetter: coverLetterContent !== undefined ? (coverLetterContent || null) : existingQuotation.coverLetter,
         financialStatement: data.financialStatement !== undefined ? (data.financialStatement || null) : existingQuotation.financialStatement,
-        tos: data.tos !== undefined ? (data.tos || null) : existingQuotation.tos,
-        attachments: data.attachments !== undefined ? data.attachments : existingQuotation.attachments,
-        total: new Prisma.Decimal(total),
+        tos: tosContent !== undefined ? (tosContent || null) : existingQuotation.tos,
+        total: total >= 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
+        discount: data.discount !== undefined ? (data.discount ? new Prisma.Decimal(data.discount) : new Prisma.Decimal(0)) : (existingQuotation.discount || new Prisma.Decimal(0)),
+        grandTotal: total >= 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
         status: data.status || existingQuotation.status,
         clientId: clientId,
+        organizationId: data.organizationId !== undefined && data.organizationId !== '' ? (data.organizationId || null) : existingQuotation.organizationId,
         submittedById: submittedById,
+        shippingCharges: data.shippingCharges !== undefined ? (data.shippingCharges ? new Prisma.Decimal(data.shippingCharges) : new Prisma.Decimal(0)) : existingQuotation.shippingCharges,
+        vatIncluded: data.vatIncluded !== undefined ? data.vatIncluded : existingQuotation.vatIncluded,
+        projectLocation: data.projectLocation !== undefined ? (data.projectLocation || null) : existingQuotation.projectLocation,
         section: {
           create: (sections || []).map((section: any, sectionIndex: number) => ({
             title: section.title || `Section ${sectionIndex + 1}`,
             note: section.note || null,
-            discount: section.discount ? new Prisma.Decimal(section.discount) : null,
+        discount: section.discount ? new Prisma.Decimal(section.discount) : new Prisma.Decimal(0),
+        total: section.total ? new Prisma.Decimal(section.total) : new Prisma.Decimal(0),
+        grandTotal: section.grandTotal ? new Prisma.Decimal(section.grandTotal) : new Prisma.Decimal(0),
             sortOrder: section.sortOrder ?? sectionIndex,
+            categoryId: section.categoryId || null,
             preparedById: section.preparedById || session.user.id,
             groups: {
               create: (section.groups || []).map((group: any, groupIndex: number) => ({
                 code: group.code || null,
                 description: group.description || '',
-                quantity: group.quantity ? new Prisma.Decimal(group.quantity) : null,
+                quantity: group.quantity ? new Prisma.Decimal(group.quantity) : new Prisma.Decimal(0),
+                number: group.number || null,
                 sortOrder: group.sortOrder ?? groupIndex,
+                moduleGroupId: group.moduleGroupId && group.moduleGroupId !== '' ? group.moduleGroupId : null,
                 items: {
                   create: (group.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,
@@ -617,14 +916,15 @@ export async function updateQuotation(id: string, data: any) {
                     height: item.height ? new Prisma.Decimal(item.height) : null,
                     width: item.width ? new Prisma.Decimal(item.width) : null,
                     depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                    unit: item.unit || null,
                     unitPrice: new Prisma.Decimal(item.unitPrice || 0),
                     quantity: new Prisma.Decimal(item.quantity || 0),
                     unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
                     totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
                     amount: new Prisma.Decimal(item.amount || 0),
-                    note: item.note || null,
                     sortOrder: item.sortOrder ?? itemIndex,
-                    itemId: item.itemId || null,
+                    itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
+                    moduleGroupItemId: item.moduleGroupItemId && item.moduleGroupItemId !== '' ? item.moduleGroupItemId : null,
                   })),
                 },
               })),
@@ -637,14 +937,38 @@ export async function updateQuotation(id: string, data: any) {
                 height: item.height ? new Prisma.Decimal(item.height) : null,
                 width: item.width ? new Prisma.Decimal(item.width) : null,
                 depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                unit: item.unit || null,
                 unitPrice: new Prisma.Decimal(item.unitPrice || 0),
                 quantity: new Prisma.Decimal(item.quantity || 0),
                 unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
                 totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
                 amount: new Prisma.Decimal(item.amount || 0),
-                note: item.note || null,
                 sortOrder: item.sortOrder ?? itemIndex,
-                itemId: item.itemId || null,
+                itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
+              })),
+            },
+            categoryGroups: {
+              create: (section.categoryGroups || []).map((categoryGroup: any, categoryGroupIndex: number) => ({
+                categoryId: categoryGroup.categoryId || null,
+                sortOrder: categoryGroup.sortOrder ?? categoryGroupIndex,
+                items: {
+                  create: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
+                    sl: item.sl ?? itemIndex + 1,
+                    code: item.code || null,
+                    description: item.description || null,
+                    height: item.height ? new Prisma.Decimal(item.height) : null,
+                    width: item.width ? new Prisma.Decimal(item.width) : null,
+                    depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                    unit: item.unit || null,
+                    unitPrice: new Prisma.Decimal(item.unitPrice || 0),
+                    quantity: new Prisma.Decimal(item.quantity || 0),
+                    unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
+                    totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
+                    amount: new Prisma.Decimal(item.amount || 0),
+                    sortOrder: item.sortOrder ?? itemIndex,
+                    itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
+                  })),
+                },
               })),
             },
           })),
@@ -653,6 +977,7 @@ export async function updateQuotation(id: string, data: any) {
       include: {
         client: true,
         submittedBy: true,
+        updatedBy: true,
         section: {
           include: {
             preparedBy: true,
@@ -670,13 +995,63 @@ export async function updateQuotation(id: string, data: any) {
                 item: true,
               },
             },
+            categoryGroups: {
+              include: {
+                category: true,
+                items: {
+                  include: {
+                    item: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
     });
 
-    revalidatePath('/dashboard/quotations');
-    revalidatePath(`/dashboard/quotations/${id}`);
+    revalidatePath('/dashboard/quotations', 'page');
+    revalidatePath(`/dashboard/quotations/${id}`, 'page');
+    
+    console.log('Update successful, quotation ID:', quotation.id);
+    console.log('Updated quotation number:', quotation.quotationNumber);
+    
+    // Track changes for notification
+    const changes: string[] = [];
+    if (data.subject && data.subject !== existingQuotation.subject) {
+      changes.push('subject');
+    }
+    if (data.status && data.status !== existingQuotation.status) {
+      changes.push('status');
+    }
+    if (data.organizationId !== undefined && data.organizationId !== existingQuotation.organizationId) {
+      changes.push('organization');
+    }
+    if (data.sections || data.modules) {
+      changes.push('sections');
+    }
+    
+    // Create notification for quotation update
+    await notifyItemUpdated(
+      session.user.id,
+      'Quotation',
+      quotation.quotationNumber,
+      changes.length > 0 ? changes : undefined
+    );
+    
+    // Log quotation update
+    await createUserLog({
+      userId: session.user.id,
+      action: LogAction.ITEM_UPDATED,
+      details: `Quotation "${quotation.quotationNumber}" updated successfully`,
+      metadata: {
+        quotationId: quotation.id,
+        quotationNumber: quotation.quotationNumber,
+        changes: changes.length > 0 ? changes : ['general update'],
+        total: Number(quotation.total || 0),
+        status: quotation.status,
+      },
+    });
     
     return {
       success: true,
@@ -684,6 +1059,22 @@ export async function updateQuotation(id: string, data: any) {
     };
   } catch (error) {
     console.error('Error updating quotation:', error);
+    const sections = data.sections || data.modules || [];
+    console.error('Update data received:', JSON.stringify({
+      id,
+      sectionsCount: sections?.length || 0,
+      hasClientId: !!data.clientId,
+      hasOrganizationId: !!data.organizationId,
+      firstSectionTitle: sections?.[0]?.title,
+      quotationNumber: data.quotationNumber,
+      subject: data.subject,
+    }, null, 2));
+    
+    // Log the full error if it's a Prisma error
+    if (error && typeof error === 'object' && 'message' in error) {
+      console.error('Full error details:', error);
+    }
+    
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to update quotation',
@@ -718,21 +1109,322 @@ export async function deleteQuotation(id: string) {
       };
     }
 
-    // Delete quotation (cascade will handle sections, groups, items)
-    await prisma.quotation.delete({
+    // Move to trash instead of permanent delete
+    await prisma.quotation.update({
       where: { id },
+      data: {
+        isTrash: true,
+      },
     });
 
-    revalidatePath('/dashboard/quotations');
+    revalidatePath('/dashboard/quotations', 'page');
+    revalidatePath(`/dashboard/quotations/${id}`, 'page');
+    
+    // Create notification for quotation moved to trash
+    await notifyItemDeleted(
+      session.user.id,
+      'Quotation',
+      existingQuotation.quotationNumber
+    );
+    
+    // Log quotation moved to trash
+    await createUserLog({
+      userId: session.user.id,
+      action: LogAction.ITEM_DELETED,
+      details: `Quotation "${existingQuotation.quotationNumber}" moved to trash`,
+      metadata: {
+        quotationId: id,
+        quotationNumber: existingQuotation.quotationNumber,
+        subject: existingQuotation.subject,
+      },
+    });
     
     return {
       success: true,
     };
   } catch (error) {
     console.error('Error deleting quotation:', error);
+    console.error('Quotation ID:', id);
+    if (error && typeof error === 'object' && 'message' in error) {
+      console.error('Full error details:', error);
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to delete quotation',
+    };
+  }
+}
+
+/**
+ * Bulk update quotation status
+ */
+export async function bulkUpdateQuotationStatus(
+  quotationIds: string[],
+  status: QuotationStatus | string
+) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: 'Unauthorized',
+      };
+    }
+
+    if (quotationIds.length === 0) {
+      return {
+        success: false,
+        error: 'No quotations selected',
+      };
+    }
+
+    // Handle trash/restore operations
+    if (status === 'TRASH') {
+      // Move to trash
+      await prisma.quotation.updateMany({
+        where: {
+          id: { in: quotationIds },
+        },
+        data: {
+          isTrash: true,
+        },
+      });
+    } else if (status === 'DRAFT' || status === QuotationStatus.DRAFT) {
+      // Check if this is a restore operation (from trash)
+      const quotations = await prisma.quotation.findMany({
+        where: {
+          id: { in: quotationIds },
+          isTrash: true,
+        },
+        select: {
+          id: true,
+        },
+      });
+      
+      // If any quotations are in trash, restore them
+      if (quotations.length > 0) {
+        await prisma.quotation.updateMany({
+          where: {
+            id: { in: quotations.map(q => q.id) },
+          },
+          data: {
+            isTrash: false,
+          },
+        });
+      }
+      
+      // Update status to DRAFT for all selected quotations
+      await prisma.quotation.updateMany({
+        where: {
+          id: { in: quotationIds },
+        },
+        data: {
+          status: QuotationStatus.DRAFT,
+        },
+      });
+    } else {
+      // Update status for other status changes
+      let statusEnum: QuotationStatus;
+      if (typeof status === 'string') {
+        const statusUpper = status.toUpperCase();
+        if (!Object.values(QuotationStatus).includes(statusUpper as QuotationStatus)) {
+          return {
+            success: false,
+            error: `Invalid status: ${status}`,
+          };
+        }
+        statusEnum = statusUpper as QuotationStatus;
+      } else {
+        statusEnum = status;
+      }
+
+      await prisma.quotation.updateMany({
+        where: {
+          id: { in: quotationIds },
+        },
+        data: {
+          status: statusEnum,
+        },
+      });
+    }
+
+    // Get quotation details for logging
+    const quotations = await prisma.quotation.findMany({
+      where: {
+        id: { in: quotationIds },
+      },
+      select: {
+        id: true,
+        quotationNumber: true,
+        subject: true,
+        isTrash: true,
+      },
+    });
+
+    // Log bulk update
+    const isTrashOperation = status === 'TRASH';
+    const isRestoreOperation = status === 'DRAFT' || status === QuotationStatus.DRAFT;
+    
+    for (const quotation of quotations) {
+      if (isTrashOperation) {
+        await createUserLog({
+          userId: session.user.id,
+          action: LogAction.ITEM_DELETED,
+          details: `Quotation "${quotation.quotationNumber}" moved to trash`,
+          metadata: {
+            quotationId: quotation.id,
+            quotationNumber: quotation.quotationNumber,
+            isTrash: true,
+          },
+        });
+      } else if (isRestoreOperation && quotation.isTrash) {
+        await createUserLog({
+          userId: session.user.id,
+          action: LogAction.ITEM_UPDATED,
+          details: `Quotation "${quotation.quotationNumber}" restored from trash`,
+          metadata: {
+            quotationId: quotation.id,
+            quotationNumber: quotation.quotationNumber,
+            isTrash: false,
+            status: 'DRAFT',
+          },
+        });
+      } else {
+        const statusStr = typeof status === 'string' ? status : String(status);
+        await createUserLog({
+          userId: session.user.id,
+          action: LogAction.ITEM_UPDATED,
+          details: `Quotation "${quotation.quotationNumber}" status updated to ${statusStr}`,
+          metadata: {
+            quotationId: quotation.id,
+            quotationNumber: quotation.quotationNumber,
+            status: statusStr,
+          },
+        });
+      }
+    }
+
+    // Create notification
+    if (isTrashOperation) {
+      await notifyItemDeleted(
+        session.user.id,
+        'Quotation',
+        `${quotations.length} quotation(s)`
+      );
+    } else {
+      const actionText = isRestoreOperation ? 'restored from trash' : `status updated to ${typeof status === 'string' ? status.toLowerCase() : String(status).toLowerCase()}`;
+      await notifyItemUpdated(
+        session.user.id,
+        'Quotation',
+        `${quotations.length} quotation(s)`,
+        [actionText]
+      );
+    }
+
+    // Revalidate quotations list page
+    revalidatePath('/dashboard/quotations', 'page');
+    // Revalidate individual quotation pages for each updated quotation
+    for (const quotation of quotations) {
+      revalidatePath(`/dashboard/quotations/${quotation.id}`, 'page');
+    }
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error('Error updating quotation status:', error);
+    console.error('Status received:', status);
+    console.error('Quotation IDs:', quotationIds);
+    if (error && typeof error === 'object' && 'message' in error) {
+      console.error('Full error details:', error);
+    }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update quotation status',
+    };
+  }
+}
+
+/**
+ * Delete quotations permanently
+ */
+export async function deleteQuotationsPermanently(quotationIds: string[]) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: 'Unauthorized',
+      };
+    }
+
+    if (quotationIds.length === 0) {
+      return {
+        success: false,
+        error: 'No quotations selected',
+      };
+    }
+
+    // Get quotation details for logging before deletion
+    const quotations = await prisma.quotation.findMany({
+      where: {
+        id: { in: quotationIds },
+        isTrash: true, // Only allow permanent deletion of trashed items
+      },
+      select: {
+        id: true,
+        quotationNumber: true,
+        subject: true,
+      },
+    });
+
+    if (quotations.length === 0) {
+      return {
+        success: false,
+        error: 'No trashed quotations found to delete',
+      };
+    }
+
+    // Delete quotations permanently (cascade will handle sections, groups, items)
+    await prisma.quotation.deleteMany({
+      where: {
+        id: { in: quotations.map(q => q.id) },
+      },
+    });
+
+    // Log permanent deletion
+    for (const quotation of quotations) {
+      await createUserLog({
+        userId: session.user.id,
+        action: LogAction.ITEM_DELETED,
+        details: `Quotation "${quotation.quotationNumber}" permanently deleted`,
+        metadata: {
+          quotationId: quotation.id,
+          quotationNumber: quotation.quotationNumber,
+          subject: quotation.subject,
+        },
+      });
+    }
+
+    // Create notification
+    await notifyItemDeleted(
+      session.user.id,
+      'Quotation',
+      `${quotations.length} quotation(s)`
+    );
+
+    revalidatePath('/dashboard/quotations', 'page');
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error('Error deleting quotations permanently:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete quotations',
     };
   }
 }

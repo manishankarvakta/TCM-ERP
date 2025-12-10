@@ -41,7 +41,7 @@ import Security from "./_components/Security";
 import APIs from "./_components/APIs";
 import Webhooks from "./_components/Webhooks";
 import { SlEnvolopeLetter } from "react-icons/sl";
-import CoverLetter from "./_components/coverLetter";
+import CoverLetter from "./_components/coverLetter/CoverLetter";
 import TOS from "./_components/Tos";
 
 type SettingsSection = "profile" | 
@@ -91,8 +91,10 @@ export default function SettingsPage() {
   }, [searchParams, activeSection]);
 
   const handleSectionChange = (section: SettingsSection) => {
+    startTransition(() => {
     setActiveSection(section);
     router.push(`/dashboard/settings?section=${section}`);
+    });
   };
 
   const toggleExpand = (itemId: string) => {

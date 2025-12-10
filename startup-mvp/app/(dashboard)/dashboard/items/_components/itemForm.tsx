@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MultiSelect, type MultiSelectOption } from "@/components/ui/multi-select";
 import { FiAlertCircle, FiSearch } from "react-icons/fi";
 import { createItem, updateItem, getActiveUnits, getActiveCategories } from "../_actions/item.action";
 import MediaSelector from "@/components/MediaSelector";
@@ -27,7 +28,10 @@ const itemFormSchema = z.object({
   unitPrice: z.string().min(1, "Unit price is required").refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
     message: "Unit price must be a valid number greater than or equal to 0",
   }),
-  categoryId: z.string().optional().or(z.literal("")),
+  costPrice: z.string().min(1, "Cost price is required").refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
+    message: "Cost price must be a valid number greater than or equal to 0",
+  }),
+  categoryIds: z.array(z.string()).optional(),
   image: z.string().url("Invalid image URL").optional().or(z.literal("")),
   status: z.enum(["active", "inactive"]),
 });
@@ -42,11 +46,12 @@ interface ItemFormProps {
     description: string;
     unitId: string;
     unitPrice: number;
-    categoryId: string | null;
-    category?: {
+    costPrice?: number;
+    categoryIds?: string[];
+    categories?: {
       id: string;
       name: string;
-    } | null;
+    }[];
     image: string | null;
     status: string;
   };
@@ -72,7 +77,6 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
   const [loadingUnits, setLoadingUnits] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
-  const [categorySearch, setCategorySearch] = useState("");
   const [unitSearch, setUnitSearch] = useState("");
 
   const {
@@ -90,7 +94,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           description: initialData.description,
           unitId: initialData.unitId,
           unitPrice: String(initialData.unitPrice),
-          categoryId: initialData.categoryId || "",
+          costPrice: String(initialData.costPrice || 0),
+          categoryIds: initialData.categoryIds || initialData.categories?.map(c => c.id) || [],
           image: initialData.image || "",
           status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
         }
@@ -99,11 +104,13 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           description: "",
           unitId: "",
           unitPrice: "0",
-          categoryId: "",
+          costPrice: "0",
+          categoryIds: [],
           image: "",
           status: "active",
         },
   });
+
 
   useEffect(() => {
     async function loadUnits() {
@@ -148,7 +155,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           description: data.description,
           unitId: data.unitId,
           unitPrice: Number(data.unitPrice),
-          categoryId: data.categoryId || undefined,
+          costPrice: Number(data.costPrice),
+          categoryIds: data.categoryIds || [],
           image: data.image || undefined,
           status: data.status,
         });
@@ -165,7 +173,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           description: data.description,
           unitId: data.unitId,
           unitPrice: Number(data.unitPrice),
-          categoryId: data.categoryId || undefined,
+          costPrice: Number(data.costPrice),
+          categoryIds: data.categoryIds || [],
           image: data.image || undefined,
           status: data.status,
         });
@@ -233,7 +242,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="unitId">Unit</Label>
                   <Controller
@@ -320,79 +329,56 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                     <p className="text-sm text-destructive">{errors.unitPrice.message}</p>
                   )}
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="costPrice">Cost Price</Label>
+                  <Input
+                    id="costPrice"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    {...register("costPrice")}
+                    disabled={loading}
+                  />
+                  {errors.costPrice && (
+                    <p className="text-sm text-destructive">{errors.costPrice.message}</p>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="categoryId">Category (Optional)</Label>
+                <Label htmlFor="categoryIds">Categories (Optional)</Label>
+                {loadingCategories ? (
+                  <p className="text-sm text-muted-foreground">Loading categories...</p>
+                ) : categories.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No categories available</p>
+                ) : (
                 <Controller
-                  name="categoryId"
+                    name="categoryIds"
                   control={control}
-                  render={({ field }) => (
-                    <Select
-                      value={field.value}
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        setCategorySearch(""); // Clear search on selection
-                      }}
-                      disabled={loading || loadingCategories}
-                    >
-                      <SelectTrigger id="categoryId">
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px]">
-                        <div className="p-2 border-b">
-                          <div className="relative">
-                            <FiSearch className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              placeholder="Search categories..."
-                              value={categorySearch}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                setCategorySearch(e.target.value);
-                              }}
-                              onKeyDown={(e) => {
-                                e.stopPropagation();
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                }
-                              }}
-                              className="pl-8"
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </div>
-                        </div>
-                        <div className="max-h-[200px] overflow-y-auto">
-                          {categories
-                            .filter((category) =>
-                              categorySearch
-                                ? category.name.toLowerCase().includes(categorySearch.toLowerCase()) ||
-                                  (category.description &&
-                                    category.description.toLowerCase().includes(categorySearch.toLowerCase()))
-                                : true
-                            )
-                            .map((category) => (
-                              <SelectItem key={category.id} value={category.id}>
-                                {category.name}
-                              </SelectItem>
-                            ))}
-                          {categories.filter((category) =>
-                            categorySearch
-                              ? category.name.toLowerCase().includes(categorySearch.toLowerCase()) ||
-                                (category.description &&
-                                  category.description.toLowerCase().includes(categorySearch.toLowerCase()))
-                              : true
-                          ).length === 0 && (
-                            <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">
-                              No categories found
-                            </div>
-                          )}
-                        </div>
-                      </SelectContent>
-                    </Select>
+                    render={({ field }) => {
+                      const categoryOptions: MultiSelectOption[] = categories.map((category) => ({
+                        label: category.name,
+                        value: category.id,
+                      }));
+
+                      return (
+                        <MultiSelect
+                          options={categoryOptions}
+                          value={field.value || []}
+                          onValueChange={(values) => {
+                            field.onChange(values);
+                          }}
+                          placeholder="Select categories..."
+                          disabled={loading}
+                          maxCount={3}
+                        />
+                      );
+                    }}
+                  />
                   )}
-                />
-                {errors.categoryId && (
-                  <p className="text-sm text-destructive">{errors.categoryId.message}</p>
+                {errors.categoryIds && (
+                  <p className="text-sm text-destructive">{errors.categoryIds.message}</p>
                 )}
               </div>
 

@@ -1,10 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getQuotation } from "@/app/actions/quotations";
+import { getGroupById } from "@/app/(dashboard)/dashboard/items/groups/_actions/group.action";
 
 // Map route paths to display names
 const routeMap: Record<string, string> = {
@@ -46,17 +48,7 @@ const getSegmentDisplayName = (segment: string, path: string): string => {
     .join(" ");
 };
 
-// Get parent route for navigation
-const getParentRoute = (pathname: string): string | null => {
-  const segments = pathname.split("/").filter(Boolean);
-  if (segments.length <= 1) return null;
-  
-  // Remove last segment
-  segments.pop();
-  return "/" + segments.join("/");
-};
-
-// Get breadcrumb items from pathname
+  // Get breadcrumb items from pathname
 const getBreadcrumbItems = (pathname: string): Array<{ path: string; label: string }> => {
   const segments = pathname.split("/").filter(Boolean);
   const items: Array<{ path: string; label: string }> = [];
@@ -69,7 +61,18 @@ const getBreadcrumbItems = (pathname: string): Array<{ path: string; label: stri
   for (let i = 1; i < segments.length; i++) {
     const segment = segments[i];
     currentPath += "/" + segment;
-    const label = getSegmentDisplayName(segment, currentPath);
+    
+    // Check if this is a quotation ID segment - if so, use "Quotations" as label
+    const isQuotationIdSegment = i === 2 && segments[0] === "dashboard" && segments[1] === "quotations" && segment !== "quotations" && !segment.includes("edit");
+    
+    let label: string;
+    if (isQuotationIdSegment) {
+      // For quotation detail/edit pages, show "Quotations" as the parent
+      label = "Quotations";
+    } else {
+      label = getSegmentDisplayName(segment, currentPath);
+    }
+    
     items.push({ path: currentPath, label });
   }
   
@@ -83,8 +86,61 @@ interface BreadcrumbNavProps {
 export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [quotationNumber, setQuotationNumber] = useState<string | null>(null);
+  const [groupCode, setGroupCode] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
-  const parentRoute = getParentRoute(pathname);
+
+  // Fetch quotation number if we're on a quotation detail or edit page
+  useEffect(() => {
+    const quotationMatch = pathname.match(/^\/dashboard\/quotations\/([^\/]+)(?:\/edit)?$/);
+    if (!quotationMatch) {
+      return;
+    }
+    
+    const quotationId = quotationMatch[1];
+    let cancelled = false;
+    
+    getQuotation(quotationId)
+      .then((result) => {
+        if (!cancelled && result.success && result.data) {
+          setQuotationNumber(result.data.quotationNumber);
+        }
+      })
+      .catch(() => {
+        // Silently fail - will show default label
+      });
+    
+    return () => {
+      cancelled = true;
+      setQuotationNumber(null);
+    };
+  }, [pathname]);
+
+  // Fetch group code if we're on a group detail or edit page
+  useEffect(() => {
+    const groupMatch = pathname.match(/^\/dashboard\/items\/groups\/([^\/]+)(?:\/edit)?$/);
+    if (!groupMatch) {
+      return;
+    }
+    
+    const groupId = groupMatch[1];
+    let cancelled = false;
+    
+    getGroupById(groupId)
+      .then((result) => {
+        if (!cancelled && result.success && result.group) {
+          setGroupCode(result.group.code || null);
+        }
+      })
+      .catch(() => {
+        // Silently fail - will show default label
+      });
+    
+    return () => {
+      cancelled = true;
+      setGroupCode(null);
+    };
+  }, [pathname]);
 
   // If we're at the root dashboard, show just "Dashboard"
   if (pathname === "/dashboard" || items.length === 1) {
@@ -106,8 +162,59 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   }
 
   // If we have multiple items, show breadcrumb navigation
-  const parentItem = items[items.length - 2];
+  let parentItem = items[items.length - 2];
   const currentItem = items[items.length - 1];
+
+  // Determine the display label for the current item
+  let currentLabel = currentItem.label;
+  
+  // If we're on a quotation detail or edit page, use quotation number
+  const isQuotationDetail = pathname.match(/^\/dashboard\/quotations\/([^\/]+)$/);
+  const isQuotationEdit = pathname.match(/^\/dashboard\/quotations\/([^\/]+)\/edit$/);
+  
+  // For quotation routes, replace the ID segment with "Quotations" as parent
+  if (isQuotationDetail || isQuotationEdit) {
+    // Find the "Quotations" item (should be before the ID)
+    const quotationsItem = items.find(item => item.path === "/dashboard/quotations");
+    if (quotationsItem) {
+      parentItem = quotationsItem;
+    } else {
+      // If not found, create a parent item pointing to quotations list
+      parentItem = { path: "/dashboard/quotations", label: "Quotations" };
+    }
+    
+    // Update current label with quotation number
+    if (quotationNumber) {
+      currentLabel = isQuotationEdit ? `Edit ${quotationNumber}` : quotationNumber;
+    } else {
+      // Show loading state or default while fetching
+      currentLabel = isQuotationEdit ? "Edit Quotation" : "Quotation Details";
+    }
+  }
+
+  // If we're on a group detail or edit page, use group code
+  const isGroupDetail = pathname.match(/^\/dashboard\/items\/groups\/([^\/]+)$/);
+  const isGroupEdit = pathname.match(/^\/dashboard\/items\/groups\/([^\/]+)\/edit$/);
+  
+  // For group routes, replace the ID segment with "Groups" as parent
+  if (isGroupDetail || isGroupEdit) {
+    // Find the "Groups" item (should be before the ID)
+    const groupsItem = items.find(item => item.path === "/dashboard/items/groups");
+    if (groupsItem) {
+      parentItem = groupsItem;
+    } else {
+      // If not found, create a parent item pointing to groups list
+      parentItem = { path: "/dashboard/items/groups", label: "Groups" };
+    }
+    
+    // Update current label with group code
+    if (groupCode) {
+      currentLabel = isGroupEdit ? `Edit ${groupCode}` : groupCode;
+    } else {
+      // Show loading state or default while fetching
+      currentLabel = isGroupEdit ? "Edit Group" : "Group Details";
+    }
+  }
 
   return (
     <div className={className}>
@@ -136,7 +243,7 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
         )}
 
         {/* Current page (bold) */}
-        <span className="text-sm font-semibold">{currentItem.label}</span>
+        <span className="text-sm font-semibold">{currentLabel}</span>
       </div>
     </div>
   );

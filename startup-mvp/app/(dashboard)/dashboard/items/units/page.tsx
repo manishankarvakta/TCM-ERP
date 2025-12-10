@@ -20,7 +20,8 @@ export default async function UnitsPage({ searchParams }: UnitsPageProps) {
   const search = params.search || "";
   const tab = params.tab || "all";
 
-  const status = tab === "trash" ? "trash" : "all";
+  // Map tab to status: all -> all, active -> active, inactive -> inactive, trash -> trash
+  const status = tab === "trash" ? "trash" : tab === "active" ? "active" : tab === "inactive" ? "inactive" : "all";
   const result = await getUnits(page, 10, search, status);
 
   // Handle errors
@@ -62,13 +63,45 @@ export default async function UnitsPage({ searchParams }: UnitsPageProps) {
       <Tabs defaultValue={tab} className="w-full">
         <TabsList>
           <TabsTrigger value="all" asChild>
-            <Link href="/dashboard/items/units?tab=all&page=1">All Units</Link>
+            <Link href={`/dashboard/items/units?tab=all&page=1${search ? `&search=${search}` : ""}`}>All Units</Link>
+          </TabsTrigger>
+          <TabsTrigger value="active" asChild>
+            <Link href={`/dashboard/items/units?tab=active&page=1${search ? `&search=${search}` : ""}`}>Active</Link>
+          </TabsTrigger>
+          <TabsTrigger value="inactive" asChild>
+            <Link href={`/dashboard/items/units?tab=inactive&page=1${search ? `&search=${search}` : ""}`}>Inactive</Link>
           </TabsTrigger>
           <TabsTrigger value="trash" asChild>
-            <Link href="/dashboard/items/units?tab=trash&page=1">Trash</Link>
+            <Link href={`/dashboard/items/units?tab=trash&page=1${search ? `&search=${search}` : ""}`}>Trash</Link>
           </TabsTrigger>
         </TabsList>
         <TabsContent value="all" className="mt-4">
+          <UnitsListClient
+            initialUnits={result?.units || []}
+            initialPagination={result?.pagination || {
+              page: 1,
+              limit: 10,
+              total: 0,
+              totalPages: 0,
+            }}
+            initialSearch={search}
+            isTrash={false}
+          />
+        </TabsContent>
+        <TabsContent value="active" className="mt-4">
+          <UnitsListClient
+            initialUnits={result?.units || []}
+            initialPagination={result?.pagination || {
+              page: 1,
+              limit: 10,
+              total: 0,
+              totalPages: 0,
+            }}
+            initialSearch={search}
+            isTrash={false}
+          />
+        </TabsContent>
+        <TabsContent value="inactive" className="mt-4">
           <UnitsListClient
             initialUnits={result?.units || []}
             initialPagination={result?.pagination || {

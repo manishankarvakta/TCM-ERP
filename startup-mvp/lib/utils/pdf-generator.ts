@@ -1,22 +1,31 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Quotation, QuotationWithAll } from '@/types/quotation';
-import { formatDate, formatCurrency } from './formatters';
+import { formatDate } from './formatters';
 
 // Helper function to get unit description
 const getUnitDescription = (item: any): string => {
-  // For now, we'll use PC as default, but this can be enhanced
-  return 'PC';
+  // Use unit from item if available, otherwise default to PC
+  return item.unit || 'PC';
 };
 
-// Helper function to combine all items from a module (groups + direct items)
-const getAllModuleItems = (module: any): any[] => {
+// Helper function to format currency with BDT on the right
+const formatCurrencyRight = (amount: number): string => {
+  const formatted = new Intl.NumberFormat('en-BD', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+  return `${formatted} BDT`;
+};
+
+// Helper function to combine all items from a section (groups + category groups + direct items)
+const getAllSectionItems = (section: any): any[] => {
   const allItems: any[] = [];
   let slCounter = 1;
 
   // Add items from groups first
-  if (module.groups && module.groups.length > 0) {
-    module.groups.forEach((group: any) => {
+  if (section.groups && section.groups.length > 0) {
+    section.groups.forEach((group: any) => {
       if (group.items && group.items.length > 0) {
         group.items.forEach((item: any) => {
           allItems.push({
@@ -29,9 +38,24 @@ const getAllModuleItems = (module: any): any[] => {
     });
   }
 
+  // Add items from category groups
+  if (section.categoryGroups && section.categoryGroups.length > 0) {
+    section.categoryGroups.forEach((categoryGroup: any) => {
+      if (categoryGroup.items && categoryGroup.items.length > 0) {
+        categoryGroup.items.forEach((item: any) => {
+          allItems.push({
+            ...item,
+            box: categoryGroup.category?.name || item.code || '',
+            sl: slCounter++,
+          });
+        });
+      }
+    });
+  }
+
   // Add direct items
-  if (module.items && module.items.length > 0) {
-    module.items.forEach((item: any) => {
+  if (section.items && section.items.length > 0) {
+    section.items.forEach((item: any) => {
       allItems.push({
         ...item,
         box: item.code || '',
@@ -43,24 +67,76 @@ const getAllModuleItems = (module: any): any[] => {
   return allItems;
 };
 
+
 // Helper function to load image as base64
 const loadImageAsBase64 = async (imagePath: string): Promise<string | null> => {
   try {
-    const response = await fetch(imagePath);
+    // Handle both absolute URLs and relative paths
+    const url = imagePath.startsWith('http') ? imagePath : imagePath;
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.warn(`Image not found at ${imagePath}, skipping logo`);
+      return null;
+    }
+    
     const blob = await response.blob();
+    
+    // Check if the blob is actually an image
+    if (!blob.type.startsWith('image/')) {
+      console.warn(`File at ${imagePath} is not an image, skipping logo`);
+      return null;
+    }
+    
+    // Check if blob has content
+    if (blob.size === 0) {
+      console.warn(`Image at ${imagePath} is empty, skipping logo`);
+      return null;
+    }
+    
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64String = reader.result as string;
-        resolve(base64String);
+        try {
+          const base64String = reader.result as string;
+          // Validate base64 string
+          if (!base64String || !base64String.startsWith('data:image/')) {
+            console.warn(`Invalid image data from ${imagePath}, skipping logo`);
+            resolve(null);
+            return;
+          }
+          resolve(base64String);
+        } catch (error) {
+          console.warn(`Error processing image data from ${imagePath}:`, error);
+          resolve(null);
+        }
       };
-      reader.onerror = reject;
+      reader.onerror = () => {
+        console.warn(`Error reading image file from ${imagePath}, skipping logo`);
+        resolve(null); // Resolve with null instead of rejecting
+      };
       reader.readAsDataURL(blob);
     });
   } catch (error) {
-    console.error('Error loading image:', error);
+    console.warn(`Error loading image from ${imagePath}, skipping logo:`, error);
     return null;
   }
+};
+
+// Helper function to get image dimensions and calculate width based on desired height
+const getImageDimensions = (base64String: string, desiredHeight: number): Promise<{ width: number; height: number } | null> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const aspectRatio = img.width / img.height;
+      const calculatedWidth = desiredHeight * aspectRatio;
+      resolve({ width: calculatedWidth, height: desiredHeight });
+    };
+    img.onerror = () => {
+      console.warn('Error loading image to get dimensions');
+      resolve(null);
+    };
+    img.src = base64String;
+  });
 };
 
 // Draw page border
@@ -79,6 +155,26 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   const margin = 15;
   let yPos = margin + 10;
 
+  // Set font to Roboto (fallback to helvetica if Roboto not available)
+  // Note: To use Roboto, you need to add Roboto font files to jsPDF
+  // For now, using helvetica as it's similar to Roboto
+  // To add Roboto: doc.addFont('path/to/roboto.ttf', 'Roboto', 'normal');
+  // Then use: doc.setFont('Roboto', 'normal');
+  doc.setFont('helvetica', 'normal'); // Using helvetica as Roboto alternative
+
+  // Get organization data from quotation
+  const organization = quotation.organization || null;
+  const orgName = organization?.name || 'Organization';
+  const orgAddress = organization?.address || '';
+  const orgPhone = organization?.phone || '';
+  const orgEmail = organization?.email || '';
+  const orgWebsite = organization?.website || '';
+  const orgLogo = organization?.logo || null;
+
+  // Get client data from quotation
+  const client = quotation.client || null;
+  const clientLogo = client?.image || null;
+
   // ============================================
   // PAGE 1: COVER PAGE
   // ============================================
@@ -90,55 +186,171 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   // Draw border
   drawPageBorder(doc, margin);
 
-  // Load and add client logo
+  // ============================================
+  // TOP SECTION: 2-COLUMN LAYOUT
+  // ============================================
+  
+  const topSectionY = yPos;
+  const columnGap = 10; // Gap between columns
+  const columnWidth = (pageWidth - 2 * margin - columnGap) / 2; // Divide available width into 2 columns
+  const leftColumnX = margin + 5;
+  const rightColumnX = margin + 5 + columnWidth + columnGap;
+  let leftColumnY = topSectionY;
+  let rightColumnY = topSectionY;
+
+  // LEFT COLUMN: Hi-Tech Logo and Company Details
+  const hiTechLogoPath = '/hi-tech.png';
+  const topLogoHeight = 80; // Fixed height in pixels (reduced from 100px)
+  
   try {
-    const logoBase64 = await loadImageAsBase64('/clientLogo.png');
-    if (logoBase64) {
-      const logoWidth = 40;
-      const logoHeight = 40;
-      const logoX = margin + 5;
-      const logoY = yPos;
-      doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
+    const hiTechLogoBase64 = await loadImageAsBase64(hiTechLogoPath);
+    if (hiTechLogoBase64) {
+      try {
+        const dimensions = await getImageDimensions(hiTechLogoBase64, topLogoHeight);
+        if (dimensions) {
+          // Convert pixels to mm (1mm ≈ 3.779527559 pixels at 96 DPI)
+          const logoHeightMM = topLogoHeight / 3.779527559;
+          const logoWidthMM = dimensions.width / 3.779527559;
+          doc.addImage(hiTechLogoBase64, 'PNG', leftColumnX, leftColumnY, logoWidthMM, logoHeightMM);
+          leftColumnY += logoHeightMM + 5; // Add spacing after logo
+        }
+      } catch (imageError) {
+        console.warn('Error adding hi-tech logo to PDF, continuing without logo:', imageError);
+      }
     }
   } catch (error) {
-    console.error('Error loading logo:', error);
+    console.warn('Error loading hi-tech logo, continuing without logo:', error);
   }
 
-  // Company Name (Right side of header)
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  const companyName = 'Tilottoma Eco Kitchen & Furniture Industry Ltd';
-  doc.text(companyName, pageWidth - margin - 5, yPos + 5, { align: 'right' });
-  yPos += 25;
-
-  // Company Address and Contact Information (Right aligned)
+  // Company details below hi-tech logo
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  const companyInfo = [
-    'Vill: Baupara, Ward No:21, P.O:Bhawal Mirzapur Sadar, Gazipur, Bangladesh.',
-    'Phone: 8652259, 9668808',
-    'Fax: +88-2-9663184',
-    'E-mail: info@mykitchen-bd.com',
-    'Web: www.mykitchen-bd.com',
+  const companyDetails = [
+    'Office: 28, Land View Commercial, Gulshan-2, Dhaka',
+    'Factory: Plot-10202, Mogardia Bazar, Satarkul, Madani Avenue',
+    'Phone: 01923 5980080, 01950 507407',
+    'Email: info@espaciodb.com',
+    'Web: https://espaciobd.com'
   ];
   
-  companyInfo.forEach((info) => {
-    doc.text(info, pageWidth - margin - 5, yPos, { align: 'right' });
-    yPos += 4;
+  companyDetails.forEach((detail) => {
+    const lines = doc.splitTextToSize(detail, columnWidth - 5);
+    lines.forEach((line: string) => {
+      doc.text(line, leftColumnX, leftColumnY);
+      leftColumnY += 4;
+    });
   });
 
-  // Central Large Logo (if available)
-  const centerX = pageWidth / 2;
-  const largeLogoSize = 50;
+  // RIGHT COLUMN: Organization Logo and Info
+  const orgLogoPath = orgLogo || '/clientLogo.png';
+  const rightMargin = 5; // Margin from the right edge of the page
+  const rightColumnEndX = pageWidth - margin - rightMargin; // End position for right alignment with margin from page edge
+  
   try {
-    const logoBase64 = await loadImageAsBase64('/clientLogo.png');
+    const orgLogoBase64 = await loadImageAsBase64(orgLogoPath);
+    if (orgLogoBase64) {
+      try {
+        const dimensions = await getImageDimensions(orgLogoBase64, topLogoHeight);
+        if (dimensions) {
+          // Convert pixels to mm (1mm ≈ 3.779527559 pixels at 96 DPI)
+          const logoHeightMM = topLogoHeight / 3.779527559;
+          const logoWidthMM = dimensions.width / 3.779527559;
+          // Position logo at the right edge of the column (right-aligned)
+          const logoX = rightColumnEndX - logoWidthMM;
+          doc.addImage(orgLogoBase64, 'PNG', logoX, rightColumnY, logoWidthMM, logoHeightMM);
+          rightColumnY += logoHeightMM + 5; // Add spacing after logo
+        }
+      } catch (imageError) {
+        console.warn('Error adding organization logo to PDF, continuing without logo:', imageError);
+      }
+    }
+  } catch (error) {
+    console.warn('Error loading organization logo, continuing without logo:', error);
+  }
+
+  // Organization Name and Info below logo (right-aligned)
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text(orgName, rightColumnEndX, rightColumnY, { align: 'right' });
+  rightColumnY += 5;
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  const orgInfo: string[] = [];
+  
+  if (orgAddress) {
+    orgInfo.push(orgAddress);
+  }
+  if (orgPhone) {
+    orgInfo.push(`Phone: ${orgPhone}`);
+  }
+  if (orgEmail) {
+    orgInfo.push(`E-mail: ${orgEmail}`);
+  }
+  if (orgWebsite) {
+    orgInfo.push(`Web: ${orgWebsite}`);
+  }
+  
+  // If no organization info, add a placeholder
+  if (orgInfo.length === 0) {
+    orgInfo.push('Organization information not available');
+  }
+  
+  orgInfo.forEach((info) => {
+    const lines = doc.splitTextToSize(info, columnWidth - 5);
+    lines.forEach((line: string) => {
+      doc.text(line, rightColumnEndX, rightColumnY, { align: 'right' });
+      rightColumnY += 4;
+    });
+  });
+
+  // Update yPos to the bottom of the top section (use the maximum of both columns)
+  yPos = Math.max(leftColumnY, rightColumnY) + 10;
+
+  // Central Large Logo - Use client logo (or fallback to default)
+  // Fixed height: 100px, width auto (maintain aspect ratio)
+  const centerX = pageWidth / 2;
+  const centerLogoHeight = 100; // Fixed height in pixels
+  const clientLogoPath = clientLogo || '/clientLogo.png';
+  let centerLogoHeightMM = 0;
+  
+  // Debug: Log client logo information
+  if (clientLogo) {
+    console.log('Client logo path:', clientLogo);
+  } else {
+    console.log('No client logo found, using fallback:', clientLogoPath);
+  }
+  
+  try {
+    const logoBase64 = await loadImageAsBase64(clientLogoPath);
     if (logoBase64) {
-      doc.addImage(logoBase64, 'PNG', centerX - largeLogoSize / 2, yPos, largeLogoSize, largeLogoSize);
+      try {
+        const dimensions = await getImageDimensions(logoBase64, centerLogoHeight);
+        if (dimensions) {
+          // Convert pixels to mm (1mm ≈ 3.779527559 pixels at 96 DPI)
+          centerLogoHeightMM = centerLogoHeight / 3.779527559;
+          const centerLogoWidthMM = dimensions.width / 3.779527559;
+          doc.addImage(logoBase64, 'PNG', centerX - centerLogoWidthMM / 2, yPos, centerLogoWidthMM, centerLogoHeightMM);
+          console.log('Client logo added successfully, dimensions:', dimensions);
+        } else {
+          console.warn('Could not get dimensions for client logo');
+        }
+      } catch (imageError) {
+        console.warn('Error adding client logo to PDF, continuing without logo:', imageError);
+        // Continue without logo
+      }
+    } else {
+      console.warn('Client logo not loaded, path:', clientLogoPath, 'clientLogo value:', clientLogo);
     }
   } catch (error) {
     // If logo fails, continue without it
+    console.warn('Error loading client logo, continuing without logo:', error);
   }
-  yPos += largeLogoSize + 20;
+  // Use the actual logo height or default if logo wasn't loaded
+  if (centerLogoHeightMM === 0) {
+    centerLogoHeightMM = centerLogoHeight / 3.779527559;
+  }
+  yPos += centerLogoHeightMM + 20;
 
   // Document Title: FINANCIAL PROPOSAL (Blue, Bold, Centered)
   doc.setTextColor(0, 0, 255); // Blue color
@@ -223,21 +435,38 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 255); // Blue
-  doc.text('Hot Line: 01642912617-8', margin + 5, footerY);
-  doc.text('E-mail: Sales@mykitchen-bd.com', pageWidth - margin - 5, footerY, { align: 'right' });
+  if (orgPhone) {
+    doc.text(`Hot Line: ${orgPhone}`, margin + 5, footerY);
+  }
+  if (orgEmail) {
+    doc.text(`E-mail: ${orgEmail}`, pageWidth - margin - 5, footerY, { align: 'right' });
+  }
   doc.setTextColor(0, 0, 0); // Reset to black
 
-  // Company Logo at Bottom Right Corner
+  // Organization Logo at Bottom Right Corner
+  // Fixed height: 50px, width auto (maintain aspect ratio)
+  const bottomLogoHeight = 50; // Fixed height in pixels
   try {
-    const logoBase64 = await loadImageAsBase64('/clientLogo.png');
+    const logoBase64 = await loadImageAsBase64(orgLogoPath);
     if (logoBase64) {
-      const logoSize = 30;
-      const logoXBottom = pageWidth - margin - logoSize - 5;
-      const logoYBottom = pageHeight - margin - logoSize - 5;
-      doc.addImage(logoBase64, 'PNG', logoXBottom, logoYBottom, logoSize, logoSize);
+      try {
+        const dimensions = await getImageDimensions(logoBase64, bottomLogoHeight);
+        if (dimensions) {
+          // Convert pixels to mm (1mm ≈ 3.779527559 pixels at 96 DPI)
+          const bottomLogoHeightMM = bottomLogoHeight / 3.779527559;
+          const bottomLogoWidthMM = dimensions.width / 3.779527559;
+          const logoXBottom = pageWidth - margin - bottomLogoWidthMM - 5;
+          const logoYBottom = pageHeight - margin - bottomLogoHeightMM - 5;
+          doc.addImage(logoBase64, 'PNG', logoXBottom, logoYBottom, bottomLogoWidthMM, bottomLogoHeightMM);
+        }
+      } catch (imageError) {
+        console.warn('Error adding bottom organization logo to PDF, continuing without logo:', imageError);
+        // Continue without logo
+      }
     }
   } catch (error) {
     // Continue without logo
+    console.warn('Error loading bottom organization logo, continuing without logo:', error);
   }
 
   // ============================================
@@ -301,28 +530,36 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   doc.text('Financial Statement:', margin + 10, yPos);
   yPos += 5;
 
-  // Calculate module totals for financial statement
-  const hasModules = quotation.modules && Array.isArray(quotation.modules) && quotation.modules.length > 0;
+  // Calculate section totals for financial statement
+  const hasSections = (quotation.section || quotation.sections) && Array.isArray(quotation.section || quotation.sections) && (quotation.section || quotation.sections).length > 0;
+  const sections = quotation.section || quotation.sections || [];
   const financialStatementData: any[] = [];
   let grandTotal = 0;
 
-  if (hasModules) {
-    quotation.modules.forEach((module: any, index: number) => {
-      const allItems = getAllModuleItems(module);
-      let moduleTotal = 0;
-      allItems.forEach((item: any) => {
-        moduleTotal += Number(item.amount || 0);
-      });
-      if (module.discount) {
-        moduleTotal = moduleTotal * (1 - Number(module.discount) / 100);
+  if (hasSections) {
+    sections.forEach((section: any, index: number) => {
+      // Use grandTotal if available (already calculated with discount), otherwise calculate
+      let sectionTotal = 0;
+      if (section.grandTotal != null) {
+        sectionTotal = Number(section.grandTotal || 0);
+      } else {
+        // Calculate from items
+        const allItems = getAllSectionItems(section);
+        allItems.forEach((item: any) => {
+          sectionTotal += Number(item.amount || 0);
+        });
+        // Apply discount (amount-based, not percentage)
+        if (section.discount) {
+          sectionTotal = Math.max(0, sectionTotal - Number(section.discount));
+        }
       }
-      grandTotal += moduleTotal;
+      grandTotal += sectionTotal;
       
-      // Combine SL number and module name in first column, Amount in second
-      const moduleName = module.title || `Module ${index + 1}`;
+      // Combine SL number and section name in first column, Amount in second
+      const sectionName = section.title || `Section ${index + 1}`;
       financialStatementData.push([
-        `${index + 1}: ${moduleName}`,
-        formatCurrency(moduleTotal),
+        `${index + 1}: ${sectionName}`,
+        formatCurrencyRight(sectionTotal),
       ]);
     });
   }
@@ -334,7 +571,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
       styles: { fontStyle: 'bold', halign: 'right' },
     },
     {
-      content: formatCurrency(grandTotal || Number(quotation.total || 0)),
+      content: formatCurrencyRight(grandTotal || Number(quotation.total || 0)),
       styles: { fontStyle: 'bold', fillColor: [255, 165, 0], textColor: [0, 0, 0] }, // Orange-brown color
     },
   ]);
@@ -360,8 +597,8 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
       lineColor: [0, 0, 0],
     },
     columnStyles: {
-      0: { cellWidth: 'auto', halign: 'left' }, // SL with module name
-      1: { cellWidth: 60, halign: 'right' }, // Amount Tk
+      0: { cellWidth: 'auto', halign: 'left' }, // SL with section name
+      1: { cellWidth: 60, halign: 'right', font: 'helvetica' }, // Amount Tk - explicitly use helvetica (not roboto)
     },
     margin: { left: margin + 10, right: margin + 10 },
     didDrawPage: (data: any) => {
@@ -438,16 +675,16 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   });
 
   // ============================================
-  // PAGES 3+: QUOTATION TABLES (One module per page)
+  // PAGES 3+: QUOTATION TABLES (One section per page)
   // ============================================
-  // hasModules already declared above
+  // hasSections already declared above
   const hasPhases = quotation.phases && Array.isArray(quotation.phases) && quotation.phases.length > 0;
   const hasItems = quotation.items && Array.isArray(quotation.items) && quotation.items.length > 0;
 
-  if (hasModules) {
-    // New module-based structure - Each module on a new page
-    quotation.modules.forEach((module: any, moduleIndex: number) => {
-      // New page for each module
+  if (hasSections) {
+    // New section-based structure - Each section on a new page
+    sections.forEach((section: any, sectionIndex: number) => {
+      // New page for each section
       doc.addPage();
       doc.setFillColor(255, 255, 255);
       doc.rect(0, 0, pageWidth, pageHeight, 'F');
@@ -457,23 +694,27 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
       // Section title outside the table, above it
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.text(module.title || `Module ${moduleIndex + 1}`, margin + 5, yPos);
+      doc.text(section.title || `Section ${sectionIndex + 1}`, margin + 5, yPos);
       yPos += 10;
 
       // Prepare table data with groups, items, and notes
       const tableData: any[] = [];
 
-      // Calculate module total
-      let moduleTotal = 0;
+      // Calculate section total
+      let sectionTotal = 0;
       let slCounter = 1;
 
       // 2. Process groups first (groups appear before direct items)
       // Create a copy of the array before sorting to avoid read-only issues
-      const sortedGroups = [...(module.groups || [])].sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      const sortedGroups = [...(section.groups || [])].sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
       
       sortedGroups.forEach((group: any) => {
         // Group header row - spans Code and Description columns
         // Create new objects to avoid read-only issues
+        // Split description text to prevent overflow
+        const groupDescription = String(group.description || '');
+        const descriptionLines = doc.splitTextToSize(groupDescription, 50); // Max width in mm
+        
         tableData.push([
           '',
           '',
@@ -482,7 +723,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
             styles: { fontStyle: 'bold', fontSize: 8 },
           },
           {
-            content: String(group.description || ''),
+            content: descriptionLines,
             colSpan: 8, // Spans from Description through Amount Tk
             styles: { fontStyle: 'bold', fontSize: 8 },
           },
@@ -495,6 +736,12 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
           try {
             const hasDimensions = !!(item.height || item.width || item.depth);
             
+            // Split text to prevent overflow
+            const itemCode = String(item.code || '');
+            const itemDescription = String(item.description || '');
+            const codeLines = doc.splitTextToSize(itemCode, 18); // Max width for Code column
+            const descriptionLines = doc.splitTextToSize(itemDescription, 50); // Max width for Description column
+            
             // Create new array for each row to avoid read-only issues
             let row: any[];
             
@@ -504,15 +751,15 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
               row = [
                 slCounter++,
                 String(item.box || group.code || ''), // Box value for group items
-                String(item.code || ''),
-                String(item.description || ''),
+                codeLines,
+                descriptionLines,
                 item.height ? String(Number(item.height).toFixed(0)) : '-',
                 item.width ? String(Number(item.width).toFixed(0)) : '-',
                 item.depth ? String(Number(item.depth).toFixed(0)) : '-',
-                formatCurrency(Number(item.unitPrice || 0)),
+                formatCurrencyRight(Number(item.unitPrice || 0)),
                 Number(item.quantity || 0),
                 getUnitDescription(item),
-                formatCurrency(Number(item.amount || 0)),
+                formatCurrencyRight(Number(item.amount || 0)),
               ];
             } else {
               // Item without dimensions - Description in its own cell, dimension cells empty
@@ -520,20 +767,20 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
               row = [
                 slCounter++,
                 String(item.box || group.code || ''), // Box value for group items
-                String(item.code || ''),
-                String(item.description || ''),
+                codeLines,
+                descriptionLines,
                 '', // Empty for H
                 '', // Empty for W
                 '', // Empty for D
-                formatCurrency(Number(item.unitPrice || 0)),
+                formatCurrencyRight(Number(item.unitPrice || 0)),
                 Number(item.quantity || 0),
                 getUnitDescription(item),
-                formatCurrency(Number(item.amount || 0)),
+                formatCurrencyRight(Number(item.amount || 0)),
               ];
             }
             
             tableData.push(row);
-            moduleTotal += Number(item.amount || 0);
+            sectionTotal += Number(item.amount || 0);
           } catch (itemError) {
             console.error('Error processing group item:', itemError, item);
             // Continue with next item
@@ -562,12 +809,97 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
         }
       });
 
-      // 7. Direct module items (not in groups) - Create a copy of the array before sorting to avoid read-only issues
-      const sortedDirectItems = [...(module.items || [])].sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      // 3. Process category groups (after regular groups, before direct items)
+      const sortedCategoryGroups = [...(section.categoryGroups || [])].sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      
+      sortedCategoryGroups.forEach((categoryGroup: any) => {
+        // Category group header row - spans Code and Description columns
+        const categoryName = categoryGroup.category?.name || 'Uncategorized';
+        const categoryNameLines = doc.splitTextToSize(categoryName, 50); // Max width in mm
+        
+        tableData.push([
+          '',
+          '',
+          {
+            content: categoryName,
+            styles: { fontStyle: 'bold', fontSize: 8, fillColor: [240, 240, 250] },
+          },
+          {
+            content: categoryNameLines,
+            colSpan: 8, // Spans from Description through Amount Tk
+            styles: { fontStyle: 'bold', fontSize: 8, fillColor: [240, 240, 250] },
+          },
+        ]);
+
+        // Category group items - Create a copy of the array before sorting to avoid read-only issues
+        const sortedCategoryGroupItems = [...(categoryGroup.items || [])].sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        
+        sortedCategoryGroupItems.forEach((item: any) => {
+          try {
+            const hasDimensions = !!(item.height || item.width || item.depth);
+            
+            // Split text to prevent overflow
+            const itemCode = String(item.code || '');
+            const itemDescription = String(item.description || '');
+            const codeLines = doc.splitTextToSize(itemCode, 18); // Max width for Code column
+            const descriptionLines = doc.splitTextToSize(itemDescription, 50); // Max width for Description column
+            
+            // Create new array for each row to avoid read-only issues
+            let row: any[];
+            
+            if (hasDimensions) {
+              // Item with dimensions
+              row = [
+                slCounter++,
+                categoryName, // Box value for category group items
+                codeLines,
+                descriptionLines,
+                item.height ? String(Number(item.height).toFixed(0)) : '-',
+                item.width ? String(Number(item.width).toFixed(0)) : '-',
+                item.depth ? String(Number(item.depth).toFixed(0)) : '-',
+                formatCurrencyRight(Number(item.unitPrice || 0)),
+                Number(item.quantity || 0),
+                getUnitDescription(item),
+                formatCurrencyRight(Number(item.amount || 0)),
+              ];
+            } else {
+              // Item without dimensions
+              row = [
+                slCounter++,
+                categoryName, // Box value for category group items
+                codeLines,
+                descriptionLines,
+                '', // Empty for H
+                '', // Empty for W
+                '', // Empty for D
+                formatCurrencyRight(Number(item.unitPrice || 0)),
+                Number(item.quantity || 0),
+                getUnitDescription(item),
+                formatCurrencyRight(Number(item.amount || 0)),
+              ];
+            }
+            
+            tableData.push(row);
+            sectionTotal += Number(item.amount || 0);
+          } catch (itemError) {
+            console.error('Error processing category group item:', itemError, item);
+            // Continue with next item
+          }
+        });
+      });
+
+      // 4. Direct section items (not in groups) - Create a copy of the array before sorting to avoid read-only issues
+      const sortedDirectItems = [...(section.items || [])].sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
       
       sortedDirectItems.forEach((item: any) => {
         try {
           const hasDimensions = !!(item.height || item.width || item.depth);
+          
+          // Split text to prevent overflow
+          const itemCode = String(item.code || '');
+          const itemDescription = String(item.description || '');
+          const codeLines = doc.splitTextToSize(itemCode, 18); // Max width for Code column
+          const descriptionLines = doc.splitTextToSize(itemDescription, 50); // Max width for Description column
           
           // Create new array for each row to avoid read-only issues
           let row: any[];
@@ -578,15 +910,15 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
             row = [
               slCounter++,
               '', // Empty box cell for direct items
-              String(item.code || ''),
-              String(item.description || ''),
+              codeLines,
+              descriptionLines,
               item.height ? String(Number(item.height).toFixed(0)) : '-',
               item.width ? String(Number(item.width).toFixed(0)) : '-',
               item.depth ? String(Number(item.depth).toFixed(0)) : '-',
-              formatCurrency(Number(item.unitPrice || 0)),
+              formatCurrencyRight(Number(item.unitPrice || 0)),
               Number(item.quantity || 0),
               getUnitDescription(item),
-              formatCurrency(Number(item.amount || 0)),
+              formatCurrencyRight(Number(item.amount || 0)),
             ];
           } else {
             // Item without dimensions - Description in its own cell, dimension cells empty
@@ -594,49 +926,52 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
             row = [
               slCounter++,
               '', // Empty box cell for direct items
-              String(item.code || ''),
-              String(item.description || ''),
+              codeLines,
+              descriptionLines,
               '', // Empty for H
               '', // Empty for W
               '', // Empty for D
-              formatCurrency(Number(item.unitPrice || 0)),
+              formatCurrencyRight(Number(item.unitPrice || 0)),
               Number(item.quantity || 0),
               getUnitDescription(item),
-              formatCurrency(Number(item.amount || 0)),
+              formatCurrencyRight(Number(item.amount || 0)),
             ];
           }
           
           tableData.push(row);
-          moduleTotal += Number(item.amount || 0);
+          sectionTotal += Number(item.amount || 0);
         } catch (itemError) {
           console.error('Error processing direct item:', itemError, item);
           // Continue with next item
         }
       });
 
-      // Apply discount if any
-      if (module.discount) {
-        moduleTotal = moduleTotal * (1 - Number(module.discount) / 100);
+      // Apply discount if any (amount-based, not percentage)
+      if (section.discount) {
+        sectionTotal = Math.max(0, sectionTotal - Number(section.discount));
       }
+
+      // Use grandTotal if available, otherwise use calculated total
+      const finalTotal = section.grandTotal != null ? Number(section.grandTotal || 0) : sectionTotal;
 
       // 8. Total row - Create new objects to avoid read-only issues
       tableData.push([
         {
           content: 'Total:',
           colSpan: 10,
-          styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 },
+          styles: { halign: 'right', fontStyle: 'bold', fontSize: 9, font: 'helvetica' },
         },
         {
-          content: formatCurrency(moduleTotal),
-          styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 },
+          content: formatCurrencyRight(finalTotal),
+          styles: { halign: 'right', fontStyle: 'bold', fontSize: 9, font: 'helvetica' }, // Explicitly use helvetica (not roboto)
         },
       ]);
 
-      // 9. Module Note row - Create new object to avoid read-only issues
-      if (module.note) {
+      // 9. Section Note row - Create new object to avoid read-only issues
+      if (section.note) {
         tableData.push([
           {
-            content: `Note: ${String(module.note)}`,
+            content: `Note: ${String(section.note)}`,
             colSpan: 11,
             styles: { fontStyle: 'italic', fontSize: 7, halign: 'left' },
           },
@@ -644,8 +979,8 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
       }
 
       // 10. Prepared By row - Create new object to avoid read-only issues
-      const preparedByName = module.preparedBy?.name || quotation.submittedBy?.name || quotation.submittedBy || 'N/A';
-      const preparedByRole = module.preparedBy?.role || '';
+      const preparedByName = section.preparedBy?.name || quotation.submittedBy?.name || quotation.submittedBy || 'N/A';
+      const preparedByRole = section.preparedBy?.role || '';
       const preparedByText = preparedByRole 
         ? `Prepared By: ${String(preparedByName)}, ${String(preparedByRole)}`
         : `Prepared By: ${String(preparedByName)}`;
@@ -660,11 +995,11 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
 
       // Generate table with exact design matching screenshot
       try {
-        // Ensure we have at least one row if module is empty
+        // Ensure we have at least one row if section is empty
         if (tableData.length === 0) {
           tableData.push([
             {
-              content: 'No items in this module',
+              content: 'No items in this section',
               colSpan: 11,
               styles: { halign: 'center', fontStyle: 'italic', fontSize: 8 },
             },
@@ -714,6 +1049,8 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
             cellPadding: 1,
             lineWidth: 0.25,
             lineColor: [0, 0, 0],
+            overflow: 'linebreak', // Enable line breaks for text overflow
+            cellWidth: 'wrap', // Wrap content to prevent overflow
           },
           columnStyles: {
             0: { cellWidth: 8, halign: 'center' }, // SL
@@ -723,10 +1060,10 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
             4: { cellWidth: 10, halign: 'center' }, // H
             5: { cellWidth: 10, halign: 'center' }, // W
             6: { cellWidth: 10, halign: 'center' }, // D
-            7: { cellWidth: 20, halign: 'right' }, // Unit price
+            7: { cellWidth: 20, halign: 'right', font: 'helvetica' }, // Unit price - explicitly use helvetica (not roboto)
             8: { cellWidth: 10, halign: 'right' }, // Qty
             9: { cellWidth: 12, halign: 'center' }, // Description of
-            10: { cellWidth: 20, halign: 'right' }, // Amount Tk
+            10: { cellWidth: 20, halign: 'right', font: 'helvetica' }, // Amount Tk - explicitly use helvetica (not roboto)
           },
           margin: { left: margin + 5, right: margin + 5 },
           tableWidth: 'auto', // Use 100% width
@@ -735,10 +1072,10 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
           },
         });
       } catch (tableError) {
-        console.error('Error generating table for module:', tableError, module);
+        console.error('Error generating table for section:', tableError, section);
         // Add a simple text fallback
         doc.setFontSize(10);
-        doc.text(`Error generating table for ${module.title || 'module'}. Please check the console.`, margin + 5, yPos);
+        doc.text(`Error generating table for ${section.title || 'section'}. Please check the console.`, margin + 5, yPos);
         yPos += 10;
       }
 
@@ -764,7 +1101,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
     doc.setFontSize(24);
     doc.setFont('helvetica', 'bold');
     doc.text(
-      formatCurrency(Number(grandTotal)),
+      formatCurrencyRight(Number(grandTotal)),
       pageWidth / 2,
       yPos,
       { align: 'center' }
@@ -807,8 +1144,8 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
                 item.description || '-',
                 item.unit || '-',
                 item.quantity || 0,
-                formatCurrency(Number(item.selectedRate || item.rateDhakaMym || 0)),
-                formatCurrency(Number(item.amount || 0)),
+                formatCurrencyRight(Number(item.selectedRate || item.rateDhakaMym || 0)),
+                formatCurrencyRight(Number(item.amount || 0)),
               ]);
             });
           }
@@ -816,7 +1153,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
           if (tableData.length > 0) {
             tableData.push([
               {
-                content: `Section Total: ${formatCurrency(Number(section.sectionTotal || 0))}`,
+                content: `Section Total: ${formatCurrencyRight(Number(section.sectionTotal || 0))}`,
                 colSpan: 6,
                 styles: { fontStyle: 'bold', halign: 'right', fillColor: [245, 245, 245] },
               },

@@ -1,18 +1,27 @@
 import { configureStore } from "@reduxjs/toolkit";
+import { persistStore } from "redux-persist";
 import authReducer from "@/lib/features/auth/authSlice";
 import notificationReducer from "@/lib/features/notification/notificationSlice";
 import quotationReducer from "@/lib/redux/slices/quotationSlice";
 import uiReducer from "@/lib/redux/slices/uiSlice";
 
 export const makeStore = () => {
-  return configureStore({
+  const store = configureStore({
     reducer: {
       auth: authReducer,
       notification: notificationReducer,
       quotation: quotationReducer,
       ui: uiReducer,
     },
+    middleware: (getDefaultMiddleware) =>
+      getDefaultMiddleware({
+        serializableCheck: {
+          ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
+        },
+      }),
   });
+
+  return store;
 };
 
 export type AppStore = ReturnType<typeof makeStore>;

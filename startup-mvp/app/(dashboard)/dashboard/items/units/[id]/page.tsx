@@ -1,5 +1,5 @@
 import { getUnitById } from "../../_actions/unit.action";
-import UnitForm from "../../_components/itemForm";
+import UnitForm from "../../_components/unitForm";
 import { notFound } from "next/navigation";
 
 interface EditUnitPageProps {

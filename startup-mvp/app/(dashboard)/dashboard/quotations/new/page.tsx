@@ -11,6 +11,7 @@ export default function NewQuotationPage() {
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (data: Record<string, unknown>) => {
+    console.log("data",data);
     startTransition(async () => {
       try {
         setError(null);

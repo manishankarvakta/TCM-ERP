@@ -16,6 +16,7 @@ import { LocationRatesTable } from './LocationRatesTable';
 import { FiInfo, FiTrash2 } from 'react-icons/fi';
 import type { PWDItemFormData } from '@/types/quotation';
 import type { LocationType } from '@/types/enums';
+import type { LocationRates } from '@/types/pwd-schedule';
 
 interface PWDItemCardProps {
   item: PWDItemFormData;
@@ -38,7 +39,8 @@ export function PWDItemCard({
   };
 
   const selectedRate = item.selectedRate || item.rateDhakaMym || 0;
-  const amount = (selectedRate * item.quantity) || 0;
+  const selectedRateNumber = typeof selectedRate === 'string' ? parseFloat(selectedRate) || 0 : selectedRate;
+  const amount = (selectedRateNumber * item.quantity) || 0;
 
   return (
     <Card className="border-2">
@@ -69,7 +71,7 @@ export function PWDItemCard({
             <Label className="text-xs">Rate (per {item.unit})</Label>
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold">
-                {formatCurrency(selectedRate)}
+                 {formatCurrency(selectedRateNumber)}
               </span>
               <TooltipProvider>
                 <Tooltip>

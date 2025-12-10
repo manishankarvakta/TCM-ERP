@@ -68,7 +68,7 @@ export function QuotationForm({ initialData, onSubmit }: QuotationFormProps) {
       paymentTerms: initialData?.paymentTerms || '50% advance, 50% before delivery',
       deliveryTerms: initialData?.deliveryTerms || '45 days from order confirmation',
       warrantyTerms: initialData?.warrantyTerms || '6 months warranty with 4 free inspections',
-      status: initialData?.status || 'draft',
+      status: (initialData?.status || 'DRAFT') as "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "REVISED",
     };
     
     dispatch(setCurrentQuotation(quotation as Quotation));
