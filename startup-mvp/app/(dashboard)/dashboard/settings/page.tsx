@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Fingerprint,
   LucideUserCog,
+  LucideDatabaseBackup,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -40,11 +41,13 @@ import Members from "./_components/Members";
 import Security from "./_components/Security";
 import APIs from "./_components/APIs";
 import Webhooks from "./_components/Webhooks";
+import Backup from "./_components/Backup";
 
 type SettingsSection = "profile" | 
                        "experience" | 
                        "emails" | 
-                       "calendars" | 
+                       "calendars" |
+                       "backup" | 
                        "general" | 
                        "members" | 
                        "roles" | 
@@ -120,6 +123,7 @@ export default function SettingsPage() {
             { id: "sms" as SettingsSection, label: "SMS", icon: HiEnvelope, active: activeSection === "sms" },
           ],
         },
+        { id: "backup" as SettingsSection, label: "Backup", icon: LucideDatabaseBackup, active: activeSection === "backup" },
       ],
     },
     {
@@ -182,6 +186,8 @@ export default function SettingsPage() {
         return <APIs />;
       case "webhooks":
         return <Webhooks />;
+      case "backup":
+        return <Backup />;
       default:
         return (
           <div className="space-y-6">
