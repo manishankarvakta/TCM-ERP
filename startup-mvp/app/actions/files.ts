@@ -202,6 +202,7 @@ export async function listFolder(input: {
   size: number;
   mimeType: string;
   isFolder: boolean;
+  storageKey?: string;
   createdAt: Date;
   updatedAt: Date;
   owner: {
@@ -250,17 +251,23 @@ export async function listFolder(input: {
       ],
     });
 
+    // Normalize storageKey nulls to undefined for compatibility with UI types
+    const sanitizedFiles = files.map((file) => ({
+      ...file,
+      storageKey: file.storageKey || undefined,
+    }));
+
     // Log the action
     await createUserLog({
       userId: user.id,
       action: "FOLDER_LISTED",
       details: `Listed folder contents: ${path || "/"}`,
-      metadata: { path: normalizedPath || "/", fileCount: files.length },
+      metadata: { path: normalizedPath || "/", fileCount: sanitizedFiles.length },
     });
 
     return {
       success: true,
-      data: { files },
+      data: { files: sanitizedFiles as typeof sanitizedFiles & { storageKey?: string }[] },
     };
   } catch (error) {
     console.error("listFolder error:", error);

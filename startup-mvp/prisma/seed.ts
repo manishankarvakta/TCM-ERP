@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -835,54 +835,54 @@ async function main() {
     // Create sample items
     const items = [
       // Furniture Items
-      { code: "FURN-001", description: "Modern Sofa Set 3-Seater", unitId: unitMap.get("pcs")!, unitPrice: 1250.00, categoryName: "Furniture", status: "active" },
-      { code: "FURN-002", description: "Dining Table 6-Seater", unitId: unitMap.get("pcs")!, unitPrice: 850.00, categoryName: "Furniture", status: "active" },
-      { code: "FURN-003", description: "Office Chair Ergonomic", unitId: unitMap.get("pcs")!, unitPrice: 320.00, categoryName: "Furniture", status: "active" },
-      { code: "FURN-004", description: "Coffee Table Glass Top", unitId: unitMap.get("pcs")!, unitPrice: 450.00, categoryName: "Furniture", status: "active" },
+      { code: "FURN-001", description: "Modern Sofa Set 3-Seater", unitId: unitMap.get("pcs")!, unitPrice: 1250.00, costPrice: 950.00, categoryName: "Furniture", status: "active" },
+      { code: "FURN-002", description: "Dining Table 6-Seater", unitId: unitMap.get("pcs")!, unitPrice: 850.00, costPrice: 650.00, categoryName: "Furniture", status: "active" },
+      { code: "FURN-003", description: "Office Chair Ergonomic", unitId: unitMap.get("pcs")!, unitPrice: 320.00, costPrice: 240.00, categoryName: "Furniture", status: "active" },
+      { code: "FURN-004", description: "Coffee Table Glass Top", unitId: unitMap.get("pcs")!, unitPrice: 450.00, costPrice: 340.00, categoryName: "Furniture", status: "active" },
       
       // Flooring Items
-      { code: "FLR-001", description: "Hardwood Flooring Oak", unitId: unitMap.get("sqft")!, unitPrice: 12.50, categoryName: "Flooring", status: "active" },
-      { code: "FLR-002", description: "Ceramic Tile 12x12", unitId: unitMap.get("sqft")!, unitPrice: 8.75, categoryName: "Flooring", status: "active" },
-      { code: "FLR-003", description: "Carpet Premium", unitId: unitMap.get("sqyd")!, unitPrice: 35.00, categoryName: "Flooring", status: "active" },
-      { code: "FLR-004", description: "Vinyl Plank Flooring", unitId: unitMap.get("sqft")!, unitPrice: 6.25, categoryName: "Flooring", status: "inactive" },
+      { code: "FLR-001", description: "Hardwood Flooring Oak", unitId: unitMap.get("sqft")!, unitPrice: 12.50, costPrice: 9.50, categoryName: "Flooring", status: "active" },
+      { code: "FLR-002", description: "Ceramic Tile 12x12", unitId: unitMap.get("sqft")!, unitPrice: 8.75, costPrice: 6.50, categoryName: "Flooring", status: "active" },
+      { code: "FLR-003", description: "Carpet Premium", unitId: unitMap.get("sqyd")!, unitPrice: 35.00, costPrice: 26.00, categoryName: "Flooring", status: "active" },
+      { code: "FLR-004", description: "Vinyl Plank Flooring", unitId: unitMap.get("sqft")!, unitPrice: 6.25, costPrice: 4.75, categoryName: "Flooring", status: "inactive" },
       
       // Paint & Finishes
-      { code: "PNT-001", description: "Interior Paint Premium White", unitId: unitMap.get("gal")!, unitPrice: 45.00, categoryName: "Paint", status: "active" },
-      { code: "PNT-002", description: "Exterior Paint Weatherproof", unitId: unitMap.get("gal")!, unitPrice: 52.00, categoryName: "Paint", status: "active" },
-      { code: "PNT-003", description: "Primer Base Coat", unitId: unitMap.get("gal")!, unitPrice: 28.00, categoryName: "Paint", status: "active" },
-      { code: "PNT-004", description: "Varnish Clear Gloss", unitId: unitMap.get("qt")!, unitPrice: 18.50, categoryName: "Paint", status: "active" },
+      { code: "PNT-001", description: "Interior Paint Premium White", unitId: unitMap.get("gal")!, unitPrice: 45.00, costPrice: 34.00, categoryName: "Paint", status: "active" },
+      { code: "PNT-002", description: "Exterior Paint Weatherproof", unitId: unitMap.get("gal")!, unitPrice: 52.00, costPrice: 39.00, categoryName: "Paint", status: "active" },
+      { code: "PNT-003", description: "Primer Base Coat", unitId: unitMap.get("gal")!, unitPrice: 28.00, costPrice: 21.00, categoryName: "Paint", status: "active" },
+      { code: "PNT-004", description: "Varnish Clear Gloss", unitId: unitMap.get("qt")!, unitPrice: 18.50, costPrice: 14.00, categoryName: "Paint", status: "active" },
       
       // Lighting
-      { code: "LGT-001", description: "LED Ceiling Light 12W", unitId: unitMap.get("pcs")!, unitPrice: 25.00, categoryName: "Lighting", status: "active" },
-      { code: "LGT-002", description: "Chandelier 6-Light", unitId: unitMap.get("pcs")!, unitPrice: 350.00, categoryName: "Lighting", status: "active" },
-      { code: "LGT-003", description: "Track Lighting Kit", unitId: unitMap.get("set")!, unitPrice: 125.00, categoryName: "Lighting", status: "active" },
-      { code: "LGT-004", description: "LED Strip Light 5m", unitId: unitMap.get("roll")!, unitPrice: 45.00, categoryName: "Lighting", status: "inactive" },
+      { code: "LGT-001", description: "LED Ceiling Light 12W", unitId: unitMap.get("pcs")!, unitPrice: 25.00, costPrice: 19.00, categoryName: "Lighting", status: "active" },
+      { code: "LGT-002", description: "Chandelier 6-Light", unitId: unitMap.get("pcs")!, unitPrice: 350.00, costPrice: 265.00, categoryName: "Lighting", status: "active" },
+      { code: "LGT-003", description: "Track Lighting Kit", unitId: unitMap.get("set")!, unitPrice: 125.00, costPrice: 95.00, categoryName: "Lighting", status: "active" },
+      { code: "LGT-004", description: "LED Strip Light 5m", unitId: unitMap.get("roll")!, unitPrice: 45.00, costPrice: 34.00, categoryName: "Lighting", status: "inactive" },
       
       // Wall Coverings
-      { code: "WAL-001", description: "Wallpaper Premium Pattern", unitId: unitMap.get("roll")!, unitPrice: 65.00, categoryName: "Wall Coverings", status: "active" },
-      { code: "WAL-002", description: "Wall Panel MDF", unitId: unitMap.get("sqft")!, unitPrice: 15.00, categoryName: "Wall Coverings", status: "active" },
-      { code: "WAL-003", description: "Decorative Molding", unitId: unitMap.get("lf")!, unitPrice: 8.50, categoryName: "Wall Coverings", status: "active" },
+      { code: "WAL-001", description: "Wallpaper Premium Pattern", unitId: unitMap.get("roll")!, unitPrice: 65.00, costPrice: 49.00, categoryName: "Wall Coverings", status: "active" },
+      { code: "WAL-002", description: "Wall Panel MDF", unitId: unitMap.get("sqft")!, unitPrice: 15.00, costPrice: 11.50, categoryName: "Wall Coverings", status: "active" },
+      { code: "WAL-003", description: "Decorative Molding", unitId: unitMap.get("lf")!, unitPrice: 8.50, costPrice: 6.50, categoryName: "Wall Coverings", status: "active" },
       
       // Hardware & Accessories
-      { code: "HRD-001", description: "Door Handle Set Chrome", unitId: unitMap.get("set")!, unitPrice: 35.00, categoryName: "Hardware", status: "active" },
-      { code: "HRD-002", description: "Cabinet Hinge Soft Close", unitId: unitMap.get("pair")!, unitPrice: 12.00, categoryName: "Hardware", status: "active" },
-      { code: "HRD-003", description: "Drawer Slide 18 inch", unitId: unitMap.get("pair")!, unitPrice: 22.00, categoryName: "Hardware", status: "active" },
-      { code: "HRD-004", description: "Screws Assorted Pack", unitId: unitMap.get("box")!, unitPrice: 15.00, categoryName: "Hardware", status: "active" },
+      { code: "HRD-001", description: "Door Handle Set Chrome", unitId: unitMap.get("set")!, unitPrice: 35.00, costPrice: 26.50, categoryName: "Hardware", status: "active" },
+      { code: "HRD-002", description: "Cabinet Hinge Soft Close", unitId: unitMap.get("pair")!, unitPrice: 12.00, costPrice: 9.00, categoryName: "Hardware", status: "active" },
+      { code: "HRD-003", description: "Drawer Slide 18 inch", unitId: unitMap.get("pair")!, unitPrice: 22.00, costPrice: 16.50, categoryName: "Hardware", status: "active" },
+      { code: "HRD-004", description: "Screws Assorted Pack", unitId: unitMap.get("box")!, unitPrice: 15.00, costPrice: 11.50, categoryName: "Hardware", status: "active" },
       
       // Fabrics & Textiles
-      { code: "FAB-001", description: "Curtain Fabric Premium", unitId: unitMap.get("yd")!, unitPrice: 28.00, categoryName: "Fabrics", status: "active" },
-      { code: "FAB-002", description: "Upholstery Fabric", unitId: unitMap.get("yd")!, unitPrice: 35.00, categoryName: "Fabrics", status: "active" },
-      { code: "FAB-003", description: "Cushion Cover Set", unitId: unitMap.get("set")!, unitPrice: 45.00, categoryName: "Fabrics", status: "active" },
+      { code: "FAB-001", description: "Curtain Fabric Premium", unitId: unitMap.get("yd")!, unitPrice: 28.00, costPrice: 21.00, categoryName: "Fabrics", status: "active" },
+      { code: "FAB-002", description: "Upholstery Fabric", unitId: unitMap.get("yd")!, unitPrice: 35.00, costPrice: 26.50, categoryName: "Fabrics", status: "active" },
+      { code: "FAB-003", description: "Cushion Cover Set", unitId: unitMap.get("set")!, unitPrice: 45.00, costPrice: 34.00, categoryName: "Fabrics", status: "active" },
       
       // Bathroom
-      { code: "BTH-001", description: "Bathroom Tile 8x8", unitId: unitMap.get("sqft")!, unitPrice: 9.50, categoryName: "Bathroom", status: "active" },
-      { code: "BTH-002", description: "Shower Glass Panel", unitId: unitMap.get("sqft")!, unitPrice: 85.00, categoryName: "Bathroom", status: "active" },
-      { code: "BTH-003", description: "Vanity Mirror", unitId: unitMap.get("pcs")!, unitPrice: 125.00, categoryName: "Bathroom", status: "active" },
+      { code: "BTH-001", description: "Bathroom Tile 8x8", unitId: unitMap.get("sqft")!, unitPrice: 9.50, costPrice: 7.25, categoryName: "Bathroom", status: "active" },
+      { code: "BTH-002", description: "Shower Glass Panel", unitId: unitMap.get("sqft")!, unitPrice: 85.00, costPrice: 64.00, categoryName: "Bathroom", status: "active" },
+      { code: "BTH-003", description: "Vanity Mirror", unitId: unitMap.get("pcs")!, unitPrice: 125.00, costPrice: 95.00, categoryName: "Bathroom", status: "active" },
       
       // Kitchen
-      { code: "KIT-001", description: "Kitchen Cabinet Base", unitId: unitMap.get("lf")!, unitPrice: 150.00, categoryName: "Kitchen", status: "active" },
-      { code: "KIT-002", description: "Countertop Granite", unitId: unitMap.get("sqft")!, unitPrice: 75.00, categoryName: "Kitchen", status: "active" },
-      { code: "KIT-003", description: "Kitchen Faucet Chrome", unitId: unitMap.get("pcs")!, unitPrice: 180.00, categoryName: "Kitchen", status: "active" },
+      { code: "KIT-001", description: "Kitchen Cabinet Base", unitId: unitMap.get("lf")!, unitPrice: 150.00, costPrice: 113.00, categoryName: "Kitchen", status: "active" },
+      { code: "KIT-002", description: "Countertop Granite", unitId: unitMap.get("sqft")!, unitPrice: 75.00, costPrice: 57.00, categoryName: "Kitchen", status: "active" },
+      { code: "KIT-003", description: "Kitchen Faucet Chrome", unitId: unitMap.get("pcs")!, unitPrice: 180.00, costPrice: 136.00, categoryName: "Kitchen", status: "active" },
     ];
 
     for (const item of items) {
@@ -894,15 +894,20 @@ async function main() {
           },
           update: {
             status: item.status, // Update status if item exists
-            categoryId: categoryId, // Update categoryId if item exists
+            costPrice: item.costPrice || 0, // Update costPrice if item exists
           },
           create: {
             code: item.code,
             description: item.description,
             unitId: item.unitId,
             unitPrice: item.unitPrice,
-            categoryId: categoryId,
+            costPrice: item.costPrice || 0,
             status: item.status,
+            categories: categoryId ? {
+              create: {
+                categoryId: categoryId,
+              },
+            } : undefined,
           },
         });
         console.log(`✅ Created/Updated item: ${createdItem.code} - ${createdItem.description} (${item.status})`);
@@ -910,9 +915,604 @@ async function main() {
         console.error(`❌ Failed to create item ${item.code}:`, error);
       }
     }
+
+    // Create sample quotations
+    if (adminUser) {
+      // Get some clients for quotations
+      const clients = await prisma.client.findMany({
+        take: 5,
+        where: { status: "active" },
+      });
+
+      // Get some items for quotation items
+      const items = await prisma.item.findMany({
+        take: 20,
+        where: { status: "active" },
+      });
+
+      if (clients.length > 0 && items.length > 0 && adminUser) {
+        interface QuotationItemSeed {
+          sl: number;
+          code?: string | null;
+          description?: string | null;
+          unitPrice: number;
+          quantity: number;
+          amount?: number;
+          sortOrder: number;
+          itemId?: string | null;
+          height?: number;
+          width?: number;
+          depth?: number;
+          unit?: string | null;
+        }
+
+        interface ItemGroupSeed {
+          code?: string | null;
+          description: string;
+          quantity?: number | null;
+          sortOrder: number;
+          items: QuotationItemSeed[];
+        }
+
+        interface CategoryGroupSeed {
+          categoryId?: string | null;
+          sortOrder: number;
+          items: QuotationItemSeed[];
+        }
+
+        interface SectionSeed {
+          title: string;
+          note?: string | null;
+          discount?: number | null;
+          total?: number;
+          grandTotal?: number;
+          sortOrder: number;
+          items?: QuotationItemSeed[];
+          groups?: ItemGroupSeed[];
+          categoryGroups?: CategoryGroupSeed[];
+        }
+
+        interface QuotationSeed {
+          quotationNumber: string;
+          subject: string;
+          date: Date;
+          coverLetter?: string | null;
+          financialStatement?: string | null;
+          tos?: string | null;
+          status: "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "REVISED";
+          isTrash?: boolean;
+          clientId: string;
+          organizationId?: string | null;
+          shippingCharges?: number;
+          discount?: number;
+          vatIncluded?: boolean;
+          projectLocation?: string | null;
+          sections: SectionSeed[];
+        }
+
+        // Get an organization for quotations
+        const organization = await prisma.organization.findFirst({
+          where: { status: "active" },
+        });
+
+        const quotations: QuotationSeed[] = [
+          {
+            quotationNumber: "QT-2024-001",
+            subject: "Interior Design Proposal - Living Room Renovation",
+            date: new Date("2024-01-15"),
+            organizationId: organization?.id || null,
+            shippingCharges: 500,
+            discount: 0,
+            vatIncluded: false,
+            projectLocation: "Dhaka, Bangladesh",
+            coverLetter: "Dear Mr. Smith,\n\nWe are pleased to submit this quotation for your living room renovation project. Our team has carefully reviewed your requirements and prepared a comprehensive proposal that includes all necessary materials and services.\n\nWe look forward to working with you on this exciting project.\n\nBest regards,\nInterior Design Team",
+            financialStatement: "Payment Terms:\n- 30% advance payment upon acceptance\n- 40% upon delivery of materials\n- 30% upon completion\n\nAll prices are valid for 30 days from the date of this quotation.",
+            tos: "Terms and Conditions:\n1. All materials are subject to availability\n2. Installation timeline: 4-6 weeks from order confirmation\n3. Warranty: 1 year on all materials and workmanship\n4. Changes to order may affect pricing and delivery timeline",
+            status: "SENT" as const,
+            clientId: clients[0].id,
+            sections: [
+              {
+                title: "Furniture",
+                note: "Premium furniture selection for living room",
+                discount: null,
+                sortOrder: 1,
+                items: [
+                  { sl: 1, code: items[0]?.code, description: items[0]?.description, unitPrice: Number(items[0]?.unitPrice) || 1250, quantity: 1, amount: 0, sortOrder: 1, itemId: items[0]?.id, unit: items[0]?.unit?.symbol || null },
+                  { sl: 2, code: items[1]?.code, description: items[1]?.description, unitPrice: Number(items[1]?.unitPrice) || 850, quantity: 1, amount: 0, sortOrder: 2, itemId: items[1]?.id, unit: items[1]?.unit?.symbol || null },
+                ],
+              },
+              {
+                title: "Flooring",
+                note: "High-quality hardwood flooring",
+                discount: 5,
+                sortOrder: 2,
+                items: [
+                  { sl: 1, code: items[4]?.code, description: items[4]?.description, height: 2.4, width: 3.0, unitPrice: Number(items[4]?.unitPrice) || 12.50, quantity: 7.2, amount: 0, sortOrder: 1, itemId: items[4]?.id, unit: items[4]?.unit?.symbol || "sqft" },
+                ],
+              },
+            ],
+          },
+          {
+            quotationNumber: "QT-2024-002",
+            subject: "Complete Home Interior Design Package",
+            date: new Date("2024-01-20"),
+            organizationId: organization?.id || null,
+            shippingCharges: 1000,
+            discount: 500,
+            vatIncluded: true,
+            projectLocation: "Chittagong, Bangladesh",
+            coverLetter: "Dear Ms. Johnson,\n\nThank you for considering our services for your complete home interior design project. This quotation covers all rooms including living room, dining area, bedrooms, and kitchen.\n\nWe are committed to delivering exceptional quality and service.\n\nWarm regards,\nDesign Team",
+            financialStatement: "Payment Schedule:\n- 25% deposit\n- 50% at mid-point\n- 25% upon final completion",
+            tos: "Standard terms apply. 2-year warranty on all installations.",
+            status: "DRAFT" as const,
+            clientId: clients[1]?.id || clients[0].id,
+            sections: [
+              {
+                title: "Living Room",
+                note: "Modern living room setup",
+                discount: null,
+                sortOrder: 1,
+                groups: [
+                  {
+                    code: "LR-SET-01",
+                    description: "Living Room Furniture Set",
+                    quantity: 1,
+                    sortOrder: 1,
+                    items: [
+                      { sl: 1, code: items[0]?.code, description: items[0]?.description, unitPrice: Number(items[0]?.unitPrice) || 1250, quantity: 1, amount: 0, sortOrder: 1, itemId: items[0]?.id, unit: items[0]?.unit?.symbol || null },
+                      { sl: 2, code: items[3]?.code, description: items[3]?.description, unitPrice: Number(items[3]?.unitPrice) || 450, quantity: 1, amount: 0, sortOrder: 2, itemId: items[3]?.id, unit: items[3]?.unit?.symbol || null },
+                    ],
+                  },
+                ],
+                items: [
+                  { sl: 3, code: items[10]?.code, description: items[10]?.description, unitPrice: Number(items[10]?.unitPrice) || 25, quantity: 4, amount: 0, sortOrder: 3, itemId: items[10]?.id, unit: items[10]?.unit?.symbol || null },
+                ],
+              },
+              {
+                title: "Kitchen",
+                note: "Kitchen fixtures and accessories",
+                discount: 10,
+                sortOrder: 2,
+                items: [
+                  { sl: 1, code: items[8]?.code, description: items[8]?.description, unitPrice: Number(items[8]?.unitPrice) || 45, quantity: 3, amount: 0, sortOrder: 1, itemId: items[8]?.id, unit: items[8]?.unit?.symbol || null },
+                ],
+                categoryGroups: categories.length > 0 ? [
+                  {
+                    categoryId: categories[0]?.id || null,
+                    sortOrder: 1,
+                    items: [
+                      { sl: 1, code: items[5]?.code, description: items[5]?.description, unitPrice: Number(items[5]?.unitPrice) || 35, quantity: 2, amount: 0, sortOrder: 1, itemId: items[5]?.id, unit: items[5]?.unit?.symbol || null },
+                      { sl: 2, code: items[6]?.code, description: items[6]?.description, unitPrice: Number(items[6]?.unitPrice) || 28, quantity: 3, amount: 0, sortOrder: 2, itemId: items[6]?.id, unit: items[6]?.unit?.symbol || null },
+                    ],
+                  },
+                ] : [],
+              },
+            ],
+          },
+          {
+            quotationNumber: "QT-2024-003",
+            subject: "Office Space Design and Furnishing",
+            date: new Date("2024-02-01"),
+            organizationId: organization?.id || null,
+            shippingCharges: 0,
+            discount: 0,
+            vatIncluded: false,
+            projectLocation: "Sylhet, Bangladesh",
+            coverLetter: "Dear Mr. Chen,\n\nWe are delighted to present this quotation for your office space design and furnishing project. Our proposal includes ergonomic furniture, modern lighting, and professional flooring solutions.\n\nThank you for your consideration.\n\nBest regards,\nCommercial Design Team",
+            financialStatement: null,
+            tos: null,
+            status: "ACCEPTED" as const,
+            clientId: clients[2]?.id || clients[0].id,
+            sections: [
+              {
+                title: "Office Furniture",
+                note: "Ergonomic office furniture",
+                discount: null,
+                sortOrder: 1,
+                items: [
+                  { sl: 1, code: items[2]?.code, description: items[2]?.description, unitPrice: Number(items[2]?.unitPrice) || 320, quantity: 10, amount: 0, sortOrder: 1, itemId: items[2]?.id, unit: items[2]?.unit?.symbol || null },
+                ],
+              },
+              {
+                title: "Lighting",
+                note: "Professional office lighting",
+                discount: 5,
+                sortOrder: 2,
+                items: [
+                  { sl: 1, code: items[10]?.code, description: items[10]?.description, unitPrice: Number(items[10]?.unitPrice) || 25, quantity: 20, amount: 0, sortOrder: 1, itemId: items[10]?.id, unit: items[10]?.unit?.symbol || null },
+                  { sl: 2, code: items[12]?.code, description: items[12]?.description, unitPrice: Number(items[12]?.unitPrice) || 125, quantity: 5, amount: 0, sortOrder: 2, itemId: items[12]?.id, unit: items[12]?.unit?.symbol || null },
+                ],
+              },
+            ],
+          },
+          {
+            quotationNumber: "QT-2024-004",
+            subject: "Bathroom Renovation Package",
+            date: new Date("2024-02-10"),
+            organizationId: organization?.id || null,
+            shippingCharges: 300,
+            discount: 200,
+            vatIncluded: false,
+            projectLocation: "Rajshahi, Bangladesh",
+            coverLetter: "Dear Ms. Davis,\n\nThis quotation covers the complete renovation of your master bathroom, including tiles, fixtures, lighting, and accessories.\n\nWe look forward to transforming your bathroom into a luxurious space.\n\nRegards,\nRenovation Team",
+            financialStatement: "Payment: 40% advance, 60% on completion",
+            tos: "1-year warranty. Installation: 3-4 weeks.",
+            status: "REJECTED" as const,
+            clientId: clients[3]?.id || clients[0].id,
+            sections: [
+              {
+                title: "Tiles and Flooring",
+                note: "Premium bathroom tiles",
+                discount: null,
+                sortOrder: 1,
+                items: [
+                  { sl: 1, code: items[5]?.code, description: items[5]?.description, height: 2.5, width: 2.0, unitPrice: Number(items[5]?.unitPrice) || 8.75, quantity: 5.0, amount: 0, sortOrder: 1, itemId: items[5]?.id, unit: items[5]?.unit?.symbol || "sqft" },
+                ],
+              },
+            ],
+          },
+          {
+            quotationNumber: "QT-2024-005",
+            subject: "Bedroom Makeover - Complete Package",
+            date: new Date("2024-02-15"),
+            organizationId: organization?.id || null,
+            shippingCharges: 400,
+            discount: 0,
+            vatIncluded: true,
+            projectLocation: "Khulna, Bangladesh",
+            coverLetter: null,
+            financialStatement: null,
+            tos: null,
+            status: "DRAFT" as const,
+            clientId: clients[4]?.id || clients[0].id,
+            sections: [
+              {
+                title: "Furniture",
+                note: "Bedroom furniture set",
+                discount: 15,
+                sortOrder: 1,
+                items: [
+                  { sl: 1, code: items[1]?.code, description: items[1]?.description, unitPrice: Number(items[1]?.unitPrice) || 850, quantity: 1, amount: 0, sortOrder: 1, itemId: items[1]?.id, unit: items[1]?.unit?.symbol || null },
+                ],
+              },
+              {
+                title: "Wall Coverings",
+                note: "Premium wallpaper",
+                discount: null,
+                sortOrder: 2,
+                items: [
+                  { sl: 1, code: items[15]?.code, description: items[15]?.description, unitPrice: Number(items[15]?.unitPrice) || 65, quantity: 8, amount: 0, sortOrder: 1, itemId: items[15]?.id, unit: items[15]?.unit?.symbol || null },
+                ],
+              },
+            ],
+          },
+        ];
+
+        for (const quotationData of quotations) {
+          try {
+            // Calculate total for quotation items
+            let quotationTotal = 0;
+
+            // Process sections and calculate totals
+            const sectionsData = quotationData.sections.map((sectionData) => {
+              let sectionTotal = 0;
+
+              // Process direct items in section
+              const itemsData = (sectionData.items || []).map((itemData: QuotationItemSeed) => {
+                // Calculate amount: if h, w, d are present, use h*w*d*unitPrice*quantity, otherwise unitPrice*quantity
+                let amount = 0;
+                const h = itemData.height || 0;
+                const w = itemData.width || 0;
+                const d = itemData.depth || 0;
+                const unitPrice = itemData.unitPrice || 0;
+                const quantity = itemData.quantity || 0;
+                
+                if (h > 0 && w > 0 && d > 0) {
+                  amount = h * w * d * unitPrice * quantity;
+                } else {
+                  amount = unitPrice * quantity;
+                }
+                
+                sectionTotal += amount;
+                return {
+                  sl: itemData.sl,
+                  code: itemData.code || null,
+                  description: itemData.description || null,
+                  unitPrice: new Prisma.Decimal(unitPrice),
+                  quantity: new Prisma.Decimal(quantity),
+                  amount: new Prisma.Decimal(amount),
+                  sortOrder: itemData.sortOrder,
+                  itemId: itemData.itemId || null,
+                  height: itemData.height ? new Prisma.Decimal(itemData.height) : null,
+                  width: itemData.width ? new Prisma.Decimal(itemData.width) : null,
+                  depth: itemData.depth ? new Prisma.Decimal(itemData.depth) : null,
+                  unit: itemData.unit || null,
+                };
+              });
+
+              // Process groups in section
+              const groupsData = (sectionData.groups || []).map((groupData: ItemGroupSeed) => {
+                const groupItemsData = (groupData.items || []).map((itemData: QuotationItemSeed) => {
+                  // Calculate amount: if h, w, d are present, use h*w*d*unitPrice*quantity, otherwise unitPrice*quantity
+                  let amount = 0;
+                  const h = itemData.height || 0;
+                  const w = itemData.width || 0;
+                  const d = itemData.depth || 0;
+                  const unitPrice = itemData.unitPrice || 0;
+                  const quantity = itemData.quantity || 0;
+                  
+                  if (h > 0 && w > 0 && d > 0) {
+                    amount = h * w * d * unitPrice * quantity;
+                  } else {
+                    amount = unitPrice * quantity;
+                  }
+                  
+                  sectionTotal += amount;
+                  return {
+                    sl: itemData.sl,
+                    code: itemData.code || null,
+                    description: itemData.description || null,
+                    unitPrice: new Prisma.Decimal(unitPrice),
+                    quantity: new Prisma.Decimal(quantity),
+                    amount: new Prisma.Decimal(amount),
+                    sortOrder: itemData.sortOrder,
+                    itemId: itemData.itemId || null,
+                    height: itemData.height ? new Prisma.Decimal(itemData.height) : null,
+                    width: itemData.width ? new Prisma.Decimal(itemData.width) : null,
+                    depth: itemData.depth ? new Prisma.Decimal(itemData.depth) : null,
+                    unit: itemData.unit || null,
+                  };
+                });
+
+                return {
+                  code: groupData.code || null,
+                  description: groupData.description,
+                  quantity: groupData.quantity ? new Prisma.Decimal(groupData.quantity) : null,
+                  sortOrder: groupData.sortOrder,
+                  items: {
+                    create: groupItemsData,
+                  },
+                };
+              });
+
+              // Process category groups in section
+              const categoryGroupsData = (sectionData.categoryGroups || []).map((categoryGroupData: CategoryGroupSeed) => {
+                const categoryGroupItemsData = (categoryGroupData.items || []).map((itemData: QuotationItemSeed) => {
+                  // Calculate amount: if h, w, d are present, use h*w*d*unitPrice*quantity, otherwise unitPrice*quantity
+                  let amount = 0;
+                  const h = itemData.height || 0;
+                  const w = itemData.width || 0;
+                  const d = itemData.depth || 0;
+                  const unitPrice = itemData.unitPrice || 0;
+                  const quantity = itemData.quantity || 0;
+                  
+                  if (h > 0 && w > 0 && d > 0) {
+                    amount = h * w * d * unitPrice * quantity;
+                  } else {
+                    amount = unitPrice * quantity;
+                  }
+                  
+                  sectionTotal += amount;
+                  return {
+                    sl: itemData.sl,
+                    code: itemData.code || null,
+                    description: itemData.description || null,
+                    unitPrice: new Prisma.Decimal(unitPrice),
+                    quantity: new Prisma.Decimal(quantity),
+                    amount: new Prisma.Decimal(amount),
+                    sortOrder: itemData.sortOrder,
+                    itemId: itemData.itemId || null,
+                    height: itemData.height ? new Prisma.Decimal(itemData.height) : null,
+                    width: itemData.width ? new Prisma.Decimal(itemData.width) : null,
+                    depth: itemData.depth ? new Prisma.Decimal(itemData.depth) : null,
+                    unit: itemData.unit || null,
+                  };
+                });
+
+                return {
+                  categoryId: categoryGroupData.categoryId || null,
+                  sortOrder: categoryGroupData.sortOrder,
+                  items: {
+                    create: categoryGroupItemsData,
+                  },
+                };
+              });
+
+              // Apply discount if any (amount-based, not percentage)
+              const sectionDiscount = sectionData.discount || 0;
+              const sectionGrandTotal = Math.max(0, sectionTotal - sectionDiscount);
+
+              quotationTotal += sectionGrandTotal;
+
+              return {
+                title: sectionData.title,
+                note: sectionData.note || null,
+                discount: sectionDiscount > 0 ? new Prisma.Decimal(sectionDiscount) : new Prisma.Decimal(0),
+                total: new Prisma.Decimal(sectionTotal),
+                grandTotal: new Prisma.Decimal(sectionGrandTotal),
+                sortOrder: sectionData.sortOrder,
+                preparedById: adminUser!.id,
+                items: {
+                  create: itemsData,
+                },
+                ...(groupsData.length > 0 && { groups: { create: groupsData } }),
+                ...(categoryGroupsData.length > 0 && { categoryGroups: { create: categoryGroupsData } }),
+              };
+            });
+
+            // Calculate quotation-level totals
+            const quotationDiscount = quotationData.discount || 0;
+            const quotationShippingCharges = quotationData.shippingCharges || 0;
+            const quotationGrandTotal = quotationTotal + quotationShippingCharges - quotationDiscount;
+
+            // Create quotation with nested sections, groups, and items
+            const quotation = await prisma.quotation.create({
+              data: {
+                quotationNumber: quotationData.quotationNumber,
+                subject: quotationData.subject,
+                date: quotationData.date,
+                coverLetter: quotationData.coverLetter || null,
+                financialStatement: quotationData.financialStatement || null,
+                tos: quotationData.tos || null,
+                total: new Prisma.Decimal(quotationTotal),
+                discount: quotationDiscount > 0 ? new Prisma.Decimal(quotationDiscount) : new Prisma.Decimal(0),
+                grandTotal: new Prisma.Decimal(Math.max(0, quotationGrandTotal)),
+                shippingCharges: quotationShippingCharges > 0 ? new Prisma.Decimal(quotationShippingCharges) : new Prisma.Decimal(0),
+                vatIncluded: quotationData.vatIncluded || false,
+                projectLocation: quotationData.projectLocation || null,
+                status: quotationData.status,
+                isTrash: quotationData.isTrash || false,
+                clientId: quotationData.clientId,
+                organizationId: quotationData.organizationId || null,
+                submittedById: adminUser!.id,
+                section: {
+                  create: sectionsData,
+                },
+              },
+            });
+
+            console.log(`✅ Created quotation: ${quotation.quotationNumber} - ${quotation.subject} (${quotation.status})`);
+          } catch (error) {
+            console.error(`❌ Failed to create quotation ${quotationData.quotationNumber}:`, error);
+          }
+        }
+      } else {
+        console.log("⚠️  Skipping quotation seeding: Need at least 1 client and 1 item");
+      }
+    } else {
+      console.log("⚠️  Skipping quotation seeding: Admin user not found");
+    }
   }
 
-  console.log("✅ Seed completed successfully!");
+    // Create sample groups
+    if (adminUser) {
+      const groups = [
+        {
+          name: "Standard Kitchen Cabinet Set",
+          code: "GRP-KIT-001",
+          description: "Complete kitchen cabinet group with base and wall units",
+          quantity: 1,
+          number: 1,
+          sortOrder: 0,
+          status: "active",
+          items: [
+            { sl: 1, code: "KIT-BASE-001", description: "Base Cabinet 36 inch", height: 34, width: 36, depth: 24, unit: "pcs", unitPrice: 150.00, quantity: 5, amount: 0, sortOrder: 0 },
+            { sl: 2, code: "KIT-WALL-001", description: "Wall Cabinet 30 inch", height: 30, width: 30, depth: 12, unit: "pcs", unitPrice: 120.00, quantity: 4, amount: 0, sortOrder: 1 },
+            { sl: 3, code: "KIT-CT-001", description: "Granite Countertop", height: null, width: null, depth: null, unit: "sqft", unitPrice: 75.00, quantity: 25, amount: 0, sortOrder: 2 },
+          ],
+        },
+        {
+          name: "Bathroom Fixture Package",
+          code: "GRP-BTH-001",
+          description: "Complete bathroom fixture group including tiles and accessories",
+          quantity: 1,
+          number: 2,
+          sortOrder: 1,
+          status: "active",
+          items: [
+            { sl: 1, code: "BTH-TILE-001", description: "Ceramic Wall Tile 8x8", height: 8, width: 8, depth: null, unit: "sqft", unitPrice: 9.50, quantity: 50, amount: 0, sortOrder: 0 },
+            { sl: 2, code: "BTH-GLASS-001", description: "Shower Glass Panel", height: 72, width: 36, depth: 0.5, unit: "sqft", unitPrice: 85.00, quantity: 18, amount: 0, sortOrder: 1 },
+            { sl: 3, code: "BTH-VANITY-001", description: "Bathroom Vanity 48 inch", height: 34, width: 48, depth: 21, unit: "pcs", unitPrice: 350.00, quantity: 1, amount: 0, sortOrder: 2 },
+          ],
+        },
+        {
+          name: "Living Room Furniture Set",
+          code: "GRP-LIV-001",
+          description: "Complete living room furniture group",
+          quantity: 1,
+          number: 3,
+          sortOrder: 2,
+          status: "active",
+          items: [
+            { sl: 1, code: "LIV-SOFA-001", description: "3-Seater Sofa", height: null, width: null, depth: null, unit: "pcs", unitPrice: 1250.00, quantity: 1, amount: 0, sortOrder: 0 },
+            { sl: 2, code: "LIV-TABLE-001", description: "Coffee Table Glass Top", height: null, width: null, depth: null, unit: "pcs", unitPrice: 450.00, quantity: 1, amount: 0, sortOrder: 1 },
+            { sl: 3, code: "LIV-CURTAIN-001", description: "Curtain Fabric Premium", height: null, width: null, depth: null, unit: "yd", unitPrice: 28.00, quantity: 12, amount: 0, sortOrder: 2 },
+          ],
+        },
+        {
+          name: "Master Bedroom Package",
+          code: "GRP-BED-001",
+          description: "Complete master bedroom furniture and fixtures",
+          quantity: 1,
+          number: 4,
+          sortOrder: 3,
+          status: "active",
+          items: [
+            { sl: 1, code: "BED-WARDROBE-001", description: "Sliding Door Wardrobe 8ft", height: 96, width: 96, depth: 24, unit: "pcs", unitPrice: 800.00, quantity: 1, amount: 0, sortOrder: 0 },
+            { sl: 2, code: "BED-BED-001", description: "King Size Bed Frame", height: null, width: null, depth: null, unit: "pcs", unitPrice: 650.00, quantity: 1, amount: 0, sortOrder: 1 },
+            { sl: 3, code: "BED-DRESSER-001", description: "Dresser with Mirror", height: 60, width: 48, depth: 20, unit: "pcs", unitPrice: 420.00, quantity: 1, amount: 0, sortOrder: 2 },
+          ],
+        },
+        {
+          name: "Office Setup Package",
+          code: "GRP-OFF-001",
+          description: "Complete office furniture and accessories",
+          quantity: 1,
+          number: 5,
+          sortOrder: 4,
+          status: "active",
+          items: [
+            { sl: 1, code: "OFF-DESK-001", description: "Executive Desk 72 inch", height: 30, width: 72, depth: 36, unit: "pcs", unitPrice: 550.00, quantity: 1, amount: 0, sortOrder: 0 },
+            { sl: 2, code: "OFF-CHAIR-001", description: "Ergonomic Office Chair", height: null, width: null, depth: null, unit: "pcs", unitPrice: 320.00, quantity: 1, amount: 0, sortOrder: 1 },
+            { sl: 3, code: "OFF-SHELF-001", description: "Wall Mounted Bookshelf", height: 72, width: 36, depth: 12, unit: "pcs", unitPrice: 180.00, quantity: 2, amount: 0, sortOrder: 2 },
+          ],
+        },
+      ];
+
+      for (const groupData of groups) {
+        try {
+          // Calculate amounts for items
+          const itemsWithAmounts = groupData.items.map((item) => {
+            let amount = 0;
+            if (item.height && item.width && item.depth && item.height > 0 && item.width > 0 && item.depth > 0) {
+              amount = item.height * item.width * item.depth * item.unitPrice * item.quantity;
+            } else if (item.height && item.width && item.height > 0 && item.width > 0) {
+              amount = item.height * item.width * item.unitPrice * item.quantity;
+            } else {
+              amount = item.unitPrice * item.quantity;
+            }
+            return { ...item, amount };
+          });
+
+          const group = await prisma.moduleGroup.create({
+            data: {
+              name: groupData.name,
+              code: groupData.code,
+              description: groupData.description,
+              quantity: groupData.quantity ? new Prisma.Decimal(groupData.quantity) : null,
+              number: groupData.number || null,
+              sortOrder: groupData.sortOrder,
+              status: groupData.status,
+              createdBy: adminUser.id,
+              items: {
+                create: itemsWithAmounts.map((item) => ({
+                  sl: item.sl,
+                  code: item.code || null,
+                  description: item.description || null,
+                  height: item.height ? new Prisma.Decimal(item.height) : null,
+                  width: item.width ? new Prisma.Decimal(item.width) : null,
+                  depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                  unit: item.unit || null,
+                  unitPrice: new Prisma.Decimal(item.unitPrice),
+                  quantity: new Prisma.Decimal(item.quantity),
+                  amount: new Prisma.Decimal(item.amount),
+                  sortOrder: item.sortOrder,
+                  itemId: null, // Custom items, not linked to catalog
+                })),
+              },
+            },
+          });
+
+          console.log(`✅ Created group: ${group.name} (${group.code})`);
+        } catch (error) {
+          console.error(`❌ Failed to create group ${groupData.name}:`, error);
+        }
+      }
+    } else {
+      console.log("⚠️  Skipping group seeding: Admin user not found");
+    }
+
+    console.log("✅ Seed completed successfully!");
 }
 
 main()

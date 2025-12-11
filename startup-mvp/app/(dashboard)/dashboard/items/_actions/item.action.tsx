@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidatePath } from "next/cache";
-import { type Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 /**
  * Get paginated list of items with search
@@ -42,7 +42,7 @@ export async function getItems(
       where.OR = [
         { code: { contains: search, mode: "insensitive" } },
         { description: { contains: search, mode: "insensitive" } },
-        { category: { name: { contains: search, mode: "insensitive" } } },
+        { categories: { some: { category: { name: { contains: search, mode: "insensitive" } } } } },
       ];
     }
 
@@ -79,11 +79,16 @@ export async function getItems(
           },
         },
         unitPrice: true,
-        categoryId: true,
-        category: {
+        costPrice: true,
+        categories: {
           select: {
             id: true,
-            name: true,
+            category: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
         image: true,
@@ -100,6 +105,7 @@ export async function getItems(
     const serializedItems = items.map((item) => ({
       ...item,
       unitPrice: Number(item.unitPrice),
+      costPrice: item.costPrice !== null && item.costPrice !== undefined ? Number(item.costPrice) : null,
     }));
 
     const totalPages = Math.ceil(total / limit);
@@ -160,11 +166,16 @@ export async function getItemById(itemId: string) {
           },
         },
         unitPrice: true,
-        categoryId: true,
-        category: {
+        costPrice: true,
+        categories: {
           select: {
             id: true,
-            name: true,
+            category: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
         image: true,
@@ -283,6 +294,74 @@ export async function getActiveCategories() {
 }
 
 /**
+ * Get all active items for dropdown selection
+ */
+export async function getActiveItems() {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        items: [],
+      };
+    }
+
+    const items = await prisma.item.findMany({
+      where: {
+        status: "active",
+      },
+      select: {
+        id: true,
+        code: true,
+        description: true,
+        unitPrice: true,
+        costPrice: true,
+        categories: {
+          select: {
+            category: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        unit: {
+          select: {
+            id: true,
+            symbol: true,
+          },
+        },
+      },
+      orderBy: {
+        code: "asc",
+      },
+    });
+
+    // Convert Decimal to number for serialization
+    const serializedItems = items.map((item) => ({
+      ...item,
+      unitPrice: Number(item.unitPrice),
+      costPrice: item.costPrice !== null && item.costPrice !== undefined ? Number(item.costPrice) : null,
+    }));
+
+    return {
+      success: true,
+      items: serializedItems,
+    };
+  } catch (error) {
+    console.error("getActiveItems error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch items",
+      items: [],
+    };
+  }
+}
+
+/**
  * Create a new item
  */
 export async function createItem(input: {
@@ -290,7 +369,8 @@ export async function createItem(input: {
   description: string;
   unitId: string;
   unitPrice: number;
-  categoryId?: string;
+  costPrice: number;
+  categoryIds?: string[];
   image?: string;
   status?: "active" | "inactive";
 }) {
@@ -318,16 +398,23 @@ export async function createItem(input: {
       };
     }
 
-    // Create item
+    // Create item with categories
     const item = await prisma.item.create({
       data: {
         code: input.code,
         description: input.description,
         unitId: input.unitId,
-        unitPrice: input.unitPrice,
-        categoryId: input.categoryId || null,
+        unitPrice: new Prisma.Decimal(input.unitPrice),
+        costPrice: new Prisma.Decimal(input.costPrice),
         image: input.image || null,
         status: input.status || "active",
+        categories: input.categoryIds && input.categoryIds.length > 0
+          ? {
+              create: input.categoryIds.map((categoryId) => ({
+                categoryId,
+              })),
+            }
+          : undefined,
       },
       select: {
         id: true,
@@ -342,11 +429,16 @@ export async function createItem(input: {
           },
         },
         unitPrice: true,
-        categoryId: true,
-        category: {
+        costPrice: true,
+        categories: {
           select: {
             id: true,
-            name: true,
+            category: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
         image: true,
@@ -396,7 +488,8 @@ export async function updateItem(input: {
   description: string;
   unitId: string;
   unitPrice: number;
-  categoryId?: string;
+  costPrice: number;
+  categoryIds?: string[];
   image?: string;
   status?: "active" | "inactive";
 }) {
@@ -414,7 +507,20 @@ export async function updateItem(input: {
     // Check if item exists
     const existingItem = await prisma.item.findUnique({
       where: { id: input.id },
-      select: { id: true, code: true, description: true, unitId: true, unitPrice: true, categoryId: true, image: true, status: true },
+      select: { 
+        id: true, 
+        code: true, 
+        description: true, 
+        unitId: true, 
+        unitPrice: true, 
+        image: true, 
+        status: true,
+        categories: {
+          select: {
+            categoryId: true,
+          },
+        },
+      },
     });
 
     if (!existingItem) {
@@ -445,16 +551,20 @@ export async function updateItem(input: {
       code: string;
       description: string;
       unitId: string;
-      unitPrice: number;
-      categoryId?: string | null;
+      unitPrice: Prisma.Decimal;
+      costPrice: Prisma.Decimal;
       image?: string | null;
       status?: string;
+      categories?: {
+        deleteMany: {};
+        create?: { categoryId: string }[];
+      };
     } = {
       code: input.code,
       description: input.description,
       unitId: input.unitId,
-      unitPrice: input.unitPrice,
-      categoryId: input.categoryId || null,
+      unitPrice: new Prisma.Decimal(input.unitPrice),
+      costPrice: new Prisma.Decimal(input.costPrice),
     };
 
     if (input.image !== undefined) {
@@ -463,6 +573,16 @@ export async function updateItem(input: {
 
     if (input.status) {
       updateData.status = input.status;
+    }
+
+    // Handle categories: delete all existing and create new ones
+    if (input.categoryIds !== undefined) {
+      updateData.categories = {
+        deleteMany: {},
+        create: input.categoryIds.map((categoryId) => ({
+          categoryId,
+        })),
+      };
     }
 
     // Update item
@@ -482,11 +602,16 @@ export async function updateItem(input: {
           },
         },
         unitPrice: true,
-        categoryId: true,
-        category: {
+        costPrice: true,
+        categories: {
           select: {
             id: true,
-            name: true,
+            category: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
         image: true,
@@ -508,7 +633,16 @@ export async function updateItem(input: {
     if (input.description !== existingItem.description) changes.push("description");
     if (input.unitId !== existingItem.unitId) changes.push("unitId");
     if (input.unitPrice !== Number(existingItem.unitPrice)) changes.push("unitPrice");
-    if (input.categoryId !== existingItem.categoryId) changes.push("categoryId");
+    
+    // Check if categories changed
+    if (input.categoryIds !== undefined) {
+      const existingCategoryIds = existingItem.categories.map(c => c.categoryId).sort();
+      const newCategoryIds = [...input.categoryIds].sort();
+      if (JSON.stringify(existingCategoryIds) !== JSON.stringify(newCategoryIds)) {
+        changes.push("categories");
+      }
+    }
+    
     if (input.image !== undefined && input.image !== existingItem.image) changes.push("image");
     if (input.status && input.status !== existingItem.status) changes.push("status");
 

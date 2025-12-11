@@ -36,7 +36,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Decimal } from "@prisma/client/runtime/library";
 
 interface Item {
   id: string;
@@ -48,12 +47,15 @@ interface Item {
     symbol: string;
     details: string;
   };
-  unitPrice: Decimal;
-  categoryId: string | null;
+  unitPrice: number;
+  costPrice: number | null;
+  categories: {
+    id: string;
   category: {
     id: string;
     name: string;
-  } | null;
+    };
+  }[];
   image: string | null;
   status: string;
   createdAt: Date;
@@ -217,13 +219,12 @@ export default function ItemsListClient({
 
   const allSelected = initialItems?.length > 0 && selectedItems.size === initialItems.length;
 
-  const formatPrice = (price: Decimal | number) => {
-    const numPrice = typeof price === 'number' ? price : Number(price);
+  const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2,
-    }).format(numPrice);
+    }).format(price);
   };
 
   return (
@@ -334,6 +335,7 @@ export default function ItemsListClient({
               <TableHead>Description</TableHead>
               <TableHead>Unit</TableHead>
               <TableHead>Unit Price</TableHead>
+              <TableHead>Cost Price</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created At</TableHead>
@@ -343,7 +345,7 @@ export default function ItemsListClient({
           <TableBody>
             {initialItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed items found" : "No items found"}
                 </TableCell>
               </TableRow>
@@ -385,8 +387,21 @@ export default function ItemsListClient({
                     <TableCell className="font-medium">
                       {formatPrice(item.unitPrice)}
                     </TableCell>
+                    <TableCell className="font-medium">
+                      {formatPrice(item.costPrice ?? 0)}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {item.category?.name || "-"}
+                      {item.categories && item.categories.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {item.categories.map((itemCategory) => (
+                            <Badge key={itemCategory.id} variant="secondary" className="text-xs">
+                              {itemCategory.category.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        "-"
+                      )}
                     </TableCell>
                     <TableCell>
                       {itemStatus === "trash" ? (

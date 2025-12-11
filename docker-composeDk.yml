@@ -1,8 +1,3 @@
-# Dokploy-compatible Docker Compose Configuration
-# This version is optimized for Dokploy deployment platform
-# Dokploy manages environment variables through its UI
-# Dokploy uses its own network (dokploy-network) for service communication
-
 services:
   # PostgreSQL Database
   postgres:
@@ -155,4 +150,3 @@ volumes:
     driver: local
   redis_data:
     driver: local
-

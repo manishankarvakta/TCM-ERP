@@ -68,6 +68,7 @@ interface OrganizationsListClientProps {
   initialPagination: Pagination;
   initialSearch: string;
   isTrash?: boolean;
+  onRefresh?: () => void;
 }
 
 export default function OrganizationsListClient({

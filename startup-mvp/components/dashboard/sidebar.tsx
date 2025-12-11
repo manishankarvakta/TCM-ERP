@@ -51,6 +51,7 @@ const menuItems: MenuItem[] = [
     label: "Items",
     icon: FiArchive,
     subMenu: [
+      { href: "/dashboard/items/groups", label: "Groups", icon: FiLayers },
       { href: "/dashboard/items", label: "All Items", icon: FiPackage },
       { href: "/dashboard/items/category", label: "Categories", icon: MdOutlineCategory },
       { href: "/dashboard/items/units", label: "Units", icon: FiLayers },
