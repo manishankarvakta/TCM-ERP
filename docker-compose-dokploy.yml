@@ -1,13 +1,8 @@
-# Dokploy-compatible Docker Compose Configuration
-# This version is optimized for Dokploy deployment platform
-# Dokploy manages environment variables through its UI
-# Dokploy uses its own network (dokploy-network) for service communication
-
 services:
   # PostgreSQL Database
-  postgres:
+  espacio-postgres:
     image: postgres:16-alpine
-    container_name: startup-mvp-postgres
+    container_name: espacio-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -26,9 +21,9 @@ services:
       - dokploy-network
 
   # MinIO Object Storage
-  minio:
+  espacio-minio:
     image: minio/minio:latest
-    container_name: startup-mvp-minio
+    container_name: espacio-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -48,9 +43,9 @@ services:
       - dokploy-network
 
   # MinIO Client for bucket initialization
-  minio-setup:
+  espacio-minio-setup:
     image: minio/mc:latest
-    container_name: startup-mvp-minio-setup
+    container_name: espacio-minio-setup
     depends_on:
       minio:
         condition: service_healthy
@@ -66,11 +61,11 @@ services:
       - dokploy-network
 
   # Next.js Application
-  app:
+  espacio-app:   # <-- Renamed service to match Dokploy expectation
     build:
       context: ./startup-mvp
       dockerfile: Dockerfile
-    container_name: startup-mvp-app
+    container_name: espacio-app
     restart: unless-stopped
     ports:
       - "${APP_PORT}:3000"
@@ -125,10 +120,10 @@ services:
       node server.js;
       "
 
-  # Redis (optional, if you're using it)
-  redis:
+  # Redis (optional)
+  espacio-redis:
     image: redis:7-alpine
-    container_name: startup-mvp-redis
+    container_name: espacio-redis
     restart: unless-stopped
     ports:
       - "${REDIS_PORT}:6379"
@@ -142,12 +137,10 @@ services:
     networks:
       - dokploy-network
 
-# Dokploy uses its own network, so we reference it as external
 networks:
   dokploy-network:
     external: true
 
-# Named volumes for data persistence (Dokploy manages these)
 volumes:
   postgres_data:
     driver: local
