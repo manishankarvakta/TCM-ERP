@@ -134,36 +134,32 @@ const LENGTH_TO_METER: Record<LengthUnit, number> = {
 };
 
 /**
- * Convert area unit price to length unit price
+ * Convert base area unit price to target unit area price.
  * 
  * @param baseUnit - Area unit (sqm or sqft)
  * @param baseUnitPrice - Price per area unit
- * @param unit - Target length unit (m, ft, in, mm)
- * @returns Price per length unit
+ * @param unit - Target length unit (ft, in, mm, m). This implies square-units for pricing (sqft, sqin, sqmm, sqm).
+ * @returns Price per square of the selected unit (sqft/sqin/sqmm/sqm).
  * 
- * Example: If baseUnitPrice is 100 per sqm, and unit is "m",
- * then unitPrice = 100 (since 1 sqm = 1 m²)
- * 
- * If baseUnitPrice is 100 per sqft, and unit is "m",
- * then we convert: 100 per sqft = 100/0.092903 per sqm = 1076.39 per sqm
- * Then: 1076.39 per sqm = 1076.39 per m² = 1076.39 per m (for linear pricing)
+ * Examples:
+ * - base=100 per sqm, unit=ft => 100 per sqm = 100*0.092903 per sqft = 9.2903 per sqft
+ * - base=100 per sqft, unit=m  => 100 per sqft = 100/0.092903 per sqm = 1076.39 per sqm
  */
 export function convertAreaPriceToLengthPrice(
   baseUnit: "sqm" | "sqft",
   baseUnitPrice: number,
   unit: LengthUnit
 ): number {
-  // Convert baseUnitPrice to price per square meter
-  const pricePerSqm = convertToSquareMeter(baseUnitPrice, baseUnit);
-  
-  // Get length conversion factor
+  // Normalize to price per square meter (sqm) first.
+  // 1 sqft = 0.092903 sqm
+  const pricePerSqm =
+    baseUnit === "sqm" ? baseUnitPrice : baseUnitPrice / 0.092903;
+
+  // Convert price per sqm to price per square of the selected unit:
+  // Since 1 unit = lengthFactor meters, then 1 unit^2 = (lengthFactor^2) m^2,
+  // so pricePerSqUnit = pricePerSqm * (lengthFactor^2).
   const lengthFactor = LENGTH_TO_METER[unit];
-  
-  // Convert price per square meter to price per length unit
-  // Price per length unit = Price per sqm / (length factor squared)
-  // This gives us the price per linear unit in the target length unit
   const areaFactor = lengthFactor * lengthFactor;
-  
   return pricePerSqm * areaFactor;
 }
 
@@ -195,7 +191,6 @@ export function calculateSurfaceArea(
   // Convert to target unit (divide by area factor)
   const areaFactor = factor * factor;
   const areaInUnit = areaSqm / areaFactor;
-  
   return areaInUnit;
 }
 

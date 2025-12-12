@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -42,6 +42,12 @@ export default function RegistrationForm() {
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // #region agent log
+    fetch("http://127.0.0.1:7242/ingest/0735cf71-dac8-4fa7-bbcd-7b20db098158", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId: "debug-session", runId: "pre-fix", hypothesisId: "B", location: "components/forms/registration-form.tsx:RegistrationForm", message: "RegistrationForm mounted", data: { hasDividerSpanClass: true }, timestamp: Date.now() }) }).catch(() => {});
+    // #endregion
+  }, []);
 
   const {
     register,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,9 +19,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FiAlertCircle, FiPlus, FiTrash2, FiSearch, FiCopy } from "react-icons/fi";
+import { FiAlertCircle, FiPlus, FiTrash2, FiCopy } from "react-icons/fi";
 import { createGroup, updateGroup } from "../_actions/group.action";
-import { getActiveUnits } from "../../_actions/item.action";
 import { 
   convertAreaPriceToLengthPrice, 
   calculateSurfaceArea,
@@ -55,6 +54,12 @@ const groupFormSchema = z.object({
 type GroupFormData = z.infer<typeof groupFormSchema>;
 type GroupItem = z.infer<typeof groupItemSchema>;
 
+const GROUP_LENGTH_UNIT_OPTIONS: Array<{ value: LengthUnit; label: string }> = [
+  { value: "in", label: "in" },
+  { value: "mm", label: "mm" },
+  { value: "ft", label: "ft" },
+];
+
 interface GroupFormProps {
   mode: "create" | "edit";
   initialData?: {
@@ -81,19 +86,10 @@ interface GroupFormProps {
   };
 }
 
-interface Unit {
-  id: string;
-  symbol: string;
-  details: string;
-}
-
 export default function GroupForm({ mode, initialData }: GroupFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
-   const [units, setUnits] = useState<Unit[]>([]);
-  const [loadingUnits, setLoadingUnits] = useState(true);
-  const [unitSearch, setUnitSearch] = useState("");
 
   const {
     register,
@@ -135,22 +131,6 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
   });
 
   const items = watch("items");
-
-  useEffect(() => {
-    async function loadUnits() {
-      try {
-        const result = await getActiveUnits();
-        if (result.success && result.units) {
-          setUnits(result.units);
-        }
-      } catch (err) {
-        console.error("Failed to load units:", err);
-      } finally {
-        setLoadingUnits(false);
-      }
-    }
-    loadUnits();
-  }, []);
 
   const calculateItemAmount = (item: GroupItem): number => {
     // If we have dimensions and unit, calculate surface area
@@ -235,7 +215,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
           updatedItem.baseUnitPrice > 0 &&
           updatedItem.unit) {
         try {
-          // Convert area unit price to length unit price
+          // Convert base area price to the same square-unit as the selected unit (sqin/sqmm/sqft)
           const calculatedUnitPrice = convertAreaPriceToLengthPrice(
             updatedItem.baseUnit as "sqm" | "sqft",
             updatedItem.baseUnitPrice,
@@ -464,67 +444,21 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
                         </TableCell>
                         <TableCell>
                           <Select
-                            value={
-                              item.unit && units.length > 0
-                                ? units.find((u) => u.symbol === item.unit)?.id || ""
-                                : ""
-                            }
+                            value={(item.unit as LengthUnit | undefined) || ""}
                             onValueChange={(value) => {
-                              const selectedUnit = units.find((u) => u.id === value);
-                              updateItem(index, "unit", selectedUnit ? selectedUnit.symbol : "");
-                              setUnitSearch(""); // Clear search on selection
+                              updateItem(index, "unit", value);
                             }}
-                            disabled={loading || loadingUnits}
+                            disabled={loading}
                           >
                             <SelectTrigger className="w-24">
                               <SelectValue placeholder="Unit" />
                             </SelectTrigger>
-                            <SelectContent className="max-h-[300px]">
-                              <div className="p-2 border-b">
-                                <div className="relative">
-                                  <FiSearch className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                  <Input
-                                    placeholder="Search units..."
-                                    value={unitSearch}
-                                    onChange={(e) => {
-                                      e.stopPropagation();
-                                      setUnitSearch(e.target.value);
-                                    }}
-                                    onKeyDown={(e) => {
-                                      e.stopPropagation();
-                                      if (e.key === "Enter") {
-                                        e.preventDefault();
-                                      }
-                                    }}
-                                    className="pl-8"
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
-                                </div>
-                              </div>
-                              <div className="max-h-[200px] overflow-y-auto">
-                                {units
-                                  .filter((unit) =>
-                                    unitSearch
-                                      ? unit.symbol.toLowerCase().includes(unitSearch.toLowerCase()) ||
-                                        unit.details.toLowerCase().includes(unitSearch.toLowerCase())
-                                      : true
-                                  )
-                                  .map((unit) => (
-                                    <SelectItem key={unit.id} value={unit.id}>
-                                      {unit.symbol} - {unit.details}
-                                    </SelectItem>
-                                  ))}
-                                {units.filter((unit) =>
-                                  unitSearch
-                                    ? unit.symbol.toLowerCase().includes(unitSearch.toLowerCase()) ||
-                                      unit.details.toLowerCase().includes(unitSearch.toLowerCase())
-                                    : true
-                                ).length === 0 && (
-                                  <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">
-                                    No units found
-                                  </div>
-                                )}
-                              </div>
+                            <SelectContent>
+                              {GROUP_LENGTH_UNIT_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </TableCell>

@@ -331,8 +331,8 @@ export default function ItemsListClient({
                 />
               </TableHead>
               <TableHead>Image</TableHead>
-              <TableHead>Code</TableHead>
-              <TableHead>Description</TableHead>
+              <TableHead className="whitespace-nowrap">Code</TableHead>
+              <TableHead className="w-[240px] sm:w-[320px] lg:w-[420px]">Description</TableHead>
               <TableHead>Unit</TableHead>
               <TableHead>Unit Price</TableHead>
               <TableHead>Cost Price</TableHead>
@@ -377,8 +377,14 @@ export default function ItemsListClient({
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="font-medium">{item.code}</TableCell>
-                    <TableCell>{item.description}</TableCell>
+                    <TableCell className="font-medium whitespace-nowrap break-keep">
+                      {item.code}
+                    </TableCell>
+                    <TableCell className="w-[240px] sm:w-[320px] lg:w-[420px]">
+                      <p className="line-clamp-2" title={item.description}>
+                        {item.description}
+                      </p>
+                    </TableCell>
                     <TableCell>
                       <span className="text-sm text-muted-foreground">
                         {item.unit.symbol}

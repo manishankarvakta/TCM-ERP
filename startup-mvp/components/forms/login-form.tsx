@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 // import { signIn } from "next-auth/react";
 // import { signIn } from "next-auth";
 import { useRouter } from "next/navigation";
@@ -25,6 +25,12 @@ export default function LoginForm() {
   const router = useRouter();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // #region agent log
+    fetch("http://127.0.0.1:7242/ingest/0735cf71-dac8-4fa7-bbcd-7b20db098158", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId: "debug-session", runId: "pre-fix", hypothesisId: "A", location: "components/forms/login-form.tsx:LoginForm", message: "LoginForm mounted", data: { dividerLabel: "Forgot Password?", hasDividerSpanClass: true }, timestamp: Date.now() }) }).catch(() => {});
+    // #endregion
+  }, []);
 
   const {
     register,
@@ -130,17 +136,6 @@ export default function LoginForm() {
             "Sign In with Email"
           )}
         </Button>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">
-              Forgot Password?
-            </span>
-          </div>
-        </div>
 
         {/* <Button variant="outline" type="button" className="w-full" asChild>
           <Link href="/registration">

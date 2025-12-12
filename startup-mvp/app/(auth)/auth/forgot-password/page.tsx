@@ -9,6 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function ForgotPasswordPage() {
+  // #region agent log
+  fetch("http://127.0.0.1:7242/ingest/0735cf71-dac8-4fa7-bbcd-7b20db098158", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId: "debug-session", runId: "pre-fix", hypothesisId: "C", location: "app/(auth)/auth/forgot-password/page.tsx:ForgotPasswordPage", message: "ForgotPasswordPage rendered (server)", data: {}, timestamp: Date.now() }) }).catch(() => {});
+  // #endregion
+
   return (
     <div className="w-full max-w-md">
       <div className="mb-8 text-center">

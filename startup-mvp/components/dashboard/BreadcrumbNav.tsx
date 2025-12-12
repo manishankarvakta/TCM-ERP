@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getQuotation } from "@/app/actions/quotations";
 import { getGroupById } from "@/app/(dashboard)/dashboard/items/groups/_actions/group.action";
+import { getItemById } from "@/app/(dashboard)/dashboard/items/_actions/item.action";
 
 // Map route paths to display names
 const routeMap: Record<string, string> = {
@@ -88,6 +89,7 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const router = useRouter();
   const [quotationNumber, setQuotationNumber] = useState<string | null>(null);
   const [groupCode, setGroupCode] = useState<string | null>(null);
+  const [itemLabel, setItemLabel] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
 
   // Fetch quotation number if we're on a quotation detail or edit page
@@ -139,6 +141,38 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     return () => {
       cancelled = true;
       setGroupCode(null);
+    };
+  }, [pathname]);
+
+  // Fetch item label if we're on an item edit page (/dashboard/items/:id)
+  useEffect(() => {
+    const itemMatch = pathname.match(/^\/dashboard\/items\/([^\/]+)$/);
+    if (!itemMatch) {
+      return;
+    }
+
+    // Ignore non-item subroutes under /dashboard/items/*
+    const segment = itemMatch[1];
+    if (segment === "groups" || segment === "units" || segment === "category" || segment === "details") {
+      return;
+    }
+
+    const itemId = segment;
+    let cancelled = false;
+
+    getItemById(itemId)
+      .then((result) => {
+        if (!cancelled && result.success && result.item) {
+          setItemLabel(result.item.code || result.item.description || null);
+        }
+      })
+      .catch(() => {
+        // Silently fail - will show default label
+      });
+
+    return () => {
+      cancelled = true;
+      setItemLabel(null);
     };
   }, [pathname]);
 
@@ -213,6 +247,19 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     } else {
       // Show loading state or default while fetching
       currentLabel = isGroupEdit ? "Edit Group" : "Group Details";
+    }
+  }
+
+  // If we're on an item edit page, use item code/description instead of ID
+  const isItemEdit = pathname.match(/^\/dashboard\/items\/([^\/]+)$/);
+  if (isItemEdit) {
+    const segment = isItemEdit[1];
+    if (segment !== "groups" && segment !== "units" && segment !== "category" && segment !== "details") {
+      if (itemLabel) {
+        currentLabel = `Edit ${itemLabel}`;
+      } else {
+        currentLabel = "Edit Item";
+      }
     }
   }
 
