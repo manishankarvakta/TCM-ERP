@@ -51,10 +51,13 @@ services:
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9000/minio/health/live || exit 1"]
+      # NOTE: Keep this healthcheck compatible with minimal images (busybox wget).
+      # Some wget builds don't support flags like --no-verbose/--tries/--spider, causing false "unhealthy".
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:9000/minio/health/live || exit 1"]
       interval: 30s
       timeout: 20s
       retries: 3
+      start_period: 30s
     networks:
       - app-network
 
