@@ -1,21 +1,21 @@
 # Dokploy Deployment Guide
 
-This guide explains how to deploy the application using Dokploy with the `docker-compose.yml` configuration.
+This guide explains how to deploy the application using Dokploy with the **Docker Compose** configuration.
 
 ## Differences from Local Docker Compose
 
-The `docker-compose.yml` file has been optimized for Dokploy with the following changes:
+The `docker-compose-dokploy.yml` file has been optimized for Dokploy with the following changes:
 
 ### 1. Network Configuration
 - **Local**: Uses custom `app-network` (bridge driver) with bind mounts
 - **Dokploy**: Uses `app-network` (bridge driver) with named volumes for better portability
 
 ### 2. Environment Variables
-- **Local**: Uses default values with `${VAR:-default}` syntax in `docker-compose.local.yml`
+- **Local**: Uses default values with `${VAR:-default}` syntax in `docker-compose.yml`
 - **Dokploy**: Uses default values but can be overridden via Dokploy UI environment variables
 
 ### 3. Volume Management
-- **Local**: Uses bind mounts (`./volumes/postgres`, `./volumes/minio`, etc.) in `docker-compose.local.yml`
+- **Local**: Uses bind mounts (`./volumes/postgres`, `./volumes/minio`, etc.) in `docker-compose.yml`
 - **Dokploy**: Uses named volumes (`postgres_data`, `minio_data`, `redis_data`) for better portability and Dokploy management
 
 ### 4. Service Names
@@ -78,11 +78,12 @@ EMAIL_FROM_NAME=Espacio
    - Dokploy should automatically create the `dokploy-network`
    - If not, create it manually: `docker network create dokploy-network`
 
-2. **Upload docker-compose.yml**
+2. **Use Docker Compose + select the correct compose file**
    - In Dokploy UI, create a new application
-   - Select "Docker Compose" as the deployment type (NOT "Dockerfile")
-   - Upload or paste the contents of `docker-compose.yml`
+   - Select **"Docker Compose"** as the deployment type (**NOT** "Dockerfile")
+   - Upload or paste the contents of `docker-compose-dokploy.yml`
    - **Important**: Ensure the build context is set to `./startup-mvp` and dockerfile is `Dockerfile`
+   - If Dokploy asks for a "Dockerfile path" while you're using Compose, **do not** point it at a compose yaml (that causes errors like `unknown instruction: services:`)
 
 3. **Configure Environment Variables**
    - Add all required environment variables in Dokploy's environment section
@@ -128,7 +129,7 @@ docker network ls | grep app-network
 
 ## Migration from Standard Docker Compose
 
-If migrating from `docker-compose.yml`:
+If migrating from `docker-compose.yml` (local):
 
 1. **Export Data** (if needed):
    ```bash
@@ -141,7 +142,7 @@ If migrating from `docker-compose.yml`:
    ```
 
 3. **Deploy to Dokploy**:
-   - Use `docker-compose.yml` in Dokploy
+   - Use `docker-compose-dokploy.yml` in Dokploy
    - Configure environment variables
    - Deploy
 

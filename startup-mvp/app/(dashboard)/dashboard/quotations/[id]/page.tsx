@@ -172,7 +172,7 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                                     <tr key={item.id || itemIndex} className="border-b">
                                       <td className="p-2">{item.sl}</td>
                                       <td className="p-2 whitespace-nowrap break-keep">{item.code || '-'}</td>
-                                      <td className="p-2 w-[220px] sm:w-[320px] lg:w-[420px]">{item.description || '-'}</td>
+                                      <td className="p-2 w-94">{item.description || '-'}</td>
                                       <td className="text-right p-2">{Number(item.quantity)}</td>
                                       <td className="text-right p-2">{formatCurrency(Number(item.unitPrice))}</td>
                                       <td className="text-right p-2 font-medium">
@@ -220,7 +220,7 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                             <tr key={item.id || itemIndex} className="border-b">
                               <td className="p-2">{item.sl}</td>
                               <td className="p-2 whitespace-nowrap break-keep">{item.code || '-'}</td>
-                              <td className="p-2 w-[220px] sm:w-[320px] lg:w-[420px]">{item.description || '-'}</td>
+                              <td className="p-2 w-94">{item.description || '-'}</td>
                               <td className="text-right p-2">{Number(item.quantity)}</td>
                               <td className="text-right p-2">{formatCurrency(Number(item.unitPrice))}</td>
                               <td className="text-right p-2 font-medium">
