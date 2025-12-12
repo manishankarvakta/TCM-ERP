@@ -5,3 +5,4 @@
 {"sessionId":"debug-session","runId":"pre-fix","hypothesisId":"A","location":"components/forms/login-form.tsx:LoginForm","message":"LoginForm mounted","data":{"dividerLabel":"Forgot Password?","hasDividerSpanClass":true},"timestamp":1765538574978}
 {"sessionId":"debug-session","runId":"pre-fix","hypothesisId":"A","location":"components/forms/login-form.tsx:LoginForm","message":"LoginForm mounted","data":{"dividerLabel":"Forgot Password?","hasDividerSpanClass":true},"timestamp":1765541515324}
 {"sessionId":"debug-session","runId":"pre-fix","hypothesisId":"A","location":"components/forms/login-form.tsx:LoginForm","message":"LoginForm mounted","data":{"dividerLabel":"Forgot Password?","hasDividerSpanClass":true},"timestamp":1765541515326}
+{"sessionId":"debug-session","runId":"pre-fix","hypothesisId":"B","location":"components/forms/registration-form.tsx:RegistrationForm","message":"RegistrationForm mounted","data":{"hasDividerSpanClass":true},"timestamp":1765554944769}

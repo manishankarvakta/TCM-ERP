@@ -1,5 +1,5 @@
 # Docker Compose configuration for Dokploy deployment
-# 
+#
 # Required Environment Variables (must be set in Dokploy UI):
 # - POSTGRES_PASSWORD: Database password
 # - MINIO_ROOT_PASSWORD: MinIO root password
@@ -15,7 +15,7 @@
 # - MINIO_ROOT_USER (default: minioadmin)
 # - MINIO_BUCKET_NAME (default: uploads)
 # - SMTP_* variables (optional, for email functionality)
-# - APP_PORT (default: 3001) Host port for the app container (change in Dokploy if 3001 is also taken)
+# - APP_PORT (default: 3001)
 
 services:
   # PostgreSQL Database
@@ -24,8 +24,6 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      # Provide a default so the container doesn't fail hard if Dokploy env vars aren't set yet.
-      # For production, override this in Dokploy.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-espaciodb}
     ports:
@@ -47,8 +45,6 @@ services:
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      # Provide a default so the container doesn't fail hard if Dokploy env vars aren't set yet.
-      # For production, override this in Dokploy with a strong password.
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     ports:
       - "${MINIO_PORT:-9000}:9000"
@@ -72,7 +68,6 @@ services:
     entrypoint: >
       /bin/sh -c "
       echo 'Waiting for MinIO to accept connections...';
-      # Retry until MinIO is reachable instead of relying on a container healthcheck (which can be image/tool dependent).
       until /usr/bin/mc alias set myminio http://espacio-minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}; do
         echo 'MinIO not ready yet, retrying...';
         sleep 2;
@@ -109,7 +104,6 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      # Dokploy hosts often already have something on 3000; use a safer default.
       - "${APP_PORT:-3001}:3000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@espacio-postgres:5432/${POSTGRES_DB:-espaciodb}?schema=public
@@ -142,6 +136,7 @@ services:
         condition: service_healthy
     networks:
       - app-network
+      - dokploy-network
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\" || exit 1"]
       interval: 30s
@@ -162,10 +157,10 @@ networks:
   app-network:
     driver: bridge
 
+  dokploy-network:
+    external: true
+
 volumes:
   postgres_data:
-    driver: local
   minio_data:
-    driver: local
   redis_data:
-    driver: local
