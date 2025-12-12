@@ -155,6 +155,20 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   const margin = 15;
   let yPos = margin + 10;
 
+  // Ensure we never write text outside the bordered page area.
+  // If there isn't enough vertical space for the next line, we add a new page
+  // and re-draw the border/background.
+  const ensurePageSpace = (neededHeight: number) => {
+    const bottomLimit = pageHeight - margin - 5;
+    if (yPos + neededHeight <= bottomLimit) return;
+
+    doc.addPage();
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, pageWidth, pageHeight, "F");
+    drawPageBorder(doc, margin);
+    yPos = margin + 10;
+  };
+
   // Set font to Roboto (fallback to helvetica if Roboto not available)
   // Note: To use Roboto, you need to add Roboto font files to jsPDF
   // For now, using helvetica as it's similar to Roboto
@@ -494,6 +508,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   if (toClientAddress) {
     const addressLines = doc.splitTextToSize(toClientAddress, pageWidth - 2 * margin - 30);
     addressLines.forEach((line: string) => {
+      ensurePageSpace(4);
       doc.text(line, margin + 10, yPos);
       yPos += 4;
     });
@@ -509,16 +524,18 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   // Cover Letter Content
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text('Dear Sir,', margin + 10, yPos);
+  // doc.text('Dear Sir,', margin + 10, yPos);
   yPos += 5;
   
   if (quotation.coverLetter) {
     const coverLetterLines = doc.splitTextToSize(quotation.coverLetter, pageWidth - 2 * margin - 20);
     coverLetterLines.forEach((line: string) => {
+      ensurePageSpace(4);
       doc.text(line, margin + 10, yPos);
       yPos += 4;
     });
   } else {
+    ensurePageSpace(5);
     doc.text('We are happily presenting this financial offer to respond your essential requirements based on the following terms and conditions.', margin + 10, yPos);
     yPos += 5;
   }

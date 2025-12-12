@@ -113,11 +113,11 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                           </h4>
                           {group.items && group.items.length > 0 && (
                             <div className="overflow-x-auto">
-                              <table className="w-full text-sm">
+                              <table className="w-full min-w-max text-sm">
                                 <thead>
                                   <tr className="border-b">
                                     <th className="text-left p-2">SL</th>
-                                    <th className="text-left p-2">Code</th>
+                                    <th className="text-left p-2 whitespace-nowrap">Code</th>
                                     <th className="text-left p-2">Description</th>
                                     <th className="text-right p-2">Qty</th>
                                     <th className="text-right p-2">Unit Price</th>
@@ -128,7 +128,7 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                                   {group.items?.map((item, itemIndex: number) => (
                                     <tr key={item.id || itemIndex} className="border-b">
                                       <td className="p-2">{item.sl}</td>
-                                      <td className="p-2">{item.code || '-'}</td>
+                                      <td className="p-2 whitespace-nowrap break-keep">{item.code || '-'}</td>
                                       <td className="p-2">{item.description || '-'}</td>
                                       <td className="text-right p-2">{Number(item.quantity)}</td>
                                       <td className="text-right p-2">{formatCurrency(Number(item.unitPrice))}</td>
@@ -156,11 +156,11 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                           </h4>
                           {categoryGroup.items && categoryGroup.items.length > 0 && (
                             <div className="overflow-x-auto">
-                              <table className="w-full text-sm">
+                              <table className="w-full min-w-max text-sm">
                                 <thead>
                                   <tr className="border-b">
                                     <th className="text-left p-2">SL</th>
-                                    <th className="text-left p-2">Code</th>
+                                    <th className="text-left p-2 whitespace-nowrap">Code</th>
                                     <th className="text-left p-2">Description</th>
                                     <th className="text-right p-2">Qty</th>
                                     <th className="text-right p-2">Unit Price</th>
@@ -171,8 +171,8 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                                   {categoryGroup.items?.map((item, itemIndex: number) => (
                                     <tr key={item.id || itemIndex} className="border-b">
                                       <td className="p-2">{item.sl}</td>
-                                      <td className="p-2">{item.code || '-'}</td>
-                                      <td className="p-2">{item.description || '-'}</td>
+                                      <td className="p-2 whitespace-nowrap break-keep">{item.code || '-'}</td>
+                                      <td className="p-2 w-94">{item.description || '-'}</td>
                                       <td className="text-right p-2">{Number(item.quantity)}</td>
                                       <td className="text-right p-2">{formatCurrency(Number(item.unitPrice))}</td>
                                       <td className="text-right p-2 font-medium">
@@ -204,11 +204,11 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                   {/* Direct Items */}
                   {section.items && section.items.length > 0 && (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
+                      <table className="w-full min-w-max text-sm">
                         <thead>
                           <tr className="border-b">
                             <th className="text-left p-2">SL</th>
-                            <th className="text-left p-2">Code</th>
+                            <th className="text-left p-2 whitespace-nowrap">Code</th>
                             <th className="text-left p-2">Description</th>
                             <th className="text-right p-2">Qty</th>
                             <th className="text-right p-2">Unit Price</th>
@@ -219,8 +219,8 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                           {section.items?.map((item, itemIndex: number) => (
                             <tr key={item.id || itemIndex} className="border-b">
                               <td className="p-2">{item.sl}</td>
-                              <td className="p-2">{item.code || '-'}</td>
-                              <td className="p-2">{item.description || '-'}</td>
+                              <td className="p-2 whitespace-nowrap break-keep">{item.code || '-'}</td>
+                              <td className="p-2 w-94">{item.description || '-'}</td>
                               <td className="text-right p-2">{Number(item.quantity)}</td>
                               <td className="text-right p-2">{formatCurrency(Number(item.unitPrice))}</td>
                               <td className="text-right p-2 font-medium">
