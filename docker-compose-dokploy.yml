@@ -67,7 +67,8 @@ services:
       dockerfile: Dockerfile
     container_name: espacio-app
     restart: unless-stopped
-    
+    ports:
+      - "${APP_PORT}:3000"
     environment:
       # Database
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@espacio-postgres:5432/${POSTGRES_DB}?schema=public
