@@ -139,7 +139,7 @@ services:
 
 networks:
   dokploy-network:
-    external: true
+    external: false
 
 volumes:
   postgres_data:
