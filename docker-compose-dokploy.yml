@@ -1,5 +1,4 @@
 services:
-  # PostgreSQL Database
   espacio-postgres:
     image: postgres:16-alpine
     container_name: espacio-postgres
@@ -8,8 +7,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "${POSTGRES_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -19,8 +16,8 @@ services:
       retries: 5
     networks:
       - dokploy-network
+      - clients-espaciocompose-bvz3hy
 
-  # MinIO Object Storage
   espacio-minio:
     image: minio/minio:latest
     container_name: espacio-minio
@@ -29,9 +26,6 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    ports:
-      - "${MINIO_PORT}:9000"
-      - "${MINIO_CONSOLE_PORT}:9001"
     volumes:
       - minio_data:/data
     healthcheck:
@@ -41,92 +35,27 @@ services:
       retries: 3
     networks:
       - dokploy-network
+      - clients-espaciocompose-bvz3hy
 
-  # MinIO Client for bucket initialization
   espacio-minio-setup:
     image: minio/mc:latest
-    container_name: espacio-minio-setup
     depends_on:
       espacio-minio:
         condition: service_healthy
     entrypoint: >
-      /bin/sh -c "
-      sleep 5;
-      /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
-      /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME} || true;
-      /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME} || true;
-      exit 0;
-      "
-    networks:
-      - dokploy-network
-
-  # Next.js Application
-  espacio-app:   # <-- Renamed service to match Dokploy expectation
-    build:
-      context: ./startup-mvp
-      dockerfile: Dockerfile
-    container_name: espacio-app
-    restart: unless-stopped
-    ports:
-      - "${APP_PORT}:3000"
-    environment:
-      # Database
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@espacio-postgres:5432/${POSTGRES_DB}?schema=public
-      
-      # NextAuth
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-      NEXTAUTH_URL: ${NEXTAUTH_URL}
-      
-      # MinIO
-      MINIO_ENDPOINT: minio
-      MINIO_PORT: 9000
-      MINIO_USE_SSL: ${MINIO_USE_SSL}
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
-      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME}
-      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL}
-      
-      # Redis (optional)
-      REDIS_URL: ${REDIS_URL}
-      
-      # Email Configuration
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT}
-      SMTP_SECURE: ${SMTP_SECURE}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_PASS: ${SMTP_PASS}
-      EMAIL_FROM: ${EMAIL_FROM}
-      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME}
-      
-      # App URL
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
-      
-      # Node Environment
-      NODE_ENV: ${NODE_ENV:-production}
-    depends_on:
-      espacio-postgres:
-        condition: service_healthy
-      espacio-minio:
-        condition: service_healthy
-    networks:
-      - dokploy-network
-    command: >
       sh -c "
-      echo 'Waiting for database to be ready...';
-      sleep 10;
-      echo 'Running database migrations...';
-      npx prisma migrate deploy || echo 'Migrations completed or no migrations to run';
-      echo 'Starting application...';
-      node server.js;
+      mc alias set myminio http://espacio-minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} &&
+      mc mb myminio/${MINIO_BUCKET_NAME} || true &&
+      mc anonymous set download myminio/${MINIO_BUCKET_NAME} || true
       "
+    networks:
+      - dokploy-network
+      - clients-espaciocompose-bvz3hy
 
-  # Redis (optional)
   espacio-redis:
     image: redis:7-alpine
     container_name: espacio-redis
     restart: unless-stopped
-    ports:
-      - "${REDIS_PORT}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -136,15 +65,61 @@ services:
       retries: 5
     networks:
       - dokploy-network
+      - clients-espaciocompose-bvz3hy
+
+  espacio-app:
+    build:
+      context: ./startup-mvp
+      dockerfile: Dockerfile
+    container_name: espacio-app
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@espacio-postgres:5432/${POSTGRES_DB}?schema=public
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: https://app.espaciobd.com
+      NEXT_PUBLIC_APP_URL: https://app.espaciobd.com
+      MINIO_ENDPOINT: espacio-minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME}
+      MINIO_PUBLIC_URL: https://app.espaciobd.com
+      REDIS_URL: redis://espacio-redis:6379
+      NODE_ENV: production
+    depends_on:
+      espacio-postgres:
+        condition: service_healthy
+      espacio-minio:
+        condition: service_healthy
+    command: >
+      sh -c "
+      echo 'Running Prisma migrations...' &&
+      npx prisma migrate deploy || true &&
+      echo 'Starting app...' &&
+      node server.js
+      "
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.espacio-http.rule=Host(`app.espaciobd.com`)
+      - traefik.http.routers.espacio-http.entrypoints=web
+      - traefik.http.routers.espacio-http.middlewares=redirect-to-https@file
+
+      - traefik.http.routers.espacio-https.rule=Host(`app.espaciobd.com`)
+      - traefik.http.routers.espacio-https.entrypoints=websecure
+      - traefik.http.routers.espacio-https.tls.certresolver=letsencrypt
+      - traefik.http.services.espacio.loadbalancer.server.port=3000
+    networks:
+      - dokploy-network
+      - clients-espaciocompose-bvz3hy
 
 networks:
   dokploy-network:
     external: false
+  clients-espaciocompose-bvz3hy:
+    external: true
 
 volumes:
   postgres_data:
-    driver: local
   minio_data:
-    driver: local
   redis_data:
-    driver: local
