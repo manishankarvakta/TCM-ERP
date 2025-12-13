@@ -22,7 +22,6 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Generate Prisma client (NO DB required)
-RUN npx prisma migrate deploy
 RUN npx prisma generate
 
 # Build Next.js
