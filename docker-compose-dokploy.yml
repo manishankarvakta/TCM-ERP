@@ -71,12 +71,15 @@ services:
     restart: unless-stopped
     expose:
       - "3000"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.espacio-app.rule=Host(`app.espaciobd.com`)"
-      - "traefik.http.routers.espacio-app.entrypoints=websecure"
-      - "traefik.http.routers.espacio-app.tls=true"
-      - "traefik.http.services.espacio-app.loadbalancer.server.port=3000"
+    # Dokploy commonly deploys Compose as a Swarm stack; Traefik reads labels from deploy.labels in Swarm mode.
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=dokploy-network"
+        - "traefik.http.routers.espacio-app.rule=Host(`app.espaciobd.com`)"
+        - "traefik.http.routers.espacio-app.entrypoints=web,websecure"
+        - "traefik.http.routers.espacio-app.tls=true"
+        - "traefik.http.services.espacio-app.loadbalancer.server.port=3000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@espacio-postgres:5432/${POSTGRES_DB}?schema=public
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
