@@ -50,6 +50,7 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 # Copy bcryptjs for seed script
 COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
 
+RUN npx prisma generate 
 # Set correct permissions
 RUN chown -R nextjs:nodejs /app
 
