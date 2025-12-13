@@ -3,15 +3,14 @@
 # FROM public.ecr.aws/docker/library/node:20-alpine AS base 
 FROM node:20-bullseye-slim AS base
 
+# System dependencies (Debian/Ubuntu use apt-get; apk is Alpine-only)
+# - ca-certificates/openssl: required by Prisma + HTTPS calls in many environments
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates openssl \
+  && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies only when needed
 FROM base AS deps
-# `apk` exists only on Alpine images. This project currently uses Debian slim (`node:20-bullseye-slim`),
-# so installing `libc6-compat` via `apk` will fail. Keep this conditional so it still works if you
-# switch the base image back to Alpine.
-RUN set -eux; \
-  if command -v apk >/dev/null 2>&1; then \
-    apk add --no-cache libc6-compat; \
-  fi
 WORKDIR /app
 
 # Copy package files
@@ -43,7 +42,7 @@ ENV NEXT_TELEMETRY_DISABLED 1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Install Prisma CLI globally for migrations (same version as in package.json)
+# Install Prisma CLI globally for migrations (keep in sync with package.json)
 RUN npm install -g prisma@6.18.0
 
 # Copy necessary files

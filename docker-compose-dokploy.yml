@@ -1,70 +1,3 @@
-# Load environment variables from .env.docker if it exists
-# Otherwise, use default values or environment variables
-# To use custom env file: docker-compose --env-file .env.docker up
-
-services:
-  # PostgreSQL Database
-  espacio-postgres:
-    image: postgres:16-alpine
-    container_name: startup-mvp-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-startup_mvp}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - ./volumes/postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - dokploy-network
-
-  # MinIO Object Storage
-  espacio-minio:
-    image: minio/minio:latest
-    container_name: startup-mvp-minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
-    ports:
-      - "${MINIO_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
-    volumes:
-      - ./volumes/minio:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-    networks:
-      - dokploy-network
-
-  # MinIO Client for bucket initialization
-  espacio-minio-setup:
-    image: minio/mc:latest
-    container_name: startup-mvp-minio-setup
-    depends_on:
-      espacio-minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      sleep 5;
-      /usr/bin/mc alias set myminio http://espacio-minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
-      /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || true;
-      /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || true;
-      exit 0;
-      "
-    networks:
-      - dokploy-network
-
-  # Next.js Application
   espacio-app:
     build:
       context: ./startup-mvp
@@ -73,6 +6,11 @@ services:
     restart: unless-stopped
     networks:
       - dokploy-network
+    depends_on:
+      espacio-postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@espacio-postgres:5432/startup_mvp?schema=public
     command: >
       sh -c "
       echo 'Waiting for database...';
