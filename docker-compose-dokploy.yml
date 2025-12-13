@@ -73,6 +73,7 @@ services:
       - "3000"
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=clients-espaciocompose-bvz3hy"
       - "traefik.http.routers.espacio-app.rule=Host(`app.espaciobd.com`)"
       - "traefik.http.routers.espacio-app.entrypoints=websecure"
       - "traefik.http.routers.espacio-app.tls=true"
@@ -108,11 +109,15 @@ services:
     
     networks:
       - dokploy-network
+      - clients-espaciocompose-bvz3hy
       
 
 networks:
   dokploy-network:
-    external: false
+    external: true
+    name: dokploy-network
+  clients-espaciocompose-bvz3hy:
+    external: true
 
 volumes:
   postgres_data:
