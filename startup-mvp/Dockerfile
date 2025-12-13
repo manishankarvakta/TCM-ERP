@@ -20,6 +20,7 @@ COPY . .
 
 # Generate Prisma Client (DATABASE_URL not needed for generation, only for migrations)
 ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+RUN npx prisma migrate deploy
 RUN npx prisma generate
 
 # Build Next.js app
