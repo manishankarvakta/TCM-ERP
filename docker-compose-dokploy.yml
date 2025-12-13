@@ -147,8 +147,7 @@ services:
 
 networks:
   dokploy-network:
-    # driver: bridge
-    external: true
+    external: false
 
 
  
