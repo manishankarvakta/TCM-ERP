@@ -71,6 +71,8 @@ services:
       dockerfile: Dockerfile
     container_name: startup-mvp-app
     restart: unless-stopped
+    networks:
+      - dokploy-network
     command: >
       sh -c "
       echo 'Running Prisma migrations...';
@@ -78,7 +80,7 @@ services:
       echo 'Starting app...';
       node server.js;
       "
-    
+      
     environment:
       # Database
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@espacio-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
@@ -118,17 +120,8 @@ services:
         condition: service_healthy
       espacio-minio:
         condition: service_healthy
-    networks:
-      - dokploy-network
-    command: >
-      sh -c "
-      echo 'Waiting for database to be ready...';
-      sleep 10;
-      echo 'Running database migrations...';
-      npx prisma migrate deploy || echo 'Migrations completed or no migrations to run';
-      echo 'Starting application...';
-      node server.js;
-      "
+      
+    
 
   # Redis (optional, if you're using it)
   espacio-redis:
