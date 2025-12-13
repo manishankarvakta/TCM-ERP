@@ -5,7 +5,13 @@ FROM node:20-bullseye-slim AS base
 
 # Install dependencies only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
+# `apk` exists only on Alpine images. This project currently uses Debian slim (`node:20-bullseye-slim`),
+# so installing `libc6-compat` via `apk` will fail. Keep this conditional so it still works if you
+# switch the base image back to Alpine.
+RUN set -eux; \
+  if command -v apk >/dev/null 2>&1; then \
+    apk add --no-cache libc6-compat; \
+  fi
 WORKDIR /app
 
 # Copy package files
@@ -38,7 +44,7 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Install Prisma CLI globally for migrations (same version as in package.json)
-RUN npm install -g prisma@6.19.1
+RUN npm install -g prisma@6.18.0
 
 # Copy necessary files
 COPY --from=builder /app/public ./public
