@@ -107,10 +107,11 @@ services:
 
 networks:
   dokploy-network:
-    external: true
+    external: false
     name: dokploy-network
+    driver: bridge
 
 volumes:
-  postgres_data:
-  minio_data:
-  redis_data:
+  postgres_data: {}
+  minio_data: {}
+  redis_data: {}
