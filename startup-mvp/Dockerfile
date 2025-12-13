@@ -1,6 +1,7 @@
 # Multi-stage build for Next.js app
 # Use AWS Public ECR mirror to avoid Docker Hub auth.docker.io TLS timeouts on some hosts
-FROM public.ecr.aws/docker/library/node:20-alpine AS base
+# FROM public.ecr.aws/docker/library/node:20-alpine AS base 
+FROM node:20-bullseye-slim AS base
 
 # Install dependencies only when needed
 FROM base AS deps
