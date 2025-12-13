@@ -8,7 +8,8 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json package-lock.json* ./
-RUN npm ci --legacy-peer-deps
+# Don't run lifecycle scripts here (postinstall runs `prisma generate` but schema isn't copied yet)
+RUN npm ci --legacy-peer-deps --ignore-scripts
 
 # Rebuild the source code only when needed
 FROM base AS builder
