@@ -1,24 +1,19 @@
-# Multi-stage build for Next.js app
 FROM node:20-alpine AS base
-
-# Install dependencies only when needed
-FROM base AS deps
 RUN apk add --no-cache libc6-compat openssl
-WORKDIR /app
 
-# Copy package files
+FROM base AS deps
+WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --legacy-peer-deps
 
-# Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma Client (DATABASE_URL not needed for generation, only for migrations)
 ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
-RUN npx prisma generate 
+RUN npx prisma generate
+
 
 # Build Next.js app
 ENV NEXT_TELEMETRY_DISABLED 1
