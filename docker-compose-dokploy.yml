@@ -144,15 +144,12 @@ services:
 networks:
   dokploy-network:
     driver: bridge
-    external: true
+    external: false
 
 
 
 # Named volumes for data persistence (Dokploy manages these)
 volumes:
   postgres_data:
-    driver: 
   minio_data:
-    driver: 
   redis_data:
-    driver: 
