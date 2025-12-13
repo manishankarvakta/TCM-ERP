@@ -1,16 +1,22 @@
 # ================================
-# Base image (shared by all stages)
+# Base image (Debian for Prisma reliability)
 # ================================
-FROM node:20-alpine AS base
+FROM node:20-bullseye-slim AS base
 
-# Prisma requires OpenSSL on Alpine
-RUN apk add --no-cache libc6-compat openssl
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    bash \
+    build-essential \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
 
 # ================================
 # Dependencies stage
 # ================================
 FROM base AS deps
-WORKDIR /app
 
 COPY package.json package-lock.json* ./
 RUN npm ci --legacy-peer-deps
@@ -19,16 +25,12 @@ RUN npm ci --legacy-peer-deps
 # Builder stage
 # ================================
 FROM base AS builder
+
 WORKDIR /app
 
+# Copy node_modules from deps
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
-# Prisma generate needs DATABASE_URL but NOT a real DB
-ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
-
-# Generate Prisma Client
-RUN npx prisma generate
 
 # Build Next.js app
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -38,16 +40,16 @@ RUN npm run build
 # Production runner
 # ================================
 FROM base AS runner
-WORKDIR /app
 
+WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs \
-  && adduser --system --uid 1001 nextjs
+    && adduser --system --uid 1001 nextjs
 
-# Install Prisma CLI (for runtime migrations if needed)
+# Install Prisma CLI globally (for migrations)
 RUN npm install -g prisma@6.18.0
 
 # Copy built Next.js app
@@ -55,13 +57,17 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Copy Prisma schema + generated client
+# Copy Prisma schema + client
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# Required by seed / auth hashing
+# Copy bcryptjs for auth
 COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
+
+# Copy entrypoint script
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Permissions
 RUN chown -R nextjs:nodejs /app
@@ -71,4 +77,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "server.js"]
+ENTRYPOINT ["/entrypoint.sh"]
