@@ -16,7 +16,7 @@ services:
       retries: 5
     networks:
       - dokploy-network
-      - clients-espaciocompose-bvz3hy
+      
 
   espacio-minio:
     image: minio/minio:latest
@@ -35,7 +35,7 @@ services:
       retries: 3
     networks:
       - dokploy-network
-      - clients-espaciocompose-bvz3hy
+      
 
   espacio-minio-setup:
     image: minio/mc:latest
@@ -50,7 +50,7 @@ services:
       "
     networks:
       - dokploy-network
-      - clients-espaciocompose-bvz3hy
+      
 
   espacio-redis:
     image: redis:7-alpine
@@ -65,7 +65,7 @@ services:
       retries: 5
     networks:
       - dokploy-network
-      - clients-espaciocompose-bvz3hy
+      
 
   espacio-app:
     build:
@@ -99,19 +99,10 @@ services:
       echo 'Starting app...' &&
       node server.js
       "
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.espacio-http.rule=Host(`app.espaciobd.com`)
-      - traefik.http.routers.espacio-http.entrypoints=web
-      - traefik.http.routers.espacio-http.middlewares=redirect-to-https@file
-
-      - traefik.http.routers.espacio-https.rule=Host(`app.espaciobd.com`)
-      - traefik.http.routers.espacio-https.entrypoints=websecure
-      - traefik.http.routers.espacio-https.tls.certresolver=letsencrypt
-      - traefik.http.services.espacio.loadbalancer.server.port=3000
+    
     networks:
       - dokploy-network
-      - clients-espaciocompose-bvz3hy
+      
 
 networks:
   dokploy-network:
