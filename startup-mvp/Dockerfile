@@ -18,7 +18,8 @@ COPY . .
 
 # Generate Prisma Client (DATABASE_URL not needed for generation, only for migrations)
 ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
-RUN npx prisma generate
+RUN npx prisma generate 
+RUN npx prisma generate deploy || true &&
 
 # Build Next.js app
 ENV NEXT_TELEMETRY_DISABLED 1
