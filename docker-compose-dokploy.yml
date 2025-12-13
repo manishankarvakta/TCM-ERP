@@ -71,6 +71,13 @@ services:
       dockerfile: Dockerfile
     container_name: startup-mvp-app
     restart: unless-stopped
+    command: >
+      sh -c "
+      echo 'Running Prisma migrations...';
+      npx prisma migrate deploy;
+      echo 'Starting app...';
+      node server.js;
+      "
     
     environment:
       # Database
