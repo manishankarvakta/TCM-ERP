@@ -64,3 +64,4 @@
 {"sessionId":"debug-session","runId":"pre-fix","hypothesisId":"A","location":"components/forms/login-form.tsx:LoginForm","message":"LoginForm mounted","data":{"dividerLabel":"Forgot Password?","hasDividerSpanClass":true},"timestamp":1765652547090}
 {"sessionId":"debug-session","runId":"pre-fix","hypothesisId":"A","location":"components/forms/login-form.tsx:LoginForm","message":"LoginForm mounted","data":{"dividerLabel":"Forgot Password?","hasDividerSpanClass":true},"timestamp":1765653104097}
 {"sessionId":"debug-session","runId":"pre-fix","hypothesisId":"B","location":"components/forms/registration-form.tsx:RegistrationForm","message":"RegistrationForm mounted","data":{"hasDividerSpanClass":true},"timestamp":1765653111563}
+{"sessionId":"debug-session","runId":"pre-fix","hypothesisId":"B","location":"components/forms/registration-form.tsx:RegistrationForm","message":"RegistrationForm mounted","data":{"hasDividerSpanClass":true},"timestamp":1765653406621}

@@ -84,7 +84,7 @@ services:
 
     environment:
       # Database
-      DATABASE_URL: postgresql://postgres:postgres@startup-mvp-postgres:5432/startup_mvp?schema=public
+      DATABASE_URL: postgresql://postgres:postgres@espacio-postgres:5432/startup_mvp?schema=public
       # NextAuth
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-I5p97Jpv0Xr7Zz7Ay8W6+O2eLmBR6N2gllGrZO01Szo=}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
@@ -147,7 +147,7 @@ networks:
     external: true
 
 
-
+ 
 # Named volumes for data persistence (Dokploy manages these)
 volumes:
   postgres_data:
