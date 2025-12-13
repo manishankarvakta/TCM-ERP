@@ -1,7 +1,6 @@
 services:
   espacio-postgres:
     image: postgres:16-alpine
-    container_name: espacio-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -20,7 +19,6 @@ services:
 
   espacio-minio:
     image: minio/minio:latest
-    container_name: espacio-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -54,7 +52,6 @@ services:
 
   espacio-redis:
     image: redis:7-alpine
-    container_name: espacio-redis
     restart: unless-stopped
     volumes:
       - redis_data:/data
@@ -71,7 +68,6 @@ services:
     build:
       context: ./startup-mvp
       dockerfile: Dockerfile
-    container_name: espacio-app
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@espacio-postgres:5432/${POSTGRES_DB}?schema=public
@@ -95,7 +91,9 @@ services:
     command: >
       sh -c "
       echo 'Running Prisma migrations...' &&
-      npx prisma generate deploy || true &&
+      prisma migrate deploy || echo 'No new migrations or already applied' &&
+      echo 'Generating Prisma client...' &&
+      prisma generate &&
       echo 'Starting app...' &&
       node server.js
       "
@@ -106,9 +104,8 @@ services:
 
 networks:
   dokploy-network:
-    external: false
-  clients-espaciocompose-bvz3hy:
     external: true
+    name: dokploy-network
 
 volumes:
   postgres_data:
