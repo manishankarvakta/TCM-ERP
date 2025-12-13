@@ -95,7 +95,7 @@ services:
     command: >
       sh -c "
       echo 'Running Prisma migrations...' &&
-      npx prisma migrate deploy || true &&
+      npx prisma generate deploy || true &&
       echo 'Starting app...' &&
       node server.js
       "
