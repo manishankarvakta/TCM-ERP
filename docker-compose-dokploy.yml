@@ -74,17 +74,17 @@ services:
     networks:
       - dokploy-network
     command: >
-        sh -c "
-        echo 'Waiting for database...';
-        until pg_isready -h espacio-postgres -p 5432 -U postgres; do
-          sleep 2;
-        done;
-        echo 'Running Prisma migrations...';
-        npx prisma migrate deploy;
-        npx prisma generate;
-        echo 'Starting app...';
-        node server.js;
-        "
+      sh -c "
+      echo 'Waiting for database...';
+      until pg_isready -h espacio-postgres -p 5432 -U postgres; do
+        sleep 2;
+      done;
+      echo 'Running Prisma migrations...';
+      npx prisma migrate deploy;
+      npx prisma generate;
+      echo 'Starting app...';
+      node server.js;
+      "
 
     environment:
       # Database
@@ -147,6 +147,7 @@ services:
 
 networks:
   dokploy-network:
+    # driver: bridge
     external: true
 
 
