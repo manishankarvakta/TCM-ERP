@@ -1,4 +1,4 @@
-# Multi-stage build for Next.js app 
+# Multi-stage build for Next.js app
 FROM node:20-alpine AS base
 
 # Install dependencies only when needed
@@ -6,11 +6,18 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files
+# Copy package files and Prisma schema
 COPY package*.json ./
+COPY prisma ./prisma/  # Copy the prisma directory with schema.prisma
 
-# Install dependencies with an environment variable to skip problematic scripts
-RUN CI=true npm ci --legacy-peer-deps
+# Install Prisma CLI first
+RUN npm install -g prisma
+
+# Set a dummy DATABASE_URL to allow prisma commands to run
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+
+# Install dependencies - this should now work since schema exists
+RUN npm ci --legacy-peer-deps
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -18,8 +25,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma Client (DATABASE_URL not needed for generation, only for migrations)
-ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+# Generate Prisma Client
 RUN npx prisma generate
 
 # Build Next.js app
