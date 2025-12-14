@@ -1,98 +1,65 @@
-# ============================================
-# PRODUCTION DOCKERFILE FOR NEXT.JS
-# Handles dependency conflicts with --legacy-peer-deps
-# ============================================
-
-FROM node:18-alpine AS base
-
-# Install system dependencies
-RUN apk add --no-cache \
-    libc6-compat \
-    postgresql-client \
-    wget \
-    curl
+# ================================
+# Base image
+# ================================
+FROM node:20-bullseye-slim AS base
 
 WORKDIR /app
 
-# ============================================
-# Stage 1: Install ALL Dependencies
-# ============================================
+# ================================
+# Dependencies stage
+# ================================
 FROM base AS deps
 
-WORKDIR /app
-
-# Copy package files
 COPY package.json package-lock.json* ./
+RUN npm ci --legacy-peer-deps --ignore-scripts
 
-# Install ALL dependencies (including dev) with legacy peer deps
-RUN npm ci --legacy-peer-deps && \
-    npm cache clean --force
-
-# ============================================
-# Stage 2: Build Application
-# ============================================
+# ================================
+# Builder stage
+# ================================
 FROM base AS builder
 
-WORKDIR /app
-
-# Copy ALL dependencies (dev + prod needed for build)
 COPY --from=deps /app/node_modules ./node_modules
-
-# Copy application source
 COPY . .
 
-# Disable telemetry
-ENV NEXT_TELEMETRY_DISABLED=1
-
-# Generate Prisma Client
+# Generate Prisma client (NO DB required)
 RUN npx prisma generate
 
 # Build Next.js
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-# ============================================
-# Stage 3: Production Runtime
-# ============================================
-FROM base AS runner
+# ================================
+# Runner stage
+# ================================
+FROM node:20-bullseye-slim AS runner
 
 WORKDIR /app
-
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Create non-root user
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+# Create user
+RUN groupadd -g 1001 nodejs \
+ && useradd -u 1001 -g nodejs nextjs
 
-# Copy public assets
+# Prisma CLI for runtime migrations
+RUN npm install -g prisma@6.19.1
+
+# Copy app
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 
-# Copy standalone build
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# Copy Prisma files
+# Prisma files
+COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/package.json ./package.json
 
-# Install only Prisma CLI for runtime migrations
-RUN npm install -g prisma
-
-# Change ownership
+# Permissions
 RUN chown -R nextjs:nodejs /app
-
-# Switch to non-root user
 USER nextjs
 
 EXPOSE 3000
-
 ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+ENV HOSTNAME=0.0.0.0
 
 CMD ["node", "server.js"]
