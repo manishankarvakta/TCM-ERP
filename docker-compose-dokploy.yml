@@ -134,7 +134,7 @@ services:
         exit 1;
       fi;
       echo '';
-      npx tsx prisma/seed-users.ts;
+      tsx prisma/seed-users.ts;
       if [ $$? -eq 0 ]; then
         echo '✅ Initial setup completed successfully';
       else

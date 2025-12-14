@@ -81,13 +81,14 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy Prisma files for runtime
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
 COPY --from=builder /app/prisma ./prisma
 
 # Copy package.json
 COPY --from=builder /app/package.json ./package.json
 
-# Install Prisma CLI globally for runtime migrations
-RUN npm install -g prisma@latest
+# Install Prisma CLI and tsx globally for runtime migrations and seeding
+RUN npm install -g prisma@latest tsx@latest
 
 # Fix permissions
 RUN chown -R nextjs:nodejs /app
