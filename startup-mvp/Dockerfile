@@ -1,4 +1,4 @@
-# Multi-stage build for Next.js app
+# Multi-stage build for Next.js app 
 FROM node:20-alpine AS base
 
 # Install dependencies only when needed
@@ -9,9 +9,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install Prisma CLI first before running npm ci
-RUN npm install -g prisma
-RUN npm ci --legacy-peer-deps
+# Install dependencies with an environment variable to skip problematic scripts
+RUN CI=true npm ci --legacy-peer-deps
 
 # Rebuild the source code only when needed
 FROM base AS builder
