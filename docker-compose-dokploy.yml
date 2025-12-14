@@ -75,7 +75,7 @@ services:
       - dokploy-network
 
   # Next.js Application - Only service exposed via Dokploy
-  app:
+  espacio-app:
     build:
       context: ./startup-mvp
       dockerfile: Dockerfile
@@ -158,12 +158,6 @@ services:
       echo '🌐 Starting Next.js server on 0.0.0.0:3000...';
       node server.js;
       "
-    
-    labels:
-      # Minimal Traefik labels - Let Dokploy UI handle the rest
-      - "traefik.enable=true"
-      - "traefik.docker.network=dokploy-network"
-      - "traefik.http.services.espacio-app.loadbalancer.server.port=3000"
     
     networks:
       - dokploy-network
