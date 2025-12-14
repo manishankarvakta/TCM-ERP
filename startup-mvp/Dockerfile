@@ -1,67 +1,71 @@
-# Multi-stage build for Next.js app
+# ===============================
+# Base image
+# ===============================
 FROM node:20-alpine AS base
-
-# Install dependencies only when needed
-FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files and Prisma schema
-COPY package*.json ./
-COPY prisma ./prisma/  # Copy the prisma directory with schema.prisma
 
-# Install Prisma CLI first
-RUN npm install -g prisma
+# ===============================
+# Dependencies stage
+# ===============================
+FROM base AS deps
 
-# Set a dummy DATABASE_URL to allow prisma commands to run
-ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+# Copy package files & prisma schema
+COPY package.json package-lock.json ./
+COPY prisma ./prisma
 
-# Install dependencies - this should now work since schema exists
+# Install dependencies (Prisma must be in dependencies)
 RUN npm ci --legacy-peer-deps
 
-# Rebuild the source code only when needed
+
+# ===============================
+# Builder stage
+# ===============================
 FROM base AS builder
 WORKDIR /app
+
+# Copy node_modules
 COPY --from=deps /app/node_modules ./node_modules
+
+# Copy app source
 COPY . .
 
-# Generate Prisma Client
+# Generate Prisma Client (no DB needed)
 RUN npx prisma generate
 
 # Build Next.js app
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-# Production image, copy all the files and run next
-FROM base AS runner
+
+# ===============================
+# Runner (Production)
+# ===============================
+FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
 
-# Install Prisma CLI globally for migrations
-RUN npm install -g prisma
-
-# Copy necessary files
+# Copy standalone output
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./ 
+COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Copy Prisma files and generated client
+# Copy Prisma schema & generated client
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules ./node_modules
 
-# Set correct permissions
-RUN chown -R nextjs:nodejs /app && \
-    chmod +x /app/server.js
+# Permissions
+RUN chown -R nextjs:nodejs /app
 
 USER nextjs
 
 EXPOSE 3000
-
 
 CMD ["node", "server.js"]
