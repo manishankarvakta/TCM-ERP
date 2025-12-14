@@ -85,6 +85,11 @@ services:
     expose:
       - "3000"
     environment:
+      # Server Configuration - CRITICAL for Docker
+      HOST: 0.0.0.0
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      
       # Database
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@espacio-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
       
@@ -126,18 +131,26 @@ services:
         condition: service_healthy
       espacio-redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     command: >
       sh -c "
+      echo '=== Starting Application Setup ===';
       echo 'Waiting for database...';
       until pg_isready -h espacio-postgres -p 5432 -U ${POSTGRES_USER:-postgres}; do
         echo 'Database not ready, waiting...';
         sleep 2;
       done;
-      echo 'Database ready!';
+      echo '✓ Database ready!';
       echo 'Running Prisma operations...';
-      npx prisma generate;
-      npx prisma db push --accept-data-loss;
-      echo 'Starting Next.js application...';
+      npx prisma generate || exit 1;
+      npx prisma db push --accept-data-loss || exit 1;
+      echo '✓ Database schema created!';
+      echo 'Starting Next.js application on 0.0.0.0:3000...';
       node server.js;
       "
     labels:
