@@ -34,7 +34,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Install Prisma CLI globally for migrations (use version from package.json)
+# Install Prisma CLI globally for migrations
 RUN npm install -g prisma
 
 # Copy necessary files

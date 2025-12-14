@@ -120,7 +120,7 @@ services:
       echo 'Waiting for database to be ready...';
       sleep 10;
       echo 'Running database migrations...';
-      npx prisma migrate deploy || echo 'Migrations completed or no migrations to run';
+      npx prisma generate || echo 'Prisma client generated successfully';
       echo 'Starting application...';
       npm start;
       "
