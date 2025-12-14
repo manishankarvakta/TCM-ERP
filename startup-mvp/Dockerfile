@@ -1,9 +1,10 @@
 # ============================================
 # PRODUCTION DOCKERFILE - FULLY TESTED
 # Handles: Next.js 16, NextAuth v5, Prisma
+# Node.js 20 required for Next.js 16
 # ============================================
 
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Install system dependencies
 RUN apk add --no-cache \
