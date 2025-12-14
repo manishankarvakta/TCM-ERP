@@ -12,7 +12,12 @@ Choose your deployment method:
 
 📚 **More Documentation**: See [docs/](./docs/) folder for all guides and documentation
 
+
 ---
+
+## Diploy Branch: deploy
+## Latest Reaslae: V1.0.1
+
 
 ## Prerequisites
 
