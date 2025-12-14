@@ -1,16 +1,15 @@
-# Docker Compose for Dokploy Deployment
-# Configured with Traefik labels for domain routing
+version: '3.8'
 
 services:
-  # PostgreSQL Database
-  espacio-postgres:
+  # PostgreSQL Database - Isolated, no host ports
+  postgres:
     image: postgres:16-alpine
-    container_name: startup-mvp-postgres
+    container_name: espacio-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-startup_mvp}
+      POSTGRES_DB: ${POSTGRES_DB:-espaciodb}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -19,17 +18,17 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - internal
+      - dokploy-network
 
-  # MinIO Object Storage
-  espacio-minio:
+  # MinIO Object Storage - Isolated, no host ports
+  minio:
     image: minio/minio:latest
-    container_name: startup-mvp-minio
+    container_name: espacio-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
     volumes:
       - minio_data:/data
     healthcheck:
@@ -38,137 +37,141 @@ services:
       timeout: 20s
       retries: 3
     networks:
-      - internal
+      - dokploy-network
 
-  # MinIO Client for bucket initialization
-  espacio-minio-setup:
+  # MinIO Bucket Setup - Creates bucket on startup
+  minio-setup:
     image: minio/mc:latest
-    container_name: startup-mvp-minio-setup
+    container_name: espacio-minio-setup
     depends_on:
-      espacio-minio:
+      minio:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      sleep 5;
-      /usr/bin/mc alias set myminio http://espacio-minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
-      /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} --ignore-existing;
-      /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-startup-mvp-files};
-      echo 'MinIO bucket setup complete';
+      sleep 3;
+      /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin123};
+      /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-espacio-files} --ignore-existing;
+      /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-espacio-files};
+      echo '✓ MinIO bucket configured successfully';
       exit 0;
       "
     networks:
-      - internal
+      - dokploy-network
 
-  # Redis Cache
-  espacio-redis:
+  # Redis Cache - Isolated, no host ports
+  redis:
     image: redis:7-alpine
-    container_name: startup-mvp-redis
+    container_name: espacio-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - internal
+      - dokploy-network
 
-  # Next.js Application
-  espacio-app:
+  # Next.js Application - Only service exposed via Dokploy
+  app:
     build:
       context: ./startup-mvp
       dockerfile: Dockerfile
-    container_name: startup-mvp-app
+    container_name: espacio-app
     restart: unless-stopped
-    # expose:
-    #   - "3000"
+    expose:
+      - "3000"
     environment:
-      # Server Configuration - CRITICAL for Docker
-      # HOST: 0.0.0.0
-      # PORT: 3000
-      # HOSTNAME: 0.0.0.0
+      # Server Configuration - Critical for Docker networking
+      HOST: "0.0.0.0"
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
       
-      # Database
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@espacio-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
+      # Database Connection
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-espaciodb}?schema=public"
       
-      # NextAuth
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-I5p97Jpv0Xr7Zz7Ay8W6+O2eLmBR6N2gllGrZO01Szo=}
+      # NextAuth Configuration
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change-this-to-a-secure-random-string-in-production}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-https://app.espaciobd.com}
       AUTH_TRUST_HOST: "true"
       
-      # MinIO
-      MINIO_ENDPOINT: espacio-minio
-      MINIO_PORT: 9000
-      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      # MinIO Configuration
+      MINIO_ENDPOINT: "minio"
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-startup-mvp-files}
-      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://espacio-minio:9000}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-espacio-files}
+      MINIO_PUBLIC_URL: "http://minio:9000"
       
-      # Redis
-      REDIS_URL: redis://espacio-redis:6379
+      # Redis Configuration
+      REDIS_URL: "redis://default:${REDIS_PASSWORD:-redis123}@redis:6379"
       
-      # Email Configuration
+      # Email Configuration (Optional)
       SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-465}
-      SMTP_SECURE: ${SMTP_SECURE:-true}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
-      EMAIL_FROM: ${EMAIL_FROM:-}
-      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Startup MVP}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@espaciobd.com}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Espacio}
       
-      # App URL
+      # Application URL
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://app.espaciobd.com}
       
       # Node Environment
-      NODE_ENV: production
+      NODE_ENV: "production"
+    
     depends_on:
-      espacio-postgres:
+      postgres:
         condition: service_healthy
-      espacio-minio:
+      minio:
         condition: service_healthy
-      espacio-redis:
+      redis:
         condition: service_healthy
+    
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    
     command: >
       sh -c "
-      echo '=== Starting Application Setup ===';
-      echo 'Waiting for database...';
-      until pg_isready -h espacio-postgres -p 5432 -U ${POSTGRES_USER:-postgres}; do
-        echo 'Database not ready, waiting...';
+      set -e
+      echo '🚀 Starting Espacio Application...';
+      echo '';
+      echo '📊 Waiting for PostgreSQL...';
+      until pg_isready -h postgres -p 5432 -U ${POSTGRES_USER:-postgres} > /dev/null 2>&1; do
         sleep 2;
       done;
-      echo '✓ Database ready!';
-      echo 'Running Prisma operations...';
-      npx prisma generate || exit 1;
-      npx prisma db push --accept-data-loss || exit 1;
-      echo '✓ Database schema created!';
-      echo 'Starting Next.js application on 0.0.0.0:3000...';
+      echo '✓ PostgreSQL is ready';
+      echo '';
+      echo '🔧 Setting up database schema...';
+      npx prisma generate;
+      npx prisma db push --accept-data-loss --skip-generate;
+      echo '✓ Database schema created';
+      echo '';
+      echo '🌐 Starting Next.js server on 0.0.0.0:3000...';
       node server.js;
       "
     
+    labels:
+      # Minimal Traefik labels - Let Dokploy UI handle the rest
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.services.espacio-app.loadbalancer.server.port=3000"
+    
     networks:
       - dokploy-network
-      - internal
 
-# Networks
 networks:
-  # Dokploy's Traefik network (external)
   dokploy-network:
     external: true
-  # Internal network for service communication
-  internal:
-    driver: bridge
-    internal: false
 
-# Named volumes for data persistence
 volumes:
   postgres_data:
     driver: local
