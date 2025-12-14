@@ -7,7 +7,7 @@ services:
   # PostgreSQL Database
   espacio-postgres:
     image: postgres:16-alpine
-    container_name: startup-mvp-postgres
+    container_name: espacio-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -28,7 +28,7 @@ services:
   # MinIO Object Storage
   espacio-minio:
     image: minio/minio:latest
-    container_name: startup-mvp-minio
+    container_name: espacio-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -50,7 +50,7 @@ services:
   # MinIO Client for bucket initialization
   espacio-minio-setup:
     image: minio/mc:latest
-    container_name: startup-mvp-minio-setup
+    container_name: espacio-minio-setup
     depends_on:
       minio:
         condition: service_healthy
@@ -70,7 +70,7 @@ services:
     build:
       context: ./startup-mvp
       dockerfile: Dockerfile
-    container_name: startup-mvp-app
+    container_name: espacio-app
     restart: unless-stopped
     ports:
       - "${APP_PORT}:3000"
@@ -109,9 +109,9 @@ services:
       # Node Environment
       NODE_ENV: ${NODE_ENV:-production}
     depends_on:
-      postgres:
+      espacio-postgres:
         condition: service_healthy
-      minio:
+      espacio-minio:
         condition: service_healthy
     networks:
       - dokploy-network
@@ -128,7 +128,7 @@ services:
   # Redis (optional, if you're using it)
   espacio-redis:
     image: redis:7-alpine
-    container_name: startup-mvp-redis
+    container_name: espacio-redis
     restart: unless-stopped
     ports:
       - "${REDIS_PORT}:6379"
