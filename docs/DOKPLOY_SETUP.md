@@ -1,6 +1,8 @@
 # Dokploy Deployment Guide
 
-This guide explains how to deploy the application using Dokploy with the **Docker Compose** configuration.
+> 📖 **For complete step-by-step deployment instructions, see [DOKPLOY_DEPLOYMENT_GUIDE.md](./DOKPLOY_DEPLOYMENT_GUIDE.md)**
+
+This document provides technical details about the Dokploy configuration and explains the differences between local and Dokploy deployments.
 
 ## Differences from Local Docker Compose
 
