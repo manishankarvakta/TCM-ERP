@@ -120,7 +120,7 @@ services:
       echo 'Waiting for database to be ready...';
       sleep 10;
       echo 'Running database migrations...';
-      npx prisma db push || echo 'Migrations completed or no migrations to run';
+      npx prisma@6.18.0 db push || echo 'Migrations completed or no migrations to run';
       echo 'Starting application...';
       node server.js;
       "
