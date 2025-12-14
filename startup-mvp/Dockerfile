@@ -1,65 +1,111 @@
-# ================================
-# Base image
-# ================================
-FROM node:20-bullseye-slim AS base
+# ============================================
+# PRODUCTION DOCKERFILE FOR NEXT.JS
+# ============================================
+# This Dockerfile builds a Next.js application with:
+# - Multi-stage build for smaller image size
+# - Prisma support for database
+# - PostgreSQL client for health checks
+# - Non-root user for security
+# - Standalone output for optimal performance
+# ============================================
+
+# ============================================
+# Stage 1: Base Image
+# ============================================
+FROM node:18-alpine AS base
+
+# Install system dependencies
+RUN apk add --no-cache \
+    libc6-compat \
+    postgresql-client \
+    wget \
+    curl
 
 WORKDIR /app
 
-# ================================
-# Dependencies stage
-# ================================
+# ============================================
+# Stage 2: Install Dependencies
+# ============================================
 FROM base AS deps
 
+# Copy package files
 COPY package.json package-lock.json* ./
-RUN npm ci --legacy-peer-deps --ignore-scripts
 
-# ================================
-# Builder stage
-# ================================
+# Install dependencies
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# ============================================
+# Stage 3: Build Application
+# ============================================
 FROM base AS builder
 
+WORKDIR /app
+
+# Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
+
+# Copy all application files
 COPY . .
 
-# Generate Prisma client (NO DB required)
+# Disable Next.js telemetry
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Generate Prisma Client
 RUN npx prisma generate
 
-# Build Next.js
-ENV NEXT_TELEMETRY_DISABLED=1
+# Build Next.js application
 RUN npm run build
 
-# ================================
-# Runner stage
-# ================================
-FROM node:20-bullseye-slim AS runner
+# ============================================
+# Stage 4: Production Runner
+# ============================================
+FROM base AS runner
 
 WORKDIR /app
+
+# Set production environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Create user
-RUN groupadd -g 1001 nodejs \
- && useradd -u 1001 -g nodejs nextjs
+# Create a non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
-# Prisma CLI for runtime migrations
-RUN npm install -g prisma@6.19.1
-
-# Copy app
+# Copy public assets
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
 
-# Prisma files
-COPY --from=builder /app/prisma ./prisma
+# Copy standalone build output
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copy Prisma files for runtime
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/prisma ./prisma
 
-# Permissions
+# Copy package.json for version info
+COPY --from=builder /app/package.json ./package.json
+
+# Install Prisma CLI globally for migrations
+RUN npm install -g prisma
+
+# Change ownership of app directory
 RUN chown -R nextjs:nodejs /app
+
+# Switch to non-root user
 USER nextjs
 
+# Expose port 3000
 EXPOSE 3000
-ENV PORT=3000
-ENV HOSTNAME=0.0.0.0
 
+# Set server configuration
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+
+# Start the application
 CMD ["node", "server.js"]
