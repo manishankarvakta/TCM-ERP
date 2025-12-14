@@ -72,14 +72,15 @@ services:
     container_name: startup-mvp-app
     restart: unless-stopped
     ports:
-      - "${APP_PORT:-3000}:3000"
+      # Host port defaults to 3001 to avoid clashing with local `npm run dev` (often uses 3000)
+      - "${APP_PORT:-3001}:3000"
     environment:
       # Database
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@espacio-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
       
       # NextAuth
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-I5p97Jpv0Xr7Zz7Ay8W6+O2eLmBR6N2gllGrZO01Szo=}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:${APP_PORT:-3001}}
       
       # MinIO
       MINIO_ENDPOINT: espacio-minio
@@ -103,7 +104,7 @@ services:
       EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Startup MVP}
       
       # App URL
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:${APP_PORT:-3001}}
       
       # Node Environment
       NODE_ENV: production
