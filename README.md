@@ -2,6 +2,18 @@
 
 A Next.js application with PostgreSQL, MinIO, and Redis support.
 
+## 🚀 Deployment Options
+
+Choose your deployment method:
+
+- **🐳 Local Development**: Follow the instructions below for local Docker setup
+- **☁️ Production Deployment (Dokploy)**: See [docs/DOKPLOY_DEPLOYMENT_GUIDE.md](./docs/DOKPLOY_DEPLOYMENT_GUIDE.md) for complete production deployment guide
+- **🐋 Docker Production**: See [docs/DOCKER_SETUP.md](./docs/DOCKER_SETUP.md) for standalone Docker production setup
+
+📚 **More Documentation**: See [docs/](./docs/) folder for all guides and documentation
+
+---
+
 ## Prerequisites
 
 - Docker and Docker Compose installed
