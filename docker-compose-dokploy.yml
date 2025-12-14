@@ -71,9 +71,8 @@ services:
       dockerfile: Dockerfile
     container_name: startup-mvp-app
     restart: unless-stopped
-    ports:
-      # Host port defaults to 3001 to avoid clashing with local `npm run dev` (often uses 3000)
-      - "${APP_PORT:-3001}:3000"
+    expose:
+      - "3000"
     environment:
       # Database
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@espacio-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
@@ -115,6 +114,7 @@ services:
         condition: service_healthy
     networks:
       - docker-network
+      - dokploy-network
     command: >
       sh -c "
       echo 'Waiting for database to be ready...';
@@ -145,4 +145,6 @@ services:
 networks:
   docker-network:
     driver: bridge
+  dokploy-network:
+    external: true
 
