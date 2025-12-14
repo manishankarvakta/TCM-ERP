@@ -82,13 +82,13 @@ services:
       dockerfile: Dockerfile
     container_name: startup-mvp-app
     restart: unless-stopped
-    expose:
-      - "3000"
+    # expose:
+    #   - "3000"
     environment:
       # Server Configuration - CRITICAL for Docker
-      HOST: 0.0.0.0
-      PORT: 3000
-      HOSTNAME: 0.0.0.0
+      # HOST: 0.0.0.0
+      # PORT: 3000
+      # HOSTNAME: 0.0.0.0
       
       # Database
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@espacio-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
