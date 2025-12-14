@@ -8,6 +8,9 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
+
+# Install Prisma CLI first before running npm ci
+RUN npm install -g prisma
 RUN npm ci --legacy-peer-deps
 
 # Rebuild the source code only when needed
