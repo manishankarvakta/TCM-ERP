@@ -1,71 +1,111 @@
-# Multi-stage build for Next.js app
-# Use AWS Public ECR mirror to avoid Docker Hub auth.docker.io TLS timeouts on some hosts
-# FROM public.ecr.aws/docker/library/node:20-alpine AS base 
-FROM node:20-bullseye-slim AS base
+# ============================================
+# PRODUCTION DOCKERFILE FOR NEXT.JS
+# ============================================
+# This Dockerfile builds a Next.js application with:
+# - Multi-stage build for smaller image size
+# - Prisma support for database
+# - PostgreSQL client for health checks
+# - Non-root user for security
+# - Standalone output for optimal performance
+# ============================================
 
-# System dependencies (Debian/Ubuntu use apt-get; apk is Alpine-only)
-# - ca-certificates/openssl: required by Prisma + HTTPS calls in many environments
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates openssl \
-  && rm -rf /var/lib/apt/lists/*
+# ============================================
+# Stage 1: Base Image
+# ============================================
+FROM node:18-alpine AS base
 
-# Install dependencies only when needed
-FROM base AS deps
+# Install system dependencies
+RUN apk add --no-cache \
+    libc6-compat \
+    postgresql-client \
+    wget \
+    curl
+
 WORKDIR /app
+
+# ============================================
+# Stage 2: Install Dependencies
+# ============================================
+FROM base AS deps
 
 # Copy package files
 COPY package.json package-lock.json* ./
-# Don't run lifecycle scripts here (postinstall runs `prisma generate` but schema isn't copied yet)
-RUN npm ci --legacy-peer-deps --ignore-scripts
 
-# Rebuild the source code only when needed
+# Install dependencies
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# ============================================
+# Stage 3: Build Application
+# ============================================
 FROM base AS builder
+
 WORKDIR /app
+
+# Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
+
+# Copy all application files
 COPY . .
 
-# Generate Prisma Client (DATABASE_URL not needed for generation, only for migrations)
-ENV DATABASE_URL="postgresql://postgres:postgres@espacio-postgres:5432/startup_mvp"
+# Disable Next.js telemetry
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Generate Prisma Client
 RUN npx prisma generate
 
-# Build Next.js app
-ENV NEXT_TELEMETRY_DISABLED 1
+# Build Next.js application
 RUN npm run build
 
-# Production image, copy all the files and run next
+# ============================================
+# Stage 4: Production Runner
+# ============================================
 FROM base AS runner
+
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+# Set production environment
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Create a non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
-# Install Prisma CLI globally for migrations (keep in sync with package.json)
-RUN npm install -g prisma@6.18.0
-
-# Copy necessary files
+# Copy public assets
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
 
-# Copy Prisma files and generated client
-COPY --from=builder /app/prisma ./prisma
+# Copy standalone build output
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copy Prisma files for runtime
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/prisma ./prisma
 
-# Copy bcryptjs for seed script
-COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
+# Copy package.json for version info
+COPY --from=builder /app/package.json ./package.json
 
-# Set correct permissions
+# Install Prisma CLI globally for migrations
+RUN npm install -g prisma
+
+# Change ownership of app directory
 RUN chown -R nextjs:nodejs /app
 
+# Switch to non-root user
 USER nextjs
 
+# Expose port 3000
 EXPOSE 3000
 
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+# Set server configuration
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+
+# Start the application
 CMD ["node", "server.js"]
