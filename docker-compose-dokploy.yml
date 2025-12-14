@@ -1,46 +1,34 @@
-version: "3.8"
+version: '3.8'
 
 services:
   # PostgreSQL Database
-  espacio-postgres:
+  postgres:
     image: postgres:16-alpine
+    container_name: espacio-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-espaciodb}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - default
-
-  # Redis (optional, if you're using it)
-  espacio-redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - default
+      - dokploy-network
 
   # MinIO Object Storage
-  espacio-minio:
+  minio:
     image: minio/minio:latest
+    container_name: espacio-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
     volumes:
       - minio_data:/data
     healthcheck:
@@ -49,83 +37,113 @@ services:
       timeout: 20s
       retries: 3
     networks:
-      - default
+      - dokploy-network
 
-  # MinIO Client for bucket initialization
-  espacio-minio-setup:
+  # MinIO Bucket Setup
+  minio-setup:
     image: minio/mc:latest
+    container_name: espacio-minio-setup
     depends_on:
-      espacio-minio:
+      minio:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      sleep 5;
-      /usr/bin/mc alias set myminio http://espacio-minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
-      /usr/bin/mc mb myminio/$${MINIO_BUCKET_NAME} || true;
-      /usr/bin/mc anonymous set download myminio/$${MINIO_BUCKET_NAME} || true;
+      sleep 3;
+      /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin123};
+      /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-espacio-files} --ignore-existing;
+      /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-espacio-files};
+      echo '✓ MinIO bucket configured';
       exit 0;
       "
     networks:
-      - default
+      - dokploy-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: espacio-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dokploy-network
 
   # Next.js Application
   espacio-app:
     build:
       context: ./startup-mvp
       dockerfile: Dockerfile
+    container_name: espacio-app
     restart: unless-stopped
+    expose:
+      - "3000"
     environment:
-      # Database
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@espacio-postgres:5432/${POSTGRES_DB}?schema=public
-      
-      # NextAuth
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-      NEXTAUTH_URL: ${NEXTAUTH_URL}
-      
-      # MinIO
-      MINIO_ENDPOINT: espacio-minio
-      MINIO_PORT: 9000
-      MINIO_USE_SSL: ${MINIO_USE_SSL}
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
-      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME}
-      MINIO_PUBLIC_URL: http://espacio-minio:9000
-      
-      # Redis (optional)
-      REDIS_URL: redis://espacio-redis:6379
-      
-      # Email Configuration
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT}
-      SMTP_SECURE: ${SMTP_SECURE}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_PASS: ${SMTP_PASS}
-      EMAIL_FROM: ${EMAIL_FROM}
-      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME}
-      
-      # App URL
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
-      
-      # Node Environment
-      NODE_ENV: ${NODE_ENV:-production}
+      HOST: "0.0.0.0"
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-espaciodb}?schema=public"
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change-this-in-production}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://app.espaciobd.com}
+      AUTH_TRUST_HOST: "true"
+      MINIO_ENDPOINT: "minio"
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-espacio-files}
+      MINIO_PUBLIC_URL: "http://minio:9000"
+      REDIS_URL: "redis://default:${REDIS_PASSWORD:-redis123}@redis:6379"
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@espaciobd.com}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Espacio}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://app.espaciobd.com}
+      NODE_ENV: "production"
     depends_on:
-      espacio-postgres:
+      postgres:
         condition: service_healthy
-      espacio-minio:
+      minio:
         condition: service_healthy
-    networks:
-      - default
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
     command: >
       sh -c "
-      echo 'Waiting for database to be ready...';
-      sleep 10;
-      echo 'Running database migrations...';
-      npx prisma generate || echo 'Prisma client generated successfully';
-      echo 'Starting application...';
-      npm start;
+      set -e
+      echo '🚀 Starting Espacio Application...';
+      echo '📊 Waiting for PostgreSQL...';
+      until pg_isready -h postgres -p 5432 -U ${POSTGRES_USER:-postgres} > /dev/null 2>&1; do
+        sleep 2;
+      done;
+      echo '✓ PostgreSQL ready';
+      echo '🔧 Setting up database...';
+      npx prisma generate;
+      npx prisma db push --accept-data-loss --skip-generate;
+      echo '✓ Database schema created';
+      echo '🌐 Starting server on 0.0.0.0:3000...';
+      node server.js;
       "
+    networks:
+      - dokploy-network
 
-# Named volumes for data persistence
+networks:
+  dokploy-network:
+    external: true
+
 volumes:
   postgres_data:
     driver: local
@@ -133,6 +151,3 @@ volumes:
     driver: local
   redis_data:
     driver: local
-
-networks:
-  default:
