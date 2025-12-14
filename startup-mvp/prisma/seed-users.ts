@@ -6,8 +6,8 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("🌱 Seeding default admin user and organization...");
 
-  // Hash admin password
-  const adminPassword = await bcrypt.hash("admin123", 10);
+  // Hash admin password (using 12 rounds to match rest of codebase)
+  const adminPassword = await bcrypt.hash("admin123", 12);
 
   // Create admin user
   const admin = await prisma.user.upsert({

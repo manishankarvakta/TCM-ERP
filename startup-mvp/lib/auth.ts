@@ -131,7 +131,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       authorize: async (credentials) => {
         try {
           if (!credentials?.email || !credentials?.password) {
-            return null
+            throw new Error("Email and password are required")
           }
 
           const { email, password } = loginSchema.parse(credentials)
@@ -140,14 +140,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             where: { email },
           })
 
-          if (!user || !user.password) {
-            throw new Error("Invalid credentials")
+          if (!user) {
+            throw new Error("No user found with this email address")
+          }
+
+          if (!user.password) {
+            throw new Error("Invalid account configuration")
           }
 
           const isPasswordValid = await compare(password, user.password)
 
           if (!isPasswordValid) {
-            throw new Error("Invalid credentials")
+            throw new Error("Incorrect password. Please try again")
+          }
+
+          if (user.status !== "active") {
+            throw new Error("Your account has been deactivated. Please contact support")
           }
 
           return {
@@ -157,8 +165,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             role: user.role,
             image: user.image || null,
           }
-        } catch {
-          return null
+        } catch (error) {
+          // Let the error message bubble up for better UX
+          if (error instanceof Error) {
+            throw error
+          }
+          throw new Error("Authentication failed. Please try again")
         }
       },
     }),
