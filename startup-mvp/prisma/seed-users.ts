@@ -4,11 +4,10 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🌱 Seeding default users...");
+  console.log("🌱 Seeding default admin user and organization...");
 
-  // Hash passwords
+  // Hash admin password
   const adminPassword = await bcrypt.hash("admin123", 10);
-  const userPassword = await bcrypt.hash("password123", 10);
 
   // Create admin user
   const admin = await prisma.user.upsert({
@@ -25,42 +24,27 @@ async function main() {
   });
   console.log(`✅ Created/found admin: ${admin.email}`);
 
-  // Create regular user
-  const user = await prisma.user.upsert({
-    where: { email: "user@example.com" },
+  // Create default organization
+  const organization = await prisma.organization.upsert({
+    where: { id: "default-org" },
     update: {},
     create: {
-      email: "user@example.com",
-      password: userPassword,
-      name: "Regular User",
-      role: "user",
+      id: "default-org",
+      name: "Default Organization",
+      details: "Default organization for quotations",
       status: "active",
-      emailVerified: new Date(),
+      createdBy: admin.id,
     },
   });
-  console.log(`✅ Created/found user: ${user.email}`);
+  console.log(`✅ Created/found organization: ${organization.name}`);
 
-  // Create test user
-  const testUser = await prisma.user.upsert({
-    where: { email: "test@example.com" },
-    update: {},
-    create: {
-      email: "test@example.com",
-      password: userPassword,
-      name: "Test User",
-      role: "user",
-      status: "active",
-      emailVerified: new Date(),
-    },
-  });
-  console.log(`✅ Created/found test user: ${testUser.email}`);
-
-  console.log("✅ Done seeding users!");
+  console.log("✅ Done! Admin user and default organization ready.");
+  console.log("📧 Login with: admin@example.com / admin123");
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Error seeding users:", e);
+    console.error("❌ Error seeding:", e);
     process.exit(1);
   })
   .finally(async () => {
