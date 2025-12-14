@@ -87,8 +87,8 @@ services:
     container_name: startup-mvp-app
     restart: unless-stopped
     # NO port mapping - Dokploy accesses via internal network
-    expose:
-      - "3000"
+    # expose:
+    #   - "3000"
     environment:
       # Database
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@espacio-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
