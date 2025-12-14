@@ -153,19 +153,7 @@ services:
       echo 'Starting Next.js application on 0.0.0.0:3000...';
       node server.js;
       "
-    labels:
-      # Traefik labels for Dokploy routing
-      - "traefik.enable=true"
-      - "traefik.http.routers.espacio-app.rule=Host(`${APP_DOMAIN:-app.espaciobd.com}`)"
-      - "traefik.http.routers.espacio-app.entrypoints=websecure"
-      - "traefik.http.routers.espacio-app.tls=true"
-      - "traefik.http.routers.espacio-app.tls.certresolver=letsencrypt"
-      - "traefik.http.services.espacio-app.loadbalancer.server.port=3000"
-      # HTTP to HTTPS redirect
-      - "traefik.http.routers.espacio-app-http.rule=Host(`${APP_DOMAIN:-app.espaciobd.com}`)"
-      - "traefik.http.routers.espacio-app-http.entrypoints=web"
-      - "traefik.http.routers.espacio-app-http.middlewares=redirect-to-https"
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+    
     networks:
       - dokploy-network
       - internal
