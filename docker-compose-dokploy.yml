@@ -1,6 +1,5 @@
 # Docker Compose for Dokploy Deployment
-# Services run isolated with no host port exposure except the app
-# All services communicate via dokploy-network
+# Configured with Traefik labels for domain routing
 
 services:
   # PostgreSQL Database
@@ -12,7 +11,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-startup_mvp}
-    # NO ports exposed to host - internal only
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -21,7 +19,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - dokploy-network
+      - internal
 
   # MinIO Object Storage
   espacio-minio:
@@ -32,7 +30,6 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
-    # NO ports exposed to host - internal only
     volumes:
       - minio_data:/data
     healthcheck:
@@ -41,7 +38,7 @@ services:
       timeout: 20s
       retries: 3
     networks:
-      - dokploy-network
+      - internal
 
   # MinIO Client for bucket initialization
   espacio-minio-setup:
@@ -60,7 +57,7 @@ services:
       exit 0;
       "
     networks:
-      - dokploy-network
+      - internal
 
   # Redis Cache
   espacio-redis:
@@ -68,7 +65,6 @@ services:
     container_name: startup-mvp-redis
     restart: unless-stopped
     command: redis-server --appendonly yes
-    # NO ports exposed to host - internal only
     volumes:
       - redis_data:/data
     healthcheck:
@@ -77,7 +73,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - dokploy-network
+      - internal
 
   # Next.js Application
   espacio-app:
@@ -86,16 +82,15 @@ services:
       dockerfile: Dockerfile
     container_name: startup-mvp-app
     restart: unless-stopped
-    # NO port mapping - Dokploy accesses via internal network
-    # expose:
-    #   - "3000"
+    expose:
+      - "3000"
     environment:
       # Database
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@espacio-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
       
       # NextAuth
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-I5p97Jpv0Xr7Zz7Ay8W6+O2eLmBR6N2gllGrZO01Szo=}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://app.espaciobd.com}
       AUTH_TRUST_HOST: "true"
       
       # MinIO
@@ -105,7 +100,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-startup-mvp-files}
-      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://espacio-minio:9000}
       
       # Redis
       REDIS_URL: redis://espacio-redis:6379
@@ -119,8 +114,8 @@ services:
       EMAIL_FROM: ${EMAIL_FROM:-}
       EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Startup MVP}
       
-      # App URL (set this to your domain in production)
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      # App URL
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://app.espaciobd.com}
       
       # Node Environment
       NODE_ENV: production
@@ -145,13 +140,32 @@ services:
       echo 'Starting Next.js application...';
       node server.js;
       "
+    labels:
+      # Traefik labels for Dokploy routing
+      - "traefik.enable=true"
+      - "traefik.http.routers.espacio-app.rule=Host(`${APP_DOMAIN:-app.espaciobd.com}`)"
+      - "traefik.http.routers.espacio-app.entrypoints=websecure"
+      - "traefik.http.routers.espacio-app.tls=true"
+      - "traefik.http.routers.espacio-app.tls.certresolver=letsencrypt"
+      - "traefik.http.services.espacio-app.loadbalancer.server.port=3000"
+      # HTTP to HTTPS redirect
+      - "traefik.http.routers.espacio-app-http.rule=Host(`${APP_DOMAIN:-app.espaciobd.com}`)"
+      - "traefik.http.routers.espacio-app-http.entrypoints=web"
+      - "traefik.http.routers.espacio-app-http.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
     networks:
       - dokploy-network
+      - internal
 
-# Dokploy-managed network
+# Networks
 networks:
+  # Dokploy's Traefik network (external)
   dokploy-network:
     external: true
+  # Internal network for service communication
+  internal:
+    driver: bridge
+    internal: false
 
 # Named volumes for data persistence
 volumes:
