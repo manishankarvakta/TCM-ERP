@@ -86,9 +86,9 @@ services:
       dockerfile: Dockerfile
     container_name: startup-mvp-app
     restart: unless-stopped
-    # Expose port 3000 for Dokploy to bind domain
-    ports:
-      - "3000:3000"
+    # NO port mapping - Dokploy accesses via internal network
+    expose:
+      - "3000"
     environment:
       # Database
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@espacio-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
