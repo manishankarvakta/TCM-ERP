@@ -71,7 +71,7 @@ services:
   # Next.js Application
   espacio-app:
     build:
-      context: .
+      context: ./startup-mvp
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
