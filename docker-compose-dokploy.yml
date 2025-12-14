@@ -52,7 +52,7 @@ services:
     image: minio/mc:latest
     container_name: espacio-minio-setup
     depends_on:
-      minio:
+      espacio-minio:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
