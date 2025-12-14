@@ -118,15 +118,34 @@ services:
       - dokploy-network
     command: >
       sh -c "
-      echo 'Waiting for database to be ready...';
+      echo '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+      echo '🚀 STARTING APPLICATION DEPLOYMENT';
+      echo '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+      echo '';
+      echo '⏳ Waiting for database to be ready...';
       sleep 10;
-      echo 'Running database migrations...';
-      npx prisma@6.18.0 db push || echo 'Migrations completed or no migrations to run';
-      echo 'Seeding default users...';
-      npx tsx prisma/seed-users.ts || echo 'User seeding completed or users already exist';
-      echo 'Seeding units...';
-      npx tsx prisma/seed.ts || echo 'Unit seeding completed or units already exist';
-      echo 'Starting application...';
+      echo '';
+      echo '📊 Running database migrations...';
+      npx prisma@6.18.0 db push;
+      if [ $$? -eq 0 ]; then
+        echo '✅ Database migrations completed successfully';
+      else
+        echo '❌ Database migrations failed';
+        exit 1;
+      fi;
+      echo '';
+      npx tsx prisma/seed-users.ts;
+      if [ $$? -eq 0 ]; then
+        echo '✅ Initial setup completed successfully';
+      else
+        echo '⚠️  Initial setup failed - continuing anyway (data may already exist)';
+      fi;
+      echo '';
+      echo '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+      echo '🎉 DEPLOYMENT READY';
+      echo '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+      echo '';
+      echo '🚀 Starting application server...';
       node server.js;
       "
 
