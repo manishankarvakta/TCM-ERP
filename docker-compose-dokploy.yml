@@ -122,6 +122,10 @@ services:
       sleep 10;
       echo 'Running database migrations...';
       npx prisma@6.18.0 db push || echo 'Migrations completed or no migrations to run';
+      echo 'Seeding default users...';
+      npx tsx prisma/seed-users.ts || echo 'User seeding completed or users already exist';
+      echo 'Seeding units...';
+      npx tsx prisma/seed.ts || echo 'Unit seeding completed or units already exist';
       echo 'Starting application...';
       node server.js;
       "
