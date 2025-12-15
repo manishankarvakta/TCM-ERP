@@ -77,12 +77,26 @@ const config = getMinIOConfig();
 const endpointUrl = buildEndpointUrl(config);
 
 /**
- * Configured S3 Client for MinIO
+ * Configured S3 Client for MinIO (internal operations)
  * Uses forcePathStyle: true for MinIO compatibility
  */
 export const s3 = new S3Client({
   endpoint: endpointUrl,
   region: "us-east-1", // MinIO doesn't use regions, but AWS SDK requires it
+  credentials: {
+    accessKeyId: config.accessKey,
+    secretAccessKey: config.secretKey,
+  },
+  forcePathStyle: true, // Required for MinIO
+});
+
+/**
+ * Configured S3 Client for generating presigned URLs
+ * Uses the public URL so the browser can access it
+ */
+const s3ForPresigned = new S3Client({
+  endpoint: config.publicUrl,
+  region: "us-east-1",
   credentials: {
     accessKeyId: config.accessKey,
     secretAccessKey: config.secretKey,
@@ -108,7 +122,8 @@ export async function getPresignedPutUrl(
     ContentType: contentType,
   });
 
-  return await getSignedUrl(s3, command, { expiresIn });
+  // Use the public URL client for presigned URLs so the browser can access them
+  return await getSignedUrl(s3ForPresigned, command, { expiresIn });
 }
 
 /**
@@ -126,7 +141,8 @@ export async function getPresignedGetUrl(
     Key: key,
   });
 
-  return await getSignedUrl(s3, command, { expiresIn });
+  // Use the public URL client for presigned URLs so the browser can access them
+  return await getSignedUrl(s3ForPresigned, command, { expiresIn });
 }
 
 /**

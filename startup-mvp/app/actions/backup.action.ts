@@ -39,8 +39,10 @@ async function getAdminUser(): Promise<{ id: string }> {
 
   // Check if user is admin
   const userRole = session.user.role?.toLowerCase();
+  console.log(`[Backup Action] User: ${session.user.email}, Role: ${session.user.role}, Lowercase: ${userRole}`);
+  
   if (userRole !== "admin") {
-    throw new Error("Forbidden: Admin access required");
+    throw new Error(`Forbidden: Admin access required. Current role: ${session.user.role || 'none'}`);
   }
 
   return { id: session.user.id };

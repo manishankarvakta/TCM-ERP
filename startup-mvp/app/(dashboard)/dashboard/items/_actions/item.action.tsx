@@ -193,9 +193,16 @@ export async function getItemById(itemId: string) {
       };
     }
 
+    // Serialize Decimal fields to numbers for client components
+    const serializedItem = {
+      ...item,
+      unitPrice: Number(item.unitPrice),
+      costPrice: item.costPrice !== null && item.costPrice !== undefined ? Number(item.costPrice) : null,
+    };
+
     return {
       success: true,
-      item,
+      item: serializedItem,
     };
   } catch (error) {
     console.error("getItemById error:", error);
