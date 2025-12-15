@@ -339,7 +339,50 @@ docker inspect startup-mvp-minio | grep MINIO_ROOT_
 3. **Open firewall ports** (9000, 9001)
 4. **Check DNS records** point to server
 
-### Issue 3: SSL Certificate Issues
+### Issue 3: Database Connection Errors
+
+**Symptoms:**
+```
+FATAL: could not open file "global/pg_filenode.map"
+Error: Schema engine error
+Database connection failed
+```
+
+**Cause:** PostgreSQL not fully initialized or corrupted volume
+
+**Solutions:**
+
+1. **Improved readiness check (already in docker-compose):**
+   - Deployment script now waits up to 60 seconds
+   - Tests actual database connection before migrations
+   - Auto-retries if not ready
+
+2. **If error persists - corrupted volume:**
+   ```bash
+   # SSH to server
+   ssh root@your-server-ip
+   
+   # Navigate to project
+   cd /path/to/espacio
+   
+   # Stop containers
+   docker-compose -f docker-compose-dokploy.yml down
+   
+   # Remove corrupted volume
+   rm -rf ./volumes/postgres
+   
+   # Redeploy in Dokploy
+   ```
+
+3. **Check logs:**
+   ```bash
+   docker logs startup-mvp-postgres
+   # Look for "database system is ready to accept connections"
+   ```
+
+**See also:** [PostgreSQL Troubleshooting Guide](../POSTGRES_TROUBLESHOOTING.md)
+
+### Issue 4: SSL Certificate Issues
 
 **Symptoms:**
 ```
@@ -359,7 +402,7 @@ SSL certificate problem: unable to get local issuer certificate
    certbot --nginx -d minio.yourdomain.com
    ```
 
-### Issue 4: Large File Upload Fails
+### Issue 5: Large File Upload Fails
 
 **Cause:** Nginx/Traefik body size limit
 
@@ -585,5 +628,7 @@ docker exec startup-mvp-app env | grep MINIO
 
 - [File Manager System](./FILE_MANAGER_SYSTEM.md)
 - [MinIO Setup & Troubleshooting](./MINIO_SETUP_TROUBLESHOOTING.md)
+- [PostgreSQL Troubleshooting](../POSTGRES_TROUBLESHOOTING.md)
+- [Data Persistence Strategy](./DATA_PERSISTENCE.md)
 - [Main README](../README.md)
 
