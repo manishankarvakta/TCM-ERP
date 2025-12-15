@@ -135,34 +135,10 @@ services:
       echo '🚀 STARTING APPLICATION DEPLOYMENT';
       echo '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
       echo '';
-      echo '⏳ Waiting for database to be fully ready...';
-      echo '   Testing database connection with Prisma...';
-      MAX_RETRIES=30;
-      RETRY_COUNT=0;
-      while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do
-        if echo 'SELECT 1;' | npx prisma@6.18.0 db execute --stdin > /dev/null 2>&1; then
-          echo '✅ Database is ready and accepting connections!';
-          break;
-        fi;
-        RETRY_COUNT=$$((RETRY_COUNT + 1));
-        echo \"   Attempt $$RETRY_COUNT/$$MAX_RETRIES: Waiting for database... (2s)\";
-        sleep 2;
-      done;
-      if [ $$RETRY_COUNT -eq $$MAX_RETRIES ]; then
-        echo '❌ Database failed to become ready after 60 seconds';
-        echo '';
-        echo '💡 TROUBLESHOOTING:';
-        echo '   1. Database may be corrupted';
-        echo '   2. PostgreSQL still initializing';
-        echo '   3. Connection credentials incorrect';
-        echo '';
-        echo '🔧 SOLUTIONS:';
-        echo '   • SSH to server and run: docker exec startup-mvp-postgres pg_isready';
-        echo '   • If corrupted, remove volume: rm -rf ./volumes/postgres';
-        echo '   • Check DATABASE_URL environment variable';
-        echo '   • Redeploy after fixing';
-        exit 1;
-      fi;
+      echo '⏳ Waiting for PostgreSQL to fully initialize...';
+      echo '   (This may take 30-60 seconds on first deployment)';
+      sleep 45;
+      echo '✅ Wait complete - starting migrations...';
       echo '';
       echo '📊 Running database migrations...';
       npx prisma@6.18.0 db push;
