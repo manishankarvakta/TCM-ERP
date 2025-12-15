@@ -15,6 +15,8 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
+      # IMPORTANT: Data persists across container restarts in ./volumes/postgres
+      # This directory is preserved even when containers are recreated
       - ./volumes/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
@@ -39,6 +41,8 @@ services:
       - "${MINIO_PORT:-9000}:9000"
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
+      # IMPORTANT: All uploaded files persist across container restarts in ./volumes/minio
+      # This directory is preserved even when containers are recreated
       - ./volumes/minio:/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
