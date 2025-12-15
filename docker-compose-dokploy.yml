@@ -37,9 +37,9 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
       # CORS Configuration for browser uploads - CRITICAL for file uploads to work
       MINIO_API_CORS_ALLOW_ORIGIN: ${MINIO_CORS_ORIGIN:-*}
-    ports:
-      - "${MINIO_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    expose:
+      - "9000"
+      - "9001"
     volumes:
       # IMPORTANT: All uploaded files persist across deployments in ./volumes/minio
       # This directory is preserved even when containers are recreated
@@ -51,6 +51,7 @@ services:
       retries: 3
     networks:
       - docker-network
+      - dokploy-network
 
   # MinIO Client for bucket initialization
   espacio-minio-setup:
@@ -138,7 +139,7 @@ services:
       sleep 10;
       echo '';
       echo '📊 Running database migrations...';
-      npx prisma@6.18.0 db push;
+      npx prisma db push;
       if [ $$? -eq 0 ]; then
         echo '✅ Database migrations completed successfully';
       else
