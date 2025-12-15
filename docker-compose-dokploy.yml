@@ -148,7 +148,8 @@ services:
       fi;
       echo '';
       echo '🔍 Checking if initial setup is needed...';
-      USER_COUNT=$$(npx prisma db execute --stdin <<< 'SELECT COUNT(*) as count FROM \"User\";' 2>/dev/null | grep -o '[0-9]*' | tail -1);
+      echo 'SELECT COUNT(*) FROM \"User\";' | npx prisma db execute --stdin > /tmp/user_count.txt 2>&1 || true;
+      USER_COUNT=$$(cat /tmp/user_count.txt 2>/dev/null | grep -o '[0-9]' | head -1);
       if [ -z \"$$USER_COUNT\" ] || [ \"$$USER_COUNT\" = \"0\" ]; then
         echo '👤 No users found - running initial setup...';
         tsx prisma/seed-users.ts;
@@ -160,7 +161,7 @@ services:
           echo '⚠️  Initial setup failed - you can setup via /setup page';
         fi;
       else
-        echo '✅ Database already initialized ($$USER_COUNT users found)';
+        echo '✅ Database already initialized (found existing users)';
         echo '📝 Skipping seed - data preserved for existing users';
       fi;
       echo '';
