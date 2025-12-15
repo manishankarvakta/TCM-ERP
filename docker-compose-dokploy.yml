@@ -139,7 +139,7 @@ services:
       sleep 10;
       echo '';
       echo '📊 Running database migrations...';
-      npx prisma db push;
+      npx prisma@6.18.0 db push;
       if [ $$? -eq 0 ]; then
         echo '✅ Database migrations completed successfully';
       else
@@ -148,7 +148,7 @@ services:
       fi;
       echo '';
       echo '🔍 Checking if initial setup is needed...';
-      echo 'SELECT COUNT(*) FROM \"User\";' | npx prisma db execute --stdin > /tmp/user_count.txt 2>&1 || true;
+      echo 'SELECT COUNT(*) FROM \"User\";' | npx prisma@6.18.0 db execute --stdin > /tmp/user_count.txt 2>&1 || true;
       USER_COUNT=$$(cat /tmp/user_count.txt 2>/dev/null | grep -o '[0-9]' | head -1);
       if [ -z \"$$USER_COUNT\" ] || [ \"$$USER_COUNT\" = \"0\" ]; then
         echo '👤 No users found - running initial setup...';
