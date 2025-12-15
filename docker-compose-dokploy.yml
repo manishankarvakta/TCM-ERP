@@ -15,6 +15,8 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
+      # IMPORTANT: Data persists across deployments in ./volumes/postgres
+      # This directory is preserved even when containers are recreated
       - ./volumes/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
@@ -39,6 +41,8 @@ services:
       - "${MINIO_PORT:-9000}:9000"
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
+      # IMPORTANT: All uploaded files persist across deployments in ./volumes/minio
+      # This directory is preserved even when containers are recreated
       - ./volumes/minio:/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
@@ -142,11 +146,21 @@ services:
         exit 1;
       fi;
       echo '';
-      tsx prisma/seed-users.ts;
-      if [ $$? -eq 0 ]; then
-        echo '✅ Initial setup completed successfully';
+      echo '🔍 Checking if initial setup is needed...';
+      USER_COUNT=$$(npx prisma db execute --stdin <<< 'SELECT COUNT(*) as count FROM \"User\";' 2>/dev/null | grep -o '[0-9]*' | tail -1);
+      if [ -z \"$$USER_COUNT\" ] || [ \"$$USER_COUNT\" = \"0\" ]; then
+        echo '👤 No users found - running initial setup...';
+        tsx prisma/seed-users.ts;
+        if [ $$? -eq 0 ]; then
+          echo '✅ Initial setup completed successfully';
+          echo '📧 Default admin created: admin@example.com / admin123';
+          echo '⚠️  IMPORTANT: Change admin password after first login!';
+        else
+          echo '⚠️  Initial setup failed - you can setup via /setup page';
+        fi;
       else
-        echo '⚠️  Initial setup failed - continuing anyway (data may already exist)';
+        echo '✅ Database already initialized ($$USER_COUNT users found)';
+        echo '📝 Skipping seed - data preserved for existing users';
       fi;
       echo '';
       echo '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
