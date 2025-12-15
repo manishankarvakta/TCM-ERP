@@ -1,8 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { s3 } from "@/lib/minio";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+
+/**
+ * Create S3 client for MinIO (lazy initialization to avoid build-time errors)
+ */
+function createS3Client() {
+  const endpoint = process.env.MINIO_ENDPOINT || "espacio-minio";
+  const port = process.env.MINIO_PORT || "9000";
+  const useSSL = process.env.MINIO_USE_SSL === "true";
+  const accessKey = process.env.MINIO_ACCESS_KEY || "minioadmin";
+  const secretKey = process.env.MINIO_SECRET_KEY || "minioadmin";
+
+  const protocol = useSSL ? "https" : "http";
+  const endpointUrl = `${protocol}://${endpoint}:${port}`;
+
+  return new S3Client({
+    endpoint: endpointUrl,
+    region: "us-east-1",
+    credentials: {
+      accessKeyId: accessKey,
+      secretAccessKey: secretKey,
+    },
+    forcePathStyle: true,
+  });
+}
 
 /**
  * GET /api/files/[...key]
@@ -53,6 +76,9 @@ export async function GET(
 
     // Get bucket name from environment
     const bucketName = process.env.MINIO_BUCKET_NAME || "espacio-files";
+
+    // Create S3 client (at runtime, not build time)
+    const s3 = createS3Client();
 
     // Fetch file from MinIO (internal connection)
     const command = new GetObjectCommand({
