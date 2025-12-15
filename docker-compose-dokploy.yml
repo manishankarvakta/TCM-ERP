@@ -93,15 +93,15 @@ services:
       NEXTAUTH_URL: ${NEXTAUTH_URL:-https://app.espaciobd.com}
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
       
-      # MinIO Configuration
-      # CRITICAL: MINIO_PUBLIC_URL must be accessible from the browser
-      # For production, set this to your domain: https://minio.yourdomain.com or https://yourdomain.com:9000
+      # MinIO Configuration - Internal Only (like PostgreSQL)
+      # MinIO is accessed internally via Docker network
+      # No public URL needed - files are uploaded/downloaded via Next.js API
       MINIO_ENDPOINT: espacio-minio
       MINIO_PORT: 9000
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-startup-mvp-files}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-espacio-files}
       MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://espacio-minio:9000}
       
       # Redis (optional)
