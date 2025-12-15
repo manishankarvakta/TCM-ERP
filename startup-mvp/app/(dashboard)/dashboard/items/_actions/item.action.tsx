@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 
 /**
- * Get paginated list of items with search
+ * Get paginated list of items with search //Done
  */
 export async function getItems(
   page: number = 1,
