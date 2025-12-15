@@ -33,6 +33,8 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      # CORS Configuration for browser uploads
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
     ports:
       - "${MINIO_PORT:-9000}:9000"
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
@@ -59,6 +61,8 @@ services:
       /usr/bin/mc alias set myminio http://espacio-minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
       /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || true;
       /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || true;
+      /usr/bin/mc anonymous set upload myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || true;
+      /usr/bin/mc anonymous set public myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || true;
       exit 0;
       "
     networks:
