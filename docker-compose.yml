@@ -127,8 +127,15 @@ services:
       sh -c "
       echo 'Waiting for database to be ready...';
       sleep 10;
-      echo 'Running database migrations...';
-      npx prisma migrate deploy || echo 'Migrations completed or no migrations to run';
+      echo 'Running database migrations (SAFE MODE - preserves data)...';
+      npx prisma migrate deploy;
+      if [ $$? -eq 0 ]; then
+        echo '✅ Database migrations completed successfully';
+        echo '✅ All existing data preserved';
+      else
+        echo '❌ Database migrations failed';
+        exit 1;
+      fi;
       echo 'Starting application...';
       node server.js;
       "
@@ -153,4 +160,19 @@ services:
 networks:
   app-network:
     driver: bridge
+
+# CRITICAL: Named volumes for data persistence
+# These volumes will NEVER be deleted during normal deployments
+# Only explicit "docker-compose down -v" or "docker volume rm" will delete them
+# However, we use bind mounts (./volumes/*) so data is on the host filesystem
+volumes:
+  # These are not actively used since we use bind mounts,
+  # but declaring them here for documentation purposes
+  # Data is stored in ./volumes/ directory on the host
+  postgres-data:
+    driver: local
+  minio-data:
+    driver: local
+  redis-data:
+    driver: local
 

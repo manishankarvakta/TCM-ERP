@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Upload, X, Check, Cloud, Image as ImageIcon, FileText, Video, Music, Search, File, Folder, Archive, Code, FileSpreadsheet, Presentation } from "lucide-react";
-import { getUploadPresignedUrl, confirmUpload, getPublicUrl, listFolder } from "@/app/actions/files";
+import { uploadFileServerSide, getPublicUrl, listFolder } from "@/app/actions/files";
 import { useToast } from "@/hooks/use-toast";
 import { formatBytes } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -191,118 +191,82 @@ export default function UploadDialog({
         prev.map((u) => (u.id === upload.id ? { ...u, status: "uploading" } : u))
       );
 
-      // Get presigned URL - upload to root path for media library
-      const result = await getUploadPresignedUrl({
-        path: "",
-        name: upload.file.name,
-        contentType: upload.file.type || undefined,
-      });
+      // Convert file to base64
+      const arrayBuffer = await upload.file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const fileData = buffer.toString('base64');
 
-      if (!result.success || !result.data) {
-        throw new Error(result.error || "Failed to get upload URL");
-      }
-
-      const { url, key } = result.data;
-
-      // Upload file to MinIO
-      const xhr = new XMLHttpRequest();
-
-      // Track upload progress
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          const progress = Math.round((e.loaded / e.total) * 100);
+      // Simulate progress for better UX
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        progress += 10;
+        if (progress <= 90) {
           setUploads((prev) =>
             prev.map((u) =>
               u.id === upload.id
                 ? {
                     ...u,
                     progress,
-                    uploadedBytes: e.loaded,
-                    totalBytes: e.total,
+                    uploadedBytes: Math.floor((progress / 100) * upload.file.size),
+                    totalBytes: upload.file.size,
                   }
                 : u
             )
           );
         }
+      }, 200);
+
+      // Upload file via server action (internal MinIO connection)
+      const result = await uploadFileServerSide({
+        path: "",
+        name: upload.file.name,
+        fileData,
+        contentType: upload.file.type || "application/octet-stream",
+        size: upload.file.size,
       });
 
-      // Handle completion
-      xhr.addEventListener("load", async () => {
-        if (xhr.status === 200) {
-          // Get ETag from response headers
-          const etag = xhr.getResponseHeader("ETag")?.replace(/"/g, "");
+      clearInterval(progressInterval);
 
-          // Confirm upload in database
-          const confirmResult = await confirmUpload({
-            key,
-            size: upload.file.size,
-            mimeType: upload.file.type || "application/octet-stream",
-            etag,
-          });
+      if (!result.success || !result.data) {
+        throw new Error(result.error || "Failed to upload file");
+      }
 
-          if (confirmResult.success) {
-            // Get public URL
-            const publicUrlResult = await getPublicUrl({ key });
-            const fileUrl = publicUrlResult.success && publicUrlResult.data
-              ? publicUrlResult.data.url
-              : url; // Fallback to presigned URL
+      const { key } = result.data;
 
-            setUploads((prev) =>
-              prev.map((u) =>
-                u.id === upload.id
-                  ? {
-                      ...u,
-                      status: "success",
-                      progress: 100,
-                      uploadedBytes: upload.file.size,
-                      totalBytes: upload.file.size,
-                      url: fileUrl,
-                    }
-                  : u
-              )
-            );
+      // Get public URL
+      const publicUrlResult = await getPublicUrl({ key });
+      const fileUrl = publicUrlResult.success && publicUrlResult.data
+        ? publicUrlResult.data.url
+        : "";
 
-            // Set as selected if it's the first successful upload
-            setUploads((prev) => {
-              const successUpload = prev.find((u) => u.id === upload.id && u.status === "success");
-              if (successUpload && successUpload.url) {
-                setSelectedFileUrl((current) => current || successUpload.url || null);
+      setUploads((prev) =>
+        prev.map((u) =>
+          u.id === upload.id
+            ? {
+                ...u,
+                status: "success",
+                progress: 100,
+                uploadedBytes: upload.file.size,
+                totalBytes: upload.file.size,
+                url: fileUrl,
               }
-              return prev;
-            });
+            : u
+        )
+      );
 
-            toast({
-              title: "Upload successful",
-              description: `${upload.file.name} has been uploaded successfully`,
-            });
-          } else {
-            throw new Error(confirmResult.error || "Failed to confirm upload");
-          }
-        } else {
-          throw new Error(`Upload failed with status ${xhr.status}`);
+      // Set as selected if it's the first successful upload
+      setUploads((prev) => {
+        const successUpload = prev.find((u) => u.id === upload.id && u.status === "success");
+        if (successUpload && successUpload.url) {
+          setSelectedFileUrl((current) => current || successUpload.url || null);
         }
+        return prev;
       });
 
-      // Handle errors
-      xhr.addEventListener("error", () => {
-        setUploads((prev) =>
-          prev.map((u) =>
-            u.id === upload.id
-              ? { ...u, status: "error", error: "Upload failed" }
-              : u
-          )
-        );
-        toast({
-          title: "Upload failed",
-          description: `Failed to upload ${upload.file.name}`,
-          variant: "destructive",
-        });
+      toast({
+        title: "Upload successful",
+        description: `${upload.file.name} has been uploaded successfully`,
       });
-
-      // Start upload
-      xhr.open("PUT", url);
-      xhr.setRequestHeader("Content-Type", upload.file.type || "application/octet-stream");
-      xhr.send(upload.file);
     } catch (error) {
       console.error("Upload error:", error);
       setUploads((prev) =>

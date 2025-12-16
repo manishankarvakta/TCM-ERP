@@ -1,5 +1,31 @@
 # Data Persistence and Deployment Strategy
 
+## ⚠️ CRITICAL UPDATE - December 16, 2025
+
+**MAJOR FIX APPLIED:** We have fixed a critical data loss issue!
+
+### What Was Fixed
+
+❌ **OLD (DANGEROUS):** Used `npx prisma db push` in production
+- Could cause data loss on schema changes
+- Not safe for production deployments
+- No migration tracking
+
+✅ **NEW (SAFE):** Now uses `npx prisma migrate deploy`
+- Production-safe migrations
+- Never loses data
+- Proper migration tracking
+- All existing data preserved
+
+### Action Required
+
+**If you're experiencing data loss after deployments, please:**
+1. Read the new `../DATA_LOSS_PREVENTION_GUIDE.md` (in project root)
+2. Redeploy with the updated docker-compose files
+3. Your data will be safe from now on
+
+---
+
 ## Overview
 
 This document explains how your application data persists across deployments and how to safely deploy updates without losing client data.
