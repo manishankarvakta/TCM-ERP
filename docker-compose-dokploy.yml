@@ -146,15 +146,13 @@ services:
       USER_COUNT=$$(echo 'SELECT COUNT(*) FROM \"User\";' | npx prisma@6.18.0 db execute --stdin 2>/dev/null | grep -o '[0-9]' | head -1);
       if [ -z \"$$USER_COUNT\" ] || [ \"$$USER_COUNT\" = \"0\" ]; then
         echo 'Running initial setup...';
-        npx prisma@6.18.0 migrate deploy;
-        npx prisma@6.18.0 db push;
         tsx prisma/seed-users.ts || echo 'Seed failed - use /setup page';
-      echo 'Starting application...';
-      node server.js;
-      "    
       else
         echo '✅ Data preserved - skipping setup';
       fi;
+      echo 'Starting application...';
+      node server.js;
+      "    
   # Redis (optional, if you're using it)
   espacio-redis:
     image: redis:7-alpine
