@@ -125,20 +125,20 @@ services:
       - app-network
     command: >
       sh -c "
-      echo 'Waiting for database to be ready...';
-      sleep 10;
-      echo 'Running database migrations (SAFE MODE - preserves data)...';
-      npx prisma migrate deploy;
-      if [ $$? -eq 0 ]; then
-        echo '✅ Database migrations completed successfully';
-        echo '✅ All existing data preserved';
-      else
-        echo '❌ Database migrations failed';
-        exit 1;
-      fi;
       echo 'Starting application...';
       node server.js;
       "
+  # echo 'Waiting for database to be ready...';
+  # sleep 10;
+  # echo 'Running database migrations (SAFE MODE - preserves data)...';
+  # npx prisma migrate deploy;
+  # if [ $$? -eq 0 ]; then
+  #   echo '✅ Database migrations completed successfully';
+  #   echo '✅ All existing data preserved';
+  # else
+  #   echo '❌ Database migrations failed';
+  #   exit 1;
+  # fi;
 
   # Redis (optional, if you're using it)
   espacio-redis:
