@@ -88,9 +88,9 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./package.json
 
 # Install Prisma CLI and tsx globally for runtime migrations and seeding
-# RUN npm install -g prisma@6.18.0 tsx@latest
+RUN npm install -g prisma@6.18.0 tsx@latest
 
-# RUN npx prisma@6.18.0 migrate deploy
+RUN npx prisma@6.18.0 migrate deploy
 
 # Fix permissions
 RUN chown -R nextjs:nodejs /app
