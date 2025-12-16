@@ -19,25 +19,14 @@ import Logo from "@/components/layout/logo";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { prisma } from "@/lib/prisma";
-import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Startup MVP - Build Your Dream Application",
   description: "The complete startup template with authentication, dashboard, and modern features built with Next.js 15, TypeScript, and Tailwind CSS.",
 };
 
-// Force dynamic rendering to avoid build-time database access
-export const dynamic = 'force-dynamic';
-
-export default async function HomePage() {
-  // Check if initial setup is needed
-  const userCount = await prisma.user.count();
-  
-  if (userCount === 0) {
-    redirect("/setup");
-  }
-
+export default function HomePage() {
+  console.log("HomePage", process.env.DATABASE_URL);
   return (
     <div className="min-h-screen flex bg-[url('/auth-bg.jpg')] bg-cover bg-center min-h-screen">
       {/* Left Side - Branding & Testimonial */}
