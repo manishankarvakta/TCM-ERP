@@ -27,6 +27,9 @@ export const metadata: Metadata = {
   description: "The complete startup template with authentication, dashboard, and modern features built with Next.js 15, TypeScript, and Tailwind CSS.",
 };
 
+// Force dynamic rendering to avoid build-time database access
+export const dynamic = 'force-dynamic';
+
 export default async function HomePage() {
   // Check if initial setup is needed
   const userCount = await prisma.user.count();
