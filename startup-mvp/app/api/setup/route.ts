@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { signIn } from "@/lib/auth";
+import { cookies } from "next/headers";
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,6 +34,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!organizationName || !organizationName.trim()) {
+      return NextResponse.json(
+        { error: "Organization name is required" },
+        { status: 400 }
+      );
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
@@ -48,16 +57,39 @@ export async function POST(request: NextRequest) {
     });
 
     // Create default organization
-    if (organizationName) {
-      await prisma.organization.create({
-        data: {
-          id: "default-org",
-          name: organizationName,
-          details: "Default organization",
-          status: "active",
-          createdBy: admin.id,
-        },
+    await prisma.organization.create({
+      data: {
+        id: "default-org",
+        name: organizationName,
+        details: "Default organization",
+        status: "active",
+        createdBy: admin.id,
+      },
+    });
+
+    // Auto-login the admin user
+    try {
+      await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
       });
+    } catch (authError) {
+      console.error("Auto-login failed:", authError);
+      // Don't fail the setup if auto-login fails
+      // User can still login manually
+    }
+
+    // Invalidate setup cache so middleware knows setup is complete
+    // Dynamic import to avoid issues with middleware functions
+    if (typeof window === 'undefined') {
+      try {
+        const { invalidateSetupCache } = await import('@/proxy');
+        invalidateSetupCache();
+      } catch (e) {
+        // Cache will expire naturally, not critical
+        console.log("Could not invalidate setup cache, will expire naturally");
+      }
     }
 
     return NextResponse.json({
