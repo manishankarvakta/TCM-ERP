@@ -134,13 +134,21 @@ services:
       echo 'Waiting for database to be ready...';
       sleep 10;
       echo 'Running database migrations (SAFE MODE - preserves data)...';
-      npx prisma migrate deploy;
+      npx prisma@6.18.0 migrate deploy;
       if [ $$? -eq 0 ]; then
         echo '✅ Database migrations completed successfully';
         echo '✅ All existing data preserved';
       else
         echo '❌ Database migrations failed';
         exit 1;
+      fi;
+      echo 'Checking if initial setup needed...';
+      USER_COUNT=$$(npx prisma@6.18.0 db execute --stdin <<< 'SELECT COUNT(*) FROM \"User\";' 2>/dev/null | grep -o '[0-9]' | head -1);
+      if [ -z \"$$USER_COUNT\" ] || [ \"$$USER_COUNT\" = \"0\" ]; then
+        echo 'Running initial setup...';
+        tsx prisma/seed-users.ts || echo 'Seed failed - use /setup page';
+      else
+        echo '✅ Data preserved - skipping seed';
       fi;
       echo 'Starting application...';
       node server.js;
