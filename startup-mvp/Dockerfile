@@ -35,7 +35,7 @@ RUN npm ci --legacy-peer-deps --ignore-scripts && \
     npm cache clean --force
 
 # Now run prisma generate explicitly
-RUN npx prisma generate
+RUN npx prisma migrate deploy
 
 # ============================================
 # Stage 2: Build Application
@@ -88,7 +88,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./package.json
 
 # Install Prisma CLI and tsx globally for runtime migrations and seeding
-RUN npm install -g prisma@latest tsx@latest
+# RUN npm install -g prisma@latest tsx@latest
 
 # Fix permissions
 RUN chown -R nextjs:nodejs /app
