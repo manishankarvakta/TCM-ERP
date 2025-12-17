@@ -914,16 +914,29 @@ export async function getDownloadUrl(input: {
       throw new Error("File not found");
     }
 
-    // Generate API proxy URL for download (served via Next.js, not MinIO directly)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const url = `${appUrl}/api/files/${key}?download=1`;
+    const minioPubliclyAccessible = process.env.MINIO_PUBLICLY_ACCESSIBLE === "true";
+
+    let url: string;
+    if (minioPubliclyAccessible) {
+      // Generate presigned URL pointing to the public MinIO domain
+      url = await minio.getPresignedGetUrl(key, expiresIn);
+    } else {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      url = `${appUrl}/api/files/${key}?download=1`;
+    }
 
     // Log the action
     await createUserLog({
       userId: user.id,
       action: "FILE_DOWNLOAD_URL_GENERATED",
       details: `Generated download URL for file: ${file.name}`,
-      metadata: { path: file.path, name: file.name, storageKey: key, expiresIn },
+      metadata: {
+        path: file.path,
+        name: file.name,
+        storageKey: key,
+        expiresIn,
+        mode: minioPubliclyAccessible ? "minio" : "proxy",
+      },
     });
 
     return {
