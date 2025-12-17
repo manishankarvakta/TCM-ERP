@@ -1,0 +1,9 @@
+DATABASE:
+
+AWS:
+postgresql://espacioUser:espacioPassword@db-espaciodb-umhzq7:5432/espacioDB
+postgresql://espacioUser:espacioPassword@13.203.93.245:5432/espacioDB
+
+TS:
+postgresql://postgresUser:postgresPass@database-postgresql-zuug6k:5432/postgresDB
+postgresql://postgresUser:postgresPass@103.239.43.246:5432/postgresDB

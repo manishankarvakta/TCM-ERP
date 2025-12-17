@@ -11,8 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { FiAlertCircle } from "react-icons/fi";
 import { motion } from "framer-motion";
+import { useToastContext } from "@/components/ui/providers/toast-provider";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -23,8 +23,8 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginForm() {
   const router = useRouter();
-  const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const { toast } = useToastContext();
 
   const {
     register,
@@ -37,7 +37,6 @@ export default function LoginForm() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       setLoading(true);
-      setError("");
 
       const response = await fetch("/api/auth/signin", {
         method: "POST",
@@ -52,13 +51,26 @@ export default function LoginForm() {
 
       if (!response.ok) {
         const error = await response.json();
-        setError(error.error || "Invalid email or password. Please try again.");
+        toast({
+          title: "Authentication Failed",
+          description: error.error || "Invalid email or password. Please try again.",
+          variant: "destructive",
+        });
       } else {
+        toast({
+          title: "Success",
+          description: "Logged in successfully!",
+          variant: "default",
+        });
         router.push("/dashboard");
         router.refresh();
       }
     } catch (err) {
-      setError("An unexpected error occurred. Please try again.");
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -71,17 +83,6 @@ export default function LoginForm() {
       transition={{ duration: 0.5 }}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex items-start gap-3 rounded-lg bg-destructive/15 p-3 text-sm text-destructive"
-          >
-            <FiAlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-            <span>{error}</span>
-          </motion.div>
-        )}
-
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input
