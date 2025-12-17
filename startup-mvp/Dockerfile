@@ -36,7 +36,7 @@ RUN npm ci --legacy-peer-deps --ignore-scripts && \
     npm cache clean --force
 
 # Now run prisma generate explicitly
-# RUN npx prisma@6.18.0 migrate deploy
+RUN npx prisma generate
 
 # ============================================
 # Stage 2: Build Application
