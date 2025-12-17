@@ -13,7 +13,8 @@ RUN apk add --no-cache \
     wget \
     curl \
     openssl \
-    netcat-openbsd
+    netcat-openbsd \
+    su-exec
 
 WORKDIR /app
 
@@ -98,17 +99,17 @@ RUN chmod +x /app/entrypoint.sh
 # Fix permissions
 RUN chown -R nextjs:nodejs /app
 
-# Switch to non-root user
-USER nextjs
+# Don't switch user yet - entrypoint will handle migrations as root, then switch to nextjs
+# USER nextjs
 
 EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Health check
+# Health check (runs as root, which is fine for health checks)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
-# Start application using entrypoint script
+# Start application using entrypoint script (runs as root, switches to nextjs for app)
 ENTRYPOINT ["/app/entrypoint.sh"]

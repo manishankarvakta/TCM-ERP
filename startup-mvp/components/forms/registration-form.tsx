@@ -90,7 +90,7 @@ export default function RegistrationForm() {
       const result = await registerUser({
         name: data.name,
         email: data.email,
-        password: data.password,
+        password: data.password,  
       });
 
       if (!result.success) {
