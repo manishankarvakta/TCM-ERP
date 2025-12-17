@@ -8,10 +8,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-startup_mvp}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       # ABSOLUTE PATH - Data stays here forever
       # Even if you delete entire project directory
@@ -30,8 +28,8 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
       MINIO_API_CORS_ALLOW_ORIGIN: ${MINIO_CORS_ORIGIN:-*}
     expose:
       - "9000"
@@ -78,15 +76,15 @@ services:
     expose:
       - "3000"
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@espacio-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-I5p97Jpv0Xr7Zz7Ay8W6+O2eLmBR6N2gllGrZO01Szo=}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://dev.espaciobd.com}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@espacio-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:?NEXTAUTH_URL is required}
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
       MINIO_ENDPOINT: espacio-minio
       MINIO_PORT: 9000
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
       MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-espacio-files}
       MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://espacio-minio:9000}
       REDIS_URL: ${REDIS_URL:-redis://espacio-redis:6379}
@@ -97,7 +95,7 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
       EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Startup MVP}
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://dev.espaciobd.com}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?NEXT_PUBLIC_APP_URL is required}
       NODE_ENV: production
     depends_on:
       espacio-postgres:
@@ -112,8 +110,6 @@ services:
     image: redis:7-alpine
     container_name: startup-mvp-redis
     restart: unless-stopped
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
     volumes:
       # ABSOLUTE PATH - Cache data stays here
       - /var/lib/startup-mvp/redis:/data
