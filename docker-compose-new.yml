@@ -107,11 +107,6 @@ services:
     networks:
       - docker-network
       - dokploy-network
-    command: >
-      sh -c "
-      echo 'Starting application...';
-      node server.js;
-      "
 
   espacio-redis:
     image: redis:7-alpine

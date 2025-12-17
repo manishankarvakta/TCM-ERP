@@ -12,7 +12,8 @@ RUN apk add --no-cache \
     postgresql-client \
     wget \
     curl \
-    openssl
+    openssl \
+    netcat-openbsd
 
 WORKDIR /app
 
@@ -90,7 +91,9 @@ COPY --from=builder /app/package.json ./package.json
 # Install Prisma CLI and tsx globally for runtime migrations and seeding
 RUN npm install -g prisma@6.18.0 tsx@latest
 
-RUN npx prisma@6.18.0 migrate deploy
+# Copy entrypoint script
+COPY --from=builder /app/docker/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 # Fix permissions
 RUN chown -R nextjs:nodejs /app
@@ -107,5 +110,5 @@ ENV HOSTNAME="0.0.0.0"
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
-# Start application
-CMD ["node", "server.js"]
+# Start application using entrypoint script
+ENTRYPOINT ["/app/entrypoint.sh"]
