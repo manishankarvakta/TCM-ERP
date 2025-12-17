@@ -8,11 +8,10 @@ done
 
 echo "✅ PostgreSQL is available"
 
-echo "🧱 Generating Prisma client..."
-npx prisma generate
+echo "🧱 Prisma client already generated during build"
 
-echo "🧱 Applying Prisma migrations..."
-npx prisma migrate deploy || echo "No new migrations or already applied"
+echo "🧱 Applying Prisma migrations (as root)..."
+prisma migrate deploy || echo "No new migrations or already applied"
 
-echo "🚀 Starting application..."
-exec node server.js
+echo "🚀 Starting application (as nextjs user)..."
+exec su-exec nextjs node server.js
