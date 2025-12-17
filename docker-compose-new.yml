@@ -25,7 +25,7 @@ services:
       - docker-network
 
   espacio-minio:
-    image: minio/minio:latest
+    image: minio/minio
     container_name: startup-mvp-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
