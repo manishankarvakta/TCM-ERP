@@ -59,10 +59,10 @@ services:
       sleep 5;
       echo 'Setting up MinIO bucket...';
       /usr/bin/mc alias set myminio http://espacio-minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
-      /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || echo 'Bucket already exists';
-      /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || true;
-      /usr/bin/mc anonymous set upload myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || true;
-      /usr/bin/mc anonymous set public myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || true;
+      /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-espacio-files} || echo 'Bucket already exists';
+      /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-espacio-files} || true;
+      /usr/bin/mc anonymous set upload myminio/${MINIO_BUCKET_NAME:-espacio-files} || true;
+      /usr/bin/mc anonymous set public myminio/${MINIO_BUCKET_NAME:-espacio-files} || true;
       echo 'MinIO bucket setup complete!';
       exit 0;
       "

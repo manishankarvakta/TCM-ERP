@@ -890,7 +890,8 @@ export async function renameFileOrFolder(input: {
 }
 
 /**
- * Get presigned URL for downloading a file
+ * Get download URL for a file
+ * Returns API proxy URL that fetches from MinIO internally
  */
 export async function getDownloadUrl(input: {
   key: string;
@@ -913,8 +914,9 @@ export async function getDownloadUrl(input: {
       throw new Error("File not found");
     }
 
-    // Get presigned URL from MinIO
-    const url = await minio.getPresignedGetUrl(key, expiresIn);
+    // Generate API proxy URL for download (served via Next.js, not MinIO directly)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const url = `${appUrl}/api/files/${key}?download=1`;
 
     // Log the action
     await createUserLog({
