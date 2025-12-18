@@ -16,6 +16,12 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  // Redirect admin users to /admin
+  const userRole = session.user.role?.toLowerCase();
+  if (userRole === "admin") {
+    redirect("/admin");
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
       <DashboardSidebar />

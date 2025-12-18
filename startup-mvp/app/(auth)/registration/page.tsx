@@ -15,7 +15,13 @@ export default async function RegistrationPage() {
   // Check if user has valid session with user data
   // When force logged out, session exists but without user.id
   if (session?.user?.id && session?.user?.email) {
-    redirect("/dashboard");
+    // Redirect based on user role
+    const userRole = session.user.role?.toLowerCase();
+    if (userRole === "admin") {
+      redirect("/admin");
+    } else {
+      redirect("/dashboard");
+    }
   }
 
   return (

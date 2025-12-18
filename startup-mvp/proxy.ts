@@ -36,6 +36,12 @@ export default auth(async (req) => {
     return NextResponse.redirect(new URL("/dashboard", req.url))
   }
 
+  // Redirect admin users from dashboard routes to /admin
+  const isDashboardRoute = pathname.startsWith("/dashboard")
+  if (isDashboardRoute && isLoggedIn && userRole === "admin") {
+    return NextResponse.redirect(new URL("/admin", req.url))
+  }
+
   return NextResponse.next()
 })
 
