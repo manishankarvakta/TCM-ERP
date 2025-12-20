@@ -9,14 +9,20 @@ import {
   listBackups,
   deleteBackup,
   getBackupPath,
+  detectBackupTypeFromFilename,
+  isFullBackup,
+  ensureBackupDirs,
+  getBackupTypeDir,
+  generateBackupFilename,
   type BackupType,
   type BackupMetadata,
 } from "@/lib/backup";
-import { readFile } from "fs/promises";
+import { readFile, writeFile, unlink } from "fs/promises";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { s3 } from "@/lib/minio";
 import { minio } from "@/lib/minio";
 import JSZip from "jszip";
+import path from "path";
 
 /**
  * Response type for server actions
@@ -275,25 +281,52 @@ export async function restoreBackup(
       // Restore database from SQL file
       const sqlContent = await readFile(backupPath, "utf-8");
 
+      // First, handle session replication role setting
+      if (sqlContent.includes("SET session_replication_role")) {
+        try {
+          await prisma.$executeRawUnsafe(`SET session_replication_role = 'replica';`);
+        } catch (error) {
+          console.error("Error setting session_replication_role:", error);
+        }
+      }
+
       // Split SQL into individual statements
+      // Use regex to split by semicolon, but preserve quoted strings
       const statements = sqlContent
-        .split(";")
+        .split(/;(?=(?:[^'"]|'[^']*'|"[^"]*")*$)/)
         .map((s) => s.trim())
-        .filter((s) => s.length > 0 && !s.startsWith("--"));
+        .filter((s) => s.length > 0 && !s.startsWith("--") && !s.toLowerCase().startsWith("set session_replication_role"));
+
+      console.log(`[Restore] Found ${statements.length} SQL statements to process`);
 
       // Execute each statement
+      let insertCount = 0;
       for (const statement of statements) {
-        if (statement.toLowerCase().startsWith("insert")) {
+        const trimmed = statement.trim();
+        if (trimmed.toLowerCase().startsWith("insert")) {
+          insertCount++;
           try {
-            await prisma.$executeRawUnsafe(statement);
+            // Add semicolon if not present
+            const sqlStatement = trimmed.endsWith(";") ? trimmed : trimmed + ";";
+            await prisma.$executeRawUnsafe(sqlStatement);
             databaseRecords++;
           } catch (error) {
-            console.error(`Error executing statement: ${statement.substring(0, 100)}...`, error);
+            console.error(`Error executing INSERT statement #${insertCount}:`, error);
+            console.error(`Statement preview: ${trimmed.substring(0, 200)}...`);
             errors++;
             // Continue with other statements
           }
         }
       }
+
+      // Re-enable foreign key checks
+      try {
+        await prisma.$executeRawUnsafe(`SET session_replication_role = 'origin';`);
+      } catch (error) {
+        console.error("Error resetting session_replication_role:", error);
+      }
+
+      console.log(`[Restore] Processed ${insertCount} INSERT statements, ${databaseRecords} successful, ${errors} errors`);
     } else if (type === "files") {
       // Restore files from ZIP
       const zipBuffer = await readFile(backupPath);
@@ -388,6 +421,125 @@ export async function restoreBackup(
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to restore backup",
+    };
+  }
+}
+
+/**
+ * Upload and restore from a backup file
+ * Accepts a file upload, detects backup type, and restores it
+ */
+export async function uploadAndRestoreBackup(
+  formData: FormData
+): Promise<ActionResult<{ 
+  restored: boolean; 
+  backupType: BackupType;
+  databaseRecords?: number; 
+  filesRestored?: number;
+  errors?: number;
+}>> {
+  try {
+    await getAdminUser();
+
+    // Get file from FormData
+    const file = formData.get("file") as File;
+    if (!file) {
+      return {
+        success: false,
+        error: "No file provided",
+      };
+    }
+
+    // Validate file type
+    const fileName = file.name.toLowerCase();
+    const isSql = fileName.endsWith(".sql");
+    const isZip = fileName.endsWith(".zip");
+
+    if (!isSql && !isZip) {
+      return {
+        success: false,
+        error: "Invalid file type. Only .sql and .zip files are allowed.",
+      };
+    }
+
+    // Convert File to Buffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Detect backup type
+    let backupType: BackupType;
+    let tempFilename: string;
+    let tempFilePath: string;
+
+    if (isSql) {
+      // SQL file = database backup
+      backupType = "database";
+      tempFilename = generateBackupFilename("database", "sql");
+      tempFilePath = path.join(getBackupTypeDir("database"), tempFilename);
+    } else {
+      // ZIP file - check if it's a full backup
+      const isFull = await isFullBackup(buffer);
+      if (isFull) {
+        backupType = "full";
+        tempFilename = generateBackupFilename("full", "zip");
+        tempFilePath = path.join(getBackupTypeDir("full"), tempFilename);
+      } else {
+        backupType = "files";
+        tempFilename = generateBackupFilename("files", "zip");
+        tempFilePath = path.join(getBackupTypeDir("files"), tempFilename);
+      }
+    }
+
+    // Ensure backup directories exist
+    await ensureBackupDirs();
+
+    // Save file temporarily
+    await writeFile(tempFilePath, buffer);
+
+    try {
+      // Restore from the temporary file
+      const restoreResult = await restoreBackup(backupType, tempFilename);
+
+      // Clean up temporary file
+      try {
+        await unlink(tempFilePath);
+      } catch (cleanupError) {
+        console.error("Error cleaning up temporary file:", cleanupError);
+        // Don't fail the restore if cleanup fails
+      }
+
+      if (!restoreResult.success) {
+        return {
+          success: false,
+          error: restoreResult.error || "Failed to restore backup",
+        };
+      }
+
+      return {
+        success: true,
+        data: {
+          restored: true,
+          backupType,
+          databaseRecords: restoreResult.data?.databaseRecords,
+          filesRestored: restoreResult.data?.filesRestored,
+          errors: restoreResult.data?.errors,
+        },
+      };
+    } catch (restoreError) {
+      // Clean up temporary file even if restore fails
+      try {
+        await unlink(tempFilePath);
+      } catch (cleanupError) {
+        console.error("Error cleaning up temporary file after restore failure:", cleanupError);
+      }
+
+      throw restoreError;
+    }
+  } catch (error) {
+    console.error("uploadAndRestoreBackup error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to upload and restore backup",
     };
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,9 @@ import {
   Download,
   Trash2,
   RotateCcw,
+  Cloud,
+  Upload,
+  X,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -33,6 +36,7 @@ import {
   deleteBackupFile,
   restoreBackup,
   downloadBackupFile,
+  uploadAndRestoreBackup,
 } from "@/app/actions/backup.action";
 import type { BackupMetadata } from "@/lib/backup";
 import { formatFileSize } from "@/lib/utils";
@@ -71,6 +75,19 @@ export default function Backup() {
     details?: string;
   } | null>(null);
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDetectingType, setIsDetectingType] = useState(false);
+  const [detectedBackupType, setDetectedBackupType] = useState<BackupType | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [restoreSummary, setRestoreSummary] = useState<{
+    backupType: BackupType;
+    databaseRecords?: number;
+    filesRestored?: number;
+    errors?: number;
+  } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadBackups = useCallback(async () => {
     setIsLoadingBackups(true);
@@ -288,6 +305,193 @@ export default function Backup() {
     }
   };
 
+  // Upload and restore handlers
+  const detectBackupTypeFromFile = async (file: File): Promise<BackupType> => {
+    const fileName = file.name.toLowerCase();
+    if (fileName.endsWith(".sql")) {
+      return "database";
+    } else if (fileName.endsWith(".zip")) {
+      // For ZIP files, we'll let the server determine if it's "files" or "full"
+      // by checking the contents. For now, we'll default to "files" and the server
+      // will detect if it's actually a "full" backup.
+      try {
+        // Try to detect full backup by reading ZIP contents in browser
+        const JSZip = (await import("jszip")).default;
+        const arrayBuffer = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(arrayBuffer);
+        const hasDatabaseSql = zip.file("database.sql") !== null;
+        const hasFilesZip = zip.file("files.zip") !== null;
+        if (hasDatabaseSql && hasFilesZip) {
+          return "full";
+        }
+      } catch (error) {
+        console.error("Error detecting backup type:", error);
+        // If detection fails, default to "files" - server will correct if needed
+      }
+      return "files";
+    }
+    throw new Error("Invalid file type");
+  };
+
+  const handleFileSelect = async (file: File) => {
+    // Validate file type
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith(".sql") && !fileName.endsWith(".zip")) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload a .sql or .zip backup file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadedFile(file);
+    setIsDetectingType(true);
+    setShowConfirmation(false);
+    setRestoreSummary(null);
+    
+    // Detect backup type
+    try {
+      const type = await detectBackupTypeFromFile(file);
+      setDetectedBackupType(type);
+      setIsDetectingType(false);
+      // Show confirmation section
+      setShowConfirmation(true);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to detect backup type",
+        variant: "destructive",
+      });
+      setUploadedFile(null);
+      setDetectedBackupType(null);
+      setIsDetectingType(false);
+      setShowConfirmation(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
+
+  const handleBrowseClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setUploadedFile(null);
+    setDetectedBackupType(null);
+    setShowConfirmation(false);
+    setRestoreSummary(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!uploadedFile || !detectedBackupType) return;
+
+    setShowConfirmation(false);
+    setIsUploading(true);
+    setRestoreProgress({ stage: "Uploading file...", progress: 0 });
+
+    try {
+      const formData = new FormData();
+      formData.append("file", uploadedFile);
+
+      // Simulate progress updates
+      const progressInterval = setInterval(() => {
+        setRestoreProgress((prev) => {
+          if (!prev) return prev;
+          const newProgress = Math.min(prev.progress + 10, 90);
+          let stage = prev.stage;
+          
+          if (newProgress < 30) {
+            stage = "Uploading file...";
+          } else if (newProgress < 60) {
+            stage = "Detecting backup type...";
+          } else if (newProgress < 90) {
+            stage = detectedBackupType === "database" 
+              ? "Restoring database records..." 
+              : detectedBackupType === "files"
+              ? "Extracting files..."
+              : "Restoring database and files...";
+          }
+
+          return { stage, progress: newProgress };
+        });
+      }, 300);
+
+      const result = await uploadAndRestoreBackup(formData);
+
+      clearInterval(progressInterval);
+      setRestoreProgress({ stage: "Completing", progress: 100 });
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to restore backup");
+      }
+
+      // Store summary for success display
+      setRestoreSummary({
+        backupType: result.data?.backupType || detectedBackupType,
+        databaseRecords: result.data?.databaseRecords,
+        filesRestored: result.data?.filesRestored,
+        errors: result.data?.errors,
+      });
+
+      // Reload backups list
+      await loadBackups();
+      
+      setRestoreProgress(null);
+    } catch (error) {
+      toast({
+        title: "Restore Failed",
+        description: error instanceof Error ? error.message : "Failed to restore backup",
+        variant: "destructive",
+      });
+      setRestoreProgress(null);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleResetUpload = () => {
+    // Reset upload state
+    setUploadedFile(null);
+    setDetectedBackupType(null);
+    setShowConfirmation(false);
+    setRestoreSummary(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const renderBackupList = (type: BackupType, backupsList: BackupMetadata[]) => {
     if (backupsList.length === 0) {
       return (
@@ -483,6 +687,295 @@ export default function Backup() {
         </CardContent>
       </Card>
 
+      {/* Upload and Restore Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Upload and Restore</CardTitle>
+          <CardDescription>
+            Upload a backup file (.sql or .zip) to restore your database or files
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!uploadedFile ? (
+            <>
+              {/* Drag and Drop Zone */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`flex min-h-[150px] flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors ${
+                  isDragging
+                    ? "border-primary bg-primary/5"
+                    : "border-muted-foreground/25 bg-muted/50"
+                }`}
+              >
+                <Cloud className="mb-4 h-12 w-12 text-muted-foreground" />
+                <p className="mb-2 text-sm font-medium">
+                  Drag and drop a backup file here, or click to browse
+                </p>
+                <p className="mb-4 text-xs text-muted-foreground">
+                  Supported formats: .sql (database) or .zip (files/full backup)
+                </p>
+                <Button type="button" variant="outline" onClick={handleBrowseClick}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Browse Files
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileInputChange}
+                  accept=".sql,.zip"
+                />
+              </div>
+            </>
+          ) : (
+            <div className="space-y-4">
+              {/* File Preview */}
+              <div className="rounded-lg border bg-card p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      {isDetectingType ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      ) : detectedBackupType === "database" ? (
+                        <Database className="h-5 w-5 text-muted-foreground" />
+                      ) : detectedBackupType === "files" ? (
+                        <FileArchive className="h-5 w-5 text-muted-foreground" />
+                      ) : detectedBackupType === "full" ? (
+                        <RefreshCw className="h-5 w-5 text-muted-foreground" />
+                      ) : null}
+                      <span className="font-medium truncate">{uploadedFile.name}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span>{formatFileSize(uploadedFile.size)}</span>
+                      {isDetectingType && (
+                        <span>• Detecting backup type...</span>
+                      )}
+                      {detectedBackupType && !isDetectingType && (
+                        <>
+                          <span>•</span>
+                          <span className="capitalize">{detectedBackupType} backup detected</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRemoveFile}
+                    disabled={isUploading || isDetectingType}
+                    className="h-8 w-8 p-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Confirmation Section */}
+              {showConfirmation && detectedBackupType && !isDetectingType && !isUploading && !restoreSummary && (
+                <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-4">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-full bg-amber-100 dark:bg-amber-900/30 p-2 mt-0.5">
+                      <RotateCcw className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold mb-1">Confirm Restore</h3>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        You are about to restore from the uploaded backup file. This action will overwrite existing data and cannot be undone.
+                      </p>
+                      
+                      <div className="rounded-lg border bg-background p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          {detectedBackupType === "database" && (
+                            <Database className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          {detectedBackupType === "files" && (
+                            <FileArchive className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          {detectedBackupType === "full" && (
+                            <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <span className="text-sm font-medium capitalize">{detectedBackupType} Backup</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span>File:</span>
+                            <span className="font-medium">{uploadedFile.name}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span>Size:</span>
+                            <span className="font-medium">{formatFileSize(uploadedFile.size)}</span>
+                          </div>
+                          {detectedBackupType === "database" && (
+                            <p className="mt-2 pt-2 border-t text-muted-foreground">
+                              This will restore all database records from the SQL file.
+                            </p>
+                          )}
+                          {detectedBackupType === "files" && (
+                            <p className="mt-2 pt-2 border-t text-muted-foreground">
+                              This will restore all files from the ZIP archive to MinIO storage.
+                            </p>
+                          )}
+                          {detectedBackupType === "full" && (
+                            <p className="mt-2 pt-2 border-t text-muted-foreground">
+                              This will restore both database records and files from the backup.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleConfirmRestore}
+                      className="flex-1"
+                    >
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      Confirm & Restore
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleRemoveFile}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Restore Progress */}
+              {restoreProgress && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{restoreProgress.stage}</span>
+                    <span className="font-medium">{restoreProgress.progress}%</span>
+                  </div>
+                  <Progress value={restoreProgress.progress} className="h-2" />
+                </div>
+              )}
+
+              {/* Success Summary */}
+              {restoreSummary && !isUploading && (
+                <div className={`rounded-lg border p-4 space-y-4 ${
+                  (restoreSummary.databaseRecords === 0 && restoreSummary.filesRestored === 0 && !restoreSummary.errors) ||
+                  (restoreSummary.errors && restoreSummary.errors > 0)
+                    ? "border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/20"
+                    : "border-green-200 dark:border-green-900/50 bg-green-50 dark:bg-green-950/20"
+                }`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`rounded-full p-2 mt-0.5 ${
+                      (restoreSummary.databaseRecords === 0 && restoreSummary.filesRestored === 0 && !restoreSummary.errors) ||
+                      (restoreSummary.errors && restoreSummary.errors > 0)
+                        ? "bg-amber-100 dark:bg-amber-900/30"
+                        : "bg-green-100 dark:bg-green-900/30"
+                    }`}>
+                      <RotateCcw className={`h-5 w-5 ${
+                        (restoreSummary.databaseRecords === 0 && restoreSummary.filesRestored === 0 && !restoreSummary.errors) ||
+                        (restoreSummary.errors && restoreSummary.errors > 0)
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-green-600 dark:text-green-400"
+                      }`} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className={`text-sm font-semibold mb-1 ${
+                        (restoreSummary.databaseRecords === 0 && restoreSummary.filesRestored === 0 && !restoreSummary.errors) ||
+                        (restoreSummary.errors && restoreSummary.errors > 0)
+                          ? "text-amber-900 dark:text-amber-100"
+                          : "text-green-900 dark:text-green-100"
+                      }`}>
+                        {restoreSummary.errors && restoreSummary.errors > 0
+                          ? "Restore Completed with Errors"
+                          : (restoreSummary.databaseRecords === 0 && restoreSummary.filesRestored === 0)
+                          ? "Restore Completed - No Data Found"
+                          : "Restore Completed Successfully"}
+                      </h3>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        {restoreSummary.errors && restoreSummary.errors > 0
+                          ? "The restore process completed but encountered some errors. Please check the details below."
+                          : (restoreSummary.databaseRecords === 0 && restoreSummary.filesRestored === 0)
+                          ? "The backup file was processed, but no data was found to restore. The backup file may be empty or contain no records."
+                          : "Your backup has been restored successfully. Here's a summary of what was restored:"}
+                      </p>
+                      
+                      <div className="rounded-lg border bg-background p-3 space-y-3">
+                        <div className="flex items-center gap-2">
+                          {restoreSummary.backupType === "database" && (
+                            <Database className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          {restoreSummary.backupType === "files" && (
+                            <FileArchive className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          {restoreSummary.backupType === "full" && (
+                            <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <span className="text-sm font-medium capitalize">
+                            {restoreSummary.backupType} Backup Restored
+                          </span>
+                        </div>
+
+                        <div className="space-y-2 text-sm">
+                          {restoreSummary.databaseRecords !== undefined && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Database Records:</span>
+                              <span className={`font-medium ${
+                                restoreSummary.databaseRecords === 0 ? "text-amber-600 dark:text-amber-400" : ""
+                              }`}>
+                                {restoreSummary.databaseRecords.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {restoreSummary.filesRestored !== undefined && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Files Restored:</span>
+                              <span className={`font-medium ${
+                                restoreSummary.filesRestored === 0 ? "text-amber-600 dark:text-amber-400" : ""
+                              }`}>
+                                {restoreSummary.filesRestored.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {restoreSummary.errors !== undefined && restoreSummary.errors > 0 && (
+                            <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
+                              <span>Errors Encountered:</span>
+                              <span className="font-medium">{restoreSummary.errors}</span>
+                            </div>
+                          )}
+                          {(!restoreSummary.errors || restoreSummary.errors === 0) && 
+                           (restoreSummary.databaseRecords !== 0 || restoreSummary.filesRestored !== 0) && (
+                            <div className="pt-2 border-t">
+                              <p className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                ✓ All operations completed without errors
+                              </p>
+                            </div>
+                          )}
+                          {restoreSummary.databaseRecords === 0 && restoreSummary.filesRestored === 0 && !restoreSummary.errors && (
+                            <div className="pt-2 border-t">
+                              <p className="text-xs text-amber-600 dark:text-amber-400">
+                                ⚠ No data was restored. The backup file may be empty or contain no records.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Button
+                    onClick={handleResetUpload}
+                    className="w-full"
+                    variant="outline"
+                  >
+                    Upload Another Backup
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Backup History Section */}
       <Card>
         <CardHeader>
@@ -665,6 +1158,7 @@ export default function Backup() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </div>
   );
 }

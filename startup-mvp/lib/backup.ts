@@ -33,7 +33,7 @@ function getBackupDir(): string {
 /**
  * Get backup subdirectory for a specific type
  */
-function getBackupTypeDir(type: BackupType): string {
+export function getBackupTypeDir(type: BackupType): string {
   return path.join(getBackupDir(), type);
 }
 
@@ -54,7 +54,7 @@ export async function ensureBackupDirs(): Promise<void> {
 /**
  * Generate backup filename with timestamp
  */
-function generateBackupFilename(type: BackupType, extension: string): string {
+export function generateBackupFilename(type: BackupType, extension: string): string {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -105,21 +105,47 @@ export async function createDatabaseBackup(): Promise<string> {
   const filePath = path.join(getBackupTypeDir("database"), filename);
 
   // Get all tables from Prisma schema
+  // Order matters: backup tables with foreign keys after their referenced tables
   const tables = [
+    // Core authentication tables
     "User",
     "Account",
     "Session",
     "VerificationToken",
     "PasswordReset",
     "UserLog",
+    
+    // File and notification tables
     "File",
     "Notification",
+    
+    // Master data tables (no dependencies on other custom tables)
     "Unit",
-    "Organization",
     "Category",
-    "Item",
+    "Organization",
     "Client",
     "Supplier",
+    
+    // Item catalog tables
+    "Item",
+    "ItemCategory",
+    
+    // Module/Group templates
+    "ModuleGroup",
+    "ModuleGroupItem",
+    
+    // Cover letters
+    "CoverLetter",
+    
+    // Settings
+    "Settings",
+    
+    // Quotation tables (order matters due to foreign keys)
+    "Quotation",
+    "Section",
+    "ItemGroup",
+    "CategoryGroup",
+    "QuotationItem",
   ];
 
   let sqlContent = `-- Database Backup\n`;
@@ -378,6 +404,49 @@ export function getBackupPath(type: BackupType, filename: string): string {
   }
 
   return filePath;
+}
+
+/**
+ * Detect backup type from filename pattern
+ * Checks if filename matches backup-YYYYMMDD-HHMMSS.{sql|zip} pattern
+ */
+export function detectBackupTypeFromFilename(filename: string): BackupType | null {
+  // Format: backup-YYYYMMDD-HHMMSS.{sql|zip}
+  const match = filename.match(/^backup-(\d{8}-\d{6})\.(sql|zip)$/);
+  
+  if (!match) {
+    return null;
+  }
+
+  const [, , extension] = match;
+
+  // Determine type based on extension
+  if (extension === "sql") {
+    return "database";
+  } else if (extension === "zip") {
+    // ZIP files could be "files" or "full" backup
+    // For uploaded files, we'll default to "files" unless we can inspect contents
+    // The restore logic will handle full backups by checking for database.sql and files.zip inside
+    return "files";
+  }
+
+  return null;
+}
+
+/**
+ * Check if a ZIP file buffer is a full backup by inspecting contents
+ * Full backups contain database.sql and files.zip
+ */
+export async function isFullBackup(zipBuffer: Buffer): Promise<boolean> {
+  try {
+    const zip = await JSZip.loadAsync(zipBuffer);
+    const hasDatabaseSql = zip.file("database.sql") !== null;
+    const hasFilesZip = zip.file("files.zip") !== null;
+    return hasDatabaseSql && hasFilesZip;
+  } catch (error) {
+    console.error("Error checking if ZIP is full backup:", error);
+    return false;
+  }
 }
 
 
