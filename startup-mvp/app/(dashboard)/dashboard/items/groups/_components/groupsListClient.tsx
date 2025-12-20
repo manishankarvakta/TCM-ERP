@@ -23,6 +23,7 @@ import {
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiMoreVertical, FiEye, FiRotateCw, FiCheck, FiCircle } from "react-icons/fi";
 import { deleteGroup, deleteGroupPermanently, bulkUpdateGroupStatus, deleteGroupsPermanently, restoreGroup } from "../_actions/group.action";
+import ProtectedAction from "@/components/permissions/protected-action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -438,24 +439,24 @@ export default function GroupsListClient({
                       <div className="flex items-center justify-end gap-0">
                         {!isTrash && (
                           <>
-                            <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0">
-                              <Link href={`/dashboard/items/groups/${group.id}`}>
-                                <FiEye className="h-4 w-4" />
-                              </Link>
-                            </Button>
-                            <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0">
-                              <Link href={`/dashboard/items/groups/${group.id}/edit`}>
-                                <FiEdit className="h-4 w-4" />
-                              </Link>
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
+                            <ProtectedAction
+                              permissionKey="items.groups"
+                              action="view"
+                              href={`/dashboard/items/groups/${group.id}`}
+                              buttonProps={{ className: "h-8 w-8 p-0" }}
+                            />
+                            <ProtectedAction
+                              permissionKey="items.groups"
+                              action="edit"
+                              href={`/dashboard/items/groups/${group.id}/edit`}
+                              buttonProps={{ className: "h-8 w-8 p-0" }}
+                            />
+                            <ProtectedAction
+                              permissionKey="items.groups"
+                              action="move-to-trash"
                               onClick={() => handleDelete(group.id)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <FiTrash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                              buttonProps={{ className: "h-8 w-8 p-0 text-destructive" }}
+                            />
                           </>
                         )}
                         {isTrash && (

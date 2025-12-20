@@ -18,6 +18,7 @@ import {
   Fingerprint,
   LucideUserCog,
   LucideDatabaseBackup,
+  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -43,6 +44,7 @@ import APIs from "./_components/APIs";
 import Webhooks from "./_components/Webhooks";
 
 import Backup from "./_components/Backup";
+import PermissionsSettings from "./_components/PermissionsSettings";
 
 import { SlEnvolopeLetter } from "react-icons/sl";
 import CoverLetter from "./_components/coverLetter/CoverLetter";
@@ -54,6 +56,7 @@ type SettingsSection = "profile" |
                        "emails" | 
                        "calendars" |
                        "backup" | 
+                       "permissions" |
                        "general" | 
                        "members" | 
                        "roles" | 
@@ -134,6 +137,7 @@ export default function SettingsPage() {
           ],
         },
         { id: "backup" as SettingsSection, label: "Backup", icon: LucideDatabaseBackup, active: activeSection === "backup" },
+        { id: "permissions" as SettingsSection, label: "Permissions", icon: Lock, active: activeSection === "permissions" },
       ],
     },
     {
@@ -209,6 +213,8 @@ export default function SettingsPage() {
         return <Webhooks />;
       case "backup":
         return <Backup />;
+      case "permissions":
+        return <PermissionsSettings />;
       default:
         return (
           <div className="space-y-6">

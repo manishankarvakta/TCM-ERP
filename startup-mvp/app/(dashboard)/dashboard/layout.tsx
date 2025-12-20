@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import DashboardSidebar from "@/components/dashboard/sidebar";
+import DashboardSidebarWrapper from "@/components/dashboard/sidebar-wrapper";
 import DashboardHeader from "@/components/dashboard/header";
+import PermissionSync from "@/components/permissions/permission-sync";
 
 export default async function DashboardLayout({
   children,
@@ -22,15 +23,19 @@ export default async function DashboardLayout({
     redirect("/admin");
   }
 
+  // Only show permission sync for non-admin users
+  const isAdmin = session.user.role?.toLowerCase() === "admin";
+
   return (
     <div className="flex h-screen overflow-hidden">
-      <DashboardSidebar />
+      <DashboardSidebarWrapper />
       <div className="flex flex-1 flex-col overflow-hidden">
         <DashboardHeader user={session.user} />
         <main className="flex-1 overflow-y-auto bg-background p-6">
           {children}
         </main>
       </div>
+      {!isAdmin && <PermissionSync />}
     </div>
   );
 }

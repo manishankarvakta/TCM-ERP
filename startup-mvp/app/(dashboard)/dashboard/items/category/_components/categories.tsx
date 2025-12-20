@@ -23,6 +23,7 @@ import {
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw } from "react-icons/fi";
 import { deleteCategory, bulkUpdateCategoryStatus, deleteCategoriesPermanently } from "../_actions/category.action";
+import ProtectedAction from "@/components/permissions/protected-action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -382,16 +383,16 @@ export default function CategoriesListClient({
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/dashboard/items/category/details?id=${category.id}`}>
-                                <FiEye className="h-4 w-4" />
-                              </Link>
-                            </Button>
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/dashboard/items/category/${category.id}`}>
-                                <FiEdit className="h-4 w-4" />
-                              </Link>
-                            </Button>
+                            <ProtectedAction
+                              permissionKey="items.category"
+                              action="view"
+                              href={`/dashboard/items/category/details?id=${category.id}`}
+                            />
+                            <ProtectedAction
+                              permissionKey="items.category"
+                              action="edit"
+                              href={`/dashboard/items/category/${category.id}`}
+                            />
                           </>
                         )}
                         {isTrash && (
@@ -405,16 +406,16 @@ export default function CategoriesListClient({
                             <FiRotateCw className="h-4 w-4" />
                           </Button>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
+                        <ProtectedAction
+                          permissionKey="items.category"
+                          action={isTrash ? "delete-permanently" : "move-to-trash"}
                           onClick={() => setDeleteCategoryId(category.id)}
-                          className="text-destructive hover:text-destructive"
-                          title={isTrash ? "Delete permanently" : "Move to trash"}
-                          disabled={isPending}
-                        >
-                          <FiTrash2 className="h-4 w-4" />
-                        </Button>
+                          buttonProps={{
+                            disabled: isPending,
+                            className: "text-destructive hover:text-destructive",
+                            title: isTrash ? "Delete permanently" : "Move to trash",
+                          }}
+                        />
                       </div>
                     </TableCell>
                   </TableRow>
