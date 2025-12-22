@@ -2,8 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { useAppDispatch, useAppSelector } from "@/lib/redux/hooks";
+import { setSidebarOpen } from "@/lib/redux/slices/uiSlice";
+import { motion, AnimatePresence } from "framer-motion";
+import { FiX } from "react-icons/fi";
+import { Button } from "@/components/ui/button";
 import {
   FiHome,
   FiUsers,
@@ -205,6 +210,10 @@ export default function DashboardSidebar({
   accessiblePages = new Map(),
 }: DashboardSidebarProps) {
   const pathname = usePathname();
+
+  const dispatch = useAppDispatch();
+  const isSidebarOpen = useAppSelector((state) => state.ui.isSidebarOpen);
+=======
   
   // Check if user has no permissions (only dashboard and profile accessible)
   // User has no permissions if:
@@ -311,6 +320,7 @@ export default function DashboardSidebar({
       return itemCopy;
     }).filter((item): item is MenuItem => item !== null);
   }
+
   
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(() => {
     // Auto-expand menus if current path matches any sub-menu
@@ -355,12 +365,34 @@ export default function DashboardSidebar({
     });
   };
 
-  return (
-    <aside className="hidden w-64 border-r bg-background lg:block">
-      <div className="flex h-full flex-col">
-        <div className="flex h-16 items-center border-b px-6">
+  // Close sidebar when clicking outside on mobile
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        dispatch(setSidebarOpen(false));
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [dispatch]);
+
+  // Prevent body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (isSidebarOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+  }, [isSidebarOpen]);
+
+  const sidebarContent = (
+    <div className="flex h-full flex-col">
+      <div className="flex h-16 items-center border-b px-6 lg:justify-center">
+        <div className="flex-1 lg:flex-none">
           <Logo width={150} height={100} />
         </div>
+
         <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
           {filteredMenuItems.map((item) => {
             const Icon = item.icon;
@@ -420,12 +452,56 @@ export default function DashboardSidebar({
             }
 
             if (!item.href) return null;
+
             
-            // For exact match or check if pathname starts with href
-            // Special handling for /dashboard to only match exactly
-            const isActive = pathname === item.href || 
-              (item.href !== "/dashboard" && pathname?.startsWith(item.href + "/"));
             return (
+
+              <div key={item.label}>
+                <button
+                  onClick={() => toggleMenu(item.label)}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    hasActiveChild
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </div>
+                  {isExpanded ? (
+                    <FiChevronDown className="h-4 w-4" />
+                  ) : (
+                    <FiChevronRight className="h-4 w-4" />
+                  )}
+                </button>
+                {isExpanded && (
+                  <div className="ml-4 mt-1 space-y-1 border-l pl-4">
+                    {item.subMenu.map((subItem) => {
+                      const SubIcon = subItem.icon;
+                      // Only exact match for sub-menu items to avoid false positives
+                      // e.g., /dashboard/items should not be active when on /dashboard/items/units
+                      const isActive = pathname === subItem.href;
+                      return (
+                        <Link
+                          key={subItem.href}
+                          href={subItem.href}
+                          className={cn(
+                            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                            isActive
+                              ? "bg-accent text-accent-foreground"
+                              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                          )}
+                          onClick={() => dispatch(setSidebarOpen(false))}
+                        >
+                          <SubIcon className="h-4 w-4" />
+                          <span>{subItem.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+
               <Link
                 key={item.href}
                 href={item.href}
@@ -455,15 +531,95 @@ export default function DashboardSidebar({
                   isActive
                     ? "bg-accent text-accent-foreground"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+
                 )}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{item.label}</span>
-              </Link>
+              </div>
             );
-          })}
-        </div>
+          }
+
+          if (!item.href) return null;
+          
+          // For exact match or check if pathname starts with href
+          // Special handling for /dashboard to only match exactly
+          const isActive = pathname === item.href || 
+            (item.href !== "/dashboard" && pathname?.startsWith(item.href + "/"));
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+              onClick={() => dispatch(setSidebarOpen(false))}
+            >
+              <Icon className="h-4 w-4" />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+      <div className="border-t p-4 space-y-1">
+        {bottomMenuItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href || pathname?.startsWith(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+              onClick={() => dispatch(setSidebarOpen(false))}
+            >
+              <Icon className="h-4 w-4" />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <aside className="hidden w-64 border-r bg-background lg:block">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile Sidebar Drawer */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+              onClick={() => dispatch(setSidebarOpen(false))}
+            />
+
+            {/* Sidebar Panel */}
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "tween", duration: 0.3 }}
+              className="fixed left-0 top-0 h-full w-64 border-r bg-background z-50 lg:hidden"
+            >
+              {sidebarContent}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
