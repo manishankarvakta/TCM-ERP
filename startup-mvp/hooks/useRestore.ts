@@ -17,6 +17,7 @@ interface UseRestoreReturn {
   error: string | null;
   startRestore: (backupId: string, options?: RestoreOptions) => Promise<void>;
   cancelRestore: () => void;
+  clearProgress: () => void;
 }
 
 export function useRestore(): UseRestoreReturn {
@@ -113,6 +114,14 @@ export function useRestore(): UseRestoreReturn {
     setError('Restore cancelled by user');
   }, []);
 
+  /**
+   * Clear progress state (called after modal is closed)
+   */
+  const clearProgress = useCallback(() => {
+    setProgress(null);
+    setError(null);
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -129,6 +138,7 @@ export function useRestore(): UseRestoreReturn {
     error,
     startRestore,
     cancelRestore,
+    clearProgress,
   };
 }
 

@@ -42,6 +42,17 @@ export function RestoreProgressModal({
     }
   }, [progress?.logs]);
 
+  // Auto-close modal after successful restore
+  useEffect(() => {
+    if (progress?.status === 'COMPLETED') {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 3000); // Close after 3 seconds
+
+      return () => clearTimeout(timer);
+    }
+  }, [progress?.status, onClose]);
+
   if (!progress) {
     return null;
   }
@@ -164,11 +175,16 @@ export function RestoreProgressModal({
           <div className="flex justify-end gap-2">
             {isRunning && (
               <Button variant="outline" size="sm" disabled>
-                Please wait...
+                Restoring... Please wait
               </Button>
             )}
-            {(isComplete || isFailed) && (
+            {isComplete && (
               <Button onClick={onClose} size="sm">
+                Close (Auto-closing in 3s)
+              </Button>
+            )}
+            {isFailed && (
+              <Button onClick={onClose} size="sm" variant="destructive">
                 Close
               </Button>
             )}
