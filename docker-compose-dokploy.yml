@@ -40,6 +40,16 @@ services:
     expose:
       - "9000"
       - "9001"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.minio-api.rule=Host(`minio.espaciobd.com`)"
+      - "traefik.http.routers.minio-api.entrypoints=websecure"
+      - "traefik.http.routers.minio-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.minio-api.loadbalancer.server.port=9000"
+      - "traefik.http.routers.minio-console.rule=Host(`minio-console.espaciobd.com`)"
+      - "traefik.http.routers.minio-console.entrypoints=websecure"
+      - "traefik.http.routers.minio-console.tls.certresolver=letsencrypt"
+      - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
     volumes:
       # IMPORTANT: All uploaded files persist across deployments in ./volumes/minio
       # This directory is preserved even when containers are recreated
@@ -65,10 +75,10 @@ services:
       sleep 5;
       echo 'Setting up MinIO bucket...';
       /usr/bin/mc alias set myminio http://espacio-minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
-      /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || echo 'Bucket already exists';
-      /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || true;
-      /usr/bin/mc anonymous set upload myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || true;
-      /usr/bin/mc anonymous set public myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || true;
+      /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-espacio-files} || echo 'Bucket already exists';
+      /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-espacio-files} || true;
+      /usr/bin/mc anonymous set upload myminio/${MINIO_BUCKET_NAME:-espacio-files} || true;
+      /usr/bin/mc anonymous set public myminio/${MINIO_BUCKET_NAME:-espacio-files} || true;
       echo 'MinIO bucket setup complete!';
       exit 0;
       "
@@ -90,12 +100,12 @@ services:
       
       # NextAuth
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-I5p97Jpv0Xr7Zz7Ay8W6+O2eLmBR6N2gllGrZO01Szo=}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://app.espaciobd.com}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://dev.espaciobd.com}
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
       
-      # MinIO Configuration
-      # CRITICAL: MINIO_PUBLIC_URL must be accessible from the browser
-      # For production, set this to your domain: https://minio.yourdomain.com or https://yourdomain.com:9000
+      # MinIO Configuration - Internal Only (like PostgreSQL)
+      # MinIO is accessed internally via Docker network
+      # No public URL needed - files are uploaded/downloaded via Next.js API
       MINIO_ENDPOINT: espacio-minio
       MINIO_PORT: 9000
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
@@ -117,7 +127,7 @@ services:
       EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Startup MVP}
       
       # App URL
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://app.espaciobd.com}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://dev.espaciobd.com}
       
       # Node Environment
       NODE_ENV: production
@@ -128,53 +138,7 @@ services:
         condition: service_healthy
     networks:
       - docker-network
-      - dokploy-network
-    command: >
-      sh -c "
-      echo '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
-      echo '🚀 STARTING APPLICATION DEPLOYMENT';
-      echo '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
-      echo '';
-      echo '⏳ Waiting for PostgreSQL to fully initialize...';
-      echo '   (This may take 30-60 seconds on first deployment)';
-      sleep 45;
-      echo '✅ Wait complete - starting migrations...';
-      echo '';
-      echo '📊 Running database migrations...';
-      npx prisma@6.18.0 db push;
-      if [ $$? -eq 0 ]; then
-        echo '✅ Database migrations completed successfully';
-      else
-        echo '❌ Database migrations failed';
-        exit 1;
-      fi;
-      echo '';
-      echo '🔍 Checking if initial setup is needed...';
-      echo 'SELECT COUNT(*) FROM \"User\";' | npx prisma@6.18.0 db execute --stdin > /tmp/user_count.txt 2>&1 || true;
-      USER_COUNT=$$(cat /tmp/user_count.txt 2>/dev/null | grep -o '[0-9]' | head -1);
-      if [ -z \"$$USER_COUNT\" ] || [ \"$$USER_COUNT\" = \"0\" ]; then
-        echo '👤 No users found - running initial setup...';
-        tsx prisma/seed-users.ts;
-        if [ $$? -eq 0 ]; then
-          echo '✅ Initial setup completed successfully';
-          echo '📧 Default admin created: admin@example.com / admin123';
-          echo '⚠️  IMPORTANT: Change admin password after first login!';
-        else
-          echo '⚠️  Initial setup failed - you can setup via /setup page';
-        fi;
-      else
-        echo '✅ Database already initialized (found existing users)';
-        echo '📝 Skipping seed - data preserved for existing users';
-      fi;
-      echo '';
-      echo '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
-      echo '🎉 DEPLOYMENT READY';
-      echo '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
-      echo '';
-      echo '🚀 Starting application server...';
-      node server.js;
-      "
-
+      - dokploy-network    
   # Redis (optional, if you're using it)
   espacio-redis:
     image: redis:7-alpine
@@ -197,4 +161,19 @@ networks:
     driver: bridge
   dokploy-network:
     external: true
+
+# CRITICAL: Named volumes for data persistence
+# These volumes will NEVER be deleted during normal deployments
+# Only explicit "docker-compose down -v" or "docker volume rm" will delete them
+# However, we use bind mounts (./volumes/*) so data is on the host filesystem
+volumes:
+  # These are not actively used since we use bind mounts,
+  # but declaring them here for documentation purposes
+  # Data is stored in ./volumes/ directory on the host
+  postgres-data:
+    driver: local
+  minio-data:
+    driver: local
+  redis-data:
+    driver: local
 

@@ -15,9 +15,6 @@
     "test:performance": "tsx tests/performance/encryption-benchmark.ts",
     "test:all": "npm run test:unit && npm run test:integration:create && npm run test:integration:restore && npm run test:security"
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
     "@aws-sdk/client-s3": "^3.926.0",

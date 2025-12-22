@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import ItemsListClient from "./_components/items";
+import PageGuard from "@/components/permissions/page-guard";
 
 interface ItemsPageProps {
   searchParams: Promise<{
@@ -43,90 +44,92 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Items</h1>
-          <p className="text-sm text-muted-foreground">Manage items in your system</p>
+    <PageGuard permissionKey="items.items">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Items</h1>
+            <p className="text-sm text-muted-foreground">Manage items in your system</p>
+          </div>
+          {tab !== "trash" && (
+            <Button asChild>
+              <Link href="/dashboard/items/add">
+                <FiPlus className="mr-2 h-4 w-4" />
+                Add Item
+              </Link>
+            </Button>
+          )}
         </div>
-        {tab !== "trash" && (
-          <Button asChild>
-            <Link href="/dashboard/items/add">
-              <FiPlus className="mr-2 h-4 w-4" />
-              Add Item
-            </Link>
-          </Button>
-        )}
-      </div>
 
-      <Tabs defaultValue={tab} className="w-full">
-        <TabsList>
-          <TabsTrigger value="all" asChild>
-            <Link href="/dashboard/items?tab=all&page=1">All Items</Link>
-          </TabsTrigger>
-          <TabsTrigger value="active" asChild>
-            <Link href="/dashboard/items?tab=active&page=1">Active</Link>
-          </TabsTrigger>
-          <TabsTrigger value="inactive" asChild>
-            <Link href="/dashboard/items?tab=inactive&page=1">Inactive</Link>
-          </TabsTrigger>
-          <TabsTrigger value="trash" asChild>
-            <Link href="/dashboard/items?tab=trash&page=1">Trash</Link>
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="all" className="mt-4">
-          <ItemsListClient
-            initialItems={result.items || []}
-            initialPagination={result.pagination || {
-              page: 1,
-              limit: 10,
-              total: 0,
-              totalPages: 0,
-            }}
-            initialSearch={search}
-            isTrash={false}
-          />
-        </TabsContent>
-        <TabsContent value="active" className="mt-4">
-          <ItemsListClient
-            initialItems={result.items || []}
-            initialPagination={result.pagination || {
-              page: 1,
-              limit: 10,
-              total: 0,
-              totalPages: 0,
-            }}
-            initialSearch={search}
-            isTrash={false}
-          />
-        </TabsContent>
-        <TabsContent value="inactive" className="mt-4">
-          <ItemsListClient
-            initialItems={result.items || []}
-            initialPagination={result.pagination || {
-              page: 1,
-              limit: 10,
-              total: 0,
-              totalPages: 0,
-            }}
-            initialSearch={search}
-            isTrash={false}
-          />
-        </TabsContent>
-        <TabsContent value="trash" className="mt-4">
-          <ItemsListClient
-            initialItems={result.items || []}
-            initialPagination={result.pagination || {
-              page: 1,
-              limit: 10,
-              total: 0,
-              totalPages: 0,
-            }}
-            initialSearch={search}
-            isTrash={true}
-          />
-        </TabsContent>
-      </Tabs>
-    </div>
+        <Tabs defaultValue={tab} className="w-full">
+          <TabsList>
+            <TabsTrigger value="all" asChild>
+              <Link href="/dashboard/items?tab=all&page=1">All Items</Link>
+            </TabsTrigger>
+            <TabsTrigger value="active" asChild>
+              <Link href="/dashboard/items?tab=active&page=1">Active</Link>
+            </TabsTrigger>
+            <TabsTrigger value="inactive" asChild>
+              <Link href="/dashboard/items?tab=inactive&page=1">Inactive</Link>
+            </TabsTrigger>
+            <TabsTrigger value="trash" asChild>
+              <Link href="/dashboard/items?tab=trash&page=1">Trash</Link>
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="all" className="mt-4">
+            <ItemsListClient
+              initialItems={result.items || []}
+              initialPagination={result.pagination || {
+                page: 1,
+                limit: 10,
+                total: 0,
+                totalPages: 0,
+              }}
+              initialSearch={search}
+              isTrash={false}
+            />
+          </TabsContent>
+          <TabsContent value="active" className="mt-4">
+            <ItemsListClient
+              initialItems={result.items || []}
+              initialPagination={result.pagination || {
+                page: 1,
+                limit: 10,
+                total: 0,
+                totalPages: 0,
+              }}
+              initialSearch={search}
+              isTrash={false}
+            />
+          </TabsContent>
+          <TabsContent value="inactive" className="mt-4">
+            <ItemsListClient
+              initialItems={result.items || []}
+              initialPagination={result.pagination || {
+                page: 1,
+                limit: 10,
+                total: 0,
+                totalPages: 0,
+              }}
+              initialSearch={search}
+              isTrash={false}
+            />
+          </TabsContent>
+          <TabsContent value="trash" className="mt-4">
+            <ItemsListClient
+              initialItems={result.items || []}
+              initialPagination={result.pagination || {
+                page: 1,
+                limit: 10,
+                total: 0,
+                totalPages: 0,
+              }}
+              initialSearch={search}
+              isTrash={true}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </PageGuard>
   );
 }

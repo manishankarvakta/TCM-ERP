@@ -63,7 +63,90 @@ function buildStorageKey(userId: string, path: string, filename: string): string
 }
 
 /**
- * Get presigned URL for uploading a file
+ * Upload file directly via server (no presigned URLs)
+ * This allows MinIO to remain internal-only like PostgreSQL
+ */
+export async function uploadFileServerSide(input: {
+  path: string;
+  name: string;
+  fileData: string; // Base64 encoded file data
+  contentType: string;
+  size: number;
+}): Promise<ActionResult<{ fileId: string; key: string }>> {
+  try {
+    const user = await getAuthenticatedUser();
+    const { path, name, fileData, contentType, size } = input;
+
+    // Build storage key
+    const storageKey = buildStorageKey(user.id, path, name);
+
+    // Convert base64 to buffer
+    const buffer = Buffer.from(fileData, 'base64');
+
+    // Upload to MinIO internally (no presigned URL needed)
+    await minio.uploadBuffer(storageKey, buffer, contentType);
+
+    // Check if file already exists
+    const existingFile = await prisma.file.findUnique({
+      where: { storageKey },
+    });
+
+    let file;
+    if (existingFile) {
+      // Update existing file
+      file = await prisma.file.update({
+        where: { storageKey },
+        data: {
+          size,
+          mimeType: contentType,
+          updatedAt: new Date(),
+        },
+      });
+
+      await createUserLog({
+        userId: user.id,
+        action: "FILE_UPDATED",
+        details: `File updated: ${name} at path: ${path || "/"}`,
+        metadata: { fileId: file.id, path, name, size, mimeType: contentType },
+      });
+    } else {
+      // Create new file record
+      file = await prisma.file.create({
+        data: {
+          ownerId: user.id,
+          name,
+          path: path || "/",
+          storageKey,
+          size,
+          mimeType: contentType,
+          isFolder: false,
+        },
+      });
+
+      await createUserLog({
+        userId: user.id,
+        action: "FILE_UPLOADED",
+        details: `File uploaded: ${name} at path: ${path || "/"}`,
+        metadata: { fileId: file.id, path, name, size, mimeType: contentType },
+      });
+    }
+
+    return {
+      success: true,
+      data: { fileId: file.id, key: storageKey },
+    };
+  } catch (error) {
+    console.error("uploadFileServerSide error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to upload file",
+    };
+  }
+}
+
+/**
+ * Get presigned URL for uploading a file (DEPRECATED - use uploadFileServerSide)
+ * Kept for backward compatibility
  */
 export async function getUploadPresignedUrl(input: {
   path: string;
@@ -807,7 +890,8 @@ export async function renameFileOrFolder(input: {
 }
 
 /**
- * Get presigned URL for downloading a file
+ * Get download URL for a file
+ * Returns API proxy URL that fetches from MinIO internally
  */
 export async function getDownloadUrl(input: {
   key: string;
@@ -830,15 +914,29 @@ export async function getDownloadUrl(input: {
       throw new Error("File not found");
     }
 
-    // Get presigned URL from MinIO
-    const url = await minio.getPresignedGetUrl(key, expiresIn);
+    const minioPubliclyAccessible = process.env.MINIO_PUBLICLY_ACCESSIBLE === "true";
+
+    let url: string;
+    if (minioPubliclyAccessible) {
+      // Generate presigned URL pointing to the public MinIO domain
+      url = await minio.getPresignedGetUrl(key, expiresIn);
+    } else {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      url = `${appUrl}/api/files/${key}?download=1`;
+    }
 
     // Log the action
     await createUserLog({
       userId: user.id,
       action: "FILE_DOWNLOAD_URL_GENERATED",
       details: `Generated download URL for file: ${file.name}`,
-      metadata: { path: file.path, name: file.name, storageKey: key, expiresIn },
+      metadata: {
+        path: file.path,
+        name: file.name,
+        storageKey: key,
+        expiresIn,
+        mode: minioPubliclyAccessible ? "minio" : "proxy",
+      },
     });
 
     return {
@@ -856,6 +954,7 @@ export async function getDownloadUrl(input: {
 
 /**
  * Get public URL for a file
+ * Returns API proxy URL that fetches from MinIO internally
  */
 export async function getPublicUrl(input: {
   key: string;
@@ -877,8 +976,9 @@ export async function getPublicUrl(input: {
       throw new Error("File not found");
     }
 
-    // Get public URL from MinIO
-    const url = minio.getPublicUrl(key);
+    // Generate API proxy URL (goes through Next.js, which fetches from MinIO internally)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const url = `${appUrl}/api/files/${key}`;
 
     // Log the action
     await createUserLog({

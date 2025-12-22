@@ -2,167 +2,85 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+/**
+ * Seeds ONLY the units data
+ * 
+ * NOTE: `Unit.createdBy` is required (FK -> User). This seed does NOT create users.
+ * Ensure at least one user exists (preferably admin) before running.
+ */
 async function main() {
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("🌱 SEEDING: Units");
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("🌱 Seeding units...");
 
-  try {
-    // Get admin user for createdBy reference
-    const adminUser = await prisma.user.findFirst({ where: { email: "admin@example.com" } });
-    if (!adminUser) {
-      throw new Error("Admin user not found. Please run seed-users.ts first.");
-    }
-    const adminUserId = adminUser.id;
+  // Find a user to set as creator (required by the schema)
+  const creator =
+    (await prisma.user.findFirst({
+      where: { role: "admin", status: "active" },
+      select: { id: true, email: true },
+      orderBy: { createdAt: "asc" },
+    })) ??
+    (await prisma.user.findFirst({
+      select: { id: true, email: true },
+      orderBy: { createdAt: "asc" },
+    }));
 
-    // Seed Units
-    console.log("\n📏 Seeding Units...");
-    const units = [
-      {
-        id: "cmj9sdwix0006o101irp1g5yv",
-        details: "Millimeter",
-        symbol: "mm",
-        status: "active",
-        createdBy: adminUserId,
-        createdAt: new Date("2025-12-17T09:05:48.009Z"),
-        updatedAt: new Date("2025-12-17T18:56:21.262Z"),
-      },
-      {
-        id: "cmj9se2bp000ao101xqyl20n4",
-        details: "Feet",
-        symbol: "ft",
-        status: "active",
-        createdBy: adminUserId,
-        createdAt: new Date("2025-12-17T09:05:55.525Z"),
-        updatedAt: new Date("2025-12-17T18:56:21.269Z"),
-      },
-      {
-        id: "cmj9sfj0c000eo101ef5ktf85",
-        details: "Meter",
-        symbol: "m",
-        status: "active",
-        createdBy: adminUserId,
-        createdAt: new Date("2025-12-17T09:07:03.804Z"),
-        updatedAt: new Date("2025-12-17T18:56:21.255Z"),
-      },
-      {
-        id: "cmjadhczi0001o08s5u47x58x",
-        details: "Set",
-        symbol: "set",
-        status: "active",
-        createdBy: adminUserId,
-        createdAt: new Date("2025-12-17T18:56:21.246Z"),
-        updatedAt: new Date("2025-12-17T18:56:21.246Z"),
-      },
-      {
-        id: "cmjadhczn0003o08stvt3ixd0",
-        details: "Piece",
-        symbol: "pc",
-        status: "active",
-        createdBy: adminUserId,
-        createdAt: new Date("2025-12-17T18:56:21.252Z"),
-        updatedAt: new Date("2025-12-17T18:56:21.252Z"),
-      },
-      {
-        id: "cmjadhczu0007o08slg6d0gyv",
-        details: "Square Meter",
-        symbol: "sm",
-        status: "active",
-        createdBy: adminUserId,
-        createdAt: new Date("2025-12-17T18:56:21.259Z"),
-        updatedAt: new Date("2025-12-17T18:56:21.259Z"),
-      },
-      {
-        id: "cmjadhd01000bo08sbl1f0p48",
-        details: "Square Millimeter",
-        symbol: "smm",
-        status: "active",
-        createdBy: adminUserId,
-        createdAt: new Date("2025-12-17T18:56:21.266Z"),
-        updatedAt: new Date("2025-12-17T18:56:21.266Z"),
-      },
-      {
-        id: "cmjadhd09000fo08s2wvkaekb",
-        details: "Square Feet",
-        symbol: "sft",
-        status: "active",
-        createdBy: adminUserId,
-        createdAt: new Date("2025-12-17T18:56:21.273Z"),
-        updatedAt: new Date("2025-12-17T18:56:21.273Z"),
-      },
-      {
-        id: "cmjadhd0c000ho08sxw29b47e",
-        details: "Running Feet",
-        symbol: "rft",
-        status: "active",
-        createdBy: adminUserId,
-        createdAt: new Date("2025-12-17T18:56:21.276Z"),
-        updatedAt: new Date("2025-12-17T18:56:21.276Z"),
-      },
-      {
-        id: "cmjadhd0g000jo08sb8twuy9z",
-        details: "Inch",
-        symbol: "in",
-        status: "active",
-        createdBy: adminUserId,
-        createdAt: new Date("2025-12-17T18:56:21.280Z"),
-        updatedAt: new Date("2025-12-17T18:56:21.280Z"),
-      },
-    ];
-
-    for (const unit of units) {
-      // Check if unit exists with this symbol but different ID
-      const existingUnit = await prisma.unit.findUnique({
-        where: { symbol: unit.symbol },
-      });
-
-      if (existingUnit && existingUnit.id !== unit.id) {
-        // Unit exists with different ID - we need to delete and recreate
-        // But first check if any items reference it
-        const itemsUsingUnit = await prisma.item.findMany({
-          where: { unitId: existingUnit.id },
-          select: { id: true },
-        });
-
-        if (itemsUsingUnit.length > 0) {
-          console.log(`⚠️  Warning: Unit ${unit.symbol} exists with different ID (${existingUnit.id} vs ${unit.id})`);
-          console.log(`   ${itemsUsingUnit.length} items are using the old ID. Skipping unit update.`);
-          continue;
-        }
-
-        // No items using it, safe to delete and recreate
-        await prisma.unit.delete({ where: { id: existingUnit.id } });
-      }
-
-      await prisma.unit.upsert({
-        where: { id: unit.id },
-        update: {
-          details: unit.details,
-          symbol: unit.symbol,
-          status: unit.status,
-          createdBy: unit.createdBy,
-          updatedAt: unit.updatedAt,
-        },
-        create: unit,
-      });
-      console.log(`✅ Upserted unit: ${unit.symbol} - ${unit.details}`);
-    }
-
-    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("✅ SUCCESS: Units seeded!");
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  } catch (error) {
-    console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.error("❌ ERROR: Seeding failed!");
-    console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    throw error;
+  if (!creator) {
+    throw new Error(
+      "No users found in DB. Cannot seed `Unit` because `Unit.createdBy` is required. Create an admin/user first, then re-run the seed."
+    );
   }
+
+  const units = [
+    { symbol: "set", details: "Set", status: "active" },
+    { symbol: "pc", details: "Piece", status: "active" },
+    { symbol: "m", details: "Meter", status: "active" },
+    { symbol: "sm", details: "Square Meter", status: "active" },
+    { symbol: "mm", details: "Millimeter", status: "active" },
+    { symbol: "smm", details: "Square Millimeter", status: "active" },
+    { symbol: "ft", details: "Feet", status: "active" },
+    { symbol: "sft", details: "Square Feet", status: "active" },
+    { symbol: "rft", details: "Running Feet", status: "active" },
+    { symbol: "in", details: "Inch", status: "active" },
+  ] as const;
+
+  for (const unit of units) {
+    await prisma.unit.upsert({
+      where: { symbol: unit.symbol },
+      update: {
+        details: unit.details,
+        status: unit.status,
+      },
+      create: {
+        symbol: unit.symbol,
+        details: unit.details,
+        status: unit.status,
+        createdBy: creator.id,
+      },
+    });
+    console.log(`✅ Upserted unit: ${unit.symbol} - ${unit.details} (${unit.status})`);
+  }
+
+  // Best-effort cleanup: delete units not in the list (may fail if referenced by Items)
+  try {
+    const keepSymbols = units.map((u) => u.symbol);
+    const res = await prisma.unit.deleteMany({
+      where: { symbol: { notIn: keepSymbols } },
+    });
+    if (res.count > 0) {
+      console.log(`🧹 Removed ${res.count} other unit(s) not in the requested list.`);
+    }
+  } catch (err) {
+    console.warn(
+      "⚠️ Could not delete other units (they may be referenced by items). Leaving existing extra units as-is."
+    );
+    console.warn(err);
+  }
+
+  console.log(`✅ Done. Seeded ${units.length} unit(s). Creator: ${creator.email ?? creator.id}`);
 }
 
 main()
   .catch((e) => {
-    console.error("💥 Fatal error details:", e);
-    console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.error("❌ Error seeding database:", e);
     process.exit(1);
   })
   .finally(async () => {

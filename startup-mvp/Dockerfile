@@ -12,7 +12,9 @@ RUN apk add --no-cache \
     postgresql-client \
     wget \
     curl \
-    openssl
+    openssl \
+    netcat-openbsd \
+    su-exec
 
 WORKDIR /app
 
@@ -88,22 +90,26 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./package.json
 
 # Install Prisma CLI and tsx globally for runtime migrations and seeding
-RUN npm install -g prisma@latest tsx@latest
+RUN npm install -g prisma@6.18.0 tsx@latest
+
+# Copy entrypoint script
+COPY --from=builder /app/docker/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 # Fix permissions
 RUN chown -R nextjs:nodejs /app
 
-# Switch to non-root user
-USER nextjs
+# Don't switch user yet - entrypoint will handle migrations as root, then switch to nextjs
+# USER nextjs
 
 EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Health check
+# Health check (runs as root, which is fine for health checks)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
-# Start application
-CMD ["node", "server.js"]
+# Start application using entrypoint script (runs as root, switches to nextjs for app)
+ENTRYPOINT ["/app/entrypoint.sh"]
