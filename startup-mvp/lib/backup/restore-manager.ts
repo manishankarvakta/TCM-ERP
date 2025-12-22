@@ -2,15 +2,23 @@
  * Restore Progress Manager
  * 
  * Singleton class for managing active restore operations and progress tracking.
+ * Uses Redis for persistence across serverless function invocations.
  */
 
 import type { RestoreProgress, RestoreStatus } from '@/types/backup';
 import { now } from './utils';
+import { redis } from '@/lib/redis';
 
 /**
  * Callback function for progress updates
  */
 type ProgressCallback = (progress: RestoreProgress) => void;
+
+/**
+ * Redis key prefix for restore operations
+ */
+const REDIS_PREFIX = 'restore:';
+const REDIS_TTL = 60 * 60; // 1 hour TTL for restore data
 
 /**
  * Singleton class managing active restore operations and their progress
@@ -68,6 +76,11 @@ export class RestoreManager {
     this.activeRestores.set(restoreId, progress);
     this.progressCallbacks.set(restoreId, new Set());
 
+    // Persist to Redis
+    this.saveToRedis(restoreId, progress).catch((error) => {
+      console.error(`Failed to save restore ${restoreId} to Redis:`, error);
+    });
+
     return restoreId;
   }
 
@@ -76,12 +89,16 @@ export class RestoreManager {
    * @param restoreId - Restore operation ID
    * @param update - Partial progress update
    */
-  public updateProgress(restoreId: string, update: Partial<RestoreProgress>): void {
-    const current = this.activeRestores.get(restoreId);
+  public async updateProgress(restoreId: string, update: Partial<RestoreProgress>): Promise<void> {
+    let current = this.activeRestores.get(restoreId);
     
+    // If not in memory, try to load from Redis
     if (!current) {
-      console.warn(`Attempted to update non-existent restore: ${restoreId}`);
-      return;
+      current = await this.loadFromRedis(restoreId);
+      if (!current) {
+        console.warn(`Attempted to update non-existent restore: ${restoreId}`);
+        return;
+      }
     }
 
     // Merge update with current progress
@@ -96,6 +113,11 @@ export class RestoreManager {
     };
 
     this.activeRestores.set(restoreId, updatedProgress);
+
+    // Persist to Redis
+    await this.saveToRedis(restoreId, updatedProgress).catch((error) => {
+      console.error(`Failed to update restore ${restoreId} in Redis:`, error);
+    });
 
     // Notify all subscribers
     this.notifySubscribers(restoreId, updatedProgress);
@@ -147,8 +169,23 @@ export class RestoreManager {
    * @param restoreId - Restore operation ID
    * @returns Current progress or null if not found
    */
-  public getProgress(restoreId: string): RestoreProgress | null {
-    return this.activeRestores.get(restoreId) || null;
+  public async getProgress(restoreId: string): Promise<RestoreProgress | null> {
+    // Check memory first
+    let progress = this.activeRestores.get(restoreId);
+    
+    // If not in memory, try Redis
+    if (!progress) {
+      progress = await this.loadFromRedis(restoreId);
+      if (progress) {
+        // Cache in memory
+        this.activeRestores.set(restoreId, progress);
+        if (!this.progressCallbacks.has(restoreId)) {
+          this.progressCallbacks.set(restoreId, new Set());
+        }
+      }
+    }
+    
+    return progress || null;
   }
 
   /**
@@ -218,8 +255,21 @@ export class RestoreManager {
    * @param restoreId - Restore operation ID
    * @returns True if restore exists
    */
-  public exists(restoreId: string): boolean {
-    return this.activeRestores.has(restoreId);
+  public async exists(restoreId: string): Promise<boolean> {
+    // Check memory first
+    if (this.activeRestores.has(restoreId)) {
+      return true;
+    }
+    
+    // Check Redis
+    try {
+      const redisKey = `${REDIS_PREFIX}${restoreId}`;
+      const exists = await redis.exists(redisKey);
+      return exists === 1;
+    } catch (error) {
+      console.error(`Failed to check restore existence in Redis:`, error);
+      return false;
+    }
   }
 
   /**
@@ -275,6 +325,41 @@ export class RestoreManager {
   }
 
   /**
+   * Save restore progress to Redis
+   */
+  private async saveToRedis(restoreId: string, progress: RestoreProgress): Promise<void> {
+    const redisKey = `${REDIS_PREFIX}${restoreId}`;
+    await redis.setex(redisKey, REDIS_TTL, JSON.stringify(progress));
+  }
+
+  /**
+   * Load restore progress from Redis
+   */
+  private async loadFromRedis(restoreId: string): Promise<RestoreProgress | null> {
+    try {
+      const redisKey = `${REDIS_PREFIX}${restoreId}`;
+      const data = await redis.get(redisKey);
+      
+      if (!data) {
+        return null;
+      }
+      
+      return JSON.parse(data) as RestoreProgress;
+    } catch (error) {
+      console.error(`Failed to load restore ${restoreId} from Redis:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Delete restore data from Redis
+   */
+  private async deleteFromRedis(restoreId: string): Promise<void> {
+    const redisKey = `${REDIS_PREFIX}${restoreId}`;
+    await redis.del(redisKey);
+  }
+
+  /**
    * Schedule cleanup of completed restore after timeout
    */
   private scheduleCleanup(restoreId: string): void {
@@ -286,9 +371,15 @@ export class RestoreManager {
   /**
    * Remove restore data and callbacks
    */
-  private cleanup(restoreId: string): void {
+  private async cleanup(restoreId: string): Promise<void> {
     this.activeRestores.delete(restoreId);
     this.progressCallbacks.delete(restoreId);
+    
+    // Delete from Redis
+    await this.deleteFromRedis(restoreId).catch((error) => {
+      console.error(`Failed to delete restore ${restoreId} from Redis:`, error);
+    });
+    
     console.log(`[RestoreManager] Cleaned up restore: ${restoreId}`);
   }
 

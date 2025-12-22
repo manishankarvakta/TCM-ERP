@@ -213,7 +213,6 @@ export default function DashboardSidebar({
 
   const dispatch = useAppDispatch();
   const isSidebarOpen = useAppSelector((state) => state.ui.isSidebarOpen);
-=======
   
   // Check if user has no permissions (only dashboard and profile accessible)
   // User has no permissions if:
@@ -392,70 +391,25 @@ export default function DashboardSidebar({
         <div className="flex-1 lg:flex-none">
           <Logo width={150} height={100} />
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden"
+          onClick={() => dispatch(setSidebarOpen(false))}
+        >
+          <FiX className="h-5 w-5" />
+        </Button>
+      </div>
 
-        <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
-          {filteredMenuItems.map((item) => {
-            const Icon = item.icon;
-            
-            if (item.subMenu) {
-              const isExpanded = isMenuExpanded(item.label);
-              const hasActiveChild = isSubMenuActive(item.subMenu);
-              
-              return (
-                <div key={item.label}>
-                  <button
-                    onClick={() => toggleMenu(item.label)}
-                    className={cn(
-                      "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                      hasActiveChild
-                        ? "bg-accent text-accent-foreground"
-                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon className="h-4 w-4" />
-                      <span>{item.label}</span>
-                    </div>
-                    {isExpanded ? (
-                      <FiChevronDown className="h-4 w-4" />
-                    ) : (
-                      <FiChevronRight className="h-4 w-4" />
-                    )}
-                  </button>
-                  {isExpanded && (
-                    <div className="ml-4 mt-1 space-y-1 border-l pl-4">
-                      {item.subMenu.map((subItem) => {
-                        const SubIcon = subItem.icon;
-                        // Only exact match for sub-menu items to avoid false positives
-                        // e.g., /dashboard/items should not be active when on /dashboard/items/units
-                        const isActive = pathname === subItem.href;
-                        return (
-                          <Link
-                            key={subItem.href}
-                            href={subItem.href}
-                            className={cn(
-                              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                              isActive
-                                ? "bg-accent text-accent-foreground"
-                                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                            )}
-                          >
-                            <SubIcon className="h-4 w-4" />
-                            <span>{subItem.label}</span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            }
-
-            if (!item.href) return null;
-
+      <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
+        {filteredMenuItems.map((item) => {
+          const Icon = item.icon;
+          
+          if (item.subMenu) {
+            const isExpanded = isMenuExpanded(item.label);
+            const hasActiveChild = isSubMenuActive(item.subMenu);
             
             return (
-
               <div key={item.label}>
                 <button
                   onClick={() => toggleMenu(item.label)}
@@ -501,37 +455,6 @@ export default function DashboardSidebar({
                       );
                     })}
                   </div>
-
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="border-t p-4 space-y-1">
-          {filteredBottomMenuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href || pathname?.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-
                 )}
               </div>
             );
@@ -562,7 +485,7 @@ export default function DashboardSidebar({
         })}
       </nav>
       <div className="border-t p-4 space-y-1">
-        {bottomMenuItems.map((item) => {
+        {filteredBottomMenuItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href || pathname?.startsWith(item.href);
           return (
