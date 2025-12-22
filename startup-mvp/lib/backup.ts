@@ -4,6 +4,34 @@ import JSZip from "jszip";
 import { prisma } from "./prisma";
 import { minio, s3 } from "./minio";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
+import {
+  generateOperationId,
+  initProgress,
+  updateProgress,
+  updateProgressWithRecord,
+  completeTable,
+  completeProgress,
+  failProgress,
+  getProgress,
+  type BackupProgress,
+} from "./backup-progress";
+import { Prisma } from "@prisma/client";
+import {
+  encryptBackupFile,
+  decryptBackupFile,
+  isEncryptionEnabled,
+  verifyChecksum,
+  type EncryptionResult,
+} from "./backup-encryption";
+import {
+  saveBackupMetadata,
+  loadBackupMetadata,
+  deleteBackupMetadata,
+  getEncryptedBackupPath,
+  getOriginalBackupPath,
+  isEncryptedBackup as checkIsEncryptedBackup,
+  type BackupEncryptionMetadata,
+} from "./backup-metadata";
 
 /**
  * Backup types
@@ -19,6 +47,8 @@ export interface BackupMetadata {
   size: number;
   createdAt: Date;
   path: string;
+  encrypted?: boolean; // Whether this backup is encrypted
+  checksum?: string; // SHA-256 checksum (if encrypted)
 }
 
 /**
@@ -68,6 +98,41 @@ export function generateBackupFilename(type: BackupType, extension: string): str
 }
 
 /**
+ * Parse DATABASE_URL to extract connection parameters
+ * Format: postgresql://user:password@host:port/database?schema=public
+ */
+function parseDatabaseUrl(): {
+  user: string;
+  password: string;
+  host: string;
+  port: string;
+  database: string;
+} {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL environment variable is not set");
+  }
+
+  // Parse postgresql://user:password@host:port/database?schema=public
+  const urlPattern = /^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/([^?]+)/;
+  const match = databaseUrl.match(urlPattern);
+
+  if (!match) {
+    // Try alternative format or use environment variables
+    const user = process.env.POSTGRES_USER || "postgres";
+    const password = process.env.POSTGRES_PASSWORD || "postgres";
+    const host = process.env.POSTGRES_HOST || "localhost";
+    const port = process.env.POSTGRES_PORT || "5432";
+    const database = process.env.POSTGRES_DB || process.env.DATABASE_NAME || "startup_mvp";
+
+    return { user, password, host, port, database };
+  }
+
+  const [, user, password, host, port, database] = match;
+  return { user, password, host, port, database };
+}
+
+/**
  * Parse backup metadata from filename
  */
 export function parseBackupFilename(filename: string): {
@@ -75,8 +140,8 @@ export function parseBackupFilename(filename: string): {
   timestamp: string | null;
   extension: string;
 } {
-  // Format: backup-YYYYMMDD-HHMMSS.{sql|zip}
-  const match = filename.match(/^backup-(\d{8}-\d{6})\.(sql|zip)$/);
+  // Format: backup-YYYYMMDD-HHMMSS.{dump|zip}
+  const match = filename.match(/^backup-(\d{8}-\d{6})\.(dump|zip)$/);
   if (!match) {
     return { type: null, timestamp: null, extension: path.extname(filename).slice(1) };
   }
@@ -84,8 +149,8 @@ export function parseBackupFilename(filename: string): {
   const [, timestamp, extension] = match;
   let type: BackupType | null = null;
 
-  // Determine type based on extension and directory (we'll need to pass directory info)
-  if (extension === "sql") {
+  // Determine type based on extension
+  if (extension === "dump") {
     type = "database";
   } else if (extension === "zip") {
     // Could be files or full, need directory context
@@ -96,120 +161,221 @@ export function parseBackupFilename(filename: string): {
 }
 
 /**
- * Create database backup using Prisma
- * Exports all tables as SQL INSERT statements
+ * Get column mappings for a model using Prisma DMMF
+ * Returns the actual database column names (preserves camelCase as per migration)
  */
-export async function createDatabaseBackup(): Promise<string> {
+function getColumnMappings(modelName: string): Map<string, string> {
+  const mappings = new Map<string, string>();
+  
+  try {
+    const dmmf = Prisma.dmmf;
+    const model = dmmf.datamodel.models.find((m: any) => m.name === modelName);
+    
+    if (model) {
+      model.fields.forEach((field: any) => {
+        // Use dbName if specified (from @map), otherwise use field name as-is (camelCase)
+        // The database uses camelCase column names as shown in migrations
+        const dbName = field.dbName || field.name;
+        mappings.set(field.name, dbName);
+      });
+    }
+  } catch (error) {
+    console.warn(`Could not get DMMF mappings for ${modelName}, using field names as-is`);
+  }
+  
+  return mappings;
+}
+
+/**
+ * Extract record identifier for progress display
+ */
+function getRecordIdentifier(table: string, record: any): string {
+  switch (table) {
+    case "User":
+      return record.name || record.email || record.id;
+    case "Item":
+      return record.code || record.description || record.id;
+    case "Client":
+      return record.name || record.email || record.id;
+    case "Supplier":
+      return record.name || record.email || record.id;
+    case "Quotation":
+      return record.quotationNumber || record.subject || record.id;
+    case "Category":
+      return record.name || record.id;
+    case "Unit":
+      return record.symbol || record.details || record.id;
+    case "Organization":
+      return record.name || record.id;
+    case "ModuleGroup":
+      return record.code || record.description || record.id;
+    case "Notification":
+      return record.title || record.id;
+    case "CoverLetter":
+      return record.title || record.id;
+    case "VerificationToken":
+      return record.identifier || record.token;
+    default:
+      return record.id || record.code || record.name || "Unknown";
+  }
+}
+
+/**
+ * Get orderBy clause for a table based on its schema
+ */
+function getOrderByClause(table: string): any {
+  // VerificationToken doesn't have an id field, uses composite key
+  if (table === "VerificationToken") {
+    return { identifier: "asc" as const, token: "asc" as const };
+  }
+  // All other tables have an id field
+  return { id: "asc" as const };
+}
+
+/**
+ * Create database backup using pg_dump
+ * Creates a PostgreSQL custom format dump file (.dump)
+ */
+export async function createDatabaseBackup(operationId?: string): Promise<string> {
   await ensureBackupDirs();
-  const filename = generateBackupFilename("database", "sql");
+  const filename = generateBackupFilename("database", "dump");
   const filePath = path.join(getBackupTypeDir("database"), filename);
 
-  // Get all tables from Prisma schema
-  // Order matters: backup tables with foreign keys after their referenced tables
-  const tables = [
-    // Core authentication tables
-    "User",
-    "Account",
-    "Session",
-    "VerificationToken",
-    "PasswordReset",
-    "UserLog",
-    
-    // File and notification tables
-    "File",
-    "Notification",
-    
-    // Master data tables (no dependencies on other custom tables)
-    "Unit",
-    "Category",
-    "Organization",
-    "Client",
-    "Supplier",
-    
-    // Item catalog tables
-    "Item",
-    "ItemCategory",
-    
-    // Module/Group templates
-    "ModuleGroup",
-    "ModuleGroupItem",
-    
-    // Cover letters
-    "CoverLetter",
-    
-    // Settings
-    "Settings",
-    
-    // Quotation tables (order matters due to foreign keys)
-    "Quotation",
-    "Section",
-    "ItemGroup",
-    "CategoryGroup",
-    "QuotationItem",
-  ];
+  const opId = operationId || generateOperationId();
 
-  let sqlContent = `-- Database Backup\n`;
-  sqlContent += `-- Generated: ${new Date().toISOString()}\n`;
-  sqlContent += `-- Database: ${process.env.POSTGRES_DB || "espaciodb"}\n\n`;
+  // Initialize progress
+  initProgress(opId, "backup", 1, 0);
+  updateProgress(opId, { stage: "Starting database backup with pg_dump..." });
 
-  // Disable foreign key checks temporarily
-  sqlContent += `-- Disable foreign key checks\n`;
-  sqlContent += `SET session_replication_role = 'replica';\n\n`;
+  try {
+    // Parse database connection details
+    const dbConfig = parseDatabaseUrl();
 
-  // Export each table
-  for (const table of tables) {
+    // Build pg_dump command
+    // Use custom format (-Fc) for better compression and pg_restore compatibility
+    // -Fc = custom format (binary, compressed)
+    const pgDumpCommand = [
+      "pg_dump",
+      `--host=${dbConfig.host}`,
+      `--port=${dbConfig.port}`,
+      `--username=${dbConfig.user}`,
+      `--dbname=${dbConfig.database}`,
+      "--format=custom", // Custom format (binary)
+      "--no-owner", // Don't output commands to set ownership
+      "--no-acl", // Don't output access privilege commands
+      "--verbose", // Verbose mode for progress
+      "--file", filePath,
+    ];
+
+    // Set PGPASSWORD environment variable for pg_dump
+    const env = {
+      ...process.env,
+      PGPASSWORD: dbConfig.password,
+    };
+
+    // Execute pg_dump using child_process
+    const { execFile } = await import("child_process");
+    const { promisify } = await import("util");
+    const execFileAsync = promisify(execFile);
+
+    updateProgress(opId, { stage: "Running pg_dump..." });
+
+    // Execute pg_dump
+    await execFileAsync("pg_dump", pgDumpCommand.slice(1), {
+      env,
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+    });
+
+    updateProgress(opId, { stage: "Database backup completed" });
+
+    // Verify backup file was created
     try {
-      // Get table name in lowercase for Prisma
-      const modelName = table as any;
-      
-      // Use Prisma to get all records
-      const records = await (prisma as any)[modelName].findMany({
-        orderBy: { id: "asc" },
-      });
-
-      if (records.length === 0) {
-        sqlContent += `-- Table ${table}: No data\n\n`;
-        continue;
-      }
-
-      sqlContent += `-- Table: ${table}\n`;
-      sqlContent += `-- Records: ${records.length}\n\n`;
-
-      // Generate INSERT statements
-      for (const record of records) {
-        const columns = Object.keys(record).join(", ");
-        const values = Object.values(record).map((val: any) => {
-          if (val === null) return "NULL";
-          if (typeof val === "string") {
-            return `'${val.replace(/'/g, "''")}'`;
-          }
-          if (val instanceof Date) {
-            return `'${val.toISOString()}'`;
-          }
-          if (typeof val === "object") {
-            return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
-          }
-          return String(val);
-        }).join(", ");
-
-        sqlContent += `INSERT INTO "${table}" (${columns}) VALUES (${values});\n`;
-      }
-
-      sqlContent += `\n`;
+      await fs.access(filePath);
     } catch (error) {
-      console.error(`Error backing up table ${table}:`, error);
-      sqlContent += `-- Error backing up table ${table}: ${error instanceof Error ? error.message : "Unknown error"}\n\n`;
+      failProgress(opId, "Backup file was not created");
+      throw new Error(`Backup file was not created: ${filePath}`);
     }
+
+    // Encrypt backup if encryption is enabled
+    let finalPath = filePath;
+    if (isEncryptionEnabled()) {
+      try {
+        updateProgress(opId, { stage: "Encrypting backup..." });
+        
+        // Read the backup file
+        const backupBuffer = await fs.readFile(filePath);
+        
+        // Encrypt the backup
+        const encryptionResult = await encryptBackupFile(backupBuffer);
+        
+        // Create encrypted file path
+        const encryptedPath = getEncryptedBackupPath(filePath);
+        
+        // Write encrypted data (IV, salt, auth tag will be stored in metadata)
+        // Format: encrypted data + auth tag (for easier handling)
+        const encryptedWithTag = Buffer.concat([
+          encryptionResult.encryptedBuffer,
+          Buffer.from(encryptionResult.authTag, "base64"),
+        ]);
+        await fs.writeFile(encryptedPath, encryptedWithTag);
+        
+        // Save encryption metadata
+        const metadata: BackupEncryptionMetadata = {
+          filename,
+          type: "database",
+          encrypted: true,
+          encryptionVersion: 1,
+          keyVersion: 1,
+          iv: encryptionResult.iv,
+          salt: encryptionResult.salt,
+          authTag: encryptionResult.authTag,
+          checksum: encryptionResult.checksum,
+          originalSize: encryptionResult.originalSize,
+          encryptedSize: encryptionResult.encryptedSize,
+          createdAt: new Date().toISOString(),
+        };
+        await saveBackupMetadata(metadata);
+        
+        // Delete original unencrypted file (security: only keep encrypted version)
+        await fs.unlink(filePath);
+        
+        finalPath = encryptedPath;
+        updateProgress(opId, { stage: "Backup encrypted successfully" });
+      } catch (error) {
+        console.error("Failed to encrypt backup:", error);
+        // Continue with unencrypted backup if encryption fails
+        updateProgress(opId, { 
+          stage: "Encryption failed, keeping unencrypted backup",
+          errors: (getProgress(opId)?.errors || 0) + 1,
+        });
+      }
+    }
+
+    completeProgress(opId);
+    return finalPath;
+
+  } catch (error: any) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    // Provide helpful error messages for common issues
+    if (errorMessage.includes("ENOENT") || errorMessage.includes("pg_dump")) {
+      failProgress(opId, "pg_dump command not found. Please install PostgreSQL client tools.");
+      throw new Error("pg_dump command not found. Please ensure PostgreSQL client tools are installed.");
+    }
+    
+    if (errorMessage.includes("password") || errorMessage.includes("authentication")) {
+      failProgress(opId, "Database authentication failed. Check DATABASE_URL configuration.");
+      throw new Error("Database authentication failed. Please check your DATABASE_URL configuration.");
+    }
+    
+    if (errorMessage.includes("connection") || errorMessage.includes("ECONNREFUSED")) {
+      failProgress(opId, "Cannot connect to database. Check database server is running.");
+      throw new Error("Cannot connect to database. Please ensure the database server is running and accessible.");
+    }
+    
+    failProgress(opId, errorMessage);
+    throw error;
   }
-
-  // Re-enable foreign key checks
-  sqlContent += `-- Re-enable foreign key checks\n`;
-  sqlContent += `SET session_replication_role = 'origin';\n`;
-
-  // Write to file
-  await fs.writeFile(filePath, sqlContent, "utf-8");
-
-  return filePath;
 }
 
 /**
@@ -270,7 +436,51 @@ export async function createFilesBackup(): Promise<string> {
   // Write to file
   await fs.writeFile(filePath, zipBuffer);
 
-  return filePath;
+  // Encrypt backup if encryption is enabled
+  let finalPath = filePath;
+  if (isEncryptionEnabled()) {
+    try {
+      // Encrypt the backup
+      const encryptionResult = await encryptBackupFile(zipBuffer);
+      
+      // Create encrypted file path
+      const encryptedPath = getEncryptedBackupPath(filePath);
+      
+      // Write encrypted data with auth tag
+      const encryptedWithTag = Buffer.concat([
+        encryptionResult.encryptedBuffer,
+        Buffer.from(encryptionResult.authTag, "base64"),
+      ]);
+      await fs.writeFile(encryptedPath, encryptedWithTag);
+      
+      // Save encryption metadata
+      const metadata: BackupEncryptionMetadata = {
+        filename,
+        type: "files",
+        encrypted: true,
+        encryptionVersion: 1,
+        keyVersion: 1,
+        iv: encryptionResult.iv,
+        salt: encryptionResult.salt,
+        authTag: encryptionResult.authTag,
+        checksum: encryptionResult.checksum,
+        originalSize: encryptionResult.originalSize,
+        encryptedSize: encryptionResult.encryptedSize,
+        createdAt: new Date().toISOString(),
+      };
+      await saveBackupMetadata(metadata);
+      
+      // Delete original unencrypted file
+      await fs.unlink(filePath);
+      
+      finalPath = encryptedPath;
+    } catch (error) {
+      console.error("Failed to encrypt files backup:", error);
+      // Continue with unencrypted backup if encryption fails
+    }
+  }
+
+  return finalPath;
 }
 
 /**
@@ -287,7 +497,7 @@ export async function createFullBackup(): Promise<string> {
   console.log("Creating database backup...");
   const dbBackupPath = await createDatabaseBackup();
   const dbBackupContent = await fs.readFile(dbBackupPath);
-  zip.file("database.sql", dbBackupContent);
+  zip.file("database.dump", dbBackupContent);
 
   // Create files backup
   console.log("Creating files backup...");
@@ -305,11 +515,55 @@ export async function createFullBackup(): Promise<string> {
   // Write to file
   await fs.writeFile(filePath, zipBuffer);
 
+  // Encrypt backup if encryption is enabled
+  let finalPath = filePath;
+  if (isEncryptionEnabled()) {
+    try {
+      // Encrypt the backup
+      const encryptionResult = await encryptBackupFile(zipBuffer);
+      
+      // Create encrypted file path
+      const encryptedPath = getEncryptedBackupPath(filePath);
+      
+      // Write encrypted data with auth tag
+      const encryptedWithTag = Buffer.concat([
+        encryptionResult.encryptedBuffer,
+        Buffer.from(encryptionResult.authTag, "base64"),
+      ]);
+      await fs.writeFile(encryptedPath, encryptedWithTag);
+      
+      // Save encryption metadata
+      const metadata: BackupEncryptionMetadata = {
+        filename,
+        type: "full",
+        encrypted: true,
+        encryptionVersion: 1,
+        keyVersion: 1,
+        iv: encryptionResult.iv,
+        salt: encryptionResult.salt,
+        authTag: encryptionResult.authTag,
+        checksum: encryptionResult.checksum,
+        originalSize: encryptionResult.originalSize,
+        encryptedSize: encryptionResult.encryptedSize,
+        createdAt: new Date().toISOString(),
+      };
+      await saveBackupMetadata(metadata);
+      
+      // Delete original unencrypted file
+      await fs.unlink(filePath);
+      
+      finalPath = encryptedPath;
+    } catch (error) {
+      console.error("Failed to encrypt full backup:", error);
+      // Continue with unencrypted backup if encryption fails
+    }
+  }
+
   // Clean up individual backups (optional - keep them for individual restore)
   // await fs.unlink(dbBackupPath);
   // await fs.unlink(filesBackupPath);
 
-  return filePath;
+  return finalPath;
 }
 
 /**
@@ -325,15 +579,33 @@ export async function listBackups(type: BackupType): Promise<BackupMetadata[]> {
 
     for (const file of files) {
       const filePath = path.join(typeDir, file);
-      const stats = await fs.stat(filePath);
-
-      // Only include backup files
-      if (!file.startsWith("backup-") || (!file.endsWith(".sql") && !file.endsWith(".zip"))) {
+      
+      // Skip metadata files
+      if (file.endsWith(".meta.json")) {
         continue;
       }
 
+      // Check if this is an encrypted backup
+      const isEncrypted = checkIsEncryptedBackup(file);
+      const originalFilename = isEncrypted 
+        ? getOriginalBackupPath(file)
+        : file;
+
+      // Only include backup files (encrypted or unencrypted)
+      // Only include backup files
+      if (!originalFilename.startsWith("backup-") || 
+          (!originalFilename.endsWith(".dump") && !originalFilename.endsWith(".zip"))) {
+        continue;
+      }
+
+      const stats = await fs.stat(filePath);
+
+      // Load encryption metadata if available
+      const encryptionMetadata = await loadBackupMetadata(filePath);
+      const isBackupEncrypted = encryptionMetadata?.encrypted || isEncrypted;
+
       // Parse filename to get timestamp
-      const parsed = parseBackupFilename(file);
+      const parsed = parseBackupFilename(originalFilename);
       const createdAt = parsed.timestamp
         ? new Date(
             parsed.timestamp.replace(
@@ -344,11 +616,13 @@ export async function listBackups(type: BackupType): Promise<BackupMetadata[]> {
         : stats.birthtime;
 
       backups.push({
-        filename: file,
+        filename: isEncrypted ? originalFilename : file, // Store original filename
         type,
         size: stats.size,
         createdAt,
         path: filePath,
+        encrypted: isBackupEncrypted,
+        checksum: encryptionMetadata?.checksum,
       });
     }
 
@@ -367,7 +641,7 @@ export async function listBackups(type: BackupType): Promise<BackupMetadata[]> {
  */
 export async function deleteBackup(type: BackupType, filename: string): Promise<void> {
   // Validate filename to prevent directory traversal
-  if (!filename.match(/^backup-\d{8}-\d{6}\.(sql|zip)$/)) {
+  if (!filename.match(/^backup-\d{8}-\d{6}\.(dump|zip)$/)) {
     throw new Error("Invalid backup filename");
   }
 
@@ -381,15 +655,31 @@ export async function deleteBackup(type: BackupType, filename: string): Promise<
     throw new Error("Invalid backup path");
   }
 
-  await fs.unlink(filePath);
+  // Check if encrypted backup exists
+  const encryptedPath = getEncryptedBackupPath(filePath);
+  let pathToDelete = filePath;
+  
+  try {
+    await fs.access(encryptedPath);
+    pathToDelete = encryptedPath; // Delete encrypted version if it exists
+  } catch {
+    // Encrypted version doesn't exist, use original path
+  }
+
+  // Delete the backup file
+  await fs.unlink(pathToDelete);
+  
+  // Delete metadata file if it exists
+  await deleteBackupMetadata(pathToDelete);
 }
 
 /**
  * Get backup file path for download
+ * Returns encrypted path if encrypted backup exists, otherwise returns original path
  */
 export function getBackupPath(type: BackupType, filename: string): string {
   // Validate filename
-  if (!filename.match(/^backup-\d{8}-\d{6}\.(sql|zip)$/)) {
+  if (!filename.match(/^backup-\d{8}-\d{6}\.(dump|zip)$/)) {
     throw new Error("Invalid backup filename");
   }
 
@@ -403,7 +693,67 @@ export function getBackupPath(type: BackupType, filename: string): string {
     throw new Error("Invalid backup path");
   }
 
-  return filePath;
+  // Check if encrypted version exists
+  const encryptedPath = getEncryptedBackupPath(filePath);
+  try {
+    // Use fs.accessSync for synchronous check (since this is a sync function)
+    require("fs").accessSync(encryptedPath);
+    return encryptedPath;
+  } catch {
+    // Encrypted version doesn't exist, return original path
+    return filePath;
+  }
+}
+
+/**
+ * Decrypt a backup file and return the decrypted buffer
+ * @param filePath - Path to encrypted backup file
+ * @returns Decrypted backup data as Buffer
+ * @throws Error if decryption fails
+ */
+export async function decryptBackupFileForRestore(filePath: string): Promise<Buffer> {
+  // Load encryption metadata
+  const metadata = await loadBackupMetadata(filePath);
+  
+  if (!metadata || !metadata.encrypted) {
+    // Not encrypted, read file as-is
+    return await fs.readFile(filePath);
+  }
+
+  if (!metadata.iv || !metadata.salt || !metadata.authTag) {
+    throw new Error("Invalid encryption metadata: missing IV, salt, or auth tag");
+  }
+
+  // Read encrypted file
+  const encryptedData = await fs.readFile(filePath);
+  
+  // Extract auth tag from end of file (last 16 bytes)
+  const AUTH_TAG_LENGTH = 16;
+  const encryptedContent = encryptedData.slice(0, -AUTH_TAG_LENGTH);
+  const authTagFromFile = encryptedData.slice(-AUTH_TAG_LENGTH).toString("base64");
+  
+  // Use auth tag from metadata (more reliable)
+  const authTag = metadata.authTag;
+
+  // Decrypt the backup
+  const decryptedData = await decryptBackupFile(
+    encryptedContent,
+    metadata.iv,
+    metadata.salt,
+    authTag
+  );
+
+  // Verify checksum if available
+  if (metadata.checksum) {
+    const isValid = verifyChecksum(decryptedData, metadata.checksum);
+    if (!isValid) {
+      throw new Error(
+        "Checksum verification failed: Backup data may have been corrupted or tampered with"
+      );
+    }
+  }
+
+  return decryptedData;
 }
 
 /**
@@ -411,8 +761,8 @@ export function getBackupPath(type: BackupType, filename: string): string {
  * Checks if filename matches backup-YYYYMMDD-HHMMSS.{sql|zip} pattern
  */
 export function detectBackupTypeFromFilename(filename: string): BackupType | null {
-  // Format: backup-YYYYMMDD-HHMMSS.{sql|zip}
-  const match = filename.match(/^backup-(\d{8}-\d{6})\.(sql|zip)$/);
+  // Format: backup-YYYYMMDD-HHMMSS.{dump|zip}
+  const match = filename.match(/^backup-(\d{8}-\d{6})\.(dump|zip)$/);
   
   if (!match) {
     return null;
@@ -421,12 +771,12 @@ export function detectBackupTypeFromFilename(filename: string): BackupType | nul
   const [, , extension] = match;
 
   // Determine type based on extension
-  if (extension === "sql") {
+  if (extension === "dump") {
     return "database";
   } else if (extension === "zip") {
     // ZIP files could be "files" or "full" backup
     // For uploaded files, we'll default to "files" unless we can inspect contents
-    // The restore logic will handle full backups by checking for database.sql and files.zip inside
+    // The restore logic will handle full backups by checking for database.dump and files.zip inside
     return "files";
   }
 
@@ -435,14 +785,14 @@ export function detectBackupTypeFromFilename(filename: string): BackupType | nul
 
 /**
  * Check if a ZIP file buffer is a full backup by inspecting contents
- * Full backups contain database.sql and files.zip
+ * Full backups contain database.dump and files.zip
  */
 export async function isFullBackup(zipBuffer: Buffer): Promise<boolean> {
   try {
     const zip = await JSZip.loadAsync(zipBuffer);
-    const hasDatabaseSql = zip.file("database.sql") !== null;
+    const hasDatabaseDump = zip.file("database.dump") !== null;
     const hasFilesZip = zip.file("files.zip") !== null;
-    return hasDatabaseSql && hasFilesZip;
+    return hasDatabaseDump && hasFilesZip;
   } catch (error) {
     console.error("Error checking if ZIP is full backup:", error);
     return false;

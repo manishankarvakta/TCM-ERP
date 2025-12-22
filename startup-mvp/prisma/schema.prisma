@@ -567,3 +567,28 @@ model Settings {
   @@index([settings(ops: JsonbPathOps)], type: Gin)
   @@map("settings")
 }
+
+// ============================================
+// BACKUP PROGRESS TRACKING
+// ============================================
+
+model BackupProgress {
+  id               String    @id // operationId
+  type             String // 'backup' | 'restore'
+  stage            String
+  progress         Int       @default(0) // 0-100
+  currentTable     String?
+  currentRecord    String?
+  totalTables      Int       @default(0)
+  completedTables  Int       @default(0)
+  totalRecords     Int       @default(0)
+  completedRecords Int       @default(0)
+  errors           Int       @default(0)
+  status           String // 'running' | 'completed' | 'failed'
+  errorMessage     String?
+  startedAt        DateTime  @default(now())
+  completedAt      DateTime?
+
+  @@index([status, completedAt])
+  @@map("backup_progress")
+}
