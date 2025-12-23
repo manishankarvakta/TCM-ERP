@@ -848,7 +848,7 @@ export async function restoreBackup(
           await failProgress(opId, errorMessage);
           return {
             success: false,
-            error: `Restore failed: ${errorMessage}`,
+            error: `Restore failed: ${errorMessage}`, 
           };
         }
       } else {
