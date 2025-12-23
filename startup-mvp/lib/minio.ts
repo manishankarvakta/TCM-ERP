@@ -72,36 +72,70 @@ function buildEndpointUrl(config: MinIOConfig): string {
   return `${protocol}://${config.endpoint}:${config.port}`;
 }
 
-// Get configuration
-const config = getMinIOConfig();
-const endpointUrl = buildEndpointUrl(config);
+// Lazy-loaded configuration cache
+let cachedConfig: MinIOConfig | null = null;
+let cachedS3Client: S3Client | null = null;
+let cachedS3PresignedClient: S3Client | null = null;
+
+/**
+ * Get cached configuration (lazy-loaded)
+ */
+function getCachedConfig(): MinIOConfig {
+  if (!cachedConfig) {
+    cachedConfig = getMinIOConfig();
+  }
+  return cachedConfig;
+}
+
+/**
+ * Get cached S3 client (lazy-loaded)
+ */
+function getS3Client(): S3Client {
+  if (!cachedS3Client) {
+    const config = getCachedConfig();
+    const endpointUrl = buildEndpointUrl(config);
+    cachedS3Client = new S3Client({
+      endpoint: endpointUrl,
+      region: "us-east-1", // MinIO doesn't use regions, but AWS SDK requires it
+      credentials: {
+        accessKeyId: config.accessKey,
+        secretAccessKey: config.secretKey,
+      },
+      forcePathStyle: true, // Required for MinIO
+    });
+  }
+  return cachedS3Client;
+}
+
+/**
+ * Get cached S3 client for presigned URLs (lazy-loaded)
+ */
+function getS3PresignedClient(): S3Client {
+  if (!cachedS3PresignedClient) {
+    const config = getCachedConfig();
+    cachedS3PresignedClient = new S3Client({
+      endpoint: config.publicUrl,
+      region: "us-east-1",
+      credentials: {
+        accessKeyId: config.accessKey,
+        secretAccessKey: config.secretKey,
+      },
+      forcePathStyle: true, // Required for MinIO
+    });
+  }
+  return cachedS3PresignedClient;
+}
 
 /**
  * Configured S3 Client for MinIO (internal operations)
  * Uses forcePathStyle: true for MinIO compatibility
  */
-export const s3 = new S3Client({
-  endpoint: endpointUrl,
-  region: "us-east-1", // MinIO doesn't use regions, but AWS SDK requires it
-  credentials: {
-    accessKeyId: config.accessKey,
-    secretAccessKey: config.secretKey,
-  },
-  forcePathStyle: true, // Required for MinIO
-});
-
-/**
- * Configured S3 Client for generating presigned URLs
- * Uses the public URL so the browser can access it
- */
-const s3ForPresigned = new S3Client({
-  endpoint: config.publicUrl,
-  region: "us-east-1",
-  credentials: {
-    accessKeyId: config.accessKey,
-    secretAccessKey: config.secretKey,
-  },
-  forcePathStyle: true, // Required for MinIO
+export const s3 = new Proxy({} as S3Client, {
+  get: (_, prop) => {
+    const client = getS3Client();
+    const value = (client as any)[prop];
+    return typeof value === 'function' ? value.bind(client) : value;
+  }
 });
 
 /**
@@ -116,6 +150,7 @@ export async function getPresignedPutUrl(
   contentType?: string,
   expiresIn: number = 3600
 ): Promise<string> {
+  const config = getCachedConfig();
   const command = new PutObjectCommand({
     Bucket: config.bucketName,
     Key: key,
@@ -123,7 +158,7 @@ export async function getPresignedPutUrl(
   });
 
   // Use the public URL client for presigned URLs so the browser can access them
-  return await getSignedUrl(s3ForPresigned, command, { expiresIn });
+  return await getSignedUrl(getS3PresignedClient(), command, { expiresIn });
 }
 
 /**
@@ -136,13 +171,14 @@ export async function getPresignedGetUrl(
   key: string,
   expiresIn: number = 3600
 ): Promise<string> {
+  const config = getCachedConfig();
   const command = new GetObjectCommand({
     Bucket: config.bucketName,
     Key: key,
   });
 
   // Use the public URL client for presigned URLs so the browser can access them
-  return await getSignedUrl(s3ForPresigned, command, { expiresIn });
+  return await getSignedUrl(getS3PresignedClient(), command, { expiresIn });
 }
 
 /**
@@ -157,6 +193,7 @@ export async function uploadBuffer(
   buffer: Buffer,
   contentType?: string
 ): Promise<void> {
+  const config = getCachedConfig();
   const command = new PutObjectCommand({
     Bucket: config.bucketName,
     Key: key,
@@ -164,7 +201,7 @@ export async function uploadBuffer(
     ContentType: contentType,
   });
 
-  await s3.send(command);
+  await getS3Client().send(command);
 }
 
 /**
@@ -173,12 +210,13 @@ export async function uploadBuffer(
  * @returns Promise that resolves when deletion is complete
  */
 export async function deleteObject(key: string): Promise<void> {
+  const config = getCachedConfig();
   const command = new DeleteObjectCommand({
     Bucket: config.bucketName,
     Key: key,
   });
 
-  await s3.send(command);
+  await getS3Client().send(command);
 }
 
 /**
@@ -191,13 +229,14 @@ export async function copyObject(
   sourceKey: string,
   destKey: string
 ): Promise<void> {
+  const config = getCachedConfig();
   const command = new CopyObjectCommand({
     Bucket: config.bucketName,
     CopySource: `${config.bucketName}/${sourceKey}`,
     Key: destKey,
   });
 
-  await s3.send(command);
+  await getS3Client().send(command);
 }
 
 /**
@@ -220,12 +259,13 @@ export async function moveObject(
  * @returns Promise that resolves to an array of object keys
  */
 export async function listObjects(prefix?: string): Promise<string[]> {
+  const config = getCachedConfig();
   const command = new ListObjectsV2Command({
     Bucket: config.bucketName,
     Prefix: prefix,
   });
 
-  const response = await s3.send(command);
+  const response = await getS3Client().send(command);
   return (response.Contents || []).map((object) => object.Key || "").filter(Boolean);
 }
 
@@ -236,12 +276,13 @@ export async function listObjects(prefix?: string): Promise<string[]> {
  */
 export async function objectExists(key: string): Promise<boolean> {
   try {
+    const config = getCachedConfig();
     const command = new HeadObjectCommand({
       Bucket: config.bucketName,
       Key: key,
     });
 
-    await s3.send(command);
+    await getS3Client().send(command);
     return true;
   } catch (error: unknown) {
     if (
@@ -264,6 +305,7 @@ export async function objectExists(key: string): Promise<boolean> {
  * @returns Public URL string
  */
 export function getPublicUrl(key: string): string {
+  const config = getCachedConfig();
   const baseUrl = config.publicUrl.replace(/\/$/, ""); // Remove trailing slash
   const objectKey = key.startsWith("/") ? key : `/${key}`;
   return `${baseUrl}/${config.bucketName}${objectKey}`;
@@ -284,6 +326,7 @@ function normalizeFolderPath(path: string): string {
  * @returns Promise that resolves when folder is created
  */
 export async function createFolder(path: string): Promise<void> {
+  const config = getCachedConfig();
   const normalizedPath = normalizeFolderPath(path);
   
   const command = new PutObjectCommand({
@@ -292,7 +335,7 @@ export async function createFolder(path: string): Promise<void> {
     Body: Buffer.from(""), // Empty body for folder marker
   });
 
-  await s3.send(command);
+  await getS3Client().send(command);
 }
 
 /**
@@ -350,7 +393,9 @@ export async function renameFolder(
  */
 export const minio = {
   // Client
-  s3,
+  get s3() {
+    return getS3Client();
+  },
 
   // Presigned URLs
   getPresignedPutUrl,
@@ -373,7 +418,7 @@ export const minio = {
 
   // Configuration
   get config(): MinIOConfig {
-    return { ...config };
+    return { ...getCachedConfig() };
   },
 };
 

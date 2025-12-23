@@ -14,6 +14,8 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { FiMenu } from "react-icons/fi";
 import BreadcrumbNav from "./BreadcrumbNav";
 import NotificationDropdown from "@/components/NotificationDropdown";
+import { useAppDispatch } from "@/lib/redux/hooks";
+import { toggleSidebar } from "@/lib/redux/slices/uiSlice";
 
 interface DashboardHeaderProps {
   user: {
@@ -24,12 +26,20 @@ interface DashboardHeaderProps {
 }
 
 export default function DashboardHeader({ user }: DashboardHeaderProps) {
+  const dispatch = useAppDispatch();
+
   // Handle undefined/null user gracefully
   if (!user) {
     return (
       <header className="flex h-16 items-center justify-between border-b bg-card px-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="lg:hidden">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="lg:hidden"
+            onClick={() => dispatch(toggleSidebar())}
+            aria-label="Toggle sidebar"
+          >
             <FiMenu className="h-5 w-5" />
           </Button>
           <BreadcrumbNav />
@@ -56,7 +66,13 @@ export default function DashboardHeader({ user }: DashboardHeaderProps) {
   return (
     <header className="flex h-16 items-center justify-between border-b bg-card px-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="lg:hidden">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="lg:hidden"
+          onClick={() => dispatch(toggleSidebar())}
+          aria-label="Toggle sidebar"
+        >
           <FiMenu className="h-5 w-5" />
         </Button>
         <BreadcrumbNav />

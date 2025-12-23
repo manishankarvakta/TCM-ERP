@@ -890,7 +890,8 @@ export async function renameFileOrFolder(input: {
 }
 
 /**
- * Get presigned URL for downloading a file
+ * Get download URL for a file
+ * Returns API proxy URL that fetches from MinIO internally
  */
 export async function getDownloadUrl(input: {
   key: string;
@@ -913,15 +914,29 @@ export async function getDownloadUrl(input: {
       throw new Error("File not found");
     }
 
-    // Get presigned URL from MinIO
-    const url = await minio.getPresignedGetUrl(key, expiresIn);
+    const minioPubliclyAccessible = process.env.MINIO_PUBLICLY_ACCESSIBLE === "true";
+
+    let url: string;
+    if (minioPubliclyAccessible) {
+      // Generate presigned URL pointing to the public MinIO domain
+      url = await minio.getPresignedGetUrl(key, expiresIn);
+    } else {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      url = `${appUrl}/api/files/${key}?download=1`;
+    }
 
     // Log the action
     await createUserLog({
       userId: user.id,
       action: "FILE_DOWNLOAD_URL_GENERATED",
       details: `Generated download URL for file: ${file.name}`,
-      metadata: { path: file.path, name: file.name, storageKey: key, expiresIn },
+      metadata: {
+        path: file.path,
+        name: file.name,
+        storageKey: key,
+        expiresIn,
+        mode: minioPubliclyAccessible ? "minio" : "proxy",
+      },
     });
 
     return {

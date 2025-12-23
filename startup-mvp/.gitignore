@@ -13,7 +13,9 @@
 # testing
 /coverage
 
+# backup system
 /backups
+/tmp
 
 # next.js
 /.next/
