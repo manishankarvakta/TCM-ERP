@@ -81,13 +81,14 @@ services:
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required}
       NEXTAUTH_URL: ${NEXTAUTH_URL:?NEXTAUTH_URL is required}
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
-      MINIO_ENDPOINT: espacio-minio
+      # MINIO_ENDPOINT: espacio-minio
       MINIO_PORT: 9000
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
       MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-startup-mvp-files}
       MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://espacio-minio:9000}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-espacio-minio}
       REDIS_URL: ${REDIS_URL:-redis://espacio-redis:6379}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-465}
