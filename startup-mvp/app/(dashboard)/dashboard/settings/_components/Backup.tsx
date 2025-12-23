@@ -63,7 +63,7 @@ export default function Backup() {
     uploadBackup,
   } = useBackups();
 
-  const { progress, isRestoring, startRestore, cancelRestore } = useRestore();
+  const { progress, isRestoring, startRestore } = useRestore();
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
@@ -479,9 +479,10 @@ export default function Backup() {
         open={isRestoring || !!progress}
         progress={progress}
         onClose={() => {
-          // Clear progress and refresh backup list
-          cancelRestore();
-          fetchBackups();
+          // Only allow closing if restore is complete or failed
+          if (progress && (progress.status === 'COMPLETED' || progress.status === 'FAILED')) {
+            window.location.reload();
+          }
         }}
       />
     </div>
