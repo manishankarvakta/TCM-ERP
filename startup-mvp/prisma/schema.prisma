@@ -31,6 +31,8 @@ model User {
   image                String?
   role                 String         @default("user")
   status               String         @default("active") // active, inactive, trash
+  designationTemplateId String?      // Reference to PermissionTemplate
+  permissions          Json?         // Cached merged permissions (template + overrides)
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
   accounts             Account[]
@@ -50,8 +52,11 @@ model User {
   createdModuleGroups  ModuleGroup[]  @relation("ModuleGroupCreator")
   settings             Settings[]     @relation("SettingsUser")
   createdSettings      Settings[]     @relation("SettingsCreator")
+  designationTemplate  PermissionTemplate? @relation("UserDesignationTemplate", fields: [designationTemplateId], references: [id], onDelete: SetNull)
+  userPermissions      UserPermission[]
 
   @@index([status])
+  @@index([designationTemplateId])
 }
 
 model Account {
@@ -566,4 +571,54 @@ model Settings {
   @@index([isGlobal])
   @@index([settings(ops: JsonbPathOps)], type: Gin)
   @@map("settings")
+}
+
+// ============================================
+// PERMISSIONS
+// ============================================
+
+// Permission Template (Designation templates like Manager, Sales Executive, etc.)
+model PermissionTemplate {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?  @db.Text
+  permissions Json     // JSON object: { "module": ["operation1", "operation2"] }
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]   @relation("UserDesignationTemplate")
+
+  @@index([isActive])
+  @@index([name])
+}
+
+// User Permission Overrides (Per-user permission overrides)
+model UserPermission {
+  id         String   @id @default(cuid())
+  userId     String
+  module     String   // Module name (e.g., "items", "quotations")
+  operations Json     // JSON array of operations: ["create", "read", "update", "delete"]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, module])
+  @@index([userId])
+  @@index([module])
+}
+
+// Module Operation Definitions (Defines available operations per module)
+model ModuleOperation {
+  id          String   @id @default(cuid())
+  module      String
+  operation   String   // Operation name (e.g., "create", "read", "update", "delete", "export", "import")
+  label       String   // Display label
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([module, operation])
+  @@index([module])
+  @@index([isActive])
 }

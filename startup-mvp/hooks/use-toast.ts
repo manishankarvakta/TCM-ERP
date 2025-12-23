@@ -7,22 +7,26 @@ export interface Toast {
   title?: string;
   description?: string;
   variant?: "default" | "destructive";
+  duration?: number; // Optional duration in milliseconds, undefined = no auto-dismiss
 }
 
 export function useToast() {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const toast = useCallback(
-    ({ title, description, variant = "default" }: Omit<Toast, "id">) => {
+    ({ title, description, variant = "default", duration }: Omit<Toast, "id">) => {
       const id = Math.random().toString(36).substring(7);
-      const newToast: Toast = { id, title, description, variant };
+      const newToast: Toast = { id, title, description, variant, duration };
       
       setToasts((prev) => [...prev, newToast]);
       
-      // Auto remove after 3 seconds
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 3000);
+      // Only auto-remove if duration is explicitly set and > 0
+      // By default, toasts stay visible until manually closed
+      if (duration !== undefined && duration > 0) {
+        setTimeout(() => {
+          setToasts((prev) => prev.filter((t) => t.id !== id));
+        }, duration);
+      }
     },
     []
   );

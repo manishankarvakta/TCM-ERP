@@ -20,13 +20,26 @@ export default auth(async (req) => {
 
   // Validate session
   const isLoggedIn = !!(req.auth?.user?.id && req.auth?.user?.email)
-  const isProtectedRoute = pathname.startsWith("/dashboard")
+  const isProtectedRoute = pathname.startsWith("/dashboard") || pathname.startsWith("/admin")
+  const isAdminRoute = pathname.startsWith("/admin")
+  const userRole = req.auth?.user?.role?.toLowerCase()
 
   // Redirect unauthenticated users from protected routes
   if (isProtectedRoute && !isLoggedIn) {
     const loginUrl = new URL("/login", req.url)
     loginUrl.searchParams.set("from", pathname)
     return NextResponse.redirect(loginUrl)
+  }
+
+  // Redirect non-admin users from admin routes
+  if (isAdminRoute && isLoggedIn && userRole !== "admin") {
+    return NextResponse.redirect(new URL("/dashboard", req.url))
+  }
+
+  // Redirect admin users from dashboard routes to /admin
+  const isDashboardRoute = pathname.startsWith("/dashboard")
+  if (isDashboardRoute && isLoggedIn && userRole === "admin") {
+    return NextResponse.redirect(new URL("/admin", req.url))
   }
 
   return NextResponse.next()

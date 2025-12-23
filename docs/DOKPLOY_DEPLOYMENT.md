@@ -107,6 +107,8 @@ POSTGRES_PORT=5432
 # ============================================
 # CRITICAL: Set this to your actual domain!
 MINIO_PUBLIC_URL=https://minio.yourdomain.com
+# Set to true once the public domain is reachable (enables presigned URLs)
+MINIO_PUBLICLY_ACCESSIBLE=true
 
 # Credentials - use strong passwords in production
 MINIO_ROOT_USER=<your-minio-access-key>
@@ -118,7 +120,7 @@ MINIO_BUCKET_NAME=espacio-files
 # SSL - should be true in production
 MINIO_USE_SSL=true
 
-# CORS - set to your app domain
+# CORS - allow your app domain when MinIO is public
 MINIO_CORS_ORIGIN=https://app.yourdomain.com
 
 # Port configuration
@@ -186,6 +188,7 @@ In Dokploy project settings, add all environment variables from the section abov
 - `NEXTAUTH_URL` - Your app domain
 - `NEXT_PUBLIC_APP_URL` - Your app domain
 - `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD` - Strong credentials
+- `MINIO_PUBLICLY_ACCESSIBLE` - Set to `true` when `minio.yourdomain.com` is reachable so downloads point directly at the public MinIO domain; leave `false` to keep using `/api/files/...`.
 
 ### Step 4: Configure MinIO Domain
 

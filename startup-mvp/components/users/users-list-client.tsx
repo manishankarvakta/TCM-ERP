@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiLogOut, FiMoreVertical, FiCheck } from "react-icons/fi";
+import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiLogOut, FiMoreVertical, FiCheck, FiLock } from "react-icons/fi";
 import { deleteUser, forceLogoutUser, bulkUpdateUserStatus, deleteUsersPermanently } from "@/app/actions/user.action";
 import {
   AlertDialog,
@@ -417,11 +417,16 @@ export default function UsersListClient({
                         {!isTrash && (
                           <>
                             <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/dashboard/users/${user.id}`}>View</Link>
+                              <Link href={`/admin/users/${user.id}`}>View</Link>
                             </Button>
                             <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/dashboard/users/edit-user?id=${user.id}`}>
+                              <Link href={`/admin/users/edit-user?id=${user.id}`}>
                                 <FiEdit className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild title="Manage Permissions">
+                              <Link href={`/admin/settings/permissions/users/${user.id}`}>
+                                <FiLock className="h-4 w-4" />
                               </Link>
                             </Button>
                             {isLoggedIn && (

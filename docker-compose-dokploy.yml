@@ -40,6 +40,16 @@ services:
     expose:
       - "9000"
       - "9001"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.minio-api.rule=Host(`minio.espaciobd.com`)"
+      - "traefik.http.routers.minio-api.entrypoints=websecure"
+      - "traefik.http.routers.minio-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.minio-api.loadbalancer.server.port=9000"
+      - "traefik.http.routers.minio-console.rule=Host(`minio-console.espaciobd.com`)"
+      - "traefik.http.routers.minio-console.entrypoints=websecure"
+      - "traefik.http.routers.minio-console.tls.certresolver=letsencrypt"
+      - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
     volumes:
       # IMPORTANT: All uploaded files persist across deployments in ./volumes/minio
       # This directory is preserved even when containers are recreated
@@ -65,10 +75,10 @@ services:
       sleep 5;
       echo 'Setting up MinIO bucket...';
       /usr/bin/mc alias set myminio http://espacio-minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
-      /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || echo 'Bucket already exists';
-      /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || true;
-      /usr/bin/mc anonymous set upload myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || true;
-      /usr/bin/mc anonymous set public myminio/${MINIO_BUCKET_NAME:-startup-mvp-files} || true;
+      /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-espacio-files} || echo 'Bucket already exists';
+      /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-espacio-files} || true;
+      /usr/bin/mc anonymous set upload myminio/${MINIO_BUCKET_NAME:-espacio-files} || true;
+      /usr/bin/mc anonymous set public myminio/${MINIO_BUCKET_NAME:-espacio-files} || true;
       echo 'MinIO bucket setup complete!';
       exit 0;
       "
@@ -101,7 +111,7 @@ services:
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-espacio-files}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-startup-mvp-files}
       MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://espacio-minio:9000}
       
       # Redis (optional)

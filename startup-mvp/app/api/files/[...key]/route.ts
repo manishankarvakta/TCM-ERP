@@ -34,9 +34,25 @@ function createS3Client() {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { key: string[] } }
+  context: { params?: { key?: string[] } }
 ) {
   try {
+    const { params } = context || {};
+
+    // Validate and reconstruct the full key from path segments
+    if (!params?.key || !Array.isArray(params.key) || params.key.length === 0) {
+      console.error("Download proxy error: missing or invalid key params", {
+        url: request.url,
+        params,
+      });
+      return NextResponse.json(
+        { error: "Invalid file key" },
+        { status: 400 }
+      );
+    }
+
+    const key = params.key.join("/");
+
     // Get session
     const session = await auth();
     if (!session?.user?.id) {
@@ -45,9 +61,6 @@ export async function GET(
         { status: 401 }
       );
     }
-
-    // Reconstruct the full key from path segments
-    const key = params.key.join("/");
 
     // Verify file ownership
     const file = await prisma.file.findUnique({

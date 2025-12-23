@@ -1,22 +1,34 @@
+/**
+ * Backup & Restore Settings Page
+ * 
+ * New implementation with streamlined UI and real-time progress tracking
+ */
+
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { useToast } from "@/hooks/use-toast";
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 import {
   Database,
-  FileArchive,
-  Loader2,
+  Files,
+  HardDrive,
   RefreshCw,
-  Clock,
   Download,
   Trash2,
   RotateCcw,
-} from "lucide-react";
-import { Progress } from "@/components/ui/progress";
+  Upload,
+  Loader2,
+  AlertCircle,
+} from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,411 +38,239 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  createBackup,
-  listAllBackups,
-  deleteBackupFile,
-  restoreBackup,
-  downloadBackupFile,
-} from "@/app/actions/backup.action";
-import type { BackupMetadata } from "@/lib/backup";
-import { formatFileSize } from "@/lib/utils";
-import { format } from "date-fns";
-
-type BackupType = "database" | "files" | "full";
-
-interface BackupListData {
-  database: BackupMetadata[];
-  files: BackupMetadata[];
-  full: BackupMetadata[];
-}
+} from '@/components/ui/alert-dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useBackups } from '@/hooks/useBackups';
+import { useRestore } from '@/hooks/useRestore';
+import { RestoreProgressModal } from '@/components/backup/RestoreProgressModal';
+import { BackupUploadZone } from '@/components/backup/BackupUploadZone';
+import type { BackupListItem, BackupType } from '@/types/backup';
+import { format } from 'date-fns';
 
 export default function Backup() {
   const { toast } = useToast();
-  const [isCreatingBackup, setIsCreatingBackup] = useState(false);
-  const [isLoadingBackups, setIsLoadingBackups] = useState(true);
-  const [backups, setBackups] = useState<BackupListData>({
-    database: [],
-    files: [],
-    full: [],
-  });
-  const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
-  const [backupFrequency, setBackupFrequency] = useState("daily");
+  const {
+    backups,
+    loading,
+    error: backupsError,
+    creating,
+    uploading,
+    fetchBackups,
+    createBackup,
+    deleteBackup,
+    downloadBackup,
+    uploadBackup,
+  } = useBackups();
+
+  const { progress, isRestoring, startRestore } = useRestore();
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
-  const [selectedBackup, setSelectedBackup] = useState<{
-    type: BackupType;
-    filename: string;
-  } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
-  const [restoreProgress, setRestoreProgress] = useState<{
-    stage: string;
-    progress: number;
-    details?: string;
-  } | null>(null);
-  const [isDownloading, setIsDownloading] = useState<string | null>(null);
+  const [selectedBackup, setSelectedBackup] = useState<BackupListItem | null>(null);
 
-  const loadBackups = useCallback(async () => {
-    setIsLoadingBackups(true);
-    try {
-      const result = await listAllBackups();
-      if (result.success && result.data) {
-        setBackups(result.data);
-      } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to load backups",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load backups",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoadingBackups(false);
-    }
-  }, [toast]);
-
-  // Load backups on mount
-  useEffect(() => {
-    loadBackups();
-  }, [loadBackups]);
-
+  // Handle backup creation
   const handleCreateBackup = async (type: BackupType) => {
-    setIsCreatingBackup(true);
     try {
-      const result = await createBackup(type);
-
-      if (!result.success) {
-        throw new Error(result.error || "Failed to create backup");
-      }
-
+      await createBackup(type);
       toast({
-        title: "Backup Created",
-        description: `Backup "${result.data?.filename}" created successfully.`,
-      });
-
-      // Reload backups list
-      await loadBackups();
-    } catch (error) {
-      toast({
-        title: "Backup Failed",
-        description: error instanceof Error ? error.message : "Failed to create backup",
-        variant: "destructive",
-      });
-    } finally {
-      setIsCreatingBackup(false);
-    }
-  };
-
-  const handleDownload = async (type: BackupType, filename: string) => {
-    setIsDownloading(filename);
-    try {
-      // Use server action to download backup
-      const result = await downloadBackupFile(type, filename);
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || "Failed to download backup");
-      }
-
-      // Convert base64 string to blob
-      const base64Data = result.data.data;
-      const byteCharacters = atob(base64Data);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: result.data.mimeType });
-
-      // Create download link
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = result.data.filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      toast({
-        title: "Download Started",
-        description: `Downloading backup "${filename}"...`,
+        title: 'Backup created',
+        description: `${type} backup created successfully`,
       });
     } catch (error) {
       toast({
-        title: "Download Failed",
-        description: error instanceof Error ? error.message : "Failed to download backup",
-        variant: "destructive",
+        title: 'Backup failed',
+        description: error instanceof Error ? error.message : 'Failed to create backup',
+        variant: 'destructive',
       });
-    } finally {
-      setIsDownloading(null);
     }
   };
 
-  const handleDeleteClick = (type: BackupType, filename: string) => {
-    setSelectedBackup({ type, filename });
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
+  // Handle backup deletion
+  const handleDeleteBackup = async () => {
     if (!selectedBackup) return;
 
-    setIsDeleting(true);
     try {
-      const result = await deleteBackupFile(selectedBackup.type, selectedBackup.filename);
-
-      if (!result.success) {
-        throw new Error(result.error || "Failed to delete backup");
-      }
-
+      await deleteBackup(selectedBackup.metadata.id);
       toast({
-        title: "Backup Deleted",
-        description: `Backup "${selectedBackup.filename}" deleted successfully.`,
+        title: 'Backup deleted',
+        description: 'Backup file has been deleted',
       });
-
-      // Reload backups list
-      await loadBackups();
       setDeleteDialogOpen(false);
       setSelectedBackup(null);
     } catch (error) {
       toast({
-        title: "Delete Failed",
-        description: error instanceof Error ? error.message : "Failed to delete backup",
-        variant: "destructive",
+        title: 'Delete failed',
+        description: error instanceof Error ? error.message : 'Failed to delete backup',
+        variant: 'destructive',
       });
-    } finally {
-      setIsDeleting(false);
     }
   };
 
-  const handleRestoreClick = (type: BackupType, filename: string) => {
-    setSelectedBackup({ type, filename });
-    setRestoreDialogOpen(true);
-  };
-
-  const handleRestoreConfirm = async () => {
+  // Handle backup restore
+  const handleRestoreBackup = async () => {
     if (!selectedBackup) return;
 
-    setIsRestoring(true);
-    setRestoreProgress({ stage: "Initializing", progress: 0 });
+    setRestoreDialogOpen(false);
 
     try {
-      // Simulate progress updates (since server actions don't support streaming progress)
-      const progressInterval = setInterval(() => {
-        setRestoreProgress((prev) => {
-          if (!prev) return prev;
-          const newProgress = Math.min(prev.progress + 5, 90);
-          let stage = prev.stage;
-          const details = prev.details;
-
-          if (newProgress < 30) {
-            stage = "Reading backup file...";
-          } else if (newProgress < 60) {
-            stage = selectedBackup.type === "database" 
-              ? "Restoring database records..." 
-              : "Extracting files...";
-          } else if (newProgress < 90) {
-            stage = selectedBackup.type === "files" || selectedBackup.type === "full"
-              ? "Uploading files to storage..."
-              : "Processing database...";
-          }
-
-          return { stage, progress: newProgress, details };
-        });
-      }, 500);
-
-      const result = await restoreBackup(selectedBackup.type, selectedBackup.filename);
-
-      clearInterval(progressInterval);
-      setRestoreProgress({ stage: "Completing", progress: 100 });
-
-      if (!result.success) {
-        throw new Error(result.error || "Failed to restore backup");
-      }
-
-      // Build success message with details
-      const details: string[] = [];
-      if (result.data?.databaseRecords !== undefined) {
-        details.push(`${result.data.databaseRecords} database records restored`);
-      }
-      if (result.data?.filesRestored !== undefined) {
-        details.push(`${result.data.filesRestored} files restored`);
-      }
-      if (result.data?.errors && result.data.errors > 0) {
-        details.push(`${result.data.errors} errors encountered`);
-      }
-
-      toast({
-        title: "Restore Completed",
-        description: `Successfully restored from backup "${selectedBackup.filename}". ${details.join(", ")}`,
-      });
-
-      // Reload backups list
-      await loadBackups();
-      setRestoreDialogOpen(false);
-      setSelectedBackup(null);
-      setRestoreProgress(null);
+      await startRestore(selectedBackup.metadata.id);
     } catch (error) {
       toast({
-        title: "Restore Failed",
-        description: error instanceof Error ? error.message : "Failed to restore backup",
-        variant: "destructive",
+        title: 'Restore failed',
+        description: error instanceof Error ? error.message : 'Failed to start restore',
+        variant: 'destructive',
       });
-      setRestoreProgress(null);
-    } finally {
-      setIsRestoring(false);
     }
   };
 
-  const renderBackupList = (type: BackupType, backupsList: BackupMetadata[]) => {
-    if (backupsList.length === 0) {
-      return (
-        <div className="text-center py-8 text-sm text-muted-foreground">
-          <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p>No {type} backups yet</p>
-        </div>
-      );
+  // Handle backup upload
+  const handleUploadBackup = async (file: File) => {
+    try {
+      await uploadBackup(file);
+      toast({
+        title: 'Backup uploaded',
+        description: 'Backup file has been uploaded successfully',
+      });
+    } catch (error) {
+      // Error is handled in the component
+      throw error;
     }
-
-    return (
-      <div className="space-y-2">
-        {backupsList.map((backup) => (
-          <div
-            key={backup.filename}
-            className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                {type === "database" && <Database className="h-4 w-4 text-muted-foreground" />}
-                {type === "files" && <FileArchive className="h-4 w-4 text-muted-foreground" />}
-                {type === "full" && <RefreshCw className="h-4 w-4 text-muted-foreground" />}
-                <span className="font-medium text-sm truncate">{backup.filename}</span>
-              </div>
-              <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                <span>{format(backup.createdAt, "MMM dd, yyyy HH:mm")}</span>
-                <span>•</span>
-                <span>{formatFileSize(backup.size)}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 ml-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleDownload(type, backup.filename)}
-                disabled={isDownloading === backup.filename}
-                className="h-8"
-                title="Download backup"
-              >
-                {isDownloading === backup.filename ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleRestoreClick(type, backup.filename)}
-                disabled={isRestoring}
-                className="h-8"
-                title="Restore from backup"
-              >
-                <RotateCcw className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleDeleteClick(type, backup.filename)}
-                disabled={isDeleting}
-                className="h-8 text-destructive hover:text-destructive"
-                title="Delete backup"
-              >
-                {isDeleting && selectedBackup?.filename === backup.filename ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
   };
 
-  const allBackups = [...backups.database, ...backups.files, ...backups.full];
+  // Format file size
+  const formatBytes = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024)
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  };
+
+  // Get backup type icon
+  const getBackupTypeIcon = (type: BackupType) => {
+    switch (type) {
+      case 'database':
+        return <Database className="h-4 w-4" />;
+      case 'files':
+        return <Files className="h-4 w-4" />;
+      case 'full':
+        return <HardDrive className="h-4 w-4" />;
+    }
+  };
+
+  // Get status badge color
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'valid':
+        return 'default';
+      case 'corrupted':
+        return 'destructive';
+      default:
+        return 'secondary';
+    }
+  };
+
+  // Filter backups by type
+  const databaseBackups = backups.filter((b) => b.metadata.type === 'database');
+  const filesBackups = backups.filter((b) => b.metadata.type === 'files');
+  const fullBackups = backups.filter((b) => b.metadata.type === 'full');
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Backup</h1>
-        <p className="text-sm text-muted-foreground">
-          Create and manage backups of your database and files
-        </p>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Backup & Restore</h1>
+          <p className="text-sm text-muted-foreground">
+            Manage backups and restore your data
+          </p>
+        </div>
+        <Button
+          onClick={fetchBackups}
+          variant="outline"
+          size="sm"
+          disabled={loading}
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
-      {/* Manual Backup Section */}
+      {/* Error Display */}
+      {backupsError && (
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
+              <div>
+                <p className="font-medium text-destructive">Error loading backups</p>
+                <p className="text-sm text-muted-foreground mt-1">{backupsError}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Create Backup Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Manual Backup</CardTitle>
+          <CardTitle>Create New Backup</CardTitle>
           <CardDescription>
-            Create a backup of your database, files, or both
+            Choose the type of backup you want to create
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Database Backup */}
             <Button
-              onClick={() => handleCreateBackup("database")}
-              disabled={isCreatingBackup}
+              onClick={() => handleCreateBackup('database')}
+              disabled={creating || loading}
               variant="outline"
-              className="h-auto flex-col gap-2 py-4"
+              className="h-auto py-4 flex flex-col gap-2"
             >
-              {isCreatingBackup ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
+              {creating ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
               ) : (
-                <Database className="h-5 w-5" />
+                <Database className="h-6 w-6" />
               )}
-              <span>Database Backup</span>
+              <span className="font-medium">Database</span>
               <span className="text-xs text-muted-foreground">
-                Export PostgreSQL data
+                Backup database only
               </span>
             </Button>
 
+            {/* Files Backup */}
             <Button
-              onClick={() => handleCreateBackup("files")}
-              disabled={isCreatingBackup}
+              onClick={() => handleCreateBackup('files')}
+              disabled={creating || loading}
               variant="outline"
-              className="h-auto flex-col gap-2 py-4"
+              className="h-auto py-4 flex flex-col gap-2"
             >
-              {isCreatingBackup ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
+              {creating ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
               ) : (
-                <FileArchive className="h-5 w-5" />
+                <Files className="h-6 w-6" />
               )}
-              <span>Files Backup</span>
+              <span className="font-medium">Files</span>
               <span className="text-xs text-muted-foreground">
-                Export MinIO storage
+                Backup files only
               </span>
             </Button>
 
+            {/* Full Backup */}
             <Button
-              onClick={() => handleCreateBackup("full")}
-              disabled={isCreatingBackup}
-              variant="default"
-              className="h-auto flex-col gap-2 py-4"
+              onClick={() => handleCreateBackup('full')}
+              disabled={creating || loading}
+              variant="outline"
+              className="h-auto py-4 flex flex-col gap-2"
             >
-              {isCreatingBackup ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
+              {creating ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
               ) : (
-                <RefreshCw className="h-5 w-5" />
+                <HardDrive className="h-6 w-6" />
               )}
-              <span>Full Backup</span>
+              <span className="font-medium">Full Backup</span>
               <span className="text-xs text-muted-foreground">
                 Database + Files
               </span>
@@ -439,154 +279,152 @@ export default function Backup() {
         </CardContent>
       </Card>
 
-      {/* Automatic Backup Section */}
+      {/* Upload Backup Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Automatic Backups</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Upload className="h-5 w-5" />
+            Upload Backup
+          </CardTitle>
           <CardDescription>
-            Schedule automatic backups to run at regular intervals
+            Upload an existing backup file to restore later
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="auto-backup">Enable Automatic Backups</Label>
-              <p className="text-sm text-muted-foreground">
-                Automatically create backups at scheduled intervals
-              </p>
-            </div>
-            <Switch
-              id="auto-backup"
-              checked={autoBackupEnabled}
-              onCheckedChange={setAutoBackupEnabled}
-            />
-          </div>
-
-          {autoBackupEnabled && (
-            <div className="space-y-2 pl-6 border-l-2">
-              <Label htmlFor="backup-frequency">Backup Frequency</Label>
-              <select
-                id="backup-frequency"
-                value={backupFrequency}
-                onChange={(e) => setBackupFrequency(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-              </select>
-              <p className="text-xs text-muted-foreground">
-                Backups will be created automatically at the selected interval
-              </p>
-            </div>
-          )}
+        <CardContent>
+          <BackupUploadZone onUpload={handleUploadBackup} uploading={uploading} />
         </CardContent>
       </Card>
 
-      {/* Backup History Section */}
+      {/* Backups List */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Backup History</CardTitle>
-              <CardDescription>
-                View, download, restore, or delete previous backups
-              </CardDescription>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={loadBackups}
-              disabled={isLoadingBackups}
-            >
-              {isLoadingBackups ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
+          <CardTitle>Available Backups</CardTitle>
+          <CardDescription>
+            {backups.length} backup{backups.length !== 1 ? 's' : ''} available
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoadingBackups ? (
-            <div className="text-center py-8">
-              <Loader2 className="h-8 w-8 mx-auto animate-spin text-muted-foreground" />
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-20 w-full" />
+              ))}
             </div>
-          ) : allBackups.length === 0 ? (
-            <div className="text-center py-8 text-sm text-muted-foreground">
-              <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>No backups yet</p>
-              <p className="text-xs mt-1">Create your first backup to see it here</p>
+          ) : backups.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Database className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>No backups available</p>
+              <p className="text-sm mt-1">Create your first backup to get started</p>
             </div>
           ) : (
-            <div className="space-y-6">
-              {backups.database.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                    <Database className="h-4 w-4" />
-                    Database Backups ({backups.database.length})
-                  </h3>
-                  {renderBackupList("database", backups.database)}
-                </div>
-              )}
+            <Tabs defaultValue="all" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="all">All ({backups.length})</TabsTrigger>
+                <TabsTrigger value="database">Database ({databaseBackups.length})</TabsTrigger>
+                <TabsTrigger value="files">Files ({filesBackups.length})</TabsTrigger>
+                <TabsTrigger value="full">Full ({fullBackups.length})</TabsTrigger>
+              </TabsList>
 
-              {backups.files.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                    <FileArchive className="h-4 w-4" />
-                    Files Backups ({backups.files.length})
-                  </h3>
-                  {renderBackupList("files", backups.files)}
-                </div>
-              )}
+              <TabsContent value="all" className="space-y-3 mt-4">
+                {backups.map((backup) => (
+                  <BackupItem
+                    key={backup.metadata.id}
+                    backup={backup}
+                    onDownload={() => downloadBackup(backup.metadata.id)}
+                    onDelete={() => {
+                      setSelectedBackup(backup);
+                      setDeleteDialogOpen(true);
+                    }}
+                    onRestore={() => {
+                      setSelectedBackup(backup);
+                      setRestoreDialogOpen(true);
+                    }}
+                    formatBytes={formatBytes}
+                    getIcon={getBackupTypeIcon}
+                    getStatusVariant={getStatusBadgeVariant}
+                  />
+                ))}
+              </TabsContent>
 
-              {backups.full.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                    <RefreshCw className="h-4 w-4" />
-                    Full Backups ({backups.full.length})
-                  </h3>
-                  {renderBackupList("full", backups.full)}
-                </div>
-              )}
-            </div>
+              <TabsContent value="database" className="space-y-3 mt-4">
+                {databaseBackups.map((backup) => (
+                  <BackupItem
+                    key={backup.metadata.id}
+                    backup={backup}
+                    onDownload={() => downloadBackup(backup.metadata.id)}
+                    onDelete={() => {
+                      setSelectedBackup(backup);
+                      setDeleteDialogOpen(true);
+                    }}
+                    onRestore={() => {
+                      setSelectedBackup(backup);
+                      setRestoreDialogOpen(true);
+                    }}
+                    formatBytes={formatBytes}
+                    getIcon={getBackupTypeIcon}
+                    getStatusVariant={getStatusBadgeVariant}
+                  />
+                ))}
+                {databaseBackups.length === 0 && (
+                  <p className="text-center py-8 text-muted-foreground">
+                    No database backups
+                  </p>
+                )}
+              </TabsContent>
+
+              <TabsContent value="files" className="space-y-3 mt-4">
+                {filesBackups.map((backup) => (
+                  <BackupItem
+                    key={backup.metadata.id}
+                    backup={backup}
+                    onDownload={() => downloadBackup(backup.metadata.id)}
+                    onDelete={() => {
+                      setSelectedBackup(backup);
+                      setDeleteDialogOpen(true);
+                    }}
+                    onRestore={() => {
+                      setSelectedBackup(backup);
+                      setRestoreDialogOpen(true);
+                    }}
+                    formatBytes={formatBytes}
+                    getIcon={getBackupTypeIcon}
+                    getStatusVariant={getStatusBadgeVariant}
+                  />
+                ))}
+                {filesBackups.length === 0 && (
+                  <p className="text-center py-8 text-muted-foreground">
+                    No files backups
+                  </p>
+                )}
+              </TabsContent>
+
+              <TabsContent value="full" className="space-y-3 mt-4">
+                {fullBackups.map((backup) => (
+                  <BackupItem
+                    key={backup.metadata.id}
+                    backup={backup}
+                    onDownload={() => downloadBackup(backup.metadata.id)}
+                    onDelete={() => {
+                      setSelectedBackup(backup);
+                      setDeleteDialogOpen(true);
+                    }}
+                    onRestore={() => {
+                      setSelectedBackup(backup);
+                      setRestoreDialogOpen(true);
+                    }}
+                    formatBytes={formatBytes}
+                    getIcon={getBackupTypeIcon}
+                    getStatusVariant={getStatusBadgeVariant}
+                  />
+                ))}
+                {fullBackups.length === 0 && (
+                  <p className="text-center py-8 text-muted-foreground">
+                    No full backups
+                  </p>
+                )}
+              </TabsContent>
+            </Tabs>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Backup Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Backup Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div className="flex items-start gap-3">
-            <Database className="h-4 w-4 mt-0.5 text-muted-foreground" />
-            <div>
-              <p className="font-medium">Database Backup</p>
-              <p className="text-muted-foreground">
-                Includes all PostgreSQL data, tables, and records. Exported as SQL dump file.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <FileArchive className="h-4 w-4 mt-0.5 text-muted-foreground" />
-            <div>
-              <p className="font-medium">Files Backup</p>
-              <p className="text-muted-foreground">
-                Includes all files stored in MinIO object storage. Exported as ZIP archive.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <RefreshCw className="h-4 w-4 mt-0.5 text-muted-foreground" />
-            <div>
-              <p className="font-medium">Full Backup</p>
-              <p className="text-muted-foreground">
-                Complete backup including both database and files. Recommended for system migrations.
-              </p>
-            </div>
-          </div>
         </CardContent>
       </Card>
 
@@ -594,77 +432,131 @@ export default function Backup() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Backup</AlertDialogTitle>
+            <AlertDialogTitle>Delete Backup?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{selectedBackup?.filename}&quot;? This action cannot be undone.
+              Are you sure you want to delete this backup? This action cannot be undone.
+              <br />
+              <br />
+              <span className="font-medium">{selectedBackup?.metadata.id}</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isDeleting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete"
-              )}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteBackup} className="bg-destructive">
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Restore Confirmation Dialog */}
-      <AlertDialog open={restoreDialogOpen} onOpenChange={(open) => {
-        if (!open && !isRestoring) {
-          setRestoreDialogOpen(false);
-          setRestoreProgress(null);
-        }
-      }}>
-        <AlertDialogContent className="max-w-md">
+      <AlertDialog open={restoreDialogOpen} onOpenChange={setRestoreDialogOpen}>
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Restore Backup</AlertDialogTitle>
+            <AlertDialogTitle>Restore from Backup?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to restore from &quot;{selectedBackup?.filename}&quot;? This will overwrite existing data. This action cannot be undone.
+              This will restore your data from the selected backup. Current data will be
+              replaced.
+              <br />
+              <br />
+              A pre-restore backup will be created automatically.
+              <br />
+              <br />
+              <span className="font-medium">{selectedBackup?.metadata.id}</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
-
-          {restoreProgress && (
-            <div className="space-y-2 py-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{restoreProgress.stage}</span>
-                <span className="font-medium">{restoreProgress.progress}%</span>
-              </div>
-              <Progress value={restoreProgress.progress} className="h-2" />
-              {restoreProgress.details && (
-                <p className="text-xs text-muted-foreground">{restoreProgress.details}</p>
-              )}
-            </div>
-          )}
-
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isRestoring}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleRestoreConfirm}
-              disabled={isRestoring}
-            >
-              {isRestoring ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Restoring...
-                </>
-              ) : (
-                "Restore"
-              )}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRestoreBackup}>
+              Restore
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Restore Progress Modal */}
+      <RestoreProgressModal
+        open={isRestoring || !!progress}
+        progress={progress}
+        onClose={() => {
+          // Only allow closing if restore is complete or failed
+          if (progress && (progress.status === 'COMPLETED' || progress.status === 'FAILED')) {
+            window.location.reload();
+          }
+        }}
+      />
+    </div>
+  );
+}
+
+// Backup Item Component
+interface BackupItemProps {
+  backup: BackupListItem;
+  onDownload: () => void;
+  onDelete: () => void;
+  onRestore: () => void;
+  formatBytes: (bytes: number) => string;
+  getIcon: (type: BackupType) => React.ReactElement;
+  getStatusVariant: (status: string) => 'default' | 'destructive' | 'secondary' | 'outline';
+}
+
+function BackupItem({
+  backup,
+  onDownload,
+  onDelete,
+  onRestore,
+  formatBytes,
+  getIcon,
+  getStatusVariant,
+}: BackupItemProps) {
+  return (
+    <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+      <div className="flex items-start gap-3 flex-1 min-w-0">
+        <div className="mt-1">{getIcon(backup.metadata.type)}</div>
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex items-center gap-2">
+            <p className="font-medium truncate">{backup.metadata.id}</p>
+            <Badge variant={getStatusVariant(backup.status)} className="text-xs">
+              {backup.status}
+            </Badge>
+            <Badge variant="outline" className="text-xs capitalize">
+              {backup.metadata.type}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span>{formatBytes(backup.fileSize || backup.metadata.size)}</span>
+            <span>{format(new Date(backup.metadata.timestamp), 'MMM dd, yyyy HH:mm')}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={onDownload}
+          variant="ghost"
+          size="sm"
+          title="Download backup"
+        >
+          <Download className="h-4 w-4" />
+        </Button>
+        <Button
+          onClick={onRestore}
+          variant="ghost"
+          size="sm"
+          title="Restore from this backup"
+          disabled={backup.status === 'corrupted'}
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+        <Button
+          onClick={onDelete}
+          variant="ghost"
+          size="sm"
+          title="Delete backup"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }
