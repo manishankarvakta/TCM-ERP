@@ -8,6 +8,13 @@ import type { RestoreProgress, RestoreStatus } from '@/types/backup';
 import { now } from './utils';
 
 /**
+ * Global type declaration for HMR-safe singleton
+ */
+declare global {
+  var restoreManager: RestoreManager | undefined;
+}
+
+/**
  * Callback function for progress updates
  */
 type ProgressCallback = (progress: RestoreProgress) => void;
@@ -16,8 +23,6 @@ type ProgressCallback = (progress: RestoreProgress) => void;
  * Singleton class managing active restore operations and their progress
  */
 export class RestoreManager {
-  private static instance: RestoreManager | null = null;
-
   /** Map of restore ID to progress data */
   private activeRestores: Map<string, RestoreProgress>;
 
@@ -36,13 +41,15 @@ export class RestoreManager {
   }
 
   /**
-   * Get the singleton instance
+   * Get the singleton instance (HMR-safe)
    */
   public static getInstance(): RestoreManager {
-    if (!RestoreManager.instance) {
-      RestoreManager.instance = new RestoreManager();
+    // Use globalThis to persist across HMR reloads in Next.js
+    if (!global.restoreManager) {
+      global.restoreManager = new RestoreManager();
+      console.log('[RestoreManager] Created new singleton instance');
     }
-    return RestoreManager.instance;
+    return global.restoreManager;
   }
 
   /**
