@@ -32,35 +32,6 @@ async function seedPermissions() {
   // Manager Template - Full access to all pages
   const managerPermissions: Partial<EnhancedPermissions> =
     createPermissionsForPages(allPageKeys, allStandardOps);
-    dashboard: ["create", "read", "update", "delete", "export", "import"],
-    // Items sub-modules
-    "items.items": ["create", "read", "update", "delete", "export", "import"],
-    "items.groups": ["create", "read", "update", "delete", "export", "import"],
-    "items.category": ["create", "read", "update", "delete", "export", "import"],
-    "items.units": ["create", "read", "update", "delete", "export", "import"],
-    // Quotations sub-modules
-    "quotations.quotations": ["create", "read", "update", "delete", "export", "import"],
-    "quotations.invoices": ["create", "read", "update", "delete", "export", "import"],
-    "quotations.orders": ["create", "read", "update", "delete", "export", "import"],
-    // Accounts sub-modules
-    "accounts.chart-of-accounts": ["create", "read", "update", "delete", "export", "import"],
-    "accounts.ledgers": ["create", "read", "update", "delete", "export", "import"],
-    "accounts.vouchers": ["create", "read", "update", "delete", "export", "import"],
-    "accounts.trial-balance": ["create", "read", "update", "delete", "export", "import"],
-    "accounts.balance-sheet": ["create", "read", "update", "delete", "export", "import"],
-    "accounts.profit-loss": ["create", "read", "update", "delete", "export", "import"],
-    "accounts.cash-bank": ["create", "read", "update", "delete", "export", "import"],
-    "accounts.accounts-receivable": ["create", "read", "update", "delete", "export", "import"],
-    "accounts.accounts-payable": ["create", "read", "update", "delete", "export", "import"],
-    // Peoples sub-modules
-    "peoples.users": ["create", "read", "update", "delete", "export", "import"],
-    "peoples.clients": ["create", "read", "update", "delete", "export", "import"],
-    "peoples.suppliers": ["create", "read", "update", "delete", "export", "import"],
-    files: ["create", "read", "update", "delete", "export", "import"],
-    notifications: ["create", "read", "update", "delete"],
-    analytics: ["read", "export"],
-    reports: ["read", "export"],
-  };
 
   // Sales Executive Template - Quotations and Clients focus
   const salesExecutivePermissions: Partial<EnhancedPermissions> = {
@@ -103,35 +74,6 @@ async function seedPermissions() {
     ...createPermissionsForPages(["notifications"], ["view"]),
     ...createPermissionsForPages(["analytics", "reports"], ["view"]),
   };
-    dashboard: ["read"],
-    // Items sub-modules - read-only
-    "items.items": ["read", "export"],
-    "items.groups": ["read"],
-    "items.category": ["read"],
-    "items.units": ["read"],
-    // Quotations sub-modules - full access
-    "quotations.quotations": ["create", "read", "update", "export"],
-    "quotations.invoices": ["create", "read", "update", "export"],
-    "quotations.orders": ["create", "read", "update", "export"],
-    // Accounts sub-modules - read-only
-    "accounts.chart-of-accounts": ["read"],
-    "accounts.ledgers": ["read"],
-    "accounts.vouchers": ["read"],
-    "accounts.trial-balance": ["read"],
-    "accounts.balance-sheet": ["read"],
-    "accounts.profit-loss": ["read"],
-    "accounts.cash-bank": ["read"],
-    "accounts.accounts-receivable": ["read"],
-    "accounts.accounts-payable": ["read"],
-    // Peoples sub-modules - clients and suppliers focus
-    "peoples.clients": ["create", "read", "update", "export"],
-    "peoples.suppliers": ["create", "read", "update", "export"],
-    "peoples.users": ["read"],
-    files: ["read", "create", "update"],
-    notifications: ["read"],
-    analytics: ["read"],
-    reports: ["read", "export"],
-  };
 
   // Accounts Template - Accounts module focus
   const accountsPermissions: Partial<EnhancedPermissions> = {
@@ -173,67 +115,359 @@ async function seedPermissions() {
     ...createPermissionsForPages(["notifications"], ["view"]),
     ...createPermissionsForPages(["analytics", "reports"], ["view"]),
   };
-    dashboard: ["read"],
-    // Items sub-modules - read-only
-    "items.items": ["read"],
-    "items.groups": ["read"],
-    "items.category": ["read"],
-    "items.units": ["read"],
-    // Quotations sub-modules - read-only
-    "quotations.quotations": ["read", "export"],
-    "quotations.invoices": ["read", "export"],
-    "quotations.orders": ["read", "export"],
-    // Accounts sub-modules - full access
-    "accounts.chart-of-accounts": ["create", "read", "update", "delete", "export", "import"],
-    "accounts.ledgers": ["create", "read", "update", "delete", "export", "import"],
-    "accounts.vouchers": ["create", "read", "update", "delete", "export", "import"],
-    "accounts.trial-balance": ["create", "read", "update", "delete", "export", "import"],
-    "accounts.balance-sheet": ["create", "read", "update", "delete", "export", "import"],
-    "accounts.profit-loss": ["create", "read", "update", "delete", "export", "import"],
-    "accounts.cash-bank": ["create", "read", "update", "delete", "export", "import"],
-    "accounts.accounts-receivable": ["create", "read", "update", "delete", "export", "import"],
-    "accounts.accounts-payable": ["create", "read", "update", "delete", "export", "import"],
-    // Peoples sub-modules - read-only
-    "peoples.users": ["read"],
-    "peoples.clients": ["read"],
-    "peoples.suppliers": ["read"],
-    files: ["read"],
-    notifications: ["read"],
-    analytics: ["read"],
-    reports: ["read", "export"],
-  };
 
   // Basic User Template - Read-only
   const basicUserPermissions: Partial<EnhancedPermissions> =
     createPermissionsForPages(allPageKeys, ["view"]);
-    dashboard: ["read"],
-    // Items sub-modules - read-only
-    "items.items": ["read"],
-    "items.groups": ["read"],
-    "items.category": ["read"],
-    "items.units": ["read"],
-    // Quotations sub-modules - read-only
-    "quotations.quotations": ["read"],
-    "quotations.invoices": ["read"],
-    "quotations.orders": ["read"],
-    // Accounts sub-modules - read-only
-    "accounts.chart-of-accounts": ["read"],
-    "accounts.ledgers": ["read"],
-    "accounts.vouchers": ["read"],
-    "accounts.trial-balance": ["read"],
-    "accounts.balance-sheet": ["read"],
-    "accounts.profit-loss": ["read"],
-    "accounts.cash-bank": ["read"],
-    "accounts.accounts-receivable": ["read"],
-    "accounts.accounts-payable": ["read"],
-    // Peoples sub-modules - read-only
-    "peoples.users": ["read"],
-    "peoples.clients": ["read"],
-    "peoples.suppliers": ["read"],
-    files: ["read"],
-    notifications: ["read"],
-    analytics: ["read"],
-    reports: ["read"],
+
+  // ============================================
+  // ADMIN CATEGORY - System & Operations Management
+  // ============================================
+
+  // Super Admin Template - Full system access (developer-level)
+  const superAdminPermissions: Partial<EnhancedPermissions> = 
+    createPermissionsForPages(allPageKeys, ["create", "view", "edit", "move-to-trash", "delete-permanently", "export", "import"]);
+
+  // Admin Template - Full operational access (no system/developer settings)
+  const adminPermissions: Partial<EnhancedPermissions> = {
+    ...createPermissionsForPages(
+      ["dashboard", "profile"],
+      ["view", "edit"]
+    ),
+    // Items - full access
+    ...createPermissionsForPages(
+      ["items.items", "items.groups", "items.category", "items.units"],
+      allStandardOps
+    ),
+    // Quotations - full access
+    ...createPermissionsForPages(
+      ["quotations.quotations", "quotations.invoices", "quotations.orders"],
+      allStandardOps
+    ),
+    // Accounts - full access
+    ...createPermissionsForPages(
+      [
+        "accounts.chart-of-accounts",
+        "accounts.ledgers",
+        "accounts.vouchers",
+        "accounts.trial-balance",
+        "accounts.balance-sheet",
+        "accounts.profit-loss",
+        "accounts.cash-bank",
+        "accounts.accounts-receivable",
+        "accounts.accounts-payable",
+      ],
+      allStandardOps
+    ),
+    // Peoples - full access
+    ...createPermissionsForPages(
+      ["peoples.users", "peoples.clients", "peoples.suppliers"],
+      allStandardOps
+    ),
+    ...createPermissionsForPages(["files"], allStandardOps),
+    ...createPermissionsForPages(["notifications"], ["view", "edit"]),
+    ...createPermissionsForPages(["analytics", "reports"], ["view", "export"]),
+    // Settings - full access except developer tools
+    ...createPermissionsForPages(
+      [
+        "settings",
+        "settings.organization",
+        "settings.experience",
+        "settings.accounts",
+        "settings.emails",
+        "settings.calendars",
+        "settings.whatsapp",
+        "settings.telegram",
+        "settings.sms",
+        "settings.backup",
+        "settings.permissions",
+        "settings.tex",
+        "settings.paymentMethods",
+        "settings.preferences",
+        "settings.coverLetter",
+        "settings.tos",
+        "settings.general",
+        "settings.members",
+      ],
+      ["view", "edit"]
+    ),
+    // NO access to developer settings
+  };
+
+  // Directors Template - View-only across all modules
+  const directorsPermissions: Partial<EnhancedPermissions> = {
+    ...createPermissionsForPages(
+      ["dashboard", "profile"],
+      ["view"]
+    ),
+    // Items - view only
+    ...createPermissionsForPages(
+      ["items.items", "items.groups", "items.category", "items.units"],
+      ["view"]
+    ),
+    // Quotations - view and export
+    ...createPermissionsForPages(
+      ["quotations.quotations", "quotations.invoices", "quotations.orders"],
+      ["view", "export"]
+    ),
+    // Accounts - view and export
+    ...createPermissionsForPages(
+      [
+        "accounts.chart-of-accounts",
+        "accounts.ledgers",
+        "accounts.vouchers",
+        "accounts.trial-balance",
+        "accounts.balance-sheet",
+        "accounts.profit-loss",
+        "accounts.cash-bank",
+        "accounts.accounts-receivable",
+        "accounts.accounts-payable",
+      ],
+      ["view", "export"]
+    ),
+    // Peoples - view only
+    ...createPermissionsForPages(
+      ["peoples.users", "peoples.clients", "peoples.suppliers"],
+      ["view"]
+    ),
+    ...createPermissionsForPages(["files"], ["view"]),
+    ...createPermissionsForPages(["notifications"], ["view"]),
+    ...createPermissionsForPages(["analytics", "reports"], ["view", "export"]),
+  };
+
+  // ============================================
+  // USER CATEGORY - Operational Roles
+  // ============================================
+
+  // Accountant Template - Financial operations focus
+  const accountantPermissions: Partial<EnhancedPermissions> = {
+    ...createPermissionsForPages(
+      ["dashboard", "profile"],
+      ["view"]
+    ),
+    // Items - view only (for pricing context)
+    ...createPermissionsForPages(
+      ["items.items", "items.groups", "items.category", "items.units"],
+      ["view"]
+    ),
+    // Quotations - view and export (for financial context)
+    ...createPermissionsForPages(
+      ["quotations.quotations", "quotations.invoices", "quotations.orders"],
+      ["view", "export"]
+    ),
+    // Accounts - full access
+    ...createPermissionsForPages(
+      [
+        "accounts.chart-of-accounts",
+        "accounts.ledgers",
+        "accounts.vouchers",
+        "accounts.trial-balance",
+        "accounts.balance-sheet",
+        "accounts.profit-loss",
+        "accounts.cash-bank",
+        "accounts.accounts-receivable",
+        "accounts.accounts-payable",
+      ],
+      allStandardOps
+    ),
+    // Peoples - view and limited edit
+    ...createPermissionsForPages(
+      ["peoples.clients", "peoples.suppliers"],
+      ["view", "edit"]
+    ),
+    ...createPermissionsForPages(["peoples.users"], ["view"]),
+    ...createPermissionsForPages(["files"], ["view"]),
+    ...createPermissionsForPages(["notifications"], ["view"]),
+    ...createPermissionsForPages(["analytics", "reports"], ["view", "export"]),
+    // Settings - accounts related
+    ...createPermissionsForPages(
+      ["settings.accounts", "settings.tex", "settings.paymentMethods"],
+      ["view", "edit"]
+    ),
+  };
+
+  // Line Manager Template - Quotation approval and status management
+  const lineManagerPermissions: Partial<EnhancedPermissions> = {
+    ...createPermissionsForPages(
+      ["dashboard", "profile"],
+      ["view"]
+    ),
+    // Items - view only
+    ...createPermissionsForPages(
+      ["items.items", "items.groups", "items.category", "items.units"],
+      ["view"]
+    ),
+    // Quotations - view, edit, approve (no create)
+    ...createPermissionsForPages(
+      ["quotations.quotations"],
+      ["view", "edit", "export"]
+    ),
+    // Orders - view and edit status
+    ...createPermissionsForPages(
+      ["quotations.invoices", "quotations.orders"],
+      ["view", "edit", "export"]
+    ),
+    // Accounts - view only
+    ...createPermissionsForPages(
+      [
+        "accounts.chart-of-accounts",
+        "accounts.ledgers",
+        "accounts.vouchers",
+        "accounts.trial-balance",
+        "accounts.balance-sheet",
+        "accounts.profit-loss",
+        "accounts.cash-bank",
+        "accounts.accounts-receivable",
+        "accounts.accounts-payable",
+      ],
+      ["view"]
+    ),
+    // Peoples - view only
+    ...createPermissionsForPages(
+      ["peoples.users", "peoples.clients", "peoples.suppliers"],
+      ["view"]
+    ),
+    ...createPermissionsForPages(["files"], ["view", "create"]),
+    ...createPermissionsForPages(["notifications"], ["view"]),
+    ...createPermissionsForPages(["analytics", "reports"], ["view", "export"]),
+  };
+
+  // SR (Sales Representative) Template - Quotation creation and client management
+  const srPermissions: Partial<EnhancedPermissions> = {
+    ...createPermissionsForPages(
+      ["dashboard", "profile"],
+      ["view"]
+    ),
+    // Items - view and limited edit
+    ...createPermissionsForPages(
+      ["items.items"],
+      ["view", "edit"]
+    ),
+    ...createPermissionsForPages(
+      ["items.groups", "items.category", "items.units"],
+      ["view"]
+    ),
+    // Quotations - full CRUD
+    ...createPermissionsForPages(
+      ["quotations.quotations", "quotations.invoices"],
+      ["create", "view", "edit", "move-to-trash"]
+    ),
+    ...createPermissionsForPages(
+      ["quotations.orders"],
+      ["view"]
+    ),
+    // Accounts - view only
+    ...createPermissionsForPages(
+      [
+        "accounts.chart-of-accounts",
+        "accounts.ledgers",
+        "accounts.vouchers",
+        "accounts.trial-balance",
+        "accounts.balance-sheet",
+        "accounts.profit-loss",
+        "accounts.cash-bank",
+        "accounts.accounts-receivable",
+        "accounts.accounts-payable",
+      ],
+      ["view"]
+    ),
+    // Peoples - full CRUD on clients, view suppliers
+    ...createPermissionsForPages(
+      ["peoples.clients"],
+      allStandardOps
+    ),
+    ...createPermissionsForPages(
+      ["peoples.suppliers", "peoples.users"],
+      ["view"]
+    ),
+    ...createPermissionsForPages(["files"], ["view", "create"]),
+    ...createPermissionsForPages(["notifications"], ["view"]),
+    ...createPermissionsForPages(["analytics", "reports"], ["view"]),
+  };
+
+  // Architect Template - Technical quotation creation with item/group focus
+  const architectPermissions: Partial<EnhancedPermissions> = {
+    ...createPermissionsForPages(
+      ["dashboard", "profile"],
+      ["view"]
+    ),
+    // Items - full CRUD
+    ...createPermissionsForPages(
+      ["items.items", "items.groups", "items.category", "items.units"],
+      allStandardOps
+    ),
+    // Quotations - full CRUD
+    ...createPermissionsForPages(
+      ["quotations.quotations", "quotations.invoices"],
+      ["create", "view", "edit", "move-to-trash"]
+    ),
+    ...createPermissionsForPages(
+      ["quotations.orders"],
+      ["view"]
+    ),
+    // Accounts - view only
+    ...createPermissionsForPages(
+      [
+        "accounts.chart-of-accounts",
+        "accounts.ledgers",
+        "accounts.vouchers",
+        "accounts.trial-balance",
+        "accounts.balance-sheet",
+        "accounts.profit-loss",
+        "accounts.cash-bank",
+        "accounts.accounts-receivable",
+        "accounts.accounts-payable",
+      ],
+      ["view"]
+    ),
+    // Peoples - view and limited edit on clients
+    ...createPermissionsForPages(
+      ["peoples.clients"],
+      ["view", "edit"]
+    ),
+    ...createPermissionsForPages(
+      ["peoples.suppliers", "peoples.users"],
+      ["view"]
+    ),
+    ...createPermissionsForPages(["files"], allStandardOps),
+    ...createPermissionsForPages(["notifications"], ["view"]),
+    ...createPermissionsForPages(["analytics", "reports"], ["view", "export"]),
+  };
+
+  // Factory Manager Template - Order management and production tracking
+  const factoryManagerPermissions: Partial<EnhancedPermissions> = {
+    ...createPermissionsForPages(
+      ["dashboard", "profile"],
+      ["view"]
+    ),
+    // Items - view only (production specs)
+    ...createPermissionsForPages(
+      ["items.items", "items.groups", "items.category", "items.units"],
+      ["view"]
+    ),
+    // Quotations - view only (for context)
+    ...createPermissionsForPages(
+      ["quotations.quotations", "quotations.invoices"],
+      ["view"]
+    ),
+    // Orders - view and edit (status updates)
+    ...createPermissionsForPages(
+      ["quotations.orders"],
+      ["view", "edit", "export"]
+    ),
+    // Accounts - no access
+    // Peoples - view suppliers
+    ...createPermissionsForPages(
+      ["peoples.suppliers"],
+      ["view"]
+    ),
+    ...createPermissionsForPages(
+      ["peoples.clients", "peoples.users"],
+      ["view"]
+    ),
+    ...createPermissionsForPages(["files"], ["view", "create"]),
+    ...createPermissionsForPages(["notifications"], ["view"]),
+    ...createPermissionsForPages(["analytics", "reports"], ["view"]),
   };
 
   const templates = [
@@ -256,6 +490,52 @@ async function seedPermissions() {
       name: "Basic User",
       description: "Read-only access to all modules",
       permissions: basicUserPermissions,
+    },
+    // ============================================
+    // ADMIN CATEGORY TEMPLATES
+    // ============================================
+    {
+      name: "Super Admin",
+      description: "Full system access with developer-level permissions (all access)",
+      permissions: superAdminPermissions,
+    },
+    {
+      name: "Admin",
+      description: "Full operational access to all modules (no system/developer settings)",
+      permissions: adminPermissions,
+    },
+    {
+      name: "Directors",
+      description: "View-only access across all modules with export capabilities",
+      permissions: directorsPermissions,
+    },
+    // ============================================
+    // USER CATEGORY TEMPLATES
+    // ============================================
+    {
+      name: "Accountant",
+      description: "Financial operations focus with full access to accounts module",
+      permissions: accountantPermissions,
+    },
+    {
+      name: "Line Manager",
+      description: "Quotation approval and status management (view, edit, approve)",
+      permissions: lineManagerPermissions,
+    },
+    {
+      name: "SR (Sales Representative)",
+      description: "Quotation creation and client management focus",
+      permissions: srPermissions,
+    },
+    {
+      name: "Architect",
+      description: "Technical quotation creation with full item/group management",
+      permissions: architectPermissions,
+    },
+    {
+      name: "Factory Manager",
+      description: "Order management and production tracking focus",
+      permissions: factoryManagerPermissions,
     },
   ];
 
