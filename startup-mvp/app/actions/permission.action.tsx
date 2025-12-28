@@ -11,7 +11,8 @@ import {
   convertToEnhancedPermissionsAsync,
 } from "@/lib/permissions";
 import { createUserLog } from "@/lib/user-log";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath as nextRevalidatePath, revalidateTag } from "next/cache";
+import { revalidateBothPaths } from "@/lib/route-utils-server";
 import type {
   Module,
   Operation,
@@ -164,7 +165,7 @@ export async function createPermissionTemplate(input: {
       details: `Created permission template: ${input.name}`,
     });
 
-    revalidatePath("/admin/settings/permissions/templates");
+    nextRevalidatePath("/admin/settings/permissions/templates");
     return {
       success: true,
       template: {
@@ -269,7 +270,7 @@ export async function updatePermissionTemplate(
       details: `Updated permission template: ${template.name}`,
     });
 
-    revalidatePath("/admin/settings/permissions/templates");
+    nextRevalidatePath("/admin/settings/permissions/templates");
     return {
       success: true,
       template: {
@@ -338,7 +339,7 @@ export async function deletePermissionTemplate(templateId: string) {
       details: `Deleted permission template: ${template.name}`,
     });
 
-    revalidatePath("/admin/settings/permissions/templates");
+    nextRevalidatePath("/admin/settings/permissions/templates");
     return {
       success: true,
     };
@@ -512,11 +513,11 @@ export async function updateUserPermissionsAction(
       // Revalidate affected user's dashboard to update sidebar immediately
       // Revalidating the layout will cause DashboardSidebarWrapper to re-fetch permissions
       // on the user's next navigation or page refresh
-      revalidatePath('/dashboard', 'layout');
-      revalidatePath('/dashboard', 'page');
-      
-      // Revalidate admin page
-      revalidatePath(`/admin/settings/permissions/users/${userId}`);
+      revalidateBothPaths('', 'layout');
+      revalidateBothPaths('', 'page');
+
+      // Revalidate admin permissions page
+      nextRevalidatePath(`/admin/settings/permissions/users/${userId}`);
     }
 
     return result;
@@ -599,9 +600,9 @@ export async function resetUserPermissionsToTemplate(
       
       // Revalidate affected user's permission cache
       revalidateTag(`permissions-${userId}`);
-      revalidatePath('/dashboard', 'layout');
-      revalidatePath('/dashboard', 'page');
-      revalidatePath(`/admin/settings/permissions/users/${userId}`);
+      revalidateBothPaths('', 'layout');
+      revalidateBothPaths('', 'page');
+      nextRevalidatePath(`/admin/settings/permissions/users/${userId}`);
     }
 
     return {
@@ -615,6 +616,59 @@ export async function resetUserPermissionsToTemplate(
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
       permissions: {},
+    };
+  }
+}
+
+/**
+ * Check for permission updates for the current user
+ * Returns the timestamp of the last permission update
+ * Used by client-side polling to detect permission changes
+ */
+export async function checkPermissionUpdates() {
+  try {
+    const session = await auth();
+    
+    if (!session?.user?.id) {
+      return { 
+        lastUpdated: null, 
+        error: "Unauthorized" 
+      };
+    }
+
+    const userId = session.user.id;
+
+    // Get the most recent update timestamp from UserPermission table
+    const latestPermission = await prisma.userPermission.findFirst({
+      where: { userId },
+      orderBy: { updatedAt: "desc" },
+      select: { updatedAt: true },
+    });
+
+    // Also check user's updatedAt (in case template was updated)
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { updatedAt: true },
+    });
+
+    // Get the most recent timestamp
+    const timestamps = [
+      latestPermission?.updatedAt,
+      user?.updatedAt,
+    ].filter(Boolean) as Date[];
+
+    const lastUpdated = timestamps.length > 0
+      ? new Date(Math.max(...timestamps.map(d => d.getTime())))
+      : new Date(0); // If no permissions exist, return epoch
+
+    return {
+      lastUpdated: lastUpdated.toISOString(),
+    };
+  } catch (error) {
+    console.error("Error checking permission updates:", error);
+    return {
+      lastUpdated: null,
+      error: error instanceof Error ? error.message : "Internal server error",
     };
   }
 }

@@ -2,7 +2,8 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { revalidatePath as nextRevalidatePath } from "next/cache";
+import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { NotificationType } from "@prisma/client";
 
 type ActionResult<T = unknown> = {
@@ -111,11 +112,11 @@ export async function createNotification(data: {
       console.log("createNotification: Successfully created", notifications.length, "notifications");
 
       // Revalidate paths for all affected users
-      revalidatePath("/dashboard");
-      revalidatePath("/dashboard/notifications");
-      revalidatePath("/dashboard/admin/notifications");
+      revalidateBothPaths("");
+      revalidateBothPaths("notifications");
+      nextRevalidatePath("/admin/notifications");
       validUserIds.forEach((userId) => {
-        revalidatePath(`/dashboard/users/${userId}`);
+        nextRevalidatePath(`/admin/users/${userId}`);
       });
 
       return {
@@ -158,12 +159,12 @@ export async function createNotification(data: {
 
     console.log("createNotification: Successfully created", notifications.length, "notifications");
 
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/notifications");
-    revalidatePath("/dashboard/admin/notifications");
+    revalidateBothPaths("");
+    revalidateBothPaths("notifications");
+    nextRevalidatePath("/admin/notifications");
     // Revalidate for all users who received the notification
     allUsers.forEach((user) => {
-      revalidatePath(`/dashboard/users/${user.id}`);
+      nextRevalidatePath(`/admin/users/${user.id}`);
     });
 
     return {
@@ -320,10 +321,10 @@ export async function markAsRead(
       },
     });
 
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/notifications");
+    revalidateBothPaths("");
+    revalidateBothPaths("notifications");
     if (notification.userId) {
-      revalidatePath(`/dashboard/users/${notification.userId}`);
+      nextRevalidatePath(`/admin/users/${notification.userId}`);
     }
 
     return {
@@ -396,10 +397,10 @@ export async function markAsUnread(
       },
     });
 
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/notifications");
+    revalidateBothPaths("");
+    revalidateBothPaths("notifications");
     if (notification.userId) {
-      revalidatePath(`/dashboard/users/${notification.userId}`);
+      nextRevalidatePath(`/admin/users/${notification.userId}`);
     }
 
     return {
@@ -460,9 +461,9 @@ export async function deleteNotification(
       where: { id: notificationId },
     });
 
-    revalidatePath("/dashboard");
+    revalidateBothPaths("");
     if (notification.userId) {
-      revalidatePath(`/dashboard/users/${notification.userId}`);
+      nextRevalidatePath(`/admin/users/${notification.userId}`);
     }
 
     return {

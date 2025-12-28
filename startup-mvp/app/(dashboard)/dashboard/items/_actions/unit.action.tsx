@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
-import { revalidatePath } from "next/cache";
+import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma } from "@prisma/client";
 
 /**
@@ -217,8 +217,8 @@ export async function createUnit(input: {
       { symbol: unit.symbol, details: unit.details }
     );
 
-    // Revalidate units page
-    revalidatePath("/dashboard/items/units", "page");
+    // Revalidate units page for both admin and dashboard
+    revalidateBothPaths("items/units", "page");
 
     return {
       success: true,
@@ -311,10 +311,10 @@ export async function updateUnit(input: {
       { symbol: unit.symbol, details: unit.details, changes }
     );
 
-    // Revalidate units page
-    revalidatePath("/dashboard/items/units", "page");
-    revalidatePath(`/dashboard/items/units/${unit.id}`, "page");
-    revalidatePath(`/dashboard/items/units/details?id=${unit.id}`, "page");
+    // Revalidate units page for both admin and dashboard
+    revalidateBothPaths("items/units", "page");
+    revalidateBothPaths(`items/units/${unit.id}`, "page");
+    revalidateBothPaths(`items/units/details?id=${unit.id}`, "page");
 
     return {
       success: true,
@@ -377,8 +377,8 @@ export async function deleteUnit(unitId: string) {
       { symbol: unitToDelete.symbol, details: unitToDelete.details }
     );
 
-    // Revalidate units page
-    revalidatePath("/dashboard/items/units", "page");
+    // Revalidate units page for both admin and dashboard
+    revalidateBothPaths("items/units", "page");
 
     return {
       success: true,
@@ -432,8 +432,8 @@ export async function bulkUpdateUnitStatus(
     });
     console.log("Units updated:", result.count);
 
-    // Revalidate units page
-    revalidatePath("/dashboard/items/units", "page");
+    // Revalidate units page for both admin and dashboard
+    revalidateBothPaths("items/units", "page");
 
     return {
       success: true,
@@ -551,10 +551,10 @@ export async function deleteUnitsPermanently(unitIds: string[]) {
           );
         }
 
-        // Revalidate all relevant paths
-        revalidatePath("/dashboard/items/units", "page");
-        revalidatePath("/dashboard/items", "page");
-        revalidatePath("/dashboard/items", "layout");
+        // Revalidate all relevant paths for both admin and dashboard
+        revalidateBothPaths("items/units", "page");
+        revalidateBothPaths("items", "page");
+        revalidateBothPaths("items", "layout");
 
         return {
           success: true,
@@ -599,10 +599,10 @@ export async function deleteUnitsPermanently(unitIds: string[]) {
       );
     }
 
-    // Revalidate all relevant paths where units are displayed
-    revalidatePath("/dashboard/items/units", "page");
-    revalidatePath("/dashboard/items", "page");
-    revalidatePath("/dashboard/items", "layout");
+    // Revalidate all relevant paths where units are displayed for both admin and dashboard
+    revalidateBothPaths("items/units", "page");
+    revalidateBothPaths("items", "page");
+    revalidateBothPaths("items", "layout");
     
     return {
       success: true,

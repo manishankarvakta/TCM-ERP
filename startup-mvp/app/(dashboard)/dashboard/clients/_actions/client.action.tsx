@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
-import { revalidatePath } from "next/cache";
+import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma } from "@prisma/client";
 
 /**
@@ -279,7 +279,7 @@ export async function createClient(input: {
     );
 
     // Revalidate clients page
-    revalidatePath("/dashboard/clients");
+    revalidateBothPaths("clients");
 
     return {
       success: true,
@@ -421,7 +421,7 @@ export async function updateClient(input: {
     );
 
     // Revalidate clients page
-    revalidatePath("/dashboard/clients");
+    revalidateBothPaths("clients");
     revalidatePath(`/dashboard/clients/${client.id}`);
     revalidatePath(`/dashboard/clients/details?id=${client.id}`);
 
@@ -487,7 +487,7 @@ export async function deleteClient(clientId: string) {
     );
 
     // Revalidate clients page
-    revalidatePath("/dashboard/clients");
+    revalidateBothPaths("clients");
 
     return {
       success: true,
@@ -556,7 +556,7 @@ export async function bulkUpdateClientStatus(
     }
 
     // Revalidate clients page
-    revalidatePath("/dashboard/clients");
+    revalidateBothPaths("clients");
 
     return {
       success: true,
@@ -627,7 +627,7 @@ export async function deleteClientsPermanently(clientIds: string[]) {
     });
 
     // Revalidate clients page
-    revalidatePath("/dashboard/clients");
+    revalidateBothPaths("clients");
     
     return {
       success: true,

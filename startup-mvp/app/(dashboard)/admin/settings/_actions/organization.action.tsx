@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { notifyUserAction } from "@/lib/notification";
-import { revalidatePath } from "next/cache";
+import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma } from "@prisma/client";
 import { NotificationType } from "@prisma/client";
 
@@ -265,7 +265,7 @@ export async function createOrganization(input: {
     });
 
     // Revalidate organizations page
-    revalidatePath("/admin/settings");
+    revalidateBothPaths("settings");
 
     return {
       success: true,
@@ -412,7 +412,7 @@ export async function updateOrganization(input: {
     });
 
     // Revalidate organizations page
-    revalidatePath("/admin/settings");
+    revalidateBothPaths("settings");
 
     return {
       success: true,
@@ -487,7 +487,7 @@ export async function deleteOrganization(organizationId: string) {
     });
 
     // Revalidate organizations page
-    revalidatePath("/admin/settings");
+    revalidateBothPaths("settings");
 
     return {
       success: true,
@@ -566,7 +566,7 @@ export async function bulkUpdateOrganizationStatus(
     });
 
     // Revalidate organizations page
-    revalidatePath("/admin/settings");
+    revalidateBothPaths("settings");
 
     return {
       success: true,
@@ -646,7 +646,7 @@ export async function deleteOrganizationsPermanently(organizationIds: string[]) 
     });
 
     // Revalidate organizations page
-    revalidatePath("/admin/settings");
+    revalidateBothPaths("settings");
     
     return {
       success: true,

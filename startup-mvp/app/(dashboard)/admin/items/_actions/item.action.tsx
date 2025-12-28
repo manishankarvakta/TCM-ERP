@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
-import { revalidatePath } from "next/cache";
+import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { Prisma } from "@prisma/client";
 
 /**
@@ -470,7 +470,7 @@ export async function createItem(input: {
     );
 
     // Revalidate items page
-    revalidatePath("/admin/items");
+    revalidateBothPaths("items");
 
     return {
       success: true,
@@ -663,7 +663,7 @@ export async function updateItem(input: {
     );
 
     // Revalidate items page
-    revalidatePath("/admin/items");
+    revalidateBothPaths("items");
     revalidatePath(`/admin/items/${item.id}`);
     revalidatePath(`/admin/items/details?id=${item.id}`);
 
@@ -724,7 +724,7 @@ export async function deleteItem(itemId: string) {
     );
 
     // Revalidate items page
-    revalidatePath("/admin/items");
+    revalidateBothPaths("items");
 
     return {
       success: true,
@@ -773,7 +773,7 @@ export async function bulkUpdateItemStatus(
     });
 
     // Revalidate items page
-    revalidatePath("/admin/items");
+    revalidateBothPaths("items");
 
     return {
       success: true,
@@ -817,7 +817,7 @@ export async function deleteItemsPermanently(itemIds: string[]) {
     });
 
     // Revalidate items page
-    revalidatePath("/admin/items");
+    revalidateBothPaths("items");
     
     return {
       success: true,

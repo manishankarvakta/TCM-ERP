@@ -2,10 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { checkPermissionUpdates } from "@/app/actions/permission.action";
 
 /**
  * PermissionSync component
- * Polls the API to check for permission changes and refreshes the page when detected
+ * Polls server action to check for permission changes and refreshes the page when detected
  * Only runs for non-admin users (admins don't need permission checks)
  */
 export default function PermissionSync() {
@@ -19,22 +20,17 @@ export default function PermissionSync() {
 
     const checkPermissions = async () => {
       try {
-        const response = await fetch("/api/permissions/check", {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
+        const result = await checkPermissionUpdates();
+        
+        if (result.error) {
           // If unauthorized or error, stop polling
-          if (response.status === 401) {
+          if (result.error === "Unauthorized") {
             return;
           }
           return;
         }
 
-        const data = await response.json();
-        const currentLastUpdated = data.lastUpdated;
+        const currentLastUpdated = result.lastUpdated;
 
         // First check - just store the timestamp
         if (lastCheckedRef.current === null) {

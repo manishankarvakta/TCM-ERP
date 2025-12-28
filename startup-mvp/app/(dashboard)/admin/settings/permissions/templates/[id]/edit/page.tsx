@@ -20,7 +20,7 @@ export default async function EditTemplatePage({ params }: EditTemplatePageProps
   // Check if user is admin
   const userRole = session.user.role?.toLowerCase();
   if (userRole !== "admin") {
-    redirect("/dashboard");
+    redirect("/admin");
   }
 
   const result = await getPermissionTemplateById(id);

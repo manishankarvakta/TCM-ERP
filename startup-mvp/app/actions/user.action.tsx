@@ -3,7 +3,8 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logUserDeleted, logUserCreated, logUserUpdated, getUserLogs } from "@/lib/user-log";
-import { revalidatePath } from "next/cache";
+import { revalidatePath as nextRevalidatePath } from "next/cache";
+import { revalidateBothPaths } from "@/lib/route-utils-server";
 import bcrypt from "bcryptjs";
 import { NotificationType, type Prisma } from "@prisma/client";
 import {
@@ -164,9 +165,9 @@ export async function updateCurrentUserProfile(input: {
     }
 
     // Revalidate profile page and dashboard layout to refresh session
-    revalidatePath("/dashboard/profile");
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/settings");
+    revalidateBothPaths("profile");
+    revalidateBothPaths("");
+    revalidateBothPaths("settings");
 
     return {
       success: true,
@@ -461,8 +462,8 @@ export async function deleteUser(userId: string) {
     // Log the deletion
     await logUserDeleted(userId, session.user.id, userToDelete.email || undefined);
 
-    // Revalidate users page
-    revalidatePath("/dashboard/users");
+    // Revalidate users page for both admin and dashboard
+    nextRevalidatePath("/admin/users");
 
     return {
       success: true,
@@ -675,8 +676,8 @@ export async function createUser(input: {
     // Log user creation
     await logUserCreated(user.id, session.user.id, user.email);
 
-    // Revalidate users page
-    revalidatePath("/dashboard/users");
+    // Revalidate users page for both admin and dashboard
+    nextRevalidatePath("/admin/users");
 
     return {
       success: true,
@@ -820,9 +821,9 @@ export async function updateUser(input: {
       console.error("Failed to create notification:", error);
     }
 
-    // Revalidate users page
-    revalidatePath("/dashboard/users");
-    revalidatePath(`/dashboard/users/${user.id}`);
+    // Revalidate users page for both admin and dashboard
+    nextRevalidatePath("/admin/users");
+    nextRevalidatePath(`/admin/users/${user.id}`);
 
     return {
       success: true,
@@ -889,8 +890,8 @@ export async function bulkUpdateUserStatus(
       },
     });
 
-    // Revalidate users page
-    revalidatePath("/dashboard/users");
+    // Revalidate users page for both admin and dashboard
+    nextRevalidatePath("/admin/users");
 
     return {
       success: true,
@@ -950,8 +951,8 @@ export async function deleteUsersPermanently(userIds: string[]) {
       },
     });
 
-    // Revalidate users page
-    revalidatePath("/dashboard/users");
+    // Revalidate users page for both admin and dashboard
+    nextRevalidatePath("/admin/users");
     
     return {
       success: true,

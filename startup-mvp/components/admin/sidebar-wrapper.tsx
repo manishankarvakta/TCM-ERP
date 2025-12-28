@@ -1,74 +1,10 @@
-// Cache-bust: v4
 import { auth } from "@/lib/auth";
-import { getUserPermissionsEnhanced } from "@/lib/permissions";
-import { NAVIGATION_STRUCTURE, type PagePermission } from "@/types/permissions";
 import {
-  MENU_TEMPLATE,
-  BOTTOM_MENU_TEMPLATE,
-  getPermissionKeyFromPath,
-  type MenuItemData,
-} from "@/lib/navigation-builder";
+  getNavigationPermissions,
+  getUserPermissionsEnhanced,
+} from "@/lib/permissions";
+import { NAVIGATION_STRUCTURE, type PagePermission } from "@/types/permissions";
 import DashboardSidebar from "./sidebar";
-
-/**
- * Filter menu items based on user permissions
- * @param menuTemplate - The complete menu template
- * @param accessiblePages - Map of permission keys to access status
- * @returns Filtered menu items array
- */
-function filterMenuByPermissions(
-  menuTemplate: MenuItemData[],
-  accessiblePages: Map<string, boolean>
-): MenuItemData[] {
-  const filteredMenu: MenuItemData[] = [];
-
-  for (const item of menuTemplate) {
-    // Handle items with subMenus
-    if (item.subMenu && item.subMenu.length > 0) {
-      // Filter submenu items FIRST
-      const filteredSubMenu = item.subMenu.filter((subItem) => {
-        const permissionKey = getPermissionKeyFromPath(subItem.href);
-        if (!permissionKey) {
-          return false;
-        }
-        
-        const hasAccess = accessiblePages.get(permissionKey);
-        return hasAccess === true;
-      });
-
-      // Only show parent if at least one submenu is accessible
-      if (filteredSubMenu.length === 0) {
-        continue;
-      }
-
-      // Create filtered item with filtered submenu
-      filteredMenu.push({
-        ...item,
-        subMenu: filteredSubMenu,
-      });
-    } 
-    // Handle items without subMenus (direct links)
-    else if (item.href) {
-      // Always visible items (Dashboard, Profile) - show regardless
-      if (item.href === "/dashboard" || item.href === "/dashboard/profile") {
-        filteredMenu.push(item);
-        continue;
-      }
-      
-      const permissionKey = getPermissionKeyFromPath(item.href);
-      if (!permissionKey) {
-        continue;
-      }
-      
-      const hasAccess = accessiblePages.get(permissionKey);
-      if (hasAccess === true) {
-        filteredMenu.push(item);
-      }
-    }
-  }
-
-  return filteredMenu;
-}
 
 export default async function DashboardSidebarWrapper() {
   const session = await auth();
@@ -83,12 +19,16 @@ export default async function DashboardSidebarWrapper() {
   // Check if user has any permissions (excluding always visible items)
   const hasAnyPermissions = Object.keys(permissions).length > 0;
   
+  // Get user's visible navigation items
+  let visibleNavigations = await getNavigationPermissions(session.user.id);
+  
   // Build accessible pages map (permissionKey -> has access)
   const accessiblePages = new Map<string, boolean>();
   
   if (!hasAnyPermissions) {
     // User has no permissions - only show Dashboard and Profile
     // Settings is excluded even though it's alwaysVisible
+    visibleNavigations = new Set(["dashboard", "profile"]);
     
     // Only set Dashboard and Profile as accessible
     accessiblePages.set("dashboard", true);
@@ -164,14 +104,10 @@ export default async function DashboardSidebarWrapper() {
     }
   }
 
-  // Filter menu items based on permissions
-  const filteredMainMenu = filterMenuByPermissions(MENU_TEMPLATE, accessiblePages);
-  const filteredBottomMenu = filterMenuByPermissions(BOTTOM_MENU_TEMPLATE, accessiblePages);
-
   return (
     <DashboardSidebar
-      menuItems={filteredMainMenu}
-      bottomMenuItems={filteredBottomMenu}
+      visibleNavigations={visibleNavigations}
+      accessiblePages={accessiblePages}
     />
   );
 }

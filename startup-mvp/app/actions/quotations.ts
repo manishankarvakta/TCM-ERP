@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidateBothPaths } from '@/lib/route-utils-server';
 import { prisma } from '@/lib/prisma';
 import { Prisma, QuotationStatus } from '@prisma/client';
 import { auth } from '@/lib/auth';
@@ -670,7 +670,7 @@ export async function createQuotation(data: any) {
       },
     });
 
-    revalidatePath('/dashboard/quotations', 'page');
+    revalidateBothPaths('quotations', 'page');
     
     // Create notification for quotation creation
     await notifyItemCreated(
@@ -1010,8 +1010,8 @@ export async function updateQuotation(id: string, data: any) {
       },
     });
 
-    revalidatePath('/dashboard/quotations', 'page');
-    revalidatePath(`/dashboard/quotations/${id}`, 'page');
+    revalidateBothPaths('quotations', 'page');
+    revalidateBothPaths(`quotations/${id}`, 'page');
     
     console.log('Update successful, quotation ID:', quotation.id);
     console.log('Updated quotation number:', quotation.quotationNumber);
@@ -1117,8 +1117,8 @@ export async function deleteQuotation(id: string) {
       },
     });
 
-    revalidatePath('/dashboard/quotations', 'page');
-    revalidatePath(`/dashboard/quotations/${id}`, 'page');
+    revalidateBothPaths('quotations', 'page');
+    revalidateBothPaths(`quotations/${id}`, 'page');
     
     // Create notification for quotation moved to trash
     await notifyItemDeleted(
@@ -1323,10 +1323,10 @@ export async function bulkUpdateQuotationStatus(
     }
 
     // Revalidate quotations list page
-    revalidatePath('/dashboard/quotations', 'page');
+    revalidateBothPaths('quotations', 'page');
     // Revalidate individual quotation pages for each updated quotation
     for (const quotation of quotations) {
-      revalidatePath(`/dashboard/quotations/${quotation.id}`, 'page');
+      revalidateBothPaths(`quotations/${quotation.id}`, 'page');
     }
 
     return {
@@ -1415,7 +1415,7 @@ export async function deleteQuotationsPermanently(quotationIds: string[]) {
       `${quotations.length} quotation(s)`
     );
 
-    revalidatePath('/dashboard/quotations', 'page');
+    revalidateBothPaths('quotations', 'page');
 
     return {
       success: true,
