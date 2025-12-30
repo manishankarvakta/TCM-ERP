@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidateBothPaths } from '@/lib/route-utils-server';
 import { prisma } from '@/lib/prisma';
 import { Prisma, QuotationStatus } from '@prisma/client';
 import { auth } from '@/lib/auth';
@@ -33,11 +33,32 @@ export async function getQuotations(
       };
     }
 
+    // Check if user is admin
+    const isAdmin = session.user.role?.toLowerCase() === 'admin';
+
     const skip = (page - 1) * limit;
     const isTrashTab = status === 'trash';
 
     // Build where clause - use AND array to properly combine filters
     const whereConditions: any[] = [];
+    
+    // Add user filter: only show quotations from current user or users they are in charge of
+    // Admins can see all quotations from all users
+    if (!isAdmin) {
+      // Fetch users that the current user is in charge of
+      const usersInCharge = await prisma.user.findMany({
+        where: { inchargeId: session.user.id },
+        select: { id: true },
+      });
+      const userIdsInCharge = usersInCharge.map(u => u.id);
+
+      // Build array of allowed user IDs (current user + users in charge)
+      const allowedUserIds = [session.user.id, ...userIdsInCharge];
+      
+      whereConditions.push({
+        submittedById: { in: allowedUserIds }
+      });
+    }
     
     // Set trash filter
     if (isTrashTab) {
@@ -466,36 +487,40 @@ export async function createQuotation(data: any) {
           total += Number(section.grandTotal || 0);
         } else {
           // Otherwise calculate from items
-          let sectionTotal = 0;
-
-          // Sum direct items
-          if (section.items && Array.isArray(section.items)) {
-            section.items.forEach((item: any) => {
-              sectionTotal += Number(item.amount || 0);
-            });
-          }
-
-          // Sum items in groups
+          // Calculate module group total (sum of all groups' items)
+          let moduleGroupTotal = 0;
           if (section.groups && Array.isArray(section.groups)) {
             section.groups.forEach((group: any) => {
               if (group.items && Array.isArray(group.items)) {
                 group.items.forEach((item: any) => {
-                  sectionTotal += Number(item.amount || 0);
+                  moduleGroupTotal += Number(item.amount || 0);
                 });
               }
             });
           }
 
-          // Sum items in category groups
+          // Calculate items category total (sum of all categoryGroups' items)
+          let itemsCategoryTotal = 0;
           if (section.categoryGroups && Array.isArray(section.categoryGroups)) {
             section.categoryGroups.forEach((categoryGroup: any) => {
               if (categoryGroup.items && Array.isArray(categoryGroup.items)) {
                 categoryGroup.items.forEach((item: any) => {
-                  sectionTotal += Number(item.amount || 0);
+                  itemsCategoryTotal += Number(item.amount || 0);
                 });
               }
             });
           }
+
+          // Calculate items total (sum of direct items)
+          let itemsTotal = 0;
+          if (section.items && Array.isArray(section.items)) {
+            section.items.forEach((item: any) => {
+              itemsTotal += Number(item.amount || 0);
+            });
+          }
+
+          // Section total = module group total + items category total + items total
+          let sectionTotal = moduleGroupTotal + itemsCategoryTotal + itemsTotal;
 
           // Apply discount (amount-based, not percentage)
           if (section.discount) {
@@ -670,7 +695,7 @@ export async function createQuotation(data: any) {
       },
     });
 
-    revalidatePath('/dashboard/quotations', 'page');
+    revalidateBothPaths('quotations', 'page');
     
     // Create notification for quotation creation
     await notifyItemCreated(
@@ -798,34 +823,40 @@ export async function updateQuotation(id: string, data: any) {
           total += Number(section.grandTotal || 0);
         } else {
           // Otherwise calculate from items
-          let sectionTotal = 0;
-
-          if (section.items && Array.isArray(section.items)) {
-            section.items.forEach((item: any) => {
-              sectionTotal += Number(item.amount || 0);
-            });
-          }
-
+          // Calculate module group total (sum of all groups' items)
+          let moduleGroupTotal = 0;
           if (section.groups && Array.isArray(section.groups)) {
             section.groups.forEach((group: any) => {
               if (group.items && Array.isArray(group.items)) {
                 group.items.forEach((item: any) => {
-                  sectionTotal += Number(item.amount || 0);
+                  moduleGroupTotal += Number(item.amount || 0);
                 });
               }
             });
           }
 
-          // Sum items in category groups
+          // Calculate items category total (sum of all categoryGroups' items)
+          let itemsCategoryTotal = 0;
           if (section.categoryGroups && Array.isArray(section.categoryGroups)) {
             section.categoryGroups.forEach((categoryGroup: any) => {
               if (categoryGroup.items && Array.isArray(categoryGroup.items)) {
                 categoryGroup.items.forEach((item: any) => {
-                  sectionTotal += Number(item.amount || 0);
+                  itemsCategoryTotal += Number(item.amount || 0);
                 });
               }
             });
           }
+
+          // Calculate items total (sum of direct items)
+          let itemsTotal = 0;
+          if (section.items && Array.isArray(section.items)) {
+            section.items.forEach((item: any) => {
+              itemsTotal += Number(item.amount || 0);
+            });
+          }
+
+          // Section total = module group total + items category total + items total
+          let sectionTotal = moduleGroupTotal + itemsCategoryTotal + itemsTotal;
 
           // Apply discount (amount-based, not percentage)
           if (section.discount) {
@@ -1010,8 +1041,8 @@ export async function updateQuotation(id: string, data: any) {
       },
     });
 
-    revalidatePath('/dashboard/quotations', 'page');
-    revalidatePath(`/dashboard/quotations/${id}`, 'page');
+    revalidateBothPaths('quotations', 'page');
+    revalidateBothPaths(`quotations/${id}`, 'page');
     
     console.log('Update successful, quotation ID:', quotation.id);
     console.log('Updated quotation number:', quotation.quotationNumber);
@@ -1117,8 +1148,8 @@ export async function deleteQuotation(id: string) {
       },
     });
 
-    revalidatePath('/dashboard/quotations', 'page');
-    revalidatePath(`/dashboard/quotations/${id}`, 'page');
+    revalidateBothPaths('quotations', 'page');
+    revalidateBothPaths(`quotations/${id}`, 'page');
     
     // Create notification for quotation moved to trash
     await notifyItemDeleted(
@@ -1323,10 +1354,10 @@ export async function bulkUpdateQuotationStatus(
     }
 
     // Revalidate quotations list page
-    revalidatePath('/dashboard/quotations', 'page');
+    revalidateBothPaths('quotations', 'page');
     // Revalidate individual quotation pages for each updated quotation
     for (const quotation of quotations) {
-      revalidatePath(`/dashboard/quotations/${quotation.id}`, 'page');
+      revalidateBothPaths(`quotations/${quotation.id}`, 'page');
     }
 
     return {
@@ -1415,7 +1446,7 @@ export async function deleteQuotationsPermanently(quotationIds: string[]) {
       `${quotations.length} quotation(s)`
     );
 
-    revalidatePath('/dashboard/quotations', 'page');
+    revalidateBothPaths('quotations', 'page');
 
     return {
       success: true,
@@ -1428,4 +1459,6 @@ export async function deleteQuotationsPermanently(quotationIds: string[]) {
     };
   }
 }
+
+
 

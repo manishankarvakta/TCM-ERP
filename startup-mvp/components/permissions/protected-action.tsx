@@ -18,6 +18,7 @@ interface ProtectedActionProps {
   className?: string;
   fallback?: React.ReactNode;
   userId?: string; // Optional: pass userId directly to avoid session lookup
+  hasAccess?: boolean; // Optional: pre-checked permission result (skips client-side check)
 }
 
 // Map actions to operations
@@ -60,12 +61,20 @@ export default function ProtectedAction({
   className,
   fallback,
   userId: providedUserId,
+  hasAccess: preCheckedAccess,
 }: ProtectedActionProps) {
-  const [hasAccess, setHasAccess] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [hasAccess, setHasAccess] = useState(preCheckedAccess ?? false);
+  const [loading, setLoading] = useState(preCheckedAccess === undefined);
   const [userId, setUserId] = useState<string | null>(providedUserId || null);
 
   useEffect(() => {
+    // If permission is pre-checked, skip client-side check
+    if (preCheckedAccess !== undefined) {
+      setHasAccess(preCheckedAccess);
+      setLoading(false);
+      return;
+    }
+
     async function checkPermission() {
       let currentUserId = providedUserId;
 
@@ -110,7 +119,7 @@ export default function ProtectedAction({
     }
 
     checkPermission();
-  }, [providedUserId, permissionKey, action]);
+  }, [providedUserId, permissionKey, action, preCheckedAccess]);
 
   if (loading) {
     return null;

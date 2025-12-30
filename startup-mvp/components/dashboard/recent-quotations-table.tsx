@@ -91,7 +91,7 @@ export default function RecentQuotationsTable({ quotations }: RecentQuotationsTa
             <TableRow key={quotation.id} className="h-12">
               <TableCell className="font-medium text-sm">
                 <Link
-                  href={`/admin/quotations/${quotation.id}`}
+                  href={`/dashboard/quotations/${quotation.id}`}
                   className="text-primary hover:underline"
                 >
                   {quotation.quotationNumber}

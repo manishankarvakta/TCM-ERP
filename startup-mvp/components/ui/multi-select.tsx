@@ -1,12 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 
 export interface MultiSelectOption {
   label: string;
@@ -41,6 +42,7 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
   ) => {
     const [open, setOpen] = React.useState(false);
     const [internalValue, setInternalValue] = React.useState<string[]>(defaultValue);
+    const [searchQuery, setSearchQuery] = React.useState("");
 
     // Use controlled value if provided, otherwise use internal state
     const isControlled = value !== undefined;
@@ -84,6 +86,18 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
       }
       onValueChange([]);
     };
+
+    // Filter options based on search query
+    const filteredOptions = React.useMemo(() => {
+      if (!searchQuery) return options;
+      
+      const query = searchQuery.toLowerCase();
+      return options.filter(
+        (option) =>
+          option.label.toLowerCase().includes(query) ||
+          option.value.toLowerCase().includes(query)
+      );
+    }, [options, searchQuery]);
 
     const selectedOptions = options.filter((opt) => selectedValues.includes(opt.value));
     const allSelected = options.filter((opt) => !opt.disabled).length > 0 &&
@@ -155,6 +169,17 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
         </PopoverTrigger>
         <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
           <div className="flex flex-col">
+            {/* Search input */}
+            <div className="flex items-center border-b px-3 py-2">
+              <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+              <Input
+                placeholder="Search options..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-8 border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+            </div>
+            
             {options.length > 0 && (
               <div className="flex items-center justify-between border-b px-3 py-2">
                 <button
@@ -178,12 +203,12 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
               </div>
             )}
             <div className="max-h-[300px] overflow-y-auto p-1">
-              {options.length === 0 ? (
+              {filteredOptions.length === 0 ? (
                 <div className="py-6 text-center text-sm text-muted-foreground">
-                  No options available
+                  {searchQuery ? "No results found" : "No options available"}
                 </div>
               ) : (
-                options.map((option) => {
+                filteredOptions.map((option) => {
                   const isSelected = selectedValues.includes(option.value);
                   const isOptionDisabled = option.disabled || disabled;
 

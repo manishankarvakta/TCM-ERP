@@ -33,6 +33,9 @@ model User {
   status               String         @default("active") // active, inactive, trash
   designationTemplateId String?      // Reference to PermissionTemplate
   permissions          Json?         // Cached merged permissions (template + overrides)
+  inchargeId           String?       // Reference to another User (self-referential)
+  incharge             User?         @relation("UserIncharge", fields: [inchargeId], references: [id], onDelete: SetNull)
+  inchargeOf           User[]        @relation("UserIncharge")
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
   accounts             Account[]
@@ -57,6 +60,7 @@ model User {
 
   @@index([status])
   @@index([designationTemplateId])
+  @@index([inchargeId])
 }
 
 model Account {

@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
-import { revalidatePath } from "next/cache";
+import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma } from "@prisma/client";
 
 /**
@@ -479,7 +479,7 @@ export async function deleteCategoriesPermanently(categoryIds: string[]) {
     });
 
     // Revalidate categories page
-    revalidatePath("/dashboard/items/category");
+    revalidateBothPaths("items/category");
     revalidatePath("/dashboard/category");
     
     return {

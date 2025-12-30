@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { FiPlus } from "react-icons/fi";
 import PageGuard from "@/components/permissions/page-guard";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 
 interface GroupsPageProps {
   searchParams: Promise<{
@@ -20,10 +22,20 @@ export default async function GroupsPage({ searchParams }: GroupsPageProps) {
   const page = parseInt(params.page || "1", 10);
   const search = params.search || "";
 
+  const session = await auth();
+  const userId = session?.user?.id;
+
   const status = tab === "all" ? "all" : tab === "active" ? "active" : tab === "inactive" ? "inactive" : "trash";
   const isTrash = tab === "trash";
 
-  const result = await getGroups(page, 10, search, status);
+  // Check permissions on server side for better performance
+  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
+    getGroups(page, 10, search, status),
+    userId ? hasPermission(userId, "items.groups", "view") : false,
+    userId ? hasPermission(userId, "items.groups", "edit") : false,
+    userId ? hasPermission(userId, "items.groups", "move-to-trash") : false,
+    userId ? hasPermission(userId, "items.groups", "delete-permanently") : false,
+  ]);
 
   return (
     <PageGuard permissionKey="items.groups">
@@ -69,6 +81,13 @@ export default async function GroupsPage({ searchParams }: GroupsPageProps) {
               }}
               initialSearch={search}
               isTrash={isTrash}
+              userId={userId || undefined}
+              permissions={{
+                view: canView,
+                edit: canEdit,
+                moveToTrash: canMoveToTrash,
+                deletePermanently: canDeletePermanently,
+              }}
             />
           </TabsContent>
         </Tabs>

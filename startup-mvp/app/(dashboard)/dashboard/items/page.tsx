@@ -6,6 +6,8 @@ import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import ItemsListClient from "./_components/items";
 import PageGuard from "@/components/permissions/page-guard";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 
 interface ItemsPageProps {
   searchParams: Promise<{
@@ -21,8 +23,19 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
   const search = params.search || "";
   const tab = params.tab || "all";
 
+  const session = await auth();
+  const userId = session?.user?.id;
+
   const status = tab === "trash" ? "trash" : tab === "active" ? "active" : tab === "inactive" ? "inactive" : "all";
-  const result = await getItems(page, 10, search, status);
+  
+  // Check permissions on server side for better performance
+  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
+    getItems(page, 10, search, status),
+    userId ? hasPermission(userId, "items.items", "view") : false,
+    userId ? hasPermission(userId, "items.items", "edit") : false,
+    userId ? hasPermission(userId, "items.items", "move-to-trash") : false,
+    userId ? hasPermission(userId, "items.items", "delete-permanently") : false,
+  ]);
 
   // Handle errors
   if (!result.success) {
@@ -87,6 +100,13 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
               }}
               initialSearch={search}
               isTrash={false}
+              userId={userId || undefined}
+              permissions={{
+                view: canView,
+                edit: canEdit,
+                moveToTrash: canMoveToTrash,
+                deletePermanently: canDeletePermanently,
+              }}
             />
           </TabsContent>
           <TabsContent value="active" className="mt-4">
@@ -100,6 +120,13 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
               }}
               initialSearch={search}
               isTrash={false}
+              userId={userId || undefined}
+              permissions={{
+                view: canView,
+                edit: canEdit,
+                moveToTrash: canMoveToTrash,
+                deletePermanently: canDeletePermanently,
+              }}
             />
           </TabsContent>
           <TabsContent value="inactive" className="mt-4">
@@ -113,6 +140,13 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
               }}
               initialSearch={search}
               isTrash={false}
+              userId={userId || undefined}
+              permissions={{
+                view: canView,
+                edit: canEdit,
+                moveToTrash: canMoveToTrash,
+                deletePermanently: canDeletePermanently,
+              }}
             />
           </TabsContent>
           <TabsContent value="trash" className="mt-4">
@@ -126,6 +160,13 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
               }}
               initialSearch={search}
               isTrash={true}
+              userId={userId || undefined}
+              permissions={{
+                view: canView,
+                edit: canEdit,
+                moveToTrash: canMoveToTrash,
+                deletePermanently: canDeletePermanently,
+              }}
             />
           </TabsContent>
         </Tabs>

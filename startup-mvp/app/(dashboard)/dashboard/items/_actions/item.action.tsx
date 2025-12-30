@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
-import { revalidatePath } from "next/cache";
+import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { Prisma } from "@prisma/client";
 
 /**
@@ -469,8 +469,8 @@ export async function createItem(input: {
       { code: item.code, description: item.description, unitPrice: item.unitPrice.toString() }
     );
 
-    // Revalidate items page
-    revalidatePath("/dashboard/items");
+    // Revalidate items page for both admin and dashboard
+    revalidateBothPaths("items");
 
     return {
       success: true,
@@ -662,10 +662,10 @@ export async function updateItem(input: {
       { code: item.code, description: item.description, unitPrice: item.unitPrice.toString(), changes }
     );
 
-    // Revalidate items page
-    revalidatePath("/dashboard/items");
-    revalidatePath(`/dashboard/items/${item.id}`);
-    revalidatePath(`/dashboard/items/details?id=${item.id}`);
+    // Revalidate items page for both admin and dashboard
+    revalidateBothPaths("items");
+    revalidateBothPaths(`items/${item.id}`);
+    revalidateBothPaths(`items/details?id=${item.id}`);
 
     return {
       success: true,
@@ -723,8 +723,8 @@ export async function deleteItem(itemId: string) {
       { code: itemToDelete.code, description: itemToDelete.description }
     );
 
-    // Revalidate items page
-    revalidatePath("/dashboard/items");
+    // Revalidate items page for both admin and dashboard
+    revalidateBothPaths("items");
 
     return {
       success: true,
@@ -772,8 +772,8 @@ export async function bulkUpdateItemStatus(
       },
     });
 
-    // Revalidate items page
-    revalidatePath("/dashboard/items");
+    // Revalidate items page for both admin and dashboard
+    revalidateBothPaths("items");
 
     return {
       success: true,
@@ -816,8 +816,8 @@ export async function deleteItemsPermanently(itemIds: string[]) {
       },
     });
 
-    // Revalidate items page
-    revalidatePath("/dashboard/items");
+    // Revalidate items page for both admin and dashboard
+    revalidateBothPaths("items");
     
     return {
       success: true,

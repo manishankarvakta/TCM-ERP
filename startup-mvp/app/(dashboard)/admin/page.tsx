@@ -12,10 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { FiPlus, FiFileText, FiPackage, FiUsers, FiShoppingCart } from "react-icons/fi";
-import AdminDashboardStats from "@/components/dashboard/admin-dashboard-stats";
-import RecentQuotationsTable from "@/components/dashboard/recent-quotations-table";
-import QuotationStatusChart from "@/components/dashboard/quotation-status-chart";
-import RecentActivity from "@/components/dashboard/recent-activity";
+import AdminDashboardStats from "@/components/admin/admin-dashboard-stats";
+import RecentQuotationsTable from "@/components/admin/recent-quotations-table";
+import QuotationStatusChart from "@/components/admin/quotation-status-chart";
+import RecentActivity from "@/components/admin/recent-activity";
 
 export default async function AdminDashboardPage() {
   const session = await auth();
@@ -28,7 +28,7 @@ export default async function AdminDashboardPage() {
   // Check if user is admin
   const userRole = session.user.role?.toLowerCase();
   if (userRole !== "admin") {
-    redirect("/dashboard");
+    redirect("/admin");
   }
 
   // Fetch all dashboard data in parallel

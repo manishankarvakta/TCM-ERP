@@ -74,6 +74,13 @@ interface SuppliersListClientProps {
   initialPagination: Pagination;
   initialSearch: string;
   isTrash?: boolean;
+  userId?: string;
+  permissions?: {
+    view: boolean;
+    edit: boolean;
+    moveToTrash: boolean;
+    deletePermanently: boolean;
+  };
 }
 
 export default function SuppliersListClient({
@@ -81,6 +88,8 @@ export default function SuppliersListClient({
   initialPagination,
   initialSearch,
   isTrash = false,
+  userId: providedUserId,
+  permissions,
 }: SuppliersListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -394,11 +403,15 @@ export default function SuppliersListClient({
                               permissionKey="peoples.suppliers"
                               action="edit"
                               href={`/dashboard/suppliers/${supplier.id}`}
+                              userId={providedUserId || undefined}
+                              hasAccess={permissions?.edit}
                             />
                             <ProtectedAction
                               permissionKey="peoples.suppliers"
                               action="view"
                               href={`/dashboard/suppliers/details?id=${supplier.id}`}
+                              userId={providedUserId || undefined}
+                              hasAccess={permissions?.view}
                             />
                           </>
                         )}
@@ -419,6 +432,8 @@ export default function SuppliersListClient({
                           permissionKey="peoples.suppliers"
                           action={isTrash ? "delete-permanently" : "move-to-trash"}
                           onClick={() => setDeleteSupplierId(supplier.id)}
+                          userId={providedUserId || undefined}
+                          hasAccess={isTrash ? permissions?.deletePermanently : permissions?.moveToTrash}
                           buttonProps={{
                             disabled: isPending,
                             className: "text-destructive hover:text-destructive",

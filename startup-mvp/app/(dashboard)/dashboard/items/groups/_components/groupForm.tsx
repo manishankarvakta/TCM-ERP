@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -27,6 +27,7 @@ import {
   GROUP_BASE_UNIT_OPTIONS, 
   type LengthUnit 
 } from "@/lib/utils/unitConverter";
+import { getBasePathFromPathname } from "@/lib/route-utils-client";
 
 const groupItemSchema = z.object({
   sl: z.number(),
@@ -88,6 +89,7 @@ interface GroupFormProps {
 
 export default function GroupForm({ mode, initialData }: GroupFormProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
@@ -265,12 +267,14 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
         })),
       };
 
+      const basePath = getBasePathFromPathname(pathname);
+      
       if (mode === "create") {
         const result = await createGroup(submitData);
         if (!result.success) {
           throw new Error(result.error || "Failed to create group");
         }
-        router.push("/dashboard/items/groups");
+        router.push(`${basePath}/items/groups`);
       } else {
         const result = await updateGroup({
           id: initialData!.id,
@@ -279,7 +283,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
         if (!result.success) {
           throw new Error(result.error || "Failed to update group");
         }
-        router.push("/dashboard/items/groups");
+        router.push(`${basePath}/items/groups`);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");

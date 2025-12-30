@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { notifyUserAction } from "@/lib/notification";
-import { revalidatePath } from "next/cache";
+import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma } from "@prisma/client";
 import { NotificationType } from "@prisma/client";
 
@@ -264,8 +264,8 @@ export async function createOrganization(input: {
       type: NotificationType.SUCCESS,
     });
 
-    // Revalidate organizations page
-    revalidatePath("/dashboard/settings");
+    // Revalidate settings page for both admin and dashboard
+    revalidateBothPaths("settings");
 
     return {
       success: true,
@@ -411,8 +411,8 @@ export async function updateOrganization(input: {
       changes,
     });
 
-    // Revalidate organizations page
-    revalidatePath("/dashboard/settings");
+    // Revalidate settings page for both admin and dashboard
+    revalidateBothPaths("settings");
 
     return {
       success: true,
@@ -486,8 +486,8 @@ export async function deleteOrganization(organizationId: string) {
       type: NotificationType.WARNING,
     });
 
-    // Revalidate organizations page
-    revalidatePath("/dashboard/settings");
+    // Revalidate settings page for both admin and dashboard
+    revalidateBothPaths("settings");
 
     return {
       success: true,
@@ -565,8 +565,8 @@ export async function bulkUpdateOrganizationStatus(
       type: status === "active" ? NotificationType.SUCCESS : status === "trash" ? NotificationType.WARNING : NotificationType.INFO,
     });
 
-    // Revalidate organizations page
-    revalidatePath("/dashboard/settings");
+    // Revalidate settings page for both admin and dashboard
+    revalidateBothPaths("settings");
 
     return {
       success: true,
@@ -645,8 +645,8 @@ export async function deleteOrganizationsPermanently(organizationIds: string[]) 
       type: NotificationType.ERROR,
     });
 
-    // Revalidate organizations page
-    revalidatePath("/dashboard/settings");
+    // Revalidate settings page for both admin and dashboard
+    revalidateBothPaths("settings");
     
     return {
       success: true,

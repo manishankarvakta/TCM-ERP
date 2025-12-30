@@ -184,6 +184,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   const orgEmail = organization?.email || '';
   const orgWebsite = organization?.website || '';
   const orgLogo = organization?.logo || null;
+  const defaultLogoPath = '/logo.png'; // Default logo fallback
 
   // Get client data from quotation
   const client = quotation.client || null;
@@ -256,30 +257,43 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   });
 
   // RIGHT COLUMN: Organization Logo and Info
-  const orgLogoPath = orgLogo || '/clientLogo.png';
   const rightMargin = 5; // Margin from the right edge of the page
   const rightColumnEndX = pageWidth - margin - rightMargin; // End position for right alignment with margin from page edge
   
-  try {
-    const orgLogoBase64 = await loadImageAsBase64(orgLogoPath);
-    if (orgLogoBase64) {
-      try {
-        const dimensions = await getImageDimensions(orgLogoBase64, topLogoHeight);
-        if (dimensions) {
-          // Convert pixels to mm (1mm ≈ 3.779527559 pixels at 96 DPI)
-          const logoHeightMM = topLogoHeight / 3.779527559;
-          const logoWidthMM = dimensions.width / 3.779527559;
-          // Position logo at the right edge of the column (right-aligned)
-          const logoX = rightColumnEndX - logoWidthMM;
-          doc.addImage(orgLogoBase64, 'PNG', logoX, rightColumnY, logoWidthMM, logoHeightMM);
-          rightColumnY += logoHeightMM + 5; // Add spacing after logo
-        }
-      } catch (imageError) {
-        console.warn('Error adding organization logo to PDF, continuing without logo:', imageError);
-      }
+  // Try to load organization logo, fallback to default logo if it fails
+  let orgLogoBase64: string | null = null;
+  if (orgLogo) {
+    try {
+      orgLogoBase64 = await loadImageAsBase64(orgLogo);
+    } catch (error) {
+      console.warn('Error loading organization logo, trying default logo:', error);
     }
-  } catch (error) {
-    console.warn('Error loading organization logo, continuing without logo:', error);
+  }
+  
+  // If organization logo failed or doesn't exist, try default logo
+  if (!orgLogoBase64) {
+    try {
+      orgLogoBase64 = await loadImageAsBase64(defaultLogoPath);
+    } catch (error) {
+      console.warn('Error loading default logo:', error);
+    }
+  }
+  
+  if (orgLogoBase64) {
+    try {
+      const dimensions = await getImageDimensions(orgLogoBase64, topLogoHeight);
+      if (dimensions) {
+        // Convert pixels to mm (1mm ≈ 3.779527559 pixels at 96 DPI)
+        const logoHeightMM = topLogoHeight / 3.779527559;
+        const logoWidthMM = dimensions.width / 3.779527559;
+        // Position logo at the right edge of the column (right-aligned)
+        const logoX = rightColumnEndX - logoWidthMM;
+        doc.addImage(orgLogoBase64, 'PNG', logoX, rightColumnY, logoWidthMM, logoHeightMM);
+        rightColumnY += logoHeightMM + 5; // Add spacing after logo
+      }
+    } catch (imageError) {
+      console.warn('Error adding organization logo to PDF, continuing without logo:', imageError);
+    }
   }
 
   // Organization Name and Info below logo (right-aligned)
@@ -460,27 +474,41 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   // Organization Logo at Bottom Right Corner
   // Fixed height: 50px, width auto (maintain aspect ratio)
   const bottomLogoHeight = 50; // Fixed height in pixels
-  try {
-    const logoBase64 = await loadImageAsBase64(orgLogoPath);
-    if (logoBase64) {
-      try {
-        const dimensions = await getImageDimensions(logoBase64, bottomLogoHeight);
-        if (dimensions) {
-          // Convert pixels to mm (1mm ≈ 3.779527559 pixels at 96 DPI)
-          const bottomLogoHeightMM = bottomLogoHeight / 3.779527559;
-          const bottomLogoWidthMM = dimensions.width / 3.779527559;
-          const logoXBottom = pageWidth - margin - bottomLogoWidthMM - 5;
-          const logoYBottom = pageHeight - margin - bottomLogoHeightMM - 5;
-          doc.addImage(logoBase64, 'PNG', logoXBottom, logoYBottom, bottomLogoWidthMM, bottomLogoHeightMM);
-        }
-      } catch (imageError) {
-        console.warn('Error adding bottom organization logo to PDF, continuing without logo:', imageError);
-        // Continue without logo
-      }
+  
+  // Try to load organization logo, fallback to default logo if it fails
+  let bottomLogoBase64: string | null = null;
+  if (orgLogo) {
+    try {
+      bottomLogoBase64 = await loadImageAsBase64(orgLogo);
+    } catch (error) {
+      console.warn('Error loading organization logo for bottom, trying default logo:', error);
     }
-  } catch (error) {
-    // Continue without logo
-    console.warn('Error loading bottom organization logo, continuing without logo:', error);
+  }
+  
+  // If organization logo failed or doesn't exist, try default logo
+  if (!bottomLogoBase64) {
+    try {
+      bottomLogoBase64 = await loadImageAsBase64(defaultLogoPath);
+    } catch (error) {
+      console.warn('Error loading default logo for bottom:', error);
+    }
+  }
+  
+  if (bottomLogoBase64) {
+    try {
+      const dimensions = await getImageDimensions(bottomLogoBase64, bottomLogoHeight);
+      if (dimensions) {
+        // Convert pixels to mm (1mm ≈ 3.779527559 pixels at 96 DPI)
+        const bottomLogoHeightMM = bottomLogoHeight / 3.779527559;
+        const bottomLogoWidthMM = dimensions.width / 3.779527559;
+        const logoXBottom = pageWidth - margin - bottomLogoWidthMM - 5;
+        const logoYBottom = pageHeight - margin - bottomLogoHeightMM - 5;
+        doc.addImage(bottomLogoBase64, 'PNG', logoXBottom, logoYBottom, bottomLogoWidthMM, bottomLogoHeightMM);
+      }
+    } catch (imageError) {
+      console.warn('Error adding bottom organization logo to PDF, continuing without logo:', imageError);
+      // Continue without logo
+    }
   }
 
   // ============================================
