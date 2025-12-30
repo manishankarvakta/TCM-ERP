@@ -37,7 +37,7 @@ import {
 import Logo from "@/components/layout/logo";
 import { SlCalculator } from "react-icons/sl";
 import { MdOutlineCategory } from "react-icons/md";
-import type { MenuItemData, SubMenuItemData } from "@/lib/navigation-builder";
+import type { MenuItemData, SubMenuItemData, SubMenuGroup } from "@/lib/navigation-builder";
 
 // Icon mapping - converts icon name strings to React components
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -95,6 +95,21 @@ export default function DashboardSidebar({
           expanded.add(item.label);
         }
       }
+      if (item.subMenuGroups) {
+        const hasActiveChild = item.subMenuGroups.some((group) =>
+          group.items.some((subItem) => {
+            if (pathname === subItem.href) return true;
+            if (pathname?.startsWith(subItem.href)) {
+              const nextChar = pathname[subItem.href.length];
+              return nextChar === '/' || nextChar === undefined;
+            }
+            return false;
+          })
+        );
+        if (hasActiveChild) {
+          expanded.add(item.label);
+        }
+      }
     });
     return expanded;
   });
@@ -117,6 +132,14 @@ export default function DashboardSidebar({
     return subMenu.some((subItem) => {
       return pathname === subItem.href;
     });
+  };
+
+  const isSubMenuGroupsActive = (subMenuGroups: SubMenuGroup[]) => {
+    return subMenuGroups.some((group) =>
+      group.items.some((subItem) => {
+        return pathname === subItem.href;
+      })
+    );
   };
 
   // Close sidebar when clicking outside on mobile
@@ -209,6 +232,66 @@ export default function DashboardSidebar({
                         </Link>
                       );
                     })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          if (item.subMenuGroups) {
+            const isExpanded = isMenuExpanded(item.label);
+            const hasActiveChild = isSubMenuGroupsActive(item.subMenuGroups);
+            
+            return (
+              <div key={item.label}>
+                <button
+                  onClick={() => toggleMenu(item.label)}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    hasActiveChild
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </div>
+                  {isExpanded ? (
+                    <FiChevronDown className="h-4 w-4" />
+                  ) : (
+                    <FiChevronRight className="h-4 w-4" />
+                  )}
+                </button>
+                {isExpanded && (
+                  <div className="ml-4 mt-1 space-y-2 border-l pl-4">
+                    {item.subMenuGroups.map((group, groupIndex) => (
+                      <div key={groupIndex} className="space-y-1">
+                        <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          {group.label}
+                        </div>
+                        {group.items.map((subItem) => {
+                          const SubIcon = ICON_MAP[subItem.icon] || FiFile;
+                          const isActive = pathname === subItem.href;
+                          return (
+                            <Link
+                              key={subItem.href}
+                              href={subItem.href}
+                              className={cn(
+                                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                                isActive
+                                  ? "bg-accent text-accent-foreground"
+                                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                              )}
+                              onClick={() => dispatch(setSidebarOpen(false))}
+                            >
+                              <SubIcon className="h-4 w-4" />
+                              <span>{subItem.label}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
