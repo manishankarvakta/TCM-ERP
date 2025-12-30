@@ -487,36 +487,40 @@ export async function createQuotation(data: any) {
           total += Number(section.grandTotal || 0);
         } else {
           // Otherwise calculate from items
-          let sectionTotal = 0;
-
-          // Sum direct items
-          if (section.items && Array.isArray(section.items)) {
-            section.items.forEach((item: any) => {
-              sectionTotal += Number(item.amount || 0);
-            });
-          }
-
-          // Sum items in groups
+          // Calculate module group total (sum of all groups' items)
+          let moduleGroupTotal = 0;
           if (section.groups && Array.isArray(section.groups)) {
             section.groups.forEach((group: any) => {
               if (group.items && Array.isArray(group.items)) {
                 group.items.forEach((item: any) => {
-                  sectionTotal += Number(item.amount || 0);
+                  moduleGroupTotal += Number(item.amount || 0);
                 });
               }
             });
           }
 
-          // Sum items in category groups
+          // Calculate items category total (sum of all categoryGroups' items)
+          let itemsCategoryTotal = 0;
           if (section.categoryGroups && Array.isArray(section.categoryGroups)) {
             section.categoryGroups.forEach((categoryGroup: any) => {
               if (categoryGroup.items && Array.isArray(categoryGroup.items)) {
                 categoryGroup.items.forEach((item: any) => {
-                  sectionTotal += Number(item.amount || 0);
+                  itemsCategoryTotal += Number(item.amount || 0);
                 });
               }
             });
           }
+
+          // Calculate items total (sum of direct items)
+          let itemsTotal = 0;
+          if (section.items && Array.isArray(section.items)) {
+            section.items.forEach((item: any) => {
+              itemsTotal += Number(item.amount || 0);
+            });
+          }
+
+          // Section total = module group total + items category total + items total
+          let sectionTotal = moduleGroupTotal + itemsCategoryTotal + itemsTotal;
 
           // Apply discount (amount-based, not percentage)
           if (section.discount) {
@@ -819,34 +823,40 @@ export async function updateQuotation(id: string, data: any) {
           total += Number(section.grandTotal || 0);
         } else {
           // Otherwise calculate from items
-          let sectionTotal = 0;
-
-          if (section.items && Array.isArray(section.items)) {
-            section.items.forEach((item: any) => {
-              sectionTotal += Number(item.amount || 0);
-            });
-          }
-
+          // Calculate module group total (sum of all groups' items)
+          let moduleGroupTotal = 0;
           if (section.groups && Array.isArray(section.groups)) {
             section.groups.forEach((group: any) => {
               if (group.items && Array.isArray(group.items)) {
                 group.items.forEach((item: any) => {
-                  sectionTotal += Number(item.amount || 0);
+                  moduleGroupTotal += Number(item.amount || 0);
                 });
               }
             });
           }
 
-          // Sum items in category groups
+          // Calculate items category total (sum of all categoryGroups' items)
+          let itemsCategoryTotal = 0;
           if (section.categoryGroups && Array.isArray(section.categoryGroups)) {
             section.categoryGroups.forEach((categoryGroup: any) => {
               if (categoryGroup.items && Array.isArray(categoryGroup.items)) {
                 categoryGroup.items.forEach((item: any) => {
-                  sectionTotal += Number(item.amount || 0);
+                  itemsCategoryTotal += Number(item.amount || 0);
                 });
               }
             });
           }
+
+          // Calculate items total (sum of direct items)
+          let itemsTotal = 0;
+          if (section.items && Array.isArray(section.items)) {
+            section.items.forEach((item: any) => {
+              itemsTotal += Number(item.amount || 0);
+            });
+          }
+
+          // Section total = module group total + items category total + items total
+          let sectionTotal = moduleGroupTotal + itemsCategoryTotal + itemsTotal;
 
           // Apply discount (amount-based, not percentage)
           if (section.discount) {
@@ -1449,4 +1459,6 @@ export async function deleteQuotationsPermanently(quotationIds: string[]) {
     };
   }
 }
+
+
 
