@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { Prisma } from "@prisma/client";
 import { notifyItemCreated, notifyItemUpdated, notifyItemDeleted } from "@/lib/notification";
 import { createUserLog, LogAction } from "@/lib/user-log";
@@ -314,8 +314,8 @@ export async function createGroup(input: {
       details: `Created group: ${groupLabel}`,
     });
 
-    revalidatePath("/admin/items/groups", "page");
-    revalidatePath("/admin/items/groups", "layout");
+    revalidateBothPaths("items/groups", "page");
+    revalidateBothPaths("items/groups", "layout");
 
     return {
       success: true,
@@ -436,7 +436,7 @@ export async function updateGroup(input: {
       details: `Updated group: ${groupLabel}`,
     });
 
-    revalidatePath("/admin/items/groups", "page");
+    revalidateBothPaths("items/groups", "page");
     revalidatePath(`/admin/items/groups/${input.id}`, "page");
 
     return {
@@ -500,7 +500,7 @@ export async function deleteGroup(id: string) {
       details: `Moved group to trash: ${groupLabel}`,
     });
 
-    revalidatePath("/admin/items/groups", "page");
+    revalidateBothPaths("items/groups", "page");
     revalidatePath(`/admin/items/groups/${id}`, "page");
 
     return {
@@ -572,7 +572,7 @@ export async function deleteGroupPermanently(id: string) {
       groupLabel
     );
 
-    revalidatePath("/admin/items/groups", "page");
+    revalidateBothPaths("items/groups", "page");
 
     return {
       success: true,
@@ -640,7 +640,7 @@ export async function restoreGroup(id: string) {
       details: `Restored group from trash: ${groupLabel}`,
     });
 
-    revalidatePath("/admin/items/groups", "page");
+    revalidateBothPaths("items/groups", "page");
 
     return {
       success: true,
@@ -729,7 +729,7 @@ export async function bulkUpdateGroupStatus(
       }
     }
 
-    revalidatePath("/admin/items/groups", "page");
+    revalidateBothPaths("items/groups", "page");
 
     return {
       success: true,
@@ -813,7 +813,7 @@ export async function deleteGroupsPermanently(groupIds: string[]) {
       );
     }
 
-    revalidatePath("/admin/items/groups", "page");
+    revalidateBothPaths("items/groups", "page");
 
     return {
       success: true,

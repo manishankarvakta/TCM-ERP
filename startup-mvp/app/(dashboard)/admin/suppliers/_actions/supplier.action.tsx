@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
-import { revalidatePath } from "next/cache";
+import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma } from "@prisma/client";
 
 /**
@@ -279,7 +279,7 @@ export async function createSupplier(input: {
     );
 
     // Revalidate suppliers page
-    revalidatePath("/admin/suppliers");
+    revalidateBothPaths("suppliers");
 
     return {
       success: true,
@@ -421,7 +421,7 @@ export async function updateSupplier(input: {
     );
 
     // Revalidate suppliers page
-    revalidatePath("/admin/suppliers");
+    revalidateBothPaths("suppliers");
     revalidatePath(`/admin/suppliers/${supplier.id}`);
     revalidatePath(`/admin/suppliers/details?id=${supplier.id}`);
 
@@ -487,7 +487,7 @@ export async function deleteSupplier(supplierId: string) {
     );
 
     // Revalidate suppliers page
-    revalidatePath("/admin/suppliers");
+    revalidateBothPaths("suppliers");
 
     return {
       success: true,
@@ -556,7 +556,7 @@ export async function bulkUpdateSupplierStatus(
     }
 
     // Revalidate suppliers page
-    revalidatePath("/admin/suppliers");
+    revalidateBothPaths("suppliers");
 
     return {
       success: true,
@@ -627,7 +627,7 @@ export async function deleteSuppliersPermanently(supplierIds: string[]) {
     });
 
     // Revalidate suppliers page
-    revalidatePath("/admin/suppliers");
+    revalidateBothPaths("suppliers");
     
     return {
       success: true,

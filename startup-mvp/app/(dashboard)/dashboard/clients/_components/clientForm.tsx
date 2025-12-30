@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle } from "react-icons/fi";
 import { createClient, updateClient } from "../_actions/client.action";
 import MediaSelector from "@/components/MediaSelector";
+import { getBasePathFromPathname } from "@/lib/route-utils-client";
 
 const clientFormSchema = z.object({
   name: z.string().optional().or(z.literal("")),
@@ -57,6 +58,7 @@ interface ClientFormProps {
 
 export default function ClientForm({ mode, initialData }: ClientFormProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
@@ -121,7 +123,8 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
           throw new Error(result.error || "Failed to create client");
         }
 
-        router.push("/dashboard/clients");
+        const basePath = getBasePathFromPathname(pathname);
+        router.push(`${basePath}/clients`);
       } else {
         const result = await updateClient({
           id: initialData!.id,
@@ -142,7 +145,8 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
           throw new Error(result.error || "Failed to update client");
         }
 
-        router.push("/dashboard/clients");
+        const basePath = getBasePathFromPathname(pathname);
+        router.push(`${basePath}/clients`);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");

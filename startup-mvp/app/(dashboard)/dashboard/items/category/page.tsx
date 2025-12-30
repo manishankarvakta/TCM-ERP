@@ -5,6 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import CategoriesListClient from "./_components/categories";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 
 interface CategoriesPageProps {
   searchParams: Promise<{
@@ -20,8 +22,17 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
   const search = params.search || "";
   const tab = params.tab || "all";
 
-  const status = tab === "trash" ? "trash" : "all";
-  const result = await getCategories(page, 10, search, status);
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  // Check permissions on server side for better performance
+  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
+    getCategories(page, 10, search, tab === "trash" ? "trash" : "all"),
+    userId ? hasPermission(userId, "items.category", "view") : false,
+    userId ? hasPermission(userId, "items.category", "edit") : false,
+    userId ? hasPermission(userId, "items.category", "move-to-trash") : false,
+    userId ? hasPermission(userId, "items.category", "delete-permanently") : false,
+  ]);
 
   // Handle errors
   if (!result.success) {
@@ -79,6 +90,13 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
             }}
             initialSearch={search}
             isTrash={false}
+            userId={userId || undefined}
+            permissions={{
+              view: canView,
+              edit: canEdit,
+              moveToTrash: canMoveToTrash,
+              deletePermanently: canDeletePermanently,
+            }}
           />
         </TabsContent>
         <TabsContent value="trash" className="mt-4">
@@ -92,6 +110,13 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
             }}
             initialSearch={search}
             isTrash={true}
+            userId={userId || undefined}
+            permissions={{
+              view: canView,
+              edit: canEdit,
+              moveToTrash: canMoveToTrash,
+              deletePermanently: canDeletePermanently,
+            }}
           />
         </TabsContent>
       </Tabs>

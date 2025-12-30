@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
-import { revalidatePath } from "next/cache";
+import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma } from "@prisma/client";
 import { z } from "zod";
 
@@ -349,7 +349,7 @@ export async function upsertSetting(input: {
     }
 
     // Revalidate settings page
-    revalidatePath("/admin/settings");
+    revalidateBothPaths("settings");
 
     return {
       success: true,
@@ -417,7 +417,7 @@ export async function deleteSetting(settingId: string) {
     );
 
     // Revalidate settings page
-    revalidatePath("/admin/settings");
+    revalidateBothPaths("settings");
 
     return {
       success: true,
@@ -462,7 +462,7 @@ export async function deleteSettingPermanently(settingId: string) {
     });
 
     // Revalidate settings page
-    revalidatePath("/admin/settings");
+    revalidateBothPaths("settings");
 
     return {
       success: true,

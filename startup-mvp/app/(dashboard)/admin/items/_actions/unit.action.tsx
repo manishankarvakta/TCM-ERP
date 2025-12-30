@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
-import { revalidatePath } from "next/cache";
+import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma } from "@prisma/client";
 
 /**
@@ -218,7 +218,7 @@ export async function createUnit(input: {
     );
 
     // Revalidate units page
-    revalidatePath("/admin/items/units", "page");
+    revalidateBothPaths("items/units", "page");
 
     return {
       success: true,
@@ -312,7 +312,7 @@ export async function updateUnit(input: {
     );
 
     // Revalidate units page
-    revalidatePath("/admin/items/units", "page");
+    revalidateBothPaths("items/units", "page");
     revalidatePath(`/admin/items/units/${unit.id}`, "page");
     revalidatePath(`/admin/items/units/details?id=${unit.id}`, "page");
 
@@ -378,7 +378,7 @@ export async function deleteUnit(unitId: string) {
     );
 
     // Revalidate units page
-    revalidatePath("/admin/items/units", "page");
+    revalidateBothPaths("items/units", "page");
 
     return {
       success: true,
@@ -433,7 +433,7 @@ export async function bulkUpdateUnitStatus(
     console.log("Units updated:", result.count);
 
     // Revalidate units page
-    revalidatePath("/admin/items/units", "page");
+    revalidateBothPaths("items/units", "page");
 
     return {
       success: true,
@@ -552,9 +552,9 @@ export async function deleteUnitsPermanently(unitIds: string[]) {
         }
 
         // Revalidate all relevant paths
-        revalidatePath("/admin/items/units", "page");
-        revalidatePath("/admin/items", "page");
-        revalidatePath("/admin/items", "layout");
+        revalidateBothPaths("items/units", "page");
+        revalidateBothPaths("items", "page");
+        revalidateBothPaths("items", "layout");
 
         return {
           success: true,
@@ -600,9 +600,9 @@ export async function deleteUnitsPermanently(unitIds: string[]) {
     }
 
     // Revalidate all relevant paths where units are displayed
-    revalidatePath("/admin/items/units", "page");
-    revalidatePath("/admin/items", "page");
-    revalidatePath("/admin/items", "layout");
+    revalidateBothPaths("items/units", "page");
+    revalidateBothPaths("items", "page");
+    revalidateBothPaths("items", "layout");
     
     return {
       success: true,

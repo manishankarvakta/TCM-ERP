@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { markAsRead, markAsUnread } from "@/app/actions/notificationActions";
+import { markAsRead, markAsUnread, getCurrentUserNotifications } from "@/app/actions/notificationActions";
 import { formatDistanceToNow, format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -66,38 +66,32 @@ export default function NotificationsPage() {
       if (!silent) {
         setLoading(true);
       }
-      const response = await fetch("/api/notifications/current", {
-        cache: "no-store",
-        next: { revalidate: 0 },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          const newNotifications = data.data || [];
-          
-          // Check if there are new unread notifications
-          const previousUnreadCount = notifications.filter((n: Notification) => !n.isRead).length;
-          const newUnreadCount = newNotifications.filter((n: Notification) => !n.isRead).length;
-          
-          // Update notifications
-          setNotifications(newNotifications);
-          
-          // Show toast if new unread notifications arrived (only if not silent and count increased)
-          if (!silent && newUnreadCount > previousUnreadCount && previousUnreadCount > 0) {
-            const newCount = newUnreadCount - previousUnreadCount;
-            toast({
-              title: "New notification",
-              description: `You have ${newCount} new notification${newCount > 1 ? "s" : ""}`,
-            });
-          }
-        } else {
-          if (!silent) {
-            toast({
-              title: "Error",
-              description: data.error || "Failed to load notifications",
-              variant: "destructive",
-            });
-          }
+      const result = await getCurrentUserNotifications();
+      if (result.success) {
+        const newNotifications = result.data || [];
+        
+        // Check if there are new unread notifications
+        const previousUnreadCount = notifications.filter((n: Notification) => !n.isRead).length;
+        const newUnreadCount = newNotifications.filter((n: Notification) => !n.isRead).length;
+        
+        // Update notifications
+        setNotifications(newNotifications);
+        
+        // Show toast if new unread notifications arrived (only if not silent and count increased)
+        if (!silent && newUnreadCount > previousUnreadCount && previousUnreadCount > 0) {
+          const newCount = newUnreadCount - previousUnreadCount;
+          toast({
+            title: "New notification",
+            description: `You have ${newCount} new notification${newCount > 1 ? "s" : ""}`,
+          });
+        }
+      } else {
+        if (!silent) {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to load notifications",
+            variant: "destructive",
+          });
         }
       }
     } catch (error) {

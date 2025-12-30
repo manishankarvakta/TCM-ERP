@@ -89,36 +89,40 @@ const recalculateSectionTotals = (state: QuotationState, sectionIndex: number) =
   const section = state.currentQuotation.section[sectionIndex];
   if (!section) return;
   
-  let sectionTotal = 0;
-  
-  // Sum direct items
-  if (section.items) {
-    section.items.forEach((item: QuotationItem) => {
-      sectionTotal += item.amount || 0;
-    });
-  }
-  
-  // Sum items in groups
+  // Calculate module group total (sum of all groups' items)
+  let moduleGroupTotal = 0;
   if (section.groups) {
     section.groups.forEach((group: ItemGroup) => {
       if (group.items) {
         group.items.forEach((item: QuotationItem) => {
-          sectionTotal += item.amount || 0;
+          moduleGroupTotal += item.amount || 0;
         });
       }
     });
   }
   
-  // Sum items in category groups
+  // Calculate items category total (sum of all categoryGroups' items)
+  let itemsCategoryTotal = 0;
   if (section.categoryGroups) {
     section.categoryGroups.forEach((categoryGroup: CategoryGroup) => {
       if (categoryGroup.items) {
         categoryGroup.items.forEach((item: QuotationItem) => {
-          sectionTotal += item.amount || 0;
+          itemsCategoryTotal += item.amount || 0;
         });
       }
     });
   }
+  
+  // Calculate items total (sum of direct items)
+  let itemsTotal = 0;
+  if (section.items) {
+    section.items.forEach((item: QuotationItem) => {
+      itemsTotal += item.amount || 0;
+    });
+  }
+  
+  // Section total = module group total + items category total + items total
+  const sectionTotal = moduleGroupTotal + itemsCategoryTotal + itemsTotal;
   
   // Calculate grandTotal = total - discount
   const discount = section.discount || 0;
@@ -151,36 +155,40 @@ const quotationSlice = createSlice({
       }
       // Calculate totals for each section
       const sectionsWithTotals = action.payload.map((section: Section) => {
-        let sectionTotal = 0;
-        
-        // Sum direct items
-        if (section.items) {
-          section.items.forEach((item: QuotationItem) => {
-            sectionTotal += item.amount || 0;
-          });
-        }
-        
-        // Sum items in groups
+        // Calculate module group total (sum of all groups' items)
+        let moduleGroupTotal = 0;
         if (section.groups) {
           section.groups.forEach((group: ItemGroup) => {
             if (group.items) {
               group.items.forEach((item: QuotationItem) => {
-                sectionTotal += item.amount || 0;
+                moduleGroupTotal += item.amount || 0;
               });
             }
           });
         }
         
-        // Sum items in category groups
+        // Calculate items category total (sum of all categoryGroups' items)
+        let itemsCategoryTotal = 0;
         if (section.categoryGroups) {
           section.categoryGroups.forEach((categoryGroup: CategoryGroup) => {
             if (categoryGroup.items) {
               categoryGroup.items.forEach((item: QuotationItem) => {
-                sectionTotal += item.amount || 0;
+                itemsCategoryTotal += item.amount || 0;
               });
             }
           });
         }
+        
+        // Calculate items total (sum of direct items)
+        let itemsTotal = 0;
+        if (section.items) {
+          section.items.forEach((item: QuotationItem) => {
+            itemsTotal += item.amount || 0;
+          });
+        }
+        
+        // Section total = module group total + items category total + items total
+        const sectionTotal = moduleGroupTotal + itemsCategoryTotal + itemsTotal;
         
         // Calculate grandTotal = total - discount
         const discount = section.discount || 0;
@@ -316,4 +324,6 @@ const quotationPersistConfig = {
 
 // Export persisted reducer
 export default persistReducer(quotationPersistConfig, quotationSlice.reducer);
+
+
 

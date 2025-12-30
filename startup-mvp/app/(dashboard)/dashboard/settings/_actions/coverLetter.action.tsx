@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
-import { revalidatePath } from "next/cache";
+import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma } from "@prisma/client";
 
 /**
@@ -229,7 +229,7 @@ export async function createCoverLetter(input: {
     );
 
     // Revalidate settings page
-    revalidatePath("/dashboard/settings");
+    revalidateBothPaths("settings");
 
     return {
       success: true,
@@ -326,7 +326,7 @@ export async function updateCoverLetter(
     );
 
     // Revalidate settings page
-    revalidatePath("/dashboard/settings");
+    revalidateBothPaths("settings");
 
     return {
       success: true,
@@ -386,7 +386,7 @@ export async function deleteCoverLetter(coverLetterId: string) {
     );
 
     // Revalidate settings page
-    revalidatePath("/dashboard/settings");
+    revalidateBothPaths("settings");
 
     return {
       success: true,
@@ -440,7 +440,7 @@ export async function restoreCoverLetter(coverLetterId: string) {
     });
 
     // Revalidate settings page
-    revalidatePath("/dashboard/settings");
+    revalidateBothPaths("settings");
 
     return {
       success: true,
@@ -487,7 +487,7 @@ export async function bulkUpdateCoverLetterStatus(
     });
 
     // Revalidate settings page
-    revalidatePath("/dashboard/settings");
+    revalidateBothPaths("settings");
 
     return {
       success: true,
@@ -545,7 +545,7 @@ export async function deleteCoverLettersPermanently(coverLetterIds: string[]) {
     });
 
     // Revalidate settings page
-    revalidatePath("/dashboard/settings");
+    revalidateBothPaths("settings");
 
     return {
       success: true,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -88,6 +88,11 @@ export default function QuotationsListClient({
 }: QuotationsListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  
+  // Determine base path based on current route
+  const basePath = pathname?.startsWith("/admin") ? "/admin" : "/dashboard";
+  
   const [search, setSearch] = useState(initialSearch);
   const [deleteQuotationId, setDeleteQuotationId] = useState<string | null>(null);
   const [restoreQuotationId, setRestoreQuotationId] = useState<string | null>(null);
@@ -109,7 +114,7 @@ export default function QuotationsListClient({
     if (tab) {
       params.set("tab", tab);
     }
-    router.push(`/dashboard/quotations?${params.toString()}`);
+    router.push(`${basePath}/quotations?${params.toString()}`);
   };
 
   const handleDelete = async () => {
@@ -129,7 +134,7 @@ export default function QuotationsListClient({
         const params = new URLSearchParams(searchParams.toString());
         const tab = params.get('tab') || 'all';
         params.set('tab', tab);
-        router.push(`/dashboard/quotations?${params.toString()}`);
+        router.push(`${basePath}/quotations?${params.toString()}`);
       } else {
         toast({
           title: "Error",
@@ -154,7 +159,7 @@ export default function QuotationsListClient({
           description: "Quotation restored successfully",
         });
         // Use router.push to force navigation and prevent blink
-        router.push('/dashboard/quotations?tab=DRAFT');
+        router.push(`${basePath}/quotations?tab=DRAFT`);
       } else {
         toast({
           title: "Error",
@@ -221,7 +226,7 @@ export default function QuotationsListClient({
         const params = new URLSearchParams(searchParams.toString());
         const tab = params.get('tab') || 'all';
         params.set('tab', tab);
-        router.push(`/dashboard/quotations?${params.toString()}`);
+        router.push(`${basePath}/quotations?${params.toString()}`);
       } else {
         toast({
           title: "Error",
@@ -458,12 +463,12 @@ export default function QuotationsListClient({
                         {!isTrash && (
                           <>
                             <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0">
-                              <Link href={`/dashboard/quotations/${quotation.id}`}>
+                              <Link href={`${basePath}/quotations/${quotation.id}`}>
                                 <FiEye className="h-4 w-4" />
                               </Link>
                             </Button>
                             <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0">
-                              <Link href={`/dashboard/quotations/${quotation.id}/edit`}>
+                              <Link href={`${basePath}/quotations/${quotation.id}/edit`}>
                                 <FiEdit className="h-4 w-4" />
                               </Link>
                             </Button>
@@ -520,7 +525,7 @@ export default function QuotationsListClient({
                 if (tab) {
                   params.set("tab", tab);
                 }
-                router.push(`/dashboard/quotations?${params.toString()}`);
+                router.push(`${basePath}/quotations?${params.toString()}`);
               }}
               disabled={initialPagination.page === 1}
             >
@@ -539,7 +544,7 @@ export default function QuotationsListClient({
                 if (tab) {
                   params.set("tab", tab);
                 }
-                router.push(`/dashboard/quotations?${params.toString()}`);
+                router.push(`${basePath}/quotations?${params.toString()}`);
               }}
               disabled={initialPagination.page === initialPagination.totalPages}
             >
@@ -609,7 +614,7 @@ export default function QuotationsListClient({
                         description: "Quotation deleted permanently",
                       });
                       // Use router.push to force navigation and prevent blink
-                      router.push('/dashboard/quotations?tab=trash');
+                      router.push(`${basePath}/quotations?tab=trash`);
                     } else {
                       toast({
                         title: "Error",
@@ -628,7 +633,7 @@ export default function QuotationsListClient({
                       const params = new URLSearchParams(searchParams.toString());
                       const tab = params.get('tab') || 'all';
                       params.set('tab', tab);
-                      router.push(`/dashboard/quotations?${params.toString()}`);
+                      router.push(`${basePath}/quotations?${params.toString()}`);
                     } else {
                       toast({
                         title: "Error",

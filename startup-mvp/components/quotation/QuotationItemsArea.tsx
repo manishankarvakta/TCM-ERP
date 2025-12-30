@@ -549,6 +549,7 @@ export function QuotationItemsArea({
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [categorySearch, setCategorySearch] = useState<{ [key: string]: string }>({});
   const [moduleGroups, setModuleGroups] = useState<Array<{ id: string; code: string | null; description: string | null }>>([]);
+  const [groupSearch, setGroupSearch] = useState<{ [key: string]: string }>({});
   const [isLoadingModuleGroups, setIsLoadingModuleGroups] = useState(true);
   const [moduleGroupItems, setModuleGroupItems] = useState<{ [groupId: string]: Array<{
     id: string;
@@ -1482,13 +1483,26 @@ export function QuotationItemsArea({
 
   // Calculate section totals (total and grandTotal)
   const calculateSectionTotals = (section: Section) => {
-    let sectionTotal = section.items.reduce((sum, item) => sum + (item.amount || 0), 0);
-    section.groups.forEach((group) => {
-      sectionTotal += group.items.reduce((sum, item) => sum + (item.amount || 0), 0);
-    });
+    // Calculate module group total (sum of all groups' items)
+    const moduleGroupTotal = section.groups.reduce((sum, group) => {
+      return sum + group.items.reduce((groupSum, item) => groupSum + (item.amount || 0), 0);
+    }, 0);
+
+    // Calculate items category total (sum of all categoryGroups' items)
+    const itemsCategoryTotal = (section.categoryGroups || []).reduce((sum, categoryGroup) => {
+      return sum + categoryGroup.items.reduce((categorySum, item) => categorySum + (item.amount || 0), 0);
+    }, 0);
+
+    // Calculate items total (sum of direct items)
+    const itemsTotal = section.items.reduce((sum, item) => sum + (item.amount || 0), 0);
+
+    // Section total = module group total + items category total + items total
+    const sectionTotal = moduleGroupTotal + itemsCategoryTotal + itemsTotal;
+
     // Calculate grandTotal = total - discount
     const discount = section.discount || 0;
     const grandTotal = Math.max(0, sectionTotal - discount);
+    
     return {
       total: sectionTotal,
       grandTotal: grandTotal,
@@ -1739,12 +1753,47 @@ export function QuotationItemsArea({
                                           </SelectValue>
                                         </SelectTrigger>
                                         <SelectContent className="max-h-[300px]">
-                                          <SelectItem value="none" className="text-left">None</SelectItem>
-                                          {moduleGroups.map((mg) => (
-                                            <SelectItem key={mg.id} value={mg.id} className="text-left">
-                                              {mg.code || 'Unnamed Group'}
-                                            </SelectItem>
-                                          ))}
+                                          <div className="p-2">
+                                            <div className="relative">
+                                              <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
+                                              <Input
+                                                placeholder="Search groups..."
+                                                value={groupSearch[`${sectionIndex}-${groupIndex}`] || ''}
+                                                onChange={(e) => {
+                                                  setGroupSearch(prev => ({
+                                                    ...prev,
+                                                    [`${sectionIndex}-${groupIndex}`]: e.target.value,
+                                                  }));
+                                                }}
+                                                onKeyDown={(e) => {
+                                                  e.stopPropagation();
+                                                  if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                  }
+                                                }}
+                                                className="pl-8 h-8 text-xs"
+                                                onClick={(e) => e.stopPropagation()}
+                                              />
+                                            </div>
+                                          </div>
+                                          <div className="max-h-[200px] overflow-y-auto">
+                                            <SelectItem value="none" className="text-left">None</SelectItem>
+                                            {moduleGroups
+                                              .filter((mg) => {
+                                                const search = groupSearch[`${sectionIndex}-${groupIndex}`] || '';
+                                                if (!search) return true;
+                                                const searchLower = search.toLowerCase();
+                                                return (
+                                                  mg.code?.toLowerCase().includes(searchLower) ||
+                                                  mg.description?.toLowerCase().includes(searchLower)
+                                                );
+                                              })
+                                              .map((mg) => (
+                                                <SelectItem key={mg.id} value={mg.id} className="text-left">
+                                                  {mg.code || 'Unnamed Group'}
+                                                </SelectItem>
+                                              ))}
+                                          </div>
                                         </SelectContent>
                                       </Select>
                                     <Input

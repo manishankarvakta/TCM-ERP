@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import AdminSidebar from "@/components/dashboard/admin-sidebar";
-import DashboardHeader from "@/components/dashboard/header";
+import AdminSidebar from "@/components/admin/admin-sidebar";
+import AdminHeader from "@/components/admin/header";
 
 export default async function AdminLayout({
   children,
@@ -18,14 +18,14 @@ export default async function AdminLayout({
   // Check if user is admin
   const userRole = session.user.role?.toLowerCase();
   if (userRole !== "admin") {
-    redirect("/dashboard");
+    redirect("/admin");
   }
 
   return (
     <div className="flex h-screen overflow-hidden">
       <AdminSidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <DashboardHeader user={session.user} />
+        <AdminHeader user={session.user} />
         <main className="flex-1 overflow-y-auto bg-background p-6">
           {children}
         </main>

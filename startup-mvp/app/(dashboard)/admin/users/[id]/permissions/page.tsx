@@ -23,7 +23,7 @@ export default async function UserPermissionsPage({
   // Check if user is admin
   const userRole = session.user.role?.toLowerCase();
   if (userRole !== "admin") {
-    redirect("/dashboard");
+    redirect("/admin");
   }
 
   // Get user data

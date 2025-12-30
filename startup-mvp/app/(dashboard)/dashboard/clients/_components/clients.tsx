@@ -74,6 +74,13 @@ interface ClientsListClientProps {
   initialPagination: Pagination;
   initialSearch: string;
   isTrash?: boolean;
+  userId?: string;
+  permissions?: {
+    view: boolean;
+    edit: boolean;
+    moveToTrash: boolean;
+    deletePermanently: boolean;
+  };
 }
 
 export default function ClientsListClient({
@@ -81,6 +88,8 @@ export default function ClientsListClient({
   initialPagination,
   initialSearch,
   isTrash = false,
+  userId: providedUserId,
+  permissions,
 }: ClientsListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -394,11 +403,15 @@ export default function ClientsListClient({
                               permissionKey="peoples.clients"
                               action="edit"
                               href={`/dashboard/clients/${client.id}`}
+                              userId={providedUserId || undefined}
+                              hasAccess={permissions?.edit}
                             />
                             <ProtectedAction
                               permissionKey="peoples.clients"
                               action="view"
                               href={`/dashboard/clients/details?id=${client.id}`}
+                              userId={providedUserId || undefined}
+                              hasAccess={permissions?.view}
                             />
                           </>
                         )}
@@ -419,6 +432,8 @@ export default function ClientsListClient({
                           permissionKey="peoples.clients"
                           action={isTrash ? "delete-permanently" : "move-to-trash"}
                           onClick={() => setDeleteClientId(client.id)}
+                          userId={providedUserId || undefined}
+                          hasAccess={isTrash ? permissions?.deletePermanently : permissions?.moveToTrash}
                           buttonProps={{
                             disabled: isPending,
                             className: "text-destructive hover:text-destructive",

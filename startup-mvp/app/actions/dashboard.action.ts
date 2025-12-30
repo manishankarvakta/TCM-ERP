@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { QuotationStatus } from '@prisma/client';
 import { Prisma } from '@prisma/client';
+import { canAccessModule, hasPermission } from '@/lib/permissions';
 
 /**
  * Get comprehensive dashboard statistics
@@ -561,6 +562,533 @@ export async function getRevenueStats() {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to fetch revenue statistics',
       revenue: null,
+    };
+  }
+}
+
+/**
+ * Get user-specific dashboard statistics (permission-aware)
+ */
+export async function getUserDashboardStats() {
+  try {
+    const session = await auth();
+    
+    if (!session?.user?.id) {
+      return {
+        success: false,
+        error: 'Unauthorized',
+        stats: null,
+      };
+    }
+
+    const userId = session.user.id;
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    // Check permissions for each module
+    const canAccessQuotations = await canAccessModule(userId, 'quotations');
+    const canAccessItems = await canAccessModule(userId, 'items');
+    const canAccessClients = await canAccessModule(userId, 'peoples');
+    const canAccessSuppliers = await canAccessModule(userId, 'peoples');
+
+    // Build queries based on permissions
+    const queries: Promise<any>[] = [];
+
+    // Quotations stats (if user has access)
+    if (canAccessQuotations) {
+      queries.push(
+        prisma.quotation.count({
+          where: { isTrash: false },
+        }),
+        prisma.quotation.groupBy({
+          by: ['status'],
+          where: { isTrash: false },
+          _count: { status: true },
+        }),
+        prisma.quotation.aggregate({
+          where: {
+            isTrash: false,
+            status: QuotationStatus.ACCEPTED,
+          },
+          _sum: { grandTotal: true },
+        }),
+        prisma.quotation.count({
+          where: {
+            isTrash: false,
+            createdAt: { gte: sevenDaysAgo },
+          },
+        }),
+        prisma.quotation.count({
+          where: {
+            isTrash: false,
+            status: { in: [QuotationStatus.DRAFT, QuotationStatus.SENT] },
+          },
+        }),
+      );
+    } else {
+      queries.push(Promise.resolve(0), Promise.resolve([]), Promise.resolve({ _sum: { grandTotal: null } }), Promise.resolve(0), Promise.resolve(0));
+    }
+
+    // Items stats (if user has access)
+    if (canAccessItems) {
+      queries.push(
+        prisma.item.count({
+          where: { status: 'active' },
+        }),
+        prisma.item.count({
+          where: {
+            status: 'active',
+            createdAt: { gte: sevenDaysAgo },
+          },
+        }),
+      );
+    } else {
+      queries.push(Promise.resolve(0), Promise.resolve(0));
+    }
+
+    // Clients stats (if user has access)
+    if (canAccessClients) {
+      queries.push(
+        prisma.client.count({
+          where: { status: 'active' },
+        }),
+        prisma.client.count({
+          where: {
+            status: 'active',
+            createdAt: { gte: sevenDaysAgo },
+          },
+        }),
+      );
+    } else {
+      queries.push(Promise.resolve(0), Promise.resolve(0));
+    }
+
+    // Suppliers stats (if user has access)
+    if (canAccessSuppliers) {
+      queries.push(
+        prisma.supplier.count({
+          where: { status: 'active' },
+        }),
+      );
+    } else {
+      queries.push(Promise.resolve(0));
+    }
+
+    // Activity count (always available)
+    queries.push(
+      prisma.userLog.count({
+        where: {
+          createdAt: { gte: sevenDaysAgo },
+        },
+      }),
+    );
+
+    const results = await Promise.all(queries);
+
+    let idx = 0;
+    const totalQuotations = canAccessQuotations ? results[idx++] : 0;
+    const quotationsByStatus = canAccessQuotations ? results[idx++] : [];
+    const totalRevenue = canAccessQuotations ? results[idx++] : { _sum: { grandTotal: null } };
+    const recentQuotationsCount = canAccessQuotations ? results[idx++] : 0;
+    const pendingQuotations = canAccessQuotations ? results[idx++] : 0;
+    const totalItems = canAccessItems ? results[idx++] : 0;
+    const recentItemsCount = canAccessItems ? results[idx++] : 0;
+    const activeClients = canAccessClients ? results[idx++] : 0;
+    const recentClientsCount = canAccessClients ? results[idx++] : 0;
+    const activeSuppliers = canAccessSuppliers ? results[idx++] : 0;
+    const recentActivityCount = results[idx++];
+
+    // Calculate revenue
+    const revenue = totalRevenue._sum?.grandTotal 
+      ? Number(totalRevenue._sum.grandTotal) 
+      : 0;
+
+    // Format quotations by status
+    const statusBreakdown = Array.isArray(quotationsByStatus) 
+      ? quotationsByStatus.reduce((acc, item) => {
+          acc[item.status] = item._count.status;
+          return acc;
+        }, {} as Record<string, number>)
+      : {};
+
+    return {
+      success: true,
+      stats: {
+        quotations: {
+          total: totalQuotations,
+          byStatus: statusBreakdown,
+          recent: recentQuotationsCount,
+          pending: pendingQuotations,
+        },
+        revenue: {
+          total: revenue,
+          formatted: new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+          }).format(revenue),
+        },
+        clients: {
+          total: activeClients,
+          recent: recentClientsCount,
+        },
+        items: {
+          total: totalItems,
+          recent: recentItemsCount,
+        },
+        suppliers: {
+          total: activeSuppliers,
+        },
+        activity: {
+          recent: recentActivityCount,
+        },
+        permissions: {
+          canAccessQuotations,
+          canAccessItems,
+          canAccessClients,
+          canAccessSuppliers,
+        },
+      },
+    };
+  } catch (error) {
+    console.error('Error fetching user dashboard stats:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch dashboard statistics',
+      stats: null,
+    };
+  }
+}
+
+/**
+ * Get user-specific recent quotations (permission-aware)
+ */
+export async function getUserRecentQuotations(limit: number = 10) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user?.id) {
+      return {
+        success: false,
+        error: 'Unauthorized',
+        quotations: [],
+      };
+    }
+
+    const userId = session.user.id;
+    const canAccess = await canAccessModule(userId, 'quotations');
+
+    if (!canAccess) {
+      return {
+        success: true,
+        quotations: [],
+      };
+    }
+
+    const quotations = await prisma.quotation.findMany({
+      where: {
+        isTrash: false,
+      },
+      select: {
+        id: true,
+        quotationNumber: true,
+        subject: true,
+        status: true,
+        total: true,
+        grandTotal: true,
+        discount: true,
+        shippingCharges: true,
+        createdAt: true,
+        client: {
+          select: {
+            id: true,
+            name: true,
+            company: true,
+            email: true,
+          },
+        },
+        submittedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: limit,
+    });
+
+    // Serialize Decimal values
+    const serializedQuotations = quotations.map((q) => ({
+      ...q,
+      total: q.total ? Number(q.total) : 0,
+      grandTotal: q.grandTotal ? Number(q.grandTotal) : 0,
+      discount: q.discount ? Number(q.discount) : null,
+      shippingCharges: q.shippingCharges ? Number(q.shippingCharges) : null,
+    }));
+
+    return {
+      success: true,
+      quotations: serializedQuotations,
+    };
+  } catch (error) {
+    console.error('Error fetching user recent quotations:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch recent quotations',
+      quotations: [],
+    };
+  }
+}
+
+/**
+ * Get user-specific recent items (permission-aware)
+ */
+export async function getUserRecentItems(limit: number = 10) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user?.id) {
+      return {
+        success: false,
+        error: 'Unauthorized',
+        items: [],
+      };
+    }
+
+    const userId = session.user.id;
+    const canAccess = await canAccessModule(userId, 'items');
+
+    if (!canAccess) {
+      return {
+        success: true,
+        items: [],
+      };
+    }
+
+    const items = await prisma.item.findMany({
+      where: {
+        status: 'active',
+      },
+      select: {
+        id: true,
+        code: true,
+        description: true,
+        unitPrice: true,
+        costPrice: true,
+        createdAt: true,
+        unit: {
+          select: {
+            id: true,
+            symbol: true,
+            details: true,
+          },
+        },
+        categories: {
+          select: {
+            category: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+          take: 3,
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: limit,
+    });
+
+    // Serialize Decimal values
+    const serializedItems = items.map((item) => ({
+      ...item,
+      unitPrice: Number(item.unitPrice),
+      costPrice: Number(item.costPrice),
+    }));
+
+    return {
+      success: true,
+      items: serializedItems,
+    };
+  } catch (error) {
+    console.error('Error fetching user recent items:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch recent items',
+      items: [],
+    };
+  }
+}
+
+/**
+ * Get user-specific recent clients (permission-aware)
+ */
+export async function getUserRecentClients(limit: number = 10) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user?.id) {
+      return {
+        success: false,
+        error: 'Unauthorized',
+        clients: [],
+      };
+    }
+
+    const userId = session.user.id;
+    const canAccess = await canAccessModule(userId, 'peoples');
+
+    if (!canAccess) {
+      return {
+        success: true,
+        clients: [],
+      };
+    }
+
+    const clients = await prisma.client.findMany({
+      where: {
+        status: 'active',
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        company: true,
+        phone: true,
+        createdAt: true,
+        _count: {
+          select: {
+            Quotation: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: limit,
+    });
+
+    return {
+      success: true,
+      clients: clients.map((client) => ({
+        ...client,
+        quotationCount: client._count.Quotation,
+      })),
+    };
+  } catch (error) {
+    console.error('Error fetching user recent clients:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch recent clients',
+      clients: [],
+    };
+  }
+}
+
+/**
+ * Get user-specific activity (filtered by user if needed)
+ */
+export async function getUserActivity(limit: number = 10) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user?.id) {
+      return {
+        success: false,
+        error: 'Unauthorized',
+        activities: [],
+      };
+    }
+
+    const activities = await prisma.userLog.findMany({
+      select: {
+        id: true,
+        action: true,
+        details: true,
+        createdAt: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: limit,
+    });
+
+    return {
+      success: true,
+      activities,
+    };
+  } catch (error) {
+    console.error('Error fetching user activity:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch activity',
+      activities: [],
+    };
+  }
+}
+
+/**
+ * Get user-specific quotation status breakdown (permission-aware)
+ */
+export async function getUserQuotationStatusBreakdown() {
+  try {
+    const session = await auth();
+    
+    if (!session?.user?.id) {
+      return {
+        success: false,
+        error: 'Unauthorized',
+        breakdown: [],
+      };
+    }
+
+    const userId = session.user.id;
+    const canAccess = await canAccessModule(userId, 'quotations');
+
+    if (!canAccess) {
+      return {
+        success: true,
+        breakdown: [],
+      };
+    }
+
+    const breakdown = await prisma.quotation.groupBy({
+      by: ['status'],
+      where: {
+        isTrash: false,
+      },
+      _count: {
+        status: true,
+      },
+    });
+
+    const formatted = breakdown.map((item) => ({
+      status: item.status,
+      count: item._count.status,
+    }));
+
+    return {
+      success: true,
+      breakdown: formatted,
+    };
+  } catch (error) {
+    console.error('Error fetching user quotation status breakdown:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch status breakdown',
+      breakdown: [],
     };
   }
 }

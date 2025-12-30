@@ -75,6 +75,13 @@ interface GroupsListClientProps {
   initialPagination?: Pagination;
   initialSearch?: string;
   isTrash?: boolean;
+  userId?: string;
+  permissions?: {
+    view: boolean;
+    edit: boolean;
+    moveToTrash: boolean;
+    deletePermanently: boolean;
+  };
 }
 
 export default function GroupsListClient({
@@ -82,6 +89,8 @@ export default function GroupsListClient({
   initialPagination,
   initialSearch = "",
   isTrash = false,
+  userId: providedUserId,
+  permissions,
 }: GroupsListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -443,18 +452,24 @@ export default function GroupsListClient({
                               permissionKey="items.groups"
                               action="view"
                               href={`/dashboard/items/groups/${group.id}`}
+                              userId={providedUserId || undefined}
+                              hasAccess={permissions?.view}
                               buttonProps={{ className: "h-8 w-8 p-0" }}
                             />
                             <ProtectedAction
                               permissionKey="items.groups"
                               action="edit"
                               href={`/dashboard/items/groups/${group.id}/edit`}
+                              userId={providedUserId || undefined}
+                              hasAccess={permissions?.edit}
                               buttonProps={{ className: "h-8 w-8 p-0" }}
                             />
                             <ProtectedAction
                               permissionKey="items.groups"
                               action="move-to-trash"
                               onClick={() => handleDelete(group.id)}
+                              userId={providedUserId || undefined}
+                              hasAccess={permissions?.moveToTrash}
                               buttonProps={{ className: "h-8 w-8 p-0 text-destructive" }}
                             />
                           </>
