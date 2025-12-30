@@ -73,9 +73,9 @@ export default function RecentQuotationsTable({ quotations }: RecentQuotationsTa
   };
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border h-[400px] overflow-y-auto">
       <Table>
-        <TableHeader>
+        <TableHeader className="sticky top-0 bg-background z-10">
           <TableRow>
             <TableHead className="h-10 text-sm font-medium">Quotation #</TableHead>
             <TableHead className="h-10 text-sm font-medium">Client</TableHead>

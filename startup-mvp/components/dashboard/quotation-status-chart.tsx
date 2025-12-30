@@ -42,7 +42,7 @@ export default function QuotationStatusChart({ breakdown }: QuotationStatusChart
   const maxCount = Math.max(...breakdown.map((item) => item.count), 1);
 
   return (
-    <Card>
+    <Card className="border-none shadow-none">
       <CardHeader>
         <CardTitle className="text-base font-semibold">Quotation Status</CardTitle>
         <CardDescription className="text-sm">

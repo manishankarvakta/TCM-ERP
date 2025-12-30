@@ -24,7 +24,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 export default function QuotationStatusChart({ breakdown }: QuotationStatusChartProps) {
   if (breakdown.length === 0) {
     return (
-      <Card>
+      <Card className="border-none shadow-none">
         <CardHeader>
           <CardTitle className="text-base font-semibold">Quotation Status</CardTitle>
           <CardDescription className="text-sm">Distribution of quotations by status</CardDescription>
@@ -42,7 +42,7 @@ export default function QuotationStatusChart({ breakdown }: QuotationStatusChart
   const maxCount = Math.max(...breakdown.map((item) => item.count), 1);
 
   return (
-    <Card>
+    <Card className="border-none shadow-none">
       <CardHeader>
         <CardTitle className="text-base font-semibold">Quotation Status</CardTitle>
         <CardDescription className="text-sm">

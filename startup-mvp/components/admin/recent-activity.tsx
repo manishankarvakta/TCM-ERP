@@ -54,7 +54,7 @@ export default function RecentActivity({ activities }: RecentActivityProps) {
           <CardDescription className="text-sm">System activity and user actions</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
+          <div className="h-[400px] flex items-center justify-center text-sm text-muted-foreground">
             No recent activity
           </div>
         </CardContent>
@@ -69,7 +69,7 @@ export default function RecentActivity({ activities }: RecentActivityProps) {
         <CardDescription className="text-sm">System activity and user actions</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
+        <div className="h-[400px] overflow-y-auto space-y-4 pr-2">
           {activities.map((activity) => (
             <div key={activity.id} className="flex items-start gap-3 pb-4 border-b last:border-0 last:pb-0">
               <div className="text-2xl">{getActionIcon(activity.action)}</div>

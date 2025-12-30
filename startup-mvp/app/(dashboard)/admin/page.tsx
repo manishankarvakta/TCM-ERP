@@ -130,7 +130,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             {recentItemsResult.success && recentItemsResult.items.length > 0 ? (
-              <div className="space-y-3">
+              <div className="h-[400px] overflow-y-auto space-y-3 pr-2">
                 {recentItemsResult.items.map((item) => (
                   <div
                     key={item.id}
@@ -164,14 +164,18 @@ export default async function AdminDashboardPage() {
                 ))}
               </div>
             ) : recentItemsResult.success ? (
-              <div className="rounded-lg border p-8 text-center">
-                <p className="text-sm text-muted-foreground">No items found</p>
+              <div className="h-[400px] flex items-center justify-center">
+                <div className="rounded-lg border p-8 text-center">
+                  <p className="text-sm text-muted-foreground">No items found</p>
+                </div>
               </div>
             ) : (
-              <div className="rounded-lg border p-8 text-center">
-                <p className="text-sm text-destructive">
-                  {recentItemsResult.error || "Failed to load recent items"}
-                </p>
+              <div className="h-[400px] flex items-center justify-center">
+                <div className="rounded-lg border p-8 text-center">
+                  <p className="text-sm text-destructive">
+                    {recentItemsResult.error || "Failed to load recent items"}
+                  </p>
+                </div>
               </div>
             )}
           </CardContent>
