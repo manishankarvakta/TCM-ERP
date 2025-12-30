@@ -8,7 +8,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { markAsRead } from "@/app/actions/notificationActions";
+import { markAsRead, getCurrentUserNotifications } from "@/app/actions/notificationActions";
 import { formatDistanceToNow, format } from "date-fns";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
@@ -61,32 +61,24 @@ export default function NotificationDropdown() {
       if (!silent) {
         setLoading(true);
       }
-      // Get current user ID from session - we'll need to pass it or get it from context
-      // For now, we'll need to get it from the server
-      const response = await fetch("/api/notifications/current", {
-        cache: "no-store",
-        next: { revalidate: 0 },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          const newNotifications = data.data || [];
-          
-          // Check if there are new unread notifications
-          const previousUnreadCount = notifications.filter((n: Notification) => !n.isRead).length;
-          const newUnreadCount = newNotifications.filter((n: Notification) => !n.isRead).length;
-          
-          // Update notifications
-          setNotifications(newNotifications);
-          
-          // Show toast if new unread notifications arrived (only if not silent and count increased)
-          if (!silent && newUnreadCount > previousUnreadCount && previousUnreadCount > 0) {
-            const newCount = newUnreadCount - previousUnreadCount;
-            toast({
-              title: "New notification",
-              description: `You have ${newCount} new notification${newCount > 1 ? "s" : ""}`,
-            });
-          }
+      const result = await getCurrentUserNotifications();
+      if (result.success) {
+        const newNotifications = result.data || [];
+        
+        // Check if there are new unread notifications
+        const previousUnreadCount = notifications.filter((n: Notification) => !n.isRead).length;
+        const newUnreadCount = newNotifications.filter((n: Notification) => !n.isRead).length;
+        
+        // Update notifications
+        setNotifications(newNotifications);
+        
+        // Show toast if new unread notifications arrived (only if not silent and count increased)
+        if (!silent && newUnreadCount > previousUnreadCount && previousUnreadCount > 0) {
+          const newCount = newUnreadCount - previousUnreadCount;
+          toast({
+            title: "New notification",
+            description: `You have ${newCount} new notification${newCount > 1 ? "s" : ""}`,
+          });
         }
       }
     } catch (error) {

@@ -358,6 +358,14 @@ export async function getUsers(
           role: true,
           image: true,
         status: true,
+          inchargeId: true,
+          incharge: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
           createdAt: true,
           sessions: {
             select: {
@@ -573,6 +581,14 @@ export async function getUserById(userId: string) {
         email: true,
         role: true,
         image: true,
+        inchargeId: true,
+        incharge: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
         _count: {
@@ -608,6 +624,60 @@ export async function getUserById(userId: string) {
 }
 
 /**
+ * Get active users for dropdown selection
+ */
+export async function getActiveUsers() {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        users: [],
+      };
+    }
+
+    // Only admins can view users list
+    const userRole = session.user.role?.toLowerCase();
+    if (userRole !== "admin") {
+      return {
+        success: false,
+        error: "Forbidden: Admin access required",
+        users: [],
+      };
+    }
+
+    // Get active users (no pagination, for dropdown use)
+    const users = await prisma.user.findMany({
+      where: {
+        status: "active",
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return {
+      success: true,
+      users,
+    };
+  } catch (error) {
+    console.error("getActiveUsers error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch users",
+      users: [],
+    };
+  }
+}
+
+/**
  * Create a new user
  */
 export async function createUser(input: {
@@ -616,6 +686,7 @@ export async function createUser(input: {
   password: string;
   role: "user" | "admin";
   image?: string;
+  inchargeId?: string;
 }) {
   try {
     const session = await auth();
@@ -662,6 +733,7 @@ export async function createUser(input: {
         password: hashedPassword,
         role: input.role,
         image: input.image || null,
+        inchargeId: input.inchargeId || null,
       },
       select: {
         id: true,
@@ -703,6 +775,7 @@ export async function updateUser(input: {
   password?: string;
   role: "user" | "admin";
   image?: string;
+  inchargeId?: string;
 }) {
   try {
     const session = await auth();
@@ -761,12 +834,18 @@ export async function updateUser(input: {
       role: string;
       image?: string | null;
       password?: string;
+      inchargeId?: string | null;
     } = {
       name: input.name,
       email: input.email,
       role: input.role,
       image: input.image || null,
     };
+
+    // Handle inchargeId (can be undefined, null, or empty string)
+    if (input.inchargeId !== undefined) {
+      updateData.inchargeId = input.inchargeId && input.inchargeId.length > 0 ? input.inchargeId : null;
+    }
 
     // Only update password if provided
     if (input.password && input.password.length > 0) {
@@ -795,6 +874,15 @@ export async function updateUser(input: {
     if (input.role !== existingUser.role) changes.push("role");
     if (input.password && input.password.length > 0) changes.push("password");
     if (input.image !== undefined && input.image !== existingUser.image) changes.push("image");
+    if (input.inchargeId !== undefined) {
+      // Get current inchargeId to compare
+      const currentUser = await prisma.user.findUnique({
+        where: { id: input.id },
+        select: { inchargeId: true },
+      });
+      const newInchargeId = input.inchargeId && input.inchargeId.length > 0 ? input.inchargeId : null;
+      if (currentUser?.inchargeId !== newInchargeId) changes.push("incharge");
+    }
 
     await logUserUpdated(user.id, session.user.id, changes);
 

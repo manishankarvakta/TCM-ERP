@@ -234,6 +234,11 @@ export default function SettingsPageClient({ accessiblePages }: SettingsPageClie
   // Filter menu based on permissions
   const settingsMenu = filterSettingsMenu(fullSettingsMenu);
 
+  // Check if user has Developers permissions (APIs or Webhooks)
+  const hasDevelopersPermission =
+    accessiblePages["settings.apis"] === true ||
+    accessiblePages["settings.webhooks"] === true;
+
   const renderContent = () => {
     switch (activeSection) {
       case "profile":
@@ -371,19 +376,21 @@ export default function SettingsPageClient({ accessiblePages }: SettingsPageClie
           ))}
         </div>
 
-        {/* Footer - Advanced Toggle */}
-        <div className="p-4 border-t">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="advanced" className="text-sm text-muted-foreground">
-              Advanced:
-            </Label>
-            <Switch
-              id="advanced"
-              checked={advanced}
-              onCheckedChange={setAdvanced}
-            />
+        {/* Footer - Advanced Toggle (only show if user has Developers permissions) */}
+        {hasDevelopersPermission && (
+          <div className="p-4 border-t">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="advanced" className="text-sm text-muted-foreground">
+                Advanced:
+              </Label>
+              <Switch
+                id="advanced"
+                checked={advanced}
+                onCheckedChange={setAdvanced}
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Main Content */}

@@ -55,6 +55,13 @@ interface UnitsListClientProps {
   initialPagination: Pagination;
   initialSearch: string;
   isTrash?: boolean;
+  userId?: string;
+  permissions?: {
+    view: boolean;
+    edit: boolean;
+    moveToTrash: boolean;
+    deletePermanently: boolean;
+  };
 }
 
 export default function UnitsListClient({
@@ -62,6 +69,8 @@ export default function UnitsListClient({
   initialPagination,
   initialSearch,
   isTrash = false,
+  userId: providedUserId,
+  permissions,
 }: UnitsListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -464,18 +473,24 @@ export default function UnitsListClient({
                               permissionKey="items.units"
                               action="edit"
                               href={`/dashboard/items/units/${unit.id}`}
+                              userId={providedUserId || undefined}
+                              hasAccess={permissions?.edit}
                               buttonProps={{ title: "Edit" }}
                             />
                             <ProtectedAction
                               permissionKey="items.units"
                               action="view"
                               href={`/dashboard/items/units/details?id=${unit.id}`}
+                              userId={providedUserId || undefined}
+                              hasAccess={permissions?.view}
                               buttonProps={{ title: "View Details" }}
                             />
                             <ProtectedAction
                               permissionKey="items.units"
                               action="move-to-trash"
                               onClick={() => handleDelete(unit.id)}
+                              userId={providedUserId || undefined}
+                              hasAccess={permissions?.moveToTrash}
                               buttonProps={{
                                 disabled: isPending,
                                 title: "Move to Trash",

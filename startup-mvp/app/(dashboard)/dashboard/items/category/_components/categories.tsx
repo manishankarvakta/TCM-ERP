@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { getCurrentUser } from "@/app/actions/user.action"; // Only used if permissions not provided
 
 interface Category {
   id: string;
@@ -59,6 +60,13 @@ interface CategoriesListClientProps {
   initialPagination: Pagination;
   initialSearch: string;
   isTrash?: boolean;
+  userId?: string;
+  permissions?: {
+    view: boolean;
+    edit: boolean;
+    moveToTrash: boolean;
+    deletePermanently: boolean;
+  };
 }
 
 export default function CategoriesListClient({
@@ -66,6 +74,8 @@ export default function CategoriesListClient({
   initialPagination,
   initialSearch,
   isTrash = false,
+  userId: providedUserId,
+  permissions,
 }: CategoriesListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -75,7 +85,23 @@ export default function CategoriesListClient({
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [userId, setUserId] = useState<string | null>(providedUserId || null);
   const { toast } = useToast();
+
+  // Only fetch user if not provided and permissions not provided
+  useEffect(() => {
+    if (!providedUserId && !permissions) {
+      async function fetchUser() {
+        try {
+          const user = await getCurrentUser();
+          setUserId(user?.id || null);
+        } catch (error) {
+          console.error("Error fetching user:", error);
+        }
+      }
+      fetchUser();
+    }
+  }, [providedUserId, permissions]);
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -387,11 +413,15 @@ export default function CategoriesListClient({
                               permissionKey="items.category"
                               action="view"
                               href={`/dashboard/items/category/details?id=${category.id}`}
+                              userId={userId || undefined}
+                              hasAccess={permissions?.view}
                             />
                             <ProtectedAction
                               permissionKey="items.category"
                               action="edit"
                               href={`/dashboard/items/category/${category.id}`}
+                              userId={userId || undefined}
+                              hasAccess={permissions?.edit}
                             />
                           </>
                         )}
@@ -410,6 +440,8 @@ export default function CategoriesListClient({
                           permissionKey="items.category"
                           action={isTrash ? "delete-permanently" : "move-to-trash"}
                           onClick={() => setDeleteCategoryId(category.id)}
+                          userId={userId || undefined}
+                          hasAccess={isTrash ? permissions?.deletePermanently : permissions?.moveToTrash}
                           buttonProps={{
                             disabled: isPending,
                             className: "text-destructive hover:text-destructive",

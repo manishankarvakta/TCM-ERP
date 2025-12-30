@@ -266,6 +266,42 @@ export async function getUserNotifications(
 }
 
 /**
+ * Get current user's notifications (server action)
+ * This is a convenience wrapper that gets the current user from session
+ * and fetches their notifications, with revalidation
+ */
+export async function getCurrentUserNotifications(): Promise<ActionResult> {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return {
+        success: false,
+        error: "Unauthorized",
+      };
+    }
+
+    const result = await getUserNotifications(session.user.id);
+
+    // Revalidate notifications paths
+    if (result.success) {
+      revalidateBothPaths("");
+      revalidateBothPaths("notifications");
+      nextRevalidatePath("/dashboard/notifications");
+      nextRevalidatePath("/admin/notifications");
+    }
+
+    return result;
+  } catch (error) {
+    console.error("getCurrentUserNotifications error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch notifications",
+    };
+  }
+}
+
+/**
  * Mark a notification as read
  */
 export async function markAsRead(

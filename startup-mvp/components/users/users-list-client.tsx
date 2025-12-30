@@ -45,6 +45,12 @@ interface User {
   role: string;
   image: string | null;
   status?: string;
+  inchargeId?: string | null;
+  incharge?: {
+    id: string;
+    name: string | null;
+    email: string;
+  } | null;
   createdAt: Date;
   sessions: Array<{
     id: string;
@@ -351,6 +357,7 @@ export default function UsersListClient({
               <TableHead>User</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Incharge</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Joined</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -359,7 +366,7 @@ export default function UsersListClient({
           <TableBody>
             {initialUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed users found" : "No users found"}
                 </TableCell>
               </TableRow>
@@ -392,6 +399,9 @@ export default function UsersListClient({
                       <Badge variant={user.role === "admin" ? "default" : "secondary"}>
                         {user.role}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {user.incharge ? (user.incharge.name || user.incharge.email) : "-"}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

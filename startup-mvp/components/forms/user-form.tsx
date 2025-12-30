@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,8 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FiAlertCircle } from "react-icons/fi";
-import { createUser, updateUser } from "@/app/actions/user.action";
+import { FiAlertCircle, FiSearch } from "react-icons/fi";
+import { createUser, updateUser, getActiveUsers } from "@/app/actions/user.action";
 import MediaSelector from "@/components/MediaSelector";
 
 const userFormSchema = z.object({
@@ -34,6 +34,7 @@ const userFormSchema = z.object({
     .or(z.literal("")),
   role: z.enum(["user", "admin"]),
   image: z.string().url("Invalid image URL").optional().or(z.literal("")),
+  inchargeId: z.string().optional().or(z.literal("")),
 });
 
 type UserFormDataWithId = z.infer<typeof userFormSchema> & { id?: string };
@@ -46,6 +47,12 @@ interface UserFormProps {
     email: string;
     role: string;
     image: string | null;
+    inchargeId?: string | null;
+    incharge?: {
+      id: string;
+      name: string | null;
+      email: string;
+    } | null;
   };
 }
 
@@ -53,6 +60,9 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [inchargeSearch, setInchargeSearch] = useState("");
 
   const {
     register,
@@ -69,6 +79,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           password: "",
           role: (initialData.role as "user" | "admin") || "user",
           image: initialData.image || "",
+          inchargeId: initialData.inchargeId || "",
         }
       : {
           name: "",
@@ -76,8 +87,28 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           password: "",
           role: "user",
           image: "",
+          inchargeId: "",
         },
   });
+
+  // Fetch active users for dropdown
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setUsersLoading(true);
+        const result = await getActiveUsers();
+        if (result.success && result.users) {
+          setUsers(result.users);
+        }
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      } finally {
+        setUsersLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   const onSubmit = async (data: UserFormDataWithId) => {
     try {
@@ -96,13 +127,14 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           password: data.password!,
           role: data.role,
           image: data.image || undefined,
+          inchargeId: data.inchargeId && data.inchargeId.length > 0 ? data.inchargeId : undefined,
         });
 
         if (!result.success) {
           throw new Error(result.error || "Failed to create user");
         }
 
-        router.push("/dashboard/users");
+        router.push("/admin/users");
       } else {
         const result = await updateUser({
           id: initialData!.id,
@@ -111,13 +143,14 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           password: data.password && data.password.length > 0 ? data.password : undefined,
           role: data.role,
           image: data.image || undefined,
+          inchargeId: data.inchargeId && data.inchargeId.length > 0 ? data.inchargeId : undefined,
         });
 
         if (!result.success) {
           throw new Error(result.error || "Failed to update user");
         }
 
-        router.push("/dashboard/users");
+        router.push("/admin/users");
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");
@@ -210,6 +243,67 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
                   </Select>
                   {errors.role && (
                     <p className="text-sm text-destructive">{errors.role.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="inchargeId">Incharge</Label>
+                  <Select
+                    value={watch("inchargeId") || "__none__"}
+                    onValueChange={(value) => setValue("inchargeId", value === "__none__" ? "" : value)}
+                    disabled={loading || usersLoading}
+                  >
+                    <SelectTrigger id="inchargeId" className="h-9 text-xs text-left">
+                      <SelectValue placeholder={usersLoading ? "Loading..." : "Select incharge (optional)"}>
+                        {watch("inchargeId") && watch("inchargeId") !== "__none__" ? (() => {
+                          const selectedUser = users.find(u => u.id === watch("inchargeId"));
+                          return selectedUser ? (selectedUser.name || selectedUser.email) : "Select incharge (optional)";
+                        })() : "Select incharge (optional)"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      <div className="p-2">
+                        <div className="relative">
+                          <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
+                          <Input
+                            placeholder="Search users..."
+                            value={inchargeSearch}
+                            onChange={(e) => setInchargeSearch(e.target.value)}
+                            onKeyDown={(e) => {
+                              e.stopPropagation();
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                              }
+                            }}
+                            className="pl-8 h-8 text-xs"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      </div>
+                      <div className="max-h-[200px] overflow-y-auto">
+                        <SelectItem value="__none__" className="text-left">None</SelectItem>
+                        {users
+                          .filter((user) => {
+                            // Filter out current user when editing
+                            if (mode === "edit" && user.id === initialData?.id) return false;
+                            // Filter by search
+                            if (!inchargeSearch) return true;
+                            const searchLower = inchargeSearch.toLowerCase();
+                            return (
+                              user.name?.toLowerCase().includes(searchLower) ||
+                              user.email.toLowerCase().includes(searchLower)
+                            );
+                          })
+                          .map((user) => (
+                            <SelectItem key={user.id} value={user.id} className="text-left">
+                              {user.name || user.email} {user.name && `(${user.email})`}
+                            </SelectItem>
+                          ))}
+                      </div>
+                    </SelectContent>
+                  </Select>
+                  {errors.inchargeId && (
+                    <p className="text-sm text-destructive">{errors.inchargeId.message}</p>
                   )}
                 </div>
 

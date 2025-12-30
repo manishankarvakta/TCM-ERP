@@ -33,11 +33,32 @@ export async function getQuotations(
       };
     }
 
+    // Check if user is admin
+    const isAdmin = session.user.role?.toLowerCase() === 'admin';
+
     const skip = (page - 1) * limit;
     const isTrashTab = status === 'trash';
 
     // Build where clause - use AND array to properly combine filters
     const whereConditions: any[] = [];
+    
+    // Add user filter: only show quotations from current user or users they are in charge of
+    // Admins can see all quotations from all users
+    if (!isAdmin) {
+      // Fetch users that the current user is in charge of
+      const usersInCharge = await prisma.user.findMany({
+        where: { inchargeId: session.user.id },
+        select: { id: true },
+      });
+      const userIdsInCharge = usersInCharge.map(u => u.id);
+
+      // Build array of allowed user IDs (current user + users in charge)
+      const allowedUserIds = [session.user.id, ...userIdsInCharge];
+      
+      whereConditions.push({
+        submittedById: { in: allowedUserIds }
+      });
+    }
     
     // Set trash filter
     if (isTrashTab) {

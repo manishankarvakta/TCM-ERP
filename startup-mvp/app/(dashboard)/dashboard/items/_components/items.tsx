@@ -75,6 +75,13 @@ interface ItemsListClientProps {
   initialPagination: Pagination;
   initialSearch: string;
   isTrash?: boolean;
+  userId?: string;
+  permissions?: {
+    view: boolean;
+    edit: boolean;
+    moveToTrash: boolean;
+    deletePermanently: boolean;
+  };
 }
 
 export default function ItemsListClient({
@@ -82,6 +89,8 @@ export default function ItemsListClient({
   initialPagination,
   initialSearch,
   isTrash = false,
+  userId: providedUserId,
+  permissions,
 }: ItemsListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -430,11 +439,15 @@ export default function ItemsListClient({
                               permissionKey="items.items"
                               action="view"
                               href={`/dashboard/items/details?id=${item.id}`}
+                              userId={providedUserId || undefined}
+                              hasAccess={permissions?.view}
                             />
                             <ProtectedAction
                               permissionKey="items.items"
                               action="edit"
                               href={`/dashboard/items/${item.id}`}
+                              userId={providedUserId || undefined}
+                              hasAccess={permissions?.edit}
                             />
                           </>
                         )}
@@ -454,6 +467,8 @@ export default function ItemsListClient({
                           permissionKey="items.items"
                           action={isTrash ? "delete-permanently" : "move-to-trash"}
                           onClick={() => setDeleteItemId(item.id)}
+                          userId={providedUserId || undefined}
+                          hasAccess={isTrash ? permissions?.deletePermanently : permissions?.moveToTrash}
                           buttonProps={{
                             disabled: isPending,
                             className: "text-destructive hover:text-destructive",

@@ -6,6 +6,8 @@ import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import ClientsListClient from "./_components/clients";
 import PageGuard from "@/components/permissions/page-guard";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 
 interface ClientsPageProps {
   searchParams: Promise<{
@@ -21,8 +23,19 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   const search = params.search || "";
   const tab = params.tab || "all";
 
+  const session = await auth();
+  const userId = session?.user?.id;
+
   const status = tab === "trash" ? "trash" : "all";
-  const result = await getClients(page, 10, search, status);
+  
+  // Check permissions on server side for better performance
+  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
+    getClients(page, 10, search, status),
+    userId ? hasPermission(userId, "peoples.clients", "view") : false,
+    userId ? hasPermission(userId, "peoples.clients", "edit") : false,
+    userId ? hasPermission(userId, "peoples.clients", "move-to-trash") : false,
+    userId ? hasPermission(userId, "peoples.clients", "delete-permanently") : false,
+  ]);
 
   // Handle errors
   if (!result.success) {
@@ -81,6 +94,13 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
               }}
               initialSearch={search}
               isTrash={false}
+              userId={userId || undefined}
+              permissions={{
+                view: canView,
+                edit: canEdit,
+                moveToTrash: canMoveToTrash,
+                deletePermanently: canDeletePermanently,
+              }}
             />
           </TabsContent>
           <TabsContent value="trash" className="mt-4">
@@ -94,6 +114,13 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
               }}
               initialSearch={search}
               isTrash={true}
+              userId={userId || undefined}
+              permissions={{
+                view: canView,
+                edit: canEdit,
+                moveToTrash: canMoveToTrash,
+                deletePermanently: canDeletePermanently,
+              }}
             />
           </TabsContent>
         </Tabs>
