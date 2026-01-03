@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
-import { type Prisma } from "@prisma/client";
+import { type Prisma, AccountType } from "@prisma/client";
 
 /**
  * Get paginated list of clients with search
@@ -191,6 +191,64 @@ export async function getClientById(clientId: string) {
 }
 
 /**
+ * Helper function to find Accounts Receivable parent account
+ */
+async function findAccountsReceivableParent(): Promise<string | null> {
+  const account = await prisma.chartOfAccount.findFirst({
+    where: {
+      name: {
+        contains: "Accounts Receivable",
+        mode: "insensitive",
+      },
+      status: "active",
+      type: AccountType.ASSET,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  return account?.id || null;
+}
+
+/**
+ * Helper function to generate unique account code for customer
+ * Format: AR-{YYYY}-{NNNN} (e.g., AR-2025-0001)
+ * @param tx Optional transaction client - if provided, uses transaction for consistency
+ */
+async function generateCustomerAccountCode(tx?: Prisma.TransactionClient): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `AR-${year}-`;
+  const client = tx || prisma;
+
+  // Find the highest number for this year
+  const lastAccount = await client.chartOfAccount.findFirst({
+    where: {
+      code: {
+        startsWith: prefix,
+      },
+    },
+    orderBy: {
+      code: "desc",
+    },
+    select: {
+      code: true,
+    },
+  });
+
+  let nextNumber = 1;
+  if (lastAccount) {
+    const lastNumberStr = lastAccount.code.split("-").pop() || "0";
+    const lastNumber = parseInt(lastNumberStr, 10);
+    if (!isNaN(lastNumber)) {
+      nextNumber = lastNumber + 1;
+    }
+  }
+
+  return `${prefix}${nextNumber.toString().padStart(4, "0")}`;
+}
+
+/**
  * Create a new client
  */
 export async function createClient(input: {
@@ -230,51 +288,132 @@ export async function createClient(input: {
       };
     }
 
-    // Create client
-    const client = await prisma.client.create({
-      data: {
-        name: input.name || null,
-        email: input.email,
-        phone: input.phone || null,
-        address: input.address || null,
-        city: input.city || null,
-        state: input.state || null,
-        zip: input.zip || null,
-        country: input.country || null,
-        company: input.company || null,
-        image: input.image || null,
-        status: input.status || "active",
-        createdBy: session.user.id,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        address: true,
-        city: true,
-        state: true,
-        zip: true,
-        country: true,
-        company: true,
-        image: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    // Use transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      // Find Accounts Receivable parent account
+      const arParentId = await findAccountsReceivableParent();
+      
+      if (!arParentId) {
+        throw new Error(
+          "Accounts Receivable control account not found. Please ensure it exists in Chart of Accounts before creating clients."
+        );
+      }
+
+      // Verify parent account is active
+      const parentAccount = await tx.chartOfAccount.findUnique({
+        where: { id: arParentId },
+        select: { id: true, status: true, type: true },
+      });
+
+      if (!parentAccount || parentAccount.status !== "active") {
+        throw new Error("Accounts Receivable parent account is not active");
+      }
+
+      if (parentAccount.type !== AccountType.ASSET) {
+        throw new Error("Accounts Receivable parent account must be of type ASSET");
+      }
+
+      // Generate unique account code (using transaction client for consistency)
+      let accountCode = await generateCustomerAccountCode(tx);
+      
+      // Ensure code doesn't exist (double-check for race conditions)
+      let codeExists = await tx.chartOfAccount.findUnique({
+        where: { code: accountCode },
+        select: { id: true },
+      });
+
+      // If code exists, try generating a new one (up to 10 attempts)
+      let attempts = 0;
+      while (codeExists && attempts < 10) {
+        // Extract number and increment
+        const parts = accountCode.split("-");
+        const numberPart = parts[parts.length - 1];
+        const number = parseInt(numberPart, 10);
+        if (!isNaN(number)) {
+          const newNumber = number + 1;
+          accountCode = `${parts.slice(0, -1).join("-")}-${newNumber.toString().padStart(4, "0")}`;
+        } else {
+          // Fallback: append timestamp
+          accountCode = `AR-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
+        }
+        codeExists = await tx.chartOfAccount.findUnique({
+          where: { code: accountCode },
+          select: { id: true },
+        });
+        attempts++;
+      }
+
+      if (codeExists) {
+        throw new Error("Unable to generate unique account code. Please try again.");
+      }
+
+      // Create Chart of Account for customer
+      const customerName = input.name || input.email;
+      const accountName = `AR - ${customerName}`;
+
+      const chartOfAccount = await tx.chartOfAccount.create({
+        data: {
+          code: accountCode,
+          name: accountName,
+          type: AccountType.ASSET,
+          parentId: arParentId,
+          description: `Accounts Receivable account for customer: ${customerName}`,
+          status: "active",
+          createdBy: session.user.id,
+        },
+      });
+
+      // Create client with chartOfAccountId reference
+      const client = await tx.client.create({
+        data: {
+          name: input.name || null,
+          email: input.email,
+          phone: input.phone || null,
+          address: input.address || null,
+          city: input.city || null,
+          state: input.state || null,
+          zip: input.zip || null,
+          country: input.country || null,
+          company: input.company || null,
+          image: input.image || null,
+          status: input.status || "active",
+          createdBy: session.user.id,
+          chartOfAccountId: chartOfAccount.id,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          address: true,
+          city: true,
+          state: true,
+          zip: true,
+          country: true,
+          company: true,
+          image: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      return { client, chartOfAccount };
     });
 
     // Log client creation
     await logItemCreated(
       session.user.id,
       "Client",
-      client.id,
-      client.name || client.email,
+      result.client.id,
+      result.client.name || result.client.email,
       { 
-        name: client.name, 
-        email: client.email,
-        phone: client.phone,
-        company: client.company,
+        name: result.client.name, 
+        email: result.client.email,
+        phone: result.client.phone,
+        company: result.client.company,
+        chartOfAccountId: result.chartOfAccount.id,
+        chartOfAccountCode: result.chartOfAccount.code,
       }
     );
 
@@ -283,7 +422,7 @@ export async function createClient(input: {
 
     return {
       success: true,
-      client,
+      client: result.client,
     };
   } catch (error) {
     console.error("createClient error:", error);

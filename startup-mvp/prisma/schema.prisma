@@ -22,6 +22,28 @@ enum QuotationStatus {
   REVISED
 }
 
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum VoucherType {
+  PAYMENT
+  RECEIPT
+  JOURNAL
+  CONTRA
+  SALES
+  PURCHASE
+}
+
+enum CashBankAccountType {
+  CASH
+  BANK
+}
+
 model User {
   id                   String         @id @default(cuid())
   name                 String?
@@ -57,10 +79,48 @@ model User {
   createdSettings      Settings[]     @relation("SettingsCreator")
   designationTemplate  PermissionTemplate? @relation("UserDesignationTemplate", fields: [designationTemplateId], references: [id], onDelete: SetNull)
   userPermissions      UserPermission[]
+  
+  // Accounting module relations
+  createdChartOfAccounts ChartOfAccount[] @relation("ChartOfAccountCreator")
+  createdVouchers       Voucher[]        @relation("VoucherCreator")
+  postedVouchers        Voucher[]        @relation("VoucherPostedBy")
+  vouchersAsUser        Voucher[]        @relation("VoucherUser")
+  voucherLinesAsUser    VoucherLine[]    @relation("VoucherLineUser")
+  journalEntryLinesAsUser JournalEntryLine[] @relation("JournalEntryLineUser")
+  createdCashBankAccounts CashBankAccount[] @relation("CashBankAccountCreator")
+  
+  // Employee relation (optional one-to-one)
+  employee              Employee?         @relation("UserEmployee")
 
   @@index([status])
   @@index([designationTemplateId])
   @@index([inchargeId])
+}
+
+model Employee {
+  id           String   @id @default(cuid())
+  name         String
+  employeeCode String?  @unique
+  email        String?
+  phone        String?
+  userId       String?  @unique
+  user         User?    @relation("UserEmployee", fields: [userId], references: [id], onDelete: SetNull)
+  status       String   @default("active") // active, inactive
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Payroll accounting relations
+  salaryPayableAccountId String?
+  salaryPayableAccount   ChartOfAccount? @relation("EmployeeSalaryPayable", fields: [salaryPayableAccountId], references: [id], onDelete: SetNull)
+  advanceAccountId       String?
+  advanceAccount         ChartOfAccount? @relation("EmployeeAdvance", fields: [advanceAccountId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([employeeCode])
+  @@index([email])
+  @@index([salaryPayableAccountId])
+  @@index([advanceAccountId])
 }
 
 model Account {
@@ -205,6 +265,11 @@ model Organization {
   quotations Quotation[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
+  
+  // Accounting module relations
+  vouchers      Voucher[]      @relation
+  voucherLines  VoucherLine[]  @relation("VoucherLineOrganization")
+  journalEntryLines JournalEntryLine[] @relation("JournalEntryLineOrganization")
 
   @@index([status])
   @@index([createdBy])
@@ -329,10 +394,18 @@ model Client {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   Quotation     Quotation[]
+  
+  // Accounting module relations
+  chartOfAccountId String?
+  chartOfAccount   ChartOfAccount? @relation("ClientChartOfAccount", fields: [chartOfAccountId], references: [id], onDelete: SetNull)
+  vouchers      Voucher[]      @relation
+  voucherLines  VoucherLine[]  @relation("VoucherLineClient")
+  journalEntryLines JournalEntryLine[] @relation("JournalEntryLineClient")
 
   @@index([status])
   @@index([createdBy])
   @@index([email])
+  @@index([chartOfAccountId])
 }
 
 model Supplier {
@@ -352,10 +425,18 @@ model Supplier {
   status        String   @default("active") // active, inactive, trash
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  
+  // Accounting module relations
+  chartOfAccountId String?
+  chartOfAccount   ChartOfAccount? @relation("SupplierChartOfAccount", fields: [chartOfAccountId], references: [id], onDelete: SetNull)
+  vouchers      Voucher[]      @relation
+  voucherLines  VoucherLine[]  @relation("VoucherLineSupplier")
+  journalEntryLines JournalEntryLine[] @relation("JournalEntryLineSupplier")
 
   @@index([status])
   @@index([createdBy])
   @@index([email])
+  @@index([chartOfAccountId])
 }
 
 // ============================================
@@ -625,4 +706,178 @@ model ModuleOperation {
   @@unique([module, operation])
   @@index([module])
   @@index([isActive])
+}
+
+// ============================================
+// ACCOUNTING MODELS
+// ============================================
+
+model ChartOfAccount {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  type        AccountType
+  parentId    String?
+  parent      ChartOfAccount? @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    ChartOfAccount[] @relation("AccountHierarchy")
+  description String?  @db.Text
+  status      String   @default("active") // active, inactive, trash
+  createdBy   String
+  creator     User     @relation("ChartOfAccountCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  voucherLines      VoucherLine[]
+  journalEntryLines JournalEntryLine[]
+  cashBankAccount   CashBankAccount?
+  clients           Client[] @relation("ClientChartOfAccount")
+  suppliers         Supplier[] @relation("SupplierChartOfAccount")
+  employeesSalaryPayable Employee[] @relation("EmployeeSalaryPayable")
+  employeesAdvance       Employee[] @relation("EmployeeAdvance")
+
+  @@index([code])
+  @@index([type])
+  @@index([parentId])
+  @@index([status])
+  @@index([createdBy])
+}
+
+model CashBankAccount {
+  id                String              @id @default(cuid())
+  chartOfAccountId  String              @unique
+  chartOfAccount    ChartOfAccount      @relation(fields: [chartOfAccountId], references: [id], onDelete: Cascade)
+  type              CashBankAccountType
+  status            String              @default("active") // active, inactive, trash
+  createdBy         String
+  creator           User                @relation("CashBankAccountCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([chartOfAccountId])
+  @@index([type])
+  @@index([status])
+  @@index([createdBy])
+}
+
+model Voucher {
+  id            String      @id @default(cuid())
+  voucherNumber String      @unique
+  date          DateTime    @default(now())
+  type          VoucherType
+  reference     String?
+  description   String?     @db.Text
+  status        String      @default("draft") // draft, posted, cancelled
+  createdBy     String
+  creator       User        @relation("VoucherCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  postedById    String?
+  postedBy      User?       @relation("VoucherPostedBy", fields: [postedById], references: [id], onDelete: SetNull)
+  postedAt      DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Optional links to related entities
+  clientId       String?
+  client         Client?    @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  supplierId     String?
+  supplier       Supplier?   @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  userId         String?
+  user           User?       @relation("VoucherUser", fields: [userId], references: [id], onDelete: SetNull)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  voucherLines   VoucherLine[]
+  journalEntries JournalEntry[]
+
+  @@index([voucherNumber])
+  @@index([date])
+  @@index([type])
+  @@index([status])
+  @@index([createdBy])
+  @@index([postedById])
+  @@index([clientId])
+  @@index([supplierId])
+  @@index([userId])
+  @@index([organizationId])
+}
+
+model VoucherLine {
+  id          String   @id @default(cuid())
+  lineNumber  Int
+  debitAmount Decimal   @default(0) @db.Decimal(12, 2)
+  creditAmount Decimal  @default(0) @db.Decimal(12, 2)
+  description String?   @db.Text
+  voucherId   String
+  voucher     Voucher   @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  chartOfAccountId String
+  chartOfAccount ChartOfAccount @relation(fields: [chartOfAccountId], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Optional links to related entities (for tracking)
+  clientId       String?
+  client         Client?    @relation("VoucherLineClient", fields: [clientId], references: [id], onDelete: SetNull)
+  supplierId     String?
+  supplier       Supplier?   @relation("VoucherLineSupplier", fields: [supplierId], references: [id], onDelete: SetNull)
+  userId         String?
+  user           User?       @relation("VoucherLineUser", fields: [userId], references: [id], onDelete: SetNull)
+  organizationId String?
+  organization   Organization? @relation("VoucherLineOrganization", fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([voucherId])
+  @@index([chartOfAccountId])
+  @@index([clientId])
+  @@index([supplierId])
+  @@index([userId])
+  @@index([organizationId])
+}
+
+model JournalEntry {
+  id          String   @id @default(cuid())
+  entryNumber String   @unique
+  date        DateTime @default(now())
+  voucherId   String
+  voucher     Voucher  @relation(fields: [voucherId], references: [id], onDelete: Restrict)
+  description String?  @db.Text
+  status      String   @default("posted") // Always posted (immutable)
+  createdBy   String
+  postedBy    String
+  postedAt    DateTime
+  createdAt   DateTime @default(now())
+
+  journalEntryLines JournalEntryLine[]
+
+  @@index([entryNumber])
+  @@index([date])
+  @@index([voucherId])
+  @@index([status])
+}
+
+model JournalEntryLine {
+  id          String   @id @default(cuid())
+  lineNumber  Int
+  debitAmount Decimal  @default(0) @db.Decimal(12, 2)
+  creditAmount Decimal  @default(0) @db.Decimal(12, 2)
+  description String?  @db.Text
+  journalEntryId String
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  chartOfAccountId String
+  chartOfAccount ChartOfAccount @relation(fields: [chartOfAccountId], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+
+  // Optional links to related entities (copied from VoucherLine)
+  clientId       String?
+  client         Client?    @relation("JournalEntryLineClient", fields: [clientId], references: [id], onDelete: SetNull)
+  supplierId     String?
+  supplier       Supplier?   @relation("JournalEntryLineSupplier", fields: [supplierId], references: [id], onDelete: SetNull)
+  userId         String?
+  user           User?       @relation("JournalEntryLineUser", fields: [userId], references: [id], onDelete: SetNull)
+  organizationId String?
+  organization   Organization? @relation("JournalEntryLineOrganization", fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([journalEntryId])
+  @@index([chartOfAccountId])
+  @@index([clientId])
+  @@index([supplierId])
+  @@index([userId])
+  @@index([organizationId])
 }

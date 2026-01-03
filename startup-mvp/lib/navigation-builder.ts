@@ -101,6 +101,7 @@ export const MENU_TEMPLATE: MenuItemData[] = [
       { href: "/dashboard/users", label: "Users", icon: "FiUser", module: "peoples" },
       { href: "/dashboard/clients", label: "Clients", icon: "FiUser", module: "peoples" },
       { href: "/dashboard/suppliers", label: "Suppliers", icon: "FiUser", module: "peoples" },
+      { href: "/dashboard/employees", label: "Employees", icon: "FiUser", module: "peoples" },
     ],
   },
   { href: "/dashboard/files", label: "Files", icon: "FiFolder", module: "files" },

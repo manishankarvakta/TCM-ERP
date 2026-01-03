@@ -1,22 +1,54 @@
-import { Card, CardContent } from "@/components/ui/card";
+import { getCashBankAccounts } from "./_actions/cash-bank.action";
+import CashBankList from "./_components/cash-bank-list";
+import PageGuard from "@/components/permissions/page-guard";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 
-export default function CashBankPage() {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Cash & Bank</h1>
-          <p className="text-sm text-muted-foreground">Manage cash and bank accounts</p>
+export default async function CashBankPage() {
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  // Check permissions on server side
+  const [result, canView] = await Promise.all([
+    getCashBankAccounts(),
+    userId ? hasPermission(userId, "accounts.cash-bank", "view") : false,
+  ]);
+
+  // Handle errors
+  if (!result.success) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Cash & Bank</h1>
+            <p className="text-sm text-muted-foreground">Manage cash and bank accounts</p>
+          </div>
+        </div>
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+          <p className="text-sm text-destructive">
+            {result.error || "Failed to load cash & bank accounts"}
+          </p>
         </div>
       </div>
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-center h-[400px] text-sm text-muted-foreground">
-            No data yet
+    );
+  }
+
+  return (
+    <PageGuard permissionKey="accounts.cash-bank">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Cash & Bank</h1>
+            <p className="text-sm text-muted-foreground">Manage cash and bank accounts</p>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+
+        <CashBankList
+          cashAccounts={result.accounts?.cash || []}
+          bankAccounts={result.accounts?.bank || []}
+        />
+      </div>
+    </PageGuard>
   );
 }
 

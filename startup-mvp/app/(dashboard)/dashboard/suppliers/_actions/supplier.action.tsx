@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
-import { type Prisma } from "@prisma/client";
+import { type Prisma, AccountType } from "@prisma/client";
 
 /**
  * Get paginated list of suppliers with search
@@ -191,6 +191,64 @@ export async function getSupplierById(supplierId: string) {
 }
 
 /**
+ * Helper function to find Accounts Payable parent account
+ */
+async function findAccountsPayableParent(): Promise<string | null> {
+  const account = await prisma.chartOfAccount.findFirst({
+    where: {
+      name: {
+        contains: "Accounts Payable",
+        mode: "insensitive",
+      },
+      status: "active",
+      type: AccountType.LIABILITY,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  return account?.id || null;
+}
+
+/**
+ * Helper function to generate unique account code for supplier
+ * Format: AP-{YYYY}-{NNNN} (e.g., AP-2025-0001)
+ * @param tx Optional transaction client - if provided, uses transaction for consistency
+ */
+async function generateSupplierAccountCode(tx?: Prisma.TransactionClient): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `AP-${year}-`;
+  const client = tx || prisma;
+
+  // Find the highest number for this year
+  const lastAccount = await client.chartOfAccount.findFirst({
+    where: {
+      code: {
+        startsWith: prefix,
+      },
+    },
+    orderBy: {
+      code: "desc",
+    },
+    select: {
+      code: true,
+    },
+  });
+
+  let nextNumber = 1;
+  if (lastAccount) {
+    const lastNumberStr = lastAccount.code.split("-").pop() || "0";
+    const lastNumber = parseInt(lastNumberStr, 10);
+    if (!isNaN(lastNumber)) {
+      nextNumber = lastNumber + 1;
+    }
+  }
+
+  return `${prefix}${nextNumber.toString().padStart(4, "0")}`;
+}
+
+/**
  * Create a new supplier
  */
 export async function createSupplier(input: {
@@ -230,51 +288,132 @@ export async function createSupplier(input: {
       };
     }
 
-    // Create supplier
-    const supplier = await prisma.supplier.create({
-      data: {
-        name: input.name || null,
-        email: input.email,
-        phone: input.phone || null,
-        address: input.address || null,
-        city: input.city || null,
-        state: input.state || null,
-        zip: input.zip || null,
-        country: input.country || null,
-        company: input.company || null,
-        image: input.image || null,
-        status: input.status || "active",
-        createdBy: session.user.id,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        address: true,
-        city: true,
-        state: true,
-        zip: true,
-        country: true,
-        company: true,
-        image: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    // Use transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      // Find Accounts Payable parent account
+      const apParentId = await findAccountsPayableParent();
+      
+      if (!apParentId) {
+        throw new Error(
+          "Accounts Payable control account not found. Please ensure it exists in Chart of Accounts before creating suppliers."
+        );
+      }
+
+      // Verify parent account is active
+      const parentAccount = await tx.chartOfAccount.findUnique({
+        where: { id: apParentId },
+        select: { id: true, status: true, type: true },
+      });
+
+      if (!parentAccount || parentAccount.status !== "active") {
+        throw new Error("Accounts Payable parent account is not active");
+      }
+
+      if (parentAccount.type !== AccountType.LIABILITY) {
+        throw new Error("Accounts Payable parent account must be of type LIABILITY");
+      }
+
+      // Generate unique account code (using transaction client for consistency)
+      let accountCode = await generateSupplierAccountCode(tx);
+      
+      // Ensure code doesn't exist (double-check for race conditions)
+      let codeExists = await tx.chartOfAccount.findUnique({
+        where: { code: accountCode },
+        select: { id: true },
+      });
+
+      // If code exists, try generating a new one (up to 10 attempts)
+      let attempts = 0;
+      while (codeExists && attempts < 10) {
+        // Extract number and increment
+        const parts = accountCode.split("-");
+        const numberPart = parts[parts.length - 1];
+        const number = parseInt(numberPart, 10);
+        if (!isNaN(number)) {
+          const newNumber = number + 1;
+          accountCode = `${parts.slice(0, -1).join("-")}-${newNumber.toString().padStart(4, "0")}`;
+        } else {
+          // Fallback: append timestamp
+          accountCode = `AP-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
+        }
+        codeExists = await tx.chartOfAccount.findUnique({
+          where: { code: accountCode },
+          select: { id: true },
+        });
+        attempts++;
+      }
+
+      if (codeExists) {
+        throw new Error("Unable to generate unique account code. Please try again.");
+      }
+
+      // Create Chart of Account for supplier
+      const supplierName = input.name || input.email;
+      const accountName = `AP - ${supplierName}`;
+
+      const chartOfAccount = await tx.chartOfAccount.create({
+        data: {
+          code: accountCode,
+          name: accountName,
+          type: AccountType.LIABILITY,
+          parentId: apParentId,
+          description: `Accounts Payable account for supplier: ${supplierName}`,
+          status: "active",
+          createdBy: session.user.id,
+        },
+      });
+
+      // Create supplier with chartOfAccountId reference
+      const supplier = await tx.supplier.create({
+        data: {
+          name: input.name || null,
+          email: input.email,
+          phone: input.phone || null,
+          address: input.address || null,
+          city: input.city || null,
+          state: input.state || null,
+          zip: input.zip || null,
+          country: input.country || null,
+          company: input.company || null,
+          image: input.image || null,
+          status: input.status || "active",
+          createdBy: session.user.id,
+          chartOfAccountId: chartOfAccount.id,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          address: true,
+          city: true,
+          state: true,
+          zip: true,
+          country: true,
+          company: true,
+          image: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      return { supplier, chartOfAccount };
     });
 
     // Log supplier creation
     await logItemCreated(
       session.user.id,
       "Supplier",
-      supplier.id,
-      supplier.name || supplier.email,
+      result.supplier.id,
+      result.supplier.name || result.supplier.email,
       { 
-        name: supplier.name, 
-        email: supplier.email,
-        phone: supplier.phone,
-        company: supplier.company,
+        name: result.supplier.name, 
+        email: result.supplier.email,
+        phone: result.supplier.phone,
+        company: result.supplier.company,
+        chartOfAccountId: result.chartOfAccount.id,
+        chartOfAccountCode: result.chartOfAccount.code,
       }
     );
 
@@ -283,7 +422,7 @@ export async function createSupplier(input: {
 
     return {
       success: true,
-      supplier,
+      supplier: result.supplier,
     };
   } catch (error) {
     console.error("createSupplier error:", error);
@@ -388,8 +527,27 @@ export async function updateSupplier(input: {
         status: true,
         createdAt: true,
         updatedAt: true,
+        chartOfAccount: {
+          select: {
+            id: true,
+          },
+        },
       },
     });
+
+    // Handle rename: Update COA name if supplier name changed and COA exists
+    if (input.name !== undefined && input.name !== existingSupplier.name && supplier.chartOfAccount?.id) {
+      const supplierName = input.name || input.email;
+      const accountName = `AP - ${supplierName}`;
+      
+      await prisma.chartOfAccount.update({
+        where: { id: supplier.chartOfAccount.id },
+        data: {
+          name: accountName,
+          description: `Accounts Payable account for supplier: ${supplierName}`,
+        },
+      });
+    }
 
     // Log supplier update - track what actually changed
     const changes: string[] = [];
@@ -456,7 +614,13 @@ export async function deleteSupplier(supplierId: string) {
     // Get supplier info before moving to trash for logging
     const supplierToDelete = await prisma.supplier.findUnique({
       where: { id: supplierId },
-      select: { name: true, email: true, phone: true, company: true },
+      select: { 
+        name: true, 
+        email: true, 
+        phone: true, 
+        company: true,
+        chartOfAccountId: true,
+      },
     });
 
     if (!supplierToDelete) {
@@ -466,10 +630,21 @@ export async function deleteSupplier(supplierId: string) {
       };
     }
 
-    // Move supplier to trash (soft delete)
-    await prisma.supplier.update({
-      where: { id: supplierId },
-      data: { status: "trash" },
+    // Use transaction to ensure both supplier and COA are soft-deleted atomically
+    await prisma.$transaction(async (tx) => {
+      // Move supplier to trash (soft delete)
+      await tx.supplier.update({
+        where: { id: supplierId },
+        data: { status: "trash" },
+      });
+
+      // Also soft-delete the associated COA if it exists
+      if (supplierToDelete.chartOfAccountId) {
+        await tx.chartOfAccount.update({
+          where: { id: supplierToDelete.chartOfAccountId },
+          data: { status: "trash" },
+        });
+      }
     });
 
     // Log the deletion

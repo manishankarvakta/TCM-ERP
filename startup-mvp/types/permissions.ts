@@ -163,6 +163,7 @@ export const MODULES: Record<Module, ModuleMetadata> = {
       { id: "users", label: "Users", path: "/dashboard/users", module: "peoples", permissionKey: "peoples.users" },
       { id: "clients", label: "Clients", path: "/dashboard/clients", module: "peoples", permissionKey: "peoples.clients" },
       { id: "suppliers", label: "Suppliers", path: "/dashboard/suppliers", module: "peoples", permissionKey: "peoples.suppliers" },
+      { id: "employees", label: "Employees", path: "/dashboard/employees", module: "peoples", permissionKey: "peoples.employees" },
     ],
   },
   files: {
@@ -494,6 +495,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "peoples.suppliers",
         path: "/dashboard/suppliers",
         label: "Suppliers",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "peoples.employees",
+        path: "/dashboard/employees",
+        label: "Employees",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
     ],

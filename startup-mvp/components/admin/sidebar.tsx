@@ -142,6 +142,7 @@ const menuItems: MenuItem[] = [
       { href: "/admin/users", label: "Users", icon: FiUser, module: "peoples" },
       { href: "/admin/clients", label: "Clients", icon: FiUser, module: "peoples" },
       { href: "/admin/suppliers", label: "Suppliers", icon: FiUser, module: "peoples" },
+      { href: "/admin/employees", label: "Employees", icon: FiUser, module: "peoples" },
     ],
   },
   
