@@ -41,6 +41,7 @@ export async function getClients(
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
+        { clientCode: { contains: search, mode: "insensitive" } },
         { email: { contains: search, mode: "insensitive" } },
         { phone: { contains: search, mode: "insensitive" } },
         { company: { contains: search, mode: "insensitive" } },
@@ -71,6 +72,7 @@ export async function getClients(
       select: {
         id: true,
         name: true,
+        clientCode: true,
         email: true,
         phone: true,
         address: true,
@@ -87,6 +89,14 @@ export async function getClients(
             id: true,
             name: true,
             email: true,
+          },
+        },
+        chartOfAccount: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            type: true,
           },
         },
         createdAt: true,
@@ -145,6 +155,7 @@ export async function getClientById(clientId: string) {
       select: {
         id: true,
         name: true,
+        clientCode: true,
         email: true,
         phone: true,
         address: true,
@@ -161,6 +172,14 @@ export async function getClientById(clientId: string) {
             id: true,
             name: true,
             email: true,
+          },
+        },
+        chartOfAccount: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            type: true,
           },
         },
         createdAt: true,
@@ -209,6 +228,44 @@ async function findAccountsReceivableParent(): Promise<string | null> {
   });
 
   return account?.id || null;
+}
+
+/**
+ * Helper function to generate unique client code
+ * Format: CLI{NNNNNNN} (e.g., CLI1000001, CLI1000002, CLI1000003)
+ * @param tx Optional transaction client - if provided, uses transaction for consistency
+ */
+async function generateClientCode(tx?: Prisma.TransactionClient): Promise<string> {
+  const prefix = "CLI";
+  const client = tx || prisma;
+
+  // Find the highest existing code
+  const lastClient = await client.client.findFirst({
+    where: {
+      clientCode: {
+        startsWith: prefix,
+      },
+    },
+    orderBy: {
+      clientCode: "desc",
+    },
+    select: {
+      clientCode: true,
+    },
+  });
+
+  let nextNumber = 1000001;
+  if (lastClient?.clientCode) {
+    // Extract number from code (e.g., "CLI1000001" -> 1000001)
+    const codeWithoutPrefix = lastClient.clientCode.replace(prefix, "");
+    const lastNumber = parseInt(codeWithoutPrefix, 10);
+    if (!isNaN(lastNumber) && lastNumber >= 1000001) {
+      nextNumber = lastNumber + 1;
+    }
+  }
+
+  // Always use 7 digits for 10-digit total (3 prefix + 7 digits)
+  return `${prefix}${nextNumber.toString().padStart(7, "0")}`;
 }
 
 /**
@@ -290,8 +347,41 @@ export async function createClient(input: {
 
     // Use transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
+      // Generate unique client code
+      let clientCode = await generateClientCode(tx);
+      
+      // Ensure code doesn't exist (double-check for race conditions)
+      let clientCodeExists = await tx.client.findUnique({
+        where: { clientCode },
+        select: { id: true },
+      });
+
+      // Retry logic for code generation (up to 10 attempts)
+      let clientCodeAttempts = 0;
+      while (clientCodeExists && clientCodeAttempts < 10) {
+        // Extract number and increment
+        const codeWithoutPrefix = clientCode.replace("CLI", "");
+        const number = parseInt(codeWithoutPrefix, 10);
+        if (!isNaN(number) && number >= 1000001) {
+          const newNumber = number + 1;
+          clientCode = `CLI${newNumber.toString().padStart(7, "0")}`;
+        } else {
+          // Fallback: start from 1000001
+          clientCode = `CLI1000001`;
+        }
+        clientCodeExists = await tx.client.findUnique({
+          where: { clientCode },
+          select: { id: true },
+        });
+        clientCodeAttempts++;
+      }
+
+      if (clientCodeExists) {
+        throw new Error("Unable to generate unique client code. Please try again.");
+      }
+
       // Find Accounts Receivable parent account
-      const arParentId = await findAccountsReceivableParent();
+      const arParentId = await findAccountsReceivableParent(tx);
       
       if (!arParentId) {
         throw new Error(
@@ -367,6 +457,7 @@ export async function createClient(input: {
       const client = await tx.client.create({
         data: {
           name: input.name || null,
+          clientCode,
           email: input.email,
           phone: input.phone || null,
           address: input.address || null,
@@ -465,6 +556,22 @@ export async function updateClient(input: {
     // Check if client exists
     const existingClient = await prisma.client.findUnique({
       where: { id: input.id },
+      select: {
+        id: true,
+        name: true,
+        clientCode: true,
+        email: true,
+        phone: true,
+        address: true,
+        city: true,
+        state: true,
+        zip: true,
+        country: true,
+        company: true,
+        image: true,
+        status: true,
+        chartOfAccountId: true,
+      },
     });
 
     if (!existingClient) {
@@ -490,45 +597,174 @@ export async function updateClient(input: {
       }
     }
 
-    // Build update data
-    const updateData: Prisma.ClientUpdateInput = {
-      name: input.name !== undefined ? (input.name || null) : undefined,
-      email: input.email,
-      phone: input.phone !== undefined ? (input.phone || null) : undefined,
-      address: input.address !== undefined ? (input.address || null) : undefined,
-      city: input.city !== undefined ? (input.city || null) : undefined,
-      state: input.state !== undefined ? (input.state || null) : undefined,
-      zip: input.zip !== undefined ? (input.zip || null) : undefined,
-      country: input.country !== undefined ? (input.country || null) : undefined,
-      company: input.company !== undefined ? (input.company || null) : undefined,
-      image: input.image !== undefined ? (input.image || null) : undefined,
-    };
+    // Use transaction to ensure atomicity when creating missing account
+    const result = await prisma.$transaction(async (tx) => {
+      const clientName = input.name !== undefined ? (input.name || input.email) : (existingClient.name || existingClient.email);
+      let chartOfAccountId = existingClient.chartOfAccountId;
+      
+      // Generate client code if missing
+      let clientCode = existingClient.clientCode;
+      if (!clientCode) {
+        clientCode = await generateClientCode(tx);
+        
+        // Ensure code doesn't exist
+        let clientCodeExists = await tx.client.findUnique({
+          where: { clientCode },
+          select: { id: true },
+        });
 
-    if (input.status) {
-      updateData.status = input.status;
-    }
+        // Retry logic for code generation (up to 10 attempts)
+        let clientCodeAttempts = 0;
+        while (clientCodeExists && clientCodeAttempts < 10) {
+          const codeWithoutPrefix = clientCode.replace("CLI", "");
+          const number = parseInt(codeWithoutPrefix, 10);
+          if (!isNaN(number) && number >= 1000001) {
+            const newNumber = number + 1;
+            clientCode = `CLI${newNumber.toString().padStart(7, "0")}`;
+          } else {
+            // Fallback: start from 1000001
+            clientCode = `CLI1000001`;
+          }
+          clientCodeExists = await tx.client.findUnique({
+            where: { clientCode },
+            select: { id: true },
+          });
+          clientCodeAttempts++;
+        }
 
-    // Update client
-    const client = await prisma.client.update({
-      where: { id: input.id },
-      data: updateData,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        address: true,
-        city: true,
-        state: true,
-        zip: true,
-        country: true,
-        company: true,
-        image: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+        if (clientCodeExists) {
+          throw new Error("Unable to generate unique client code. Please try again.");
+        }
+      }
+
+      // Check and create Accounts Receivable account if missing
+      if (!chartOfAccountId) {
+        // Find Accounts Receivable parent account (required)
+        const arParentId = await findAccountsReceivableParent(tx);
+        
+        if (!arParentId) {
+          throw new Error(
+            "Accounts Receivable control account not found. Please ensure it exists in Chart of Accounts before updating clients."
+          );
+        }
+
+        // Verify parent account is active
+        const parentAccount = await tx.chartOfAccount.findUnique({
+          where: { id: arParentId },
+          select: { id: true, status: true, type: true },
+        });
+
+        if (!parentAccount || parentAccount.status !== "active") {
+          throw new Error("Accounts Receivable parent account is not active");
+        }
+
+        if (parentAccount.type !== AccountType.ASSET) {
+          throw new Error("Accounts Receivable parent account must be of type ASSET");
+        }
+
+        // Generate unique account code
+        let accountCode = await generateCustomerAccountCode(tx);
+        
+        // Ensure code doesn't exist
+        let codeExists = await tx.chartOfAccount.findUnique({
+          where: { code: accountCode },
+          select: { id: true },
+        });
+
+        // Retry logic for code generation (up to 10 attempts)
+        let attempts = 0;
+        while (codeExists && attempts < 10) {
+          const parts = accountCode.split("-");
+          const numberPart = parts[parts.length - 1];
+          const number = parseInt(numberPart, 10);
+          if (!isNaN(number)) {
+            const newNumber = number + 1;
+            accountCode = `${parts.slice(0, -1).join("-")}-${newNumber.toString().padStart(4, "0")}`;
+          } else {
+            accountCode = `AR-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
+          }
+          codeExists = await tx.chartOfAccount.findUnique({
+            where: { code: accountCode },
+            select: { id: true },
+          });
+          attempts++;
+        }
+
+        if (codeExists) {
+          throw new Error("Unable to generate unique account code. Please try again.");
+        }
+
+        // Create Chart of Account for customer
+        const accountName = `AR - ${clientName}`;
+        const chartOfAccount = await tx.chartOfAccount.create({
+          data: {
+            code: accountCode,
+            name: accountName,
+            type: AccountType.ASSET,
+            parentId: arParentId,
+            description: `Accounts Receivable account for customer: ${clientName}`,
+            status: "active",
+            createdBy: session.user.id,
+          },
+        });
+
+        chartOfAccountId = chartOfAccount.id;
+      }
+
+      // Build update data
+      const updateData: Prisma.ClientUpdateInput = {
+        name: input.name !== undefined ? (input.name || null) : undefined,
+        email: input.email,
+        phone: input.phone !== undefined ? (input.phone || null) : undefined,
+        address: input.address !== undefined ? (input.address || null) : undefined,
+        city: input.city !== undefined ? (input.city || null) : undefined,
+        state: input.state !== undefined ? (input.state || null) : undefined,
+        zip: input.zip !== undefined ? (input.zip || null) : undefined,
+        country: input.country !== undefined ? (input.country || null) : undefined,
+        company: input.company !== undefined ? (input.company || null) : undefined,
+        image: input.image !== undefined ? (input.image || null) : undefined,
+      };
+
+      if (input.status) {
+        updateData.status = input.status;
+      }
+
+      // Add clientCode if it was generated
+      if (clientCode && clientCode !== existingClient.clientCode) {
+        updateData.clientCode = clientCode;
+      }
+
+      // Add chartOfAccountId if it was created
+      if (chartOfAccountId && chartOfAccountId !== existingClient.chartOfAccountId) {
+        updateData.chartOfAccountId = chartOfAccountId;
+      }
+
+      // Update client
+      const client = await tx.client.update({
+        where: { id: input.id },
+        data: updateData,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          address: true,
+          city: true,
+          state: true,
+          zip: true,
+          country: true,
+          company: true,
+          image: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      return { client };
     });
+
+    const client = result.client;
 
     // Log client update - track what actually changed
     const changes: string[] = [];
@@ -561,8 +797,6 @@ export async function updateClient(input: {
 
     // Revalidate clients page
     revalidateBothPaths("clients");
-    revalidatePath(`/admin/clients/${client.id}`);
-    revalidatePath(`/admin/clients/details?id=${client.id}`);
 
     return {
       success: true,

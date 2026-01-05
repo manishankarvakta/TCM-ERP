@@ -1060,6 +1060,7 @@ export async function updateEmployee(input: {
     revalidateBothPaths("employees");
     revalidatePath(`/dashboard/employees/${employee.id}`);
     revalidatePath(`/admin/employees/${employee.id}`);
+    revalidatePath(`/admin/employees/details?id=${employee.id}`);
 
     return {
       success: true,

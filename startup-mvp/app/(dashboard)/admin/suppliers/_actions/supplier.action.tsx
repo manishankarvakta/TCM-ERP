@@ -41,6 +41,7 @@ export async function getSuppliers(
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
+        { supplierCode: { contains: search, mode: "insensitive" } },
         { email: { contains: search, mode: "insensitive" } },
         { phone: { contains: search, mode: "insensitive" } },
         { company: { contains: search, mode: "insensitive" } },
@@ -71,6 +72,7 @@ export async function getSuppliers(
       select: {
         id: true,
         name: true,
+        supplierCode: true,
         email: true,
         phone: true,
         address: true,
@@ -87,6 +89,14 @@ export async function getSuppliers(
             id: true,
             name: true,
             email: true,
+          },
+        },
+        chartOfAccount: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            type: true,
           },
         },
         createdAt: true,
@@ -145,6 +155,7 @@ export async function getSupplierById(supplierId: string) {
       select: {
         id: true,
         name: true,
+        supplierCode: true,
         email: true,
         phone: true,
         address: true,
@@ -161,6 +172,14 @@ export async function getSupplierById(supplierId: string) {
             id: true,
             name: true,
             email: true,
+          },
+        },
+        chartOfAccount: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            type: true,
           },
         },
         createdAt: true,
@@ -209,6 +228,44 @@ async function findAccountsPayableParent(): Promise<string | null> {
   });
 
   return account?.id || null;
+}
+
+/**
+ * Helper function to generate unique supplier code
+ * Format: SUP{NNNNNNN} (e.g., SUP1000001, SUP1000002, SUP1000003)
+ * @param tx Optional transaction client - if provided, uses transaction for consistency
+ */
+async function generateSupplierCode(tx?: Prisma.TransactionClient): Promise<string> {
+  const prefix = "SUP";
+  const client = tx || prisma;
+
+  // Find the highest existing code
+  const lastSupplier = await client.supplier.findFirst({
+    where: {
+      supplierCode: {
+        startsWith: prefix,
+      },
+    },
+    orderBy: {
+      supplierCode: "desc",
+    },
+    select: {
+      supplierCode: true,
+    },
+  });
+
+  let nextNumber = 1000001;
+  if (lastSupplier?.supplierCode) {
+    // Extract number from code (e.g., "SUP1000001" -> 1000001)
+    const codeWithoutPrefix = lastSupplier.supplierCode.replace(prefix, "");
+    const lastNumber = parseInt(codeWithoutPrefix, 10);
+    if (!isNaN(lastNumber) && lastNumber >= 1000001) {
+      nextNumber = lastNumber + 1;
+    }
+  }
+
+  // Always use 7 digits for 10-digit total (3 prefix + 7 digits)
+  return `${prefix}${nextNumber.toString().padStart(7, "0")}`;
 }
 
 /**
@@ -367,6 +424,7 @@ export async function createSupplier(input: {
       const supplier = await tx.supplier.create({
         data: {
           name: input.name || null,
+          supplierCode,
           email: input.email,
           phone: input.phone || null,
           address: input.address || null,
@@ -580,8 +638,6 @@ export async function updateSupplier(input: {
 
     // Revalidate suppliers page
     revalidateBothPaths("suppliers");
-    revalidatePath(`/admin/suppliers/${supplier.id}`);
-    revalidatePath(`/admin/suppliers/details?id=${supplier.id}`);
 
     return {
       success: true,

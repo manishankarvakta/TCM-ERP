@@ -379,6 +379,7 @@ model ItemCategory {
 model Client {
   id            String      @id @default(cuid())
   name          String?
+  clientCode    String?     @unique
   email         String      @unique
   phone         String?
   address       String?
@@ -405,12 +406,14 @@ model Client {
   @@index([status])
   @@index([createdBy])
   @@index([email])
+  @@index([clientCode])
   @@index([chartOfAccountId])
 }
 
 model Supplier {
   id            String   @id @default(cuid())
   name          String?
+  supplierCode  String?  @unique
   email         String   @unique
   phone         String?
   address       String?
@@ -436,6 +439,7 @@ model Supplier {
   @@index([status])
   @@index([createdBy])
   @@index([email])
+  @@index([supplierCode])
   @@index([chartOfAccountId])
 }
 

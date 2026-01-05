@@ -23,7 +23,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw } from "react-icons/fi";
-import { deleteClient, bulkUpdateClientStatus, deleteClientsPermanently } from "../_actions/client.action";
+import { deleteEmployee, bulkUpdateEmployeeStatus, deleteEmployeesPermanently } from "../_actions/employee.action";
+import ProtectedAction from "@/components/permissions/protected-action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,31 +39,28 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
-interface Client {
+interface Employee {
   id: string;
-  name: string | null;
-  clientCode: string | null;
-  email: string;
+  name: string;
+  employeeCode: string | null;
+  email: string | null;
   phone: string | null;
-  address: string | null;
-  city: string | null;
-  state: string | null;
-  zip: string | null;
-  country: string | null;
-  company: string | null;
-  image: string | null;
-  status: string;
-  createdBy: string;
-  createdByUser: {
+  userId: string | null;
+  user: {
     id: string;
     name: string | null;
     email: string;
-  };
-  chartOfAccount: {
+  } | null;
+  status: string;
+  salaryPayableAccount: {
     id: string;
     code: string;
     name: string;
-    type: string;
+  } | null;
+  advanceAccount: {
+    id: string;
+    code: string;
+    name: string;
   } | null;
   createdAt: Date;
   updatedAt: Date;
@@ -75,25 +73,34 @@ interface Pagination {
   totalPages: number;
 }
 
-interface ClientsListClientProps {
-  initialClients: Client[];
+interface EmployeesListClientProps {
+  initialEmployees: Employee[];
   initialPagination: Pagination;
   initialSearch: string;
   isTrash?: boolean;
+  userId?: string;
+  permissions?: {
+    view: boolean;
+    edit: boolean;
+    moveToTrash: boolean;
+    deletePermanently: boolean;
+  };
 }
 
-export default function ClientsListClient({
-  initialClients = [],
+export default function EmployeesListClient({
+  initialEmployees = [],
   initialPagination,
   initialSearch,
   isTrash = false,
-}: ClientsListClientProps) {
+  userId: providedUserId,
+  permissions,
+}: EmployeesListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(initialSearch);
-  const [deleteClientId, setDeleteClientId] = useState<string | null>(null);
-  const [restoreClientId, setRestoreClientId] = useState<string | null>(null);
-  const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
+  const [deleteEmployeeId, setDeleteEmployeeId] = useState<string | null>(null);
+  const [restoreEmployeeId, setRestoreEmployeeId] = useState<string | null>(null);
+  const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
@@ -110,25 +117,25 @@ export default function ClientsListClient({
     if (tab) {
       params.set("tab", tab);
     }
-    router.push(`/admin/clients?${params.toString()}`);
+    router.push(`/admin/employees?${params.toString()}`);
   };
 
   const handleDelete = async () => {
-    if (!deleteClientId) return;
+    if (!deleteEmployeeId) return;
 
     startTransition(async () => {
-      const result = await deleteClient(deleteClientId);
+      const result = await deleteEmployee(deleteEmployeeId);
       if (result.success) {
-        setDeleteClientId(null);
+        setDeleteEmployeeId(null);
         toast({
           title: "Success",
-          description: "Client moved to trash",
+          description: "Employee moved to trash",
         });
         router.refresh();
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to delete client",
+          description: result.error || "Failed to delete employee",
           variant: "destructive",
         });
       }
@@ -136,76 +143,76 @@ export default function ClientsListClient({
   };
 
   const handleRestore = async () => {
-    if (!restoreClientId) return;
+    if (!restoreEmployeeId) return;
 
     startTransition(async () => {
-      const result = await bulkUpdateClientStatus([restoreClientId], "active");
+      const result = await bulkUpdateEmployeeStatus([restoreEmployeeId], "active");
       if (result.success) {
-        setRestoreClientId(null);
+        setRestoreEmployeeId(null);
         toast({
           title: "Success",
-          description: "Client restored successfully",
+          description: "Employee restored successfully",
         });
         router.refresh();
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to restore client",
+          description: result.error || "Failed to restore employee",
           variant: "destructive",
         });
       }
     });
   };
 
-  const handleSelectClient = (id: string, checked: boolean) => {
-    const newSelected = new Set(selectedClients);
+  const handleSelectEmployee = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedEmployees);
     if (checked) {
       newSelected.add(id);
     } else {
       newSelected.delete(id);
     }
-    setSelectedClients(newSelected);
+    setSelectedEmployees(newSelected);
   };
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedClients(new Set(initialClients.map((client) => client.id)));
+      setSelectedEmployees(new Set(initialEmployees.map((employee) => employee.id)));
     } else {
-      setSelectedClients(new Set());
+      setSelectedEmployees(new Set());
     }
   };
 
   const handleBulkAction = async (action: string) => {
-    if (selectedClients.size === 0) {
+    if (selectedEmployees.size === 0) {
       toast({
         title: "No selection",
-        description: "Please select at least one client",
+        description: "Please select at least one employee",
         variant: "destructive",
       });
       return;
     }
 
-    const clientIds = Array.from(selectedClients);
+    const employeeIds = Array.from(selectedEmployees);
 
     startTransition(async () => {
       let result;
       
       if (action === "trash") {
-        result = await bulkUpdateClientStatus(clientIds, "trash");
+        result = await bulkUpdateEmployeeStatus(employeeIds, "trash");
       } else if (action === "active") {
-        result = await bulkUpdateClientStatus(clientIds, "active");
+        result = await bulkUpdateEmployeeStatus(employeeIds, "active");
       } else if (action === "inactive") {
-        result = await bulkUpdateClientStatus(clientIds, "inactive");
+        result = await bulkUpdateEmployeeStatus(employeeIds, "inactive");
       } else if (action === "restore") {
-        result = await bulkUpdateClientStatus(clientIds, "active");
+        result = await bulkUpdateEmployeeStatus(employeeIds, "active");
       } else if (action === "delete-permanently") {
-        result = await deleteClientsPermanently(clientIds);
+        result = await deleteEmployeesPermanently(employeeIds);
       } else {
         return;
       }
 
       if (result.success) {
-        setSelectedClients(new Set());
+        setSelectedEmployees(new Set());
         toast({
           title: "Success",
           description: `Bulk action completed successfully`,
@@ -221,7 +228,7 @@ export default function ClientsListClient({
     });
   };
 
-  const getInitials = (name: string | null, email: string) => {
+  const getInitials = (name: string, email: string | null) => {
     if (name) {
       return name
         .split(" ")
@@ -230,10 +237,10 @@ export default function ClientsListClient({
         .toUpperCase()
         .slice(0, 2);
     }
-    return email[0].toUpperCase();
+    return email ? email[0].toUpperCase() : "E";
   };
 
-  const allSelected = initialClients.length > 0 && selectedClients.size === initialClients.length;
+  const allSelected = initialEmployees.length > 0 && selectedEmployees.size === initialEmployees.length;
 
   return (
     <div className="space-y-4">
@@ -242,7 +249,7 @@ export default function ClientsListClient({
         <div className="relative flex-1 max-w-sm">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name, email, phone, or company..."
+            placeholder="Search by name or code..."
             value={search}
             onChange={(e) => handleSearch(e.target.value)}
             className="pl-10"
@@ -261,9 +268,9 @@ export default function ClientsListClient({
 
         {/* Bulk Actions Dropdown */}
         <div className="flex items-center gap-2">
-          {selectedClients.size > 0 && (
+          {selectedEmployees.size > 0 && (
             <span className="text-sm text-muted-foreground whitespace-nowrap">
-              {selectedClients.size} selected
+              {selectedEmployees.size} selected
             </span>
           )}
           <DropdownMenu>
@@ -271,7 +278,7 @@ export default function ClientsListClient({
               <Button 
                 variant="outline" 
                 size="sm" 
-                disabled={isPending || selectedClients.size === 0}
+                disabled={isPending || selectedEmployees.size === 0}
               >
                 <FiMoreVertical className="mr-2 h-4 w-4" />
                 Bulk Actions
@@ -282,21 +289,21 @@ export default function ClientsListClient({
                 <>
                   <DropdownMenuItem
                     onClick={() => handleBulkAction("trash")}
-                    disabled={selectedClients.size === 0}
+                    disabled={selectedEmployees.size === 0}
                   >
                     <FiTrash2 className="mr-2 h-4 w-4" />
                     Move to Trash
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => handleBulkAction("active")}
-                    disabled={selectedClients.size === 0}
+                    disabled={selectedEmployees.size === 0}
                   >
                     <FiCheck className="mr-2 h-4 w-4" />
                     Activate
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => handleBulkAction("inactive")}
-                    disabled={selectedClients.size === 0}
+                    disabled={selectedEmployees.size === 0}
                   >
                     <FiCircle className="mr-2 h-4 w-4" />
                     Deactivate
@@ -306,7 +313,7 @@ export default function ClientsListClient({
                 <>
                   <DropdownMenuItem
                     onClick={() => handleBulkAction("restore")}
-                    disabled={selectedClients.size === 0}
+                    disabled={selectedEmployees.size === 0}
                   >
                     <FiCheck className="mr-2 h-4 w-4" />
                     Restore
@@ -314,7 +321,7 @@ export default function ClientsListClient({
                   <DropdownMenuItem
                     onClick={() => handleBulkAction("delete-permanently")}
                     className="text-destructive"
-                    disabled={selectedClients.size === 0}
+                    disabled={selectedEmployees.size === 0}
                   >
                     <FiTrash2 className="mr-2 h-4 w-4" />
                     Delete Permanently
@@ -338,78 +345,79 @@ export default function ClientsListClient({
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead>Client Code</TableHead>
-              <TableHead>Client</TableHead>
+              <TableHead>Employee Code</TableHead>
+              <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Company</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created At</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {initialClients.length === 0 ? (
+            {initialEmployees.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                  {isTrash ? "No trashed clients found" : "No clients found"}
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  {isTrash ? "No trashed employees found" : "No employees found"}
                 </TableCell>
               </TableRow>
             ) : (
-              initialClients.map((client) => {
-                const isSelected = selectedClients.has(client.id);
-                const clientStatus = client.status || "active";
+              initialEmployees.map((employee) => {
+                const isSelected = selectedEmployees.has(employee.id);
+                const employeeStatus = employee.status || "active";
                 
                 return (
-                  <TableRow key={client.id} className={cn(isSelected && "bg-muted/50")}>
+                  <TableRow key={employee.id} className={cn(isSelected && "bg-muted/50")}>
                     <TableCell>
                       <Checkbox
                         checked={isSelected}
-                        onCheckedChange={(checked) => handleSelectClient(client.id, checked as boolean)}
-                        aria-label={`Select ${client.name || client.email}`}
+                        onCheckedChange={(checked) => handleSelectEmployee(employee.id, checked as boolean)}
+                        aria-label={`Select ${employee.name}`}
                       />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {client.clientCode || "-"}
+                      {employee.employeeCode || "-"}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={client.image || undefined} alt={client.name || client.email} />
-                          <AvatarFallback>{getInitials(client.name, client.email)}</AvatarFallback>
+                          <AvatarFallback>{getInitials(employee.name, employee.email)}</AvatarFallback>
                         </Avatar>
-                        <span className="font-medium">{client.name || "No name"}</span>
+                        <span className="font-medium">{employee.name}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{client.email}</TableCell>
-                    <TableCell className="text-muted-foreground">{client.phone || "-"}</TableCell>
-                    <TableCell className="text-muted-foreground">{client.company || "-"}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {employee.email || "-"}
+                    </TableCell>
                     <TableCell>
-                      {clientStatus === "trash" ? (
+                      {employeeStatus === "trash" ? (
                         <Badge variant="destructive">Trash</Badge>
-                      ) : clientStatus === "inactive" ? (
+                      ) : employeeStatus === "inactive" ? (
                         <Badge variant="secondary">Inactive</Badge>
                       ) : (
                         <Badge variant="default">Active</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {format(new Date(client.createdAt), "MMM d, yyyy")}
+                      {format(new Date(employee.createdAt), "MMM d, yyyy")}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/admin/clients/${client.id}`}>
-                                <FiEdit className="h-4 w-4" />
-                              </Link>
-                            </Button>
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/admin/clients/details?id=${client.id}`}>
-                                <FiEye className="h-4 w-4" />
-                              </Link>
-                            </Button>
+                            <ProtectedAction
+                              permissionKey="peoples.employees"
+                              action="edit"
+                              href={`/admin/employees/${employee.id}`}
+                              userId={providedUserId || undefined}
+                              hasAccess={permissions?.edit}
+                            />
+                            <ProtectedAction
+                              permissionKey="peoples.employees"
+                              action="view"
+                              href={`/admin/employees/details?id=${employee.id}`}
+                              userId={providedUserId || undefined}
+                              hasAccess={permissions?.view}
+                            />
                           </>
                         )}
                         {isTrash && (
@@ -417,7 +425,7 @@ export default function ClientsListClient({
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              setRestoreClientId(client.id);
+                              setRestoreEmployeeId(employee.id);
                               handleRestore();
                             }}
                             disabled={isPending}
@@ -425,16 +433,18 @@ export default function ClientsListClient({
                             <FiRotateCw className="h-4 w-4" />
                           </Button>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDeleteClientId(client.id)}
-                          className="text-destructive hover:text-destructive"
-                          title={isTrash ? "Delete permanently" : "Move to trash"}
-                          disabled={isPending}
-                        >
-                          <FiTrash2 className="h-4 w-4" />
-                        </Button>
+                        <ProtectedAction
+                          permissionKey="peoples.employees"
+                          action={isTrash ? "delete-permanently" : "move-to-trash"}
+                          onClick={() => setDeleteEmployeeId(employee.id)}
+                          userId={providedUserId || undefined}
+                          hasAccess={isTrash ? permissions?.deletePermanently : permissions?.moveToTrash}
+                          buttonProps={{
+                            disabled: isPending,
+                            className: "text-destructive hover:text-destructive",
+                            title: isTrash ? "Delete permanently" : "Move to trash",
+                          }}
+                        />
                       </div>
                     </TableCell>
                   </TableRow>
@@ -451,7 +461,7 @@ export default function ClientsListClient({
           <div className="text-sm text-muted-foreground">
             Showing {((initialPagination.page - 1) * initialPagination.limit) + 1} to{" "}
             {Math.min(initialPagination.page * initialPagination.limit, initialPagination.total)} of{" "}
-            {initialPagination.total} clients
+            {initialPagination.total} employees
           </div>
           <div className="flex gap-2">
             <Button
@@ -465,7 +475,7 @@ export default function ClientsListClient({
                 if (tab) {
                   params.set("tab", tab);
                 }
-                router.push(`/admin/clients?${params.toString()}`);
+                router.push(`/admin/employees?${params.toString()}`);
               }}
             >
               Previous
@@ -481,7 +491,7 @@ export default function ClientsListClient({
                 if (tab) {
                   params.set("tab", tab);
                 }
-                router.push(`/admin/clients?${params.toString()}`);
+                router.push(`/admin/employees?${params.toString()}`);
               }}
             >
               Next
@@ -491,35 +501,35 @@ export default function ClientsListClient({
       )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteClientId} onOpenChange={() => setDeleteClientId(null)}>
+      <AlertDialog open={!!deleteEmployeeId} onOpenChange={() => setDeleteEmployeeId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {isTrash ? "Delete Client Permanently" : "Move Client to Trash"}
+              {isTrash ? "Delete Employee Permanently" : "Move Employee to Trash"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {isTrash
-                ? "This action cannot be undone. This will permanently delete the client and all associated data."
-                : "This will move the client to trash. You can restore it later from the Trash tab."}
+                ? "This action cannot be undone. This will permanently delete the employee and all associated data."
+                : "This will move the employee to trash. You can restore it later from the Trash tab."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
-                if (isTrash && deleteClientId) {
-                  const result = await deleteClientsPermanently([deleteClientId]);
+                if (isTrash && deleteEmployeeId) {
+                  const result = await deleteEmployeesPermanently([deleteEmployeeId]);
                   if (result.success) {
-                    setDeleteClientId(null);
+                    setDeleteEmployeeId(null);
                     toast({
                       title: "Success",
-                      description: "Client deleted permanently",
+                      description: "Employee deleted permanently",
                     });
                     router.refresh();
                   } else {
                     toast({
                       title: "Error",
-                      description: result.error || "Failed to delete client",
+                      description: result.error || "Failed to delete employee",
                       variant: "destructive",
                     });
                   }

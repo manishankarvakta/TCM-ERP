@@ -59,6 +59,11 @@ export default async function SupplierDetailsPage({ searchParams }: SupplierDeta
             <div className="lg:col-span-3 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Supplier Code</label>
+                  <p className="text-sm font-medium">{supplier.supplierCode || "-"}</p>
+                </div>
+
+                <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Name</label>
                   <p className="text-sm font-medium">{supplier.name || "-"}</p>
                 </div>
