@@ -43,6 +43,8 @@ interface Group {
   description: string | null;
   sortOrder: number;
   status: string;
+  baseUnit: string | null;
+  baseUnitPrice: number | null;
   createdBy: string;
   creator: {
     id: string;

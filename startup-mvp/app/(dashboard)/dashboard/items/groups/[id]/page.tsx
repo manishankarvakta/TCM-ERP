@@ -73,6 +73,21 @@ export default async function GroupDetailsPage({ params }: GroupDetailsPageProps
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Group Base Unit Price Info */}
+          {(group.baseUnit || group.baseUnitPrice) && (
+            <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+              <div>
+                <span className="text-sm text-muted-foreground">Base Unit:</span>
+                <p className="font-medium">{group.baseUnit || "-"}</p>
+              </div>
+              <div>
+                <span className="text-sm text-muted-foreground">Base Unit Price:</span>
+                <p className="font-medium">
+                  {group.baseUnitPrice ? formatCurrency(group.baseUnitPrice) : "-"}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Items Table */}
           {group.items && group.items.length > 0 && (
@@ -95,12 +110,6 @@ export default async function GroupDetailsPage({ params }: GroupDetailsPageProps
                         </>
                       )}
                       <TableHead>Unit</TableHead>
-                      {(group.items.some(item => item.baseUnit && item.baseUnitPrice)) && (
-                        <>
-                          <TableHead>Base Unit</TableHead>
-                          <TableHead>Base Price</TableHead>
-                        </>
-                      )}
                       <TableHead>Unit Price</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
                     </TableRow>
@@ -119,14 +128,6 @@ export default async function GroupDetailsPage({ params }: GroupDetailsPageProps
                           </>
                         )}
                         <TableCell>{item.unit || "-"}</TableCell>
-                        {(group.items.some(i => i.baseUnit && i.baseUnitPrice)) && (
-                          <>
-                            <TableCell>{item.baseUnit || "-"}</TableCell>
-                            <TableCell>
-                              {item.baseUnitPrice ? formatCurrency(item.baseUnitPrice) : "-"}
-                            </TableCell>
-                          </>
-                        )}
                         <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
                         <TableCell className="text-right font-medium">
                           {formatCurrency(item.amount)}
