@@ -6,6 +6,7 @@ import storage from 'redux-persist/lib/storage';
 interface QuotationItem {
   id?: string;
   sl: number;
+  no?: number | null;
   code?: string | null;
   description?: string | null;
   height?: number | null;
@@ -14,6 +15,7 @@ interface QuotationItem {
   unit?: string | null;
   unitPrice: number;
   quantity: number;
+  discount?: number | null;
   amount: number;
   sortOrder: number;
   itemId?: string | null;

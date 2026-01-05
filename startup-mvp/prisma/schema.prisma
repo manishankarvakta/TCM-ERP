@@ -440,6 +440,7 @@ model CategoryGroup {
 model QuotationItem {
   id                String           @id @default(cuid())
   sl                Int
+  no                Int?
   code              String?
   description       String?
   height            Decimal?         @db.Decimal(10, 2)
@@ -450,6 +451,7 @@ model QuotationItem {
   quantity          Decimal          @db.Decimal(10, 2)
   unitShutter       Decimal?         @db.Decimal(10, 2)
   totalShutter      Decimal?         @db.Decimal(10, 2)
+  discount          Decimal?         @db.Decimal(10, 2)
   amount            Decimal          @db.Decimal(12, 2)
   note              String?
   sortOrder         Int              @default(0)

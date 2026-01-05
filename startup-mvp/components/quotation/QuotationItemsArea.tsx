@@ -52,6 +52,7 @@ import {
 interface QuotationItem {
   id: string;
   sl: number;
+  no?: number;
   code?: string;
   description?: string;
   height?: number;
@@ -60,6 +61,7 @@ interface QuotationItem {
   unit?: string;
   unitPrice: number;
   quantity: number;
+  discount?: number;
   amount: number;
   itemId?: string; // Reference to catalog item
   moduleGroupItemId?: string; // Reference to selected module group item
@@ -279,6 +281,18 @@ function SortableItem({
         </div>
       </TableCell>
       <TableCell className="font-medium w-12">{item.sl}</TableCell>
+      <TableCell>
+        <Input
+          type="number"
+          value={item.no || ''}
+          onChange={(e) => {
+            const no = e.target.value ? Number(e.target.value) : undefined;
+            onUpdate({ no });
+          }}
+          placeholder="No"
+          className="h-8 w-16 text-xs"
+        />
+      </TableCell>
       <TableCell>
         {groupIndex !== undefined ? (
           // For group items, show code as dropdown with search (items come from selected ModuleGroup)
@@ -520,6 +534,20 @@ function SortableItem({
           </Select>
         </TableCell>
       )}
+      <TableCell className="text-right w-32">
+        <Input
+          type="number"
+          step="0.01"
+          value={item.discount || ''}
+          onChange={(e) => {
+            const discount = e.target.value ? Number(e.target.value) : undefined;
+            onUpdate({ discount });
+          }}
+          placeholder="0.00"
+          className="h-8 w-24 text-xs text-right"
+          min="0"
+        />
+      </TableCell>
       <TableCell className="text-right font-semibold w-32">
         {formatCurrency(item.amount)}
       </TableCell>
@@ -746,8 +774,10 @@ export function QuotationItemsArea({
     const newItem: QuotationItem = {
       id: generateId(),
       sl: 1,
+      no: undefined,
       unitPrice: 0,
       quantity: 1,
+      discount: 0,
       amount: 0,
     };
 
@@ -955,13 +985,14 @@ export function QuotationItemsArea({
         const item = categoryGroup.items[itemIndex];
         const updatedItem = { ...item, ...updates };
 
-        // Calculate amount based on dimensions
+        // Calculate amount based on dimensions and discount
         if (
           updates.unitPrice !== undefined ||
           updates.quantity !== undefined ||
           updates.height !== undefined ||
           updates.width !== undefined ||
-          updates.depth !== undefined
+          updates.depth !== undefined ||
+          updates.discount !== undefined
         ) {
           updatedItem.amount = calculateItemAmount(updatedItem);
         }
@@ -984,12 +1015,15 @@ export function QuotationItemsArea({
         const item = group.items[itemIndex];
         const updatedItem = { ...item, ...updates };
 
-        // For group items: simple calculation = quantity × unitPrice
+        // For group items: simple calculation = quantity × unitPrice, then apply discount
         if (
           updates.unitPrice !== undefined ||
-          updates.quantity !== undefined
+          updates.quantity !== undefined ||
+          updates.discount !== undefined
         ) {
-          updatedItem.amount = (updatedItem.quantity || 0) * (updatedItem.unitPrice || 0);
+          const baseAmount = (updatedItem.quantity || 0) * (updatedItem.unitPrice || 0);
+          const discount = updatedItem.discount || 0;
+          updatedItem.amount = Math.max(0, baseAmount - discount);
         }
 
         updatedSection = {
@@ -1010,13 +1044,14 @@ export function QuotationItemsArea({
         const item = s.items[itemIndex];
     const updatedItem = { ...item, ...updates };
 
-        // Calculate amount based on dimensions
+        // Calculate amount based on dimensions and discount
         if (
           updates.unitPrice !== undefined ||
           updates.quantity !== undefined ||
           updates.height !== undefined ||
           updates.width !== undefined ||
-          updates.depth !== undefined
+          updates.depth !== undefined ||
+          updates.discount !== undefined
         ) {
           updatedItem.amount = calculateItemAmount(updatedItem);
         }
@@ -1440,6 +1475,9 @@ export function QuotationItemsArea({
     const d = item.depth;
     const unitPrice = item.unitPrice || 0;
     const quantity = item.quantity || 0;
+    const discount = item.discount || 0;
+
+    let baseAmount = 0;
 
     // For group items, use kitchen module calculation if dimensions are present
     if (isGroupItem && h != null && w != null && d != null && h > 0 && w > 0 && d > 0) {
@@ -1456,24 +1494,26 @@ export function QuotationItemsArea({
             unitPrice: unitPrice,
             qty: quantity,
           });
-          return result.total.cost;
+          baseAmount = result.total.cost;
+        } else {
+          // If unit is not a valid area unit, fall back to standard calculation
+          baseAmount = h * w * d * unitPrice * quantity;
         }
-        // If unit is not a valid area unit, fall back to standard calculation
-        return h * w * d * unitPrice * quantity;
       } catch (error) {
         console.error('Error calculating kitchen module:', error);
         // Fall back to standard calculation on error
-        return h * w * d * unitPrice * quantity;
+        baseAmount = h * w * d * unitPrice * quantity;
       }
-    }
-
-    // If height, width, and depth are all present and non-zero, use: h * w * d * unitPrice * quantity
-    if (h != null && w != null && d != null && h > 0 && w > 0 && d > 0) {
-      return h * w * d * unitPrice * quantity;
+    } else if (h != null && w != null && d != null && h > 0 && w > 0 && d > 0) {
+      // If height, width, and depth are all present and non-zero, use: h * w * d * unitPrice * quantity
+      baseAmount = h * w * d * unitPrice * quantity;
+    } else {
+      // Otherwise: unitPrice * quantity
+      baseAmount = unitPrice * quantity;
     }
     
-    // Otherwise: unitPrice * quantity
-    return unitPrice * quantity;
+    // Apply item discount: subtract discount from base amount
+    return Math.max(0, baseAmount - discount);
   };
 
   // Calculate group quantity as sum of all item quantities
@@ -1861,12 +1901,14 @@ export function QuotationItemsArea({
                                           <TableRow>
                                             <TableHead className="w-8"></TableHead>
                                             <TableHead className="w-12">SL</TableHead>
+                                            <TableHead className="w-16">No</TableHead>
                                             <TableHead>Code</TableHead>
                                             <TableHead>Description</TableHead>
                                             <TableHead className="w-56">Dimensions</TableHead>
                                             <TableHead className="w-24">Qty</TableHead>
                                             <TableHead className="w-32">Unit Price</TableHead>
                                             <TableHead className="w-32">Unit</TableHead>
+                                            <TableHead className="w-32 text-right">Discount</TableHead>
                                             <TableHead className="w-32 text-right">Amount</TableHead>
                                             <TableHead className="w-12"></TableHead>
                                           </TableRow>
