@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -37,8 +37,6 @@ const groupItemSchema = z.object({
   width: z.number().optional(),
   depth: z.number().optional(),
   unit: z.string().optional(),
-  baseUnit: z.enum(["sqm", "sqft"]).optional(),
-  baseUnitPrice: z.number().min(0).optional(),
   unitPrice: z.number().min(0),
   amount: z.number().min(0),
   sortOrder: z.number(),
@@ -49,6 +47,8 @@ const groupFormSchema = z.object({
   description: z.string().optional(),
   sortOrder: z.string().optional(),
   status: z.enum(["active", "inactive"]),
+  baseUnit: z.enum(["sqm", "sqft"]).optional(),
+  baseUnitPrice: z.number().min(0).optional(),
   items: z.array(groupItemSchema).min(1, "At least one item is required"),
 });
 
@@ -69,21 +69,21 @@ interface GroupFormProps {
     description?: string;
     sortOrder?: number;
     status: string;
-      items: Array<{
-        id?: string;
-        sl: number;
-        code?: string;
-        description?: string;
-        height?: number;
-        width?: number;
-        depth?: number;
-        unit?: string;
-        baseUnit?: string;
-        baseUnitPrice?: number;
-        unitPrice: number;
-        amount: number;
-        sortOrder: number;
-      }>;
+    baseUnit?: string;
+    baseUnitPrice?: number;
+    items: Array<{
+      id?: string;
+      sl: number;
+      code?: string;
+      description?: string;
+      height?: number;
+      width?: number;
+      depth?: number;
+      unit?: string;
+      unitPrice: number;
+      amount: number;
+      sortOrder: number;
+    }>;
   };
 }
 
@@ -108,33 +108,85 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
           description: initialData.description || "",
           sortOrder: initialData.sortOrder?.toString() || "0",
           status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
-          items: initialData.items.map((item) => ({
-            sl: item.sl,
-            code: item.code || "",
-            description: item.description || "",
-            height: item.height,
-            width: item.width,
-            depth: item.depth,
-            unit: item.unit || "",
-            baseUnit: item.baseUnit ? (item.baseUnit as "sqm" | "sqft") : undefined,
-            baseUnitPrice: item.baseUnitPrice !== null && item.baseUnitPrice !== undefined ? item.baseUnitPrice : undefined,
-            unitPrice: item.unitPrice,
-            amount: item.amount,
-            sortOrder: item.sortOrder,
-          })),
+          baseUnit: initialData.baseUnit ? (initialData.baseUnit as "sqm" | "sqft") : undefined,
+          baseUnitPrice: initialData.baseUnitPrice !== null && initialData.baseUnitPrice !== undefined ? initialData.baseUnitPrice : undefined,
+          items: initialData.items.map((item) => {
+            // Recalculate unitPrice if baseUnit and baseUnitPrice are available
+            let calculatedUnitPrice = item.unitPrice || 0;
+            if (initialData.baseUnit && initialData.baseUnitPrice && initialData.baseUnitPrice > 0 && item.unit) {
+              try {
+                calculatedUnitPrice = convertAreaPriceToLengthPrice(
+                  initialData.baseUnit as "sqm" | "sqft",
+                  initialData.baseUnitPrice,
+                  item.unit as LengthUnit
+                );
+              } catch (error) {
+                console.error("Error calculating initial unit price:", error);
+              }
+            }
+            
+            // Calculate amount if we have dimensions
+            let calculatedAmount = item.amount || 0;
+            if (item.height && item.width && item.depth && item.unit && calculatedUnitPrice > 0) {
+              try {
+                const surfaceArea = calculateSurfaceArea(
+                  item.height,
+                  item.width,
+                  item.depth,
+                  item.unit as LengthUnit
+                );
+                calculatedAmount = surfaceArea * calculatedUnitPrice;
+              } catch (error) {
+                console.error("Error calculating initial amount:", error);
+              }
+            }
+            
+            return {
+              sl: item.sl,
+              code: item.code || "",
+              description: item.description || "",
+              height: item.height,
+              width: item.width,
+              depth: item.depth,
+              unit: item.unit || "",
+              unitPrice: calculatedUnitPrice,
+              amount: calculatedAmount,
+              sortOrder: item.sortOrder,
+            };
+          }),
         }
       : {
           code: "",
           description: "",
           sortOrder: "0",
           status: "active",
+          baseUnit: "sqm",
+          baseUnitPrice: undefined,
           items: [],
         },
   });
 
   const items = watch("items");
+  const baseUnit = watch("baseUnit");
+  const baseUnitPrice = watch("baseUnitPrice");
+  const hasRecalculatedOnMount = useRef(false);
 
-  const calculateItemAmount = (item: GroupItem): number => {
+  // Generate item code from H-W-D dimensions (format: "HH-WW-DD")
+  const generateItemCode = (height?: number, width?: number, depth?: number): string => {
+    const getFirstTwoDigits = (value?: number): string => {
+      if (!value || value <= 0) return "00";
+      const str = Math.floor(value).toString();
+      return str.length >= 2 ? str.substring(0, 2) : str.padStart(2, "0");
+    };
+
+    const h = getFirstTwoDigits(height);
+    const w = getFirstTwoDigits(width);
+    const d = getFirstTwoDigits(depth);
+    
+    return `${h}-${w}-${d}`;
+  };
+
+  const calculateItemAmount = useCallback((item: GroupItem): number => {
     // If we have dimensions and unit, calculate surface area
     if (item.height && item.width && item.depth && 
         item.height > 0 && item.width > 0 && item.depth > 0 &&
@@ -159,20 +211,43 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
     
     // Fallback: simple calculation without surface area
     return item.unitPrice;
-  };
+  }, []);
 
   const addItem = () => {
+    // Calculate unit price if baseUnit and baseUnitPrice are set
+    let initialUnitPrice = 0;
+    if (baseUnit && baseUnitPrice && baseUnitPrice > 0) {
+      try {
+        initialUnitPrice = convertAreaPriceToLengthPrice(
+          baseUnit as "sqm" | "sqft",
+          baseUnitPrice,
+          "mm" as LengthUnit
+        );
+      } catch (error) {
+        console.error("Error calculating initial unit price:", error);
+      }
+    }
+
     const newItem: GroupItem = {
       sl: items.length + 1,
-      code: "",
+      height: 1,
+      width: 1,
+      depth: 1,
+      code: generateItemCode(1, 1, 1), // "01-01-01" for new items with default dimensions
       description: "",
-      baseUnit: "sqm", // Default to square meter
-      baseUnitPrice: 0,
-      unitPrice: 0,
-      amount: 0,
+      unit: "mm", // Default to mm
+      unitPrice: initialUnitPrice,
+      amount: 0, // Will be calculated by updateItem when dimensions are set
       sortOrder: items.length,
     };
-    setValue("items", [...items, newItem]);
+    
+    // Calculate amount with default dimensions
+    const itemWithAmount = {
+      ...newItem,
+      amount: calculateItemAmount(newItem),
+    };
+    
+    setValue("items", [...items, itemWithAmount]);
   };
 
   const duplicateItem = (index: number) => {
@@ -198,6 +273,74 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
     setValue("items", updated);
   };
 
+  // Recalculate all items when group's baseUnit or baseUnitPrice changes
+  const recalculateAllItems = useCallback(() => {
+    const currentBaseUnit = watch("baseUnit");
+    const currentBaseUnitPrice = watch("baseUnitPrice");
+    const currentItems = watch("items");
+
+    if (!currentBaseUnit || !currentBaseUnitPrice || currentBaseUnitPrice <= 0) {
+      return;
+    }
+
+    if (!currentItems || currentItems.length === 0) {
+      return;
+    }
+
+    const updated = currentItems.map((item) => {
+      if (!item.unit) return item;
+
+      try {
+        // Convert group's base area price to item's unit price
+        const calculatedUnitPrice = convertAreaPriceToLengthPrice(
+          currentBaseUnit as "sqm" | "sqft",
+          currentBaseUnitPrice,
+          item.unit as LengthUnit
+        );
+        
+        const updatedItem = {
+          ...item,
+          unitPrice: calculatedUnitPrice,
+        };
+        
+        updatedItem.amount = calculateItemAmount(updatedItem);
+        return updatedItem;
+      } catch (error) {
+        console.error("Error converting unit price:", error);
+        return item;
+      }
+    });
+
+    setValue("items", updated, { shouldDirty: false });
+  }, [watch, setValue, calculateItemAmount]);
+
+  // Recalculate items on initial mount if baseUnit and baseUnitPrice are available
+  useEffect(() => {
+    if (!hasRecalculatedOnMount.current && baseUnit && baseUnitPrice && baseUnitPrice > 0 && items.length > 0) {
+      // Use a longer delay on initial mount to ensure form is fully initialized
+      const timer = setTimeout(() => {
+        recalculateAllItems();
+        hasRecalculatedOnMount.current = true;
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [baseUnit, baseUnitPrice, items.length, recalculateAllItems]);
+
+  // Watch for changes to baseUnit or baseUnitPrice and recalculate all items
+  // This runs after initial mount when values change
+  useEffect(() => {
+    // Skip if we haven't done initial recalculation yet
+    if (!hasRecalculatedOnMount.current) return;
+    
+    if (baseUnit && baseUnitPrice && baseUnitPrice > 0 && items.length > 0) {
+      // Use setTimeout to ensure form state is updated
+      const timer = setTimeout(() => {
+        recalculateAllItems();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [baseUnit, baseUnitPrice, items.length, recalculateAllItems]);
+
   const updateItem = (index: number, field: keyof GroupItem, value: unknown) => {
     if (index < 0 || index >= items.length) return;
     
@@ -208,19 +351,24 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
     updated[index] = { ...currentItem, [field]: value };
     const updatedItem = updated[index];
     
-    // STEP 1: Convert baseUnitPrice from baseUnit to unit and set unitPrice
-    // This happens when baseUnit, baseUnitPrice, or unit changes
-    if (field === "baseUnit" || field === "baseUnitPrice" || field === "unit") {
-      if (updatedItem.baseUnit && 
-          updatedItem.baseUnitPrice !== undefined && 
-          updatedItem.baseUnitPrice !== null && 
-          updatedItem.baseUnitPrice > 0 &&
-          updatedItem.unit) {
+    // Auto-generate code when height, width, or depth changes
+    if (field === "height" || field === "width" || field === "depth") {
+      updatedItem.code = generateItemCode(
+        updatedItem.height,
+        updatedItem.width,
+        updatedItem.depth
+      );
+    }
+    
+    // STEP 1: Convert group's baseUnitPrice to item's unit and set unitPrice
+    // This happens when unit changes
+    if (field === "unit") {
+      if (baseUnit && baseUnitPrice && baseUnitPrice > 0 && updatedItem.unit) {
         try {
-          // Convert base area price to the same square-unit as the selected unit (sqin/sqmm/sqft)
+          // Convert group's base area price to the same square-unit as the selected unit (sqin/sqmm/sqft)
           const calculatedUnitPrice = convertAreaPriceToLengthPrice(
-            updatedItem.baseUnit as "sqm" | "sqft",
-            updatedItem.baseUnitPrice,
+            baseUnit as "sqm" | "sqft",
+            baseUnitPrice,
             updatedItem.unit as LengthUnit
           );
           updatedItem.unitPrice = calculatedUnitPrice;
@@ -232,14 +380,14 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
     
     // STEP 2: Calculate amount = surface area (in unit) * unitPrice
     // This happens when height, width, depth, unit, unitPrice changes
-    if (field === "height" || field === "width" || field === "depth" || 
-        field === "unit" || field === "unitPrice" ||
-        field === "baseUnit" || field === "baseUnitPrice") {
+    if (field === "height" || field === "width" || field === "depth" || field === "unit" || field === "unitPrice") {
       updatedItem.amount = calculateItemAmount(updatedItem);
     }
     
     setValue("items", updated);
   };
+
+  // Watch for changes to group's baseUnit
 
   const onSubmit = async (data: GroupFormData) => {
     try {
@@ -251,6 +399,8 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
         description: data.description || undefined,
         sortOrder: data.sortOrder ? Number(data.sortOrder) : 0,
         status: data.status,
+        baseUnit: data.baseUnit || undefined,
+        baseUnitPrice: data.baseUnitPrice,
         items: data.items.map((item) => ({
           sl: item.sl,
           code: item.code || undefined,
@@ -259,8 +409,6 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
           width: item.width,
           depth: item.depth,
           unit: item.unit || undefined,
-          baseUnit: item.baseUnit || undefined,
-          baseUnitPrice: item.baseUnitPrice,
           unitPrice: item.unitPrice,
           amount: item.amount,
           sortOrder: item.sortOrder,
@@ -311,8 +459,8 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
             </div>
           )}
 
-          {/* Top Row: Code and Status */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Top Row: Code, Base Unit, Base Unit Price, Status */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label htmlFor="code">Code</Label>
               <Input
@@ -321,6 +469,55 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
                 placeholder="Optional code"
                 {...register("code")}
                 disabled={loading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="baseUnit">Base Unit</Label>
+              <Controller
+                name="baseUnit"
+                control={control}
+                render={({ field }) => (
+                  <Select 
+                    value={field.value || "sqm"} 
+                    onValueChange={field.onChange}
+                    disabled={loading}
+                  >
+                    <SelectTrigger id="baseUnit">
+                      <SelectValue placeholder="Select base unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {GROUP_BASE_UNIT_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="baseUnitPrice">Base Unit Price</Label>
+              <Controller
+                name="baseUnitPrice"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    id="baseUnitPrice"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={field.value !== undefined && field.value !== null ? field.value : ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const numVal = val === "" ? undefined : Number(val);
+                      field.onChange(numVal);
+                    }}
+                    disabled={loading}
+                  />
+                )}
               />
             </div>
 
@@ -384,8 +581,6 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
                       <TableHead>W</TableHead>
                       <TableHead>D</TableHead>
                       <TableHead>Unit</TableHead>
-                      <TableHead>Base Unit</TableHead>
-                      <TableHead>Base Unit Price</TableHead>
                       <TableHead>Unit Price</TableHead>
                       <TableHead>Amount</TableHead>
                       <TableHead className="w-12"></TableHead>
@@ -398,10 +593,11 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
                         <TableCell>
                           <Input
                             value={item.code || ""}
-                            onChange={(e) => updateItem(index, "code", e.target.value)}
-                            placeholder="Code"
-                            disabled={loading}
-                            className="w-[150px]"
+                            placeholder="Auto-generated"
+                            disabled={true}
+                            readOnly
+                            className="w-[150px] bg-muted"
+                            title="Code is auto-generated from H-W-D dimensions"
                           />
                         </TableCell>
                         <TableCell>
@@ -448,7 +644,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
                         </TableCell>
                         <TableCell>
                           <Select
-                            value={(item.unit as LengthUnit | undefined) || ""}
+                            value={(item.unit as LengthUnit | undefined) || "mm"}
                             onValueChange={(value) => {
                               updateItem(index, "unit", value);
                             }}
@@ -467,40 +663,6 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Select
-                            value={item.baseUnit || ""}
-                            onValueChange={(value) => {
-                              updateItem(index, "baseUnit", value as "sqm" | "sqft");
-                            }}
-                            disabled={loading}
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue placeholder="Select" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {GROUP_BASE_UNIT_OPTIONS.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={item.baseUnitPrice !== undefined && item.baseUnitPrice !== null ? item.baseUnitPrice : ""}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              updateItem(index, "baseUnitPrice", val === "" ? 0 : Number(val));
-                            }}
-                            placeholder="0.00"
-                            disabled={loading}
-                            className="w-28"
-                          />
-                        </TableCell>
-                        <TableCell>
                           <Input
                             type="number"
                             step="0.01"
@@ -510,7 +672,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
                             disabled={loading}
                             className="w-24"
                             readOnly
-                            title="Calculated from Base Unit Price"
+                            title="Calculated from Group Base Unit Price"
                           />
                         </TableCell>
                         <TableCell>

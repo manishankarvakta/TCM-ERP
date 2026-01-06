@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
+import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { notifyItemCreated, notifyItemUpdated, notifyItemDeleted } from "@/lib/notification";
 import { createUserLog, LogAction } from "@/lib/user-log";
@@ -69,6 +70,8 @@ export async function getGroups(
         description: true,
         sortOrder: true,
         status: true,
+        baseUnit: true,
+        baseUnitPrice: true,
         createdBy: true,
         creator: {
           select: {
@@ -102,6 +105,7 @@ export async function getGroups(
     // Serialize Decimal fields
     const serializedGroups = groups.map((mg) => ({
       ...mg,
+      baseUnitPrice: mg.baseUnitPrice !== null && mg.baseUnitPrice !== undefined ? Number(mg.baseUnitPrice) : null,
       items: mg.items.map((item) => ({
         ...item,
         unitPrice: Number(item.unitPrice),
@@ -158,6 +162,8 @@ export async function getGroupById(groupId: string) {
         description: true,
         sortOrder: true,
         status: true,
+        baseUnit: true,
+        baseUnitPrice: true,
         createdBy: true,
         creator: {
           select: {
@@ -177,8 +183,6 @@ export async function getGroupById(groupId: string) {
             width: true,
             depth: true,
             unit: true,
-            baseUnit: true,
-            baseUnitPrice: true,
             unitPrice: true,
             amount: true,
             sortOrder: true,
@@ -237,6 +241,8 @@ export async function createGroup(input: {
   description?: string;
   sortOrder?: number;
   status?: "active" | "inactive";
+  baseUnit?: string;
+  baseUnitPrice?: number;
   items: Array<{
     sl: number;
     code?: string;
@@ -245,8 +251,6 @@ export async function createGroup(input: {
     width?: number;
     depth?: number;
     unit?: string;
-    baseUnit?: string;
-    baseUnitPrice?: number;
     unitPrice: number;
     amount: number;
     sortOrder: number;
@@ -270,6 +274,8 @@ export async function createGroup(input: {
         description: input.description || null,
         sortOrder: input.sortOrder || 0,
         status: input.status || "active",
+        baseUnit: input.baseUnit || null,
+        baseUnitPrice: input.baseUnitPrice ? new Prisma.Decimal(input.baseUnitPrice) : null,
         createdBy: session.user.id,
         items: {
           create: input.items.map((item) => ({
@@ -280,8 +286,6 @@ export async function createGroup(input: {
             width: item.width ? new Prisma.Decimal(item.width) : null,
             depth: item.depth ? new Prisma.Decimal(item.depth) : null,
             unit: item.unit || null,
-            baseUnit: item.baseUnit || null,
-            baseUnitPrice: item.baseUnitPrice ? new Prisma.Decimal(item.baseUnitPrice) : null,
             unitPrice: new Prisma.Decimal(item.unitPrice),
             amount: new Prisma.Decimal(item.amount),
             sortOrder: item.sortOrder,
@@ -340,6 +344,8 @@ export async function updateGroup(input: {
   description?: string;
   sortOrder?: number;
   status?: "active" | "inactive";
+  baseUnit?: string;
+  baseUnitPrice?: number;
   items: Array<{
     id?: string;
     sl: number;
@@ -349,8 +355,6 @@ export async function updateGroup(input: {
     width?: number;
     depth?: number;
     unit?: string;
-    baseUnit?: string;
-    baseUnitPrice?: number;
     unitPrice: number;
     amount: number;
     sortOrder: number;
@@ -393,6 +397,8 @@ export async function updateGroup(input: {
         description: input.description || null,
         sortOrder: input.sortOrder || 0,
         status: input.status || "active",
+        baseUnit: input.baseUnit || null,
+        baseUnitPrice: input.baseUnitPrice ? new Prisma.Decimal(input.baseUnitPrice) : null,
         items: {
           create: input.items.map((item) => ({
             sl: item.sl,
@@ -402,8 +408,6 @@ export async function updateGroup(input: {
             width: item.width ? new Prisma.Decimal(item.width) : null,
             depth: item.depth ? new Prisma.Decimal(item.depth) : null,
             unit: item.unit || null,
-            baseUnit: item.baseUnit || null,
-            baseUnitPrice: item.baseUnitPrice ? new Prisma.Decimal(item.baseUnitPrice) : null,
             unitPrice: new Prisma.Decimal(item.unitPrice),
             amount: new Prisma.Decimal(item.amount),
             sortOrder: item.sortOrder,
@@ -849,6 +853,8 @@ export async function getModuleGroupById(id: string) {
         id: true,
         code: true,
         description: true,
+        baseUnit: true,
+        baseUnitPrice: true,
         items: {
           select: {
             id: true,
@@ -859,8 +865,6 @@ export async function getModuleGroupById(id: string) {
             width: true,
             depth: true,
             unit: true,
-            baseUnit: true,
-            baseUnitPrice: true,
             unitPrice: true,
             amount: true,
             sortOrder: true,
@@ -883,13 +887,12 @@ export async function getModuleGroupById(id: string) {
     // Serialize Decimal fields
     const serializedGroup = {
       ...group,
+      baseUnitPrice: group.baseUnitPrice !== null && group.baseUnitPrice !== undefined ? Number(group.baseUnitPrice) : null,
       items: group.items.map((item) => ({
         ...item,
         height: item.height ? Number(item.height) : null,
         width: item.width ? Number(item.width) : null,
         depth: item.depth ? Number(item.depth) : null,
-        baseUnit: item.baseUnit !== null && item.baseUnit !== undefined ? item.baseUnit : null,
-        baseUnitPrice: item.baseUnitPrice !== null && item.baseUnitPrice !== undefined ? Number(item.baseUnitPrice) : null,
         unitPrice: Number(item.unitPrice),
         amount: Number(item.amount),
       })),

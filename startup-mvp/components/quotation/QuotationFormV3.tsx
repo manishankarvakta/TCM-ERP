@@ -64,6 +64,7 @@ const quotationSchema = z.object({
       items: z.array(
         z.object({
           sl: z.number(),
+          no: z.string().optional().nullable(),
           code: z.string().optional().nullable(),
           description: z.string().optional().nullable(),
           height: z.number().optional().nullable(),
@@ -72,6 +73,7 @@ const quotationSchema = z.object({
           unit: z.string().optional().nullable(),
           unitPrice: z.number().min(0).default(0),
           quantity: z.number().min(0).default(0),
+          discount: z.number().min(0).optional().default(0),
           amount: z.number().min(0).default(0),
           itemId: z.string().optional().nullable(),
         })
@@ -83,9 +85,12 @@ const quotationSchema = z.object({
           quantity: z.number().optional().nullable(),
           number: z.number().optional().nullable(),
           sortOrder: z.number().default(0),
+          baseUnit: z.string().optional().nullable(),
+          baseUnitPrice: z.number().optional().nullable(),
           items: z.array(
             z.object({
               sl: z.number(),
+              no: z.string().optional().nullable(),
               code: z.string().optional().nullable(),
               description: z.string().optional().nullable(),
               height: z.number().optional().nullable(),
@@ -94,6 +99,7 @@ const quotationSchema = z.object({
               unit: z.string().optional().nullable(),
               unitPrice: z.number().min(0).default(0),
               quantity: z.number().min(0).default(0),
+              discount: z.number().min(0).optional().default(0),
               amount: z.number().min(0).default(0),
               itemId: z.string().optional().nullable(),
             })
@@ -107,6 +113,7 @@ const quotationSchema = z.object({
           items: z.array(
             z.object({
               sl: z.number(),
+              no: z.string().optional().nullable(),
               code: z.string().optional().nullable(),
               description: z.string().optional().nullable(),
               height: z.number().optional().nullable(),
@@ -115,6 +122,7 @@ const quotationSchema = z.object({
               unit: z.string().optional().nullable(),
               unitPrice: z.number().min(0).default(0),
               quantity: z.number().min(0).default(0),
+              discount: z.number().min(0).optional().default(0),
               amount: z.number().min(0).default(0),
               itemId: z.string().optional().nullable(),
             })
@@ -147,6 +155,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
       categoryId: section.categoryId || null,
       items: (section.items || []).map((item: any, index: number) => ({
         sl: item.sl ?? index + 1,
+        no: item.no ?? null,
         code: item.code || null,
         description: item.description || null,
         height: item.height ?? null,
@@ -155,6 +164,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
         unit: item.unit || null,
         unitPrice: item.unitPrice ?? 0,
         quantity: item.quantity ?? 0,
+        discount: item.discount ?? 0,
         amount: item.amount ?? 0,
         itemId: item.itemId || null,
         id: item.id || `item-${Date.now()}-${index}-${Math.random()}`,
@@ -166,10 +176,13 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
         number: group.number ?? 0,
         sortOrder: group.sortOrder ?? groupIndex,
         moduleGroupId: group.moduleGroupId || null,
+        baseUnit: group.baseUnit || null,
+        baseUnitPrice: group.baseUnitPrice || null,
         id: group.id || `group-${Date.now()}-${groupIndex}-${Math.random()}`,
         isExpanded: group.isExpanded !== undefined ? group.isExpanded : true,
         items: (group.items || []).map((item: any, itemIndex: number) => ({
           sl: item.sl ?? itemIndex + 1,
+          no: item.no ?? null,
           code: item.code || null,
           description: item.description || null,
           height: item.height ?? null,
@@ -178,6 +191,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           unit: item.unit || null,
           unitPrice: item.unitPrice ?? 0,
           quantity: item.quantity ?? 0,
+          discount: item.discount ?? 0,
           amount: item.amount ?? 0,
           itemId: item.itemId || null,
           moduleGroupItemId: item.moduleGroupItemId || null,
@@ -191,6 +205,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
         isExpanded: categoryGroup.isExpanded !== undefined ? categoryGroup.isExpanded : true,
         items: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
           sl: item.sl ?? itemIndex + 1,
+          no: item.no ?? null,
           code: item.code || null,
           description: item.description || null,
           height: item.height ?? null,
@@ -199,6 +214,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           unit: item.unit || null,
           unitPrice: item.unitPrice ?? 0,
           quantity: item.quantity ?? 0,
+          discount: item.discount ?? 0,
           amount: item.amount ?? 0,
           itemId: item.itemId || null,
           id: item.id || `item-${Date.now()}-${categoryGroupIndex}-${itemIndex}-${Math.random()}`,
@@ -455,6 +471,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           moduleGroupId: group.moduleGroupId || null,
           items: (group.items || []).map((item: any) => ({
             sl: item.sl ?? 0,
+            no: item.no ?? null,
             code: item.code || null,
             description: item.description || null,
             height: item.height ?? null,
@@ -463,6 +480,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
             unit: item.unit || null,
             unitPrice: item.unitPrice ?? 0,
             quantity: item.quantity ?? 0,
+            discount: item.discount ?? 0,
             amount: item.amount ?? 0,
             itemId: item.itemId || null,
             moduleGroupItemId: item.moduleGroupItemId || null,
@@ -470,6 +488,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
         })),
         items: (section.items || []).map((item: any) => ({
           sl: item.sl ?? 0,
+          no: item.no ?? null,
           code: item.code || null,
           description: item.description || null,
           height: item.height ?? null,
@@ -478,6 +497,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           unit: item.unit || null,
           unitPrice: item.unitPrice ?? 0,
           quantity: item.quantity ?? 0,
+          discount: item.discount ?? 0,
           amount: item.amount ?? 0,
           itemId: item.itemId || null,
         })),
@@ -486,6 +506,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           sortOrder: categoryGroup.sortOrder ?? 0,
           items: (categoryGroup.items || []).map((item: any) => ({
             sl: item.sl ?? 0,
+            no: item.no ?? null,
             code: item.code || null,
             description: item.description || null,
             height: item.height ?? null,
@@ -494,6 +515,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
             unit: item.unit || null,
             unitPrice: item.unitPrice ?? 0,
             quantity: item.quantity ?? 0,
+            discount: item.discount ?? 0,
             amount: item.amount ?? 0,
             itemId: item.itemId || null,
           })),
@@ -543,8 +565,11 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           description: group.description,
           quantity: group.quantity,
           sortOrder: group.sortOrder,
+          baseUnit: group.baseUnit || null,
+          baseUnitPrice: group.baseUnitPrice || null,
           items: group.items.map((item: any) => ({
             sl: item.sl,
+            no: item.no ?? null,
             code: item.code || '',
             description: item.description || '',
             height: item.height,
@@ -553,12 +578,14 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
             unit: item.unit || null,
             unitPrice: item.unitPrice,
             quantity: item.quantity,
+            discount: item.discount ?? 0,
             amount: item.amount,
             itemId: item.itemId || null,
           })),
         })),
         items: section.items.map((item: any) => ({
           sl: item.sl,
+          no: item.no ?? null,
           code: item.code || '',
           description: item.description || '',
           height: item.height,
@@ -567,6 +594,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           unit: item.unit || null,
           unitPrice: item.unitPrice,
           quantity: item.quantity,
+          discount: item.discount ?? 0,
           amount: item.amount,
           itemId: item.itemId || null,
         })),
@@ -575,6 +603,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           sortOrder: categoryGroup.sortOrder ?? 0,
           items: (categoryGroup.items || []).map((item: any) => ({
             sl: item.sl ?? 0,
+            no: item.no ?? null,
             code: item.code || null,
             description: item.description || null,
             height: item.height ?? null,
@@ -583,6 +612,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
             unit: item.unit || null,
             unitPrice: item.unitPrice ?? 0,
             quantity: item.quantity ?? 0,
+            discount: item.discount ?? 0,
             amount: item.amount ?? 0,
             itemId: item.itemId || null,
           })),

@@ -769,7 +769,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
           },
           {
             content: descriptionLines,
-            colSpan: 8, // Spans from Description through Amount Tk
+            colSpan: 9, // Spans from Description through Amount Tk (updated for Discount column)
             styles: { fontStyle: 'bold', fontSize: 8 },
           },
         ]);
@@ -792,10 +792,10 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
             
             if (hasDimensions) {
               // Item with dimensions - Description in its own cell, then H, W, D in separate cells
-              // Box cell should have the box value for group items
+              // Box cell should have the no value, fallback to box or group.code for group items
               row = [
                 slCounter++,
-                String(item.box || group.code || ''), // Box value for group items
+                String(item.no || item.box || group.code || ''), // Use no value, fallback to box or group.code
                 codeLines,
                 descriptionLines,
                 item.height ? String(Number(item.height).toFixed(0)) : '-',
@@ -804,14 +804,15 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
                 formatCurrencyRight(Number(item.unitPrice || 0)),
                 Number(item.quantity || 0),
                 getUnitDescription(item),
+                formatCurrencyRight(Number(item.discount || 0)),
                 formatCurrencyRight(Number(item.amount || 0)),
               ];
             } else {
               // Item without dimensions - Description in its own cell, dimension cells empty
-              // Box cell should have the box value for group items
+              // Box cell should have the no value, fallback to box or group.code for group items
               row = [
                 slCounter++,
-                String(item.box || group.code || ''), // Box value for group items
+                String(item.no || item.box || group.code || ''), // Use no value, fallback to box or group.code
                 codeLines,
                 descriptionLines,
                 '', // Empty for H
@@ -820,6 +821,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
                 formatCurrencyRight(Number(item.unitPrice || 0)),
                 Number(item.quantity || 0),
                 getUnitDescription(item),
+                formatCurrencyRight(Number(item.discount || 0)),
                 formatCurrencyRight(Number(item.amount || 0)),
               ];
             }
@@ -871,7 +873,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
           },
           {
             content: categoryNameLines,
-            colSpan: 8, // Spans from Description through Amount Tk
+            colSpan: 9, // Spans from Description through Amount Tk (updated for Discount column)
             styles: { fontStyle: 'bold', fontSize: 8, fillColor: [240, 240, 250] },
           },
         ]);
@@ -896,7 +898,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
               // Item with dimensions
               row = [
                 slCounter++,
-                categoryName, // Box value for category group items
+                String(item.no || categoryName || ''), // Use no value, fallback to categoryName for category group items
                 codeLines,
                 descriptionLines,
                 item.height ? String(Number(item.height).toFixed(0)) : '-',
@@ -905,13 +907,14 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
                 formatCurrencyRight(Number(item.unitPrice || 0)),
                 Number(item.quantity || 0),
                 getUnitDescription(item),
+                formatCurrencyRight(Number(item.discount || 0)),
                 formatCurrencyRight(Number(item.amount || 0)),
               ];
             } else {
               // Item without dimensions
               row = [
                 slCounter++,
-                categoryName, // Box value for category group items
+                String(item.no || categoryName || ''), // Use no value, fallback to categoryName for category group items
                 codeLines,
                 descriptionLines,
                 '', // Empty for H
@@ -920,6 +923,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
                 formatCurrencyRight(Number(item.unitPrice || 0)),
                 Number(item.quantity || 0),
                 getUnitDescription(item),
+                formatCurrencyRight(Number(item.discount || 0)),
                 formatCurrencyRight(Number(item.amount || 0)),
               ];
             }
@@ -954,7 +958,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
             // Box cell should be empty for direct items (not in groups)
             row = [
               slCounter++,
-              '', // Empty box cell for direct items
+              String(item.no || ''), // Use no value for direct items
               codeLines,
               descriptionLines,
               item.height ? String(Number(item.height).toFixed(0)) : '-',
@@ -963,14 +967,15 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
               formatCurrencyRight(Number(item.unitPrice || 0)),
               Number(item.quantity || 0),
               getUnitDescription(item),
+              formatCurrencyRight(Number(item.discount || 0)),
               formatCurrencyRight(Number(item.amount || 0)),
             ];
           } else {
             // Item without dimensions - Description in its own cell, dimension cells empty
-            // Box cell should be empty for direct items (not in groups)
+            // Box cell should use no value for direct items
             row = [
               slCounter++,
-              '', // Empty box cell for direct items
+              String(item.no || ''), // Use no value for direct items
               codeLines,
               descriptionLines,
               '', // Empty for H
@@ -979,6 +984,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
               formatCurrencyRight(Number(item.unitPrice || 0)),
               Number(item.quantity || 0),
               getUnitDescription(item),
+              formatCurrencyRight(Number(item.discount || 0)),
               formatCurrencyRight(Number(item.amount || 0)),
             ];
           }
@@ -1045,7 +1051,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
           tableData.push([
             {
               content: 'No items in this section',
-              colSpan: 11,
+              colSpan: 10,
               styles: { halign: 'center', fontStyle: 'italic', fontSize: 8 },
             },
           ]);
@@ -1063,6 +1069,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
               'Unit price',
               'Qty',
               'Description of',
+              'Discount',
               'Amount Tk',
             ],
             [
@@ -1108,10 +1115,15 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
             7: { cellWidth: 20, halign: 'right', font: 'helvetica' }, // Unit price - explicitly use helvetica (not roboto)
             8: { cellWidth: 10, halign: 'right' }, // Qty
             9: { cellWidth: 12, halign: 'center' }, // Description of
-            10: { cellWidth: 20, halign: 'right', font: 'helvetica' }, // Amount Tk - explicitly use helvetica (not roboto)
+            10: { cellWidth: 20, halign: 'right', font: 'helvetica' }, // Discount - explicitly use helvetica (not roboto)
+            11: { cellWidth: 20, halign: 'right', font: 'helvetica' }, // Amount Tk - explicitly use helvetica (not roboto)
           },
-          margin: { left: margin + 5, right: margin + 5 },
-          tableWidth: 'auto', // Use 100% width
+          // Calculate table width and center it
+          tableWidth: 8 + 10 + 18 + 50 + 10 + 10 + 10 + 20 + 10 + 12 + 20 + 20, // Total of all column widths = 198mm
+          margin: { 
+            left: (pageWidth - 198) / 2, // Center the table horizontally
+            right: (pageWidth - 198) / 2 
+          },
           didDrawPage: (data: any) => {
             yPos = data.cursor.y;
           },
