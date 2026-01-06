@@ -297,7 +297,7 @@ function SortableItem({
           className="h-8 w-16 text-xs"
         />
       </TableCell>
-      <TableCell>
+      <TableCell className="min-w-[120px]">
         {groupIndex !== undefined ? (
           // For custom items (isCustomItem flag), always show auto-generated code
           // For regular items, show dropdown if group has moduleGroupId (for "Add Item")
@@ -649,14 +649,19 @@ export function QuotationItemsArea({
     fetchUnits();
   }, []);
 
-  // Load moduleGroupItems and baseUnit/baseUnitPrice for groups that have moduleGroupId
+  // Load moduleGroupItems for dropdown and baseUnit/baseUnitPrice as fallback for backward compatibility
+  // Note: baseUnit/baseUnitPrice should now be loaded from database via getQuotation,
+  // but we keep this as fallback for old quotations that don't have these values stored
   useEffect(() => {
     const loadModuleGroupItems = async () => {
       const groupsToLoad: Array<{ groupId: string; moduleGroupId: string; sectionIndex: number; groupIndex: number }> = [];
       
       sections.forEach((section, sectionIndex) => {
         section.groups.forEach((group, groupIndex) => {
-          if (group.moduleGroupId && !moduleGroupItems[group.id]) {
+          // Load module group items if not already loaded
+          // Also check if baseUnit/baseUnitPrice are missing (for backward compatibility)
+          if (group.moduleGroupId && 
+              (!moduleGroupItems[group.id] || group.baseUnit == null || group.baseUnitPrice == null)) {
             groupsToLoad.push({ 
               groupId: group.id, 
               moduleGroupId: group.moduleGroupId,
@@ -704,7 +709,9 @@ export function QuotationItemsArea({
       
       results.forEach((result) => {
         if (result) {
+          // Always update module group items for dropdown
           newModuleGroupItems[result.groupId] = result.items;
+          // Only update baseUnit/baseUnitPrice if they're missing (backward compatibility)
           groupsToUpdate.push({
             sectionIndex: result.sectionIndex,
             groupIndex: result.groupIndex,
@@ -718,17 +725,72 @@ export function QuotationItemsArea({
         setModuleGroupItems((prev) => ({ ...prev, ...newModuleGroupItems }));
       }
       
-      // Update groups with baseUnit and baseUnitPrice
+      // Update groups with baseUnit and baseUnitPrice only if missing (backward compatibility)
       if (groupsToUpdate.length > 0) {
-        const updated = [...sections];
+        // Create a deep copy of sections to avoid mutation errors
+        const updated = sections.map((section) => ({
+          ...section,
+          groups: section.groups.map((group) => ({ ...group, items: [...group.items] })),
+        }));
+        
         groupsToUpdate.forEach(({ sectionIndex, groupIndex, baseUnit, baseUnitPrice }) => {
           const group = updated[sectionIndex]?.groups[groupIndex];
-          if (group && (!group.baseUnit || !group.baseUnitPrice)) {
+          // Only update if baseUnit or baseUnitPrice are null/undefined (not if they're empty string or 0)
+          if (group && (group.baseUnit == null || group.baseUnitPrice == null)) {
+            const oldBaseUnit = group.baseUnit;
+            const oldBaseUnitPrice = group.baseUnitPrice;
+            
             updated[sectionIndex].groups[groupIndex] = {
               ...group,
-              baseUnit: baseUnit,
-              baseUnitPrice: baseUnitPrice,
+              baseUnit: group.baseUnit ?? baseUnit,
+              baseUnitPrice: group.baseUnitPrice ?? baseUnitPrice,
             };
+            
+            // If baseUnit/baseUnitPrice just became available, recalculate unitPrice for custom items with dimensions
+            const newBaseUnit = updated[sectionIndex].groups[groupIndex].baseUnit;
+            const newBaseUnitPrice = updated[sectionIndex].groups[groupIndex].baseUnitPrice;
+            
+            if ((oldBaseUnit == null || oldBaseUnitPrice == null) && 
+                newBaseUnit != null && newBaseUnitPrice != null && newBaseUnitPrice > 0) {
+              // Recalculate unitPrice for custom items that have dimensions
+              updated[sectionIndex].groups[groupIndex].items = group.items.map((item) => {
+                const isCustomItem = (item as any).isCustomItem || !(item as any).moduleGroupItemId;
+                if (isCustomItem && item.height && item.width && item.depth && 
+                    item.height > 0 && item.width > 0 && item.depth > 0) {
+                  try {
+                    const baseUnitLower = newBaseUnit.toLowerCase();
+                    if (baseUnitLower === 'sqft' || baseUnitLower === 'sqm' || baseUnitLower === 'sqin') {
+                      const dimensionUnit = item.unit || 'mm';
+                      const widthIn = convertToInches(item.width, dimensionUnit);
+                      const depthIn = convertToInches(item.depth, dimensionUnit);
+                      const heightIn = convertToInches(item.height, dimensionUnit);
+                      
+                      const result = calculateKitchenModule({
+                        widthIn: widthIn,
+                        depthIn: depthIn,
+                        heightIn: heightIn,
+                        shelves: 0,
+                        unit: baseUnitLower as AreaUnit,
+                        unitPrice: newBaseUnitPrice,
+                        qty: 1,
+                      });
+                      
+                      const quantity = (item as any).quantity || 0;
+                      const discount = (item as any).discount || 0;
+                      
+                      return {
+                        ...item,
+                        unitPrice: result.perModule.cost,
+                        amount: Math.max(0, quantity * result.perModule.cost - discount),
+                      };
+                    }
+                  } catch (error) {
+                    console.error('Error recalculating unit price for item:', error);
+                  }
+                }
+                return item;
+              });
+            }
           }
         });
         onSectionsChange(updated);
@@ -738,6 +800,100 @@ export function QuotationItemsArea({
     loadModuleGroupItems();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sections]);
+
+  // Recalculate unitPrice for custom items with dimensions when sections load (for edit mode)
+  useEffect(() => {
+    let hasChanges = false;
+    const updated = sections.map((section) => {
+      const updatedGroups = section.groups.map((group) => {
+        // Only process groups that have baseUnit and baseUnitPrice
+        if (!group.baseUnit || !group.baseUnitPrice || group.baseUnitPrice <= 0) {
+          return group;
+        }
+
+        const baseUnit = group.baseUnit.toLowerCase();
+        if (baseUnit !== 'sqft' && baseUnit !== 'sqm' && baseUnit !== 'sqin') {
+          return group;
+        }
+
+        const updatedItems = group.items.map((item) => {
+          // Check if this is a custom item (no moduleGroupItemId)
+          const isCustomItem = (item as any).isCustomItem || !(item as any).moduleGroupItemId;
+          
+          if (!isCustomItem) {
+            return item;
+          }
+
+          // Check if item has valid dimensions but unitPrice is 0, null, undefined, or NaN
+          const hasValidDimensions = item.height != null && item.width != null && item.depth != null &&
+            item.height > 0 && item.width > 0 && item.depth > 0;
+          
+          const needsRecalculation = hasValidDimensions && (
+            item.unitPrice === 0 || 
+            item.unitPrice == null || 
+            isNaN(item.unitPrice)
+          );
+
+          if (!needsRecalculation) {
+            return item;
+          }
+
+          try {
+            const dimensionUnit = item.unit || 'mm';
+            const widthIn = convertToInches(item.width!, dimensionUnit);
+            const depthIn = convertToInches(item.depth!, dimensionUnit);
+            const heightIn = convertToInches(item.height!, dimensionUnit);
+
+            const result = calculateKitchenModule({
+              widthIn: widthIn,
+              depthIn: depthIn,
+              heightIn: heightIn,
+              shelves: 0,
+              unit: baseUnit as AreaUnit,
+              unitPrice: group.baseUnitPrice!,
+              qty: 1,
+            });
+
+            const calculatedUnitPrice = result.perModule.cost;
+            const quantity = item.quantity || 0;
+            const discount = item.discount || 0;
+            const calculatedAmount = Math.max(0, quantity * calculatedUnitPrice - discount);
+
+            hasChanges = true;
+            return {
+              ...item,
+              unitPrice: calculatedUnitPrice,
+              amount: calculatedAmount,
+            };
+          } catch (error) {
+            console.error('Error recalculating unit price for item:', error);
+            return item;
+          }
+        });
+
+        if (updatedItems !== group.items) {
+          return {
+            ...group,
+            items: updatedItems,
+          };
+        }
+        return group;
+      });
+
+      if (updatedGroups !== section.groups) {
+        return {
+          ...section,
+          groups: updatedGroups,
+        };
+      }
+      return section;
+    });
+
+    if (hasChanges) {
+      onSectionsChange(updated);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sections.map(s => s.groups.map(g => `${g.id}-${g.baseUnit}-${g.baseUnitPrice}`).join(',')).join('|')]); // Run when groups or their baseUnit/baseUnitPrice change
 
   // Fetch catalog items and categories from database
   useEffect(() => {
@@ -1136,25 +1292,42 @@ export function QuotationItemsArea({
         }
 
         // For custom items with baseUnitPrice: calculate unitPrice from dimensions and unit
-        if (isCustomItem && hasBasePrice && (
-          updates.height !== undefined ||
-          updates.width !== undefined ||
-          updates.depth !== undefined ||
-          updates.unit !== undefined
-        )) {
+        // This should recalculate whenever dimensions or unit change, or when baseUnit/baseUnitPrice become available
+        if (isCustomItem && hasBasePrice) {
           const h = updatedItem.height;
           const w = updatedItem.width;
           const d = updatedItem.depth;
           
-          if (h != null && w != null && d != null && h > 0 && w > 0 && d > 0) {
+          // Check if dimensions changed
+          const dimensionsChanged = (
+            updates.height !== undefined ||
+            updates.width !== undefined ||
+            updates.depth !== undefined ||
+            updates.unit !== undefined
+          );
+          
+          // Check if all dimensions are present and valid
+          const hasValidDimensions = h != null && w != null && d != null && h > 0 && w > 0 && d > 0;
+          
+          // Recalculate if:
+          // 1. Dimensions changed AND all dimensions are valid, OR
+          // 2. Item has valid dimensions but unitPrice is 0, null, undefined, or NaN
+          const shouldRecalculate = hasValidDimensions && (
+            dimensionsChanged || 
+            updatedItem.unitPrice === 0 || 
+            updatedItem.unitPrice == null || 
+            isNaN(updatedItem.unitPrice)
+          );
+          
+          if (shouldRecalculate) {
             try {
               const baseUnit = group.baseUnit!.toLowerCase() as AreaUnit;
               if (baseUnit === 'sqft' || baseUnit === 'sqm' || baseUnit === 'sqin') {
                 // Convert dimensions to inches (calculateKitchenModule expects inches)
                 const dimensionUnit = updatedItem.unit || 'mm'; // Default to mm if no unit specified
-                const widthIn = convertToInches(w, dimensionUnit);
-                const depthIn = convertToInches(d, dimensionUnit);
-                const heightIn = convertToInches(h, dimensionUnit);
+                const widthIn = convertToInches(w!, dimensionUnit);
+                const depthIn = convertToInches(d!, dimensionUnit);
+                const heightIn = convertToInches(h!, dimensionUnit);
                 
                 const result = calculateKitchenModule({
                   widthIn: widthIn,
@@ -2113,7 +2286,7 @@ export function QuotationItemsArea({
                                             <TableHead className="w-8"></TableHead>
                                             <TableHead className="w-12">SL</TableHead>
                                             <TableHead className="w-16">No</TableHead>
-                                            <TableHead>Code</TableHead>
+                                            <TableHead className="min-w-[120px]">Code</TableHead>
                                             <TableHead>Description</TableHead>
                                             <TableHead className="w-56">Dimensions</TableHead>
                                             <TableHead className="w-24">Qty</TableHead>
@@ -2308,7 +2481,7 @@ export function QuotationItemsArea({
                                           <TableRow>
                                             <TableHead className="w-8"></TableHead>
                                             <TableHead className="w-12">SL</TableHead>
-                                            <TableHead>Code</TableHead>
+                                            <TableHead className="min-w-[120px]">Code</TableHead>
                                             <TableHead>Description</TableHead>
                                             <TableHead className="w-56">Dimensions</TableHead>
                                             <TableHead className="w-24">Qty</TableHead>
@@ -2373,7 +2546,7 @@ export function QuotationItemsArea({
                                 <TableRow>
                                   <TableHead className="w-8"></TableHead>
                                   <TableHead className="w-12">SL</TableHead>
-                                  <TableHead>Code</TableHead>
+                                  <TableHead className="min-w-[120px]">Code</TableHead>
                                   <TableHead>Description</TableHead>
                                   <TableHead className="w-56">Dimensions</TableHead>
                                   <TableHead className="w-24">Qty</TableHead>
