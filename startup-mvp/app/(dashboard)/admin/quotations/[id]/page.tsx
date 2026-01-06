@@ -117,10 +117,12 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                                 <thead>
                                   <tr className="border-b">
                                     <th className="text-left p-2">SL</th>
+                                    <th className="text-left p-2">No</th>
                                     <th className="text-left p-2 whitespace-nowrap">Code</th>
                                     <th className="text-left p-2">Description</th>
                                     <th className="text-right p-2">Qty</th>
                                     <th className="text-right p-2">Unit Price</th>
+                                    <th className="text-right p-2">Discount</th>
                                     <th className="text-right p-2">Amount</th>
                                   </tr>
                                 </thead>
@@ -128,10 +130,12 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                                   {group.items?.map((item, itemIndex: number) => (
                                     <tr key={item.id || itemIndex} className="border-b">
                                       <td className="p-2">{item.sl}</td>
+                                      <td className="p-2">{item.no || '-'}</td>
                                       <td className="p-2 whitespace-nowrap break-keep">{item.code || '-'}</td>
                                       <td className="p-2">{item.description || '-'}</td>
                                       <td className="text-right p-2">{Number(item.quantity)}</td>
                                       <td className="text-right p-2">{formatCurrency(Number(item.unitPrice))}</td>
+                                      <td className="text-right p-2">{formatCurrency(Number(item.discount || 0))}</td>
                                       <td className="text-right p-2 font-medium">
                                         {formatCurrency(Number(item.amount))}
                                       </td>
@@ -160,10 +164,12 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                                 <thead>
                                   <tr className="border-b">
                                     <th className="text-left p-2">SL</th>
+                                    <th className="text-left p-2">No</th>
                                     <th className="text-left p-2 whitespace-nowrap">Code</th>
                                     <th className="text-left p-2">Description</th>
                                     <th className="text-right p-2">Qty</th>
                                     <th className="text-right p-2">Unit Price</th>
+                                    <th className="text-right p-2">Discount</th>
                                     <th className="text-right p-2">Amount</th>
                                   </tr>
                                 </thead>
@@ -171,10 +177,12 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                                   {categoryGroup.items?.map((item, itemIndex: number) => (
                                     <tr key={item.id || itemIndex} className="border-b">
                                       <td className="p-2">{item.sl}</td>
+                                      <td className="p-2">{item.no || '-'}</td>
                                       <td className="p-2 whitespace-nowrap break-keep">{item.code || '-'}</td>
                                       <td className="p-2 w-94">{item.description || '-'}</td>
                                       <td className="text-right p-2">{Number(item.quantity)}</td>
                                       <td className="text-right p-2">{formatCurrency(Number(item.unitPrice))}</td>
+                                      <td className="text-right p-2">{formatCurrency(Number(item.discount || 0))}</td>
                                       <td className="text-right p-2 font-medium">
                                         {formatCurrency(Number(item.amount))}
                                       </td>
@@ -183,8 +191,9 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                                 </tbody>
                                 <tfoot>
                                   <tr className="border-t font-medium">
-                                    <td colSpan={3} className="p-2 text-right">Total Items:</td>
+                                    <td colSpan={4} className="p-2 text-right">Total Items:</td>
                                     <td className="text-right p-2">{categoryGroup.items.length}</td>
+                                    <td className="text-right p-2"></td>
                                     <td className="text-right p-2">Total Amount:</td>
                                     <td className="text-right p-2">
                                       {formatCurrency(
@@ -208,10 +217,12 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                         <thead>
                           <tr className="border-b">
                             <th className="text-left p-2">SL</th>
+                            <th className="text-left p-2">No</th>
                             <th className="text-left p-2 whitespace-nowrap">Code</th>
                             <th className="text-left p-2">Description</th>
                             <th className="text-right p-2">Qty</th>
                             <th className="text-right p-2">Unit Price</th>
+                            <th className="text-right p-2">Discount</th>
                             <th className="text-right p-2">Amount</th>
                           </tr>
                         </thead>
@@ -219,10 +230,12 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                           {section.items?.map((item, itemIndex: number) => (
                             <tr key={item.id || itemIndex} className="border-b">
                               <td className="p-2">{item.sl}</td>
+                              <td className="p-2">{item.no || '-'}</td>
                               <td className="p-2 whitespace-nowrap break-keep">{item.code || '-'}</td>
                               <td className="p-2 w-94">{item.description || '-'}</td>
                               <td className="text-right p-2">{Number(item.quantity)}</td>
                               <td className="text-right p-2">{formatCurrency(Number(item.unitPrice))}</td>
+                              <td className="text-right p-2">{formatCurrency(Number(item.discount || 0))}</td>
                               <td className="text-right p-2 font-medium">
                                 {formatCurrency(Number(item.amount))}
                               </td>
