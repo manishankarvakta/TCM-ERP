@@ -341,6 +341,8 @@ export async function getQuotation(id: string) {
         groups: section.groups?.map((group) => ({
           ...group,
           quantity: group.quantity ? Number(group.quantity) : null,
+          baseUnit: group.baseUnit || null,
+          baseUnitPrice: group.baseUnitPrice ? Number(group.baseUnitPrice) : null,
           items: group.items?.map((item) => ({
             ...item,
             height: item.height ? Number(item.height) : null,
@@ -559,6 +561,49 @@ export async function createQuotation(data: any) {
       }
     }
 
+    // Fetch baseUnit and baseUnitPrice from ModuleGroup for groups that need them
+    const moduleGroupIdsToFetch = new Set<string>();
+    sections.forEach((section: any) => {
+      if (section.groups && Array.isArray(section.groups)) {
+        section.groups.forEach((group: any) => {
+          if (group.moduleGroupId && 
+              group.moduleGroupId !== '' && 
+              (!group.baseUnit || !group.baseUnitPrice)) {
+            moduleGroupIdsToFetch.add(group.moduleGroupId);
+          }
+        });
+      }
+    });
+
+    const moduleGroupData: Record<string, { baseUnit: string | null; baseUnitPrice: number | null }> = {};
+    if (moduleGroupIdsToFetch.size > 0) {
+      const moduleGroups = await prisma.moduleGroup.findMany({
+        where: { id: { in: Array.from(moduleGroupIdsToFetch) } },
+        select: { id: true, baseUnit: true, baseUnitPrice: true },
+      });
+      moduleGroups.forEach((mg) => {
+        moduleGroupData[mg.id] = {
+          baseUnit: mg.baseUnit,
+          baseUnitPrice: mg.baseUnitPrice ? Number(mg.baseUnitPrice) : null,
+        };
+      });
+    }
+
+    // Enrich sections with baseUnit/baseUnitPrice from ModuleGroup if missing
+    const enrichedSections = sections.map((section: any) => ({
+      ...section,
+      groups: (section.groups || []).map((group: any) => {
+        if (group.moduleGroupId && moduleGroupData[group.moduleGroupId]) {
+          return {
+            ...group,
+            baseUnit: group.baseUnit || moduleGroupData[group.moduleGroupId].baseUnit,
+            baseUnitPrice: group.baseUnitPrice || moduleGroupData[group.moduleGroupId].baseUnitPrice,
+          };
+        }
+        return group;
+      }),
+    }));
+
     // Create quotation
     const quotation = await prisma.quotation.create({
       data: {
@@ -577,7 +622,7 @@ export async function createQuotation(data: any) {
         projectLocation: data.projectLocation || null,
         isTrash: false, // Default to false - quotations are not in trash by default
         section: {
-          create: (sections || []).map((section: any, sectionIndex: number) => ({
+          create: (enrichedSections || []).map((section: any, sectionIndex: number) => ({
             title: section.title || `Section ${sectionIndex + 1}`,
             note: section.note || null,
         discount: section.discount ? new Prisma.Decimal(section.discount) : new Prisma.Decimal(0),
@@ -594,6 +639,8 @@ export async function createQuotation(data: any) {
                 number: group.number || null,
                 sortOrder: group.sortOrder ?? groupIndex,
                 moduleGroupId: group.moduleGroupId && group.moduleGroupId !== '' ? group.moduleGroupId : null,
+                baseUnit: group.baseUnit || null,
+                baseUnitPrice: group.baseUnitPrice ? new Prisma.Decimal(group.baseUnitPrice) : null,
                 items: {
                   create: (group.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,
@@ -879,6 +926,49 @@ export async function updateQuotation(id: string, data: any) {
       where: { quotationId: id },
     });
 
+    // Fetch baseUnit and baseUnitPrice from ModuleGroup for groups that need them
+    const moduleGroupIdsToFetch = new Set<string>();
+    sections.forEach((section: any) => {
+      if (section.groups && Array.isArray(section.groups)) {
+        section.groups.forEach((group: any) => {
+          if (group.moduleGroupId && 
+              group.moduleGroupId !== '' && 
+              (!group.baseUnit || !group.baseUnitPrice)) {
+            moduleGroupIdsToFetch.add(group.moduleGroupId);
+          }
+        });
+      }
+    });
+
+    const moduleGroupData: Record<string, { baseUnit: string | null; baseUnitPrice: number | null }> = {};
+    if (moduleGroupIdsToFetch.size > 0) {
+      const moduleGroups = await prisma.moduleGroup.findMany({
+        where: { id: { in: Array.from(moduleGroupIdsToFetch) } },
+        select: { id: true, baseUnit: true, baseUnitPrice: true },
+      });
+      moduleGroups.forEach((mg) => {
+        moduleGroupData[mg.id] = {
+          baseUnit: mg.baseUnit,
+          baseUnitPrice: mg.baseUnitPrice ? Number(mg.baseUnitPrice) : null,
+        };
+      });
+    }
+
+    // Enrich sections with baseUnit/baseUnitPrice from ModuleGroup if missing
+    const enrichedSections = sections.map((section: any) => ({
+      ...section,
+      groups: (section.groups || []).map((group: any) => {
+        if (group.moduleGroupId && moduleGroupData[group.moduleGroupId]) {
+          return {
+            ...group,
+            baseUnit: group.baseUnit || moduleGroupData[group.moduleGroupId].baseUnit,
+            baseUnitPrice: group.baseUnitPrice || moduleGroupData[group.moduleGroupId].baseUnitPrice,
+          };
+        }
+        return group;
+      }),
+    }));
+
     // Get TOS content if not provided
     let tosContent = data.tos;
     if (!tosContent) {
@@ -928,7 +1018,7 @@ export async function updateQuotation(id: string, data: any) {
         vatIncluded: data.vatIncluded !== undefined ? data.vatIncluded : existingQuotation.vatIncluded,
         projectLocation: data.projectLocation !== undefined ? (data.projectLocation || null) : existingQuotation.projectLocation,
         section: {
-          create: (sections || []).map((section: any, sectionIndex: number) => ({
+          create: (enrichedSections || []).map((section: any, sectionIndex: number) => ({
             title: section.title || `Section ${sectionIndex + 1}`,
             note: section.note || null,
         discount: section.discount ? new Prisma.Decimal(section.discount) : new Prisma.Decimal(0),
@@ -945,6 +1035,8 @@ export async function updateQuotation(id: string, data: any) {
                 number: group.number || null,
                 sortOrder: group.sortOrder ?? groupIndex,
                 moduleGroupId: group.moduleGroupId && group.moduleGroupId !== '' ? group.moduleGroupId : null,
+                baseUnit: group.baseUnit || null,
+                baseUnitPrice: group.baseUnitPrice ? new Prisma.Decimal(group.baseUnitPrice) : null,
                 items: {
                   create: (group.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,

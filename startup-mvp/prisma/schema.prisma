@@ -413,6 +413,8 @@ model ItemGroup {
   number        Int?
   sortOrder     Int             @default(0)
   moduleGroupId String?
+  baseUnit      String?
+  baseUnitPrice Decimal?        @db.Decimal(10, 2)
   sectionId     String
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
