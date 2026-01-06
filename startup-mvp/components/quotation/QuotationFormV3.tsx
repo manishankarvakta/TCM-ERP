@@ -64,7 +64,7 @@ const quotationSchema = z.object({
       items: z.array(
         z.object({
           sl: z.number(),
-          no: z.number().optional().nullable(),
+          no: z.string().optional().nullable(),
           code: z.string().optional().nullable(),
           description: z.string().optional().nullable(),
           height: z.number().optional().nullable(),
@@ -85,10 +85,12 @@ const quotationSchema = z.object({
           quantity: z.number().optional().nullable(),
           number: z.number().optional().nullable(),
           sortOrder: z.number().default(0),
+          baseUnit: z.string().optional().nullable(),
+          baseUnitPrice: z.number().optional().nullable(),
           items: z.array(
             z.object({
               sl: z.number(),
-              no: z.number().optional().nullable(),
+              no: z.string().optional().nullable(),
               code: z.string().optional().nullable(),
               description: z.string().optional().nullable(),
               height: z.number().optional().nullable(),
@@ -111,7 +113,7 @@ const quotationSchema = z.object({
           items: z.array(
             z.object({
               sl: z.number(),
-              no: z.number().optional().nullable(),
+              no: z.string().optional().nullable(),
               code: z.string().optional().nullable(),
               description: z.string().optional().nullable(),
               height: z.number().optional().nullable(),
@@ -174,6 +176,8 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
         number: group.number ?? 0,
         sortOrder: group.sortOrder ?? groupIndex,
         moduleGroupId: group.moduleGroupId || null,
+        baseUnit: group.baseUnit || null,
+        baseUnitPrice: group.baseUnitPrice || null,
         id: group.id || `group-${Date.now()}-${groupIndex}-${Math.random()}`,
         isExpanded: group.isExpanded !== undefined ? group.isExpanded : true,
         items: (group.items || []).map((item: any, itemIndex: number) => ({
@@ -561,6 +565,8 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           description: group.description,
           quantity: group.quantity,
           sortOrder: group.sortOrder,
+          baseUnit: group.baseUnit || null,
+          baseUnitPrice: group.baseUnitPrice || null,
           items: group.items.map((item: any) => ({
             sl: item.sl,
             no: item.no ?? null,

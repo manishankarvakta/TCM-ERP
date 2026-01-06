@@ -597,7 +597,7 @@ export async function createQuotation(data: any) {
                 items: {
                   create: (group.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,
-                    no: item.no ?? null,
+                    no: item.no != null && item.no !== '' ? String(item.no) : null,
                     code: item.code || null,
                     description: item.description || null,
                     height: item.height ? new Prisma.Decimal(item.height) : null,
@@ -620,7 +620,7 @@ export async function createQuotation(data: any) {
             items: {
               create: (section.items || []).map((item: any, itemIndex: number) => ({
                 sl: item.sl ?? itemIndex + 1,
-                no: item.no ?? null,
+                no: item.no != null && item.no !== '' ? String(item.no) : null,
                 code: item.code || null,
                 description: item.description || null,
                 height: item.height ? new Prisma.Decimal(item.height) : null,
@@ -644,7 +644,7 @@ export async function createQuotation(data: any) {
                 items: {
                   create: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,
-                    no: item.no ?? null,
+                    no: item.no != null && item.no !== '' ? String(item.no) : null,
                     code: item.code || null,
                     description: item.description || null,
                     height: item.height ? new Prisma.Decimal(item.height) : null,
@@ -948,7 +948,7 @@ export async function updateQuotation(id: string, data: any) {
                 items: {
                   create: (group.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,
-                    no: item.no ?? null,
+                    no: item.no != null && item.no !== '' ? String(item.no) : null,
                     code: item.code || null,
                     description: item.description || null,
                     height: item.height ? new Prisma.Decimal(item.height) : null,
@@ -971,7 +971,7 @@ export async function updateQuotation(id: string, data: any) {
             items: {
               create: (section.items || []).map((item: any, itemIndex: number) => ({
                 sl: item.sl ?? itemIndex + 1,
-                no: item.no ?? null,
+                no: item.no != null && item.no !== '' ? String(item.no) : null,
                 code: item.code || null,
                 description: item.description || null,
                 height: item.height ? new Prisma.Decimal(item.height) : null,
@@ -995,7 +995,7 @@ export async function updateQuotation(id: string, data: any) {
                 items: {
                   create: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,
-                    no: item.no ?? null,
+                    no: item.no != null && item.no !== '' ? String(item.no) : null,
                     code: item.code || null,
                     description: item.description || null,
                     height: item.height ? new Prisma.Decimal(item.height) : null,

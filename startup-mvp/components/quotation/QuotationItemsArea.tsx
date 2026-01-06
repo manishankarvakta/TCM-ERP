@@ -52,7 +52,7 @@ import {
 interface QuotationItem {
   id: string;
   sl: number;
-  no?: number;
+  no?: number | string;
   code?: string;
   description?: string;
   height?: number;
@@ -65,6 +65,7 @@ interface QuotationItem {
   amount: number;
   itemId?: string; // Reference to catalog item
   moduleGroupItemId?: string; // Reference to selected module group item
+  isCustomItem?: boolean; // Flag to mark items added via "Custom Item" button
 }
 
 interface CatalogItem {
@@ -91,6 +92,8 @@ interface ItemGroup {
   items: QuotationItem[];
   isExpanded?: boolean;
   moduleGroupId?: string | null; // Reference to ModuleGroup template
+  baseUnit?: string | null; // Base unit from ModuleGroup (sqft, sqm, sqin)
+  baseUnitPrice?: number | null; // Base unit price from ModuleGroup
 }
 
 interface CategoryGroup {
@@ -229,6 +232,7 @@ function SortableItem({
         quantity: quantity,
         amount: amount,
         itemId: selectedGroupItem.itemId,
+        isCustomItem: false, // Clear custom item flag when selecting from ModuleGroup
       };
       onUpdate(updates);
     }
@@ -283,10 +287,10 @@ function SortableItem({
       <TableCell className="font-medium w-12">{item.sl}</TableCell>
       <TableCell>
         <Input
-          type="number"
+          type="text"
           value={item.no || ''}
           onChange={(e) => {
-            const no = e.target.value ? Number(e.target.value) : undefined;
+            const no = e.target.value || undefined;
             onUpdate({ no });
           }}
           placeholder="No"
@@ -295,9 +299,16 @@ function SortableItem({
       </TableCell>
       <TableCell>
         {groupIndex !== undefined ? (
-          // For group items, show code as dropdown with search (items come from selected ModuleGroup)
-          // Show Select if group has moduleGroupId, even if items are still loading
-          groupModuleGroupId ? (
+          // For custom items (isCustomItem flag), always show auto-generated code
+          // For regular items, show dropdown if group has moduleGroupId (for "Add Item")
+          item.isCustomItem ? (
+            <Input
+              value={item.code || ''}
+              readOnly
+              placeholder="Auto-generated"
+              className="h-8 text-xs w-full bg-muted"
+            />
+          ) : groupModuleGroupId ? (
             <div className="flex gap-2 items-center w-full">
               <div className="flex-1 relative w-full min-w-0">
                 <Select
@@ -350,7 +361,7 @@ function SortableItem({
               </div>
             </div>
           ) : (
-            // Fallback to input if no group items available
+            // Fallback: if no moduleGroupId, show manual input
             <Input
               value={item.code || ''}
               onChange={(e) => onUpdate({ code: e.target.value })}
@@ -462,8 +473,8 @@ function SortableItem({
           type="number"
           step="0.01"
           value={item.unitPrice}
-          onChange={(e) => onUpdate({ unitPrice: Number(e.target.value) })}
-          className="h-8 w-24 text-xs"
+          readOnly
+          className="h-8 w-24 text-xs bg-muted"
         />
       </TableCell>
       {groupIndex !== undefined && units && (
@@ -480,7 +491,7 @@ function SortableItem({
             }}
             disabled={isLoadingUnits}
           >
-            <SelectTrigger className="h-8 w-32 text-xs text-left">
+            <SelectTrigger className="h-8 w-20 text-xs text-left">
               <SelectValue placeholder="Unit" />
             </SelectTrigger>
             <SelectContent className="max-h-[300px]">
@@ -516,7 +527,7 @@ function SortableItem({
                   )
                   .map((unit) => (
                     <SelectItem key={unit.id} value={unit.id} className="text-left">
-                      {unit.symbol} - {unit.details}
+                      {unit.symbol}
                     </SelectItem>
                   ))}
                 {units.filter((unit) =>
@@ -638,15 +649,20 @@ export function QuotationItemsArea({
     fetchUnits();
   }, []);
 
-  // Load moduleGroupItems for groups that have moduleGroupId
+  // Load moduleGroupItems and baseUnit/baseUnitPrice for groups that have moduleGroupId
   useEffect(() => {
     const loadModuleGroupItems = async () => {
-      const groupsToLoad: Array<{ groupId: string; moduleGroupId: string }> = [];
+      const groupsToLoad: Array<{ groupId: string; moduleGroupId: string; sectionIndex: number; groupIndex: number }> = [];
       
-      sections.forEach((section) => {
-        section.groups.forEach((group) => {
+      sections.forEach((section, sectionIndex) => {
+        section.groups.forEach((group, groupIndex) => {
           if (group.moduleGroupId && !moduleGroupItems[group.id]) {
-            groupsToLoad.push({ groupId: group.id, moduleGroupId: group.moduleGroupId });
+            groupsToLoad.push({ 
+              groupId: group.id, 
+              moduleGroupId: group.moduleGroupId,
+              sectionIndex,
+              groupIndex,
+            });
           }
         });
       });
@@ -654,11 +670,13 @@ export function QuotationItemsArea({
       if (groupsToLoad.length === 0) return;
       
       // Load all module groups in parallel
-      const loadPromises = groupsToLoad.map(async ({ groupId, moduleGroupId }) => {
+      const loadPromises = groupsToLoad.map(async ({ groupId, moduleGroupId, sectionIndex, groupIndex }) => {
         const result = await getModuleGroupById(moduleGroupId);
         if (result.success && result.group) {
           return {
             groupId,
+            sectionIndex,
+            groupIndex,
             items: result.group.items.map((item) => ({
               id: item.id,
               sl: item.sl,
@@ -673,6 +691,8 @@ export function QuotationItemsArea({
               quantity: item.quantity,
               itemId: item.itemId || undefined,
             })),
+            baseUnit: result.group.baseUnit || null,
+            baseUnitPrice: result.group.baseUnitPrice || null,
           };
         }
         return null;
@@ -680,15 +700,38 @@ export function QuotationItemsArea({
       
       const results = await Promise.all(loadPromises);
       const newModuleGroupItems: typeof moduleGroupItems = {};
+      const groupsToUpdate: Array<{ sectionIndex: number; groupIndex: number; baseUnit: string | null; baseUnitPrice: number | null }> = [];
       
       results.forEach((result) => {
         if (result) {
           newModuleGroupItems[result.groupId] = result.items;
+          groupsToUpdate.push({
+            sectionIndex: result.sectionIndex,
+            groupIndex: result.groupIndex,
+            baseUnit: result.baseUnit,
+            baseUnitPrice: result.baseUnitPrice,
+          });
         }
       });
       
       if (Object.keys(newModuleGroupItems).length > 0) {
         setModuleGroupItems((prev) => ({ ...prev, ...newModuleGroupItems }));
+      }
+      
+      // Update groups with baseUnit and baseUnitPrice
+      if (groupsToUpdate.length > 0) {
+        const updated = [...sections];
+        groupsToUpdate.forEach(({ sectionIndex, groupIndex, baseUnit, baseUnitPrice }) => {
+          const group = updated[sectionIndex]?.groups[groupIndex];
+          if (group && (!group.baseUnit || !group.baseUnitPrice)) {
+            updated[sectionIndex].groups[groupIndex] = {
+              ...group,
+              baseUnit: baseUnit,
+              baseUnitPrice: baseUnitPrice,
+            };
+          }
+        });
+        onSectionsChange(updated);
       }
     };
     
@@ -852,6 +895,50 @@ export function QuotationItemsArea({
     onSectionsChange(updated);
   };
 
+  const addCustomItemToGroup = (sectionIndex: number, groupIndex: number) => {
+    const section = sections[sectionIndex];
+    const group = section.groups[groupIndex];
+    
+    const newItem: QuotationItem = {
+      id: generateId(),
+      sl: group.items.length + 1,
+      no: undefined,
+      unitPrice: 0, // Will be calculated when dimensions are entered
+      quantity: 1,
+      discount: 0,
+      amount: 0,
+      unit: group.baseUnit || undefined, // Set unit from group's baseUnit
+      isCustomItem: true, // Mark as custom item
+    };
+
+    const updated = sections.map((s, idx) => {
+      if (idx !== sectionIndex) return s;
+
+      const updatedSection = {
+        ...s,
+        groups: s.groups.map((g, gIdx) => {
+          if (gIdx !== groupIndex) return g;
+          const updatedItems = [...g.items, newItem];
+          return {
+            ...g,
+            items: updatedItems,
+            quantity: calculateGroupQuantity(updatedItems),
+          };
+        }),
+      };
+      
+      // Calculate totals for the updated section
+      const totals = calculateSectionTotals(updatedSection);
+      return {
+        ...updatedSection,
+        total: totals.total,
+        grandTotal: totals.grandTotal,
+      };
+    });
+
+    onSectionsChange(updated);
+  };
+
   const addGroupToSection = (sectionIndex: number) => {
     const section = sections[sectionIndex];
     const newGroup: ItemGroup = {
@@ -861,6 +948,8 @@ export function QuotationItemsArea({
       items: [],
       quantity: 0,
       isExpanded: true,
+      baseUnit: null,
+      baseUnitPrice: null,
     };
     
     // Create deep copy with new group added
@@ -1015,11 +1104,88 @@ export function QuotationItemsArea({
         const item = group.items[itemIndex];
         const updatedItem = { ...item, ...updates };
 
-        // For group items: simple calculation = quantity × unitPrice, then apply discount
+        // Check if this is a custom item (isCustomItem flag or no moduleGroupItemId) and group has baseUnitPrice/baseUnit
+        const isCustomItem = updatedItem.isCustomItem || !updatedItem.moduleGroupItemId;
+        const hasBasePrice = group.baseUnitPrice != null && group.baseUnitPrice > 0 && group.baseUnit;
+
+        // For custom items: auto-generate code from dimensions
+        if (isCustomItem && (
+          updates.height !== undefined ||
+          updates.width !== undefined ||
+          updates.depth !== undefined
+        )) {
+          const h = updatedItem.height;
+          const w = updatedItem.width;
+          const d = updatedItem.depth;
+          
+          // Auto-generate code from dimensions
+          if (h != null && w != null && d != null && h > 0 && w > 0 && d > 0) {
+            const generatedCode = generateItemCode(h, w, d);
+            updatedItem.code = generatedCode;
+            // Include code in updates to ensure it's saved
+            if (!updates.code) {
+              updates.code = generatedCode;
+            }
+          } else {
+            // Clear code if dimensions are incomplete
+            updatedItem.code = '';
+            if (!updates.code) {
+              updates.code = '';
+            }
+          }
+        }
+
+        // For custom items with baseUnitPrice: calculate unitPrice from dimensions and unit
+        if (isCustomItem && hasBasePrice && (
+          updates.height !== undefined ||
+          updates.width !== undefined ||
+          updates.depth !== undefined ||
+          updates.unit !== undefined
+        )) {
+          const h = updatedItem.height;
+          const w = updatedItem.width;
+          const d = updatedItem.depth;
+          
+          if (h != null && w != null && d != null && h > 0 && w > 0 && d > 0) {
+            try {
+              const baseUnit = group.baseUnit!.toLowerCase() as AreaUnit;
+              if (baseUnit === 'sqft' || baseUnit === 'sqm' || baseUnit === 'sqin') {
+                // Convert dimensions to inches (calculateKitchenModule expects inches)
+                const dimensionUnit = updatedItem.unit || 'mm'; // Default to mm if no unit specified
+                const widthIn = convertToInches(w, dimensionUnit);
+                const depthIn = convertToInches(d, dimensionUnit);
+                const heightIn = convertToInches(h, dimensionUnit);
+                
+                const result = calculateKitchenModule({
+                  widthIn: widthIn,
+                  depthIn: depthIn,
+                  heightIn: heightIn,
+                  shelves: 0,
+                  unit: baseUnit,
+                  unitPrice: group.baseUnitPrice!,
+                  qty: 1, // Calculate per module
+                });
+                // Set unitPrice to the cost per module
+                const calculatedUnitPrice = result.perModule.cost;
+                updatedItem.unitPrice = calculatedUnitPrice;
+                // Include unitPrice in updates to ensure it triggers recalculation
+                updates.unitPrice = calculatedUnitPrice;
+              }
+            } catch (error) {
+              console.error('Error calculating custom item unit price:', error);
+            }
+          }
+        }
+
+        // For all group items: simple calculation = (unitPrice × quantity) - discount
         if (
           updates.unitPrice !== undefined ||
           updates.quantity !== undefined ||
-          updates.discount !== undefined
+          updates.discount !== undefined ||
+          updates.height !== undefined ||
+          updates.width !== undefined ||
+          updates.depth !== undefined ||
+          updates.unit !== undefined
         ) {
           const baseAmount = (updatedItem.quantity || 0) * (updatedItem.unitPrice || 0);
           const discount = updatedItem.discount || 0;
@@ -1468,6 +1634,47 @@ export function QuotationItemsArea({
     }
   };
 
+  // Generate item code from H-W-D dimensions (format: "HH-WW-DD")
+  const generateItemCode = (height?: number, width?: number, depth?: number): string => {
+    const getFirstTwoDigits = (value?: number): string => {
+      if (!value || value <= 0) return "00";
+      const str = Math.floor(value).toString();
+      return str.length >= 2 ? str.substring(0, 2) : str.padStart(2, "0");
+    };
+
+    const h = getFirstTwoDigits(height);
+    const w = getFirstTwoDigits(width);
+    const d = getFirstTwoDigits(depth);
+    
+    return `${h}-${w}-${d}`;
+  };
+
+  // Convert dimension to inches based on unit
+  const convertToInches = (value: number, unit?: string): number => {
+    if (!unit) {
+      // Default to mm if no unit specified (common for dimensions)
+      return value / 25.4;
+    }
+    
+    const unitLower = unit.toLowerCase();
+    switch (unitLower) {
+      case 'mm':
+        return value / 25.4; // 1 inch = 25.4 mm
+      case 'cm':
+        return value / 2.54; // 1 inch = 2.54 cm
+      case 'm':
+        return value * 39.3701; // 1 m = 39.3701 inches
+      case 'inch':
+      case 'in':
+        return value; // Already in inches
+      case 'ft':
+        return value * 12; // 1 ft = 12 inches
+      default:
+        // Default to mm if unit is not recognized
+        return value / 25.4;
+    }
+  };
+
   // Calculate item amount based on dimensions
   const calculateItemAmount = (item: QuotationItem, isGroupItem: boolean = false): number => {
     const h = item.height;
@@ -1762,11 +1969,13 @@ export function QuotationItemsArea({
                                                 }))
                                               }));
                                               
-                                              // Update the group with ModuleGroup code and description only, keep existing items
+                                              // Update the group with ModuleGroup code, description, baseUnit, and baseUnitPrice, keep existing items
                                               updateGroup(sectionIndex, groupIndex, {
                                                 moduleGroupId: moduleGroupId,
                                                 code: moduleGroup.code || group.code,
                                                 description: moduleGroup.description || group.description,
+                                                baseUnit: moduleGroup.baseUnit || null,
+                                                baseUnitPrice: moduleGroup.baseUnitPrice || null,
                                                 isExpanded: true, // Auto-expand when ModuleGroup is selected
                                               });
                                             }
@@ -1779,6 +1988,8 @@ export function QuotationItemsArea({
                                             });
                                             updateGroup(sectionIndex, groupIndex, {
                                               moduleGroupId: null,
+                                              baseUnit: null,
+                                              baseUnitPrice: null,
                                             });
                                           }
                                         }}
@@ -1836,30 +2047,30 @@ export function QuotationItemsArea({
                                           </div>
                                         </SelectContent>
                                       </Select>
-                                    <Input
-                                      value={group.code || ''}
-                                      onChange={(e) =>
-                                          updateGroup(sectionIndex, groupIndex, {
-                                          code: e.target.value,
-                                        })
-                                      }
-                                      placeholder="Group Code"
-                                        className="h-8 text-xs w-32"
-                                    />
-                                      {group.isExpanded && (
-                                      <Button
-                                        type="button"
+                                    {group.isExpanded && (
+                                      <>
+                                        <Button
+                                          type="button"
                                           variant="outline"
-                                        size="sm"
-                                        onClick={() =>
-                                            addItemToSection(sectionIndex, group.id)
-                                        }
+                                          size="sm"
+                                          onClick={() => addItemToSection(sectionIndex, group.id)}
                                           className="h-8 text-xs"
-                                      >
+                                        >
                                           <FiPlus className="w-3 h-3 mr-1" />
                                           Add Item
-                                      </Button>
-                                      )}
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => addCustomItemToGroup(sectionIndex, groupIndex)}
+                                          className="h-8 text-xs"
+                                        >
+                                          <FiPlus className="w-3 h-3 mr-1" />
+                                          Custom Item
+                                        </Button>
+                                      </>
+                                    )}
                                           <Button
                                             type="button"
                                         variant="ghost"
