@@ -85,6 +85,44 @@ const initialState: QuotationState = {
   isEditing: false,
 };
 
+// Helper function to check if sections are deeply equal
+const areSectionsEqual = (sections1: Section[], sections2: Section[]): boolean => {
+  if (sections1.length !== sections2.length) return false;
+  
+  for (let i = 0; i < sections1.length; i++) {
+    const s1 = sections1[i];
+    const s2 = sections2[i];
+    
+    // Compare basic properties
+    if (s1.id !== s2.id || 
+        s1.title !== s2.title || 
+        s1.total !== s2.total || 
+        s1.grandTotal !== s2.grandTotal ||
+        s1.discount !== s2.discount) {
+      return false;
+    }
+    
+    // Compare items length
+    if ((s1.items?.length || 0) !== (s2.items?.length || 0)) return false;
+    if ((s1.groups?.length || 0) !== (s2.groups?.length || 0)) return false;
+    if ((s1.categoryGroups?.length || 0) !== (s2.categoryGroups?.length || 0)) return false;
+    
+    // Compare groups
+    if (s1.groups && s2.groups) {
+      for (let j = 0; j < s1.groups.length; j++) {
+        const g1 = s1.groups[j];
+        const g2 = s2.groups[j];
+        if (g1.id !== g2.id || 
+            (g1.items?.length || 0) !== (g2.items?.length || 0)) {
+          return false;
+        }
+      }
+    }
+  }
+  
+  return true;
+};
+
 // Helper function to recalculate section totals
 const recalculateSectionTotals = (state: QuotationState, sectionIndex: number) => {
   if (!state.currentQuotation?.section) return;
@@ -149,12 +187,36 @@ const quotationSlice = createSlice({
         state.currentQuotation = {} as Quotation;
       }
       const { field, value } = action.payload;
-      (state.currentQuotation as any)[field] = value;
+      const currentValue = (state.currentQuotation as any)[field];
+      
+      // Only update if value actually changed (prevents unnecessary state updates)
+      // Use deep equality for objects/arrays, shallow for primitives
+      if (currentValue !== value) {
+        // For objects/arrays, do a shallow comparison
+        if (typeof value === 'object' && value !== null && typeof currentValue === 'object' && currentValue !== null) {
+          // If both are objects, check if they're the same reference or have different keys/values
+          const valueKeys = Object.keys(value);
+          const currentKeys = Object.keys(currentValue);
+          if (valueKeys.length !== currentKeys.length) {
+            (state.currentQuotation as any)[field] = value;
+          } else {
+            // Check if any values differ
+            const hasChanged = valueKeys.some(key => value[key] !== currentValue[key]);
+            if (hasChanged) {
+              (state.currentQuotation as any)[field] = value;
+            }
+          }
+        } else {
+          // For primitives or null/undefined, simple comparison is enough
+          (state.currentQuotation as any)[field] = value;
+        }
+      }
     },
     updateSections: (state, action: PayloadAction<Section[]>) => {
       if (!state.currentQuotation) {
         state.currentQuotation = {} as Quotation;
       }
+      
       // Calculate totals for each section
       const sectionsWithTotals = action.payload.map((section: Section) => {
         // Calculate module group total (sum of all groups' items)
@@ -203,7 +265,11 @@ const quotationSlice = createSlice({
         };
       });
       
-      state.currentQuotation.section = sectionsWithTotals;
+      // Only update if sections actually changed (deep equality check)
+      const currentSections = state.currentQuotation.section || [];
+      if (!areSectionsEqual(currentSections, sectionsWithTotals)) {
+        state.currentQuotation.section = sectionsWithTotals;
+      }
     },
     addItem: (state, action: PayloadAction<{ sectionIndex: number; item: QuotationItem; groupIndex?: number }>) => {
       if (!state.currentQuotation?.section) return;

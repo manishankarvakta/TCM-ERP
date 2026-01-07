@@ -1,17 +1,46 @@
 'use client';
 
 import { QuotationFormV3 } from '@/components/quotation/QuotationFormV3';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef, useCallback } from 'react';
 import { createQuotation } from '@/app/actions/quotations';
 
 export default function NewQuotationPage() {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  
+  // Prevent multiple simultaneous submissions
+  const isSubmittingRef = useRef(false);
+  
+  // Debug: Track renders
+  const renderCountRef = useRef(0);
+  renderCountRef.current += 1;
+  
+  const prevErrorRef = useRef(error);
+  
+  if (process.env.NODE_ENV === 'development') {
+    const errorChanged = prevErrorRef.current !== error;
+    console.log(`[NewQuotationPage] Render #${renderCountRef.current}`, {
+      errorChanged,
+      error
+    });
+    prevErrorRef.current = error;
+  }
 
-  const handleSubmit = async (data: Record<string, unknown>) => {
-    console.log("data",data);
+  const handleSubmit = useCallback(async (data: Record<string, unknown>) => {
+    // Guard against multiple simultaneous submissions
+    if (isSubmittingRef.current) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[NewQuotationPage] Blocked duplicate submission attempt');
+      }
+      return;
+    }
+    
+    isSubmittingRef.current = true;
+    console.log("data", data);
+    
     startTransition(async () => {
       try {
         setError(null);
@@ -19,16 +48,19 @@ export default function NewQuotationPage() {
         
         if (!result.success) {
           setError(result.error || 'Failed to create quotation');
+          isSubmittingRef.current = false; // Reset on error
           return;
         }
         
         router.push(`/admin/quotations/${result.data?.id}`);
+        // Don't reset flag after successful submission - page will unmount
       } catch (err) {
         console.error('Error creating quotation:', err);
         setError(err instanceof Error ? err.message : 'Failed to create quotation');
+        isSubmittingRef.current = false; // Reset on error
       }
     });
-  };
+  }, [router, startTransition]);
 
   return (
     <div className="min-h-screen">
@@ -41,7 +73,9 @@ export default function NewQuotationPage() {
           </div>
         )}
 
-        <QuotationFormV3 onSubmit={handleSubmit} />
+        <ErrorBoundary>
+          <QuotationFormV3 onSubmit={handleSubmit} />
+        </ErrorBoundary>
       </div>
     </div>
   );
