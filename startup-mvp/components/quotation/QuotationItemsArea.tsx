@@ -811,13 +811,29 @@ export function QuotationItemsArea({
 
     // Debounce recalculation to avoid rapid successive updates
     const timer = setTimeout(() => {
+      console.log('[QuotationItemsArea] Recalculation useEffect triggered');
+      
       let hasChanges = false;
       const updated = sections.map((section) => {
         const updatedGroups = section.groups.map((group) => {
           // Only process groups that have baseUnit and baseUnitPrice
           if (!group.baseUnit || !group.baseUnitPrice || group.baseUnitPrice <= 0) {
+            console.log('[QuotationItemsArea] Skipping group (no baseUnit/baseUnitPrice):', {
+              groupId: group.id,
+              description: group.description,
+              baseUnit: group.baseUnit,
+              baseUnitPrice: group.baseUnitPrice
+            });
             return group;
           }
+          
+          console.log('[QuotationItemsArea] Processing group for recalculation:', {
+            groupId: group.id,
+            description: group.description,
+            baseUnit: group.baseUnit,
+            baseUnitPrice: group.baseUnitPrice,
+            itemCount: group.items.length
+          });
 
           const baseUnit = group.baseUnit.toLowerCase();
           if (baseUnit !== 'sqft' && baseUnit !== 'sqm' && baseUnit !== 'sqin') {
@@ -842,9 +858,19 @@ export function QuotationItemsArea({
               isNaN(item.unitPrice)
             );
 
+            console.log('[QuotationItemsArea] Recalc check for item:', {
+              itemId: item.id,
+              description: item.description,
+              hasValidDimensions,
+              currentUnitPrice: item.unitPrice,
+              needsRecalculation
+            });
+
             if (!needsRecalculation) {
               return item;
             }
+            
+            console.log('[QuotationItemsArea] Recalculating unitPrice for item:', item.id);
 
             try {
               const dimensionUnit = item.unit || 'mm';
@@ -862,10 +888,23 @@ export function QuotationItemsArea({
                 qty: 1,
               });
 
+              console.log('[QuotationItemsArea] Recalculation result:', {
+                result,
+                perModuleCost: result.perModule.cost,
+                totalCost: result.total.cost
+              });
+
               const calculatedUnitPrice = result.perModule.cost;
               const quantity = item.quantity || 0;
               const discount = item.discount || 0;
               const calculatedAmount = Math.max(0, quantity * calculatedUnitPrice - discount);
+
+              console.log('[QuotationItemsArea] ✅ Recalculation complete:', {
+                itemId: item.id,
+                oldUnitPrice: item.unitPrice,
+                newUnitPrice: calculatedUnitPrice,
+                newAmount: calculatedAmount
+              });
 
               hasChanges = true;
               return {
@@ -1269,6 +1308,27 @@ export function QuotationItemsArea({
                                 group.baseUnit.toLowerCase() === 'sqm' || 
                                 group.baseUnit.toLowerCase() === 'sqin');
 
+        // PRODUCTION DEBUG: Log custom item detection
+        console.log('[QuotationItemsArea] updateItem - Custom item check:', {
+          itemId: updatedItem.id,
+          itemDescription: updatedItem.description,
+          isCustomItem,
+          hasModuleGroupItemId: !!updatedItem.moduleGroupItemId,
+          groupId: group.id,
+          groupDescription: group.description,
+          groupModuleGroupId: group.moduleGroupId,
+          groupBaseUnit: group.baseUnit,
+          groupBaseUnitPrice: group.baseUnitPrice,
+          hasBasePrice,
+          isValidBaseUnit,
+          itemDimensions: {
+            height: updatedItem.height,
+            width: updatedItem.width,
+            depth: updatedItem.depth
+          },
+          willCalculate: isCustomItem && isValidBaseUnit
+        });
+
         // For custom items: auto-generate code from dimensions
         if (isCustomItem && (
           updates.height !== undefined ||
@@ -1299,6 +1359,8 @@ export function QuotationItemsArea({
         // For custom items with baseUnitPrice: calculate unitPrice from dimensions and unit
         // This should recalculate whenever dimensions or unit change, or when baseUnit/baseUnitPrice become available
         if (isCustomItem && isValidBaseUnit) {
+          console.log('[QuotationItemsArea] Starting unitPrice calculation for custom item');
+          
           const h = updatedItem.height;
           const w = updatedItem.width;
           const d = updatedItem.depth;
@@ -1325,9 +1387,15 @@ export function QuotationItemsArea({
           );
           
           if (shouldRecalculate) {
+            console.log('[QuotationItemsArea] shouldRecalculate = true, proceeding with calculation');
+            
             try {
               // Additional safety checks before calculation
               if (!group.baseUnit || !group.baseUnitPrice || group.baseUnitPrice <= 0) {
+                console.error('[QuotationItemsArea] Calculation blocked - invalid baseUnit/baseUnitPrice:', {
+                  baseUnit: group.baseUnit,
+                  baseUnitPrice: group.baseUnitPrice
+                });
                 return; // Skip calculation if baseUnit/baseUnitPrice are invalid
               }
               
@@ -1350,6 +1418,12 @@ export function QuotationItemsArea({
               const depthIn = convertToInches(d, dimensionUnit);
               const heightIn = convertToInches(h, dimensionUnit);
               
+              console.log('[QuotationItemsArea] Calling calculateKitchenModule with:', {
+                baseUnit,
+                baseUnitPrice: group.baseUnitPrice,
+                dimensions: { heightIn, widthIn, depthIn }
+              });
+              
               // Validate converted dimensions are valid
               if (isNaN(widthIn) || isNaN(depthIn) || isNaN(heightIn) ||
                   widthIn <= 0 || depthIn <= 0 || heightIn <= 0) {
@@ -1366,18 +1440,34 @@ export function QuotationItemsArea({
                 qty: 1, // Calculate per module
               });
               
+              console.log('[QuotationItemsArea] calculateKitchenModule result:', {
+                result,
+                perModuleCost: result?.perModule?.cost,
+                totalCost: result?.total?.cost
+              });
+              
               // Validate calculation result
               if (result && result.perModule && typeof result.perModule.cost === 'number' && !isNaN(result.perModule.cost)) {
                 // Set unitPrice to the cost per module
                 const calculatedUnitPrice = result.perModule.cost;
+                console.log('[QuotationItemsArea] ✅ Setting calculated unitPrice:', calculatedUnitPrice);
                 updatedItem.unitPrice = calculatedUnitPrice;
                 // Include unitPrice in updates to ensure it triggers recalculation
                 updates.unitPrice = calculatedUnitPrice;
+              } else {
+                console.warn('[QuotationItemsArea] ❌ Invalid calculation result:', result);
               }
             } catch (error) {
-              console.error('Error calculating custom item unit price:', error);
+              console.error('[QuotationItemsArea] ❌ Error calculating custom item unit price:', error);
               // Don't update unitPrice if calculation fails
             }
+          } else {
+            console.log('[QuotationItemsArea] shouldRecalculate = false, skipping calculation. Reason:', {
+              hasValidDimensions,
+              dimensionsChanged,
+              currentUnitPrice: updatedItem.unitPrice,
+              shouldRecalculate
+            });
           }
         }
 
