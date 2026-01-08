@@ -91,7 +91,7 @@ export default async function EditQuotationPage({ params }: EditQuotationPagePro
       items: section.items?.map((item: any) => ({
         id: item.id,
         sl: item.sl,
-        no: item.no ? Number(item.no) : null,
+        no: item.no != null ? String(item.no) : null, // Ensure no is always string
         code: item.code || '',
         description: item.description || '',
         height: item.height ? Number(item.height) : null,

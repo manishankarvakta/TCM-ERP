@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef, startTransition, memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,13 +16,12 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/utils/formatters';
 import { calculateKitchenModule, type AreaUnit } from '@/lib/calculateKitchenModule';
-import { FiPlus, FiTrash2, FiEdit2, FiChevronDown, FiChevronUp, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiChevronDown, FiChevronUp, FiSearch } from 'react-icons/fi';
 import { BsGripVertical } from 'react-icons/bs';
-import { getActiveItemsForDropdown } from '@/app/actions/items';
-import { getActiveCategories, getActiveUnits } from '@/app/(dashboard)/dashboard/items/_actions/item.action';
-import { getActiveGroups, getModuleGroupById } from '@/app/(dashboard)/dashboard/items/groups/_actions/group.action';
+import { getModuleGroupById } from '@/app/(dashboard)/dashboard/items/groups/_actions/group.action';
 import { useAppDispatch } from '@/lib/redux/hooks';
 import { updateSectionNote, updateSectionDiscount } from '@/lib/redux/slices/quotationSlice';
+import { useCatalogData } from '@/hooks/useCatalogData';
 import {
   DndContext,
   closestCenter,
@@ -52,7 +51,7 @@ import {
 interface QuotationItem {
   id: string;
   sl: number;
-  no?: number | string;
+  no?: string; // Changed from number | string to string only
   code?: string;
   description?: string;
   height?: number;
@@ -123,11 +122,9 @@ interface QuotationItemsAreaProps {
   onSectionsChange: (sections: Section[]) => void;
 }
 
-// Sortable Item Component
-function SortableItem({
+// Sortable Item Component - Memoized for performance
+const SortableItem = memo(function SortableItem({
   item,
-  sectionIndex,
-  itemIndex,
   groupIndex,
   onUpdate,
   onRemove,
@@ -139,8 +136,6 @@ function SortableItem({
   groupModuleGroupId,
 }: {
   item: QuotationItem;
-  sectionIndex: number;
-  itemIndex: number;
   groupIndex?: number;
   onUpdate: (updates: Partial<QuotationItem>) => void;
   onRemove: () => void;
@@ -290,8 +285,9 @@ function SortableItem({
           type="text"
           value={item.no || ''}
           onChange={(e) => {
-            const no = e.target.value || undefined;
-            onUpdate({ no });
+            // Always store as string, even if user enters a number
+            const no = e.target.value.trim() || undefined;
+            onUpdate({ no: no != null ? String(no) : undefined });
           }}
           placeholder="No"
           className="h-8 w-16 text-xs"
@@ -575,21 +571,20 @@ function SortableItem({
       </TableCell>
     </TableRow>
   );
-}
+});
 
 export function QuotationItemsArea({
   sections,
   onSectionsChange,
 }: QuotationItemsAreaProps) {
   const dispatch = useAppDispatch();
+  
+  // Use custom hook for cached catalog data
+  const { items: catalogItems, categories, units, moduleGroups, isLoading: isCatalogLoading } = useCatalogData();
+  
   const [editingSection, setEditingSection] = useState<string | null>(null);
-  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
-  const [isLoadingItems, setIsLoadingItems] = useState(true);
-  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [categorySearch, setCategorySearch] = useState<{ [key: string]: string }>({});
-  const [moduleGroups, setModuleGroups] = useState<Array<{ id: string; code: string | null; description: string | null }>>([]);
   const [groupSearch, setGroupSearch] = useState<{ [key: string]: string }>({});
-  const [isLoadingModuleGroups, setIsLoadingModuleGroups] = useState(true);
   const [moduleGroupItems, setModuleGroupItems] = useState<{ [groupId: string]: Array<{
     id: string;
     sl: number;
@@ -604,8 +599,6 @@ export function QuotationItemsArea({
     quantity: number;
     itemId?: string;
   }> }>({});
-  const [units, setUnits] = useState<Array<{ id: string; symbol: string; details: string }>>([]);
-  const [isLoadingUnits, setIsLoadingUnits] = useState(true);
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -613,46 +606,33 @@ export function QuotationItemsArea({
     })
   );
 
-  // Fetch module groups
-  useEffect(() => {
-    const fetchModuleGroups = async () => {
-      try {
-        setIsLoadingModuleGroups(true);
-        const result = await getActiveGroups();
-        if (result.success && result.groups) {
-          setModuleGroups(result.groups.map(g => ({ id: g.id, code: g.code, description: g.description })));
-        }
-      } catch (error) {
-        console.error('Failed to fetch module groups:', error);
-      } finally {
-        setIsLoadingModuleGroups(false);
-      }
-    };
-    fetchModuleGroups();
-  }, []);
+  // Note: Catalog data (items, categories, units, module groups) is now fetched via useCatalogData hook
+  // This provides caching and request deduplication across all components
 
-  // Fetch units
-  useEffect(() => {
-    const fetchUnits = async () => {
-      try {
-        setIsLoadingUnits(true);
-        const result = await getActiveUnits();
-        if (result.success && result.units) {
-          setUnits(result.units);
-        }
-      } catch (error) {
-        console.error('Failed to fetch units:', error);
-      } finally {
-        setIsLoadingUnits(false);
-      }
-    };
-    fetchUnits();
-  }, []);
+  // Track baseUnit/baseUnitPrice changes using useMemo with stable serialization
+  // This is used as a dependency for the useEffect below to only run when baseUnit/baseUnitPrice actually change
+  const groupBaseUnitKeys = useMemo(() => {
+    // Create a stable string key instead of nested arrays to prevent unnecessary re-renders
+    return sections.map((section) => 
+      section.groups.map((group) => 
+        `${group.id}:${group.baseUnit || ''}:${group.baseUnitPrice || ''}`
+      ).join('|')
+    ).join('||');
+  }, [sections]);
+
+  // Previous groupBaseUnitKeys to detect actual changes
+  const prevGroupBaseUnitKeysRef = useRef<string>(groupBaseUnitKeys);
 
   // Load moduleGroupItems for dropdown and baseUnit/baseUnitPrice as fallback for backward compatibility
   // Note: baseUnit/baseUnitPrice should now be loaded from database via getQuotation,
   // but we keep this as fallback for old quotations that don't have these values stored
   useEffect(() => {
+    // Guard: only run if groupBaseUnitKeys actually changed
+    if (prevGroupBaseUnitKeysRef.current === groupBaseUnitKeys) {
+      return;
+    }
+    prevGroupBaseUnitKeysRef.current = groupBaseUnitKeys;
+
     const loadModuleGroupItems = async () => {
       const groupsToLoad: Array<{ groupId: string; moduleGroupId: string; sectionIndex: number; groupIndex: number }> = [];
       
@@ -682,7 +662,7 @@ export function QuotationItemsArea({
             groupId,
             sectionIndex,
             groupIndex,
-            items: result.group.items.map((item) => ({
+            items: (result.group.items as any[]).map((item) => ({
               id: item.id,
               sl: item.sl,
               code: item.code || undefined,
@@ -693,7 +673,7 @@ export function QuotationItemsArea({
               unit: item.unit || undefined,
               unitPrice: item.unitPrice,
               amount: item.amount,
-              quantity: item.quantity,
+              quantity: item.quantity || 0,
               itemId: item.itemId || undefined,
             })),
             baseUnit: result.group.baseUnit || null,
@@ -726,217 +706,253 @@ export function QuotationItemsArea({
       }
       
       // Update groups with baseUnit and baseUnitPrice only if missing (backward compatibility)
-      if (groupsToUpdate.length > 0) {
-        // Create a deep copy of sections to avoid mutation errors
-        const updated = sections.map((section) => ({
-          ...section,
-          groups: section.groups.map((group) => ({ ...group, items: [...group.items] })),
-        }));
-        
-        groupsToUpdate.forEach(({ sectionIndex, groupIndex, baseUnit, baseUnitPrice }) => {
-          const group = updated[sectionIndex]?.groups[groupIndex];
-          // Only update if baseUnit or baseUnitPrice are null/undefined (not if they're empty string or 0)
-          if (group && (group.baseUnit == null || group.baseUnitPrice == null)) {
-            const oldBaseUnit = group.baseUnit;
-            const oldBaseUnitPrice = group.baseUnitPrice;
-            
-            updated[sectionIndex].groups[groupIndex] = {
-              ...group,
-              baseUnit: group.baseUnit ?? baseUnit,
-              baseUnitPrice: group.baseUnitPrice ?? baseUnitPrice,
-            };
-            
-            // If baseUnit/baseUnitPrice just became available, recalculate unitPrice for custom items with dimensions
-            const newBaseUnit = updated[sectionIndex].groups[groupIndex].baseUnit;
-            const newBaseUnitPrice = updated[sectionIndex].groups[groupIndex].baseUnitPrice;
-            
-            if ((oldBaseUnit == null || oldBaseUnitPrice == null) && 
-                newBaseUnit != null && newBaseUnitPrice != null && newBaseUnitPrice > 0) {
-              // Recalculate unitPrice for custom items that have dimensions
-              updated[sectionIndex].groups[groupIndex].items = group.items.map((item) => {
-                const isCustomItem = (item as any).isCustomItem || !(item as any).moduleGroupItemId;
-                if (isCustomItem && item.height && item.width && item.depth && 
-                    item.height > 0 && item.width > 0 && item.depth > 0) {
-                  try {
-                    const baseUnitLower = newBaseUnit.toLowerCase();
-                    if (baseUnitLower === 'sqft' || baseUnitLower === 'sqm' || baseUnitLower === 'sqin') {
-                      const dimensionUnit = item.unit || 'mm';
-                      const widthIn = convertToInches(item.width, dimensionUnit);
-                      const depthIn = convertToInches(item.depth, dimensionUnit);
-                      const heightIn = convertToInches(item.height, dimensionUnit);
-                      
-                      const result = calculateKitchenModule({
-                        widthIn: widthIn,
-                        depthIn: depthIn,
-                        heightIn: heightIn,
-                        shelves: 0,
-                        unit: baseUnitLower as AreaUnit,
-                        unitPrice: newBaseUnitPrice,
-                        qty: 1,
-                      });
-                      
-                      const quantity = (item as any).quantity || 0;
-                      const discount = (item as any).discount || 0;
-                      
-                      return {
-                        ...item,
-                        unitPrice: result.perModule.cost,
-                        amount: Math.max(0, quantity * result.perModule.cost - discount),
-                      };
-                    }
-                  } catch (error) {
-                    console.error('Error recalculating unit price for item:', error);
+      // Early return to prevent unnecessary deep copies if no updates needed
+      if (groupsToUpdate.length === 0) return;
+      
+      // Only create deep copy when we actually need to update
+      // Create a deep copy of sections to avoid mutation errors
+      // Include categoryGroups and items for complete deep copy
+      const updated = sections.map((section) => ({
+        ...section,
+        groups: section.groups.map((group) => ({ 
+          ...group, 
+          items: group.items.map(item => ({ ...item }))
+        })),
+        items: section.items ? section.items.map(item => ({ ...item })) : [],
+        categoryGroups: section.categoryGroups ? section.categoryGroups.map((cg) => ({
+          ...cg,
+          items: cg.items.map(item => ({ ...item }))
+        })) : [],
+      }));
+      
+      groupsToUpdate.forEach(({ sectionIndex, groupIndex, baseUnit, baseUnitPrice }) => {
+        const group = updated[sectionIndex]?.groups[groupIndex];
+        // Only update if baseUnit or baseUnitPrice are null/undefined (not if they're empty string or 0)
+        if (group && (group.baseUnit == null || group.baseUnitPrice == null)) {
+          const oldBaseUnit = group.baseUnit;
+          const oldBaseUnitPrice = group.baseUnitPrice;
+          
+          updated[sectionIndex].groups[groupIndex] = {
+            ...group,
+            baseUnit: group.baseUnit ?? baseUnit,
+            baseUnitPrice: group.baseUnitPrice ?? baseUnitPrice,
+          };
+          
+          // If baseUnit/baseUnitPrice just became available, recalculate unitPrice for custom items with dimensions
+          const newBaseUnit = updated[sectionIndex].groups[groupIndex].baseUnit;
+          const newBaseUnitPrice = updated[sectionIndex].groups[groupIndex].baseUnitPrice;
+          
+          if ((oldBaseUnit == null || oldBaseUnitPrice == null) && 
+              newBaseUnit != null && newBaseUnitPrice != null && newBaseUnitPrice > 0) {
+            // Recalculate unitPrice for custom items that have dimensions
+            updated[sectionIndex].groups[groupIndex].items = group.items.map((item) => {
+              const isCustomItem = item.isCustomItem || !item.moduleGroupItemId;
+              if (isCustomItem && item.height && item.width && item.depth && 
+                  item.height > 0 && item.width > 0 && item.depth > 0) {
+                try {
+                  const baseUnitLower = newBaseUnit.toLowerCase();
+                  if (baseUnitLower === 'sqft' || baseUnitLower === 'sqm' || baseUnitLower === 'sqin') {
+                    const dimensionUnit = item.unit || 'mm';
+                    const widthIn = convertToInches(item.width, dimensionUnit);
+                    const depthIn = convertToInches(item.depth, dimensionUnit);
+                    const heightIn = convertToInches(item.height, dimensionUnit);
+                    
+                    const result = calculateKitchenModule({
+                      widthIn: widthIn,
+                      depthIn: depthIn,
+                      heightIn: heightIn,
+                      shelves: 0,
+                      unit: baseUnitLower as AreaUnit,
+                      unitPrice: newBaseUnitPrice,
+                      qty: 1,
+                    });
+                    
+                    const quantity = item.quantity || 0;
+                    const discount = item.discount || 0;
+                    
+                    return {
+                      ...item,
+                      unitPrice: result.perModule.cost,
+                      amount: Math.max(0, quantity * result.perModule.cost - discount),
+                    };
                   }
+                } catch (error) {
+                  console.error('Error recalculating unit price for item:', error);
                 }
-                return item;
-              });
-            }
+              }
+              return item;
+            });
           }
-        });
+        }
+      });
+      
+      // Use startTransition for non-urgent state update to prevent blocking UI
+      startTransition(() => {
         onSectionsChange(updated);
-      }
+      });
     };
     
     loadModuleGroupItems();
+    // Use groupBaseUnitKeys instead of sections to only run when baseUnit/baseUnitPrice actually change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sections]);
+  }, [groupBaseUnitKeys, moduleGroupItems]);
+
+  // Track if we've already processed initial load
+  const hasProcessedInitialLoad = useRef(false);
+  const prevRecalcGroupKeysRef = useRef<string>(groupBaseUnitKeys);
 
   // Recalculate unitPrice for custom items with dimensions when sections load (for edit mode)
   useEffect(() => {
-    let hasChanges = false;
-    const updated = sections.map((section) => {
-      const updatedGroups = section.groups.map((group) => {
-        // Only process groups that have baseUnit and baseUnitPrice
-        if (!group.baseUnit || !group.baseUnitPrice || group.baseUnitPrice <= 0) {
-          return group;
-        }
+    // Guard: skip if no sections or keys haven't changed
+    if (sections.length === 0 || prevRecalcGroupKeysRef.current === groupBaseUnitKeys) {
+      return;
+    }
+    prevRecalcGroupKeysRef.current = groupBaseUnitKeys;
 
-        const baseUnit = group.baseUnit.toLowerCase();
-        if (baseUnit !== 'sqft' && baseUnit !== 'sqm' && baseUnit !== 'sqin') {
-          return group;
-        }
-
-        const updatedItems = group.items.map((item) => {
-          // Check if this is a custom item (no moduleGroupItemId)
-          const isCustomItem = (item as any).isCustomItem || !(item as any).moduleGroupItemId;
+    // Debounce recalculation to avoid rapid successive updates
+    const timer = setTimeout(() => {
+      console.log('[QuotationItemsArea] Recalculation useEffect triggered');
+      
+      let hasChanges = false;
+      const updated = sections.map((section) => {
+        const updatedGroups = section.groups.map((group) => {
+          // Only process groups that have baseUnit and baseUnitPrice
+          if (!group.baseUnit || !group.baseUnitPrice || group.baseUnitPrice <= 0) {
+            console.log('[QuotationItemsArea] Skipping group (no baseUnit/baseUnitPrice):', {
+              groupId: group.id,
+              description: group.description,
+              baseUnit: group.baseUnit,
+              baseUnitPrice: group.baseUnitPrice
+            });
+            return group;
+          }
           
-          if (!isCustomItem) {
-            return item;
+          console.log('[QuotationItemsArea] Processing group for recalculation:', {
+            groupId: group.id,
+            description: group.description,
+            baseUnit: group.baseUnit,
+            baseUnitPrice: group.baseUnitPrice,
+            itemCount: group.items.length
+          });
+
+          const baseUnit = group.baseUnit.toLowerCase();
+          if (baseUnit !== 'sqft' && baseUnit !== 'sqm' && baseUnit !== 'sqin') {
+            return group;
           }
 
-          // Check if item has valid dimensions but unitPrice is 0, null, undefined, or NaN
-          const hasValidDimensions = item.height != null && item.width != null && item.depth != null &&
-            item.height > 0 && item.width > 0 && item.depth > 0;
-          
-          const needsRecalculation = hasValidDimensions && (
-            item.unitPrice === 0 || 
-            item.unitPrice == null || 
-            isNaN(item.unitPrice)
-          );
+          const updatedItems = group.items.map((item) => {
+            // Check if this is a custom item (no moduleGroupItemId)
+            const isCustomItem = item.isCustomItem || !item.moduleGroupItemId;
+            
+            if (!isCustomItem) {
+              return item;
+            }
 
-          if (!needsRecalculation) {
-            return item;
-          }
+            // Check if item has valid dimensions but unitPrice is 0, null, undefined, or NaN
+            const hasValidDimensions = item.height != null && item.width != null && item.depth != null &&
+              item.height > 0 && item.width > 0 && item.depth > 0;
+            
+            const needsRecalculation = hasValidDimensions && (
+              item.unitPrice === 0 || 
+              item.unitPrice == null || 
+              isNaN(item.unitPrice)
+            );
 
-          try {
-            const dimensionUnit = item.unit || 'mm';
-            const widthIn = convertToInches(item.width!, dimensionUnit);
-            const depthIn = convertToInches(item.depth!, dimensionUnit);
-            const heightIn = convertToInches(item.height!, dimensionUnit);
-
-            const result = calculateKitchenModule({
-              widthIn: widthIn,
-              depthIn: depthIn,
-              heightIn: heightIn,
-              shelves: 0,
-              unit: baseUnit as AreaUnit,
-              unitPrice: group.baseUnitPrice!,
-              qty: 1,
+            console.log('[QuotationItemsArea] Recalc check for item:', {
+              itemId: item.id,
+              description: item.description,
+              hasValidDimensions,
+              currentUnitPrice: item.unitPrice,
+              needsRecalculation
             });
 
-            const calculatedUnitPrice = result.perModule.cost;
-            const quantity = item.quantity || 0;
-            const discount = item.discount || 0;
-            const calculatedAmount = Math.max(0, quantity * calculatedUnitPrice - discount);
+            if (!needsRecalculation) {
+              return item;
+            }
+            
+            console.log('[QuotationItemsArea] Recalculating unitPrice for item:', item.id);
 
-            hasChanges = true;
+            try {
+              const dimensionUnit = item.unit || 'mm';
+              const widthIn = convertToInches(item.width!, dimensionUnit);
+              const depthIn = convertToInches(item.depth!, dimensionUnit);
+              const heightIn = convertToInches(item.height!, dimensionUnit);
+
+              const result = calculateKitchenModule({
+                widthIn: widthIn,
+                depthIn: depthIn,
+                heightIn: heightIn,
+                shelves: 0,
+                unit: baseUnit as AreaUnit,
+                unitPrice: group.baseUnitPrice!,
+                qty: 1,
+              });
+
+              console.log('[QuotationItemsArea] Recalculation result:', {
+                result,
+                perModuleCost: result.perModule.cost,
+                totalCost: result.total.cost
+              });
+
+              const calculatedUnitPrice = result.perModule.cost;
+              const quantity = item.quantity || 0;
+              const discount = item.discount || 0;
+              const calculatedAmount = Math.max(0, quantity * calculatedUnitPrice - discount);
+
+              console.log('[QuotationItemsArea] ✅ Recalculation complete:', {
+                itemId: item.id,
+                oldUnitPrice: item.unitPrice,
+                newUnitPrice: calculatedUnitPrice,
+                newAmount: calculatedAmount
+              });
+
+              hasChanges = true;
+              return {
+                ...item,
+                unitPrice: calculatedUnitPrice,
+                amount: calculatedAmount,
+              };
+            } catch (error) {
+              if (process.env.NODE_ENV === 'development') {
+                console.error('Error recalculating unit price for item:', error);
+              }
+              return item;
+            }
+          });
+
+          if (updatedItems !== group.items) {
             return {
-              ...item,
-              unitPrice: calculatedUnitPrice,
-              amount: calculatedAmount,
+              ...group,
+              items: updatedItems,
             };
-          } catch (error) {
-            console.error('Error recalculating unit price for item:', error);
-            return item;
           }
+          return group;
         });
 
-        if (updatedItems !== group.items) {
+        if (updatedGroups !== section.groups) {
           return {
-            ...group,
-            items: updatedItems,
+            ...section,
+            groups: updatedGroups,
           };
         }
-        return group;
+        return section;
       });
 
-      if (updatedGroups !== section.groups) {
-        return {
-          ...section,
-          groups: updatedGroups,
-        };
+      if (hasChanges) {
+        hasProcessedInitialLoad.current = true;
+        // Use startTransition for non-urgent update
+        startTransition(() => {
+          onSectionsChange(updated);
+        });
       }
-      return section;
-    });
+    }, 100); // 100ms debounce
 
-    if (hasChanges) {
-      onSectionsChange(updated);
-    }
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sections.map(s => s.groups.map(g => `${g.id}-${g.baseUnit}-${g.baseUnitPrice}`).join(',')).join('|')]); // Run when groups or their baseUnit/baseUnitPrice change
+  }, [groupBaseUnitKeys, sections]);
 
-  // Fetch catalog items and categories from database
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoadingItems(true);
-        const [itemsResult, categoriesResult] = await Promise.all([
-          getActiveItemsForDropdown(),
-          getActiveCategories(),
-        ]);
-        
-        if (itemsResult.success) {
-          // Transform items to match CatalogItem interface
-          const transformedItems: CatalogItem[] = (itemsResult.items || []).map((item: {
-            id: string;
-            code: string;
-            description: string;
-            unitPrice: number;
-            categories?: Array<{ category: { id: string; name: string } }>;
-            unit: { id: string; symbol: string } | null;
-          }) => ({
-            ...item,
-            categories: item.categories?.map((ic) => ic.category) || [],
-          }));
-          setCatalogItems(transformedItems);
-        } else {
-          console.error('Error fetching items:', itemsResult.error);
-        }
-        
-        if (categoriesResult.success) {
-          setCategories(categoriesResult.categories);
-        } else {
-          console.error('Error fetching categories:', categoriesResult.error);
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setIsLoadingItems(false);
-      }
-    };
-
-    fetchData();
-  }, []);
+  // Note: Catalog items and categories are now fetched in the consolidated initial data fetch above
+  // This duplicate fetch has been removed for better performance
 
   const generateId = () => `item-${Date.now()}-${Math.random()}`;
 
@@ -1014,6 +1030,12 @@ export function QuotationItemsArea({
           const group = section.groups[groupIndex];
           const itemsInGroup = group.items.length;
           newItem.sl = itemsInGroup + 1;
+          // Explicitly set isCustomItem to false so dropdown shows for moduleGroup items
+          newItem.isCustomItem = false;
+          // Ensure no is string if provided
+          if (newItem.no !== undefined) {
+            newItem.no = newItem.no != null ? String(newItem.no) : undefined;
+          }
           
           updatedSection = {
             ...s,
@@ -1034,6 +1056,10 @@ export function QuotationItemsArea({
         // Add to section directly
         const itemsInSection = section.items.length;
         newItem.sl = itemsInSection + 1;
+        // Ensure no is string if provided
+        if (newItem.no !== undefined) {
+          newItem.no = newItem.no != null ? String(newItem.no) : undefined;
+        }
         updatedSection = {
           ...s,
           items: [...s.items, newItem],
@@ -1220,15 +1246,21 @@ export function QuotationItemsArea({
     categoryGroupIndex: number | undefined,
     updates: Partial<QuotationItem>
   ) => {
+    // Ensure 'no' field is always a string if provided
+    const normalizedUpdates = { ...updates };
+    if (normalizedUpdates.no !== undefined) {
+      normalizedUpdates.no = normalizedUpdates.no != null ? String(normalizedUpdates.no) : undefined;
+    }
+    
     const updated = sections.map((s, sIdx) => {
       if (sIdx !== sectionIndex) return s;
 
-      let updatedSection: Section;
+      let updatedSection: Section = s; // Initialize with current section
       if (categoryGroupIndex !== undefined) {
         // Update item in category group
         const categoryGroup = (s.categoryGroups || [])[categoryGroupIndex];
         const item = categoryGroup.items[itemIndex];
-        const updatedItem = { ...item, ...updates };
+        const updatedItem = { ...item, ...normalizedUpdates };
 
         // Calculate amount based on dimensions and discount
         if (
@@ -1258,11 +1290,44 @@ export function QuotationItemsArea({
       } else if (groupIndex !== undefined) {
         const group = s.groups[groupIndex];
         const item = group.items[itemIndex];
-        const updatedItem = { ...item, ...updates };
+        const updatedItem = { ...item, ...normalizedUpdates };
 
         // Check if this is a custom item (isCustomItem flag or no moduleGroupItemId) and group has baseUnitPrice/baseUnit
         const isCustomItem = updatedItem.isCustomItem || !updatedItem.moduleGroupItemId;
-        const hasBasePrice = group.baseUnitPrice != null && group.baseUnitPrice > 0 && group.baseUnit;
+        
+        // Enhanced guards for baseUnit/baseUnitPrice
+        const hasBasePrice = group.baseUnitPrice != null && 
+                            group.baseUnitPrice > 0 && 
+                            group.baseUnit != null && 
+                            group.baseUnit.trim() !== '';
+        
+        // Validate baseUnit is a valid area unit
+        const isValidBaseUnit = hasBasePrice && 
+                               group.baseUnit && 
+                               (group.baseUnit.toLowerCase() === 'sqft' || 
+                                group.baseUnit.toLowerCase() === 'sqm' || 
+                                group.baseUnit.toLowerCase() === 'sqin');
+
+        // PRODUCTION DEBUG: Log custom item detection
+        console.log('[QuotationItemsArea] updateItem - Custom item check:', {
+          itemId: updatedItem.id,
+          itemDescription: updatedItem.description,
+          isCustomItem,
+          hasModuleGroupItemId: !!updatedItem.moduleGroupItemId,
+          groupId: group.id,
+          groupDescription: group.description,
+          groupModuleGroupId: group.moduleGroupId,
+          groupBaseUnit: group.baseUnit,
+          groupBaseUnitPrice: group.baseUnitPrice,
+          hasBasePrice,
+          isValidBaseUnit,
+          itemDimensions: {
+            height: updatedItem.height,
+            width: updatedItem.width,
+            depth: updatedItem.depth
+          },
+          willCalculate: isCustomItem && isValidBaseUnit
+        });
 
         // For custom items: auto-generate code from dimensions
         if (isCustomItem && (
@@ -1293,7 +1358,9 @@ export function QuotationItemsArea({
 
         // For custom items with baseUnitPrice: calculate unitPrice from dimensions and unit
         // This should recalculate whenever dimensions or unit change, or when baseUnit/baseUnitPrice become available
-        if (isCustomItem && hasBasePrice) {
+        if (isCustomItem && isValidBaseUnit) {
+          console.log('[QuotationItemsArea] Starting unitPrice calculation for custom item');
+          
           const h = updatedItem.height;
           const w = updatedItem.width;
           const d = updatedItem.depth;
@@ -1320,33 +1387,87 @@ export function QuotationItemsArea({
           );
           
           if (shouldRecalculate) {
+            console.log('[QuotationItemsArea] shouldRecalculate = true, proceeding with calculation');
+            
             try {
-              const baseUnit = group.baseUnit!.toLowerCase() as AreaUnit;
-              if (baseUnit === 'sqft' || baseUnit === 'sqm' || baseUnit === 'sqin') {
-                // Convert dimensions to inches (calculateKitchenModule expects inches)
-                const dimensionUnit = updatedItem.unit || 'mm'; // Default to mm if no unit specified
-                const widthIn = convertToInches(w!, dimensionUnit);
-                const depthIn = convertToInches(d!, dimensionUnit);
-                const heightIn = convertToInches(h!, dimensionUnit);
-                
-                const result = calculateKitchenModule({
-                  widthIn: widthIn,
-                  depthIn: depthIn,
-                  heightIn: heightIn,
-                  shelves: 0,
-                  unit: baseUnit,
-                  unitPrice: group.baseUnitPrice!,
-                  qty: 1, // Calculate per module
+              // Additional safety checks before calculation
+              if (!group.baseUnit || !group.baseUnitPrice || group.baseUnitPrice <= 0) {
+                console.error('[QuotationItemsArea] Calculation blocked - invalid baseUnit/baseUnitPrice:', {
+                  baseUnit: group.baseUnit,
+                  baseUnitPrice: group.baseUnitPrice
                 });
+                return; // Skip calculation if baseUnit/baseUnitPrice are invalid
+              }
+              
+              const baseUnit = group.baseUnit.toLowerCase().trim() as AreaUnit;
+              
+              // Double-check baseUnit is valid
+              if (baseUnit !== 'sqft' && baseUnit !== 'sqm' && baseUnit !== 'sqin') {
+                return; // Invalid baseUnit, skip calculation
+              }
+              
+              // Validate dimensions are numbers
+              if (typeof w !== 'number' || typeof d !== 'number' || typeof h !== 'number' ||
+                  isNaN(w) || isNaN(d) || isNaN(h)) {
+                return; // Invalid dimensions, skip calculation
+              }
+              
+              // Convert dimensions to inches (calculateKitchenModule expects inches)
+              const dimensionUnit = updatedItem.unit || 'mm'; // Default to mm if no unit specified
+              const widthIn = convertToInches(w, dimensionUnit);
+              const depthIn = convertToInches(d, dimensionUnit);
+              const heightIn = convertToInches(h, dimensionUnit);
+              
+              console.log('[QuotationItemsArea] Calling calculateKitchenModule with:', {
+                baseUnit,
+                baseUnitPrice: group.baseUnitPrice,
+                dimensions: { heightIn, widthIn, depthIn }
+              });
+              
+              // Validate converted dimensions are valid
+              if (isNaN(widthIn) || isNaN(depthIn) || isNaN(heightIn) ||
+                  widthIn <= 0 || depthIn <= 0 || heightIn <= 0) {
+                return; // Invalid converted dimensions, skip calculation
+              }
+              
+              const result = calculateKitchenModule({
+                widthIn: widthIn,
+                depthIn: depthIn,
+                heightIn: heightIn,
+                shelves: 0,
+                unit: baseUnit,
+                unitPrice: group.baseUnitPrice,
+                qty: 1, // Calculate per module
+              });
+              
+              console.log('[QuotationItemsArea] calculateKitchenModule result:', {
+                result,
+                perModuleCost: result?.perModule?.cost,
+                totalCost: result?.total?.cost
+              });
+              
+              // Validate calculation result
+              if (result && result.perModule && typeof result.perModule.cost === 'number' && !isNaN(result.perModule.cost)) {
                 // Set unitPrice to the cost per module
                 const calculatedUnitPrice = result.perModule.cost;
+                console.log('[QuotationItemsArea] ✅ Setting calculated unitPrice:', calculatedUnitPrice);
                 updatedItem.unitPrice = calculatedUnitPrice;
                 // Include unitPrice in updates to ensure it triggers recalculation
                 updates.unitPrice = calculatedUnitPrice;
+              } else {
+                console.warn('[QuotationItemsArea] ❌ Invalid calculation result:', result);
               }
             } catch (error) {
-              console.error('Error calculating custom item unit price:', error);
+              console.error('[QuotationItemsArea] ❌ Error calculating custom item unit price:', error);
+              // Don't update unitPrice if calculation fails
             }
+          } else {
+            console.log('[QuotationItemsArea] shouldRecalculate = false, skipping calculation. Reason:', {
+              hasValidDimensions,
+              dimensionsChanged,
+              currentUnitPrice: updatedItem.unitPrice,
+              shouldRecalculate
+            });
           }
         }
 
@@ -1381,7 +1502,7 @@ export function QuotationItemsArea({
         };
       } else {
         const item = s.items[itemIndex];
-    const updatedItem = { ...item, ...updates };
+        const updatedItem = { ...item, ...normalizedUpdates };
 
         // Calculate amount based on dimensions and discount
         if (
@@ -1423,7 +1544,7 @@ export function QuotationItemsArea({
     const updated = sections.map((s, sIdx) => {
       if (sIdx !== sectionIndex) return s;
 
-      let updatedSection: Section;
+      let updatedSection: Section = s; // Initialize with current section
       if (categoryGroupIndex !== undefined) {
         // Remove item from category group
         updatedSection = {
@@ -2126,7 +2247,7 @@ export function QuotationItemsArea({
                                               // Store moduleGroup items for later use in dropdown
                                               setModuleGroupItems(prev => ({
                                                 ...prev,
-                                                [group.id]: moduleGroup.items.map((item) => ({
+                                                [group.id]: (moduleGroup.items as any[]).map((item) => ({
                                                   id: item.id,
                                                   sl: item.sl,
                                                   code: item.code || undefined,
@@ -2137,7 +2258,7 @@ export function QuotationItemsArea({
                                                   unit: item.unit || undefined,
                                                   unitPrice: item.unitPrice,
                                                   amount: item.amount,
-                                                  quantity: item.quantity,
+                                                  quantity: item.quantity || 0,
                                                   itemId: item.itemId || undefined,
                                                 }))
                                               }));
@@ -2166,7 +2287,7 @@ export function QuotationItemsArea({
                                             });
                                           }
                                         }}
-                                        disabled={isLoadingModuleGroups}
+                                        disabled={isCatalogLoading}
                                       >
                                         <SelectTrigger className="h-8 text-xs text-left flex-1">
                                           <SelectValue placeholder="Select Group">
@@ -2302,13 +2423,11 @@ export function QuotationItemsArea({
                                             <SortableItem
                                               key={item.id}
                                               item={item}
-                                              sectionIndex={sectionIndex}
-                                              itemIndex={itemIndex}
                                               groupIndex={groupIndex}
                                               catalogItems={catalogItems}
                                               sectionCategoryId={section.categoryId}
                                               units={units}
-                                              isLoadingUnits={isLoadingUnits}
+                                              isLoadingUnits={isCatalogLoading}
                                               groupModuleGroupItems={group.moduleGroupId ? moduleGroupItems[group.id] : undefined}
                                               groupModuleGroupId={group.moduleGroupId || null}
                                               onUpdate={(updates) =>
@@ -2495,8 +2614,6 @@ export function QuotationItemsArea({
                                             <SortableItem
                                               key={item.id}
                                               item={item}
-                                              sectionIndex={sectionIndex}
-                                              itemIndex={itemIndex}
                                               catalogItems={catalogItems}
                                               sectionCategoryId={categoryGroup.categoryId}
                                               onUpdate={(updates) =>
@@ -2560,8 +2677,6 @@ export function QuotationItemsArea({
                                   <SortableItem
                                     key={item.id}
                                     item={item}
-                                    sectionIndex={sectionIndex}
-                                    itemIndex={itemIndex}
                                     catalogItems={catalogItems}
                                     sectionCategoryId={section.categoryId}
                                     onUpdate={(updates) =>
