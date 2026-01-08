@@ -108,7 +108,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
           description: initialData.description || "",
           sortOrder: initialData.sortOrder?.toString() || "0",
           status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
-          baseUnit: initialData.baseUnit ? (initialData.baseUnit as "sqm" | "sqft") : undefined,
+          baseUnit: initialData.baseUnit ? (initialData.baseUnit as "sqm" | "sqft") : "sqm",
           baseUnitPrice: initialData.baseUnitPrice !== null && initialData.baseUnitPrice !== undefined ? initialData.baseUnitPrice : undefined,
           items: initialData.items.map((item) => {
             // Recalculate unitPrice if baseUnit and baseUnitPrice are available
@@ -390,6 +390,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
   // Watch for changes to group's baseUnit
 
   const onSubmit = async (data: GroupFormData) => {
+    console.log("onSubmit", data);
     try {
       setError("");
       setLoading(true);
