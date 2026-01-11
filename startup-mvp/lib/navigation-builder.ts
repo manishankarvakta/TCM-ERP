@@ -45,6 +45,7 @@ export const MENU_TEMPLATE: MenuItemData[] = [
       { href: "/dashboard/quotations", label: "Quotations", icon: "FiFileText", module: "quotations" },
       { href: "/dashboard/quotations/invoices", label: "Invoices", icon: "FiDollarSign", module: "quotations" },
       { href: "/dashboard/quotations/orders", label: "Orders", icon: "FiShoppingCart", module: "quotations" },
+      { href: "/dashboard/work-orders", label: "Work Orders", icon: "FiBriefcase", module: "work-orders" },
     ],
   },
   {
@@ -212,6 +213,7 @@ function getNavigationIdForMenuItem(item: MenuItemData): string | null {
     "/dashboard": "dashboard",
     "items": "items",
     "quotations": "quotations",
+    "work-orders": "work-orders",
     "accounts": "accounts",
     "peoples": "peoples",
     "/dashboard/files": "files",

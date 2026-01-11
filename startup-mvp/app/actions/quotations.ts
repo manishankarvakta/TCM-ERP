@@ -131,6 +131,15 @@ export async function getQuotations(
             image: true,
           },
         },
+        workOrders: {
+          select: {
+            id: true,
+            isTrash: true,
+          },
+          where: {
+            isTrash: false, // Only count non-trashed work orders
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -318,6 +327,17 @@ export async function getQuotation(id: string) {
         error: 'Quotation not found',
         data: null,
       };
+    }
+
+    // Check if quotation is expired and update status if needed
+    const now = new Date();
+    if (quotation.expiredDate && quotation.expiredDate <= now && quotation.status !== 'EXPIRED' && !quotation.isTrash) {
+      await prisma.quotation.update({
+        where: { id },
+        data: { status: 'EXPIRED' },
+      });
+      // Update the status in the current object
+      quotation.status = 'EXPIRED';
     }
 
     // Serialize Decimal values to numbers for client components
@@ -606,7 +626,8 @@ export async function createQuotation(data: any) {
         coverLetter: coverLetterContent || null,
         tos: tosContent || null,
         total: total > 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
-        status: data.status || 'DRAFT',
+        status: 'DRAFT', // Always DRAFT on create
+        expiredDate: data.expiredDate ? new Date(data.expiredDate) : null as any,
         clientId: clientId,
         organizationId: data.organizationId || null,
         submittedById: submittedById, // Always use session user
@@ -978,7 +999,11 @@ export async function updateQuotation(id: string, data: any) {
         total: total >= 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
         discount: data.discount !== undefined ? (data.discount ? new Prisma.Decimal(data.discount) : new Prisma.Decimal(0)) : (existingQuotation.discount || new Prisma.Decimal(0)),
         grandTotal: total >= 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
-        status: data.status || existingQuotation.status,
+        // Always set status to REVIEW when updating a quotation
+        status: 'REVIEW' as QuotationStatus,
+        expiredDate: data.expiredDate !== undefined 
+          ? (data.expiredDate ? new Date(data.expiredDate) : null) 
+          : (existingQuotation as any).expiredDate,
         clientId: clientId,
         organizationId: data.organizationId !== undefined && data.organizationId !== '' ? (data.organizationId || null) : existingQuotation.organizationId,
         submittedById: submittedById,
@@ -1522,6 +1547,152 @@ export async function deleteQuotationsPermanently(quotationIds: string[]) {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to delete quotations',
     };
+  }
+}
+
+/**
+ * Update quotation status (for Send, Approve, Accept actions)
+ */
+export async function updateQuotationStatus(
+  id: string,
+  newStatus: QuotationStatus
+): Promise<{ success: boolean; error?: string; data?: any }> {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: 'Unauthorized',
+      };
+    }
+
+    const quotation = await prisma.quotation.findUnique({
+      where: { id },
+    });
+
+    if (!quotation) {
+      return {
+        success: false,
+        error: 'Quotation not found',
+      };
+    }
+
+    // Check if quotation is expired before allowing status change
+    const now = new Date();
+    let finalStatus = newStatus;
+    
+    // If expiredDate has passed, automatically set to EXPIRED
+    if (quotation.expiredDate && quotation.expiredDate <= now && newStatus !== 'EXPIRED') {
+      finalStatus = 'EXPIRED';
+    }
+
+    // Validate status transition
+    const validTransitions: Record<string, string[]> = {
+      'DRAFT': ['SENT'],
+      'REVIEW': ['REVISED', 'SENT'], // Approve action: REVIEW -> REVISED, or send directly
+      'SENT': ['ACCEPTED', 'REJECTED'],
+      'ACCEPTED': ['SENT', 'REVISED'],
+      'REJECTED': ['SENT', 'REVISED'],
+      'REVISED': ['SENT'],
+      'EXPIRED': [], // Cannot transition from expired
+    };
+
+    const allowedStatuses = validTransitions[quotation.status] || [];
+    if (!allowedStatuses.includes(finalStatus)) {
+      return {
+        success: false,
+        error: `Cannot change status from ${quotation.status} to ${finalStatus}`,
+      };
+    }
+
+    const updatedQuotation = await prisma.quotation.update({
+      where: { id },
+      data: {
+        status: finalStatus,
+        updatedById: session.user.id,
+      },
+      include: {
+        client: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+
+    revalidateBothPaths('quotations', 'page');
+    revalidateBothPaths(`quotations/${id}`, 'page');
+
+    // Log status change
+    await createUserLog({
+      userId: session.user.id,
+      action: LogAction.ITEM_UPDATED,
+      details: `Quotation "${quotation.quotationNumber}" status changed from ${quotation.status} to ${finalStatus}`,
+      metadata: {
+        quotationId: quotation.id,
+        quotationNumber: quotation.quotationNumber,
+        oldStatus: quotation.status,
+        newStatus: finalStatus,
+      },
+    });
+
+    return {
+      success: true,
+      data: updatedQuotation,
+    };
+  } catch (error) {
+    console.error('Error updating quotation status:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update quotation status',
+    };
+  }
+}
+
+/**
+ * Check and update expired quotations
+ * Should be called periodically (e.g., via cron job or scheduled task)
+ */
+export async function checkAndUpdateExpiredQuotations(): Promise<{ updated: number }> {
+  try {
+    const now = new Date();
+    
+    // Find quotations that are expired but status is not EXPIRED
+    const expiredQuotations = await prisma.quotation.findMany({
+      where: {
+        expiredDate: {
+          lte: now,
+        } as any,
+        status: {
+          not: 'EXPIRED',
+        },
+        isTrash: false,
+      },
+      select: {
+        id: true,
+        quotationNumber: true,
+      },
+    });
+
+    if (expiredQuotations.length === 0) {
+      return { updated: 0 };
+    }
+
+    // Update all expired quotations
+    await prisma.quotation.updateMany({
+      where: {
+        id: { in: expiredQuotations.map(q => q.id) },
+      },
+      data: {
+        status: 'EXPIRED',
+      },
+    });
+
+    revalidateBothPaths('quotations', 'page');
+
+    return { updated: expiredQuotations.length };
+  } catch (error) {
+    console.error('Error checking expired quotations:', error);
+    return { updated: 0 };
   }
 }
 
