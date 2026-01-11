@@ -6,6 +6,7 @@ import { Prisma, QuotationStatus } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { notifyItemCreated, notifyItemUpdated, notifyItemDeleted } from '@/lib/notification';
 import { createUserLog, LogAction } from '@/lib/user-log';
+import { createClient } from '@/app/(dashboard)/dashboard/clients/_actions/client.action';
 
 /**
  * Get all quotations with relations
@@ -453,17 +454,29 @@ export async function createQuotation(data: any) {
           });
         }
       } else {
-        const newClient = await prisma.client.create({
-          data: {
-            name: data.clientName,
-            address: data.clientAddress || null,
-            phone: data.clientContact || null,
-            email: data.clientContact?.includes('@') ? data.clientContact : null,
-            status: 'active',
-            createdBy: session.user.id,
-          },
+        // Use createClient function to ensure COA is created automatically
+        // Generate a temporary email if not provided (createClient requires email)
+        const clientEmail = data.clientContact?.includes('@') 
+          ? data.clientContact 
+          : `client-${Date.now()}@temp.local`;
+        
+        const clientResult = await createClient({
+          name: data.clientName,
+          address: data.clientAddress || undefined,
+          phone: data.clientContact || undefined,
+          email: clientEmail,
+          status: 'active',
         });
-        clientId = newClient.id;
+        
+        if (!clientResult.success || !clientResult.client) {
+          return {
+            success: false,
+            error: clientResult.error || 'Failed to create client',
+            quotation: null,
+          };
+        }
+        
+        clientId = clientResult.client.id;
       }
     }
 
@@ -800,17 +813,29 @@ export async function updateQuotation(id: string, data: any) {
           });
         }
       } else {
-        const newClient = await prisma.client.create({
-          data: {
-            name: data.clientName,
-            address: data.clientAddress || null,
-            phone: data.clientContact || null,
-            email: data.clientContact?.includes('@') ? data.clientContact : null,
-            status: 'active',
-            createdBy: session.user.id,
-          },
+        // Use createClient function to ensure COA is created automatically
+        // Generate a temporary email if not provided (createClient requires email)
+        const clientEmail = data.clientContact?.includes('@') 
+          ? data.clientContact 
+          : `client-${Date.now()}@temp.local`;
+        
+        const clientResult = await createClient({
+          name: data.clientName,
+          address: data.clientAddress || undefined,
+          phone: data.clientContact || undefined,
+          email: clientEmail,
+          status: 'active',
         });
-        clientId = newClient.id;
+        
+        if (!clientResult.success || !clientResult.client) {
+          return {
+            success: false,
+            error: clientResult.error || 'Failed to create client',
+            quotation: null,
+          };
+        }
+        
+        clientId = clientResult.client.id;
       }
     }
 
@@ -1085,6 +1110,32 @@ export async function updateQuotation(id: string, data: any) {
     }
     if (data.status && data.status !== existingQuotation.status) {
       changes.push('status');
+    }
+
+    // Integration: Create SALES voucher when quotation status changes to ACCEPTED
+    if (data.status === 'ACCEPTED' && existingQuotation.status !== 'ACCEPTED') {
+      try {
+        const { createSalesVoucherForQuotation } = await import('./quotation-accounting-integration');
+        const voucherResult = await createSalesVoucherForQuotation(
+          quotation.id,
+          quotation.quotationNumber,
+          quotation.clientId,
+          Number(quotation.grandTotal || quotation.total || 0),
+          session.user.id,
+          quotation.date
+        );
+
+        if (voucherResult.success) {
+          console.log(`Sales voucher created and posted for quotation ${quotation.quotationNumber}: ${voucherResult.voucherId}`);
+        } else {
+          console.error(`Failed to create sales voucher for quotation ${quotation.quotationNumber}:`, voucherResult.error);
+          // Don't fail the quotation update if voucher creation fails
+          // Log error but continue
+        }
+      } catch (error) {
+        console.error('Error creating sales voucher for quotation:', error);
+        // Don't fail the quotation update if voucher creation fails
+      }
     }
     if (data.organizationId !== undefined && data.organizationId !== existingQuotation.organizationId) {
       changes.push('organization');

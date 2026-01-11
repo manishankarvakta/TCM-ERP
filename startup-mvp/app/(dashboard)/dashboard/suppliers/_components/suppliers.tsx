@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils";
 interface Supplier {
   id: string;
   name: string | null;
+  supplierCode: string | null;
   email: string;
   phone: string | null;
   address: string | null;
@@ -58,6 +59,12 @@ interface Supplier {
     name: string | null;
     email: string;
   };
+  chartOfAccount: {
+    id: string;
+    code: string;
+    name: string;
+    type: string;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -341,6 +348,7 @@ export default function SuppliersListClient({
                   aria-label="Select all"
                 />
               </TableHead>
+              <TableHead>Supplier Code</TableHead>
               <TableHead>Supplier</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
@@ -370,6 +378,9 @@ export default function SuppliersListClient({
                         onCheckedChange={(checked) => handleSelectSupplier(supplier.id, checked as boolean)}
                         aria-label={`Select ${supplier.name || supplier.email}`}
                       />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {supplier.supplierCode || "-"}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">

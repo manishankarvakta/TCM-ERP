@@ -1,16 +1,167 @@
-export default function VouchersPage() {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Vouchers</h1>
-          <p className="text-sm text-muted-foreground">Manage vouchers</p>
+import React from "react";
+import { listVouchers } from "./_actions/voucher.action";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Link from "next/link";
+import { FiPlus } from "react-icons/fi";
+import VouchersListClient from "./_components/vouchers-list";
+import PageGuard from "@/components/permissions/page-guard";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
+
+interface VouchersPageProps {
+  searchParams: Promise<{
+    page?: string;
+    search?: string;
+    tab?: string;
+    type?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }>;
+}
+
+export default async function VouchersPage({ searchParams }: VouchersPageProps) {
+  const params = await searchParams;
+  const page = parseInt(params.page || "1");
+  const search = params.search || "";
+  const tab = params.tab || "all";
+
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  const status = tab === "trash" ? "cancelled" : tab === "draft" ? "draft" : tab === "posted" ? "posted" : "all";
+  
+  // Check permissions on server side
+  const [result, canView, canEdit, canCreate] = await Promise.all([
+    listVouchers(page, 10, search, status, params.type, params.dateFrom, params.dateTo),
+    userId ? hasPermission(userId, "accounts.vouchers", "view") : false,
+    userId ? hasPermission(userId, "accounts.vouchers", "edit") : false,
+    userId ? hasPermission(userId, "accounts.vouchers", "create") : false,
+  ]);
+
+  // Handle errors
+  if (!result.success) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Vouchers</h1>
+            <p className="text-sm text-muted-foreground">Create and manage accounting vouchers</p>
+          </div>
+        </div>
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+          <p className="text-sm text-destructive">
+            {result.error || "Failed to load vouchers"}
+          </p>
         </div>
       </div>
-      <div className="rounded-lg border p-6">
-        <p className="text-sm text-muted-foreground">Vouchers will be displayed here.</p>
+    );
+  }
+
+  return (
+    <PageGuard permissionKey="accounts.vouchers">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Vouchers</h1>
+            <p className="text-sm text-muted-foreground">Create and manage accounting vouchers</p>
+          </div>
+          {canCreate && (
+            <Button asChild>
+              <Link href="/dashboard/accounts/vouchers/add">
+                <FiPlus className="mr-2 h-4 w-4" />
+                Add Voucher
+              </Link>
+            </Button>
+          )}
+        </div>
+
+        <Tabs defaultValue={tab} className="w-full">
+          <TabsList>
+            <TabsTrigger value="all" asChild>
+              <Link href="/dashboard/accounts/vouchers?tab=all&page=1">All Vouchers</Link>
+            </TabsTrigger>
+            <TabsTrigger value="draft" asChild>
+              <Link href="/dashboard/accounts/vouchers?tab=draft&page=1">Draft</Link>
+            </TabsTrigger>
+            <TabsTrigger value="posted" asChild>
+              <Link href="/dashboard/accounts/vouchers?tab=posted&page=1">Posted</Link>
+            </TabsTrigger>
+            <TabsTrigger value="cancelled" asChild>
+              <Link href="/dashboard/accounts/vouchers?tab=cancelled&page=1">Cancelled</Link>
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="all" className="mt-4">
+            <VouchersListClient
+              initialVouchers={result.vouchers || []}
+              initialPagination={result.pagination || {
+                page: 1,
+                limit: 10,
+                total: 0,
+                totalPages: 0,
+              }}
+              initialSearch={search}
+              permissions={{
+                view: canView,
+                edit: canEdit,
+                create: canCreate,
+              }}
+            />
+          </TabsContent>
+          <TabsContent value="draft" className="mt-4">
+            <VouchersListClient
+              initialVouchers={result.vouchers || []}
+              initialPagination={result.pagination || {
+                page: 1,
+                limit: 10,
+                total: 0,
+                totalPages: 0,
+              }}
+              initialSearch={search}
+              permissions={{
+                view: canView,
+                edit: canEdit,
+                create: canCreate,
+              }}
+            />
+          </TabsContent>
+          <TabsContent value="posted" className="mt-4">
+            <VouchersListClient
+              initialVouchers={result.vouchers || []}
+              initialPagination={result.pagination || {
+                page: 1,
+                limit: 10,
+                total: 0,
+                totalPages: 0,
+              }}
+              initialSearch={search}
+              permissions={{
+                view: canView,
+                edit: canEdit,
+                create: canCreate,
+              }}
+            />
+          </TabsContent>
+          <TabsContent value="cancelled" className="mt-4">
+            <VouchersListClient
+              initialVouchers={result.vouchers || []}
+              initialPagination={result.pagination || {
+                page: 1,
+                limit: 10,
+                total: 0,
+                totalPages: 0,
+              }}
+              initialSearch={search}
+              permissions={{
+                view: canView,
+                edit: canEdit,
+                create: canCreate,
+              }}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
-    </div>
+    </PageGuard>
   );
 }
 

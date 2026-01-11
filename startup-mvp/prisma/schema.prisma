@@ -7,6 +7,28 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum VoucherType {
+  PAYMENT
+  RECEIPT
+  JOURNAL
+  CONTRA
+  SALES
+  PURCHASE
+}
+
+enum CashBankAccountType {
+  CASH
+  BANK
+}
+
 model User {
   id                               String              @id @default(cuid())
   name                             String?
@@ -54,6 +76,32 @@ model User {
   @@index([status])
   @@index([designationTemplateId])
   @@index([inchargeId])
+}
+
+model Employee {
+  id           String   @id @default(cuid())
+  name         String
+  employeeCode String?  @unique
+  email        String?
+  phone        String?
+  userId       String?  @unique
+  user         User?    @relation("UserEmployee", fields: [userId], references: [id], onDelete: SetNull)
+  status       String   @default("active") // active, inactive
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Payroll accounting relations
+  salaryPayableAccountId String?
+  salaryPayableAccount   ChartOfAccount? @relation("EmployeeSalaryPayable", fields: [salaryPayableAccountId], references: [id], onDelete: SetNull)
+  advanceAccountId       String?
+  advanceAccount         ChartOfAccount? @relation("EmployeeAdvance", fields: [advanceAccountId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([employeeCode])
+  @@index([email])
+  @@index([salaryPayableAccountId])
+  @@index([advanceAccountId])
 }
 
 model Account {

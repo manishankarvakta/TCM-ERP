@@ -88,6 +88,7 @@ const menuItems: MenuItem[] = [
       { href: "/admin/users", label: "Users", icon: FiUser },
       { href: "/admin/clients", label: "Clients", icon: FiUser },
       { href: "/admin/suppliers", label: "Suppliers", icon: FiUser },
+      { href: "/admin/employees", label: "Employees", icon: FiUser },
     ],
   },
   
