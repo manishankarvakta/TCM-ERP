@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef, startTransition, memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,13 +16,12 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/utils/formatters';
 import { calculateKitchenModule, type AreaUnit } from '@/lib/calculateKitchenModule';
-import { FiPlus, FiTrash2, FiEdit2, FiChevronDown, FiChevronUp, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiChevronDown, FiChevronUp, FiSearch } from 'react-icons/fi';
 import { BsGripVertical } from 'react-icons/bs';
-import { getActiveItemsForDropdown } from '@/app/actions/items';
-import { getActiveCategories, getActiveUnits } from '@/app/(dashboard)/dashboard/items/_actions/item.action';
-import { getActiveGroups, getModuleGroupById } from '@/app/(dashboard)/dashboard/items/groups/_actions/group.action';
+import { getModuleGroupById } from '@/app/(dashboard)/dashboard/items/groups/_actions/group.action';
 import { useAppDispatch } from '@/lib/redux/hooks';
 import { updateSectionNote, updateSectionDiscount } from '@/lib/redux/slices/quotationSlice';
+import { useCatalogData } from '@/hooks/useCatalogData';
 import {
   DndContext,
   closestCenter,
@@ -52,6 +51,7 @@ import {
 interface QuotationItem {
   id: string;
   sl: number;
+  no?: string; // Changed from number | string to string only
   code?: string;
   description?: string;
   height?: number;
@@ -60,9 +60,11 @@ interface QuotationItem {
   unit?: string;
   unitPrice: number;
   quantity: number;
+  discount?: number;
   amount: number;
   itemId?: string; // Reference to catalog item
   moduleGroupItemId?: string; // Reference to selected module group item
+  isCustomItem?: boolean; // Flag to mark items added via "Custom Item" button
 }
 
 interface CatalogItem {
@@ -89,6 +91,8 @@ interface ItemGroup {
   items: QuotationItem[];
   isExpanded?: boolean;
   moduleGroupId?: string | null; // Reference to ModuleGroup template
+  baseUnit?: string | null; // Base unit from ModuleGroup (sqft, sqm, sqin)
+  baseUnitPrice?: number | null; // Base unit price from ModuleGroup
 }
 
 interface CategoryGroup {
@@ -118,11 +122,9 @@ interface QuotationItemsAreaProps {
   onSectionsChange: (sections: Section[]) => void;
 }
 
-// Sortable Item Component
-function SortableItem({
+// Sortable Item Component - Memoized for performance
+const SortableItem = memo(function SortableItem({
   item,
-  sectionIndex,
-  itemIndex,
   groupIndex,
   onUpdate,
   onRemove,
@@ -134,8 +136,6 @@ function SortableItem({
   groupModuleGroupId,
 }: {
   item: QuotationItem;
-  sectionIndex: number;
-  itemIndex: number;
   groupIndex?: number;
   onUpdate: (updates: Partial<QuotationItem>) => void;
   onRemove: () => void;
@@ -227,6 +227,7 @@ function SortableItem({
         quantity: quantity,
         amount: amount,
         itemId: selectedGroupItem.itemId,
+        isCustomItem: false, // Clear custom item flag when selecting from ModuleGroup
       };
       onUpdate(updates);
     }
@@ -280,10 +281,30 @@ function SortableItem({
       </TableCell>
       <TableCell className="font-medium w-12">{item.sl}</TableCell>
       <TableCell>
+        <Input
+          type="text"
+          value={item.no || ''}
+          onChange={(e) => {
+            // Always store as string, even if user enters a number
+            const no = e.target.value.trim() || undefined;
+            onUpdate({ no: no != null ? String(no) : undefined });
+          }}
+          placeholder="No"
+          className="h-8 w-16 text-xs"
+        />
+      </TableCell>
+      <TableCell className="min-w-[120px]">
         {groupIndex !== undefined ? (
-          // For group items, show code as dropdown with search (items come from selected ModuleGroup)
-          // Show Select if group has moduleGroupId, even if items are still loading
-          groupModuleGroupId ? (
+          // For custom items (isCustomItem flag), always show auto-generated code
+          // For regular items, show dropdown if group has moduleGroupId (for "Add Item")
+          item.isCustomItem ? (
+            <Input
+              value={item.code || ''}
+              readOnly
+              placeholder="Auto-generated"
+              className="h-8 text-xs w-full bg-muted"
+            />
+          ) : groupModuleGroupId ? (
             <div className="flex gap-2 items-center w-full">
               <div className="flex-1 relative w-full min-w-0">
                 <Select
@@ -336,7 +357,7 @@ function SortableItem({
               </div>
             </div>
           ) : (
-            // Fallback to input if no group items available
+            // Fallback: if no moduleGroupId, show manual input
             <Input
               value={item.code || ''}
               onChange={(e) => onUpdate({ code: e.target.value })}
@@ -448,8 +469,8 @@ function SortableItem({
           type="number"
           step="0.01"
           value={item.unitPrice}
-          onChange={(e) => onUpdate({ unitPrice: Number(e.target.value) })}
-          className="h-8 w-24 text-xs"
+          readOnly
+          className="h-8 w-24 text-xs bg-muted"
         />
       </TableCell>
       {groupIndex !== undefined && units && (
@@ -466,7 +487,7 @@ function SortableItem({
             }}
             disabled={isLoadingUnits}
           >
-            <SelectTrigger className="h-8 w-32 text-xs text-left">
+            <SelectTrigger className="h-8 w-20 text-xs text-left">
               <SelectValue placeholder="Unit" />
             </SelectTrigger>
             <SelectContent className="max-h-[300px]">
@@ -502,7 +523,7 @@ function SortableItem({
                   )
                   .map((unit) => (
                     <SelectItem key={unit.id} value={unit.id} className="text-left">
-                      {unit.symbol} - {unit.details}
+                      {unit.symbol}
                     </SelectItem>
                   ))}
                 {units.filter((unit) =>
@@ -520,6 +541,20 @@ function SortableItem({
           </Select>
         </TableCell>
       )}
+      <TableCell className="text-right w-32">
+        <Input
+          type="number"
+          step="0.01"
+          value={item.discount || ''}
+          onChange={(e) => {
+            const discount = e.target.value ? Number(e.target.value) : undefined;
+            onUpdate({ discount });
+          }}
+          placeholder="0.00"
+          className="h-8 w-24 text-xs text-right"
+          min="0"
+        />
+      </TableCell>
       <TableCell className="text-right font-semibold w-32">
         {formatCurrency(item.amount)}
       </TableCell>
@@ -536,21 +571,20 @@ function SortableItem({
       </TableCell>
     </TableRow>
   );
-}
+});
 
 export function QuotationItemsArea({
   sections,
   onSectionsChange,
 }: QuotationItemsAreaProps) {
   const dispatch = useAppDispatch();
+  
+  // Use custom hook for cached catalog data
+  const { items: catalogItems, categories, units, moduleGroups, isLoading: isCatalogLoading } = useCatalogData();
+  
   const [editingSection, setEditingSection] = useState<string | null>(null);
-  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
-  const [isLoadingItems, setIsLoadingItems] = useState(true);
-  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [categorySearch, setCategorySearch] = useState<{ [key: string]: string }>({});
-  const [moduleGroups, setModuleGroups] = useState<Array<{ id: string; code: string | null; description: string | null }>>([]);
   const [groupSearch, setGroupSearch] = useState<{ [key: string]: string }>({});
-  const [isLoadingModuleGroups, setIsLoadingModuleGroups] = useState(true);
   const [moduleGroupItems, setModuleGroupItems] = useState<{ [groupId: string]: Array<{
     id: string;
     sl: number;
@@ -565,8 +599,6 @@ export function QuotationItemsArea({
     quantity: number;
     itemId?: string;
   }> }>({});
-  const [units, setUnits] = useState<Array<{ id: string; symbol: string; details: string }>>([]);
-  const [isLoadingUnits, setIsLoadingUnits] = useState(true);
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -574,51 +606,48 @@ export function QuotationItemsArea({
     })
   );
 
-  // Fetch module groups
-  useEffect(() => {
-    const fetchModuleGroups = async () => {
-      try {
-        setIsLoadingModuleGroups(true);
-        const result = await getActiveGroups();
-        if (result.success && result.groups) {
-          setModuleGroups(result.groups.map(g => ({ id: g.id, code: g.code, description: g.description })));
-        }
-      } catch (error) {
-        console.error('Failed to fetch module groups:', error);
-      } finally {
-        setIsLoadingModuleGroups(false);
-      }
-    };
-    fetchModuleGroups();
-  }, []);
+  // Note: Catalog data (items, categories, units, module groups) is now fetched via useCatalogData hook
+  // This provides caching and request deduplication across all components
 
-  // Fetch units
-  useEffect(() => {
-    const fetchUnits = async () => {
-      try {
-        setIsLoadingUnits(true);
-        const result = await getActiveUnits();
-        if (result.success && result.units) {
-          setUnits(result.units);
-        }
-      } catch (error) {
-        console.error('Failed to fetch units:', error);
-      } finally {
-        setIsLoadingUnits(false);
-      }
-    };
-    fetchUnits();
-  }, []);
+  // Track baseUnit/baseUnitPrice changes using useMemo with stable serialization
+  // This is used as a dependency for the useEffect below to only run when baseUnit/baseUnitPrice actually change
+  const groupBaseUnitKeys = useMemo(() => {
+    // Create a stable string key instead of nested arrays to prevent unnecessary re-renders
+    return sections.map((section) => 
+      section.groups.map((group) => 
+        `${group.id}:${group.baseUnit || ''}:${group.baseUnitPrice || ''}`
+      ).join('|')
+    ).join('||');
+  }, [sections]);
 
-  // Load moduleGroupItems for groups that have moduleGroupId
+  // Previous groupBaseUnitKeys to detect actual changes
+  const prevGroupBaseUnitKeysRef = useRef<string>(groupBaseUnitKeys);
+
+  // Load moduleGroupItems for dropdown and baseUnit/baseUnitPrice as fallback for backward compatibility
+  // Note: baseUnit/baseUnitPrice should now be loaded from database via getQuotation,
+  // but we keep this as fallback for old quotations that don't have these values stored
   useEffect(() => {
+    // Guard: only run if groupBaseUnitKeys actually changed
+    if (prevGroupBaseUnitKeysRef.current === groupBaseUnitKeys) {
+      return;
+    }
+    prevGroupBaseUnitKeysRef.current = groupBaseUnitKeys;
+
     const loadModuleGroupItems = async () => {
-      const groupsToLoad: Array<{ groupId: string; moduleGroupId: string }> = [];
+      const groupsToLoad: Array<{ groupId: string; moduleGroupId: string; sectionIndex: number; groupIndex: number }> = [];
       
-      sections.forEach((section) => {
-        section.groups.forEach((group) => {
-          if (group.moduleGroupId && !moduleGroupItems[group.id]) {
-            groupsToLoad.push({ groupId: group.id, moduleGroupId: group.moduleGroupId });
+      sections.forEach((section, sectionIndex) => {
+        section.groups.forEach((group, groupIndex) => {
+          // Load module group items if not already loaded
+          // Also check if baseUnit/baseUnitPrice are missing (for backward compatibility)
+          if (group.moduleGroupId && 
+              (!moduleGroupItems[group.id] || group.baseUnit == null || group.baseUnitPrice == null)) {
+            groupsToLoad.push({ 
+              groupId: group.id, 
+              moduleGroupId: group.moduleGroupId,
+              sectionIndex,
+              groupIndex,
+            });
           }
         });
       });
@@ -626,12 +655,14 @@ export function QuotationItemsArea({
       if (groupsToLoad.length === 0) return;
       
       // Load all module groups in parallel
-      const loadPromises = groupsToLoad.map(async ({ groupId, moduleGroupId }) => {
+      const loadPromises = groupsToLoad.map(async ({ groupId, moduleGroupId, sectionIndex, groupIndex }) => {
         const result = await getModuleGroupById(moduleGroupId);
         if (result.success && result.group) {
           return {
             groupId,
-            items: result.group.items.map((item) => ({
+            sectionIndex,
+            groupIndex,
+            items: (result.group.items as any[]).map((item) => ({
               id: item.id,
               sl: item.sl,
               code: item.code || undefined,
@@ -642,9 +673,11 @@ export function QuotationItemsArea({
               unit: item.unit || undefined,
               unitPrice: item.unitPrice,
               amount: item.amount,
-              quantity: item.quantity,
+              quantity: item.quantity || 0,
               itemId: item.itemId || undefined,
             })),
+            baseUnit: result.group.baseUnit || null,
+            baseUnitPrice: result.group.baseUnitPrice || null,
           };
         }
         return null;
@@ -652,64 +685,274 @@ export function QuotationItemsArea({
       
       const results = await Promise.all(loadPromises);
       const newModuleGroupItems: typeof moduleGroupItems = {};
+      const groupsToUpdate: Array<{ sectionIndex: number; groupIndex: number; baseUnit: string | null; baseUnitPrice: number | null }> = [];
       
       results.forEach((result) => {
         if (result) {
+          // Always update module group items for dropdown
           newModuleGroupItems[result.groupId] = result.items;
+          // Only update baseUnit/baseUnitPrice if they're missing (backward compatibility)
+          groupsToUpdate.push({
+            sectionIndex: result.sectionIndex,
+            groupIndex: result.groupIndex,
+            baseUnit: result.baseUnit,
+            baseUnitPrice: result.baseUnitPrice,
+          });
         }
       });
       
       if (Object.keys(newModuleGroupItems).length > 0) {
         setModuleGroupItems((prev) => ({ ...prev, ...newModuleGroupItems }));
       }
+      
+      // Update groups with baseUnit and baseUnitPrice only if missing (backward compatibility)
+      // Early return to prevent unnecessary deep copies if no updates needed
+      if (groupsToUpdate.length === 0) return;
+      
+      // Only create deep copy when we actually need to update
+      // Create a deep copy of sections to avoid mutation errors
+      // Include categoryGroups and items for complete deep copy
+      const updated = sections.map((section) => ({
+        ...section,
+        groups: section.groups.map((group) => ({ 
+          ...group, 
+          items: group.items.map(item => ({ ...item }))
+        })),
+        items: section.items ? section.items.map(item => ({ ...item })) : [],
+        categoryGroups: section.categoryGroups ? section.categoryGroups.map((cg) => ({
+          ...cg,
+          items: cg.items.map(item => ({ ...item }))
+        })) : [],
+      }));
+      
+      groupsToUpdate.forEach(({ sectionIndex, groupIndex, baseUnit, baseUnitPrice }) => {
+        const group = updated[sectionIndex]?.groups[groupIndex];
+        // Only update if baseUnit or baseUnitPrice are null/undefined (not if they're empty string or 0)
+        if (group && (group.baseUnit == null || group.baseUnitPrice == null)) {
+          const oldBaseUnit = group.baseUnit;
+          const oldBaseUnitPrice = group.baseUnitPrice;
+          
+          updated[sectionIndex].groups[groupIndex] = {
+            ...group,
+            baseUnit: group.baseUnit ?? baseUnit,
+            baseUnitPrice: group.baseUnitPrice ?? baseUnitPrice,
+          };
+          
+          // If baseUnit/baseUnitPrice just became available, recalculate unitPrice for custom items with dimensions
+          const newBaseUnit = updated[sectionIndex].groups[groupIndex].baseUnit;
+          const newBaseUnitPrice = updated[sectionIndex].groups[groupIndex].baseUnitPrice;
+          
+          if ((oldBaseUnit == null || oldBaseUnitPrice == null) && 
+              newBaseUnit != null && newBaseUnitPrice != null && newBaseUnitPrice > 0) {
+            // Recalculate unitPrice for custom items that have dimensions
+            updated[sectionIndex].groups[groupIndex].items = group.items.map((item) => {
+              const isCustomItem = item.isCustomItem || !item.moduleGroupItemId;
+              if (isCustomItem && item.height && item.width && item.depth && 
+                  item.height > 0 && item.width > 0 && item.depth > 0) {
+                try {
+                  const baseUnitLower = newBaseUnit.toLowerCase();
+                  if (baseUnitLower === 'sqft' || baseUnitLower === 'sqm' || baseUnitLower === 'sqin') {
+                    const dimensionUnit = item.unit || 'mm';
+                    const widthIn = convertToInches(item.width, dimensionUnit);
+                    const depthIn = convertToInches(item.depth, dimensionUnit);
+                    const heightIn = convertToInches(item.height, dimensionUnit);
+                    
+                    const result = calculateKitchenModule({
+                      widthIn: widthIn,
+                      depthIn: depthIn,
+                      heightIn: heightIn,
+                      shelves: 0,
+                      unit: baseUnitLower as AreaUnit,
+                      unitPrice: newBaseUnitPrice,
+                      qty: 1,
+                    });
+                    
+                    const quantity = item.quantity || 0;
+                    const discount = item.discount || 0;
+                    
+                    return {
+                      ...item,
+                      unitPrice: result.perModule.cost,
+                      amount: Math.max(0, quantity * result.perModule.cost - discount),
+                    };
+                  }
+                } catch (error) {
+                  console.error('Error recalculating unit price for item:', error);
+                }
+              }
+              return item;
+            });
+          }
+        }
+      });
+      
+      // Use startTransition for non-urgent state update to prevent blocking UI
+      startTransition(() => {
+        onSectionsChange(updated);
+      });
     };
     
     loadModuleGroupItems();
+    // Use groupBaseUnitKeys instead of sections to only run when baseUnit/baseUnitPrice actually change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sections]);
+  }, [groupBaseUnitKeys, moduleGroupItems]);
 
-  // Fetch catalog items and categories from database
+  // Track if we've already processed initial load
+  const hasProcessedInitialLoad = useRef(false);
+  const prevRecalcGroupKeysRef = useRef<string>(groupBaseUnitKeys);
+
+  // Recalculate unitPrice for custom items with dimensions when sections load (for edit mode)
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoadingItems(true);
-        const [itemsResult, categoriesResult] = await Promise.all([
-          getActiveItemsForDropdown(),
-          getActiveCategories(),
-        ]);
-        
-        if (itemsResult.success) {
-          // Transform items to match CatalogItem interface
-          const transformedItems: CatalogItem[] = (itemsResult.items || []).map((item: {
-            id: string;
-            code: string;
-            description: string;
-            unitPrice: number;
-            categories?: Array<{ category: { id: string; name: string } }>;
-            unit: { id: string; symbol: string } | null;
-          }) => ({
-            ...item,
-            categories: item.categories?.map((ic) => ic.category) || [],
-          }));
-          setCatalogItems(transformedItems);
-        } else {
-          console.error('Error fetching items:', itemsResult.error);
-        }
-        
-        if (categoriesResult.success) {
-          setCategories(categoriesResult.categories);
-        } else {
-          console.error('Error fetching categories:', categoriesResult.error);
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setIsLoadingItems(false);
-      }
-    };
+    // Guard: skip if no sections or keys haven't changed
+    if (sections.length === 0 || prevRecalcGroupKeysRef.current === groupBaseUnitKeys) {
+      return;
+    }
+    prevRecalcGroupKeysRef.current = groupBaseUnitKeys;
 
-    fetchData();
-  }, []);
+    // Debounce recalculation to avoid rapid successive updates
+    const timer = setTimeout(() => {
+      console.log('[QuotationItemsArea] Recalculation useEffect triggered');
+      
+      let hasChanges = false;
+      const updated = sections.map((section) => {
+        const updatedGroups = section.groups.map((group) => {
+          // Only process groups that have baseUnit and baseUnitPrice
+          if (!group.baseUnit || !group.baseUnitPrice || group.baseUnitPrice <= 0) {
+            console.log('[QuotationItemsArea] Skipping group (no baseUnit/baseUnitPrice):', {
+              groupId: group.id,
+              description: group.description,
+              baseUnit: group.baseUnit,
+              baseUnitPrice: group.baseUnitPrice
+            });
+            return group;
+          }
+          
+          console.log('[QuotationItemsArea] Processing group for recalculation:', {
+            groupId: group.id,
+            description: group.description,
+            baseUnit: group.baseUnit,
+            baseUnitPrice: group.baseUnitPrice,
+            itemCount: group.items.length
+          });
+
+          const baseUnit = group.baseUnit.toLowerCase();
+          if (baseUnit !== 'sqft' && baseUnit !== 'sqm' && baseUnit !== 'sqin') {
+            return group;
+          }
+
+          const updatedItems = group.items.map((item) => {
+            // Check if this is a custom item (no moduleGroupItemId)
+            const isCustomItem = item.isCustomItem || !item.moduleGroupItemId;
+            
+            if (!isCustomItem) {
+              return item;
+            }
+
+            // Check if item has valid dimensions but unitPrice is 0, null, undefined, or NaN
+            const hasValidDimensions = item.height != null && item.width != null && item.depth != null &&
+              item.height > 0 && item.width > 0 && item.depth > 0;
+            
+            const needsRecalculation = hasValidDimensions && (
+              item.unitPrice === 0 || 
+              item.unitPrice == null || 
+              isNaN(item.unitPrice)
+            );
+
+            console.log('[QuotationItemsArea] Recalc check for item:', {
+              itemId: item.id,
+              description: item.description,
+              hasValidDimensions,
+              currentUnitPrice: item.unitPrice,
+              needsRecalculation
+            });
+
+            if (!needsRecalculation) {
+              return item;
+            }
+            
+            console.log('[QuotationItemsArea] Recalculating unitPrice for item:', item.id);
+
+            try {
+              const dimensionUnit = item.unit || 'mm';
+              const widthIn = convertToInches(item.width!, dimensionUnit);
+              const depthIn = convertToInches(item.depth!, dimensionUnit);
+              const heightIn = convertToInches(item.height!, dimensionUnit);
+
+              const result = calculateKitchenModule({
+                widthIn: widthIn,
+                depthIn: depthIn,
+                heightIn: heightIn,
+                shelves: 0,
+                unit: baseUnit as AreaUnit,
+                unitPrice: group.baseUnitPrice!,
+                qty: 1,
+              });
+
+              console.log('[QuotationItemsArea] Recalculation result:', {
+                result,
+                perModuleCost: result.perModule.cost,
+                totalCost: result.total.cost
+              });
+
+              const calculatedUnitPrice = result.perModule.cost;
+              const quantity = item.quantity || 0;
+              const discount = item.discount || 0;
+              const calculatedAmount = Math.max(0, quantity * calculatedUnitPrice - discount);
+
+              console.log('[QuotationItemsArea] ✅ Recalculation complete:', {
+                itemId: item.id,
+                oldUnitPrice: item.unitPrice,
+                newUnitPrice: calculatedUnitPrice,
+                newAmount: calculatedAmount
+              });
+
+              hasChanges = true;
+              return {
+                ...item,
+                unitPrice: calculatedUnitPrice,
+                amount: calculatedAmount,
+              };
+            } catch (error) {
+              if (process.env.NODE_ENV === 'development') {
+                console.error('Error recalculating unit price for item:', error);
+              }
+              return item;
+            }
+          });
+
+          if (updatedItems !== group.items) {
+            return {
+              ...group,
+              items: updatedItems,
+            };
+          }
+          return group;
+        });
+
+        if (updatedGroups !== section.groups) {
+          return {
+            ...section,
+            groups: updatedGroups,
+          };
+        }
+        return section;
+      });
+
+      if (hasChanges) {
+        hasProcessedInitialLoad.current = true;
+        // Use startTransition for non-urgent update
+        startTransition(() => {
+          onSectionsChange(updated);
+        });
+      }
+    }, 100); // 100ms debounce
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupBaseUnitKeys, sections]);
+
+  // Note: Catalog items and categories are now fetched in the consolidated initial data fetch above
+  // This duplicate fetch has been removed for better performance
 
   const generateId = () => `item-${Date.now()}-${Math.random()}`;
 
@@ -746,8 +989,10 @@ export function QuotationItemsArea({
     const newItem: QuotationItem = {
       id: generateId(),
       sl: 1,
+      no: undefined,
       unitPrice: 0,
       quantity: 1,
+      discount: 0,
       amount: 0,
     };
 
@@ -785,6 +1030,12 @@ export function QuotationItemsArea({
           const group = section.groups[groupIndex];
           const itemsInGroup = group.items.length;
           newItem.sl = itemsInGroup + 1;
+          // Explicitly set isCustomItem to false so dropdown shows for moduleGroup items
+          newItem.isCustomItem = false;
+          // Ensure no is string if provided
+          if (newItem.no !== undefined) {
+            newItem.no = newItem.no != null ? String(newItem.no) : undefined;
+          }
           
           updatedSection = {
             ...s,
@@ -805,6 +1056,10 @@ export function QuotationItemsArea({
         // Add to section directly
         const itemsInSection = section.items.length;
         newItem.sl = itemsInSection + 1;
+        // Ensure no is string if provided
+        if (newItem.no !== undefined) {
+          newItem.no = newItem.no != null ? String(newItem.no) : undefined;
+        }
         updatedSection = {
           ...s,
           items: [...s.items, newItem],
@@ -822,6 +1077,50 @@ export function QuotationItemsArea({
     onSectionsChange(updated);
   };
 
+  const addCustomItemToGroup = (sectionIndex: number, groupIndex: number) => {
+    const section = sections[sectionIndex];
+    const group = section.groups[groupIndex];
+    
+    const newItem: QuotationItem = {
+      id: generateId(),
+      sl: group.items.length + 1,
+      no: undefined,
+      unitPrice: 0, // Will be calculated when dimensions are entered
+      quantity: 1,
+      discount: 0,
+      amount: 0,
+      unit: group.baseUnit || undefined, // Set unit from group's baseUnit
+      isCustomItem: true, // Mark as custom item
+    };
+
+    const updated = sections.map((s, idx) => {
+      if (idx !== sectionIndex) return s;
+
+      const updatedSection = {
+        ...s,
+        groups: s.groups.map((g, gIdx) => {
+          if (gIdx !== groupIndex) return g;
+          const updatedItems = [...g.items, newItem];
+          return {
+            ...g,
+            items: updatedItems,
+            quantity: calculateGroupQuantity(updatedItems),
+          };
+        }),
+      };
+      
+      // Calculate totals for the updated section
+      const totals = calculateSectionTotals(updatedSection);
+      return {
+        ...updatedSection,
+        total: totals.total,
+        grandTotal: totals.grandTotal,
+      };
+    });
+
+    onSectionsChange(updated);
+  };
+
   const addGroupToSection = (sectionIndex: number) => {
     const section = sections[sectionIndex];
     const newGroup: ItemGroup = {
@@ -831,6 +1130,8 @@ export function QuotationItemsArea({
       items: [],
       quantity: 0,
       isExpanded: true,
+      baseUnit: null,
+      baseUnitPrice: null,
     };
     
     // Create deep copy with new group added
@@ -945,23 +1246,30 @@ export function QuotationItemsArea({
     categoryGroupIndex: number | undefined,
     updates: Partial<QuotationItem>
   ) => {
+    // Ensure 'no' field is always a string if provided
+    const normalizedUpdates = { ...updates };
+    if (normalizedUpdates.no !== undefined) {
+      normalizedUpdates.no = normalizedUpdates.no != null ? String(normalizedUpdates.no) : undefined;
+    }
+    
     const updated = sections.map((s, sIdx) => {
       if (sIdx !== sectionIndex) return s;
 
-      let updatedSection: Section;
+      let updatedSection: Section = s; // Initialize with current section
       if (categoryGroupIndex !== undefined) {
         // Update item in category group
         const categoryGroup = (s.categoryGroups || [])[categoryGroupIndex];
         const item = categoryGroup.items[itemIndex];
-        const updatedItem = { ...item, ...updates };
+        const updatedItem = { ...item, ...normalizedUpdates };
 
-        // Calculate amount based on dimensions
+        // Calculate amount based on dimensions and discount
         if (
           updates.unitPrice !== undefined ||
           updates.quantity !== undefined ||
           updates.height !== undefined ||
           updates.width !== undefined ||
-          updates.depth !== undefined
+          updates.depth !== undefined ||
+          updates.discount !== undefined
         ) {
           updatedItem.amount = calculateItemAmount(updatedItem);
         }
@@ -982,14 +1290,200 @@ export function QuotationItemsArea({
       } else if (groupIndex !== undefined) {
         const group = s.groups[groupIndex];
         const item = group.items[itemIndex];
-        const updatedItem = { ...item, ...updates };
+        const updatedItem = { ...item, ...normalizedUpdates };
 
-        // For group items: simple calculation = quantity × unitPrice
+        // Check if this is a custom item (isCustomItem flag or no moduleGroupItemId) and group has baseUnitPrice/baseUnit
+        const isCustomItem = updatedItem.isCustomItem || !updatedItem.moduleGroupItemId;
+        
+        // Enhanced guards for baseUnit/baseUnitPrice
+        const hasBasePrice = group.baseUnitPrice != null && 
+                            group.baseUnitPrice > 0 && 
+                            group.baseUnit != null && 
+                            group.baseUnit.trim() !== '';
+        
+        // Validate baseUnit is a valid area unit
+        const isValidBaseUnit = hasBasePrice && 
+                               group.baseUnit && 
+                               (group.baseUnit.toLowerCase() === 'sqft' || 
+                                group.baseUnit.toLowerCase() === 'sqm' || 
+                                group.baseUnit.toLowerCase() === 'sqin');
+
+        // PRODUCTION DEBUG: Log custom item detection
+        console.log('[QuotationItemsArea] updateItem - Custom item check:', {
+          itemId: updatedItem.id,
+          itemDescription: updatedItem.description,
+          isCustomItem,
+          hasModuleGroupItemId: !!updatedItem.moduleGroupItemId,
+          groupId: group.id,
+          groupDescription: group.description,
+          groupModuleGroupId: group.moduleGroupId,
+          groupBaseUnit: group.baseUnit,
+          groupBaseUnitPrice: group.baseUnitPrice,
+          hasBasePrice,
+          isValidBaseUnit,
+          itemDimensions: {
+            height: updatedItem.height,
+            width: updatedItem.width,
+            depth: updatedItem.depth
+          },
+          willCalculate: isCustomItem && isValidBaseUnit
+        });
+
+        // For custom items: auto-generate code from dimensions
+        if (isCustomItem && (
+          updates.height !== undefined ||
+          updates.width !== undefined ||
+          updates.depth !== undefined
+        )) {
+          const h = updatedItem.height;
+          const w = updatedItem.width;
+          const d = updatedItem.depth;
+          
+          // Auto-generate code from dimensions
+          if (h != null && w != null && d != null && h > 0 && w > 0 && d > 0) {
+            const generatedCode = generateItemCode(h, w, d);
+            updatedItem.code = generatedCode;
+            // Include code in updates to ensure it's saved
+            if (!updates.code) {
+              updates.code = generatedCode;
+            }
+          } else {
+            // Clear code if dimensions are incomplete
+            updatedItem.code = '';
+            if (!updates.code) {
+              updates.code = '';
+            }
+          }
+        }
+
+        // For custom items with baseUnitPrice: calculate unitPrice from dimensions and unit
+        // This should recalculate whenever dimensions or unit change, or when baseUnit/baseUnitPrice become available
+        if (isCustomItem && isValidBaseUnit) {
+          console.log('[QuotationItemsArea] Starting unitPrice calculation for custom item');
+          
+          const h = updatedItem.height;
+          const w = updatedItem.width;
+          const d = updatedItem.depth;
+          
+          // Check if dimensions changed
+          const dimensionsChanged = (
+            updates.height !== undefined ||
+            updates.width !== undefined ||
+            updates.depth !== undefined ||
+            updates.unit !== undefined
+          );
+          
+          // Check if all dimensions are present and valid
+          const hasValidDimensions = h != null && w != null && d != null && h > 0 && w > 0 && d > 0;
+          
+          // Recalculate if:
+          // 1. Dimensions changed AND all dimensions are valid, OR
+          // 2. Item has valid dimensions but unitPrice is 0, null, undefined, or NaN
+          const shouldRecalculate = hasValidDimensions && (
+            dimensionsChanged || 
+            updatedItem.unitPrice === 0 || 
+            updatedItem.unitPrice == null || 
+            isNaN(updatedItem.unitPrice)
+          );
+          
+          if (shouldRecalculate) {
+            console.log('[QuotationItemsArea] shouldRecalculate = true, proceeding with calculation');
+            
+            try {
+              // Additional safety checks before calculation
+              if (!group.baseUnit || !group.baseUnitPrice || group.baseUnitPrice <= 0) {
+                console.error('[QuotationItemsArea] Calculation blocked - invalid baseUnit/baseUnitPrice:', {
+                  baseUnit: group.baseUnit,
+                  baseUnitPrice: group.baseUnitPrice
+                });
+                return; // Skip calculation if baseUnit/baseUnitPrice are invalid
+              }
+              
+              const baseUnit = group.baseUnit.toLowerCase().trim() as AreaUnit;
+              
+              // Double-check baseUnit is valid
+              if (baseUnit !== 'sqft' && baseUnit !== 'sqm' && baseUnit !== 'sqin') {
+                return; // Invalid baseUnit, skip calculation
+              }
+              
+              // Validate dimensions are numbers
+              if (typeof w !== 'number' || typeof d !== 'number' || typeof h !== 'number' ||
+                  isNaN(w) || isNaN(d) || isNaN(h)) {
+                return; // Invalid dimensions, skip calculation
+              }
+              
+              // Convert dimensions to inches (calculateKitchenModule expects inches)
+              const dimensionUnit = updatedItem.unit || 'mm'; // Default to mm if no unit specified
+              const widthIn = convertToInches(w, dimensionUnit);
+              const depthIn = convertToInches(d, dimensionUnit);
+              const heightIn = convertToInches(h, dimensionUnit);
+              
+              console.log('[QuotationItemsArea] Calling calculateKitchenModule with:', {
+                baseUnit,
+                baseUnitPrice: group.baseUnitPrice,
+                dimensions: { heightIn, widthIn, depthIn }
+              });
+              
+              // Validate converted dimensions are valid
+              if (isNaN(widthIn) || isNaN(depthIn) || isNaN(heightIn) ||
+                  widthIn <= 0 || depthIn <= 0 || heightIn <= 0) {
+                return; // Invalid converted dimensions, skip calculation
+              }
+              
+              const result = calculateKitchenModule({
+                widthIn: widthIn,
+                depthIn: depthIn,
+                heightIn: heightIn,
+                shelves: 0,
+                unit: baseUnit,
+                unitPrice: group.baseUnitPrice,
+                qty: 1, // Calculate per module
+              });
+              
+              console.log('[QuotationItemsArea] calculateKitchenModule result:', {
+                result,
+                perModuleCost: result?.perModule?.cost,
+                totalCost: result?.total?.cost
+              });
+              
+              // Validate calculation result
+              if (result && result.perModule && typeof result.perModule.cost === 'number' && !isNaN(result.perModule.cost)) {
+                // Set unitPrice to the cost per module
+                const calculatedUnitPrice = result.perModule.cost;
+                console.log('[QuotationItemsArea] ✅ Setting calculated unitPrice:', calculatedUnitPrice);
+                updatedItem.unitPrice = calculatedUnitPrice;
+                // Include unitPrice in updates to ensure it triggers recalculation
+                updates.unitPrice = calculatedUnitPrice;
+              } else {
+                console.warn('[QuotationItemsArea] ❌ Invalid calculation result:', result);
+              }
+            } catch (error) {
+              console.error('[QuotationItemsArea] ❌ Error calculating custom item unit price:', error);
+              // Don't update unitPrice if calculation fails
+            }
+          } else {
+            console.log('[QuotationItemsArea] shouldRecalculate = false, skipping calculation. Reason:', {
+              hasValidDimensions,
+              dimensionsChanged,
+              currentUnitPrice: updatedItem.unitPrice,
+              shouldRecalculate
+            });
+          }
+        }
+
+        // For all group items: simple calculation = (unitPrice × quantity) - discount
         if (
           updates.unitPrice !== undefined ||
-          updates.quantity !== undefined
+          updates.quantity !== undefined ||
+          updates.discount !== undefined ||
+          updates.height !== undefined ||
+          updates.width !== undefined ||
+          updates.depth !== undefined ||
+          updates.unit !== undefined
         ) {
-          updatedItem.amount = (updatedItem.quantity || 0) * (updatedItem.unitPrice || 0);
+          const baseAmount = (updatedItem.quantity || 0) * (updatedItem.unitPrice || 0);
+          const discount = updatedItem.discount || 0;
+          updatedItem.amount = Math.max(0, baseAmount - discount);
         }
 
         updatedSection = {
@@ -1008,15 +1502,16 @@ export function QuotationItemsArea({
         };
       } else {
         const item = s.items[itemIndex];
-    const updatedItem = { ...item, ...updates };
+        const updatedItem = { ...item, ...normalizedUpdates };
 
-        // Calculate amount based on dimensions
+        // Calculate amount based on dimensions and discount
         if (
           updates.unitPrice !== undefined ||
           updates.quantity !== undefined ||
           updates.height !== undefined ||
           updates.width !== undefined ||
-          updates.depth !== undefined
+          updates.depth !== undefined ||
+          updates.discount !== undefined
         ) {
           updatedItem.amount = calculateItemAmount(updatedItem);
         }
@@ -1049,7 +1544,7 @@ export function QuotationItemsArea({
     const updated = sections.map((s, sIdx) => {
       if (sIdx !== sectionIndex) return s;
 
-      let updatedSection: Section;
+      let updatedSection: Section = s; // Initialize with current section
       if (categoryGroupIndex !== undefined) {
         // Remove item from category group
         updatedSection = {
@@ -1433,6 +1928,47 @@ export function QuotationItemsArea({
     }
   };
 
+  // Generate item code from H-W-D dimensions (format: "HH-WW-DD")
+  const generateItemCode = (height?: number, width?: number, depth?: number): string => {
+    const getFirstTwoDigits = (value?: number): string => {
+      if (!value || value <= 0) return "00";
+      const str = Math.floor(value).toString();
+      return str.length >= 2 ? str.substring(0, 2) : str.padStart(2, "0");
+    };
+
+    const h = getFirstTwoDigits(height);
+    const w = getFirstTwoDigits(width);
+    const d = getFirstTwoDigits(depth);
+    
+    return `${h}-${w}-${d}`;
+  };
+
+  // Convert dimension to inches based on unit
+  const convertToInches = (value: number, unit?: string): number => {
+    if (!unit) {
+      // Default to mm if no unit specified (common for dimensions)
+      return value / 25.4;
+    }
+    
+    const unitLower = unit.toLowerCase();
+    switch (unitLower) {
+      case 'mm':
+        return value / 25.4; // 1 inch = 25.4 mm
+      case 'cm':
+        return value / 2.54; // 1 inch = 2.54 cm
+      case 'm':
+        return value * 39.3701; // 1 m = 39.3701 inches
+      case 'inch':
+      case 'in':
+        return value; // Already in inches
+      case 'ft':
+        return value * 12; // 1 ft = 12 inches
+      default:
+        // Default to mm if unit is not recognized
+        return value / 25.4;
+    }
+  };
+
   // Calculate item amount based on dimensions
   const calculateItemAmount = (item: QuotationItem, isGroupItem: boolean = false): number => {
     const h = item.height;
@@ -1440,6 +1976,9 @@ export function QuotationItemsArea({
     const d = item.depth;
     const unitPrice = item.unitPrice || 0;
     const quantity = item.quantity || 0;
+    const discount = item.discount || 0;
+
+    let baseAmount = 0;
 
     // For group items, use kitchen module calculation if dimensions are present
     if (isGroupItem && h != null && w != null && d != null && h > 0 && w > 0 && d > 0) {
@@ -1456,24 +1995,26 @@ export function QuotationItemsArea({
             unitPrice: unitPrice,
             qty: quantity,
           });
-          return result.total.cost;
+          baseAmount = result.total.cost;
+        } else {
+          // If unit is not a valid area unit, fall back to standard calculation
+          baseAmount = h * w * d * unitPrice * quantity;
         }
-        // If unit is not a valid area unit, fall back to standard calculation
-        return h * w * d * unitPrice * quantity;
       } catch (error) {
         console.error('Error calculating kitchen module:', error);
         // Fall back to standard calculation on error
-        return h * w * d * unitPrice * quantity;
+        baseAmount = h * w * d * unitPrice * quantity;
       }
-    }
-
-    // If height, width, and depth are all present and non-zero, use: h * w * d * unitPrice * quantity
-    if (h != null && w != null && d != null && h > 0 && w > 0 && d > 0) {
-      return h * w * d * unitPrice * quantity;
+    } else if (h != null && w != null && d != null && h > 0 && w > 0 && d > 0) {
+      // If height, width, and depth are all present and non-zero, use: h * w * d * unitPrice * quantity
+      baseAmount = h * w * d * unitPrice * quantity;
+    } else {
+      // Otherwise: unitPrice * quantity
+      baseAmount = unitPrice * quantity;
     }
     
-    // Otherwise: unitPrice * quantity
-    return unitPrice * quantity;
+    // Apply item discount: subtract discount from base amount
+    return Math.max(0, baseAmount - discount);
   };
 
   // Calculate group quantity as sum of all item quantities
@@ -1706,7 +2247,7 @@ export function QuotationItemsArea({
                                               // Store moduleGroup items for later use in dropdown
                                               setModuleGroupItems(prev => ({
                                                 ...prev,
-                                                [group.id]: moduleGroup.items.map((item) => ({
+                                                [group.id]: (moduleGroup.items as any[]).map((item) => ({
                                                   id: item.id,
                                                   sl: item.sl,
                                                   code: item.code || undefined,
@@ -1717,16 +2258,18 @@ export function QuotationItemsArea({
                                                   unit: item.unit || undefined,
                                                   unitPrice: item.unitPrice,
                                                   amount: item.amount,
-                                                  quantity: item.quantity,
+                                                  quantity: item.quantity || 0,
                                                   itemId: item.itemId || undefined,
                                                 }))
                                               }));
                                               
-                                              // Update the group with ModuleGroup code and description only, keep existing items
+                                              // Update the group with ModuleGroup code, description, baseUnit, and baseUnitPrice, keep existing items
                                               updateGroup(sectionIndex, groupIndex, {
                                                 moduleGroupId: moduleGroupId,
                                                 code: moduleGroup.code || group.code,
                                                 description: moduleGroup.description || group.description,
+                                                baseUnit: moduleGroup.baseUnit || null,
+                                                baseUnitPrice: moduleGroup.baseUnitPrice || null,
                                                 isExpanded: true, // Auto-expand when ModuleGroup is selected
                                               });
                                             }
@@ -1739,10 +2282,12 @@ export function QuotationItemsArea({
                                             });
                                             updateGroup(sectionIndex, groupIndex, {
                                               moduleGroupId: null,
+                                              baseUnit: null,
+                                              baseUnitPrice: null,
                                             });
                                           }
                                         }}
-                                        disabled={isLoadingModuleGroups}
+                                        disabled={isCatalogLoading}
                                       >
                                         <SelectTrigger className="h-8 text-xs text-left flex-1">
                                           <SelectValue placeholder="Select Group">
@@ -1796,30 +2341,30 @@ export function QuotationItemsArea({
                                           </div>
                                         </SelectContent>
                                       </Select>
-                                    <Input
-                                      value={group.code || ''}
-                                      onChange={(e) =>
-                                          updateGroup(sectionIndex, groupIndex, {
-                                          code: e.target.value,
-                                        })
-                                      }
-                                      placeholder="Group Code"
-                                        className="h-8 text-xs w-32"
-                                    />
-                                      {group.isExpanded && (
-                                      <Button
-                                        type="button"
+                                    {group.isExpanded && (
+                                      <>
+                                        <Button
+                                          type="button"
                                           variant="outline"
-                                        size="sm"
-                                        onClick={() =>
-                                            addItemToSection(sectionIndex, group.id)
-                                        }
+                                          size="sm"
+                                          onClick={() => addItemToSection(sectionIndex, group.id)}
                                           className="h-8 text-xs"
-                                      >
+                                        >
                                           <FiPlus className="w-3 h-3 mr-1" />
                                           Add Item
-                                      </Button>
-                                      )}
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => addCustomItemToGroup(sectionIndex, groupIndex)}
+                                          className="h-8 text-xs"
+                                        >
+                                          <FiPlus className="w-3 h-3 mr-1" />
+                                          Custom Item
+                                        </Button>
+                                      </>
+                                    )}
                                           <Button
                                             type="button"
                                         variant="ghost"
@@ -1861,12 +2406,14 @@ export function QuotationItemsArea({
                                           <TableRow>
                                             <TableHead className="w-8"></TableHead>
                                             <TableHead className="w-12">SL</TableHead>
-                                            <TableHead>Code</TableHead>
+                                            <TableHead className="w-16">No</TableHead>
+                                            <TableHead className="min-w-[120px]">Code</TableHead>
                                             <TableHead>Description</TableHead>
                                             <TableHead className="w-56">Dimensions</TableHead>
                                             <TableHead className="w-24">Qty</TableHead>
                                             <TableHead className="w-32">Unit Price</TableHead>
                                             <TableHead className="w-32">Unit</TableHead>
+                                            <TableHead className="w-32 text-right">Discount</TableHead>
                                             <TableHead className="w-32 text-right">Amount</TableHead>
                                             <TableHead className="w-12"></TableHead>
                                           </TableRow>
@@ -1876,13 +2423,11 @@ export function QuotationItemsArea({
                                             <SortableItem
                                               key={item.id}
                                               item={item}
-                                              sectionIndex={sectionIndex}
-                                              itemIndex={itemIndex}
                                               groupIndex={groupIndex}
                                               catalogItems={catalogItems}
                                               sectionCategoryId={section.categoryId}
                                               units={units}
-                                              isLoadingUnits={isLoadingUnits}
+                                              isLoadingUnits={isCatalogLoading}
                                               groupModuleGroupItems={group.moduleGroupId ? moduleGroupItems[group.id] : undefined}
                                               groupModuleGroupId={group.moduleGroupId || null}
                                               onUpdate={(updates) =>
@@ -2055,7 +2600,7 @@ export function QuotationItemsArea({
                                           <TableRow>
                                             <TableHead className="w-8"></TableHead>
                                             <TableHead className="w-12">SL</TableHead>
-                                            <TableHead>Code</TableHead>
+                                            <TableHead className="min-w-[120px]">Code</TableHead>
                                             <TableHead>Description</TableHead>
                                             <TableHead className="w-56">Dimensions</TableHead>
                                             <TableHead className="w-24">Qty</TableHead>
@@ -2069,8 +2614,6 @@ export function QuotationItemsArea({
                                             <SortableItem
                                               key={item.id}
                                               item={item}
-                                              sectionIndex={sectionIndex}
-                                              itemIndex={itemIndex}
                                               catalogItems={catalogItems}
                                               sectionCategoryId={categoryGroup.categoryId}
                                               onUpdate={(updates) =>
@@ -2120,7 +2663,7 @@ export function QuotationItemsArea({
                                 <TableRow>
                                   <TableHead className="w-8"></TableHead>
                                   <TableHead className="w-12">SL</TableHead>
-                                  <TableHead>Code</TableHead>
+                                  <TableHead className="min-w-[120px]">Code</TableHead>
                                   <TableHead>Description</TableHead>
                                   <TableHead className="w-56">Dimensions</TableHead>
                                   <TableHead className="w-24">Qty</TableHead>
@@ -2134,8 +2677,6 @@ export function QuotationItemsArea({
                                   <SortableItem
                                     key={item.id}
                                     item={item}
-                                    sectionIndex={sectionIndex}
-                                    itemIndex={itemIndex}
                                     catalogItems={catalogItems}
                                     sectionCategoryId={section.categoryId}
                                     onUpdate={(updates) =>

@@ -1,25 +1,10 @@
-// prisma/schema.prisma
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
 generator client {
   provider = "prisma-client-js"
 }
 
-// ============================================
-// ENUMS
-// ============================================
-
-enum QuotationStatus {
-  DRAFT
-  SENT
-  ACCEPTED
-  REJECTED
-  EXPIRED
-  REVISED
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum AccountType {
@@ -45,52 +30,48 @@ enum CashBankAccountType {
 }
 
 model User {
-  id                   String         @id @default(cuid())
-  name                 String?
-  email                String         @unique
-  emailVerified        DateTime?
-  password             String
-  image                String?
-  role                 String         @default("user")
-  status               String         @default("active") // active, inactive, trash
-  designationTemplateId String?      // Reference to PermissionTemplate
-  permissions          Json?         // Cached merged permissions (template + overrides)
-  inchargeId           String?       // Reference to another User (self-referential)
-  incharge             User?         @relation("UserIncharge", fields: [inchargeId], references: [id], onDelete: SetNull)
-  inchargeOf           User[]        @relation("UserIncharge")
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
-  accounts             Account[]
-  sessions             Session[]
-  userLogs             UserLog[]
-  files                File[]
-  notifications        Notification[]
-  createdNotifications Notification[] @relation("NotificationCreator")
-  createdUnits         Unit[]         @relation("UnitCreator")
-  createdOrganizations Organization[] @relation("OrganizationCreator")
-  createdClients       Client[]       @relation("ClientCreator")
-  createdSuppliers     Supplier[]     @relation("SupplierCreator")
-  quotations           Quotation[]    @relation("SubmittedBy")
-  updatedQuotations    Quotation[]    @relation("UpdatedBy")
-  sections             Section[]      @relation("PreparedBy")
-  createdCoverLetters  CoverLetter[]  @relation("CoverLetterCreator")
-  createdModuleGroups  ModuleGroup[]  @relation("ModuleGroupCreator")
-  settings             Settings[]     @relation("SettingsUser")
-  createdSettings      Settings[]     @relation("SettingsCreator")
-  designationTemplate  PermissionTemplate? @relation("UserDesignationTemplate", fields: [designationTemplateId], references: [id], onDelete: SetNull)
-  userPermissions      UserPermission[]
-  
-  // Accounting module relations
-  createdChartOfAccounts ChartOfAccount[] @relation("ChartOfAccountCreator")
-  createdVouchers       Voucher[]        @relation("VoucherCreator")
-  postedVouchers        Voucher[]        @relation("VoucherPostedBy")
-  vouchersAsUser        Voucher[]        @relation("VoucherUser")
-  voucherLinesAsUser    VoucherLine[]    @relation("VoucherLineUser")
-  journalEntryLinesAsUser JournalEntryLine[] @relation("JournalEntryLineUser")
-  createdCashBankAccounts CashBankAccount[] @relation("CashBankAccountCreator")
-  
-  // Employee relation (optional one-to-one)
-  employee              Employee?         @relation("UserEmployee")
+  id                               String              @id @default(cuid())
+  name                             String?
+  email                            String              @unique
+  emailVerified                    DateTime?
+  password                         String
+  image                            String?
+  role                             String              @default("user")
+  status                           String              @default("active")
+  createdAt                        DateTime            @default(now())
+  updatedAt                        DateTime            @updatedAt
+  designationTemplateId            String?
+  permissions                      Json?
+  inchargeId                       String?
+  accounts                         Account[]
+  CashBankAccount                  CashBankAccount[]
+  ChartOfAccount                   ChartOfAccount[]
+  createdClients                   Client[]            @relation("ClientCreator")
+  createdCoverLetters              CoverLetter[]       @relation("CoverLetterCreator")
+  Employee                         Employee?
+  files                            File[]
+  JournalEntryLine                 JournalEntryLine[]
+  createdModuleGroups              ModuleGroup[]       @relation("ModuleGroupCreator")
+  createdNotifications             Notification[]      @relation("NotificationCreator")
+  notifications                    Notification[]
+  createdOrganizations             Organization[]      @relation("OrganizationCreator")
+  quotations                       Quotation[]         @relation("SubmittedBy")
+  updatedQuotations                Quotation[]         @relation("UpdatedBy")
+  sections                         Section[]           @relation("PreparedBy")
+  sessions                         Session[]
+  createdSuppliers                 Supplier[]          @relation("SupplierCreator")
+  createdUnits                     Unit[]              @relation("UnitCreator")
+  designationTemplate              PermissionTemplate? @relation("UserDesignationTemplate", fields: [designationTemplateId], references: [id])
+  incharge                         User?               @relation("UserIncharge", fields: [inchargeId], references: [id])
+  inchargeOf                       User[]              @relation("UserIncharge")
+  userLogs                         UserLog[]
+  userPermissions                  UserPermission[]
+  Voucher_Voucher_createdByToUser  Voucher[]           @relation("Voucher_createdByToUser")
+  Voucher_Voucher_postedByIdToUser Voucher[]           @relation("Voucher_postedByIdToUser")
+  Voucher_Voucher_userIdToUser     Voucher[]           @relation("Voucher_userIdToUser")
+  VoucherLine                      VoucherLine[]
+  createdSettings                  Settings[]          @relation("SettingsCreator")
+  settings                         Settings[]          @relation("SettingsUser")
 
   @@index([status])
   @@index([designationTemplateId])
@@ -129,15 +110,14 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -175,9 +155,9 @@ model UserLog {
   id        String   @id @default(cuid())
   userId    String
   action    String
-  details   String?  @db.Text
+  details   String?
   ipAddress String?
-  userAgent String?  @db.Text
+  userAgent String?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -206,27 +186,18 @@ model File {
   @@index([createdAt])
 }
 
-enum NotificationType {
-  SYSTEM
-  ADMIN
-  INFO
-  WARNING
-  ERROR
-  SUCCESS
-}
-
 model Notification {
   id        String           @id @default(cuid())
   title     String
   message   String
   type      NotificationType
-  userId    String? // null = broadcast to all users
-  user      User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String?
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
   readAt    DateTime?
-  createdBy String? // User ID who created the notification (null = system)
-  creator   User?            @relation("NotificationCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdBy String?
+  creator   User?            @relation("NotificationCreator", fields: [createdBy], references: [id])
+  user      User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([isRead])
@@ -239,37 +210,35 @@ model Unit {
   id        String   @id @default(cuid())
   details   String
   symbol    String   @unique
-  status    String   @default("active") // active, inactive, trash
+  status    String   @default("active")
   createdBy String
-  creator   User     @relation("UnitCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   items     Item[]   @relation("unit")
+  creator   User     @relation("UnitCreator", fields: [createdBy], references: [id], onDelete: Cascade)
 
   @@index([status])
   @@index([createdBy])
 }
 
 model Organization {
-  id         String      @id @default(cuid())
-  name       String
-  details    String?
-  address    String?
-  phone      String?
-  email      String?
-  website    String?
-  logo       String?
-  status     String      @default("active") // active, inactive, trash
-  createdBy  String
-  creator    User        @relation("OrganizationCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  quotations Quotation[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  
-  // Accounting module relations
-  vouchers      Voucher[]      @relation
-  voucherLines  VoucherLine[]  @relation("VoucherLineOrganization")
-  journalEntryLines JournalEntryLine[] @relation("JournalEntryLineOrganization")
+  id               String             @id @default(cuid())
+  name             String
+  details          String?
+  address          String?
+  phone            String?
+  email            String?
+  website          String?
+  logo             String?
+  status           String             @default("active")
+  createdBy        String
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  JournalEntryLine JournalEntryLine[]
+  creator          User               @relation("OrganizationCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  quotations       Quotation[]
+  Voucher          Voucher[]
+  VoucherLine      VoucherLine[]
 
   @@index([status])
   @@index([createdBy])
@@ -280,29 +249,28 @@ model Category {
   id             String          @id @default(cuid())
   name           String
   description    String?
-  status         String          @default("active") // active, inactive, trash
+  status         String          @default("active")
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
-  items          ItemCategory[]
   categoryGroups CategoryGroup[]
+  items          ItemCategory[]
 
   @@index([name])
   @@index([status])
 }
 
 model Item {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  description String
-  unitId      String
-  unit        Unit     @relation("unit", fields: [unitId], references: [id], onDelete: Restrict)
-  unitPrice   Decimal  @db.Decimal(10, 2)
-  costPrice   Decimal  @default(0) @db.Decimal(10, 2)
-  image       String?
-  status      String   @default("active") // active, inactive, trash
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  id             String          @id @default(cuid())
+  code           String          @unique
+  description    String
+  unitId         String
+  unitPrice      Decimal         @db.Decimal(10, 2)
+  costPrice      Decimal         @default(0) @db.Decimal(10, 2)
+  image          String?
+  status         String          @default("active")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  unit           Unit            @relation("unit", fields: [unitId], references: [id])
   categories     ItemCategory[]
   quotationItems QuotationItem[]
 
@@ -311,54 +279,42 @@ model Item {
   @@index([status])
 }
 
-// Module Group (Template/Preset for quotation groups)
 model ModuleGroup {
-  id          String   @id @default(cuid())
-  code        String? // Optional code
-  description String?  @db.Text
-  sortOrder   Int      @default(0)
-  status      String   @default("active") // active, inactive, trash
-  createdBy   String
-  creator     User     @relation("ModuleGroupCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  items ModuleGroupItem[]
+  id            String            @id @default(cuid())
+  code          String?
+  description   String?
+  sortOrder     Int               @default(0)
+  status        String            @default("active")
+  createdBy     String
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  baseUnit      String?
+  baseUnitPrice Decimal?          @db.Decimal(10, 2)
+  creator       User              @relation("ModuleGroupCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  items         ModuleGroupItem[]
 
   @@index([status])
   @@index([createdBy])
 }
 
-// Module Group Item (Template items within a module group)
 model ModuleGroupItem {
-  id          String  @id @default(cuid())
-  sl          Int // Serial number/line number
-  code        String? // Can override or use catalog code
-  description String? // Can override catalog description
-
-  // Dimensions
-  height Decimal? @db.Decimal(10, 2)
-  width  Decimal? @db.Decimal(10, 2)
-  depth  Decimal? @db.Decimal(10, 2)
-
-  unit          String? // Unit of measurement
-  baseUnit      String? // Base unit for price calculation (sqm, sqft)
-  baseUnitPrice Decimal? @db.Decimal(10, 2) // Price per base unit
-  unitPrice     Decimal  @db.Decimal(10, 2)
-  amount        Decimal  @db.Decimal(12, 2) // Total amount for this item
-
-  sortOrder Int @default(0)
-
-  // Deprecated: kept for backward compatibility, will be removed in migration
-  quantity Decimal? @db.Decimal(10, 2)
-
-  moduleGroupId String
-  moduleGroup   ModuleGroup @relation(fields: [moduleGroupId], references: [id], onDelete: Cascade)
-
-  quotationItems QuotationItem[] // Items in quotations that reference this template
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String          @id @default(cuid())
+  sl             Int
+  code           String?
+  description    String?
+  height         Decimal?        @db.Decimal(10, 2)
+  width          Decimal?        @db.Decimal(10, 2)
+  depth          Decimal?        @db.Decimal(10, 2)
+  unit           String?
+  unitPrice      Decimal         @db.Decimal(10, 2)
+  amount         Decimal         @db.Decimal(12, 2)
+  sortOrder      Int             @default(0)
+  quantity       Decimal?        @db.Decimal(10, 2)
+  moduleGroupId  String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  moduleGroup    ModuleGroup     @relation(fields: [moduleGroupId], references: [id], onDelete: Cascade)
+  quotationItems QuotationItem[]
 
   @@index([moduleGroupId])
 }
@@ -367,9 +323,9 @@ model ItemCategory {
   id         String   @id @default(cuid())
   itemId     String
   categoryId String
-  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@unique([itemId, categoryId])
   @@index([itemId])
@@ -377,112 +333,95 @@ model ItemCategory {
 }
 
 model Client {
-  id            String      @id @default(cuid())
-  name          String?
-  clientCode    String?     @unique
-  email         String      @unique
-  phone         String?
-  address       String?
-  city          String?
-  state         String?
-  zip           String?
-  country       String?
-  company       String?
-  image         String?
-  createdBy     String
-  createdByUser User        @relation("ClientCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  status        String      @default("active") // active, inactive, trash
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  Quotation     Quotation[]
-  
-  // Accounting module relations
+  id               String             @id @default(cuid())
+  name             String?
+  email            String             @unique
+  phone            String?
+  address          String?
+  city             String?
+  state            String?
+  zip              String?
+  country          String?
+  company          String?
+  image            String?
+  createdBy        String
+  status           String             @default("active")
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
   chartOfAccountId String?
-  chartOfAccount   ChartOfAccount? @relation("ClientChartOfAccount", fields: [chartOfAccountId], references: [id], onDelete: SetNull)
-  vouchers      Voucher[]      @relation
-  voucherLines  VoucherLine[]  @relation("VoucherLineClient")
-  journalEntryLines JournalEntryLine[] @relation("JournalEntryLineClient")
+  clientCode       String?            @unique
+  ChartOfAccount   ChartOfAccount?    @relation(fields: [chartOfAccountId], references: [id])
+  createdByUser    User               @relation("ClientCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  JournalEntryLine JournalEntryLine[]
+  Quotation        Quotation[]
+  Voucher          Voucher[]
+  VoucherLine      VoucherLine[]
 
   @@index([status])
   @@index([createdBy])
   @@index([email])
-  @@index([clientCode])
   @@index([chartOfAccountId])
+  @@index([clientCode])
 }
 
 model Supplier {
-  id            String   @id @default(cuid())
-  name          String?
-  supplierCode  String?  @unique
-  email         String   @unique
-  phone         String?
-  address       String?
-  city          String?
-  state         String?
-  zip           String?
-  country       String?
-  company       String?
-  image         String?
-  createdBy     String
-  createdByUser User     @relation("SupplierCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  status        String   @default("active") // active, inactive, trash
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  // Accounting module relations
+  id               String             @id @default(cuid())
+  name             String?
+  email            String             @unique
+  phone            String?
+  address          String?
+  city             String?
+  state            String?
+  zip              String?
+  country          String?
+  company          String?
+  image            String?
+  createdBy        String
+  status           String             @default("active")
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
   chartOfAccountId String?
-  chartOfAccount   ChartOfAccount? @relation("SupplierChartOfAccount", fields: [chartOfAccountId], references: [id], onDelete: SetNull)
-  vouchers      Voucher[]      @relation
-  voucherLines  VoucherLine[]  @relation("VoucherLineSupplier")
-  journalEntryLines JournalEntryLine[] @relation("JournalEntryLineSupplier")
+  supplierCode     String?            @unique
+  JournalEntryLine JournalEntryLine[]
+  ChartOfAccount   ChartOfAccount?    @relation(fields: [chartOfAccountId], references: [id])
+  createdByUser    User               @relation("SupplierCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  Voucher          Voucher[]
+  VoucherLine      VoucherLine[]
 
   @@index([status])
   @@index([createdBy])
   @@index([email])
-  @@index([supplierCode])
   @@index([chartOfAccountId])
+  @@index([supplierCode])
 }
 
-// ============================================
-// QUOTATIONS
-// ============================================
-
-// Main Quotation model
 model Quotation {
   id                 String          @id @default(cuid())
-  quotationNumber    String          @unique // Auto-generated quotation number
+  quotationNumber    String          @unique
   subject            String
   date               DateTime        @default(now())
-  coverLetter        String?         @db.Text
-  financialStatement String?         @db.Text
-  tos                String?         @db.Text // Terms of Service
+  coverLetter        String?
+  financialStatement String?
+  tos                String?
   total              Decimal?        @db.Decimal(12, 2)
-  discount           Decimal?        @db.Decimal(5, 2) // Percentage discount
+  discount           Decimal?        @db.Decimal(5, 2)
   grandTotal         Decimal?        @db.Decimal(12, 2)
-  status             QuotationStatus @default(DRAFT) // DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED, REVISED
-
-  clientId String
-  client   Client @relation(fields: [clientId], references: [id])
-
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-
-  submittedById String
-  submittedBy   User   @relation("SubmittedBy", fields: [submittedById], references: [id])
-
-  updatedById String?
-  updatedBy   User?   @relation("UpdatedBy", fields: [updatedById], references: [id])
-
-  // Additional fields
-  shippingCharges Decimal? @db.Decimal(10, 2)
-  vatIncluded     Boolean? @default(false)
-  projectLocation String?
-  isTrash         Boolean  @default(false) // Trash management - true if in trash
-
-  section Section[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  status             QuotationStatus @default(DRAFT)
+  clientId           String
+  organizationId     String?
+  submittedById      String
+  updatedById        String?
+  shippingCharges    Decimal?        @db.Decimal(10, 2)
+  vatIncluded        Boolean?        @default(false)
+  projectLocation    String?
+  isTrash            Boolean         @default(false)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  client             Client          @relation(fields: [clientId], references: [id])
+  organization       Organization?   @relation(fields: [organizationId], references: [id])
+  submittedBy        User            @relation("SubmittedBy", fields: [submittedById], references: [id])
+  updatedBy          User?           @relation("UpdatedBy", fields: [updatedById], references: [id])
+  section            Section[]
 
   @@index([clientId])
   @@index([organizationId])
@@ -492,113 +431,92 @@ model Quotation {
   @@index([isTrash])
 }
 
-// Section within a quotation (e.g., different sections/phases)
 model Section {
-  id         String   @id @default(cuid())
-  title      String
-  note       String?  @db.Text
-  discount   Decimal? @db.Decimal(5, 2) // Percentage discount
-  total      Decimal? @db.Decimal(12, 2)
-  grandTotal Decimal? @db.Decimal(12, 2)
-  sortOrder  Int      @default(0)
-  categoryId String?
-
-  quotationId String
-  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-
-  preparedById String?
-  preparedBy   User?   @relation("PreparedBy", fields: [preparedById], references: [id])
-
-  groups         ItemGroup[]
+  id             String          @id @default(cuid())
+  title          String
+  note           String?
+  discount       Decimal?        @db.Decimal(5, 2)
+  total          Decimal?        @db.Decimal(12, 2)
+  grandTotal     Decimal?        @db.Decimal(12, 2)
+  sortOrder      Int             @default(0)
+  categoryId     String?
+  quotationId    String
+  preparedById   String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   categoryGroups CategoryGroup[]
-  items          QuotationItem[] // Direct items not in groups
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  groups         ItemGroup[]
+  items          QuotationItem[]
+  preparedBy     User?           @relation("PreparedBy", fields: [preparedById], references: [id])
+  quotation      Quotation       @relation(fields: [quotationId], references: [id], onDelete: Cascade)
 
   @@index([quotationId])
 }
 
-// Item Group (optional grouping within a module)
 model ItemGroup {
-  id            String   @id @default(cuid())
+  id            String          @id @default(cuid())
   code          String?
   description   String
-  quantity      Decimal? @db.Decimal(10, 2) // Group-level quantity if applicable
-  number        Int? // Additional number field
-  sortOrder     Int      @default(0)
-  moduleGroupId String? // Reference to ModuleGroup template
-
-  sectionId String
-  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-
-  items QuotationItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  quantity      Decimal?        @db.Decimal(10, 2)
+  number        Int?
+  sortOrder     Int             @default(0)
+  moduleGroupId String?
+  baseUnit      String?
+  baseUnitPrice Decimal?        @db.Decimal(10, 2)
+  sectionId     String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  section       Section         @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  items         QuotationItem[]
 
   @@index([sectionId])
 }
 
-// Category Group (grouping items by category within a section)
 model CategoryGroup {
-  id         String    @id @default(cuid())
+  id         String          @id @default(cuid())
   categoryId String?
-  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  sortOrder  Int       @default(0)
-
-  sectionId String
-  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-
-  items QuotationItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  sortOrder  Int             @default(0)
+  sectionId  String
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  category   Category?       @relation(fields: [categoryId], references: [id])
+  section    Section         @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  items      QuotationItem[]
 
   @@index([sectionId])
   @@index([categoryId])
 }
 
-// Quotation Item (links Item catalog to quotation with specific details)
 model QuotationItem {
-  id          String  @id @default(cuid())
-  sl          Int // Serial number/line number
-  code        String? // Can override or use catalog code
-  description String? // Can override catalog description
-
-  // Dimensions
-  height Decimal? @db.Decimal(10, 2)
-  width  Decimal? @db.Decimal(10, 2)
-  depth  Decimal? @db.Decimal(10, 2)
-
-  unit         String? // Unit of measurement
-  unitPrice    Decimal  @db.Decimal(10, 2)
-  quantity     Decimal  @db.Decimal(10, 2)
-  unitShutter  Decimal? @db.Decimal(10, 2) // Shutters per unit
-  totalShutter Decimal? @db.Decimal(10, 2) // Total shutters (calculated)
-  amount       Decimal  @db.Decimal(12, 2) // Total amount for this item
-
-  note      String? @db.Text
-  sortOrder Int     @default(0)
-
-  itemId String? // Optional: reference to catalog item
-  item   Item?   @relation(fields: [itemId], references: [id])
-
-  moduleGroupItemId String? // Optional: reference to ModuleGroupItem template
-  moduleGroupItem   ModuleGroupItem? @relation(fields: [moduleGroupItemId], references: [id], onDelete: SetNull)
-
-  // Item can be directly in section, in a group, or in a category group
-  sectionId String?
-  section   Section? @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-
-  groupId String?
-  group   ItemGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
-
-  categoryGroupId String?
-  categoryGroup   CategoryGroup? @relation(fields: [categoryGroupId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String           @id @default(cuid())
+  sl                Int
+  no                String?
+  code              String?
+  description       String?
+  height            Decimal?         @db.Decimal(10, 2)
+  width             Decimal?         @db.Decimal(10, 2)
+  depth             Decimal?         @db.Decimal(10, 2)
+  unit              String?
+  unitPrice         Decimal          @db.Decimal(10, 2)
+  quantity          Decimal          @db.Decimal(10, 2)
+  unitShutter       Decimal?         @db.Decimal(10, 2)
+  totalShutter      Decimal?         @db.Decimal(10, 2)
+  discount          Decimal?         @db.Decimal(10, 2)
+  amount            Decimal          @db.Decimal(12, 2)
+  note              String?
+  sortOrder         Int              @default(0)
+  itemId            String?
+  moduleGroupItemId String?
+  sectionId         String?
+  groupId           String?
+  categoryGroupId   String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  categoryGroup     CategoryGroup?   @relation(fields: [categoryGroupId], references: [id], onDelete: Cascade)
+  group             ItemGroup?       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  item              Item?            @relation(fields: [itemId], references: [id])
+  moduleGroupItem   ModuleGroupItem? @relation(fields: [moduleGroupItemId], references: [id])
+  section           Section?         @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
   @@index([itemId])
   @@index([sectionId])
@@ -607,51 +525,38 @@ model QuotationItem {
   @@index([moduleGroupItemId])
 }
 
-// ============================================
-// COVER LETTERS
-// ============================================
-
 model CoverLetter {
   id        String   @id @default(cuid())
   title     String
-  content   String   @db.Text
-  status    String   @default("active") // active, inactive, trash
+  content   String
+  status    String   @default("active")
   createdBy String
-  creator   User     @relation("CoverLetterCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  creator   User     @relation("CoverLetterCreator", fields: [createdBy], references: [id], onDelete: Cascade)
 
   @@index([status])
   @@index([createdBy])
   @@index([title])
 }
 
-//SETTING DATA FOR MODULES
 model Settings {
-  id     String  @id @default(cuid())
-  userId String? @map("user_id") // NULL = global/system settings
+  id           String   @id @default(cuid())
+  userId       String?  @map("user_id")
+  title        String   @db.VarChar(255)
+  code         String   @db.VarChar(100)
+  category     String   @db.VarChar(100)
+  settings     Json
+  isActive     Boolean  @default(true) @map("is_active")
+  isDefault    Boolean  @default(false) @map("is_default")
+  isGlobal     Boolean  @default(false) @map("is_global")
+  displayOrder Int      @default(0) @map("display_order")
+  createdBy    String?  @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+  creator      User?    @relation("SettingsCreator", fields: [createdBy], references: [id])
+  user         User?    @relation("SettingsUser", fields: [userId], references: [id], onDelete: Cascade)
 
-  title    String @db.VarChar(255)
-  code     String @db.VarChar(100)
-  category String @db.VarChar(100)
-
-  settings Json @db.JsonB
-
-  isActive  Boolean @default(true) @map("is_active")
-  isDefault Boolean @default(false) @map("is_default")
-  isGlobal  Boolean @default(false) @map("is_global") // TRUE = system-wide, FALSE = user-specific
-
-  displayOrder Int @default(0) @map("display_order")
-
-  createdBy String?  @map("created_by")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
-
-  // Relations
-  user    User? @relation("SettingsUser", fields: [userId], references: [id], onDelete: Cascade)
-  creator User? @relation("SettingsCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-
-  // Indexes
   @@index([userId])
   @@index([code])
   @@index([category])
@@ -662,16 +567,11 @@ model Settings {
   @@map("settings")
 }
 
-// ============================================
-// PERMISSIONS
-// ============================================
-
-// Permission Template (Designation templates like Manager, Sales Executive, etc.)
 model PermissionTemplate {
   id          String   @id @default(cuid())
   name        String   @unique
-  description String?  @db.Text
-  permissions Json     // JSON object: { "module": ["operation1", "operation2"] }
+  description String?
+  permissions Json
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -681,12 +581,11 @@ model PermissionTemplate {
   @@index([name])
 }
 
-// User Permission Overrides (Per-user permission overrides)
 model UserPermission {
   id         String   @id @default(cuid())
   userId     String
-  module     String   // Module name (e.g., "items", "quotations")
-  operations Json     // JSON array of operations: ["create", "read", "update", "delete"]
+  module     String
+  operations Json
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -696,13 +595,12 @@ model UserPermission {
   @@index([module])
 }
 
-// Module Operation Definitions (Defines available operations per module)
 model ModuleOperation {
   id          String   @id @default(cuid())
   module      String
-  operation   String   // Operation name (e.g., "create", "read", "update", "delete", "export", "import")
-  label       String   // Display label
-  description String?  @db.Text
+  operation   String
+  label       String
+  description String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -712,176 +610,227 @@ model ModuleOperation {
   @@index([isActive])
 }
 
-// ============================================
-// ACCOUNTING MODELS
-// ============================================
+model CashBankAccount {
+  id               String              @id
+  chartOfAccountId String              @unique
+  type             CashBankAccountType
+  status           String              @default("active")
+  createdBy        String
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime
+  ChartOfAccount   ChartOfAccount      @relation(fields: [chartOfAccountId], references: [id], onDelete: Cascade)
+  User             User                @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([chartOfAccountId])
+  @@index([createdBy])
+  @@index([status])
+  @@index([type])
+}
 
 model ChartOfAccount {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  name        String
-  type        AccountType
-  parentId    String?
-  parent      ChartOfAccount? @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children    ChartOfAccount[] @relation("AccountHierarchy")
-  description String?  @db.Text
-  status      String   @default("active") // active, inactive, trash
-  createdBy   String
-  creator     User     @relation("ChartOfAccountCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  voucherLines      VoucherLine[]
-  journalEntryLines JournalEntryLine[]
-  cashBankAccount   CashBankAccount?
-  clients           Client[] @relation("ClientChartOfAccount")
-  suppliers         Supplier[] @relation("SupplierChartOfAccount")
-  employeesSalaryPayable Employee[] @relation("EmployeeSalaryPayable")
-  employeesAdvance       Employee[] @relation("EmployeeAdvance")
+  id                                                       String             @id
+  code                                                     String             @unique
+  name                                                     String
+  type                                                     AccountType
+  parentId                                                 String?
+  description                                              String?
+  status                                                   String             @default("active")
+  createdBy                                                String
+  createdAt                                                DateTime           @default(now())
+  updatedAt                                                DateTime
+  CashBankAccount                                          CashBankAccount?
+  User                                                     User               @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  ChartOfAccount                                           ChartOfAccount?    @relation("ChartOfAccountToChartOfAccount", fields: [parentId], references: [id])
+  other_ChartOfAccount                                     ChartOfAccount[]   @relation("ChartOfAccountToChartOfAccount")
+  Client                                                   Client[]
+  Employee_Employee_advanceAccountIdToChartOfAccount       Employee[]         @relation("Employee_advanceAccountIdToChartOfAccount")
+  Employee_Employee_salaryPayableAccountIdToChartOfAccount Employee[]         @relation("Employee_salaryPayableAccountIdToChartOfAccount")
+  JournalEntryLine                                         JournalEntryLine[]
+  Supplier                                                 Supplier[]
+  VoucherLine                                              VoucherLine[]
 
   @@index([code])
-  @@index([type])
+  @@index([createdBy])
   @@index([parentId])
   @@index([status])
-  @@index([createdBy])
-}
-
-model CashBankAccount {
-  id                String              @id @default(cuid())
-  chartOfAccountId  String              @unique
-  chartOfAccount    ChartOfAccount      @relation(fields: [chartOfAccountId], references: [id], onDelete: Cascade)
-  type              CashBankAccountType
-  status            String              @default("active") // active, inactive, trash
-  createdBy         String
-  creator           User                @relation("CashBankAccountCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-
-  @@index([chartOfAccountId])
   @@index([type])
-  @@index([status])
-  @@index([createdBy])
 }
 
-model Voucher {
-  id            String      @id @default(cuid())
-  voucherNumber String      @unique
-  date          DateTime    @default(now())
-  type          VoucherType
-  reference     String?
-  description   String?     @db.Text
-  status        String      @default("draft") // draft, posted, cancelled
-  createdBy     String
-  creator       User        @relation("VoucherCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  postedById    String?
-  postedBy      User?       @relation("VoucherPostedBy", fields: [postedById], references: [id], onDelete: SetNull)
-  postedAt      DateTime?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+model Employee {
+  id                                                             String          @id
+  name                                                           String
+  employeeCode                                                   String?         @unique
+  userId                                                         String?         @unique
+  status                                                         String          @default("active")
+  createdAt                                                      DateTime        @default(now())
+  updatedAt                                                      DateTime
+  salaryPayableAccountId                                         String?
+  advanceAccountId                                               String?
+  email                                                          String?
+  phone                                                          String?
+  ChartOfAccount_Employee_advanceAccountIdToChartOfAccount       ChartOfAccount? @relation("Employee_advanceAccountIdToChartOfAccount", fields: [advanceAccountId], references: [id])
+  ChartOfAccount_Employee_salaryPayableAccountIdToChartOfAccount ChartOfAccount? @relation("Employee_salaryPayableAccountIdToChartOfAccount", fields: [salaryPayableAccountId], references: [id])
+  User                                                           User?           @relation(fields: [userId], references: [id])
 
-  // Optional links to related entities
-  clientId       String?
-  client         Client?    @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  supplierId     String?
-  supplier       Supplier?   @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  userId         String?
-  user           User?       @relation("VoucherUser", fields: [userId], references: [id], onDelete: SetNull)
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-
-  voucherLines   VoucherLine[]
-  journalEntries JournalEntry[]
-
-  @@index([voucherNumber])
-  @@index([date])
-  @@index([type])
+  @@index([advanceAccountId])
+  @@index([email])
+  @@index([employeeCode])
+  @@index([salaryPayableAccountId])
   @@index([status])
-  @@index([createdBy])
-  @@index([postedById])
-  @@index([clientId])
-  @@index([supplierId])
   @@index([userId])
-  @@index([organizationId])
-}
-
-model VoucherLine {
-  id          String   @id @default(cuid())
-  lineNumber  Int
-  debitAmount Decimal   @default(0) @db.Decimal(12, 2)
-  creditAmount Decimal  @default(0) @db.Decimal(12, 2)
-  description String?   @db.Text
-  voucherId   String
-  voucher     Voucher   @relation(fields: [voucherId], references: [id], onDelete: Cascade)
-  chartOfAccountId String
-  chartOfAccount ChartOfAccount @relation(fields: [chartOfAccountId], references: [id], onDelete: Restrict)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Optional links to related entities (for tracking)
-  clientId       String?
-  client         Client?    @relation("VoucherLineClient", fields: [clientId], references: [id], onDelete: SetNull)
-  supplierId     String?
-  supplier       Supplier?   @relation("VoucherLineSupplier", fields: [supplierId], references: [id], onDelete: SetNull)
-  userId         String?
-  user           User?       @relation("VoucherLineUser", fields: [userId], references: [id], onDelete: SetNull)
-  organizationId String?
-  organization   Organization? @relation("VoucherLineOrganization", fields: [organizationId], references: [id], onDelete: SetNull)
-
-  @@index([voucherId])
-  @@index([chartOfAccountId])
-  @@index([clientId])
-  @@index([supplierId])
-  @@index([userId])
-  @@index([organizationId])
 }
 
 model JournalEntry {
-  id          String   @id @default(cuid())
-  entryNumber String   @unique
-  date        DateTime @default(now())
-  voucherId   String
-  voucher     Voucher  @relation(fields: [voucherId], references: [id], onDelete: Restrict)
-  description String?  @db.Text
-  status      String   @default("posted") // Always posted (immutable)
-  createdBy   String
-  postedBy    String
-  postedAt    DateTime
-  createdAt   DateTime @default(now())
+  id               String             @id
+  entryNumber      String             @unique
+  date             DateTime           @default(now())
+  voucherId        String
+  description      String?
+  status           String             @default("posted")
+  createdBy        String
+  postedBy         String
+  postedAt         DateTime
+  createdAt        DateTime           @default(now())
+  Voucher          Voucher            @relation(fields: [voucherId], references: [id])
+  JournalEntryLine JournalEntryLine[]
 
-  journalEntryLines JournalEntryLine[]
-
-  @@index([entryNumber])
   @@index([date])
-  @@index([voucherId])
+  @@index([entryNumber])
   @@index([status])
+  @@index([voucherId])
 }
 
 model JournalEntryLine {
-  id          String   @id @default(cuid())
-  lineNumber  Int
-  debitAmount Decimal  @default(0) @db.Decimal(12, 2)
-  creditAmount Decimal  @default(0) @db.Decimal(12, 2)
-  description String?  @db.Text
-  journalEntryId String
-  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  id               String         @id
+  lineNumber       Int
+  debitAmount      Decimal        @default(0) @db.Decimal(12, 2)
+  creditAmount     Decimal        @default(0) @db.Decimal(12, 2)
+  description      String?
+  journalEntryId   String
   chartOfAccountId String
-  chartOfAccount ChartOfAccount @relation(fields: [chartOfAccountId], references: [id], onDelete: Restrict)
-  createdAt   DateTime @default(now())
+  createdAt        DateTime       @default(now())
+  clientId         String?
+  supplierId       String?
+  userId           String?
+  organizationId   String?
+  ChartOfAccount   ChartOfAccount @relation(fields: [chartOfAccountId], references: [id])
+  Client           Client?        @relation(fields: [clientId], references: [id])
+  JournalEntry     JournalEntry   @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  Organization     Organization?  @relation(fields: [organizationId], references: [id])
+  Supplier         Supplier?      @relation(fields: [supplierId], references: [id])
+  User             User?          @relation(fields: [userId], references: [id])
 
-  // Optional links to related entities (copied from VoucherLine)
-  clientId       String?
-  client         Client?    @relation("JournalEntryLineClient", fields: [clientId], references: [id], onDelete: SetNull)
-  supplierId     String?
-  supplier       Supplier?   @relation("JournalEntryLineSupplier", fields: [supplierId], references: [id], onDelete: SetNull)
-  userId         String?
-  user           User?       @relation("JournalEntryLineUser", fields: [userId], references: [id], onDelete: SetNull)
-  organizationId String?
-  organization   Organization? @relation("JournalEntryLineOrganization", fields: [organizationId], references: [id], onDelete: SetNull)
-
-  @@index([journalEntryId])
   @@index([chartOfAccountId])
   @@index([clientId])
+  @@index([journalEntryId])
+  @@index([organizationId])
   @@index([supplierId])
   @@index([userId])
+}
+
+model Voucher {
+  id                            String         @id
+  voucherNumber                 String         @unique
+  date                          DateTime       @default(now())
+  type                          VoucherType
+  reference                     String?
+  description                   String?
+  status                        String         @default("draft")
+  createdBy                     String
+  postedById                    String?
+  postedAt                      DateTime?
+  createdAt                     DateTime       @default(now())
+  updatedAt                     DateTime
+  clientId                      String?
+  supplierId                    String?
+  userId                        String?
+  organizationId                String?
+  JournalEntry                  JournalEntry[]
+  Client                        Client?        @relation(fields: [clientId], references: [id])
+  User_Voucher_createdByToUser  User           @relation("Voucher_createdByToUser", fields: [createdBy], references: [id], onDelete: Cascade)
+  Organization                  Organization?  @relation(fields: [organizationId], references: [id])
+  User_Voucher_postedByIdToUser User?          @relation("Voucher_postedByIdToUser", fields: [postedById], references: [id])
+  Supplier                      Supplier?      @relation(fields: [supplierId], references: [id])
+  User_Voucher_userIdToUser     User?          @relation("Voucher_userIdToUser", fields: [userId], references: [id])
+  VoucherLine                   VoucherLine[]
+
+  @@index([clientId])
+  @@index([createdBy])
+  @@index([date])
   @@index([organizationId])
+  @@index([postedById])
+  @@index([status])
+  @@index([supplierId])
+  @@index([type])
+  @@index([userId])
+  @@index([voucherNumber])
+}
+
+model VoucherLine {
+  id               String         @id
+  lineNumber       Int
+  debitAmount      Decimal        @default(0) @db.Decimal(12, 2)
+  creditAmount     Decimal        @default(0) @db.Decimal(12, 2)
+  description      String?
+  voucherId        String
+  chartOfAccountId String
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime
+  clientId         String?
+  supplierId       String?
+  userId           String?
+  organizationId   String?
+  ChartOfAccount   ChartOfAccount @relation(fields: [chartOfAccountId], references: [id])
+  Client           Client?        @relation(fields: [clientId], references: [id])
+  Organization     Organization?  @relation(fields: [organizationId], references: [id])
+  Supplier         Supplier?      @relation(fields: [supplierId], references: [id])
+  User             User?          @relation(fields: [userId], references: [id])
+  Voucher          Voucher        @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+
+  @@index([chartOfAccountId])
+  @@index([clientId])
+  @@index([organizationId])
+  @@index([supplierId])
+  @@index([userId])
+  @@index([voucherId])
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  REVISED
+}
+
+enum NotificationType {
+  SYSTEM
+  ADMIN
+  INFO
+  WARNING
+  ERROR
+  SUCCESS
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum CashBankAccountType {
+  CASH
+  BANK
+}
+
+enum VoucherType {
+  PAYMENT
+  RECEIPT
+  JOURNAL
+  CONTRA
+  SALES
+  PURCHASE
 }

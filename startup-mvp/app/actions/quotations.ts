@@ -342,8 +342,11 @@ export async function getQuotation(id: string) {
         groups: section.groups?.map((group) => ({
           ...group,
           quantity: group.quantity ? Number(group.quantity) : null,
+          baseUnit: group.baseUnit || null,
+          baseUnitPrice: group.baseUnitPrice ? Number(group.baseUnitPrice) : null,
           items: group.items?.map((item) => ({
             ...item,
+            no: item.no != null ? String(item.no) : null, // Ensure no is always string
             height: item.height ? Number(item.height) : null,
             width: item.width ? Number(item.width) : null,
             depth: item.depth ? Number(item.depth) : null,
@@ -491,88 +494,110 @@ export async function createQuotation(data: any) {
     // Map modules to sections (form uses "modules", Prisma uses "sections")
     const sections = data.sections || data.modules || [];
     
-    // Calculate total from sections (use grandTotal if available, otherwise calculate)
-    let total = 0;
-    if (sections && Array.isArray(sections)) {
-      sections.forEach((section: any) => {
-        // Use grandTotal if available (already calculated with discount)
-        if (section.grandTotal != null) {
-          total += Number(section.grandTotal || 0);
-        } else {
-          // Otherwise calculate from items
-          // Calculate module group total (sum of all groups' items)
-          let moduleGroupTotal = 0;
-          if (section.groups && Array.isArray(section.groups)) {
-            section.groups.forEach((group: any) => {
-              if (group.items && Array.isArray(group.items)) {
-                group.items.forEach((item: any) => {
-                  moduleGroupTotal += Number(item.amount || 0);
-                });
-              }
-            });
-          }
-
-          // Calculate items category total (sum of all categoryGroups' items)
-          let itemsCategoryTotal = 0;
-          if (section.categoryGroups && Array.isArray(section.categoryGroups)) {
-            section.categoryGroups.forEach((categoryGroup: any) => {
-              if (categoryGroup.items && Array.isArray(categoryGroup.items)) {
-                categoryGroup.items.forEach((item: any) => {
-                  itemsCategoryTotal += Number(item.amount || 0);
-                });
-              }
-            });
-          }
-
-          // Calculate items total (sum of direct items)
-          let itemsTotal = 0;
-          if (section.items && Array.isArray(section.items)) {
-            section.items.forEach((item: any) => {
-              itemsTotal += Number(item.amount || 0);
-            });
-          }
-
-          // Section total = module group total + items category total + items total
-          let sectionTotal = moduleGroupTotal + itemsCategoryTotal + itemsTotal;
-
-          // Apply discount (amount-based, not percentage)
-          if (section.discount) {
-            sectionTotal = Math.max(0, sectionTotal - Number(section.discount));
-          }
-
-          total += sectionTotal;
-        }
-      });
-    }
-
-    // Get TOS content if not provided
-    let tosContent = data.tos;
-    if (!tosContent) {
-      try {
-        const { getTOSContent } = await import('@/app/actions/quotation-helpers');
-        const tosResult = await getTOSContent();
-        tosContent = tosResult.success ? tosResult.content : null;
-      } catch (error) {
-        console.error('Error fetching TOS content:', error);
-        tosContent = null;
+    // Optimized total calculation using reduce/flatMap (single pass instead of nested loops)
+    const total = sections && Array.isArray(sections) ? sections.reduce((sum: number, section: any) => {
+      // Use grandTotal if available (already calculated with discount)
+      if (section.grandTotal != null) {
+        return sum + Number(section.grandTotal || 0);
       }
-    }
+      
+      // Otherwise calculate from items using flatMap for single-pass iteration
+      const allItems = [
+        ...(section.groups || []).flatMap((group: any) => group.items || []),
+        ...(section.categoryGroups || []).flatMap((categoryGroup: any) => categoryGroup.items || []),
+        ...(section.items || [])
+      ];
+      
+      const sectionTotal = allItems.reduce((itemSum: number, item: any) => 
+        itemSum + Number(item.amount || 0), 0
+      );
+      
+      // Apply discount (amount-based, not percentage)
+      const discountedTotal = section.discount 
+        ? Math.max(0, sectionTotal - Number(section.discount))
+        : sectionTotal;
+      
+      return sum + discountedTotal;
+    }, 0) : 0;
 
-    // Get cover letter content if not provided
-    let coverLetterContent = data.coverLetter;
-    if (!coverLetterContent && data.selectedCoverLetterId && data.selectedCoverLetterId !== 'custom') {
-      try {
-        const { getCoverLetterById } = await import('@/app/(dashboard)/dashboard/settings/_actions/coverLetter.action');
-        const coverLetterResult = await getCoverLetterById(data.selectedCoverLetterId);
-        if (coverLetterResult.success && coverLetterResult.coverLetter) {
-          coverLetterContent = coverLetterResult.coverLetter.content;
-        }
-      } catch (error) {
-        console.error('Error fetching cover letter:', error);
+    // Prepare moduleGroupIds for parallel fetching
+    const moduleGroupIdsToFetch = new Set<string>();
+    sections.forEach((section: any) => {
+      if (section.groups && Array.isArray(section.groups)) {
+        section.groups.forEach((group: any) => {
+          if (group.moduleGroupId && 
+              group.moduleGroupId !== '' && 
+              (!group.baseUnit || !group.baseUnitPrice)) {
+            moduleGroupIdsToFetch.add(group.moduleGroupId);
+          }
+        });
       }
-    }
+    });
 
-    // Create quotation
+    // Parallel database queries: Fetch TOS, coverLetter, and moduleGroups simultaneously
+    const [tosResult, coverLetterResult, moduleGroupsResult] = await Promise.all([
+      // TOS content fetch
+      !data.tos ? (async () => {
+        try {
+          const { getTOSContent } = await import('@/app/actions/quotation-helpers');
+          return await getTOSContent();
+        } catch (error) {
+          return { success: false, content: null };
+        }
+      })() : Promise.resolve({ success: true, content: data.tos }),
+      
+      // Cover letter fetch
+      (!data.coverLetter && data.selectedCoverLetterId && data.selectedCoverLetterId !== 'custom') 
+        ? (async () => {
+            try {
+              const { getCoverLetterById } = await import('@/app/(dashboard)/dashboard/settings/_actions/coverLetter.action');
+              return await getCoverLetterById(data.selectedCoverLetterId);
+            } catch (error) {
+              return { success: false, coverLetter: null };
+            }
+          })()
+        : Promise.resolve({ success: true, coverLetter: data.coverLetter ? { content: data.coverLetter } : null }),
+      
+      // ModuleGroup data fetch
+      moduleGroupIdsToFetch.size > 0
+        ? prisma.moduleGroup.findMany({
+            where: { id: { in: Array.from(moduleGroupIdsToFetch) } },
+            select: { id: true, baseUnit: true, baseUnitPrice: true },
+          })
+        : Promise.resolve([])
+    ]);
+
+    // Extract results
+    const tosContent = tosResult.success ? tosResult.content : data.tos || null;
+    const coverLetterContent = coverLetterResult.success && coverLetterResult.coverLetter
+      ? coverLetterResult.coverLetter.content
+      : data.coverLetter || null;
+
+    // Build moduleGroupData map
+    const moduleGroupData: Record<string, { baseUnit: string | null; baseUnitPrice: number | null }> = {};
+    moduleGroupsResult.forEach((mg) => {
+      moduleGroupData[mg.id] = {
+        baseUnit: mg.baseUnit,
+        baseUnitPrice: mg.baseUnitPrice ? Number(mg.baseUnitPrice) : null,
+      };
+    });
+
+    // Enrich sections with baseUnit/baseUnitPrice from ModuleGroup if missing
+    const enrichedSections = sections.map((section: any) => ({
+      ...section,
+      groups: (section.groups || []).map((group: any) => {
+        if (group.moduleGroupId && moduleGroupData[group.moduleGroupId]) {
+          return {
+            ...group,
+            baseUnit: group.baseUnit || moduleGroupData[group.moduleGroupId].baseUnit,
+            baseUnitPrice: group.baseUnitPrice || moduleGroupData[group.moduleGroupId].baseUnitPrice,
+          };
+        }
+        return group;
+      }),
+    }));
+
+    // Create quotation with optimized data fetching
     const quotation = await prisma.quotation.create({
       data: {
         quotationNumber: data.quotationNumber || `QT-${Date.now()}`,
@@ -590,7 +615,7 @@ export async function createQuotation(data: any) {
         projectLocation: data.projectLocation || null,
         isTrash: false, // Default to false - quotations are not in trash by default
         section: {
-          create: (sections || []).map((section: any, sectionIndex: number) => ({
+          create: (enrichedSections || []).map((section: any, sectionIndex: number) => ({
             title: section.title || `Section ${sectionIndex + 1}`,
             note: section.note || null,
         discount: section.discount ? new Prisma.Decimal(section.discount) : new Prisma.Decimal(0),
@@ -607,9 +632,12 @@ export async function createQuotation(data: any) {
                 number: group.number || null,
                 sortOrder: group.sortOrder ?? groupIndex,
                 moduleGroupId: group.moduleGroupId && group.moduleGroupId !== '' ? group.moduleGroupId : null,
+                baseUnit: group.baseUnit || null,
+                baseUnitPrice: group.baseUnitPrice ? new Prisma.Decimal(group.baseUnitPrice) : null,
                 items: {
                   create: (group.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,
+                    no: item.no != null && item.no !== '' ? String(item.no) : null,
                     code: item.code || null,
                     description: item.description || null,
                     height: item.height ? new Prisma.Decimal(item.height) : null,
@@ -620,6 +648,7 @@ export async function createQuotation(data: any) {
                     quantity: new Prisma.Decimal(item.quantity || 0),
                     unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
                     totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
+                    discount: item.discount ? new Prisma.Decimal(item.discount) : null,
                     amount: new Prisma.Decimal(item.amount || 0),
                     sortOrder: item.sortOrder ?? itemIndex,
                     itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
@@ -631,6 +660,7 @@ export async function createQuotation(data: any) {
             items: {
               create: (section.items || []).map((item: any, itemIndex: number) => ({
                 sl: item.sl ?? itemIndex + 1,
+                no: item.no != null && item.no !== '' ? String(item.no) : null,
                 code: item.code || null,
                 description: item.description || null,
                 height: item.height ? new Prisma.Decimal(item.height) : null,
@@ -641,6 +671,7 @@ export async function createQuotation(data: any) {
                 quantity: new Prisma.Decimal(item.quantity || 0),
                 unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
                 totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
+                discount: item.discount ? new Prisma.Decimal(item.discount) : null,
                 amount: new Prisma.Decimal(item.amount || 0),
                 sortOrder: item.sortOrder ?? itemIndex,
                 itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
@@ -653,6 +684,7 @@ export async function createQuotation(data: any) {
                 items: {
                   create: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,
+                    no: item.no != null && item.no !== '' ? String(item.no) : null,
                     code: item.code || null,
                     description: item.description || null,
                     height: item.height ? new Prisma.Decimal(item.height) : null,
@@ -663,6 +695,7 @@ export async function createQuotation(data: any) {
                     quantity: new Prisma.Decimal(item.quantity || 0),
                     unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
                     totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
+                    discount: item.discount ? new Prisma.Decimal(item.discount) : null,
                     amount: new Prisma.Decimal(item.amount || 0),
                     sortOrder: item.sortOrder ?? itemIndex,
                     itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
@@ -673,37 +706,22 @@ export async function createQuotation(data: any) {
           })),
         },
       },
+      // Selective includes: Only fetch essential relations, not everything
       include: {
-        client: true,
-        submittedBy: true,
+        client: {
+          select: { id: true, name: true },
+        },
+        submittedBy: {
+          select: { id: true, name: true, email: true },
+        },
         section: {
-          include: {
-            preparedBy: true,
-            groups: {
-              include: {
-                items: {
-                  include: {
-                    item: true,
-                  },
-                },
-              },
-            },
-            items: {
-              include: {
-                item: true,
-              },
-            },
-            categoryGroups: {
-              include: {
-                category: true,
-                items: {
-                  include: {
-                    item: true,
-                  },
-                },
-              },
-            },
+          select: {
+            id: true,
+            title: true,
+            total: true,
+            grandTotal: true,
           },
+          take: 1, // Only need first section for basic info
         },
       },
     });
@@ -751,10 +769,6 @@ export async function createQuotation(data: any) {
  * Update quotation
  */
 export async function updateQuotation(id: string, data: any) {
-  console.log('updateQuotation called with id:', id);
-  console.log('updateQuotation data keys:', Object.keys(data || {}));
-  console.log('updateQuotation sections count:', (data?.sections || data?.modules || []).length);
-  
   try {
     const session = await auth();
     
@@ -839,91 +853,116 @@ export async function updateQuotation(id: string, data: any) {
     // Map modules to sections (form uses "modules", Prisma uses "sections")
     const sections = data.sections || data.modules || [];
     
-    // Calculate total from sections (use grandTotal if available, otherwise calculate)
-    let total = 0;
-    if (sections && Array.isArray(sections)) {
-      sections.forEach((section: any) => {
-        // Use grandTotal if available (already calculated with discount)
-        if (section.grandTotal != null) {
-          total += Number(section.grandTotal || 0);
-        } else {
-          // Otherwise calculate from items
-          // Calculate module group total (sum of all groups' items)
-          let moduleGroupTotal = 0;
-          if (section.groups && Array.isArray(section.groups)) {
-            section.groups.forEach((group: any) => {
-              if (group.items && Array.isArray(group.items)) {
-                group.items.forEach((item: any) => {
-                  moduleGroupTotal += Number(item.amount || 0);
-                });
-              }
-            });
+    // Optimized total calculation using reduce/flatMap (single pass instead of nested loops)
+    const total = sections && Array.isArray(sections) ? sections.reduce((sum: number, section: any) => {
+      // Use grandTotal if available (already calculated with discount)
+      if (section.grandTotal != null) {
+        return sum + Number(section.grandTotal || 0);
+      }
+      
+      // Otherwise calculate from items using flatMap for single-pass iteration
+      const allItems = [
+        ...(section.groups || []).flatMap((group: any) => group.items || []),
+        ...(section.categoryGroups || []).flatMap((categoryGroup: any) => categoryGroup.items || []),
+        ...(section.items || [])
+      ];
+      
+      const sectionTotal = allItems.reduce((itemSum: number, item: any) => 
+        itemSum + Number(item.amount || 0), 0
+      );
+      
+      // Apply discount (amount-based, not percentage)
+      const discountedTotal = section.discount 
+        ? Math.max(0, sectionTotal - Number(section.discount))
+        : sectionTotal;
+      
+      return sum + discountedTotal;
+    }, 0) : 0;
+
+    // Prepare moduleGroupIds for parallel fetching
+    const moduleGroupIdsToFetch = new Set<string>();
+    sections.forEach((section: any) => {
+      if (section.groups && Array.isArray(section.groups)) {
+        section.groups.forEach((group: any) => {
+          if (group.moduleGroupId && 
+              group.moduleGroupId !== '' && 
+              (!group.baseUnit || !group.baseUnitPrice)) {
+            moduleGroupIdsToFetch.add(group.moduleGroupId);
           }
-
-          // Calculate items category total (sum of all categoryGroups' items)
-          let itemsCategoryTotal = 0;
-          if (section.categoryGroups && Array.isArray(section.categoryGroups)) {
-            section.categoryGroups.forEach((categoryGroup: any) => {
-              if (categoryGroup.items && Array.isArray(categoryGroup.items)) {
-                categoryGroup.items.forEach((item: any) => {
-                  itemsCategoryTotal += Number(item.amount || 0);
-                });
-              }
-            });
-          }
-
-          // Calculate items total (sum of direct items)
-          let itemsTotal = 0;
-          if (section.items && Array.isArray(section.items)) {
-            section.items.forEach((item: any) => {
-              itemsTotal += Number(item.amount || 0);
-            });
-          }
-
-          // Section total = module group total + items category total + items total
-          let sectionTotal = moduleGroupTotal + itemsCategoryTotal + itemsTotal;
-
-          // Apply discount (amount-based, not percentage)
-          if (section.discount) {
-            sectionTotal = Math.max(0, sectionTotal - Number(section.discount));
-          }
-
-          total += sectionTotal;
-        }
-      });
-    }
-
-    // Delete existing sections (cascade will handle items and groups)
-    await prisma.section.deleteMany({
-      where: { quotationId: id },
+        });
+      }
     });
 
-    // Get TOS content if not provided
-    let tosContent = data.tos;
-    if (!tosContent) {
-      try {
-        const { getTOSContent } = await import('@/app/actions/quotation-helpers');
-        const tosResult = await getTOSContent();
-        tosContent = tosResult.success ? tosResult.content : null;
-      } catch (error) {
-        console.error('Error fetching TOS content:', error);
-        tosContent = null;
-      }
-    }
+    // Parallel operations: Delete sections and fetch moduleGroups simultaneously
+    const [, moduleGroupsResult] = await Promise.all([
+      // Delete existing sections (cascade will handle items and groups)
+      prisma.section.deleteMany({
+        where: { quotationId: id },
+      }),
+      
+      // Fetch moduleGroup data in parallel
+      moduleGroupIdsToFetch.size > 0
+        ? prisma.moduleGroup.findMany({
+            where: { id: { in: Array.from(moduleGroupIdsToFetch) } },
+            select: { id: true, baseUnit: true, baseUnitPrice: true },
+          })
+        : Promise.resolve([])
+    ]);
 
-    // Get cover letter content if not provided
-    let coverLetterContent = data.coverLetter;
-    if (!coverLetterContent && data.selectedCoverLetterId && data.selectedCoverLetterId !== 'custom') {
-      try {
-        const { getCoverLetterById } = await import('@/app/(dashboard)/dashboard/settings/_actions/coverLetter.action');
-        const coverLetterResult = await getCoverLetterById(data.selectedCoverLetterId);
-        if (coverLetterResult.success && coverLetterResult.coverLetter) {
-          coverLetterContent = coverLetterResult.coverLetter.content;
+    // Build moduleGroupData map
+    const moduleGroupData: Record<string, { baseUnit: string | null; baseUnitPrice: number | null }> = {};
+    moduleGroupsResult.forEach((mg) => {
+      moduleGroupData[mg.id] = {
+        baseUnit: mg.baseUnit,
+        baseUnitPrice: mg.baseUnitPrice ? Number(mg.baseUnitPrice) : null,
+      };
+    });
+
+    // Enrich sections with baseUnit/baseUnitPrice from ModuleGroup if missing
+    const enrichedSections = sections.map((section: any) => ({
+      ...section,
+      groups: (section.groups || []).map((group: any) => {
+        if (group.moduleGroupId && moduleGroupData[group.moduleGroupId]) {
+          return {
+            ...group,
+            baseUnit: group.baseUnit || moduleGroupData[group.moduleGroupId].baseUnit,
+            baseUnitPrice: group.baseUnitPrice || moduleGroupData[group.moduleGroupId].baseUnitPrice,
+          };
         }
-      } catch (error) {
-        console.error('Error fetching cover letter:', error);
-      }
-    }
+        return group;
+      }),
+    }));
+
+    // Parallel fetch for TOS and coverLetter
+    const [tosResult, coverLetterResult] = await Promise.all([
+      // TOS content fetch
+      !data.tos ? (async () => {
+        try {
+          const { getTOSContent } = await import('@/app/actions/quotation-helpers');
+          return await getTOSContent();
+        } catch (error) {
+          return { success: false, content: null };
+        }
+      })() : Promise.resolve({ success: true, content: data.tos }),
+      
+      // Cover letter fetch
+      (!data.coverLetter && data.selectedCoverLetterId && data.selectedCoverLetterId !== 'custom') 
+        ? (async () => {
+            try {
+              const { getCoverLetterById } = await import('@/app/(dashboard)/dashboard/settings/_actions/coverLetter.action');
+              return await getCoverLetterById(data.selectedCoverLetterId);
+            } catch (error) {
+              return { success: false, coverLetter: null };
+            }
+          })()
+        : Promise.resolve({ success: true, coverLetter: data.coverLetter ? { content: data.coverLetter } : null })
+    ]);
+
+    // Extract results
+    const tosContent = tosResult.success ? tosResult.content : data.tos || null;
+    const coverLetterContent = coverLetterResult.success && coverLetterResult.coverLetter
+      ? coverLetterResult.coverLetter.content
+      : data.coverLetter || null;
 
     // Update quotation with new sections
     const quotation = await prisma.quotation.update({
@@ -947,7 +986,7 @@ export async function updateQuotation(id: string, data: any) {
         vatIncluded: data.vatIncluded !== undefined ? data.vatIncluded : existingQuotation.vatIncluded,
         projectLocation: data.projectLocation !== undefined ? (data.projectLocation || null) : existingQuotation.projectLocation,
         section: {
-          create: (sections || []).map((section: any, sectionIndex: number) => ({
+          create: (enrichedSections || []).map((section: any, sectionIndex: number) => ({
             title: section.title || `Section ${sectionIndex + 1}`,
             note: section.note || null,
         discount: section.discount ? new Prisma.Decimal(section.discount) : new Prisma.Decimal(0),
@@ -964,9 +1003,12 @@ export async function updateQuotation(id: string, data: any) {
                 number: group.number || null,
                 sortOrder: group.sortOrder ?? groupIndex,
                 moduleGroupId: group.moduleGroupId && group.moduleGroupId !== '' ? group.moduleGroupId : null,
+                baseUnit: group.baseUnit || null,
+                baseUnitPrice: group.baseUnitPrice ? new Prisma.Decimal(group.baseUnitPrice) : null,
                 items: {
                   create: (group.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,
+                    no: item.no != null && item.no !== '' ? String(item.no) : null,
                     code: item.code || null,
                     description: item.description || null,
                     height: item.height ? new Prisma.Decimal(item.height) : null,
@@ -977,6 +1019,7 @@ export async function updateQuotation(id: string, data: any) {
                     quantity: new Prisma.Decimal(item.quantity || 0),
                     unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
                     totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
+                    discount: item.discount ? new Prisma.Decimal(item.discount) : null,
                     amount: new Prisma.Decimal(item.amount || 0),
                     sortOrder: item.sortOrder ?? itemIndex,
                     itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
@@ -988,6 +1031,7 @@ export async function updateQuotation(id: string, data: any) {
             items: {
               create: (section.items || []).map((item: any, itemIndex: number) => ({
                 sl: item.sl ?? itemIndex + 1,
+                no: item.no != null && item.no !== '' ? String(item.no) : null,
                 code: item.code || null,
                 description: item.description || null,
                 height: item.height ? new Prisma.Decimal(item.height) : null,
@@ -998,6 +1042,7 @@ export async function updateQuotation(id: string, data: any) {
                 quantity: new Prisma.Decimal(item.quantity || 0),
                 unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
                 totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
+                discount: item.discount ? new Prisma.Decimal(item.discount) : null,
                 amount: new Prisma.Decimal(item.amount || 0),
                 sortOrder: item.sortOrder ?? itemIndex,
                 itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
@@ -1010,6 +1055,7 @@ export async function updateQuotation(id: string, data: any) {
                 items: {
                   create: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,
+                    no: item.no != null && item.no !== '' ? String(item.no) : null,
                     code: item.code || null,
                     description: item.description || null,
                     height: item.height ? new Prisma.Decimal(item.height) : null,
@@ -1020,6 +1066,7 @@ export async function updateQuotation(id: string, data: any) {
                     quantity: new Prisma.Decimal(item.quantity || 0),
                     unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
                     totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
+                    discount: item.discount ? new Prisma.Decimal(item.discount) : null,
                     amount: new Prisma.Decimal(item.amount || 0),
                     sortOrder: item.sortOrder ?? itemIndex,
                     itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
@@ -1030,47 +1077,31 @@ export async function updateQuotation(id: string, data: any) {
           })),
         },
       },
+      // Selective includes: Only fetch essential relations, not everything
       include: {
-        client: true,
-        submittedBy: true,
-        updatedBy: true,
+        client: {
+          select: { id: true, name: true },
+        },
+        submittedBy: {
+          select: { id: true, name: true, email: true },
+        },
+        updatedBy: {
+          select: { id: true, name: true, email: true },
+        },
         section: {
-          include: {
-            preparedBy: true,
-            groups: {
-              include: {
-                items: {
-                  include: {
-                    item: true,
-                  },
-                },
-              },
-            },
-            items: {
-              include: {
-                item: true,
-              },
-            },
-            categoryGroups: {
-              include: {
-                category: true,
-                items: {
-                  include: {
-                    item: true,
-                  },
-                },
-              },
-            },
+          select: {
+            id: true,
+            title: true,
+            total: true,
+            grandTotal: true,
           },
+          take: 1, // Only need first section for basic info
         },
       },
     });
 
     revalidateBothPaths('quotations', 'page');
     revalidateBothPaths(`quotations/${id}`, 'page');
-    
-    console.log('Update successful, quotation ID:', quotation.id);
-    console.log('Updated quotation number:', quotation.quotationNumber);
     
     // Track changes for notification
     const changes: string[] = [];
@@ -1140,23 +1171,6 @@ export async function updateQuotation(id: string, data: any) {
       data: quotation,
     };
   } catch (error) {
-    console.error('Error updating quotation:', error);
-    const sections = data.sections || data.modules || [];
-    console.error('Update data received:', JSON.stringify({
-      id,
-      sectionsCount: sections?.length || 0,
-      hasClientId: !!data.clientId,
-      hasOrganizationId: !!data.organizationId,
-      firstSectionTitle: sections?.[0]?.title,
-      quotationNumber: data.quotationNumber,
-      subject: data.subject,
-    }, null, 2));
-    
-    // Log the full error if it's a Prisma error
-    if (error && typeof error === 'object' && 'message' in error) {
-      console.error('Full error details:', error);
-    }
-    
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to update quotation',

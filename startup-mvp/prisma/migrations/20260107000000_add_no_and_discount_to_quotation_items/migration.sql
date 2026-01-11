@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "QuotationItem" ADD COLUMN IF NOT EXISTS "no" INTEGER,
+ADD COLUMN IF NOT EXISTS "discount" DECIMAL(10,2);
+

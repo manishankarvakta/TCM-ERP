@@ -17,7 +17,7 @@ export default async function EditQuotationPage({ params }: EditQuotationPagePro
     notFound();
   }
 
-  console.log(result.data);
+  console.log('[Edit Page] Raw quotation data from DB:', result.data);
 
   const quotation = result.data;
 
@@ -54,16 +54,33 @@ export default async function EditQuotationPage({ params }: EditQuotationPagePro
       sortOrder: section.sortOrder,
       categoryId: section.categoryId || undefined,
       preparedById: section.preparedById,
-      groups: section.groups?.map((group: any) => ({
-        id: group.id,
-        code: group.code || '',
-        description: group.description,
-        quantity: group.quantity ? Number(group.quantity) : null,
-        sortOrder: group.sortOrder,
-        moduleGroupId: group.moduleGroupId || null,
-        items: group.items?.map((item: any) => ({
+      groups: section.groups?.map((group: any) => {
+        // Log group data for debugging
+        console.log('[Edit Page] Processing group:', {
+          id: group.id,
+          description: group.description,
+          moduleGroupId: group.moduleGroupId,
+          baseUnit: group.baseUnit,
+          baseUnitPrice: group.baseUnitPrice,
+          baseUnitPriceType: typeof group.baseUnitPrice,
+          rawBaseUnitPrice: group.baseUnitPrice,
+          hasModuleGroup: !!group.moduleGroupId,
+          itemCount: group.items?.length || 0
+        });
+        
+        return {
+          id: group.id,
+          code: group.code || '',
+          description: group.description,
+          quantity: group.quantity ? Number(group.quantity) : null,
+          sortOrder: group.sortOrder,
+          moduleGroupId: group.moduleGroupId || null,
+          baseUnit: group.baseUnit || null,
+          baseUnitPrice: group.baseUnitPrice ? Number(group.baseUnitPrice) : null,
+          items: group.items?.map((item: any) => ({
           id: item.id,
           sl: item.sl,
+          no: item.no != null ? String(item.no) : null,
           code: item.code || '',
           description: item.description || '',
           height: item.height ? Number(item.height) : null,
@@ -74,10 +91,12 @@ export default async function EditQuotationPage({ params }: EditQuotationPagePro
           quantity: Number(item.quantity),
           unitShutter: item.unitShutter ? Number(item.unitShutter) : null,
           totalShutter: item.totalShutter ? Number(item.totalShutter) : null,
+          discount: item.discount ? Number(item.discount) : null,
           amount: Number(item.amount),
           sortOrder: item.sortOrder,
           itemId: item.itemId || null,
           moduleGroupItemId: item.moduleGroupItemId || null,
+          isCustomItem: !item.moduleGroupItemId, // Mark custom items
           item: item.item ? {
             id: item.item.id,
             code: item.item.code || '',
@@ -85,10 +104,12 @@ export default async function EditQuotationPage({ params }: EditQuotationPagePro
             unitPrice: Number(item.item.unitPrice),
           } : null,
         })) || [],
-      })) || [],
+        };
+      }) || [],
       items: section.items?.map((item: any) => ({
         id: item.id,
         sl: item.sl,
+        no: item.no ? Number(item.no) : null,
         code: item.code || '',
         description: item.description || '',
         height: item.height ? Number(item.height) : null,
@@ -99,6 +120,7 @@ export default async function EditQuotationPage({ params }: EditQuotationPagePro
         quantity: Number(item.quantity),
         unitShutter: item.unitShutter ? Number(item.unitShutter) : null,
         totalShutter: item.totalShutter ? Number(item.totalShutter) : null,
+        discount: item.discount ? Number(item.discount) : null,
         amount: Number(item.amount),
         sortOrder: item.sortOrder,
         itemId: item.itemId || null,
@@ -116,6 +138,7 @@ export default async function EditQuotationPage({ params }: EditQuotationPagePro
         items: categoryGroup.items?.map((item: any) => ({
           id: item.id,
           sl: item.sl,
+          no: item.no != null ? String(item.no) : null,
           code: item.code || '',
           description: item.description || '',
           height: item.height ? Number(item.height) : null,
@@ -126,6 +149,7 @@ export default async function EditQuotationPage({ params }: EditQuotationPagePro
           quantity: Number(item.quantity),
           unitShutter: item.unitShutter ? Number(item.unitShutter) : null,
           totalShutter: item.totalShutter ? Number(item.totalShutter) : null,
+          discount: item.discount ? Number(item.discount) : null,
           amount: Number(item.amount),
           sortOrder: item.sortOrder,
           itemId: item.itemId || null,

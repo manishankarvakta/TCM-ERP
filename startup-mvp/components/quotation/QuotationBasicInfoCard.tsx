@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -112,6 +113,11 @@ export function QuotationBasicInfoCard({
   const [newClientEmail, setNewClientEmail] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
   const [newClientCompany, setNewClientCompany] = useState('');
+  const [newClientAddress, setNewClientAddress] = useState('');
+  const [newClientCity, setNewClientCity] = useState('');
+  const [newClientState, setNewClientState] = useState('');
+  const [newClientZip, setNewClientZip] = useState('');
+  const [newClientCountry, setNewClientCountry] = useState('');
   const [isCreatingClient, setIsCreatingClient] = useState(false);
 
   // Load organizations
@@ -216,6 +222,11 @@ export function QuotationBasicInfoCard({
         email: newClientEmail,
         phone: newClientPhone || undefined,
         company: newClientCompany || undefined,
+        address: newClientAddress || undefined,
+        city: newClientCity || undefined,
+        state: newClientState || undefined,
+        zip: newClientZip || undefined,
+        country: newClientCountry || undefined,
         status: 'active',
       });
 
@@ -236,6 +247,11 @@ export function QuotationBasicInfoCard({
         setNewClientEmail('');
         setNewClientPhone('');
         setNewClientCompany('');
+        setNewClientAddress('');
+        setNewClientCity('');
+        setNewClientState('');
+        setNewClientZip('');
+        setNewClientCountry('');
         setIsClientDialogOpen(false);
       } else {
         toast({
@@ -385,42 +401,94 @@ export function QuotationBasicInfoCard({
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                  <div>
-                    <Label htmlFor="newClientName">Name</Label>
-                    <Input
-                      id="newClientName"
-                      value={newClientName}
-                      onChange={(e) => setNewClientName(e.target.value)}
-                      placeholder="Client name"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="newClientName">Name</Label>
+                      <Input
+                        id="newClientName"
+                        value={newClientName}
+                        onChange={(e) => setNewClientName(e.target.value)}
+                        placeholder="Client name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="newClientEmail">Email *</Label>
+                      <Input
+                        id="newClientEmail"
+                        type="email"
+                        value={newClientEmail}
+                        onChange={(e) => setNewClientEmail(e.target.value)}
+                        placeholder="client@example.com"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="newClientPhone">Phone</Label>
+                      <Input
+                        id="newClientPhone"
+                        value={newClientPhone}
+                        onChange={(e) => setNewClientPhone(e.target.value)}
+                        placeholder="Phone number"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="newClientCompany">Company</Label>
+                      <Input
+                        id="newClientCompany"
+                        value={newClientCompany}
+                        onChange={(e) => setNewClientCompany(e.target.value)}
+                        placeholder="Company name"
+                      />
+                    </div>
                   </div>
                   <div>
-                    <Label htmlFor="newClientEmail">Email *</Label>
-                    <Input
-                      id="newClientEmail"
-                      type="email"
-                      value={newClientEmail}
-                      onChange={(e) => setNewClientEmail(e.target.value)}
-                      placeholder="client@example.com"
-                      required
+                    <Label htmlFor="newClientAddress">Address</Label>
+                    <Textarea
+                      id="newClientAddress"
+                      value={newClientAddress}
+                      onChange={(e) => setNewClientAddress(e.target.value)}
+                      placeholder="Street address"
+                      rows={2}
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="newClientPhone">Phone</Label>
-                    <Input
-                      id="newClientPhone"
-                      value={newClientPhone}
-                      onChange={(e) => setNewClientPhone(e.target.value)}
-                      placeholder="Phone number"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="newClientCity">City</Label>
+                      <Input
+                        id="newClientCity"
+                        value={newClientCity}
+                        onChange={(e) => setNewClientCity(e.target.value)}
+                        placeholder="City"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="newClientState">State</Label>
+                      <Input
+                        id="newClientState"
+                        value={newClientState}
+                        onChange={(e) => setNewClientState(e.target.value)}
+                        placeholder="State"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="newClientZip">ZIP Code</Label>
+                      <Input
+                        id="newClientZip"
+                        value={newClientZip}
+                        onChange={(e) => setNewClientZip(e.target.value)}
+                        placeholder="ZIP"
+                      />
+                    </div>
                   </div>
                   <div>
-                    <Label htmlFor="newClientCompany">Company</Label>
+                    <Label htmlFor="newClientCountry">Country</Label>
                     <Input
-                      id="newClientCompany"
-                      value={newClientCompany}
-                      onChange={(e) => setNewClientCompany(e.target.value)}
-                      placeholder="Company name"
+                      id="newClientCountry"
+                      value={newClientCountry}
+                      onChange={(e) => setNewClientCountry(e.target.value)}
+                      placeholder="Country"
                     />
                   </div>
                   <div className="flex justify-end gap-2">
