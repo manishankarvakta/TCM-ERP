@@ -32,6 +32,7 @@ import {
   FiArrowDownRight,
   FiArrowUpRight,
   FiFile,
+  FiBriefcase,
 } from "react-icons/fi";
 import Logo from "@/components/layout/logo";
 import { SlCalculator } from "react-icons/sl";
@@ -80,6 +81,7 @@ const menuItems: MenuItem[] = [
       { href: "/admin/quotations", label: "Quotations", icon: FiFileText, module: "quotations" },
       { href: "/admin/quotations/invoices", label: "Invoices", icon: FiDollarSign, module: "quotations" },
       { href: "/admin/quotations/orders", label: "Orders", icon: FiShoppingCart, module: "quotations" },
+      { href: "/admin/work-orders", label: "Work Orders", icon: FiBriefcase, module: "work-orders" },
     ],
   },
   {

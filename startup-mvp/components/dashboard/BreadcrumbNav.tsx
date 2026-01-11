@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { getQuotation } from "@/app/actions/quotations";
 import { getGroupById } from "@/app/(dashboard)/dashboard/items/groups/_actions/group.action";
 import { getItemById } from "@/app/(dashboard)/dashboard/items/_actions/item.action";
+import { getWorkOrder } from "@/app/actions/work-orders";
 
 // Map route paths to display names
 const routeMap: Record<string, string> = {
@@ -90,6 +91,7 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [quotationNumber, setQuotationNumber] = useState<string | null>(null);
   const [groupCode, setGroupCode] = useState<string | null>(null);
   const [itemLabel, setItemLabel] = useState<string | null>(null);
+  const [workOrderCode, setWorkOrderCode] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
 
   // Fetch quotation number if we're on a quotation detail or edit page
@@ -173,6 +175,32 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     return () => {
       cancelled = true;
       setItemLabel(null);
+    };
+  }, [pathname]);
+
+  // Fetch work order code if we're on a work order detail or edit page
+  useEffect(() => {
+    const workOrderMatch = pathname.match(/^\/dashboard\/work-orders\/([^\/]+)(?:\/edit)?$/);
+    if (!workOrderMatch) {
+      return;
+    }
+    
+    const workOrderId = workOrderMatch[1];
+    let cancelled = false;
+    
+    getWorkOrder(workOrderId)
+      .then((result) => {
+        if (!cancelled && result.success && result.data) {
+          setWorkOrderCode(result.data.code);
+        }
+      })
+      .catch(() => {
+        // Silently fail - will show default label
+      });
+    
+    return () => {
+      cancelled = true;
+      setWorkOrderCode(null);
     };
   }, [pathname]);
 
@@ -260,6 +288,30 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
       } else {
         currentLabel = "Edit Item";
       }
+    }
+  }
+
+  // If we're on a work order detail or edit page, use work order code
+  const isWorkOrderDetail = pathname.match(/^\/dashboard\/work-orders\/([^\/]+)$/);
+  const isWorkOrderEdit = pathname.match(/^\/dashboard\/work-orders\/([^\/]+)\/edit$/);
+  
+  // For work order routes, replace the ID segment with "Work Orders" as parent
+  if (isWorkOrderDetail || isWorkOrderEdit) {
+    // Find the "Work Orders" item (should be before the ID)
+    const workOrdersItem = items.find(item => item.path === "/dashboard/work-orders");
+    if (workOrdersItem) {
+      parentItem = workOrdersItem;
+    } else {
+      // If not found, create a parent item pointing to work orders list
+      parentItem = { path: "/dashboard/work-orders", label: "Work Orders" };
+    }
+    
+    // Update current label with work order code
+    if (workOrderCode) {
+      currentLabel = isWorkOrderEdit ? `Edit ${workOrderCode}` : workOrderCode;
+    } else {
+      // Show loading state or default while fetching
+      currentLabel = isWorkOrderEdit ? "Edit Work Order" : "Work Order Details";
     }
   }
 

@@ -2,10 +2,13 @@ import { getQuotation } from '@/app/actions/quotations';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { FiEdit, FiArrowLeft } from 'react-icons/fi';
+import { FiArrowLeft } from 'react-icons/fi';
 import { formatDate, formatCurrency } from '@/lib/utils/formatters';
 import { notFound } from 'next/navigation';
 import DownloadPDFButton from './_components/DownloadPDFButton';
+import QuotationActionButtons from '@/app/(dashboard)/dashboard/quotations/[id]/_components/QuotationActionButtons';
+import { auth } from '@/lib/auth';
+import { hasPermission } from '@/lib/permissions';
 
 interface QuotationDetailPageProps {
   params: Promise<{
@@ -23,6 +26,12 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
 
   const quotation = result.data;
 
+  // Check if user has approve permission
+  const session = await auth();
+  const canApprove = session?.user?.id 
+    ? await hasPermission(session.user.id, 'quotations.quotations', 'approve')
+    : false;
+
   console.log('quotation', quotation);
   // Note: PDF download will need to be handled in a client component
   // This is a server component, so we'll create a separate client component for the download button
@@ -38,12 +47,7 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
             </Button>
           </Link>
           <div className="flex gap-2">
-            <Link href={`/admin/quotations/${id}/edit`}>
-              <Button variant="outline">
-                <FiEdit className="w-4 h-4 mr-2" />
-                Edit
-              </Button>
-            </Link>
+            <QuotationActionButtons quotationId={id} status={quotation.status} basePath="/admin/quotations" canApprove={canApprove} />
             <DownloadPDFButton quotation={quotation as Record<string, unknown>} />
           </div>
         </div>
@@ -70,6 +74,12 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                 <p className="text-gray-500">Status</p>
                 <p className="font-medium capitalize">{quotation.status}</p>
               </div>
+              {quotation.expiredDate && (
+                <div>
+                  <p className="text-gray-500">Expired Date</p>
+                  <p className="font-medium">{formatDate(quotation.expiredDate)}</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

@@ -26,7 +26,7 @@ const quotationSchema = z.object({
   coverLetter: z.string().optional(),
   financialStatement: z.string().optional(),
   tos: z.string().optional(),
-  status: z.enum(['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'REVISED']).default('DRAFT'),
+  expiredDate: z.string().optional(),
   
   // Organization info
   organizationId: z.string().optional(),
@@ -264,7 +264,11 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
       coverLetter: initialData?.coverLetter || '',
       financialStatement: initialData?.financialStatement || '',
       tos: initialData?.tos || '',
-      status: initialData?.status || 'DRAFT',
+      expiredDate: initialData?.expiredDate 
+        ? (typeof initialData.expiredDate === 'string' 
+            ? initialData.expiredDate 
+            : new Date(initialData.expiredDate).toISOString().split('T')[0])
+        : '',
       clientId: initialData?.clientId || initialData?.client?.id || '',
       clientName: initialData?.client?.name || initialData?.clientName || '',
       clientAddress: initialData?.client?.address || initialData?.clientAddress || '',
@@ -404,7 +408,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
   const coverLetter = watch('coverLetter');
   const financialStatement = watch('financialStatement');
   const tos = watch('tos');
-  const status = watch('status');
+  const expiredDate = watch('expiredDate');
   const clientId = watch('clientId');
   const clientName = watch('clientName');
   const organizationId = watch('organizationId');
@@ -425,7 +429,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
     coverLetter: coverLetter || null,
     financialStatement: financialStatement || null,
     tos: tos || null,
-    status: (status as any) || 'DRAFT',
+    expiredDate: expiredDate || '',
     clientId: clientId || undefined,
     clientName: clientName || undefined,
     organizationId: organizationId || undefined,
@@ -437,7 +441,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
     discount: discount || 0,
     vatIncluded: vatIncluded || false,
     projectLocation: projectLocation || '',
-    statusValue: status,
+    expiredDate: expiredDate || '',
   }), [
     quotationNumber,
     date,
@@ -445,7 +449,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
     coverLetter,
     financialStatement,
     tos,
-    status,
+    expiredDate,
     clientId,
     clientName,
     organizationId,
@@ -468,7 +472,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
     coverLetter?: string | null;
     financialStatement?: string | null;
     tos?: string | null;
-    status?: string;
+    expiredDate?: string;
     clientId?: string;
     clientName?: string;
     organizationId?: string;
@@ -513,8 +517,8 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
     if (prev.tos !== current.tos) {
       updates.push({ field: 'tos', value: current.tos });
     }
-    if (prev.status !== current.status) {
-      updates.push({ field: 'status', value: current.status });
+    if (prev.expiredDate !== current.expiredDate) {
+      updates.push({ field: 'expiredDate', value: current.expiredDate });
     }
     if (prev.clientId !== current.clientId) {
       updates.push({ field: 'clientId', value: current.clientId });
@@ -705,7 +709,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
       coverLetter: data.coverLetter || '',
       financialStatement: data.financialStatement || '',
       tos: data.tos || '',
-      status: data.status,
+      expiredDate: data.expiredDate,
       clientId: data.clientId,
       clientName: data.clientName,
       clientAddress: data.clientAddress || '',
@@ -805,7 +809,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
       coverLetter: data.coverLetter || '',
       financialStatement: data.financialStatement || '',
       tos: data.tos || '',
-      status: 'DRAFT' as const,
+      expiredDate: data.expiredDate,
       clientId: data.clientId,
       clientName: data.clientName,
       clientAddress: data.clientAddress || '',
@@ -921,7 +925,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
             discount={watchedValuesObject.discount}
             vatIncluded={watchedValuesObject.vatIncluded}
             projectLocation={watchedValuesObject.projectLocation}
-            status={watchedValuesObject.statusValue}
+            expiredDate={watchedValuesObject.expiredDate}
             onQuotationNumberChange={useCallback((value: string) => setValue('quotationNumber', value), [setValue])}
             onDateChange={useCallback((value: string) => setValue('date', value), [setValue])}
             onSubjectChange={useCallback((value: string) => setValue('subject', value), [setValue])}
@@ -956,7 +960,9 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
               setValue('projectLocation', value);
               dispatch(updateQuotationField({ field: 'projectLocation', value }));
             }, [setValue, dispatch])}
-            onStatusChange={useCallback((value: string) => setValue('status', value as any), [setValue])}
+            onExpiredDateChange={useCallback((value: string) => {
+              setValue('expiredDate', value);
+            }, [setValue])}
           />
         </div>
 

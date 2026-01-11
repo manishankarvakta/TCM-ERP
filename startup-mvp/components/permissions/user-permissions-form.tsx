@@ -45,6 +45,8 @@ export default function UserPermissionsForm({
   const [permissions, setPermissions] = useState<Partial<EnhancedPermissions>>(
     initialPermsEnhanced
   );
+
+  console.log(permissions);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 

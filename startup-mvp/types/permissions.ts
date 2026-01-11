@@ -26,7 +26,8 @@ export type CustomOperation =
   | "restore"
   | "view"
   | "edit"
-  | "manage";
+  | "manage"
+  | "approve";
 
 // Standard operations for pages (as per requirements)
 export type StandardOperation = "create" | "view" | "edit" | "move-to-trash" | "delete-permanently";
@@ -335,7 +336,7 @@ export interface NavigationPage {
   permissionKey: string; // e.g., "items.items"
   path: string; // e.g., "/dashboard/items"
   label: string; // e.g., "Items"
-  operations: StandardOperation[]; // Available operations for this page
+  operations: Operation[]; // Available operations for this page
 }
 
 export interface NavigationItem {
@@ -398,7 +399,7 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "quotations.quotations",
         path: "/dashboard/quotations",
         label: "Quotations",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+        operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
       },
       {
         permissionKey: "quotations.invoices",
@@ -410,6 +411,24 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "quotations.orders",
         path: "/dashboard/quotations/orders",
         label: "Orders",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "work-orders.work-orders",
+        path: "/dashboard/work-orders",
+        label: "Work Orders",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+    ],
+  },
+  {
+    id: "work-orders",
+    label: "Work Orders",
+    pages: [
+      {
+        permissionKey: "work-orders.work-orders",
+        path: "/dashboard/work-orders",
+        label: "Work Orders",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
     ],
