@@ -46,8 +46,9 @@ const groupFormSchema = z.object({
   description: z.string().optional(),
   sortOrder: z.string().optional(),
   status: z.enum(["active", "inactive"]),
-  baseUnit: z.enum(["sqm", "sqft"]).optional(),
+  baseUnit: z.enum(["sqm", "sqft", "rft"]).optional(),
   baseUnitPrice: z.number().min(0).optional(),
+  costPrice: z.number().min(0).default(0),
   items: z.array(groupItemSchema).min(1, "At least one item is required"),
 });
 
@@ -70,6 +71,7 @@ interface GroupFormProps {
     status: string;
     baseUnit?: string;
     baseUnitPrice?: number;
+    costPrice?: number;
     items: Array<{
       id?: string;
       sl: number;
@@ -106,15 +108,16 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
           description: initialData.description || "",
           sortOrder: initialData.sortOrder?.toString() || "0",
           status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
-          baseUnit: initialData.baseUnit ? (initialData.baseUnit as "sqm" | "sqft") : "sqm",
+          baseUnit: initialData.baseUnit ? (initialData.baseUnit as "sqm" | "sqft" | "rft") : "sqm",
           baseUnitPrice: initialData.baseUnitPrice !== null && initialData.baseUnitPrice !== undefined ? initialData.baseUnitPrice : undefined,
+          costPrice: initialData.costPrice !== null && initialData.costPrice !== undefined ? initialData.costPrice : 0,
           items: initialData.items.map((item) => {
             // Recalculate unitPrice if baseUnit and baseUnitPrice are available
             let calculatedUnitPrice = item.unitPrice || 0;
             if (initialData.baseUnit && initialData.baseUnitPrice && initialData.baseUnitPrice > 0 && item.unit) {
               try {
                 calculatedUnitPrice = convertAreaPriceToLengthPrice(
-                  initialData.baseUnit as "sqm" | "sqft",
+                  initialData.baseUnit as "sqm" | "sqft" | "rft",
                   initialData.baseUnitPrice,
                   item.unit as LengthUnit
                 );
@@ -160,6 +163,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
           status: "active",
           baseUnit: "sqm",
           baseUnitPrice: undefined,
+          costPrice: 0,
           items: [],
         },
   });
@@ -217,7 +221,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
     if (baseUnit && baseUnitPrice && baseUnitPrice > 0) {
       try {
         initialUnitPrice = convertAreaPriceToLengthPrice(
-          baseUnit as "sqm" | "sqft",
+          baseUnit as "sqm" | "sqft" | "rft",
           baseUnitPrice,
           "mm" as LengthUnit
         );
@@ -291,7 +295,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
       try {
         // Convert group's base area price to item's unit price
         const calculatedUnitPrice = convertAreaPriceToLengthPrice(
-          currentBaseUnit as "sqm" | "sqft",
+          currentBaseUnit as "sqm" | "sqft" | "rft",
           currentBaseUnitPrice,
           item.unit as LengthUnit
         );
@@ -377,7 +381,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
         try {
           // Convert group's base area price to the same square-unit as the selected unit (sqin/sqmm/sqft)
           const calculatedUnitPrice = convertAreaPriceToLengthPrice(
-            baseUnit as "sqm" | "sqft",
+            baseUnit as "sqm" | "sqft" | "rft",
             baseUnitPrice,
             updatedItem.unit as LengthUnit
           );
@@ -411,6 +415,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
         status: data.status,
         baseUnit: data.baseUnit || undefined,
         baseUnitPrice: data.baseUnitPrice,
+        costPrice: data.costPrice,
         items: data.items.map((item) => ({
           sl: item.sl,
           code: item.code || undefined,
@@ -467,8 +472,8 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
             </div>
           )}
 
-          {/* Top Row: Code, Base Unit, Base Unit Price, Status */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Top Row: Code, Base Unit, Base Unit Price, Cost Price, Status */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="space-y-2">
               <Label htmlFor="code">Code</Label>
               <Input
@@ -521,6 +526,29 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
                     onChange={(e) => {
                       const val = e.target.value;
                       const numVal = val === "" ? undefined : Number(val);
+                      field.onChange(numVal);
+                    }}
+                    disabled={loading}
+                  />
+                )}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="costPrice">Cost Price</Label>
+              <Controller
+                name="costPrice"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    id="costPrice"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={field.value !== undefined && field.value !== null ? field.value : ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const numVal = val === "" ? 0 : Number(val);
                       field.onChange(numVal);
                     }}
                     disabled={loading}
