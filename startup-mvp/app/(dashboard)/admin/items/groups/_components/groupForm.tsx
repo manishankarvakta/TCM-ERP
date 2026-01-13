@@ -415,7 +415,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
         status: data.status,
         baseUnit: data.baseUnit || undefined,
         baseUnitPrice: data.baseUnitPrice,
-        costPrice: data.costPrice,
+        costPrice: data.costPrice !== undefined && data.costPrice !== null ? Number(data.costPrice) : 0,
         items: data.items.map((item) => ({
           sl: item.sl,
           code: item.code || undefined,

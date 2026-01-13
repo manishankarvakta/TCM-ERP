@@ -74,8 +74,8 @@ export default async function GroupDetailsPage({ params }: GroupDetailsPageProps
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Group Base Unit Price Info */}
-          {(group.baseUnit || group.baseUnitPrice) && (
-            <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+          {(group.baseUnit || group.baseUnitPrice || group.costPrice) && (
+            <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
               <div>
                 <span className="text-sm text-muted-foreground">Base Unit:</span>
                 <p className="font-medium">{group.baseUnit || "-"}</p>
@@ -84,6 +84,12 @@ export default async function GroupDetailsPage({ params }: GroupDetailsPageProps
                 <span className="text-sm text-muted-foreground">Base Unit Price:</span>
                 <p className="font-medium">
                   {group.baseUnitPrice ? formatCurrency(group.baseUnitPrice) : "-"}
+                </p>
+              </div>
+              <div>
+                <span className="text-sm text-muted-foreground">Cost Price:</span>
+                <p className="font-medium">
+                  {group.costPrice ? formatCurrency(group.costPrice) : "-"}
                 </p>
               </div>
             </div>

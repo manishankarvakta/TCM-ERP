@@ -28,6 +28,7 @@ export default async function EditGroupPage({ params }: EditGroupPageProps) {
           status: result.group.status,
           baseUnit: result.group.baseUnit || undefined,
           baseUnitPrice: result.group.baseUnitPrice || undefined,
+          costPrice: result.group.costPrice !== null && result.group.costPrice !== undefined ? result.group.costPrice : undefined,
           items: result.group.items.map((item) => ({
             id: item.id,
             sl: item.sl,

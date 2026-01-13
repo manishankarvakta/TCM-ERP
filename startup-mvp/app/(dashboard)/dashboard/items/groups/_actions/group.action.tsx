@@ -210,6 +210,7 @@ export async function getGroupById(groupId: string) {
     // Serialize Decimal fields
     const serializedGroup = {
       ...group,
+      baseUnitPrice: group.baseUnitPrice !== null && group.baseUnitPrice !== undefined ? Number(group.baseUnitPrice) : null,
       costPrice: Number(group.costPrice),
       items: group.items.map((item) => ({
         ...item,
@@ -281,7 +282,7 @@ export async function createGroup(input: {
         status: input.status || "active",
         baseUnit: input.baseUnit || null,
         baseUnitPrice: input.baseUnitPrice ? new Prisma.Decimal(input.baseUnitPrice) : null,
-        costPrice: input.costPrice !== undefined ? new Prisma.Decimal(input.costPrice) : new Prisma.Decimal(0),
+        costPrice: input.costPrice !== undefined && input.costPrice !== null && !isNaN(Number(input.costPrice)) ? new Prisma.Decimal(input.costPrice) : new Prisma.Decimal(0),
         createdBy: session.user.id,
         items: {
           create: input.items.map((item) => ({
@@ -406,7 +407,7 @@ export async function updateGroup(input: {
         status: input.status || "active",
         baseUnit: input.baseUnit || null,
         baseUnitPrice: input.baseUnitPrice ? new Prisma.Decimal(input.baseUnitPrice) : null,
-        costPrice: input.costPrice !== undefined ? new Prisma.Decimal(input.costPrice) : new Prisma.Decimal(0),
+        costPrice: input.costPrice !== undefined && input.costPrice !== null && !isNaN(Number(input.costPrice)) ? new Prisma.Decimal(input.costPrice) : new Prisma.Decimal(0),
         items: {
           create: input.items.map((item) => ({
             sl: item.sl,
