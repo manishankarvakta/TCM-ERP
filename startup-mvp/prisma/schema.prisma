@@ -48,7 +48,7 @@ model User {
   ChartOfAccount                   ChartOfAccount[]
   createdClients                   Client[]            @relation("ClientCreator")
   createdCoverLetters              CoverLetter[]       @relation("CoverLetterCreator")
-  Employee                         Employee?
+  Employee                         Employee?           @relation("UserEmployee")
   files                            File[]
   JournalEntryLine                 JournalEntryLine[]
   createdModuleGroups              ModuleGroup[]       @relation("ModuleGroupCreator")
@@ -93,9 +93,9 @@ model Employee {
   
   // Payroll accounting relations
   salaryPayableAccountId String?
-  salaryPayableAccount   ChartOfAccount? @relation("EmployeeSalaryPayable", fields: [salaryPayableAccountId], references: [id], onDelete: SetNull)
+  salaryPayableAccount   ChartOfAccount? @relation("Employee_salaryPayableAccountIdToChartOfAccount", fields: [salaryPayableAccountId], references: [id], onDelete: SetNull)
   advanceAccountId       String?
-  advanceAccount         ChartOfAccount? @relation("EmployeeAdvance", fields: [advanceAccountId], references: [id], onDelete: SetNull)
+  advanceAccount         ChartOfAccount? @relation("Employee_advanceAccountIdToChartOfAccount", fields: [advanceAccountId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([status])
@@ -291,6 +291,7 @@ model ModuleGroup {
   updatedAt     DateTime          @updatedAt
   baseUnit      String?
   baseUnitPrice Decimal?          @db.Decimal(10, 2)
+  costPrice     Decimal           @default(0) @db.Decimal(10, 2)
   creator       User              @relation("ModuleGroupCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   items         ModuleGroupItem[]
 
@@ -680,30 +681,6 @@ model ChartOfAccount {
   @@index([type])
 }
 
-model Employee {
-  id                                                             String          @id
-  name                                                           String
-  employeeCode                                                   String?         @unique
-  userId                                                         String?         @unique
-  status                                                         String          @default("active")
-  createdAt                                                      DateTime        @default(now())
-  updatedAt                                                      DateTime
-  salaryPayableAccountId                                         String?
-  advanceAccountId                                               String?
-  email                                                          String?
-  phone                                                          String?
-  ChartOfAccount_Employee_advanceAccountIdToChartOfAccount       ChartOfAccount? @relation("Employee_advanceAccountIdToChartOfAccount", fields: [advanceAccountId], references: [id])
-  ChartOfAccount_Employee_salaryPayableAccountIdToChartOfAccount ChartOfAccount? @relation("Employee_salaryPayableAccountIdToChartOfAccount", fields: [salaryPayableAccountId], references: [id])
-  User                                                           User?           @relation(fields: [userId], references: [id])
-
-  @@index([advanceAccountId])
-  @@index([email])
-  @@index([employeeCode])
-  @@index([salaryPayableAccountId])
-  @@index([status])
-  @@index([userId])
-}
-
 model JournalEntry {
   id               String             @id
   entryNumber      String             @unique
@@ -843,26 +820,4 @@ enum NotificationType {
   WARNING
   ERROR
   SUCCESS
-}
-
-enum AccountType {
-  ASSET
-  LIABILITY
-  EQUITY
-  REVENUE
-  EXPENSE
-}
-
-enum CashBankAccountType {
-  CASH
-  BANK
-}
-
-enum VoucherType {
-  PAYMENT
-  RECEIPT
-  JOURNAL
-  CONTRA
-  SALES
-  PURCHASE
 }

@@ -3,7 +3,7 @@
  * Supports conversion between square meter, square millimeter, square inch, and square feet
  */
 
-export type AreaUnit = "sqm" | "sqmm" | "sqin" | "sqft";
+export type AreaUnit = "sqm" | "sqmm" | "sqin" | "sqft" | "rft";
 
 export interface AreaUnitOption {
   value: AreaUnit;
@@ -17,10 +17,11 @@ export const AREA_UNIT_OPTIONS: AreaUnitOption[] = [
   { value: "sqft", label: "Square Feet" },
 ];
 
-// Restricted options for group items (only sqm and sqft)
+// Restricted options for group items (sqm, sqft, and rft)
 export const GROUP_BASE_UNIT_OPTIONS: AreaUnitOption[] = [
   { value: "sqm", label: "sqm" },
   { value: "sqft", label: "sqft" },
+  { value: "rft", label: "rft (Running Meter)" },
 ];
 
 /**
@@ -32,6 +33,7 @@ const AREA_TO_SQUARE_METER: Record<AreaUnit, number> = {
   sqmm: 0.000001, // 1 square millimeter = 0.000001 square meters
   sqin: 0.00064516, // 1 square inch = 0.00064516 square meters
   sqft: 0.092903, // 1 square foot = 0.092903 square meters
+  rft: 1, // 1 running meter = 1 meter (linear, not area - handled separately)
 };
 
 /**
@@ -136,20 +138,33 @@ const LENGTH_TO_METER: Record<LengthUnit, number> = {
 /**
  * Convert base area unit price to target unit area price.
  * 
- * @param baseUnit - Area unit (sqm or sqft)
- * @param baseUnitPrice - Price per area unit
- * @param unit - Target length unit (ft, in, mm, m). This implies square-units for pricing (sqft, sqin, sqmm, sqm).
- * @returns Price per square of the selected unit (sqft/sqin/sqmm/sqm).
+ * @param baseUnit - Area unit (sqm, sqft, or rft)
+ * @param baseUnitPrice - Price per area unit (or per running meter for rft)
+ * @param unit - Target length unit (ft, in, mm, m). This implies square-units for pricing (sqft, sqin, sqmm, sqm) or linear for rft.
+ * @returns Price per square of the selected unit (sqft/sqin/sqmm/sqm) or per linear unit if baseUnit is rft.
  * 
  * Examples:
  * - base=100 per sqm, unit=ft => 100 per sqm = 100*0.092903 per sqft = 9.2903 per sqft
  * - base=100 per sqft, unit=m  => 100 per sqft = 100/0.092903 per sqm = 1076.39 per sqm
+ * - base=100 per rft, unit=m   => 100 per running meter = 100 per meter
+ * - base=100 per rft, unit=ft  => 100 per running meter = 100/0.3048 per running foot = 328.08 per running foot
  */
 export function convertAreaPriceToLengthPrice(
-  baseUnit: "sqm" | "sqft",
+  baseUnit: "sqm" | "sqft" | "rft",
   baseUnitPrice: number,
   unit: LengthUnit
 ): number {
+  // Handle rft (running meter) as linear unit
+  if (baseUnit === "rft") {
+    // Convert price per running meter to price per running unit
+    // If baseUnitPrice is per meter, and we want per unit:
+    // price per unit = price per meter / (meters per unit)
+    // Example: 100 per meter, unit=ft => 100 / 0.3048 = 328.08 per foot
+    const lengthFactor = LENGTH_TO_METER[unit];
+    return baseUnitPrice / lengthFactor; // For linear: price per meter / meters per unit = price per unit
+  }
+
+  // Handle area units (sqm, sqft)
   // Normalize to price per square meter (sqm) first.
   // 1 sqft = 0.092903 sqm
   const pricePerSqm =
