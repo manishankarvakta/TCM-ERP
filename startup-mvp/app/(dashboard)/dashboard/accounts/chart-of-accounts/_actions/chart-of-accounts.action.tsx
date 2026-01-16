@@ -102,7 +102,7 @@ export async function getChartOfAccounts(
         name: true,
         type: true,
         parentId: true,
-        parent: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -112,7 +112,7 @@ export async function getChartOfAccounts(
         description: true,
         status: true,
         createdBy: true,
-        creator: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -123,7 +123,7 @@ export async function getChartOfAccounts(
         updatedAt: true,
         _count: {
           select: {
-            children: true,
+            other_ChartOfAccount: true,
           },
         },
       },
@@ -133,9 +133,11 @@ export async function getChartOfAccounts(
     });
 
     // Map accounts to include child count (remove _count from result)
-    const accountsWithChildCount = accounts.map(({ _count, ...account }) => ({
+    const accountsWithChildCount = accounts.map(({ _count, ChartOfAccount, User, ...account }) => ({
       ...account,
-      childCount: _count.children,
+      parent: ChartOfAccount,
+      creator: User,
+      childCount: _count.other_ChartOfAccount,
     }));
 
     const totalPages = Math.ceil(total / limit);
@@ -196,14 +198,14 @@ export async function getChartOfAccountById(accountId: string) {
     const account = await prisma.chartOfAccount.findUnique({
       where: { id: accountId },
       include: {
-        parent: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
             name: true,
           },
         },
-        children: {
+        other_ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -212,7 +214,7 @@ export async function getChartOfAccountById(accountId: string) {
             status: true,
           },
         },
-        creator: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -230,9 +232,20 @@ export async function getChartOfAccountById(accountId: string) {
       };
     }
 
+    // Map field names for consistency
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mappedAccount = {
+      ...account,
+      parent: (account as any).ChartOfAccount || null,
+      children: (account as any).other_ChartOfAccount || [],
+      creator: (account as any).User || null,
+    };
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
+    const { ChartOfAccount: _, other_ChartOfAccount: __, User: ___, ...accountWithoutRelations } = mappedAccount as any;
+
     return {
       success: true,
-      account,
+      account: accountWithoutRelations,
     };
   } catch (error) {
     console.error("getChartOfAccountById error:", error);
@@ -316,6 +329,7 @@ export async function createChartOfAccount(input: {
     }
 
     // Create account
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const account = await prisma.chartOfAccount.create({
       data: {
         code: input.code,
@@ -325,16 +339,16 @@ export async function createChartOfAccount(input: {
         description: input.description || null,
         status: input.status || "active",
         createdBy: session.user.id,
-      },
+      } as any,
       include: {
-        parent: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
             name: true,
           },
         },
-        creator: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -343,6 +357,14 @@ export async function createChartOfAccount(input: {
         },
       },
     });
+
+    // Map field names for consistency
+    const mappedAccount = {
+      ...account,
+      parent: (account as any).ChartOfAccount || null,
+      creator: (account as any).User || null,
+    };
+    const { ChartOfAccount: _, User: __, ...accountWithoutRelations } = mappedAccount as any;
 
     // Log action
     await createUserLog({
@@ -356,7 +378,7 @@ export async function createChartOfAccount(input: {
 
     return {
       success: true,
-      account,
+      account: accountWithoutRelations,
     };
   } catch (error) {
     console.error("createChartOfAccount error:", error);
@@ -530,7 +552,8 @@ export async function updateChartOfAccount(
       updateData.type = input.type;
     }
     if (input.parentId !== undefined) {
-      updateData.parentId = input.parentId || null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (updateData as any).parentId = input.parentId || null;
     }
     if (input.description !== undefined) {
       updateData.description = input.description || null;
@@ -570,14 +593,14 @@ export async function updateChartOfAccount(
       where: { id: accountId },
       data: updateData,
       include: {
-        parent: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
             name: true,
           },
         },
-        creator: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -586,6 +609,14 @@ export async function updateChartOfAccount(
         },
       },
     });
+
+    // Map field names for consistency
+    const mappedAccount = {
+      ...account,
+      parent: (account as any).ChartOfAccount || null,
+      creator: (account as any).User || null,
+    };
+    const { ChartOfAccount: _, User: __, ...accountWithoutRelations } = mappedAccount as any;
 
     // Log action
     await createUserLog({
@@ -600,7 +631,7 @@ export async function updateChartOfAccount(
 
     return {
       success: true,
-      account,
+      account: accountWithoutRelations,
     };
   } catch (error) {
     console.error("updateChartOfAccount error:", error);

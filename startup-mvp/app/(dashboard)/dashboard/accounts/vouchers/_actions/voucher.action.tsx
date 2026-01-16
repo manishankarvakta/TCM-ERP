@@ -230,41 +230,41 @@ export async function listVouchers(
         supplierId: true,
         userId: true,
         organizationId: true,
-        creator: {
+        User_Voucher_createdByToUser: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        postedBy: {
+        User_Voucher_postedByIdToUser: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        client: {
+        Client: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        supplier: {
+        Supplier: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        organization: {
+        Organization: {
           select: {
             id: true,
             name: true,
           },
         },
-        voucherLines: {
+        VoucherLine: {
           select: {
             id: true,
             lineNumber: true,
@@ -272,7 +272,7 @@ export async function listVouchers(
             creditAmount: true,
             description: true,
             chartOfAccountId: true,
-            chartOfAccount: {
+            ChartOfAccount: {
               select: {
                 id: true,
                 code: true,
@@ -293,15 +293,25 @@ export async function listVouchers(
       },
     });
 
-    // Serialize Decimal fields
-    const serializedVouchers = vouchers.map((voucher) => ({
-      ...voucher,
-      voucherLines: voucher.voucherLines.map((line) => ({
-        ...line,
-        debitAmount: Number(line.debitAmount),
-        creditAmount: Number(line.creditAmount),
-      })),
-    }));
+    // Serialize Decimal fields and map relation names
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const serializedVouchers = vouchers.map((voucher: any) => {
+      const { User_Voucher_createdByToUser, User_Voucher_postedByIdToUser, Client, Supplier, Organization, VoucherLine, ...voucherWithoutRelations } = voucher;
+      return {
+        ...voucherWithoutRelations,
+        creator: User_Voucher_createdByToUser,
+        postedBy: User_Voucher_postedByIdToUser,
+        client: Client,
+        supplier: Supplier,
+        organization: Organization,
+        voucherLines: (VoucherLine || []).map((line: any) => ({
+          ...line,
+          chartOfAccount: line.ChartOfAccount,
+          debitAmount: Number(line.debitAmount),
+          creditAmount: Number(line.creditAmount),
+        })),
+      };
+    });
 
     return {
       success: true,
@@ -373,48 +383,48 @@ export async function getVoucherById(voucherId: string) {
         supplierId: true,
         userId: true,
         organizationId: true,
-        creator: {
+        User_Voucher_createdByToUser: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        postedBy: {
+        User_Voucher_postedByIdToUser: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        client: {
+        Client: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        supplier: {
+        Supplier: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        user: {
+        User_Voucher_userIdToUser: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        organization: {
+        Organization: {
           select: {
             id: true,
             name: true,
           },
         },
-        voucherLines: {
+        VoucherLine: {
           select: {
             id: true,
             lineNumber: true,
@@ -512,17 +522,21 @@ export async function getVoucherById(voucherId: string) {
       };
     }
 
-    // Serialize Decimal fields
+    // Serialize Decimal fields and map relation names
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { User_Voucher_createdByToUser, VoucherLine, JournalEntry, ...voucherWithoutRelations } = voucher as any;
     const serializedVoucher = {
-      ...voucher,
-      voucherLines: voucher.voucherLines.map((line) => ({
+      ...voucherWithoutRelations,
+      creator: User_Voucher_createdByToUser,
+      voucherLines: (VoucherLine || []).map((line: any) => ({
         ...line,
+        chartOfAccount: line.ChartOfAccount,
         debitAmount: Number(line.debitAmount),
         creditAmount: Number(line.creditAmount),
       })),
-      journalEntries: voucher.journalEntries.map((entry) => ({
+      journalEntries: (JournalEntry || []).map((entry: any) => ({
         ...entry,
-        journalEntryLines: entry.journalEntryLines.map((line) => ({
+        journalEntryLines: (entry.JournalEntryLine || []).map((line: any) => ({
           ...line,
           debitAmount: Number(line.debitAmount),
           creditAmount: Number(line.creditAmount),
@@ -650,16 +664,16 @@ export async function createVoucher(input: {
         },
       },
       include: {
-        creator: {
+        User_Voucher_createdByToUser: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        voucherLines: {
+        VoucherLine: {
           include: {
-            chartOfAccount: {
+            ChartOfAccount: {
               select: {
                 id: true,
                 code: true,
@@ -705,11 +719,15 @@ export async function createVoucher(input: {
     // Revalidate paths
     revalidateBothPaths("accounts/vouchers", "page");
 
-    // Serialize Decimal fields
+    // Serialize Decimal fields and map relation names
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { User_Voucher_createdByToUser, VoucherLine, ...voucherWithoutRelations } = voucher as any;
     const serializedVoucher = {
-      ...voucher,
-      voucherLines: voucher.voucherLines.map((line) => ({
+      ...voucherWithoutRelations,
+      creator: User_Voucher_createdByToUser,
+      voucherLines: (VoucherLine || []).map((line: any) => ({
         ...line,
+        chartOfAccount: line.ChartOfAccount,
         debitAmount: Number(line.debitAmount),
         creditAmount: Number(line.creditAmount),
       })),
@@ -763,9 +781,9 @@ export async function postVoucher(voucherId: string) {
     const voucher = await prisma.voucher.findUnique({
       where: { id: voucherId },
       include: {
-        voucherLines: {
+        VoucherLine: {
           include: {
-            chartOfAccount: true,
+            ChartOfAccount: true,
           },
           orderBy: {
             lineNumber: "asc",
@@ -794,8 +812,9 @@ export async function postVoucher(voucherId: string) {
     }
 
     // Validate voucher lines
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const validation = validateVoucherLines(
-      voucher.voucherLines.map((line) => ({
+      ((voucher as any).VoucherLine || []).map((line: any) => ({
         debitAmount: Number(line.debitAmount),
         creditAmount: Number(line.creditAmount),
       }))
@@ -841,7 +860,8 @@ export async function postVoucher(voucherId: string) {
           postedBy: session.user.id,
           postedAt: new Date(),
           journalEntryLines: {
-            create: voucher.voucherLines.map((line) => ({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            create: ((voucher as any).VoucherLine || []).map((line: any) => ({
               lineNumber: line.lineNumber,
               debitAmount: line.debitAmount,
               creditAmount: line.creditAmount,
@@ -882,23 +902,23 @@ export async function postVoucher(voucherId: string) {
           postedAt: new Date(),
         },
         include: {
-          creator: {
+          User_Voucher_createdByToUser: {
             select: {
               id: true,
               name: true,
               email: true,
             },
           },
-          postedBy: {
+          User_Voucher_postedByIdToUser: {
             select: {
               id: true,
               name: true,
               email: true,
             },
           },
-          voucherLines: {
+          VoucherLine: {
             include: {
-              chartOfAccount: {
+              ChartOfAccount: {
                 select: {
                   id: true,
                   code: true,
@@ -940,11 +960,16 @@ export async function postVoucher(voucherId: string) {
     revalidateBothPaths("accounts/vouchers", "page");
     revalidateBothPaths(`accounts/vouchers/${voucherId}`, "page");
 
-    // Serialize Decimal fields
+    // Serialize Decimal fields and map relation names
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { User_Voucher_createdByToUser, User_Voucher_postedByIdToUser, VoucherLine, ...voucherWithoutRelations } = (result.voucher as any);
     const serializedVoucher = {
-      ...result.voucher,
-      voucherLines: result.voucher.voucherLines.map((line) => ({
+      ...voucherWithoutRelations,
+      creator: User_Voucher_createdByToUser,
+      postedBy: User_Voucher_postedByIdToUser,
+      voucherLines: (VoucherLine || []).map((line: any) => ({
         ...line,
+        chartOfAccount: line.ChartOfAccount,
         debitAmount: Number(line.debitAmount),
         creditAmount: Number(line.creditAmount),
       })),

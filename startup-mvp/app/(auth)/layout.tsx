@@ -49,7 +49,9 @@ export default function AuthLayout({
         <p>© 2025 All rights reserved.</p>
         <div className="flex items-center gap-2">
           <span>Powered by</span>
-          <PoweredByChip href="https://techsoulbd.com" logoWidth={80} logoHeight={40} />
+          <Link href="https://techsoulbd.com">
+            techsoul
+          </Link>
         </div>
       </div>
     </div>

@@ -29,6 +29,14 @@ enum CashBankAccountType {
   BANK
 }
 
+enum PurchaseStatus {
+  DRAFT
+  APPROVED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
 model User {
   id                               String              @id @default(cuid())
   name                             String?
@@ -73,6 +81,8 @@ model User {
   createdSettings                  Settings[]          @relation("SettingsCreator")
   settings                         Settings[]          @relation("SettingsUser")
   createdWorkOrders                WorkOrder[]         @relation("WorkOrderCreator")
+  createdPurchases                 Purchase[]          @relation("PurchaseCreatedBy")
+  updatedPurchases                 Purchase[]          @relation("PurchaseUpdatedBy")
 
   @@index([status])
   @@index([designationTemplateId])
@@ -274,6 +284,7 @@ model Item {
   unit           Unit            @relation("unit", fields: [unitId], references: [id])
   categories     ItemCategory[]
   quotationItems QuotationItem[]
+  purchaseItems  PurchaseItem[]
 
   @@index([code])
   @@index([unitId])
@@ -389,6 +400,7 @@ model Supplier {
   createdByUser    User               @relation("SupplierCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   Voucher          Voucher[]
   VoucherLine      VoucherLine[]
+  Purchase         Purchase[]
 
   @@index([status])
   @@index([createdBy])
@@ -433,6 +445,54 @@ model Quotation {
   @@index([updatedById])
   @@index([status])
   @@index([isTrash])
+}
+
+model Purchase {
+  id             String         @id @default(cuid())
+  purchaseNumber String         @unique
+  supplierId     String
+  date           DateTime       @default(now())
+  status         PurchaseStatus @default(DRAFT)
+  notes          String?
+  attachmentUrl  String?
+  subTotal       Decimal        @db.Decimal(12, 2)
+  discount       Decimal?       @db.Decimal(5, 2)
+  tax            Decimal?       @db.Decimal(5, 2)
+  grandTotal     Decimal        @db.Decimal(12, 2)
+  isTrash        Boolean        @default(false)
+  createdBy      String
+  updatedBy      String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  supplier       Supplier       @relation(fields: [supplierId], references: [id])
+  createdByUser  User           @relation("PurchaseCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  updatedByUser  User?          @relation("PurchaseUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  items          PurchaseItem[]
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([date])
+  @@index([isTrash])
+  @@index([purchaseNumber])
+}
+
+model PurchaseItem {
+  id          String   @id @default(cuid())
+  purchaseId  String
+  itemId      String?
+  description String
+  quantity    Decimal  @db.Decimal(10, 2)
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  amount      Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  purchase    Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  item        Item?    @relation(fields: [itemId], references: [id])
+
+  @@index([purchaseId])
+  @@index([itemId])
 }
 
 model WorkOrder {

@@ -69,7 +69,7 @@ export async function getCashBankAccounts(): Promise<CashBankAccountsResult> {
         id: true,
         type: true,
         status: true,
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -79,7 +79,7 @@ export async function getCashBankAccounts(): Promise<CashBankAccountsResult> {
       },
       orderBy: [
         { type: "asc" },
-        { chartOfAccount: { code: "asc" } },
+        { ChartOfAccount: { code: "asc" } },
       ],
     });
 
@@ -88,11 +88,12 @@ export async function getCashBankAccounts(): Promise<CashBankAccountsResult> {
     const bank: CashBankAccount[] = [];
 
     accounts.forEach((account) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const accountData: CashBankAccount = {
         id: account.id,
         type: account.type,
         status: account.status,
-        chartOfAccount: account.chartOfAccount,
+        chartOfAccount: (account as any).ChartOfAccount,
       };
 
       if (account.type === CashBankAccountType.CASH) {

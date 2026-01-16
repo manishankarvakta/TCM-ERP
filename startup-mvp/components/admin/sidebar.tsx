@@ -90,6 +90,7 @@ const menuItems: MenuItem[] = [
       { href: "/admin/work-orders", label: "Work Orders", icon: FiBriefcase, module: "work-orders" },
     ],
   },
+  { href: "/admin/purchases", label: "Purchases", icon: FiShoppingCart, module: "purchases" },
   {
     label: "Accounts",
     icon: SlCalculator,

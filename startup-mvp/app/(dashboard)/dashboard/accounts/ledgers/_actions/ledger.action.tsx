@@ -122,14 +122,14 @@ export async function getAccountLedger(
     const ledgerLines = await prisma.journalEntryLine.findMany({
       where: {
         chartOfAccountId: accountId,
-        journalEntry: {
+        JournalEntry: {
           ...(Object.keys(journalEntryDateFilter).length > 0 && { date: journalEntryDateFilter }),
         },
       },
       include: {
-        journalEntry: {
+        JournalEntry: {
           include: {
-            voucher: {
+            Voucher: {
               select: {
                 id: true,
                 voucherNumber: true,
@@ -141,7 +141,7 @@ export async function getAccountLedger(
             },
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -149,28 +149,28 @@ export async function getAccountLedger(
             type: true,
           },
         },
-        client: {
+        Client: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        supplier: {
+        Supplier: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        user: {
+        User: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        organization: {
+        Organization: {
           select: {
             id: true,
             name: true,
@@ -178,7 +178,7 @@ export async function getAccountLedger(
         },
       },
       orderBy: {
-        journalEntry: {
+        JournalEntry: {
           date: "asc",
         },
       },
@@ -203,54 +203,86 @@ export async function getAccountLedger(
       creditAmount: Number(line.creditAmount),
       description: line.description,
       journalEntry: {
-        id: line.journalEntry.id,
-        entryNumber: line.journalEntry.entryNumber,
-        date: line.journalEntry.date,
-        description: line.journalEntry.description,
-        status: line.journalEntry.status,
-        postedAt: line.journalEntry.postedAt,
-        voucher: line.journalEntry.voucher
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        id: (line as any).JournalEntry.id,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        entryNumber: (line as any).JournalEntry.entryNumber,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        date: (line as any).JournalEntry.date,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        description: (line as any).JournalEntry.description,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        status: (line as any).JournalEntry.status,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        postedAt: (line as any).JournalEntry.postedAt,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        voucher: (line as any).JournalEntry.Voucher
           ? {
-              id: line.journalEntry.voucher.id,
-              voucherNumber: line.journalEntry.voucher.voucherNumber,
-              type: line.journalEntry.voucher.type,
-              reference: line.journalEntry.voucher.reference,
-              description: line.journalEntry.voucher.description,
-              status: line.journalEntry.voucher.status,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              id: (line as any).JournalEntry.Voucher.id,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              voucherNumber: (line as any).JournalEntry.Voucher.voucherNumber,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              type: (line as any).JournalEntry.Voucher.type,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              reference: (line as any).JournalEntry.Voucher.reference,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              description: (line as any).JournalEntry.Voucher.description,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              status: (line as any).JournalEntry.Voucher.status,
             }
           : null,
       },
       chartOfAccount: {
-        id: line.chartOfAccount.id,
-        code: line.chartOfAccount.code,
-        name: line.chartOfAccount.name,
-        type: line.chartOfAccount.type,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        id: (line as any).ChartOfAccount.id,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        code: (line as any).ChartOfAccount.code,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        name: (line as any).ChartOfAccount.name,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        type: (line as any).ChartOfAccount.type,
       },
-      client: line.client
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      client: (line as any).Client
         ? {
-            id: line.client.id,
-            name: line.client.name,
-            email: line.client.email,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            id: (line as any).Client.id,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            name: (line as any).Client.name,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            email: (line as any).Client.email,
           }
         : null,
-      supplier: line.supplier
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supplier: (line as any).Supplier
         ? {
-            id: line.supplier.id,
-            name: line.supplier.name,
-            email: line.supplier.email,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            id: (line as any).Supplier.id,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            name: (line as any).Supplier.name,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            email: (line as any).Supplier.email,
           }
         : null,
-      user: line.user
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      user: (line as any).User
         ? {
-            id: line.user.id,
-            name: line.user.name,
-            email: line.user.email,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            id: (line as any).User.id,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            name: (line as any).User.name,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            email: (line as any).User.email,
           }
         : null,
-      organization: line.organization
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      organization: (line as any).Organization
         ? {
-            id: line.organization.id,
-            name: line.organization.name,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            id: (line as any).Organization.id,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            name: (line as any).Organization.name,
           }
         : null,
       createdAt: line.createdAt,
@@ -393,14 +425,14 @@ export async function getCustomerLedger(
     const ledgerLines = await prisma.journalEntryLine.findMany({
       where: {
         chartOfAccountId: customer.chartOfAccountId,
-        journalEntry: {
+        JournalEntry: {
           ...(Object.keys(journalEntryDateFilter).length > 0 && { date: journalEntryDateFilter }),
         },
       },
       include: {
-        journalEntry: {
+        JournalEntry: {
           include: {
-            voucher: {
+            Voucher: {
               select: {
                 id: true,
                 voucherNumber: true,
@@ -412,7 +444,7 @@ export async function getCustomerLedger(
             },
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -422,7 +454,7 @@ export async function getCustomerLedger(
         },
       },
       orderBy: {
-        journalEntry: {
+        JournalEntry: {
           date: "asc",
         },
       },
@@ -443,26 +475,40 @@ export async function getCustomerLedger(
     const formattedLedger = ledgerLines.map((line) => ({
       id: line.id,
       lineNumber: line.lineNumber,
-      date: line.journalEntry.date,
-      entryNumber: line.journalEntry.entryNumber,
-      description: line.description || line.journalEntry.description,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      date: (line as any).JournalEntry.date,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      entryNumber: (line as any).JournalEntry.entryNumber,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      description: line.description || (line as any).JournalEntry.description,
       debitAmount: Number(line.debitAmount),
       creditAmount: Number(line.creditAmount),
-      voucher: line.journalEntry.voucher
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      voucher: (line as any).JournalEntry.Voucher
         ? {
-            id: line.journalEntry.voucher.id,
-            voucherNumber: line.journalEntry.voucher.voucherNumber,
-            type: line.journalEntry.voucher.type,
-            reference: line.journalEntry.voucher.reference,
-            description: line.journalEntry.voucher.description,
-            status: line.journalEntry.voucher.status,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            id: (line as any).JournalEntry.Voucher.id,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            voucherNumber: (line as any).JournalEntry.Voucher.voucherNumber,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            type: (line as any).JournalEntry.Voucher.type,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            reference: (line as any).JournalEntry.Voucher.reference,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            description: (line as any).JournalEntry.Voucher.description,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            status: (line as any).JournalEntry.Voucher.status,
           }
         : null,
       chartOfAccount: {
-        id: line.chartOfAccount.id,
-        code: line.chartOfAccount.code,
-        name: line.chartOfAccount.name,
-        type: line.chartOfAccount.type,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        id: (line as any).ChartOfAccount.id,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        code: (line as any).ChartOfAccount.code,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        name: (line as any).ChartOfAccount.name,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        type: (line as any).ChartOfAccount.type,
       },
       createdAt: line.createdAt,
     }));
@@ -609,14 +655,14 @@ export async function getSupplierLedger(
     const ledgerLines = await prisma.journalEntryLine.findMany({
       where: {
         chartOfAccountId: supplier.chartOfAccountId,
-        journalEntry: {
+        JournalEntry: {
           ...(Object.keys(journalEntryDateFilter).length > 0 && { date: journalEntryDateFilter }),
         },
       },
       include: {
-        journalEntry: {
+        JournalEntry: {
           include: {
-            voucher: {
+            Voucher: {
               select: {
                 id: true,
                 voucherNumber: true,
@@ -628,7 +674,7 @@ export async function getSupplierLedger(
             },
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -638,7 +684,7 @@ export async function getSupplierLedger(
         },
       },
       orderBy: {
-        journalEntry: {
+        JournalEntry: {
           date: "asc",
         },
       },
@@ -659,26 +705,40 @@ export async function getSupplierLedger(
     const formattedLedger = ledgerLines.map((line) => ({
       id: line.id,
       lineNumber: line.lineNumber,
-      date: line.journalEntry.date,
-      entryNumber: line.journalEntry.entryNumber,
-      description: line.description || line.journalEntry.description,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      date: (line as any).JournalEntry.date,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      entryNumber: (line as any).JournalEntry.entryNumber,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      description: line.description || (line as any).JournalEntry.description,
       debitAmount: Number(line.debitAmount),
       creditAmount: Number(line.creditAmount),
-      voucher: line.journalEntry.voucher
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      voucher: (line as any).JournalEntry.Voucher
         ? {
-            id: line.journalEntry.voucher.id,
-            voucherNumber: line.journalEntry.voucher.voucherNumber,
-            type: line.journalEntry.voucher.type,
-            reference: line.journalEntry.voucher.reference,
-            description: line.journalEntry.voucher.description,
-            status: line.journalEntry.voucher.status,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            id: (line as any).JournalEntry.Voucher.id,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            voucherNumber: (line as any).JournalEntry.Voucher.voucherNumber,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            type: (line as any).JournalEntry.Voucher.type,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            reference: (line as any).JournalEntry.Voucher.reference,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            description: (line as any).JournalEntry.Voucher.description,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            status: (line as any).JournalEntry.Voucher.status,
           }
         : null,
       chartOfAccount: {
-        id: line.chartOfAccount.id,
-        code: line.chartOfAccount.code,
-        name: line.chartOfAccount.name,
-        type: line.chartOfAccount.type,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        id: (line as any).ChartOfAccount.id,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        code: (line as any).ChartOfAccount.code,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        name: (line as any).ChartOfAccount.name,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        type: (line as any).ChartOfAccount.type,
       },
       createdAt: line.createdAt,
     }));
@@ -821,7 +881,7 @@ export async function getEmployeeLedger(
       const openingBalanceLines = await prisma.journalEntryLine.findMany({
         where: {
           chartOfAccountId: employee.salaryPayableAccountId,
-          journalEntry: {
+          JournalEntry: {
             date: { lt: dateFrom },
           },
         },
@@ -865,14 +925,14 @@ export async function getEmployeeLedger(
     const ledgerLines = await prisma.journalEntryLine.findMany({
       where: {
         chartOfAccountId: employee.salaryPayableAccountId,
-        journalEntry: {
+        JournalEntry: {
           ...(Object.keys(journalEntryDateFilter).length > 0 && { date: journalEntryDateFilter }),
         },
       },
       include: {
-        journalEntry: {
+        JournalEntry: {
           include: {
-            voucher: {
+            Voucher: {
               select: {
                 id: true,
                 voucherNumber: true,
@@ -884,7 +944,7 @@ export async function getEmployeeLedger(
             },
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -894,7 +954,7 @@ export async function getEmployeeLedger(
         },
       },
       orderBy: {
-        journalEntry: {
+        JournalEntry: {
           date: "asc",
         },
       },
@@ -1092,7 +1152,7 @@ export async function getEmployeeAdvanceLedger(
       const openingBalanceLines = await prisma.journalEntryLine.findMany({
         where: {
           chartOfAccountId: employee.advanceAccountId,
-          journalEntry: {
+          JournalEntry: {
             date: { lt: dateFrom },
           },
         },
@@ -1136,14 +1196,14 @@ export async function getEmployeeAdvanceLedger(
     const ledgerLines = await prisma.journalEntryLine.findMany({
       where: {
         chartOfAccountId: employee.advanceAccountId,
-        journalEntry: {
+        JournalEntry: {
           ...(Object.keys(journalEntryDateFilter).length > 0 && { date: journalEntryDateFilter }),
         },
       },
       include: {
-        journalEntry: {
+        JournalEntry: {
           include: {
-            voucher: {
+            Voucher: {
               select: {
                 id: true,
                 voucherNumber: true,
@@ -1155,7 +1215,7 @@ export async function getEmployeeAdvanceLedger(
             },
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -1165,7 +1225,7 @@ export async function getEmployeeAdvanceLedger(
         },
       },
       orderBy: {
-        journalEntry: {
+        JournalEntry: {
           date: "asc",
         },
       },

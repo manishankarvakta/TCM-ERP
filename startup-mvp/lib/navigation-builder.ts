@@ -49,6 +49,14 @@ export const MENU_TEMPLATE: MenuItemData[] = [
     ],
   },
   {
+    label: "Purchases",
+    icon: "FiShoppingCart",
+    module: "purchases",
+    subMenu: [
+      { href: "/dashboard/purchases", label: "Purchases", icon: "FiShoppingCart", module: "purchases" },
+    ],
+  },
+  {
     label: "Accounts",
     icon: "SlCalculator",
     module: "accounts",
@@ -213,6 +221,7 @@ function getNavigationIdForMenuItem(item: MenuItemData): string | null {
     "/dashboard": "dashboard",
     "items": "items",
     "quotations": "quotations",
+    "purchases": "purchases",
     "work-orders": "work-orders",
     "accounts": "accounts",
     "peoples": "peoples",

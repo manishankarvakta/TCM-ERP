@@ -5,6 +5,7 @@ export type Module =
   | "dashboard"
   | "items"
   | "quotations"
+  | "purchases"
   | "accounts"
   | "peoples"
   | "files"
@@ -138,6 +139,14 @@ export const MODULES: Record<Module, ModuleMetadata> = {
       { id: "quotations", label: "Quotations", path: "/dashboard/quotations", module: "quotations", permissionKey: "quotations.quotations" },
       { id: "invoices", label: "Invoices", path: "/dashboard/quotations/invoices", module: "quotations", permissionKey: "quotations.invoices" },
       { id: "orders", label: "Orders", path: "/dashboard/quotations/orders", module: "quotations", permissionKey: "quotations.orders" },
+    ],
+  },
+  purchases: {
+    id: "purchases",
+    label: "Purchases",
+    description: "Manage purchase orders and receipts",
+    subModules: [
+      { id: "purchases", label: "Purchases", path: "/dashboard/purchases", module: "purchases", permissionKey: "purchases.purchases" },
     ],
   },
   accounts: {
@@ -418,6 +427,18 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "work-orders.work-orders",
         path: "/dashboard/work-orders",
         label: "Work Orders",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+    ],
+  },
+  {
+    id: "purchases",
+    label: "Purchases",
+    pages: [
+      {
+        permissionKey: "purchases.purchases",
+        path: "/dashboard/purchases",
+        label: "Purchases",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
     ],
