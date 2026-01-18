@@ -28,7 +28,11 @@ export default async function EditQuotationPage({ params }: EditQuotationPagePro
     coverLetter: quotation.coverLetter || '',
     financialStatement: quotation.financialStatement || '',
     tos: quotation.tos || '',
-    status: quotation.status,
+    expiredDate: quotation.expiredDate 
+      ? (quotation.expiredDate instanceof Date 
+          ? quotation.expiredDate.toISOString().split('T')[0] 
+          : new Date(quotation.expiredDate).toISOString().split('T')[0])
+      : '',
     clientId: quotation.clientId,
     clientName: (quotation as any).client?.name || '',
     clientAddress: (quotation as any).client?.address || '',

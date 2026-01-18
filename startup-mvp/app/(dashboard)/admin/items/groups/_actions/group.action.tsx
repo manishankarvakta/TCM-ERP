@@ -72,6 +72,7 @@ export async function getGroups(
         status: true,
         baseUnit: true,
         baseUnitPrice: true,
+        costPrice: true,
         createdBy: true,
         creator: {
           select: {
@@ -106,6 +107,7 @@ export async function getGroups(
     const serializedGroups = groups.map((mg) => ({
       ...mg,
       baseUnitPrice: mg.baseUnitPrice !== null && mg.baseUnitPrice !== undefined ? Number(mg.baseUnitPrice) : null,
+      costPrice: Number(mg.costPrice),
       items: mg.items.map((item) => ({
         ...item,
         unitPrice: Number(item.unitPrice),
@@ -164,6 +166,7 @@ export async function getGroupById(groupId: string) {
         status: true,
         baseUnit: true,
         baseUnitPrice: true,
+        costPrice: true,
         createdBy: true,
         creator: {
           select: {
@@ -208,6 +211,7 @@ export async function getGroupById(groupId: string) {
     const serializedGroup = {
       ...group,
       baseUnitPrice: group.baseUnitPrice !== null && group.baseUnitPrice !== undefined ? Number(group.baseUnitPrice) : null,
+      costPrice: Number(group.costPrice),
       items: group.items.map((item) => ({
         ...item,
         height: item.height ? Number(item.height) : null,
@@ -242,6 +246,7 @@ export async function createGroup(input: {
   status?: "active" | "inactive";
   baseUnit?: string;
   baseUnitPrice?: number;
+  costPrice?: number;
   items: Array<{
     sl: number;
     code?: string;
@@ -275,6 +280,7 @@ export async function createGroup(input: {
         status: input.status || "active",
         baseUnit: input.baseUnit || null,
         baseUnitPrice: input.baseUnitPrice ? new Prisma.Decimal(input.baseUnitPrice) : null,
+        costPrice: input.costPrice !== undefined && input.costPrice !== null && !isNaN(Number(input.costPrice)) ? new Prisma.Decimal(input.costPrice) : new Prisma.Decimal(0),
         createdBy: session.user.id,
         items: {
           create: input.items.map((item) => ({
@@ -345,6 +351,7 @@ export async function updateGroup(input: {
   status?: "active" | "inactive";
   baseUnit?: string;
   baseUnitPrice?: number;
+  costPrice?: number;
   items: Array<{
     id?: string;
     sl: number;
@@ -398,6 +405,7 @@ export async function updateGroup(input: {
         status: input.status || "active",
         baseUnit: input.baseUnit || null,
         baseUnitPrice: input.baseUnitPrice ? new Prisma.Decimal(input.baseUnitPrice) : null,
+        costPrice: input.costPrice !== undefined && input.costPrice !== null && !isNaN(Number(input.costPrice)) ? new Prisma.Decimal(input.costPrice) : new Prisma.Decimal(0),
         items: {
           create: input.items.map((item) => ({
             sl: item.sl,
@@ -887,6 +895,7 @@ export async function getModuleGroupById(id: string) {
     const serializedGroup = {
       ...group,
       baseUnitPrice: group.baseUnitPrice !== null && group.baseUnitPrice !== undefined ? Number(group.baseUnitPrice) : null,
+      costPrice: Number(group.costPrice),
       items: group.items.map((item) => ({
         ...item,
         height: item.height ? Number(item.height) : null,

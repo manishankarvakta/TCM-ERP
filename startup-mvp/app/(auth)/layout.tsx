@@ -8,6 +8,7 @@ import React from "react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import Logo from "@/components/layout/logo";
+import PoweredByChip from "@/components/common/powered-by-chip";
 import { ArrowLeft } from "lucide-react";
 
 export default function AuthLayout({
@@ -44,9 +45,14 @@ export default function AuthLayout({
         </blockquote>
       </div>
 
-      <div className="text-sm text-muted-foreground">
-        <p>© 2025 All rights reserved. Powered by 
-          <Link href="https://techsoulbd.com" target="_blank" className="hover:text-foreground transition-colors"> Techsoul</Link>.</p>
+      <div className="text-sm text-muted-foreground flex flex-col items-start gap-2">
+        <p>© 2025 All rights reserved.</p>
+        <div className="flex items-center gap-2">
+          <span>Powered by</span>
+          <Link href="https://techsoulbd.com">
+            techsoul
+          </Link>
+        </div>
       </div>
     </div>
 

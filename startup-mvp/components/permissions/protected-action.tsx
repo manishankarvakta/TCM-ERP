@@ -75,6 +75,12 @@ export default function ProtectedAction({
       return;
     }
 
+    // If no userId provided and no pre-check, we can't check permissions
+    if (!providedUserId) {
+      setLoading(false);
+      return;
+    }
+
     async function checkPermission() {
       let currentUserId = providedUserId;
 

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
+import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 
 /**
@@ -13,7 +14,8 @@ export async function getItems(
   page: number = 1,
   limit: number = 10,
   search: string = "",
-  status: "active" | "inactive" | "trash" | "all" = "all"
+  status: "active" | "inactive" | "trash" | "all" = "all",
+  categoryId?: string | null
 ) {
   try {
     const session = await auth();
@@ -56,6 +58,15 @@ export async function getItems(
     } else if (status === "all") {
       // Show all except trash by default
       where.status = { not: "trash" };
+    }
+
+    // Filter by category
+    if (categoryId && categoryId !== "all") {
+      where.categories = {
+        some: {
+          categoryId: categoryId,
+        },
+      };
     }
 
     // Get total count

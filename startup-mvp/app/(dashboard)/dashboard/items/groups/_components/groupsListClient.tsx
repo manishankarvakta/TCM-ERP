@@ -46,6 +46,7 @@ interface Group {
   status: string;
   baseUnit: string | null;
   baseUnitPrice: number | null;
+  costPrice: number;
   createdBy: string;
   creator: {
     id: string;

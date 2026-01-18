@@ -1,5 +1,5 @@
 import React from "react";
-import { getItems } from "./_actions/item.action";
+import { getItems, getActiveCategories } from "./_actions/item.action";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
@@ -14,6 +14,7 @@ interface ItemsPageProps {
     page?: string;
     search?: string;
     tab?: string;
+    category?: string;
   }>;
 }
 
@@ -22,6 +23,7 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
   const page = parseInt(params.page || "1");
   const search = params.search || "";
   const tab = params.tab || "all";
+  const category = params.category || "all";
 
   const session = await auth();
   const userId = session?.user?.id;
@@ -29,13 +31,16 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
   const status = tab === "trash" ? "trash" : tab === "active" ? "active" : tab === "inactive" ? "inactive" : "all";
   
   // Check permissions on server side for better performance
-  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
-    getItems(page, 10, search, status),
+  const [result, categoriesResult, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
+    getItems(page, 10, search, status, category === "all" ? null : category),
+    getActiveCategories(),
     userId ? hasPermission(userId, "items.items", "view") : false,
     userId ? hasPermission(userId, "items.items", "edit") : false,
     userId ? hasPermission(userId, "items.items", "move-to-trash") : false,
     userId ? hasPermission(userId, "items.items", "delete-permanently") : false,
   ]);
+
+  const categories = categoriesResult.success ? categoriesResult.categories : [];
 
   // Handle errors
   if (!result.success) {
@@ -77,16 +82,16 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
         <Tabs defaultValue={tab} className="w-full">
           <TabsList>
             <TabsTrigger value="all" asChild>
-              <Link href="/dashboard/items?tab=all&page=1">All Items</Link>
+              <Link href={`/dashboard/items?tab=all&page=1${category !== "all" ? `&category=${category}` : ""}`}>All Items</Link>
             </TabsTrigger>
             <TabsTrigger value="active" asChild>
-              <Link href="/dashboard/items?tab=active&page=1">Active</Link>
+              <Link href={`/dashboard/items?tab=active&page=1${category !== "all" ? `&category=${category}` : ""}`}>Active</Link>
             </TabsTrigger>
             <TabsTrigger value="inactive" asChild>
-              <Link href="/dashboard/items?tab=inactive&page=1">Inactive</Link>
+              <Link href={`/dashboard/items?tab=inactive&page=1${category !== "all" ? `&category=${category}` : ""}`}>Inactive</Link>
             </TabsTrigger>
             <TabsTrigger value="trash" asChild>
-              <Link href="/dashboard/items?tab=trash&page=1">Trash</Link>
+              <Link href={`/dashboard/items?tab=trash&page=1${category !== "all" ? `&category=${category}` : ""}`}>Trash</Link>
             </TabsTrigger>
           </TabsList>
           <TabsContent value="all" className="mt-4">
@@ -99,6 +104,8 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
                 totalPages: 0,
               }}
               initialSearch={search}
+              initialCategory={category}
+              categories={categories}
               isTrash={false}
               userId={userId || undefined}
               permissions={{
@@ -119,6 +126,8 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
                 totalPages: 0,
               }}
               initialSearch={search}
+              initialCategory={category}
+              categories={categories}
               isTrash={false}
               userId={userId || undefined}
               permissions={{
@@ -139,6 +148,8 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
                 totalPages: 0,
               }}
               initialSearch={search}
+              initialCategory={category}
+              categories={categories}
               isTrash={false}
               userId={userId || undefined}
               permissions={{
@@ -159,6 +170,8 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
                 totalPages: 0,
               }}
               initialSearch={search}
+              initialCategory={category}
+              categories={categories}
               isTrash={true}
               userId={userId || undefined}
               permissions={{

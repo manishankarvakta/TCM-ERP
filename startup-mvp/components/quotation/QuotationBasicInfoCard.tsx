@@ -42,7 +42,7 @@ interface QuotationBasicInfoCardProps {
   discount?: number;
   vatIncluded?: boolean;
   projectLocation?: string;
-  status: string;
+  expiredDate?: string;
   onQuotationNumberChange: (value: string) => void;
   onDateChange: (value: string) => void;
   onSubjectChange: (value: string) => void;
@@ -53,17 +53,8 @@ interface QuotationBasicInfoCardProps {
   onDiscountChange: (value: number) => void;
   onVatIncludedChange: (value: boolean) => void;
   onProjectLocationChange: (value: string) => void;
-  onStatusChange: (value: string) => void;
+  onExpiredDateChange: (value: string) => void;
 }
-
-const STATUS_OPTIONS = [
-  { value: 'DRAFT', label: 'Draft' },
-  { value: 'SENT', label: 'Sent' },
-  { value: 'ACCEPTED', label: 'Accepted' },
-  { value: 'REJECTED', label: 'Rejected' },
-  { value: 'EXPIRED', label: 'Expired' },
-  { value: 'REVISED', label: 'Revised' },
-];
 
 // Cover letter interface
 interface CoverLetter {
@@ -85,7 +76,7 @@ export function QuotationBasicInfoCard({
   discount = 0,
   vatIncluded = false,
   projectLocation = '',
-  status,
+  expiredDate = '',
   onQuotationNumberChange,
   onDateChange,
   onSubjectChange,
@@ -96,7 +87,7 @@ export function QuotationBasicInfoCard({
   onDiscountChange,
   onVatIncludedChange,
   onProjectLocationChange,
-  onStatusChange,
+  onExpiredDateChange,
 }: QuotationBasicInfoCardProps) {
   const { toast } = useToast();
   const [organizations, setOrganizations] = useState<Array<{ id: string; name: string | null }>>([]);
@@ -578,21 +569,16 @@ export function QuotationBasicInfoCard({
           </div>
         </div>
 
-        {/* Status */}
+        {/* Expired Date */}
         <div>
-          <Label htmlFor="status" className="text-xs">Status</Label>
-          <Select value={status} onValueChange={onStatusChange}>
-            <SelectTrigger className="h-8 text-sm text-left">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUS_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value} className="text-left">
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="expiredDate" className="text-xs">Expired Date</Label>
+          <Input
+            id="expiredDate"
+            type="date"
+            value={expiredDate}
+            onChange={(e) => onExpiredDateChange(e.target.value)}
+            className="h-8 text-sm"
+          />
         </div>
 
         {/* Project Location */}

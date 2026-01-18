@@ -6,6 +6,7 @@ export interface MenuItemData {
   label: string;
   icon: string;
   subMenu?: SubMenuItemData[];
+  subMenuGroups?: SubMenuGroup[];
   module?: string;
 }
 
@@ -14,6 +15,11 @@ export interface SubMenuItemData {
   label: string;
   icon: string;
   module?: string;
+}
+
+export interface SubMenuGroup {
+  label: string;
+  items: SubMenuItemData[];
 }
 
 // Master menu template - the complete menu structure
@@ -39,22 +45,61 @@ export const MENU_TEMPLATE: MenuItemData[] = [
       { href: "/dashboard/quotations", label: "Quotations", icon: "FiFileText", module: "quotations" },
       { href: "/dashboard/quotations/invoices", label: "Invoices", icon: "FiDollarSign", module: "quotations" },
       { href: "/dashboard/quotations/orders", label: "Orders", icon: "FiShoppingCart", module: "quotations" },
+      { href: "/dashboard/work-orders", label: "Work Orders", icon: "FiBriefcase", module: "work-orders" },
+    ],
+  },
+  {
+    label: "Purchases",
+    icon: "FiShoppingCart",
+    module: "purchases",
+    subMenu: [
+      { href: "/dashboard/purchases", label: "Purchases", icon: "FiShoppingCart", module: "purchases" },
     ],
   },
   {
     label: "Accounts",
     icon: "SlCalculator",
     module: "accounts",
-    subMenu: [
-      { href: "/dashboard/accounts/chart-of-accounts", label: "Chart of Accounts", icon: "FiBarChart", module: "accounts" },
-      { href: "/dashboard/accounts/ledgers", label: "Ledgers", icon: "FiBook", module: "accounts" },
-      { href: "/dashboard/accounts/vouchers", label: "Vouchers", icon: "FiFile", module: "accounts" },
-      { href: "/dashboard/accounts/trial-balance", label: "Trial Balance", icon: "FiActivity", module: "accounts" },
-      { href: "/dashboard/accounts/balance-sheet", label: "Balance Sheet", icon: "FiFileText", module: "accounts" },
-      { href: "/dashboard/accounts/profit-loss", label: "Profit & Loss", icon: "FiTrendingUp", module: "accounts" },
-      { href: "/dashboard/accounts/cash-bank", label: "Cash & Bank", icon: "FiCreditCard", module: "accounts" },
-      { href: "/dashboard/accounts/accounts-receivable", label: "Accounts Receivable", icon: "FiArrowDownRight", module: "accounts" },
-      { href: "/dashboard/accounts/accounts-payable", label: "Accounts Payable", icon: "FiArrowUpRight", module: "accounts" },
+    subMenuGroups: [
+      {
+        label: "Setup",
+        items: [
+          { href: "/dashboard/accounts/chart-of-accounts", label: "Chart of Accounts", icon: "FiBarChart", module: "accounts" },
+          { href: "/dashboard/accounts/cash-bank", label: "Cash & Bank", icon: "FiCreditCard", module: "accounts" },
+        ],
+      },
+      {
+        label: "Transactions",
+        items: [
+          { href: "/dashboard/accounts/vouchers", label: "Vouchers", icon: "FiFile", module: "accounts" },
+        ],
+      },
+      {
+        label: "Ledgers",
+        items: [
+          { href: "/dashboard/accounts/ledgers", label: "Account Ledger", icon: "FiBook", module: "accounts" },
+        ],
+      },
+      {
+        label: "Reports",
+        items: [
+          { href: "/dashboard/accounts/trial-balance", label: "Trial Balance", icon: "FiActivity", module: "accounts" },
+          { href: "/dashboard/accounts/balance-sheet", label: "Balance Sheet", icon: "FiFileText", module: "accounts" },
+          { href: "/dashboard/accounts/profit-loss", label: "Profit & Loss", icon: "FiTrendingUp", module: "accounts" },
+        ],
+      },
+      {
+        label: "Receivables",
+        items: [
+          { href: "/dashboard/accounts/accounts-receivable", label: "Accounts Receivable", icon: "FiArrowDownRight", module: "accounts" },
+        ],
+      },
+      {
+        label: "Payables",
+        items: [
+          { href: "/dashboard/accounts/accounts-payable", label: "Accounts Payable", icon: "FiArrowUpRight", module: "accounts" },
+        ],
+      },
     ],
   },
   {
@@ -65,6 +110,7 @@ export const MENU_TEMPLATE: MenuItemData[] = [
       { href: "/dashboard/users", label: "Users", icon: "FiUser", module: "peoples" },
       { href: "/dashboard/clients", label: "Clients", icon: "FiUser", module: "peoples" },
       { href: "/dashboard/suppliers", label: "Suppliers", icon: "FiUser", module: "peoples" },
+      { href: "/dashboard/employees", label: "Employees", icon: "FiUser", module: "peoples" },
     ],
   },
   { href: "/dashboard/files", label: "Files", icon: "FiFolder", module: "files" },
@@ -175,6 +221,8 @@ function getNavigationIdForMenuItem(item: MenuItemData): string | null {
     "/dashboard": "dashboard",
     "items": "items",
     "quotations": "quotations",
+    "purchases": "purchases",
+    "work-orders": "work-orders",
     "accounts": "accounts",
     "peoples": "peoples",
     "/dashboard/files": "files",
@@ -234,6 +282,10 @@ export function buildFilteredMenu(
       const itemCopy: MenuItemData = {
         ...item,
         subMenu: item.subMenu ? [...item.subMenu] : undefined,
+        subMenuGroups: item.subMenuGroups ? item.subMenuGroups.map(group => ({
+          ...group,
+          items: [...group.items]
+        })) : undefined,
       };
       
       const navId = getNavigationIdForMenuItem(item);
@@ -255,6 +307,35 @@ export function buildFilteredMenu(
         
         // If no accessible submenu items, hide the parent menu item
         if (itemCopy.subMenu.length === 0) {
+          return null;
+        }
+      }
+      
+      // Filter submenu groups based on permissions
+      if (itemCopy.subMenuGroups) {
+        itemCopy.subMenuGroups = itemCopy.subMenuGroups.map((group) => {
+          // Filter items within each group
+          const filteredItems = group.items.filter((subItem) => {
+            const permissionKey = getPermissionKeyFromPath(subItem.href);
+            
+            if (!permissionKey) {
+              return false;
+            }
+            
+            const hasAccess = accessiblePages.get(permissionKey);
+            
+            // Only show if explicitly set to true
+            return hasAccess === true;
+          });
+          
+          return {
+            ...group,
+            items: filteredItems,
+          };
+        }).filter((group) => group.items.length > 0); // Remove empty groups
+        
+        // If no accessible groups, hide the parent menu item
+        if (itemCopy.subMenuGroups.length === 0) {
           return null;
         }
       }

@@ -7,7 +7,7 @@ export interface Toast {
   title?: string;
   description?: string;
   variant?: "default" | "destructive";
-  duration?: number; // Optional duration in milliseconds, undefined = no auto-dismiss
+  duration?: number | null; // Duration in milliseconds. Defaults to 5000ms. Set to null to disable auto-dismiss
 }
 
 export function useToast() {
@@ -16,16 +16,18 @@ export function useToast() {
   const toast = useCallback(
     ({ title, description, variant = "default", duration }: Omit<Toast, "id">) => {
       const id = Math.random().toString(36).substring(7);
-      const newToast: Toast = { id, title, description, variant, duration };
+      // Default duration is 5000ms (5 seconds) if not specified
+      // Set duration to null to disable auto-dismiss
+      const toastDuration = duration !== undefined ? duration : 5000;
+      const newToast: Toast = { id, title, description, variant, duration: toastDuration };
       
       setToasts((prev) => [...prev, newToast]);
       
-      // Only auto-remove if duration is explicitly set and > 0
-      // By default, toasts stay visible until manually closed
-      if (duration !== undefined && duration > 0) {
+      // Auto-remove if duration is set and > 0
+      if (toastDuration !== null && toastDuration > 0) {
         setTimeout(() => {
           setToasts((prev) => prev.filter((t) => t.id !== id));
-        }, duration);
+        }, toastDuration);
       }
     },
     []

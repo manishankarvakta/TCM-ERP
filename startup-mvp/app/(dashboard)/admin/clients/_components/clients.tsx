@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 interface Client {
   id: string;
   name: string | null;
+  clientCode: string | null;
   email: string;
   phone: string | null;
   address: string | null;
@@ -57,6 +58,12 @@ interface Client {
     name: string | null;
     email: string;
   };
+  chartOfAccount: {
+    id: string;
+    code: string;
+    name: string;
+    type: string;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -331,6 +338,7 @@ export default function ClientsListClient({
                   aria-label="Select all"
                 />
               </TableHead>
+              <TableHead>Client Code</TableHead>
               <TableHead>Client</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
@@ -360,6 +368,9 @@ export default function ClientsListClient({
                         onCheckedChange={(checked) => handleSelectClient(client.id, checked as boolean)}
                         aria-label={`Select ${client.name || client.email}`}
                       />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {client.clientCode || "-"}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">

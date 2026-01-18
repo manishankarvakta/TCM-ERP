@@ -32,6 +32,7 @@ import {
   FiArrowDownRight,
   FiArrowUpRight,
   FiFile,
+  FiBriefcase,
 } from "react-icons/fi";
 import Logo from "@/components/layout/logo";
 import { SlCalculator } from "react-icons/sl";
@@ -46,11 +47,17 @@ interface SubMenuItem {
   module?: Module; // Module this submenu item belongs to
 }
 
+interface SubMenuGroup {
+  label: string;
+  items: SubMenuItem[];
+}
+
 interface MenuItem {
   href?: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   subMenu?: SubMenuItem[];
+  subMenuGroups?: SubMenuGroup[];
   module?: Module; // Module this menu item belongs to
 }
 
@@ -80,22 +87,54 @@ const menuItems: MenuItem[] = [
       { href: "/admin/quotations", label: "Quotations", icon: FiFileText, module: "quotations" },
       { href: "/admin/quotations/invoices", label: "Invoices", icon: FiDollarSign, module: "quotations" },
       { href: "/admin/quotations/orders", label: "Orders", icon: FiShoppingCart, module: "quotations" },
+      { href: "/admin/work-orders", label: "Work Orders", icon: FiBriefcase, module: "work-orders" },
     ],
   },
+  { href: "/admin/purchases", label: "Purchases", icon: FiShoppingCart, module: "purchases" },
   {
     label: "Accounts",
     icon: SlCalculator,
     module: "accounts",
-    subMenu: [
-      { href: "/admin/accounts/chart-of-accounts", label: "Chart of Accounts", icon: FiBarChart, module: "accounts" },
-      { href: "/admin/accounts/ledgers", label: "Ledgers", icon: FiBook, module: "accounts" },
-      { href: "/admin/accounts/vouchers", label: "Vouchers", icon: FiFile, module: "accounts" },
-      { href: "/admin/accounts/trial-balance", label: "Trial Balance", icon: FiActivity, module: "accounts" },
-      { href: "/admin/accounts/balance-sheet", label: "Balance Sheet", icon: FiFileText, module: "accounts" },
-      { href: "/admin/accounts/profit-loss", label: "Profit & Loss", icon: FiTrendingUp, module: "accounts" },
-      { href: "/admin/accounts/cash-bank", label: "Cash & Bank", icon: FiCreditCard, module: "accounts" },
-      { href: "/admin/accounts/accounts-receivable", label: "Accounts Receivable", icon: FiArrowDownRight, module: "accounts" },
-      { href: "/admin/accounts/accounts-payable", label: "Accounts Payable", icon: FiArrowUpRight, module: "accounts" },
+    subMenuGroups: [
+      {
+        label: "Setup",
+        items: [
+          { href: "/admin/accounts/chart-of-accounts", label: "Chart of Accounts", icon: FiBarChart, module: "accounts" },
+          { href: "/admin/accounts/cash-bank", label: "Cash & Bank", icon: FiCreditCard, module: "accounts" },
+        ],
+      },
+      {
+        label: "Transactions",
+        items: [
+          { href: "/admin/accounts/vouchers", label: "Vouchers", icon: FiFile, module: "accounts" },
+        ],
+      },
+      {
+        label: "Ledgers",
+        items: [
+          { href: "/admin/accounts/ledgers", label: "Account Ledger", icon: FiBook, module: "accounts" },
+        ],
+      },
+      {
+        label: "Reports",
+        items: [
+          { href: "/admin/accounts/trial-balance", label: "Trial Balance", icon: FiActivity, module: "accounts" },
+          { href: "/admin/accounts/balance-sheet", label: "Balance Sheet", icon: FiFileText, module: "accounts" },
+          { href: "/admin/accounts/profit-loss", label: "Profit & Loss", icon: FiTrendingUp, module: "accounts" },
+        ],
+      },
+      {
+        label: "Receivables",
+        items: [
+          { href: "/admin/accounts/accounts-receivable", label: "Accounts Receivable", icon: FiArrowDownRight, module: "accounts" },
+        ],
+      },
+      {
+        label: "Payables",
+        items: [
+          { href: "/admin/accounts/accounts-payable", label: "Accounts Payable", icon: FiArrowUpRight, module: "accounts" },
+        ],
+      },
     ],
   },
   {
@@ -106,6 +145,7 @@ const menuItems: MenuItem[] = [
       { href: "/admin/users", label: "Users", icon: FiUser, module: "peoples" },
       { href: "/admin/clients", label: "Clients", icon: FiUser, module: "peoples" },
       { href: "/admin/suppliers", label: "Suppliers", icon: FiUser, module: "peoples" },
+      { href: "/admin/employees", label: "Employees", icon: FiUser, module: "peoples" },
     ],
   },
   
@@ -273,6 +313,27 @@ export default function DashboardSidebar({
               return true;
             });
           }
+          // Filter sub-menu groups based on permissions
+          if (itemCopy.subMenuGroups) {
+            itemCopy.subMenuGroups = itemCopy.subMenuGroups.map((group) => {
+              // Filter items within each group
+              const filteredItems = group.items.filter((subItem) => {
+                const permissionKey = getPermissionKeyFromPath(subItem.href);
+                if (!permissionKey) {
+                  return false;
+                }
+                const hasAccess = accessiblePages.get(permissionKey);
+                if (hasAccess !== true) {
+                  return false;
+                }
+                return true;
+              });
+              return {
+                ...group,
+                items: filteredItems,
+              };
+            }).filter((group) => group.items.length > 0); // Remove empty groups
+          }
         return itemCopy;
       }
       
@@ -304,6 +365,31 @@ export default function DashboardSidebar({
           });
           // Only show parent navigation item if it has at least one accessible sub-item
           if (itemCopy.subMenu.length === 0) return null;
+        }
+        
+        // Filter sub-menu groups based on page access
+        if (itemCopy.subMenuGroups) {
+          itemCopy.subMenuGroups = itemCopy.subMenuGroups.map((group) => {
+            // Filter items within each group
+            const filteredItems = group.items.filter((subItem) => {
+              const permissionKey = getPermissionKeyFromPath(subItem.href);
+              if (!permissionKey) {
+                return false;
+              }
+              const hasAccess = accessiblePages.get(permissionKey);
+              if (hasAccess !== true) {
+                return false;
+              }
+              return true;
+            });
+            return {
+              ...group,
+              items: filteredItems,
+            };
+          }).filter((group) => group.items.length > 0); // Remove empty groups
+          
+          // Only show parent navigation item if it has at least one accessible group
+          if (itemCopy.subMenuGroups.length === 0) return null;
         }
       
       // For items without sub-menu, check page access
@@ -339,6 +425,21 @@ export default function DashboardSidebar({
           expanded.add(item.label);
         }
       }
+      if (item.subMenuGroups) {
+        const hasActiveChild = item.subMenuGroups.some((group) =>
+          group.items.some((subItem) => {
+            if (pathname === subItem.href) return true;
+            if (pathname?.startsWith(subItem.href)) {
+              const nextChar = pathname[subItem.href.length];
+              return nextChar === '/' || nextChar === undefined;
+            }
+            return false;
+          })
+        );
+        if (hasActiveChild) {
+          expanded.add(item.label);
+        }
+      }
     });
     return expanded;
   });
@@ -362,6 +463,14 @@ export default function DashboardSidebar({
       // Exact match only - this ensures parent highlights when child is active
       return pathname === subItem.href;
     });
+  };
+
+  const isSubMenuGroupsActive = (subMenuGroups: SubMenuGroup[]) => {
+    return subMenuGroups.some((group) =>
+      group.items.some((subItem) => {
+        return pathname === subItem.href;
+      })
+    );
   };
 
   // Close sidebar when clicking outside on mobile
@@ -454,6 +563,66 @@ export default function DashboardSidebar({
                         </Link>
                       );
                     })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          if (item.subMenuGroups) {
+            const isExpanded = isMenuExpanded(item.label);
+            const hasActiveChild = isSubMenuGroupsActive(item.subMenuGroups);
+            
+            return (
+              <div key={item.label}>
+                <button
+                  onClick={() => toggleMenu(item.label)}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    hasActiveChild
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </div>
+                  {isExpanded ? (
+                    <FiChevronDown className="h-4 w-4" />
+                  ) : (
+                    <FiChevronRight className="h-4 w-4" />
+                  )}
+                </button>
+                {isExpanded && (
+                  <div className="ml-4 mt-1 space-y-2 border-l pl-4">
+                    {item.subMenuGroups.map((group, groupIndex) => (
+                      <div key={groupIndex} className="space-y-1">
+                        <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          {group.label}
+                        </div>
+                        {group.items.map((subItem) => {
+                          const SubIcon = subItem.icon;
+                          const isActive = pathname === subItem.href;
+                          return (
+                            <Link
+                              key={subItem.href}
+                              href={subItem.href}
+                              className={cn(
+                                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                                isActive
+                                  ? "bg-accent text-accent-foreground"
+                                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                              )}
+                              onClick={() => dispatch(setSidebarOpen(false))}
+                            >
+                              <SubIcon className="h-4 w-4" />
+                              <span>{subItem.label}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

@@ -49,6 +49,8 @@ async function seedPermissions() {
       ["quotations.quotations", "quotations.invoices", "quotations.orders"],
       ["create", "view", "edit", "move-to-trash"]
     ),
+    // Purchases - view only
+    ...createPermissionsForPages(["purchases.purchases"], ["view"]),
     // Accounts - read-only
     ...createPermissionsForPages(
       [
@@ -106,6 +108,8 @@ async function seedPermissions() {
       ],
       allStandardOps
     ),
+    // Purchases - full access
+    ...createPermissionsForPages(["purchases.purchases"], allStandardOps),
     // Peoples - read-only
     ...createPermissionsForPages(
       ["peoples.users", "peoples.clients", "peoples.suppliers"],
@@ -159,6 +163,8 @@ async function seedPermissions() {
       ],
       allStandardOps
     ),
+    // Purchases - full access
+    ...createPermissionsForPages(["purchases.purchases"], allStandardOps),
     // Peoples - full access
     ...createPermissionsForPages(
       ["peoples.users", "peoples.clients", "peoples.suppliers"],
@@ -210,6 +216,8 @@ async function seedPermissions() {
       ["quotations.quotations", "quotations.invoices", "quotations.orders"],
       ["view", "export"]
     ),
+    // Purchases - view only
+    ...createPermissionsForPages(["purchases.purchases"], ["view"]),
     // Accounts - view and export
     ...createPermissionsForPages(
       [
@@ -270,6 +278,8 @@ async function seedPermissions() {
       ],
       allStandardOps
     ),
+    // Purchases - full access
+    ...createPermissionsForPages(["purchases.purchases"], allStandardOps),
     // Peoples - view and limited edit
     ...createPermissionsForPages(
       ["peoples.clients", "peoples.suppliers"],
@@ -307,6 +317,8 @@ async function seedPermissions() {
       ["quotations.invoices", "quotations.orders"],
       ["view", "edit", "export"]
     ),
+    // Purchases - view only
+    ...createPermissionsForPages(["purchases.purchases"], ["view"]),
     // Accounts - view only
     ...createPermissionsForPages(
       [
@@ -356,6 +368,8 @@ async function seedPermissions() {
       ["quotations.orders"],
       ["view"]
     ),
+    // Purchases - view only
+    ...createPermissionsForPages(["purchases.purchases"], ["view"]),
     // Accounts - view only
     ...createPermissionsForPages(
       [
@@ -405,6 +419,8 @@ async function seedPermissions() {
       ["quotations.orders"],
       ["view"]
     ),
+    // Purchases - view only
+    ...createPermissionsForPages(["purchases.purchases"], ["view"]),
     // Accounts - view only
     ...createPermissionsForPages(
       [
@@ -455,6 +471,8 @@ async function seedPermissions() {
       ["quotations.orders"],
       ["view", "edit", "export"]
     ),
+    // Purchases - view only
+    ...createPermissionsForPages(["purchases.purchases"], ["view"]),
     // Accounts - no access
     // Peoples - view suppliers
     ...createPermissionsForPages(

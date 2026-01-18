@@ -7,6 +7,36 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum VoucherType {
+  PAYMENT
+  RECEIPT
+  JOURNAL
+  CONTRA
+  SALES
+  PURCHASE
+}
+
+enum CashBankAccountType {
+  CASH
+  BANK
+}
+
+enum PurchaseStatus {
+  DRAFT
+  APPROVED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
 model User {
   id                               String              @id @default(cuid())
   name                             String?
@@ -26,7 +56,7 @@ model User {
   ChartOfAccount                   ChartOfAccount[]
   createdClients                   Client[]            @relation("ClientCreator")
   createdCoverLetters              CoverLetter[]       @relation("CoverLetterCreator")
-  Employee                         Employee?
+  Employee                         Employee?           @relation("UserEmployee")
   files                            File[]
   JournalEntryLine                 JournalEntryLine[]
   createdModuleGroups              ModuleGroup[]       @relation("ModuleGroupCreator")
@@ -50,10 +80,39 @@ model User {
   VoucherLine                      VoucherLine[]
   createdSettings                  Settings[]          @relation("SettingsCreator")
   settings                         Settings[]          @relation("SettingsUser")
+  createdWorkOrders                WorkOrder[]         @relation("WorkOrderCreator")
+  createdPurchases                 Purchase[]          @relation("PurchaseCreatedBy")
+  updatedPurchases                 Purchase[]          @relation("PurchaseUpdatedBy")
 
   @@index([status])
   @@index([designationTemplateId])
   @@index([inchargeId])
+}
+
+model Employee {
+  id           String   @id @default(cuid())
+  name         String
+  employeeCode String?  @unique
+  email        String?
+  phone        String?
+  userId       String?  @unique
+  user         User?    @relation("UserEmployee", fields: [userId], references: [id], onDelete: SetNull)
+  status       String   @default("active") // active, inactive
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Payroll accounting relations
+  salaryPayableAccountId String?
+  salaryPayableAccount   ChartOfAccount? @relation("Employee_salaryPayableAccountIdToChartOfAccount", fields: [salaryPayableAccountId], references: [id], onDelete: SetNull)
+  advanceAccountId       String?
+  advanceAccount         ChartOfAccount? @relation("Employee_advanceAccountIdToChartOfAccount", fields: [advanceAccountId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([employeeCode])
+  @@index([email])
+  @@index([salaryPayableAccountId])
+  @@index([advanceAccountId])
 }
 
 model Account {
@@ -225,6 +284,7 @@ model Item {
   unit           Unit            @relation("unit", fields: [unitId], references: [id])
   categories     ItemCategory[]
   quotationItems QuotationItem[]
+  purchaseItems  PurchaseItem[]
 
   @@index([code])
   @@index([unitId])
@@ -242,6 +302,7 @@ model ModuleGroup {
   updatedAt     DateTime          @updatedAt
   baseUnit      String?
   baseUnitPrice Decimal?          @db.Decimal(10, 2)
+  costPrice     Decimal           @default(0) @db.Decimal(10, 2)
   creator       User              @relation("ModuleGroupCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   items         ModuleGroupItem[]
 
@@ -339,6 +400,7 @@ model Supplier {
   createdByUser    User               @relation("SupplierCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   Voucher          Voucher[]
   VoucherLine      VoucherLine[]
+  Purchase         Purchase[]
 
   @@index([status])
   @@index([createdBy])
@@ -359,6 +421,7 @@ model Quotation {
   discount           Decimal?        @db.Decimal(5, 2)
   grandTotal         Decimal?        @db.Decimal(12, 2)
   status             QuotationStatus @default(DRAFT)
+  expiredDate        DateTime?
   clientId           String
   organizationId     String?
   submittedById      String
@@ -374,6 +437,7 @@ model Quotation {
   submittedBy        User            @relation("SubmittedBy", fields: [submittedById], references: [id])
   updatedBy          User?           @relation("UpdatedBy", fields: [updatedById], references: [id])
   section            Section[]
+  workOrders        WorkOrder[]
 
   @@index([clientId])
   @@index([organizationId])
@@ -381,6 +445,75 @@ model Quotation {
   @@index([updatedById])
   @@index([status])
   @@index([isTrash])
+}
+
+model Purchase {
+  id             String         @id @default(cuid())
+  purchaseNumber String         @unique
+  supplierId     String
+  date           DateTime       @default(now())
+  status         PurchaseStatus @default(DRAFT)
+  notes          String?
+  attachmentUrl  String?
+  subTotal       Decimal        @db.Decimal(12, 2)
+  discount       Decimal?       @db.Decimal(5, 2)
+  tax            Decimal?       @db.Decimal(5, 2)
+  grandTotal     Decimal        @db.Decimal(12, 2)
+  isTrash        Boolean        @default(false)
+  createdBy      String
+  updatedBy      String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  supplier       Supplier       @relation(fields: [supplierId], references: [id])
+  createdByUser  User           @relation("PurchaseCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  updatedByUser  User?          @relation("PurchaseUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  items          PurchaseItem[]
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([date])
+  @@index([isTrash])
+  @@index([purchaseNumber])
+}
+
+model PurchaseItem {
+  id          String   @id @default(cuid())
+  purchaseId  String
+  itemId      String?
+  description String
+  quantity    Decimal  @db.Decimal(10, 2)
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  amount      Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  purchase    Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  item        Item?    @relation(fields: [itemId], references: [id])
+
+  @@index([purchaseId])
+  @@index([itemId])
+}
+
+model WorkOrder {
+  id          String            @id @default(cuid())
+  code        String            @unique
+  quotationId String
+  createdById String
+  amount      Decimal           @db.Decimal(12, 2)
+  advance     Decimal?          @db.Decimal(12, 2)
+  balance     Decimal           @db.Decimal(12, 2) // Calculated: amount - advance
+  status      WorkOrderStatus   @default(PROGRESS)
+  isTrash     Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  
+  quotation   Quotation         @relation(fields: [quotationId], references: [id])
+  createdBy   User              @relation("WorkOrderCreator", fields: [createdById], references: [id])
+  
+  @@index([quotationId])
+  @@index([createdById])
+  @@index([status])
 }
 
 model Section {
@@ -608,30 +741,6 @@ model ChartOfAccount {
   @@index([type])
 }
 
-model Employee {
-  id                                                             String          @id
-  name                                                           String
-  employeeCode                                                   String?         @unique
-  userId                                                         String?         @unique
-  status                                                         String          @default("active")
-  createdAt                                                      DateTime        @default(now())
-  updatedAt                                                      DateTime
-  salaryPayableAccountId                                         String?
-  advanceAccountId                                               String?
-  email                                                          String?
-  phone                                                          String?
-  ChartOfAccount_Employee_advanceAccountIdToChartOfAccount       ChartOfAccount? @relation("Employee_advanceAccountIdToChartOfAccount", fields: [advanceAccountId], references: [id])
-  ChartOfAccount_Employee_salaryPayableAccountIdToChartOfAccount ChartOfAccount? @relation("Employee_salaryPayableAccountIdToChartOfAccount", fields: [salaryPayableAccountId], references: [id])
-  User                                                           User?           @relation(fields: [userId], references: [id])
-
-  @@index([advanceAccountId])
-  @@index([email])
-  @@index([employeeCode])
-  @@index([salaryPayableAccountId])
-  @@index([status])
-  @@index([userId])
-}
-
 model JournalEntry {
   id               String             @id
   entryNumber      String             @unique
@@ -749,11 +858,19 @@ model VoucherLine {
 
 enum QuotationStatus {
   DRAFT
+  REVIEW
   SENT
   ACCEPTED
   REJECTED
   EXPIRED
   REVISED
+}
+
+enum WorkOrderStatus {
+  PROGRESS
+  COMPLETE
+  CANCELED
+  HOLD
 }
 
 enum NotificationType {
@@ -763,26 +880,4 @@ enum NotificationType {
   WARNING
   ERROR
   SUCCESS
-}
-
-enum AccountType {
-  ASSET
-  LIABILITY
-  EQUITY
-  REVENUE
-  EXPENSE
-}
-
-enum CashBankAccountType {
-  CASH
-  BANK
-}
-
-enum VoucherType {
-  PAYMENT
-  RECEIPT
-  JOURNAL
-  CONTRA
-  SALES
-  PURCHASE
 }
