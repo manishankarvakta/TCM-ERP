@@ -7,6 +7,7 @@ import {
   BOTTOM_MENU_TEMPLATE,
   getPermissionKeyFromPath,
   type MenuItemData,
+  type SubMenuGroup,
 } from "@/lib/navigation-builder";
 import DashboardSidebar from "./sidebar";
 
@@ -45,6 +46,40 @@ function filterMenuByPermissions(
       filteredMenu.push({
         ...item,
         subMenu: filteredSubMenu,
+      });
+    }
+    // Handle items with subMenuGroups
+    else if (item.subMenuGroups && item.subMenuGroups.length > 0) {
+      // Filter groups and items within groups
+      const filteredGroups: SubMenuGroup[] = item.subMenuGroups
+        .map((group) => {
+          // Filter items within each group
+          const filteredItems = group.items.filter((subItem) => {
+            const permissionKey = getPermissionKeyFromPath(subItem.href);
+            if (!permissionKey) {
+              return false;
+            }
+            
+            const hasAccess = accessiblePages.get(permissionKey);
+            return hasAccess === true;
+          });
+          
+          return {
+            ...group,
+            items: filteredItems,
+          };
+        })
+        .filter((group) => group.items.length > 0); // Remove empty groups
+
+      // Only show parent if at least one group has accessible items
+      if (filteredGroups.length === 0) {
+        continue;
+      }
+
+      // Create filtered item with filtered groups
+      filteredMenu.push({
+        ...item,
+        subMenuGroups: filteredGroups,
       });
     } 
     // Handle items without subMenus (direct links)

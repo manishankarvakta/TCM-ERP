@@ -6,6 +6,7 @@ import { Prisma, QuotationStatus } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { notifyItemCreated, notifyItemUpdated, notifyItemDeleted } from '@/lib/notification';
 import { createUserLog, LogAction } from '@/lib/user-log';
+import { createClient } from '@/app/(dashboard)/dashboard/clients/_actions/client.action';
 
 /**
  * Get all quotations with relations
@@ -128,6 +129,15 @@ export async function getQuotations(
             name: true,
             email: true,
             image: true,
+          },
+        },
+        workOrders: {
+          select: {
+            id: true,
+            isTrash: true,
+          },
+          where: {
+            isTrash: false, // Only count non-trashed work orders
           },
         },
       },
@@ -319,6 +329,17 @@ export async function getQuotation(id: string) {
       };
     }
 
+    // Check if quotation is expired and update status if needed
+    const now = new Date();
+    if (quotation.expiredDate && quotation.expiredDate <= now && quotation.status !== 'EXPIRED' && !quotation.isTrash) {
+      await prisma.quotation.update({
+        where: { id },
+        data: { status: 'EXPIRED' },
+      });
+      // Update the status in the current object
+      quotation.status = 'EXPIRED';
+    }
+
     // Serialize Decimal values to numbers for client components
     const serializedQuotation = {
       ...quotation,
@@ -453,17 +474,29 @@ export async function createQuotation(data: any) {
           });
         }
       } else {
-        const newClient = await prisma.client.create({
-          data: {
-            name: data.clientName,
-            address: data.clientAddress || null,
-            phone: data.clientContact || null,
-            email: data.clientContact?.includes('@') ? data.clientContact : null,
-            status: 'active',
-            createdBy: session.user.id,
-          },
+        // Use createClient function to ensure COA is created automatically
+        // Generate a temporary email if not provided (createClient requires email)
+        const clientEmail = data.clientContact?.includes('@') 
+          ? data.clientContact 
+          : `client-${Date.now()}@temp.local`;
+        
+        const clientResult = await createClient({
+          name: data.clientName,
+          address: data.clientAddress || undefined,
+          phone: data.clientContact || undefined,
+          email: clientEmail,
+          status: 'active',
         });
-        clientId = newClient.id;
+        
+        if (!clientResult.success || !clientResult.client) {
+          return {
+            success: false,
+            error: clientResult.error || 'Failed to create client',
+            quotation: null,
+          };
+        }
+        
+        clientId = clientResult.client.id;
       }
     }
 
@@ -593,7 +626,8 @@ export async function createQuotation(data: any) {
         coverLetter: coverLetterContent || null,
         tos: tosContent || null,
         total: total > 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
-        status: data.status || 'DRAFT',
+        status: 'DRAFT', // Always DRAFT on create
+        expiredDate: data.expiredDate ? new Date(data.expiredDate) : null as any,
         clientId: clientId,
         organizationId: data.organizationId || null,
         submittedById: submittedById, // Always use session user
@@ -800,17 +834,29 @@ export async function updateQuotation(id: string, data: any) {
           });
         }
       } else {
-        const newClient = await prisma.client.create({
-          data: {
-            name: data.clientName,
-            address: data.clientAddress || null,
-            phone: data.clientContact || null,
-            email: data.clientContact?.includes('@') ? data.clientContact : null,
-            status: 'active',
-            createdBy: session.user.id,
-          },
+        // Use createClient function to ensure COA is created automatically
+        // Generate a temporary email if not provided (createClient requires email)
+        const clientEmail = data.clientContact?.includes('@') 
+          ? data.clientContact 
+          : `client-${Date.now()}@temp.local`;
+        
+        const clientResult = await createClient({
+          name: data.clientName,
+          address: data.clientAddress || undefined,
+          phone: data.clientContact || undefined,
+          email: clientEmail,
+          status: 'active',
         });
-        clientId = newClient.id;
+        
+        if (!clientResult.success || !clientResult.client) {
+          return {
+            success: false,
+            error: clientResult.error || 'Failed to create client',
+            quotation: null,
+          };
+        }
+        
+        clientId = clientResult.client.id;
       }
     }
 
@@ -953,7 +999,11 @@ export async function updateQuotation(id: string, data: any) {
         total: total >= 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
         discount: data.discount !== undefined ? (data.discount ? new Prisma.Decimal(data.discount) : new Prisma.Decimal(0)) : (existingQuotation.discount || new Prisma.Decimal(0)),
         grandTotal: total >= 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
-        status: data.status || existingQuotation.status,
+        // Always set status to REVIEW when updating a quotation
+        status: 'REVIEW' as QuotationStatus,
+        expiredDate: data.expiredDate !== undefined 
+          ? (data.expiredDate ? new Date(data.expiredDate) : null) 
+          : (existingQuotation as any).expiredDate,
         clientId: clientId,
         organizationId: data.organizationId !== undefined && data.organizationId !== '' ? (data.organizationId || null) : existingQuotation.organizationId,
         submittedById: submittedById,
@@ -1085,6 +1135,32 @@ export async function updateQuotation(id: string, data: any) {
     }
     if (data.status && data.status !== existingQuotation.status) {
       changes.push('status');
+    }
+
+    // Integration: Create SALES voucher when quotation status changes to ACCEPTED
+    if (data.status === 'ACCEPTED' && existingQuotation.status !== 'ACCEPTED') {
+      try {
+        const { createSalesVoucherForQuotation } = await import('./quotation-accounting-integration');
+        const voucherResult = await createSalesVoucherForQuotation(
+          quotation.id,
+          quotation.quotationNumber,
+          quotation.clientId,
+          Number(quotation.grandTotal || quotation.total || 0),
+          session.user.id,
+          quotation.date
+        );
+
+        if (voucherResult.success) {
+          console.log(`Sales voucher created and posted for quotation ${quotation.quotationNumber}: ${voucherResult.voucherId}`);
+        } else {
+          console.error(`Failed to create sales voucher for quotation ${quotation.quotationNumber}:`, voucherResult.error);
+          // Don't fail the quotation update if voucher creation fails
+          // Log error but continue
+        }
+      } catch (error) {
+        console.error('Error creating sales voucher for quotation:', error);
+        // Don't fail the quotation update if voucher creation fails
+      }
     }
     if (data.organizationId !== undefined && data.organizationId !== existingQuotation.organizationId) {
       changes.push('organization');
@@ -1471,6 +1547,152 @@ export async function deleteQuotationsPermanently(quotationIds: string[]) {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to delete quotations',
     };
+  }
+}
+
+/**
+ * Update quotation status (for Send, Approve, Accept actions)
+ */
+export async function updateQuotationStatus(
+  id: string,
+  newStatus: QuotationStatus
+): Promise<{ success: boolean; error?: string; data?: any }> {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: 'Unauthorized',
+      };
+    }
+
+    const quotation = await prisma.quotation.findUnique({
+      where: { id },
+    });
+
+    if (!quotation) {
+      return {
+        success: false,
+        error: 'Quotation not found',
+      };
+    }
+
+    // Check if quotation is expired before allowing status change
+    const now = new Date();
+    let finalStatus = newStatus;
+    
+    // If expiredDate has passed, automatically set to EXPIRED
+    if (quotation.expiredDate && quotation.expiredDate <= now && newStatus !== 'EXPIRED') {
+      finalStatus = 'EXPIRED';
+    }
+
+    // Validate status transition
+    const validTransitions: Record<string, string[]> = {
+      'DRAFT': ['SENT'],
+      'REVIEW': ['REVISED', 'SENT'], // Approve action: REVIEW -> REVISED, or send directly
+      'SENT': ['ACCEPTED', 'REJECTED'],
+      'ACCEPTED': ['SENT', 'REVISED'],
+      'REJECTED': ['SENT', 'REVISED'],
+      'REVISED': ['SENT'],
+      'EXPIRED': [], // Cannot transition from expired
+    };
+
+    const allowedStatuses = validTransitions[quotation.status] || [];
+    if (!allowedStatuses.includes(finalStatus)) {
+      return {
+        success: false,
+        error: `Cannot change status from ${quotation.status} to ${finalStatus}`,
+      };
+    }
+
+    const updatedQuotation = await prisma.quotation.update({
+      where: { id },
+      data: {
+        status: finalStatus,
+        updatedById: session.user.id,
+      },
+      include: {
+        client: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+
+    revalidateBothPaths('quotations', 'page');
+    revalidateBothPaths(`quotations/${id}`, 'page');
+
+    // Log status change
+    await createUserLog({
+      userId: session.user.id,
+      action: LogAction.ITEM_UPDATED,
+      details: `Quotation "${quotation.quotationNumber}" status changed from ${quotation.status} to ${finalStatus}`,
+      metadata: {
+        quotationId: quotation.id,
+        quotationNumber: quotation.quotationNumber,
+        oldStatus: quotation.status,
+        newStatus: finalStatus,
+      },
+    });
+
+    return {
+      success: true,
+      data: updatedQuotation,
+    };
+  } catch (error) {
+    console.error('Error updating quotation status:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update quotation status',
+    };
+  }
+}
+
+/**
+ * Check and update expired quotations
+ * Should be called periodically (e.g., via cron job or scheduled task)
+ */
+export async function checkAndUpdateExpiredQuotations(): Promise<{ updated: number }> {
+  try {
+    const now = new Date();
+    
+    // Find quotations that are expired but status is not EXPIRED
+    const expiredQuotations = await prisma.quotation.findMany({
+      where: {
+        expiredDate: {
+          lte: now,
+        } as any,
+        status: {
+          not: 'EXPIRED',
+        },
+        isTrash: false,
+      },
+      select: {
+        id: true,
+        quotationNumber: true,
+      },
+    });
+
+    if (expiredQuotations.length === 0) {
+      return { updated: 0 };
+    }
+
+    // Update all expired quotations
+    await prisma.quotation.updateMany({
+      where: {
+        id: { in: expiredQuotations.map(q => q.id) },
+      },
+      data: {
+        status: 'EXPIRED',
+      },
+    });
+
+    revalidateBothPaths('quotations', 'page');
+
+    return { updated: expiredQuotations.length };
+  } catch (error) {
+    console.error('Error checking expired quotations:', error);
+    return { updated: 0 };
   }
 }
 

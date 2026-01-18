@@ -1,5 +1,5 @@
 import React from "react";
-import { getItems } from "./_actions/item.action";
+import { getItems, getActiveCategories } from "./_actions/item.action";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
@@ -11,6 +11,7 @@ interface ItemsPageProps {
     page?: string;
     search?: string;
     tab?: string;
+    category?: string;
   }>;
 }
 
@@ -19,9 +20,15 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
   const page = parseInt(params.page || "1");
   const search = params.search || "";
   const tab = params.tab || "all";
+  const category = params.category || "all";
 
   const status = tab === "trash" ? "trash" : tab === "active" ? "active" : tab === "inactive" ? "inactive" : "all";
-  const result = await getItems(page, 10, search, status);
+  const [result, categoriesResult] = await Promise.all([
+    getItems(page, 10, search, status, category === "all" ? null : category),
+    getActiveCategories(),
+  ]);
+
+  const categories = categoriesResult.success ? categoriesResult.categories : [];
 
   // Handle errors
   if (!result.success) {
@@ -62,16 +69,16 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
       <Tabs defaultValue={tab} className="w-full">
         <TabsList>
           <TabsTrigger value="all" asChild>
-            <Link href="/admin/items?tab=all&page=1">All Items</Link>
+            <Link href={`/admin/items?tab=all&page=1${category !== "all" ? `&category=${category}` : ""}`}>All Items</Link>
           </TabsTrigger>
           <TabsTrigger value="active" asChild>
-            <Link href="/admin/items?tab=active&page=1">Active</Link>
+            <Link href={`/admin/items?tab=active&page=1${category !== "all" ? `&category=${category}` : ""}`}>Active</Link>
           </TabsTrigger>
           <TabsTrigger value="inactive" asChild>
-            <Link href="/admin/items?tab=inactive&page=1">Inactive</Link>
+            <Link href={`/admin/items?tab=inactive&page=1${category !== "all" ? `&category=${category}` : ""}`}>Inactive</Link>
           </TabsTrigger>
           <TabsTrigger value="trash" asChild>
-            <Link href="/admin/items?tab=trash&page=1">Trash</Link>
+            <Link href={`/admin/items?tab=trash&page=1${category !== "all" ? `&category=${category}` : ""}`}>Trash</Link>
           </TabsTrigger>
         </TabsList>
         <TabsContent value="all" className="mt-4">
@@ -84,6 +91,8 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
               totalPages: 0,
             }}
             initialSearch={search}
+            initialCategory={category}
+            categories={categories}
             isTrash={false}
           />
         </TabsContent>
@@ -97,6 +106,8 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
               totalPages: 0,
             }}
             initialSearch={search}
+            initialCategory={category}
+            categories={categories}
             isTrash={false}
           />
         </TabsContent>
@@ -110,6 +121,8 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
               totalPages: 0,
             }}
             initialSearch={search}
+            initialCategory={category}
+            categories={categories}
             isTrash={false}
           />
         </TabsContent>
@@ -123,6 +136,8 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
               totalPages: 0,
             }}
             initialSearch={search}
+            initialCategory={category}
+            categories={categories}
             isTrash={true}
           />
         </TabsContent>

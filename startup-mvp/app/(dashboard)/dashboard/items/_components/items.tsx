@@ -20,6 +20,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw } from "react-icons/fi";
 import { deleteItem, bulkUpdateItemStatus, deleteItemsPermanently } from "../_actions/item.action";
@@ -70,10 +77,18 @@ interface Pagination {
   totalPages: number;
 }
 
+interface Category {
+  id: string;
+  name: string;
+  description?: string | null;
+}
+
 interface ItemsListClientProps {
   initialItems: Item[];
   initialPagination: Pagination;
   initialSearch: string;
+  initialCategory?: string;
+  categories?: Category[];
   isTrash?: boolean;
   userId?: string;
   permissions?: {
@@ -88,6 +103,8 @@ export default function ItemsListClient({
   initialItems = [],
   initialPagination,
   initialSearch,
+  initialCategory = "all",
+  categories = [],
   isTrash = false,
   userId: providedUserId,
   permissions,
@@ -95,6 +112,7 @@ export default function ItemsListClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(initialSearch);
+  const [category, setCategory] = useState(initialCategory);
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const [restoreItemId, setRestoreItemId] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -113,6 +131,32 @@ export default function ItemsListClient({
     const tab = searchParams.get("tab") || "all";
     if (tab) {
       params.set("tab", tab);
+    }
+    const currentCategory = searchParams.get("category") || "all";
+    if (currentCategory && currentCategory !== "all") {
+      params.set("category", currentCategory);
+    } else {
+      params.delete("category");
+    }
+    router.push(`/dashboard/items?${params.toString()}`);
+  };
+
+  const handleCategoryChange = (value: string) => {
+    setCategory(value);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value && value !== "all") {
+      params.set("category", value);
+    } else {
+      params.delete("category");
+    }
+    params.set("page", "1");
+    const tab = searchParams.get("tab") || "all";
+    if (tab) {
+      params.set("tab", tab);
+    }
+    const currentSearch = searchParams.get("search");
+    if (currentSearch) {
+      params.set("search", currentSearch);
     }
     router.push(`/dashboard/items?${params.toString()}`);
   };
@@ -260,6 +304,21 @@ export default function ItemsListClient({
             </Button>
           )}
         </div>
+
+        {/* Category Filter */}
+        <Select value={category} onValueChange={handleCategoryChange}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="All Categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {categories.map((cat) => (
+              <SelectItem key={cat.id} value={cat.id}>
+                {cat.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         {/* Bulk Actions Dropdown */}
         <div className="flex items-center gap-2">
@@ -504,6 +563,14 @@ export default function ItemsListClient({
                 if (tab) {
                   params.set("tab", tab);
                 }
+                const currentCategory = searchParams.get("category");
+                if (currentCategory && currentCategory !== "all") {
+                  params.set("category", currentCategory);
+                }
+                const currentSearch = searchParams.get("search");
+                if (currentSearch) {
+                  params.set("search", currentSearch);
+                }
                 router.push(`/dashboard/items?${params.toString()}`);
               }}
               disabled={initialPagination.page === 1}
@@ -522,6 +589,14 @@ export default function ItemsListClient({
                 const tab = searchParams.get("tab") || "all";
                 if (tab) {
                   params.set("tab", tab);
+                }
+                const currentCategory = searchParams.get("category");
+                if (currentCategory && currentCategory !== "all") {
+                  params.set("category", currentCategory);
+                }
+                const currentSearch = searchParams.get("search");
+                if (currentSearch) {
+                  params.set("search", currentSearch);
                 }
                 router.push(`/dashboard/items?${params.toString()}`);
               }}

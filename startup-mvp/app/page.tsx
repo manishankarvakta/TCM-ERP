@@ -16,6 +16,7 @@ import { Metadata } from "next";
 // import Header from "@/components/common/header";
 import LoginForm from "@/components/forms/login-form";
 import Logo from "@/components/layout/logo";
+import PoweredByChip from "@/components/common/powered-by-chip";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -56,9 +57,12 @@ export default function HomePage() {
           </blockquote>
         </div>
 
-        <div className="text-sm text-muted-foreground">
-          <p>© 2025 All rights reserved. Powered by 
-            <Link href="https://techsoulbd.com" target="_blank" className="hover:text-foreground transition-colors"> Techsoul</Link>.</p>
+        <div className="text-sm text-muted-foreground flex flex-col items-start gap-2">
+          <p>© 2025 All rights reserved.</p>
+          <div className="flex items-center gap-2">
+            <span>Powered by</span>
+            <PoweredByChip href="https://techsoulbd.com" logoWidth={80} logoHeight={40} />
+          </div>
         </div>
       </div>
 

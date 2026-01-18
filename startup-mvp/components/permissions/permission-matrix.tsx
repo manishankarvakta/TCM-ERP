@@ -11,7 +11,6 @@ import {
 import type {
   EnhancedPermissions,
   PagePermission,
-  StandardOperation,
   Operation,
 } from "@/types/permissions";
 import {
@@ -108,7 +107,7 @@ export default function PermissionMatrix({
   const handlePageToggle = (
     permissionKey: string,
     checked: boolean,
-    availableOperations: StandardOperation[]
+    availableOperations: Operation[]
   ) => {
     const newPermissions = { ...permissions };
     const current = getPagePermission(permissionKey);
@@ -118,7 +117,7 @@ export default function PermissionMatrix({
       newPermissions[permissionKey] = {
         navigationVisible: current?.navigationVisible ?? true,
         pageAccess: true,
-        operations: [...(availableOperations as Operation[])],
+        operations: [...availableOperations],
       };
     } else {
       // Deselect page: clear all operations and hide from navigation
@@ -134,17 +133,16 @@ export default function PermissionMatrix({
 
   const handleOperationToggle = (
     permissionKey: string,
-    operation: StandardOperation,
+    operation: Operation,
     checked: boolean
   ) => {
     const newPermissions = { ...permissions };
     const current = getPagePermission(permissionKey);
     const currentOps = current?.operations ?? [];
-    const operationAsOp = operation as Operation;
 
     const newOps = checked
-      ? [...new Set([...currentOps, operationAsOp])]
-      : currentOps.filter((op) => op !== operationAsOp);
+      ? [...new Set([...currentOps, operation])]
+      : currentOps.filter((op) => op !== operation);
 
     // If no operations are selected, hide from navigation
     // If operations exist, keep navigationVisible as is (or default to true)
@@ -426,12 +424,11 @@ export default function PermissionMatrix({
                                 {isPageExpanded && (
                                   <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 pl-8">
                                     {page.operations.map((operation) => {
-                                      const operationId = operation as StandardOperation;
-                                      const operationAsOp = operationId as Operation;
+                                      const operationId = operation as Operation;
                                       const isChecked =
-                                        pagePerm?.operations.includes(operationAsOp) ??
+                                        pagePerm?.operations.includes(operationId) ??
                                         false;
-                                      const operationMeta = OPERATIONS[operationAsOp];
+                                      const operationMeta = OPERATIONS[operationId];
 
                                       return (
                                         <div
@@ -518,12 +515,11 @@ export default function PermissionMatrix({
                         {isPageExpanded && (
                           <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 pl-8">
                             {page.operations.map((operation) => {
-                              const operationId = operation as StandardOperation;
-                              const operationAsOp = operationId as Operation;
+                              const operationId = operation as Operation;
                               const isChecked =
-                                pagePerm?.operations.includes(operationAsOp) ??
+                                pagePerm?.operations.includes(operationId) ??
                                 false;
-                              const operationMeta = OPERATIONS[operationAsOp];
+                              const operationMeta = OPERATIONS[operationId];
 
                               return (
                                 <div
@@ -669,12 +665,11 @@ export default function PermissionMatrix({
                           {isPageExpanded && (
                             <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 pl-8">
                               {page.operations.map((operation) => {
-                                const operationId = operation as StandardOperation;
-                                const operationAsOp = operationId as Operation;
+                                const operationId = operation as Operation;
                                 const isChecked =
-                                  pagePerm?.operations.includes(operationAsOp) ??
+                                  pagePerm?.operations.includes(operationId) ??
                                   false;
-                                const operationMeta = OPERATIONS[operationAsOp];
+                                const operationMeta = OPERATIONS[operationId];
 
                                 return (
                                   <div

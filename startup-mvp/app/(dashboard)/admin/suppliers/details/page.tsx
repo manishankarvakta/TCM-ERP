@@ -59,6 +59,11 @@ export default async function SupplierDetailsPage({ searchParams }: SupplierDeta
             <div className="lg:col-span-3 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Supplier Code</label>
+                  <p className="text-sm font-medium">{supplier.supplierCode || "-"}</p>
+                </div>
+
+                <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Name</label>
                   <p className="text-sm font-medium">{supplier.name || "-"}</p>
                 </div>
@@ -115,6 +120,28 @@ export default async function SupplierDetailsPage({ searchParams }: SupplierDeta
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
                   <p className="text-sm">{format(new Date(supplier.updatedAt), "MMM d, yyyy 'at' h:mm a")}</p>
+                </div>
+              </div>
+
+              {/* Accounting Fields Section */}
+              <div>
+                <h3 className="text-sm font-semibold mb-4">Accounting Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Accounts Payable Account</label>
+                    {supplier.chartOfAccount ? (
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">
+                          {supplier.chartOfAccount.code} - {supplier.chartOfAccount.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Type: {supplier.chartOfAccount.type}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm">-</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

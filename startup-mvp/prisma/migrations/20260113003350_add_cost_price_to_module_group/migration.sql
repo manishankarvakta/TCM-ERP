@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "ModuleGroup" ADD COLUMN IF NOT EXISTS "costPrice" DECIMAL(10,2) NOT NULL DEFAULT 0;
+
