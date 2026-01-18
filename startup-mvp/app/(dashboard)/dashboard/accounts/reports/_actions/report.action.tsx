@@ -18,7 +18,7 @@ async function calculateAccountBalance(
   };
 
   if (dateFilter && Object.keys(dateFilter).length > 0) {
-    where.journalEntry = {
+    where.JournalEntry = {
       date: dateFilter,
     };
   }

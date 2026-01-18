@@ -129,7 +129,7 @@ export async function getCashLedger(
             },
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -137,21 +137,21 @@ export async function getCashLedger(
             type: true,
           },
         },
-        client: {
+        Client: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        supplier: {
+        Supplier: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        user: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -207,30 +207,30 @@ export async function getCashLedger(
           : null,
       },
       chartOfAccount: {
-        id: line.chartOfAccount.id,
-        code: line.chartOfAccount.code,
-        name: line.chartOfAccount.name,
-        type: line.chartOfAccount.type,
+        id: (line as any).ChartOfAccount.id,
+        code: (line as any).ChartOfAccount.code,
+        name: (line as any).ChartOfAccount.name,
+        type: (line as any).ChartOfAccount.type,
       },
-      client: line.client
+      client: (line as any).Client
         ? {
-            id: line.client.id,
-            name: line.client.name,
-            email: line.client.email,
+            id: (line as any).Client.id,
+            name: (line as any).Client.name,
+            email: (line as any).Client.email,
           }
         : null,
-      supplier: line.supplier
+      supplier: (line as any).Supplier
         ? {
-            id: line.supplier.id,
-            name: line.supplier.name,
-            email: line.supplier.email,
+            id: (line as any).Supplier.id,
+            name: (line as any).Supplier.name,
+            email: (line as any).Supplier.email,
           }
         : null,
-      user: line.user
+      user: (line as any).User
         ? {
-            id: line.user.id,
-            name: line.user.name,
-            email: line.user.email,
+            id: (line as any).User.id,
+            name: (line as any).User.name,
+            email: (line as any).User.email,
           }
         : null,
       organization: line.organization
@@ -388,7 +388,7 @@ export async function getBankLedger(
             },
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -396,21 +396,21 @@ export async function getBankLedger(
             type: true,
           },
         },
-        client: {
+        Client: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        supplier: {
+        Supplier: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        user: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -466,30 +466,30 @@ export async function getBankLedger(
           : null,
       },
       chartOfAccount: {
-        id: line.chartOfAccount.id,
-        code: line.chartOfAccount.code,
-        name: line.chartOfAccount.name,
-        type: line.chartOfAccount.type,
+        id: (line as any).ChartOfAccount.id,
+        code: (line as any).ChartOfAccount.code,
+        name: (line as any).ChartOfAccount.name,
+        type: (line as any).ChartOfAccount.type,
       },
-      client: line.client
+      client: (line as any).Client
         ? {
-            id: line.client.id,
-            name: line.client.name,
-            email: line.client.email,
+            id: (line as any).Client.id,
+            name: (line as any).Client.name,
+            email: (line as any).Client.email,
           }
         : null,
-      supplier: line.supplier
+      supplier: (line as any).Supplier
         ? {
-            id: line.supplier.id,
-            name: line.supplier.name,
-            email: line.supplier.email,
+            id: (line as any).Supplier.id,
+            name: (line as any).Supplier.name,
+            email: (line as any).Supplier.email,
           }
         : null,
-      user: line.user
+      user: (line as any).User
         ? {
-            id: line.user.id,
-            name: line.user.name,
-            email: line.user.email,
+            id: (line as any).User.id,
+            name: (line as any).User.name,
+            email: (line as any).User.email,
           }
         : null,
       organization: line.organization
