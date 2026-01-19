@@ -26,6 +26,12 @@ export default async function PageGuard({
     redirect("/login");
   }
 
+  // Admin users have access to all pages without permission checks
+  const isAdmin = session.user.role?.toLowerCase() === "admin";
+  if (isAdmin) {
+    return <>{children}</>;
+  }
+
   // Dashboard is always accessible
   if (permissionKey === "dashboard") {
     return <>{children}</>;

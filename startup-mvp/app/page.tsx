@@ -3,20 +3,11 @@
 // Home Page - Landing Page
 // ============================================
 
-// import React from "react";
-// import Footer from "@/components/common/footer";
-// import HeroSection from "@/components/home/hero-section";
-// import FeaturesSection from "@/components/home/features-section";
-// import HowItWorksSection from "@/components/home/how-it-works-section";
-// import PricingSection from "@/components/home/pricing-section";
-// import TestimonialsSection from "@/components/home/testimonials-section";
-// import StatsSection from "@/components/home/stats-section";
-// import CTASection from "@/components/home/cta-section";
+
 import { Metadata } from "next";
 // import Header from "@/components/common/header";
 import LoginForm from "@/components/forms/login-form";
 import Logo from "@/components/layout/logo";
-import PoweredByChip from "@/components/common/powered-by-chip";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -61,7 +52,7 @@ export default function HomePage() {
           <p>© 2025 All rights reserved.</p>
           <div className="flex items-center gap-2">
             <span>Powered by</span>
-            <PoweredByChip href="https://techsoulbd.com" logoWidth={80} logoHeight={40} />
+            <Link href="https://techsoulbd.com"> Techsoul</Link>
           </div>
         </div>
       </div>

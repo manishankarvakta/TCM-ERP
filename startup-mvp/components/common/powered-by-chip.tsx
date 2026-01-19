@@ -12,7 +12,7 @@ interface PoweredByChipProps {
   className?: string;
 }
 
-const PoweredByChip = ({ 
+const PoweredByChip = ({  
   href = "https://techsoulbd.com", 
   logoWidth = 80, 
   logoHeight = 40,

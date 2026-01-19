@@ -91,7 +91,7 @@ export async function getClients(
             email: true,
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -174,7 +174,7 @@ export async function getClientById(clientId: string) {
             email: true,
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,

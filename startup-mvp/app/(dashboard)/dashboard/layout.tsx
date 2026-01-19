@@ -17,11 +17,9 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Redirect admin users to /admin
-  const userRole = session.user.role?.toLowerCase();
-  if (userRole === "admin") {
-    redirect("/admin");
-  }
+  // Admin users can access both /admin and /dashboard routes
+  // Regular users can only access /dashboard routes (enforced in proxy.ts)
+  // No redirect needed here - allow all authenticated users to access dashboard
 
   // Only show permission sync for non-admin users
   const isAdmin = session.user.role?.toLowerCase() === "admin";

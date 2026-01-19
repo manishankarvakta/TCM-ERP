@@ -91,7 +91,7 @@ export async function getSuppliers(
             email: true,
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -174,7 +174,7 @@ export async function getSupplierById(supplierId: string) {
             email: true,
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -585,7 +585,7 @@ export async function updateSupplier(input: {
         status: true,
         createdAt: true,
         updatedAt: true,
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
           },
@@ -594,12 +594,12 @@ export async function updateSupplier(input: {
     });
 
     // Handle rename: Update COA name if supplier name changed and COA exists
-    if (input.name !== undefined && input.name !== existingSupplier.name && supplier.chartOfAccount?.id) {
+    if (input.name !== undefined && input.name !== existingSupplier.name && supplier.ChartOfAccount?.id) {
       const supplierName = input.name || input.email;
       const accountName = `AP - ${supplierName}`;
       
       await prisma.chartOfAccount.update({
-        where: { id: supplier.chartOfAccount.id },
+        where: { id: supplier.ChartOfAccount.id },
         data: {
           name: accountName,
           description: `Accounts Payable account for supplier: ${supplierName}`,

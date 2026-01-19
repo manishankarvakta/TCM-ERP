@@ -23,11 +23,16 @@ function filterMenuByPermissions(
 ): MenuItemData[] {
   const filteredMenu: MenuItemData[] = [];
 
+  // Safety check: ensure menuTemplate is an array
+  if (!Array.isArray(menuTemplate)) {
+    return filteredMenu;
+  }
+
   for (const item of menuTemplate) {
     // Handle items with subMenus
     if (item.subMenu && item.subMenu.length > 0) {
       // Filter submenu items FIRST
-      const filteredSubMenu = item.subMenu.filter((subItem) => {
+      const filteredSubMenu = item.subMenu.filter((subItem: { href: string }) => {
         const permissionKey = getPermissionKeyFromPath(subItem.href);
         if (!permissionKey) {
           return false;
@@ -52,9 +57,9 @@ function filterMenuByPermissions(
     else if (item.subMenuGroups && item.subMenuGroups.length > 0) {
       // Filter groups and items within groups
       const filteredGroups: SubMenuGroup[] = item.subMenuGroups
-        .map((group) => {
+        .map((group: SubMenuGroup) => {
           // Filter items within each group
-          const filteredItems = group.items.filter((subItem) => {
+          const filteredItems = group.items.filter((subItem: { href: string }) => {
             const permissionKey = getPermissionKeyFromPath(subItem.href);
             if (!permissionKey) {
               return false;
@@ -112,16 +117,32 @@ export default async function DashboardSidebarWrapper() {
     return null;
   }
 
-  // Get user's permissions in enhanced format
-  const permissions = await getUserPermissionsEnhanced(session.user.id);
-  
-  // Check if user has any permissions (excluding always visible items)
-  const hasAnyPermissions = Object.keys(permissions).length > 0;
+  // Check if user is admin
+  const isAdmin = session.user.role?.toLowerCase() === "admin";
   
   // Build accessible pages map (permissionKey -> has access)
   const accessiblePages = new Map<string, boolean>();
   
-  if (!hasAnyPermissions) {
+  // Admin users have access to all dashboard routes without permission checks
+  if (isAdmin) {
+    // Set all pages in NAVIGATION_STRUCTURE as accessible for admin
+    for (const navItem of NAVIGATION_STRUCTURE) {
+      for (const page of navItem.pages) {
+        accessiblePages.set(page.permissionKey, true);
+      }
+    }
+    // Also set dashboard and profile as accessible
+    accessiblePages.set("dashboard", true);
+    accessiblePages.set("profile", true);
+  } else {
+    // Non-admin users: use permission-based access control
+    // Get user's permissions in enhanced format
+    const permissions = await getUserPermissionsEnhanced(session.user.id);
+    
+    // Check if user has any permissions (excluding always visible items)
+    const hasAnyPermissions = Object.keys(permissions).length > 0;
+    
+    if (!hasAnyPermissions) {
     // User has no permissions - only show Dashboard and Profile
     // Settings is excluded even though it's alwaysVisible
     
@@ -197,11 +218,20 @@ export default async function DashboardSidebarWrapper() {
         }
       }
     }
+    }
   }
 
   // Filter menu items based on permissions
+  // For admin users, all items will be shown since all pages are marked as accessible
   const filteredMainMenu = filterMenuByPermissions(MENU_TEMPLATE, accessiblePages);
-  const filteredBottomMenu = filterMenuByPermissions(BOTTOM_MENU_TEMPLATE, accessiblePages);
+  let filteredBottomMenu = filterMenuByPermissions(BOTTOM_MENU_TEMPLATE, accessiblePages);
+  
+  // Settings is admin-only - filter it out for non-admin users
+  if (!isAdmin) {
+    filteredBottomMenu = filteredBottomMenu.filter(
+      (item) => item.href !== "/admin/settings"
+    );
+  }
 
   return (
     <DashboardSidebar

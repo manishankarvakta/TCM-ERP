@@ -1,6 +1,5 @@
 import { auth } from "@/lib/auth"
 import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
 
 const PUBLIC_ROUTES = ["/", "/about", "/contact"]
 const AUTH_ROUTES = ["/login", "/registration", "/auth/", "/api/auth/"]
@@ -32,17 +31,25 @@ export default auth(async (req) => {
   }
 
   // Redirect non-admin users from admin routes
+  // Admin users can access both /admin and /dashboard routes
+  // Regular users can only access /dashboard routes
   if (isAdminRoute && isLoggedIn && userRole !== "admin") {
     return NextResponse.redirect(new URL("/dashboard", req.url))
   }
 
-  // Redirect admin users from dashboard routes to /admin
-  const isDashboardRoute = pathname.startsWith("/dashboard")
-  if (isDashboardRoute && isLoggedIn && userRole === "admin") {
-    return NextResponse.redirect(new URL("/admin", req.url))
+  // Redirect /dashboard/settings to /admin/settings (settings is admin-only)
+  if (pathname.startsWith("/dashboard/settings") && isLoggedIn) {
+    const adminSettingsPath = pathname.replace("/dashboard/settings", "/admin/settings")
+    return NextResponse.redirect(new URL(adminSettingsPath, req.url))
   }
 
-  return NextResponse.next()
+  // Allow admin users to access both /admin and /dashboard routes
+  // No redirect needed - admin users have access to both
+
+  // Set pathname header for use in layouts
+  const response = NextResponse.next()
+  response.headers.set("x-pathname", pathname)
+  return response
 })
 
 export const config = {
