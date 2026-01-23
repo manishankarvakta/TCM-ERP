@@ -13,3 +13,12 @@ volumes/redis/
 # Keep the directory structure
 !volumes/.gitkeep
 
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+
