@@ -1,35 +1,21 @@
-import React from "react";
-import { getPurchaseById, getItemsForPurchase, getSuppliersForPurchase } from "../_actions/purchase.action";
-import PurchaseForm from "../_components/purchaseForm";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 
-interface EditPurchasePageProps {
+interface PurchasePageProps {
   params: Promise<{ id: string }>;
 }
 
-export default async function EditPurchasePage({ params }: EditPurchasePageProps) {
-  const { id } = await params;
-
-  const [purchaseResult, suppliersResult, itemsResult] = await Promise.all([
-    getPurchaseById(id),
-    getSuppliersForPurchase(),
-    getItemsForPurchase(),
-  ]);
-
-  if (!purchaseResult.success || !purchaseResult.purchase) {
-    notFound();
+export default async function PurchasePage({ params }: PurchasePageProps) {
+  try {
+    const { id } = await params;
+    if (!id) {
+      redirect("/dashboard/purchases");
+      return;
+    }
+    // Redirect to view page
+    redirect(`/dashboard/purchases/${id}/view`);
+  } catch (error) {
+    redirect("/dashboard/purchases");
   }
-
-  return (
-    <div className="space-y-6">
-      <PurchaseForm
-        mode="edit"
-        suppliers={suppliersResult.suppliers || []}
-        items={itemsResult.items || []}
-        initialData={purchaseResult.purchase}
-      />
-    </div>
-  );
 }
 
 

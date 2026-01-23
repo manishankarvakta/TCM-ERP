@@ -1,4 +1,4 @@
-import { PrismaClient, ItemType } from "@prisma/client";
+import { PrismaClient, ItemType, Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -1087,10 +1087,293 @@ async function main() {
       }
     }
 
-    console.log(`✅ Seeded ${bomCount} BOM records`);
-    console.log(`✅ Seeded ${bomItemCount} BOM item records`);
+  console.log(`✅ Seeded ${bomCount} BOM records`);
+  console.log(`✅ Seeded ${bomItemCount} BOM item records`);
   } else {
     console.log("⚠️  Skipping BOM seed: No finished goods or raw materials found");
+  }
+
+  // Delete all existing Purchase and PurchaseItem records
+  console.log("\n🗑️  Deleting existing purchase data...");
+  const deletedPurchaseItems = await prisma.purchaseItem.deleteMany({});
+  const deletedPurchases = await prisma.purchase.deleteMany({});
+  console.log(`✅ Deleted ${deletedPurchases.count} purchases and ${deletedPurchaseItems.count} purchase items`);
+
+  // Seed Purchase data
+  console.log("\n🌱 Seeding purchase data...");
+
+  // Get or create suppliers for biryani house
+  const suppliers = [
+    {
+      name: "Premium Rice Suppliers Ltd",
+      email: "rice@supplier.com",
+      phone: "+8801712345678",
+      company: "Premium Rice Suppliers Ltd",
+      address: "123 Grain Market",
+      city: "Dhaka",
+      state: "Dhaka",
+      zip: "1200",
+      country: "Bangladesh",
+    },
+    {
+      name: "Fresh Meat & Poultry Co",
+      email: "meat@supplier.com",
+      phone: "+8801712345679",
+      company: "Fresh Meat & Poultry Co",
+      address: "456 Meat Market",
+      city: "Dhaka",
+      state: "Dhaka",
+      zip: "1200",
+      country: "Bangladesh",
+    },
+    {
+      name: "Spice Traders International",
+      email: "spices@supplier.com",
+      phone: "+8801712345680",
+      company: "Spice Traders International",
+      address: "789 Spice Bazaar",
+      city: "Dhaka",
+      state: "Dhaka",
+      zip: "1200",
+      country: "Bangladesh",
+    },
+    {
+      name: "Dairy & Fats Distributors",
+      email: "dairy@supplier.com",
+      phone: "+8801712345681",
+      company: "Dairy & Fats Distributors",
+      address: "321 Dairy Lane",
+      city: "Dhaka",
+      state: "Dhaka",
+      zip: "1200",
+      country: "Bangladesh",
+    },
+    {
+      name: "Fresh Vegetables Market",
+      email: "vegetables@supplier.com",
+      phone: "+8801712345682",
+      company: "Fresh Vegetables Market",
+      address: "654 Veg Street",
+      city: "Dhaka",
+      state: "Dhaka",
+      zip: "1200",
+      country: "Bangladesh",
+    },
+  ];
+
+  const seededSuppliers = [];
+  for (const s of suppliers) {
+    const supplier = await prisma.supplier.upsert({
+      where: { email: s.email },
+      update: {
+        name: s.name,
+        phone: s.phone,
+        company: s.company,
+        address: s.address,
+        city: s.city,
+        state: s.state,
+        zip: s.zip,
+        country: s.country,
+        status: "active",
+      },
+      create: {
+        name: s.name,
+        email: s.email,
+        phone: s.phone,
+        company: s.company,
+        address: s.address,
+        city: s.city,
+        state: s.state,
+        zip: s.zip,
+        country: s.country,
+        status: "active",
+        createdBy: admin.id,
+      },
+    });
+    seededSuppliers.push(supplier);
+  }
+
+  // Get active warehouses for purchases
+  const warehousesForPurchase = await prisma.warehouse.findMany({
+    where: { status: "active", isTrash: false },
+    orderBy: { createdAt: "asc" },
+  });
+
+  // Get raw material items
+  const rawMaterialItems = await prisma.item.findMany({
+    where: {
+      itemType: "RAW_MATERIAL",
+      status: "active",
+      isTrash: false,
+    },
+    orderBy: { name: "asc" },
+  });
+
+  if (seededSuppliers.length > 0 && warehousesForPurchase.length > 0 && rawMaterialItems.length > 0) {
+    let purchaseCount = 0;
+    let purchaseItemCount = 0;
+
+    // Helper to find item by name pattern
+    const findItem = (pattern: string) => {
+      return rawMaterialItems.find((item) =>
+        item.name.toLowerCase().includes(pattern.toLowerCase())
+      );
+    };
+
+    // Helper to generate purchase number
+    const generatePurchaseNumber = (index: number) => {
+      const year = new Date().getFullYear();
+      return `PUR${year}${String(index).padStart(6, "0")}`;
+    };
+
+    // Create purchase orders
+    const purchaseOrders = [
+      // Rice purchase
+      {
+        supplier: seededSuppliers[0], // Premium Rice Suppliers
+        warehouse: warehousesForPurchase[0], // Main Warehouse
+        date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+        status: "RECEIVED" as const,
+        items: [
+          { item: findItem("basmati"), quantity: 500, unitPrice: 120 },
+          { item: findItem("kali jeera"), quantity: 300, unitPrice: 95 },
+        ],
+      },
+      // Meat purchase
+      {
+        supplier: seededSuppliers[1], // Fresh Meat & Poultry
+        warehouse: warehousesForPurchase[1], // Kitchen Warehouse
+        date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+        status: "RECEIVED" as const,
+        items: [
+          { item: findItem("chicken"), quantity: 100, unitPrice: 180 },
+          { item: findItem("mutton"), quantity: 50, unitPrice: 650 },
+          { item: findItem("beef"), quantity: 40, unitPrice: 550 },
+        ],
+      },
+      // Spices purchase
+      {
+        supplier: seededSuppliers[2], // Spice Traders
+        warehouse: warehousesForPurchase[4] || warehousesForPurchase[0], // Spice Storage or fallback
+        date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+        status: "RECEIVED" as const,
+        items: [
+          { item: findItem("garam masala"), quantity: 50, unitPrice: 1.5 },
+          { item: findItem("biryani masala"), quantity: 30, unitPrice: 2.0 },
+          { item: findItem("turmeric"), quantity: 25, unitPrice: 0.8 },
+          { item: findItem("red chili"), quantity: 20, unitPrice: 1.2 },
+          { item: findItem("cumin"), quantity: 15, unitPrice: 1.0 },
+          { item: findItem("cardamom"), quantity: 10, unitPrice: 3.5 },
+          { item: findItem("cinnamon"), quantity: 12, unitPrice: 2.5 },
+          { item: findItem("bay leaves"), quantity: 8, unitPrice: 1.8 },
+        ],
+      },
+      // Dairy purchase
+      {
+        supplier: seededSuppliers[3], // Dairy & Fats
+        warehouse: warehousesForPurchase[3] || warehousesForPurchase[0], // Cold Storage or fallback
+        date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+        status: "RECEIVED" as const,
+        items: [
+          { item: findItem("ghee"), quantity: 50, unitPrice: 850 },
+          { item: findItem("yogurt"), quantity: 100, unitPrice: 80 },
+        ],
+      },
+      // Vegetables purchase
+      {
+        supplier: seededSuppliers[4], // Fresh Vegetables
+        warehouse: warehousesForPurchase[1] || warehousesForPurchase[0], // Kitchen Warehouse or fallback
+        date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+        status: "RECEIVED" as const,
+        items: [
+          { item: findItem("onion"), quantity: 200, unitPrice: 45 },
+          { item: findItem("tomato"), quantity: 150, unitPrice: 60 },
+          { item: findItem("ginger"), quantity: 20, unitPrice: 200 },
+          { item: findItem("garlic"), quantity: 15, unitPrice: 150 },
+          { item: findItem("green chili"), quantity: 10, unitPrice: 120 },
+        ],
+      },
+      // Large rice purchase (partially received)
+      {
+        supplier: seededSuppliers[0], // Premium Rice Suppliers
+        warehouse: warehousesForPurchase[0], // Main Warehouse
+        date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+        status: "PARTIALLY_RECEIVED" as const,
+        items: [
+          { item: findItem("basmati"), quantity: 1000, unitPrice: 118 },
+        ],
+      },
+      // Approved purchase (not yet received)
+      {
+        supplier: seededSuppliers[1], // Fresh Meat & Poultry
+        warehouse: warehousesForPurchase[1] || warehousesForPurchase[0], // Kitchen Warehouse or fallback
+        date: new Date(), // Today
+        status: "APPROVED" as const,
+        items: [
+          { item: findItem("chicken"), quantity: 150, unitPrice: 175 },
+          { item: findItem("mutton"), quantity: 60, unitPrice: 640 },
+        ],
+      },
+      // Draft purchase
+      {
+        supplier: seededSuppliers[2], // Spice Traders
+        warehouse: warehousesForPurchase[4] || warehousesForPurchase[0], // Spice Storage or fallback
+        date: new Date(), // Today
+        status: "DRAFT" as const,
+        items: [
+          { item: findItem("biryani masala"), quantity: 50, unitPrice: 2.0 },
+          { item: findItem("garam masala"), quantity: 40, unitPrice: 1.5 },
+        ],
+      },
+    ];
+
+    for (const po of purchaseOrders) {
+      // Filter out null items
+      const validItems = po.items.filter((item) => item.item !== undefined);
+      if (validItems.length === 0) continue;
+
+      // Calculate totals
+      const subTotal = validItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+      const discountRaw = Math.random() > 0.7 ? subTotal * 0.05 : 0; // 30% chance of 5% discount
+      const discount = Math.min(discountRaw, 999.99); // Cap at Decimal(5,2) max
+      const taxRaw = (subTotal - discount) * 0.15; // 15% VAT
+      const tax = Math.min(taxRaw, 999.99); // Cap at Decimal(5,2) max
+      const grandTotal = subTotal - discount + tax;
+
+      // Create purchase
+      const purchase = await prisma.purchase.create({
+        data: {
+          purchaseNumber: generatePurchaseNumber(purchaseCount + 1),
+          supplierId: po.supplier.id,
+          warehouseId: po.warehouse.id,
+          date: po.date,
+          status: po.status,
+          notes: `Purchase order for ${po.supplier.name}`,
+          subTotal: new Prisma.Decimal(subTotal.toFixed(2)),
+          discount: discount > 0 ? new Prisma.Decimal(discount.toFixed(2)) : null,
+          tax: new Prisma.Decimal(tax.toFixed(2)),
+          grandTotal: new Prisma.Decimal(grandTotal.toFixed(2)),
+          createdBy: admin.id,
+          items: {
+            create: validItems.map((item) => ({
+              itemId: item.item!.id,
+              description: item.item!.name,
+              quantity: new Prisma.Decimal(item.quantity.toFixed(2)),
+              unitPrice: new Prisma.Decimal(item.unitPrice.toFixed(2)),
+              amount: new Prisma.Decimal((item.quantity * item.unitPrice).toFixed(2)),
+            })),
+          },
+        },
+      });
+
+      purchaseCount++;
+      purchaseItemCount += validItems.length;
+    }
+
+    console.log(`✅ Seeded ${purchaseCount} purchase records`);
+    console.log(`✅ Seeded ${purchaseItemCount} purchase item records`);
+  } else {
+    console.log("⚠️  Skipping purchase seed: No suppliers, warehouses, or raw materials found");
   }
 
   console.log("\n✅ Seed complete.");

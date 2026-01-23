@@ -10,6 +10,7 @@ import { getWarehouseById } from "@/app/(dashboard)/dashboard/master/warehouses/
 import { getItemById } from "@/app/(dashboard)/dashboard/master/items/_actions/item.action";
 import { getBOMById } from "@/app/(dashboard)/dashboard/production/boms/_actions/bom.action";
 import { getProductionOrderById } from "@/app/(dashboard)/dashboard/production/orders/_actions/production.action";
+import { getPurchaseById } from "@/app/(dashboard)/dashboard/purchases/_actions/purchase.action";
 
 // Map route paths to display names
 const routeMap: Record<string, string> = {
@@ -97,6 +98,7 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [workOrderCode, setWorkOrderCode] = useState<string | null>(null);
   const [bomName, setBomName] = useState<string | null>(null);
   const [productionOrderCode, setProductionOrderCode] = useState<string | null>(null);
+  const [purchaseCode, setPurchaseCode] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
 
   // Check if we're on a warehouse detail or edit page
@@ -118,6 +120,12 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const isProductionOrderDetailMatch = pathname.match(/^\/dashboard\/production\/orders\/([^\/]+)$/);
   const isProductionOrderEditMatch = pathname.match(/^\/dashboard\/production\/orders\/([^\/]+)\/edit$/);
   const productionOrderId = isProductionOrderDetailMatch?.[1] || isProductionOrderEditMatch?.[1] || null;
+
+  // Check if we're on a purchase detail, edit, or view page
+  const isPurchaseDetailMatch = pathname.match(/^\/dashboard\/purchases\/([^\/]+)$/);
+  const isPurchaseEditMatch = pathname.match(/^\/dashboard\/purchases\/([^\/]+)\/edit$/);
+  const isPurchaseViewMatch = pathname.match(/^\/dashboard\/purchases\/([^\/]+)\/view$/);
+  const purchaseId = isPurchaseDetailMatch?.[1] || isPurchaseEditMatch?.[1] || isPurchaseViewMatch?.[1] || null;
 
   // Fetch warehouse name when on warehouse detail/edit page
   useEffect(() => {
@@ -234,6 +242,35 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
       cancelled = true;
     };
   }, [productionOrderId]);
+
+  // Fetch purchase code when on purchase detail/edit/view page
+  useEffect(() => {
+    if (!purchaseId) {
+      return;
+    }
+    
+    let cancelled = false;
+    const id: string = purchaseId; // Type assertion since we've checked for null
+    
+    async function fetchPurchaseCode() {
+      try {
+        const result = await getPurchaseById(id);
+        if (!cancelled && result.success && result.purchase) {
+          setPurchaseCode(result.purchase.purchaseNumber);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error fetching purchase code:", error);
+        }
+      }
+    }
+    
+    fetchPurchaseCode();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [purchaseId]);
 
   // If we're at the root dashboard, show just "Dashboard"
   if (pathname === "/dashboard" || items.length === 1) {
@@ -390,6 +427,38 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     } else {
       // Show loading state or default while fetching
       currentLabel = isProductionOrderEditMatch ? "Edit Production Order" : "Production Order Details";
+    }
+  }
+
+  // If we're on a purchase detail, edit, or view page, use purchase code instead of ID
+  // For purchase routes, replace the ID segment with "Purchases" as parent
+  if (isPurchaseDetailMatch || isPurchaseEditMatch || isPurchaseViewMatch) {
+    // Find the "Purchases" item (should be before the ID)
+    const purchasesItem = items.find(item => item.path === "/dashboard/purchases");
+    if (purchasesItem) {
+      parentItem = purchasesItem;
+    } else {
+      // If not found, create a parent item pointing to purchases list
+      parentItem = { path: "/dashboard/purchases", label: "Purchases" };
+    }
+    
+    // Update current label with purchase code
+    if (purchaseCode) {
+      if (isPurchaseEditMatch) {
+        currentLabel = `Edit ${purchaseCode}`;
+      } else if (isPurchaseViewMatch) {
+        currentLabel = purchaseCode;
+      } else {
+        // For detail page (redirects to view)
+        currentLabel = purchaseCode;
+      }
+    } else {
+      // Show loading state or default while fetching
+      if (isPurchaseEditMatch) {
+        currentLabel = "Edit Purchase";
+      } else {
+        currentLabel = "Purchase Details";
+      }
     }
   }
 

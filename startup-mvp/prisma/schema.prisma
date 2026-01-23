@@ -313,6 +313,7 @@ model Item {
   bomAsFinishedGood BOM[]             @relation("BOMFinishedGood")
   bomAsRawMaterial  BOMItem[]         @relation("BOMRawMaterial")
   productionOrders  ProductionOrder[] @relation("ProductionOrderFG")
+  purchaseItems     PurchaseItem[]
 
   @@index([code])
   @@index([name])
@@ -343,6 +344,7 @@ model Warehouse {
   stocks           Stock[]
   stockLedgers     StockLedger[]
   productionOrders ProductionOrder[]
+  purchases        Purchase[]
 
   @@index([code])
   @@index([name])
@@ -376,6 +378,7 @@ model StockLedger {
   warehouseId     String
   transactionType StockTransactionType
   quantity        Decimal              @db.Decimal(12, 2) // Positive for IN, negative for OUT
+  rate            Decimal?             @db.Decimal(12, 2) // Unit cost/rate for this transaction
   referenceType   String? // "PURCHASE", "PRODUCTION", "SALE", "ADJUSTMENT"
   referenceId     String? // ID of related document (Purchase.id, ProductionOrder.id, etc.)
   notes           String?
@@ -531,6 +534,8 @@ model Purchase {
   id             String         @id @default(cuid())
   purchaseNumber String         @unique
   supplierId     String
+  warehouseId    String? // Warehouse for all items in purchase
+  voucherId      String? // Link to accounting voucher
   date           DateTime       @default(now())
   status         PurchaseStatus @default(DRAFT)
   notes          String?
@@ -546,11 +551,15 @@ model Purchase {
   updatedAt      DateTime       @updatedAt
 
   supplier      Supplier       @relation(fields: [supplierId], references: [id])
+  warehouse     Warehouse?     @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  voucher       Voucher?       @relation(fields: [voucherId], references: [id], onDelete: SetNull)
   createdByUser User           @relation("PurchaseCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
   updatedByUser User?          @relation("PurchaseUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
   items         PurchaseItem[]
 
   @@index([supplierId])
+  @@index([warehouseId])
+  @@index([voucherId])
   @@index([status])
   @@index([date])
   @@index([isTrash])
@@ -569,8 +578,10 @@ model PurchaseItem {
   updatedAt   DateTime @updatedAt
 
   purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  item     Item?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
 
   @@index([purchaseId])
+  @@index([itemId])
 }
 
 model Settings {
@@ -762,6 +773,7 @@ model Voucher {
   Supplier                      Supplier?      @relation(fields: [supplierId], references: [id])
   User_Voucher_userIdToUser     User?          @relation("Voucher_userIdToUser", fields: [userId], references: [id])
   VoucherLine                   VoucherLine[]
+  purchases                     Purchase[]
 
   @@index([clientId])
   @@index([createdBy])

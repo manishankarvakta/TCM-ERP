@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useFieldArray, useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -113,6 +113,11 @@ export default function PurchaseForm({
       },
     ];
 
+  // Get default date: current date for create, purchase date for edit
+  const defaultDate = initialData 
+    ? new Date(initialData.date) 
+    : new Date();
+
   const {
     register,
     control,
@@ -126,7 +131,7 @@ export default function PurchaseForm({
     defaultValues: initialData
       ? {
           supplierId: initialData.supplier.id,
-          date: new Date(initialData.date),
+          date: defaultDate,
           status: initialData.status,
           notes: initialData.notes || "",
           attachmentUrl: initialData.attachmentUrl || "",
@@ -136,7 +141,7 @@ export default function PurchaseForm({
         }
       : {
           supplierId: "",
-          date: new Date(),
+          date: defaultDate,
           status: "DRAFT",
           notes: "",
           attachmentUrl: "",
@@ -241,14 +246,31 @@ export default function PurchaseForm({
 
               <div className="space-y-2">
                 <Label htmlFor="date">Date *</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  defaultValue={
-                    initialData ? format(new Date(initialData.date), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd")
-                  }
-                  {...register("date", { valueAsDate: true })}
-                  disabled={loading}
+                <Controller
+                  name="date"
+                  control={control}
+                  render={({ field }) => {
+                    // Convert Date object to yyyy-MM-dd string for input
+                    const dateValue = field.value instanceof Date 
+                      ? format(field.value, "yyyy-MM-dd")
+                      : field.value 
+                      ? format(new Date(field.value), "yyyy-MM-dd")
+                      : format(defaultDate, "yyyy-MM-dd");
+                    
+                    return (
+                      <Input
+                        id="date"
+                        type="date"
+                        value={dateValue}
+                        onChange={(e) => {
+                          // Convert string back to Date object
+                          const dateValue = e.target.value ? new Date(e.target.value) : new Date();
+                          field.onChange(dateValue);
+                        }}
+                        disabled={loading}
+                      />
+                    );
+                  }}
                 />
                 {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
               </div>

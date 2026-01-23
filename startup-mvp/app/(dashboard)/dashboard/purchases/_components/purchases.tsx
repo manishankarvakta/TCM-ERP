@@ -370,14 +370,14 @@ export default function PurchasesListClient({
                             <ProtectedAction
                               permissionKey="purchases.purchases"
                               action="edit"
-                              href={`/dashboard/purchases/${purchase.id}`}
+                              href={`/dashboard/purchases/${purchase.id}/edit`}
                               userId={providedUserId || undefined}
                               hasAccess={permissions?.edit}
                             />
                             <ProtectedAction
                               permissionKey="purchases.purchases"
                               action="view"
-                              href={`/dashboard/purchases/details?id=${purchase.id}`}
+                              href={`/dashboard/purchases/${purchase.id}/view`}
                               userId={providedUserId || undefined}
                               hasAccess={permissions?.view}
                             />

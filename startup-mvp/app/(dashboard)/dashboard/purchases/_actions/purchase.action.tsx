@@ -7,6 +7,8 @@ import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { PurchaseStatus, type Prisma } from "@prisma/client";
 import * as z from "zod";
 import { updateStockOnPurchase } from "@/app/(dashboard)/dashboard/inventory/stock/_actions/stock.action";
+import { createVoucher, postVoucher } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
+import { ItemType, AccountType, VoucherType } from "@prisma/client";
 
 const purchaseItemSchema = z.object({
   itemId: z.string().optional().nullable(),
@@ -18,6 +20,7 @@ const purchaseItemSchema = z.object({
 
 const purchaseSchema = z.object({
   supplierId: z.string().min(1, "Supplier is required"),
+  warehouseId: z.string().optional().nullable(), // Optional for backward compatibility
   date: z.coerce.date(),
   status: z.nativeEnum(PurchaseStatus),
   notes: z.string().optional().nullable(),
@@ -121,6 +124,48 @@ export async function getSuppliersForPurchase() {
       success: false,
       error: error instanceof Error ? error.message : "Failed to fetch suppliers",
       suppliers: [],
+    };
+  }
+}
+
+export async function getItemsForPurchase() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", items: [] };
+    }
+
+    const items = await prisma.item.findMany({
+      where: {
+        status: "active",
+        isTrash: false,
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        costPrice: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return {
+      success: true,
+      items: items.map((item) => ({
+        id: item.id,
+        code: item.code,
+        description: item.name,
+        unitPrice: item.costPrice ? Number(item.costPrice) : 0,
+      })),
+    };
+  } catch (error) {
+    console.error("getItemsForPurchase error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch items",
+      items: [],
     };
   }
 }
@@ -232,6 +277,14 @@ export async function getPurchaseById(purchaseId: string) {
             name: true,
             email: true,
             company: true,
+            phone: true,
+          },
+        },
+        warehouse: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
           },
         },
         items: {
@@ -242,6 +295,25 @@ export async function getPurchaseById(purchaseId: string) {
             quantity: true,
             unitPrice: true,
             amount: true,
+            item: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                unit: {
+                  select: {
+                    symbol: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        createdByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
           },
         },
         createdAt: true,
@@ -256,6 +328,18 @@ export async function getPurchaseById(purchaseId: string) {
     return {
       success: true,
       purchase: {
+        id: purchase.id,
+        purchaseNumber: purchase.purchaseNumber,
+        date: purchase.date,
+        status: purchase.status,
+        notes: purchase.notes,
+        attachmentUrl: purchase.attachmentUrl,
+        isTrash: purchase.isTrash,
+        supplier: purchase.supplier,
+        warehouse: purchase.warehouse,
+        createdByUser: purchase.createdByUser,
+        createdAt: purchase.createdAt,
+        updatedAt: purchase.updatedAt,
         ...serializePurchase(purchase),
         items: purchase.items.map((item) => ({
           ...item,
