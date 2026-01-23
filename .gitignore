@@ -13,3 +13,5 @@ volumes/redis/
 # Keep the directory structure
 !volumes/.gitkeep
 
+
+.DS_Store
