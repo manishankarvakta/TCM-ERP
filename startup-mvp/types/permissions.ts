@@ -542,6 +542,24 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
     ],
   },
   {
+    id: "inventory",
+    label: "Inventory",
+    pages: [
+      {
+        permissionKey: "inventory.stock",
+        path: "/dashboard/inventory/stock",
+        label: "Stock",
+        operations: ["view", "adjust"],
+      },
+      {
+        permissionKey: "inventory.stock",
+        path: "/dashboard/inventory/stock/ledger",
+        label: "Stock Ledger",
+        operations: ["view"],
+      },
+    ],
+  },
+  {
     id: "profile",
     label: "Profile",
     alwaysVisible: true,

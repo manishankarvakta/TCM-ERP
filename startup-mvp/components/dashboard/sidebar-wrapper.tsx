@@ -229,7 +229,7 @@ export default async function DashboardSidebarWrapper() {
   // Settings is admin-only - filter it out for non-admin users
   if (!isAdmin) {
     filteredBottomMenu = filteredBottomMenu.filter(
-      (item) => item.href !== "/admin/settings"
+      (item) => item.href !== "/dashboard/settings"
     );
   }
 

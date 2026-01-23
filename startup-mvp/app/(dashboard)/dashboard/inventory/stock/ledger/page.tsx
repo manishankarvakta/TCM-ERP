@@ -1,0 +1,99 @@
+import React from "react";
+import { getStockLedger, getActiveItems, getActiveWarehouses } from "../_actions/stock.action";
+import StockLedgerClient from "../_components/stockLedger";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
+import PageGuard from "@/components/permissions/page-guard";
+import { StockTransactionType } from "@prisma/client";
+
+interface StockLedgerPageProps {
+  searchParams: Promise<{
+    page?: string;
+    search?: string;
+    itemId?: string;
+    warehouseId?: string;
+    transactionType?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }>;
+}
+
+export default async function StockLedgerPage({ searchParams }: StockLedgerPageProps) {
+  const params = await searchParams;
+  const page = parseInt(params.page || "1");
+  const search = params.search || "";
+  const itemId = params.itemId;
+  const warehouseId = params.warehouseId;
+  const transactionType = params.transactionType as StockTransactionType | undefined;
+  const dateFrom = params.dateFrom ? new Date(params.dateFrom) : undefined;
+  const dateTo = params.dateTo ? new Date(params.dateTo) : undefined;
+
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  // Check permissions and fetch data
+  const [result, itemsResult, warehousesResult, canView] = await Promise.all([
+    getStockLedger(page, 10, {
+      itemId,
+      warehouseId,
+      transactionType,
+      dateFrom,
+      dateTo,
+    }),
+    getActiveItems(),
+    getActiveWarehouses(),
+    userId ? hasPermission(userId, "inventory.stock", "view") : false,
+  ]);
+
+  // Handle errors
+  if (!result.success) {
+    return (
+      <PageGuard permissionKey="inventory.stock" requiredOperation="view">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold">Stock Ledger</h1>
+              <p className="text-sm text-muted-foreground">View stock transaction history</p>
+            </div>
+          </div>
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+            <p className="text-sm text-destructive">
+              {result.error || "Failed to load stock ledger"}
+            </p>
+          </div>
+        </div>
+      </PageGuard>
+    );
+  }
+
+  return (
+    <PageGuard permissionKey="inventory.stock" requiredOperation="view">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Stock Ledger</h1>
+            <p className="text-sm text-muted-foreground">View stock transaction history</p>
+          </div>
+        </div>
+
+        <StockLedgerClient
+          initialEntries={result.entries || []}
+          initialPagination={result.pagination || {
+            page: 1,
+            limit: 10,
+            total: 0,
+            totalPages: 0,
+          }}
+          initialSearch={search}
+          initialItemId={itemId}
+          initialWarehouseId={warehouseId}
+          initialTransactionType={transactionType || "all"}
+          initialDateFrom={params.dateFrom}
+          initialDateTo={params.dateTo}
+          items={itemsResult.success ? itemsResult.items || [] : []}
+          warehouses={warehousesResult.success ? warehousesResult.warehouses || [] : []}
+        />
+      </div>
+    </PageGuard>
+  );
+}

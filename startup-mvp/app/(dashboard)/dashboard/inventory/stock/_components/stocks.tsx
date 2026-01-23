@@ -1,0 +1,333 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import Link from "next/link";
+import { FiSearch, FiX, FiBox, FiPackage } from "react-icons/fi";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+
+interface Stock {
+  id: string;
+  itemId: string;
+  warehouseId: string;
+  quantity: any; // Decimal from Prisma
+  reservedQuantity: any; // Decimal from Prisma
+  lastUpdated: Date;
+  item: {
+    id: string;
+    name: string;
+    code: string;
+    unit: {
+      symbol: string;
+    };
+  };
+  warehouse: {
+    id: string;
+    name: string;
+    code: string;
+  };
+}
+
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+interface StocksListClientProps {
+  initialStocks: Stock[];
+  initialPagination: Pagination;
+  initialSearch: string;
+  initialItemId?: string;
+  initialWarehouseId?: string;
+  items?: Array<{ id: string; name: string; code: string }>;
+  warehouses?: Array<{ id: string; name: string; code: string }>;
+}
+
+export default function StocksListClient({
+  initialStocks,
+  initialPagination,
+  initialSearch,
+  initialItemId,
+  initialWarehouseId,
+  items = [],
+  warehouses = [],
+}: StocksListClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [search, setSearch] = useState(initialSearch);
+  const [itemFilter, setItemFilter] = useState(initialItemId || "all");
+  const [warehouseFilter, setWarehouseFilter] = useState(initialWarehouseId || "all");
+  const [isPending, startTransition] = useTransition();
+
+  const handleSearch = (value: string) => {
+    setSearch(value);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set("search", value);
+    } else {
+      params.delete("search");
+    }
+    params.set("page", "1");
+    if (itemFilter !== "all") {
+      params.set("itemId", itemFilter);
+    } else {
+      params.delete("itemId");
+    }
+    if (warehouseFilter !== "all") {
+      params.set("warehouseId", warehouseFilter);
+    } else {
+      params.delete("warehouseId");
+    }
+    router.push(`/dashboard/inventory/stock?${params.toString()}`);
+  };
+
+  const handleItemFilter = (value: string) => {
+    setItemFilter(value);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value !== "all") {
+      params.set("itemId", value);
+    } else {
+      params.delete("itemId");
+    }
+    params.set("page", "1");
+    if (search) {
+      params.set("search", search);
+    }
+    if (warehouseFilter !== "all") {
+      params.set("warehouseId", warehouseFilter);
+    }
+    router.push(`/dashboard/inventory/stock?${params.toString()}`);
+  };
+
+  const handleWarehouseFilter = (value: string) => {
+    setWarehouseFilter(value);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value !== "all") {
+      params.set("warehouseId", value);
+    } else {
+      params.delete("warehouseId");
+    }
+    params.set("page", "1");
+    if (search) {
+      params.set("search", search);
+    }
+    if (itemFilter !== "all") {
+      params.set("itemId", itemFilter);
+    }
+    router.push(`/dashboard/inventory/stock?${params.toString()}`);
+  };
+
+  const formatQuantity = (qty: any) => {
+    if (!qty) return "0.00";
+    return Number(qty).toLocaleString("en-BD", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  const getAvailableQuantity = (stock: Stock) => {
+    const qty = Number(stock.quantity);
+    const reserved = Number(stock.reservedQuantity);
+    return qty - reserved;
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Search and Filters */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 max-w-sm">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by item name, code, or warehouse..."
+            value={search}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="pl-10"
+          />
+          {search && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+              onClick={() => handleSearch("")}
+            >
+              <FiX className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+
+        <Select value={itemFilter} onValueChange={handleItemFilter}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Filter by item" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Items</SelectItem>
+            {items.map((item) => (
+              <SelectItem key={item.id} value={item.id}>
+                {item.name} ({item.code})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={warehouseFilter} onValueChange={handleWarehouseFilter}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Filter by warehouse" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Warehouses</SelectItem>
+            {warehouses.map((warehouse) => (
+              <SelectItem key={warehouse.id} value={warehouse.id}>
+                {warehouse.name} ({warehouse.code})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Stocks Table */}
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Item</TableHead>
+              <TableHead>Warehouse</TableHead>
+              <TableHead className="text-right">Quantity</TableHead>
+              <TableHead className="text-right">Reserved</TableHead>
+              <TableHead className="text-right">Available</TableHead>
+              <TableHead>Last Updated</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {initialStocks.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  No stock records found
+                </TableCell>
+              </TableRow>
+            ) : (
+              initialStocks.map((stock) => {
+                const available = getAvailableQuantity(stock);
+                const isLowStock = available < 10; // Threshold for low stock warning
+
+                return (
+                  <TableRow key={stock.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <FiPackage className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <Link
+                            href={`/dashboard/master/items/${stock.item.id}`}
+                            className="font-medium hover:underline"
+                          >
+                            {stock.item.name}
+                          </Link>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {stock.item.code}
+                          </p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <FiBox className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <Link
+                            href={`/dashboard/inventory/warehouses/${stock.warehouse.id}`}
+                            className="font-medium hover:underline"
+                          >
+                            {stock.warehouse.name}
+                          </Link>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {stock.warehouse.code}
+                          </p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {formatQuantity(stock.quantity)} {stock.item.unit.symbol}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">
+                      {formatQuantity(stock.reservedQuantity)} {stock.item.unit.symbol}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        "text-right font-mono font-semibold",
+                        isLowStock && "text-orange-600",
+                        available < 0 && "text-destructive"
+                      )}
+                    >
+                      {formatQuantity(available)} {stock.item.unit.symbol}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {format(new Date(stock.lastUpdated), "MMM d, yyyy HH:mm")}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Pagination */}
+      {initialPagination.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Showing {((initialPagination.page - 1) * initialPagination.limit) + 1} to{" "}
+            {Math.min(initialPagination.page * initialPagination.limit, initialPagination.total)} of{" "}
+            {initialPagination.total} stock records
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("page", String(Math.max(1, initialPagination.page - 1)));
+                router.push(`/dashboard/inventory/stock?${params.toString()}`);
+              }}
+              disabled={initialPagination.page === 1 || isPending}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {initialPagination.page} of {initialPagination.totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("page", String(Math.min(initialPagination.totalPages, initialPagination.page + 1)));
+                router.push(`/dashboard/inventory/stock?${params.toString()}`);
+              }}
+              disabled={initialPagination.page === initialPagination.totalPages || isPending}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -108,9 +108,15 @@ export const MENU_TEMPLATE: MenuItemData[] = [
     module: "inventory",
     subMenu: [
       { 
-        href: "/dashboard/inventory/warehouses", 
-        label: "Warehouses", 
-        icon: "FiHome", 
+        href: "/dashboard/inventory/stock", 
+        label: "Stock", 
+        icon: "FiBox", 
+        module: "inventory" 
+      },
+      { 
+        href: "/dashboard/inventory/stock/ledger", 
+        label: "Stock Ledger", 
+        icon: "FiFileText", 
         module: "inventory" 
       },
     ],

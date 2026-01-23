@@ -6,6 +6,7 @@ import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { PurchaseStatus, type Prisma } from "@prisma/client";
 import * as z from "zod";
+import { updateStockOnPurchase } from "@/app/(dashboard)/dashboard/inventory/stock/_actions/stock.action";
 
 const purchaseItemSchema = z.object({
   itemId: z.string().optional().nullable(),
@@ -452,6 +453,11 @@ export async function updatePurchase(input: z.infer<typeof updatePurchaseSchema>
       }
     );
 
+    // Update stock if purchase is received
+    if (validated.status === "RECEIVED" || validated.status === "PARTIALLY_RECEIVED") {
+      await updateStockOnPurchase(purchase.id);
+    }
+
     revalidateBothPaths("purchases");
 
     return {
@@ -541,6 +547,13 @@ export async function bulkUpdatePurchaseStatus(
         where: { id: { in: purchaseIds } },
         data: { status, isTrash: false },
       });
+
+      // Update stock if status is RECEIVED or PARTIALLY_RECEIVED
+      if (status === "RECEIVED" || status === "PARTIALLY_RECEIVED") {
+        for (const purchaseId of purchaseIds) {
+          await updateStockOnPurchase(purchaseId);
+        }
+      }
     }
 
     revalidateBothPaths("purchases");

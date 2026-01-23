@@ -1,0 +1,1004 @@
+"use server";
+
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/lib/permissions";
+import { logItemCreated, logItemUpdated } from "@/lib/user-log";
+import { notifyItemCreated, notifyItemUpdated } from "@/lib/notification";
+import { revalidateBothPaths } from "@/lib/route-utils-server";
+import { type Prisma, StockTransactionType, Prisma as PrismaClient } from "@prisma/client";
+
+/**
+ * Update stock when Purchase is received
+ * Called automatically when Purchase status = RECEIVED or PARTIALLY_RECEIVED
+ */
+export async function updateStockOnPurchase(
+  purchaseId: string,
+  warehouseId?: string
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    // Get purchase with items
+    const purchase = await prisma.purchase.findUnique({
+      where: { id: purchaseId },
+      include: {
+        items: {
+          where: { itemId: { not: null } }, // Only items with itemId
+        },
+      },
+    });
+
+    if (!purchase) {
+      return { success: false, error: "Purchase not found" };
+    }
+
+    // Get default warehouse if not provided
+    let targetWarehouseId = warehouseId;
+    if (!targetWarehouseId) {
+      const defaultWarehouse = await prisma.warehouse.findFirst({
+        where: { status: "active", isTrash: false },
+        orderBy: { createdAt: "asc" },
+      });
+      if (!defaultWarehouse) {
+        return { success: false, error: "No active warehouse found" };
+      }
+      targetWarehouseId = defaultWarehouse.id;
+    }
+
+    // Use transaction for atomicity
+    await prisma.$transaction(async (tx) => {
+      for (const purchaseItem of purchase.items) {
+        if (!purchaseItem.itemId) continue;
+
+        const item = await tx.item.findUnique({
+          where: { id: purchaseItem.itemId },
+          select: { trackInventory: true },
+        });
+
+        // Only update stock if item tracks inventory
+        if (!item || !item.trackInventory) continue;
+
+        const quantity = Number(purchaseItem.quantity);
+
+        // Update or create Stock record
+        const existingStock = await tx.stock.findUnique({
+          where: {
+            itemId_warehouseId: {
+              itemId: purchaseItem.itemId,
+              warehouseId: targetWarehouseId,
+            },
+          },
+        });
+
+        if (existingStock) {
+          await tx.stock.update({
+            where: { id: existingStock.id },
+            data: {
+              quantity: {
+                increment: quantity,
+              },
+              lastUpdated: new Date(),
+            },
+          });
+        } else {
+          await tx.stock.create({
+            data: {
+              itemId: purchaseItem.itemId,
+              warehouseId: targetWarehouseId,
+              quantity: quantity,
+              reservedQuantity: 0,
+            },
+          });
+        }
+
+        // Create StockLedger entry
+        await tx.stockLedger.create({
+          data: {
+            itemId: purchaseItem.itemId,
+            warehouseId: targetWarehouseId,
+            transactionType: StockTransactionType.IN,
+            quantity: quantity,
+            referenceType: "PURCHASE",
+            referenceId: purchaseId,
+            notes: `Purchase ${purchase.purchaseNumber}`,
+            createdBy: session.user.id,
+          },
+        });
+      }
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("updateStockOnPurchase error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to update stock",
+    };
+  }
+}
+
+/**
+ * Update stock on Production (for future Production module integration)
+ */
+export async function updateStockOnProduction(
+  productionOrderId: string,
+  type: "OUT" | "IN",
+  items: Array<{ itemId: string; quantity: number; warehouseId: string }>
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const item of items) {
+        const stockItem = await tx.item.findUnique({
+          where: { id: item.itemId },
+          select: { trackInventory: true },
+        });
+
+        if (!stockItem || !stockItem.trackInventory) continue;
+
+        const quantity = type === "OUT" ? -item.quantity : item.quantity;
+
+        // Update Stock
+        const existingStock = await tx.stock.findUnique({
+          where: {
+            itemId_warehouseId: {
+              itemId: item.itemId,
+              warehouseId: item.warehouseId,
+            },
+          },
+        });
+
+        if (existingStock) {
+          await tx.stock.update({
+            where: { id: existingStock.id },
+            data: {
+              quantity: {
+                increment: quantity,
+              },
+              lastUpdated: new Date(),
+            },
+          });
+        } else if (type === "IN") {
+          await tx.stock.create({
+            data: {
+              itemId: item.itemId,
+              warehouseId: item.warehouseId,
+              quantity: item.quantity,
+              reservedQuantity: 0,
+            },
+          });
+        }
+
+        // Create StockLedger entry
+        await tx.stockLedger.create({
+          data: {
+            itemId: item.itemId,
+            warehouseId: item.warehouseId,
+            transactionType: StockTransactionType.PRODUCTION,
+            quantity: quantity,
+            referenceType: "PRODUCTION",
+            referenceId: productionOrderId,
+            notes: `Production ${type === "OUT" ? "material issue" : "finished goods receipt"}`,
+            createdBy: session.user.id,
+          },
+        });
+      }
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("updateStockOnProduction error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to update stock",
+    };
+  }
+}
+
+/**
+ * Update stock on Sale (for future Sales module integration)
+ */
+export async function updateStockOnSale(
+  saleId: string,
+  warehouseId: string,
+  items: Array<{ itemId: string; quantity: number }>
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const item of items) {
+        const stockItem = await tx.item.findUnique({
+          where: { id: item.itemId },
+          select: { trackInventory: true },
+        });
+
+        if (!stockItem || !stockItem.trackInventory) continue;
+
+        // Update Stock (decrease)
+        const existingStock = await tx.stock.findUnique({
+          where: {
+            itemId_warehouseId: {
+              itemId: item.itemId,
+              warehouseId: warehouseId,
+            },
+          },
+        });
+
+        if (existingStock) {
+          await tx.stock.update({
+            where: { id: existingStock.id },
+            data: {
+              quantity: {
+                decrement: item.quantity,
+              },
+              lastUpdated: new Date(),
+            },
+          });
+        }
+
+        // Create StockLedger entry
+        await tx.stockLedger.create({
+          data: {
+            itemId: item.itemId,
+            warehouseId: warehouseId,
+            transactionType: StockTransactionType.OUT,
+            quantity: -item.quantity, // Negative for OUT
+            referenceType: "SALE",
+            referenceId: saleId,
+            notes: `Sale transaction`,
+            createdBy: session.user.id,
+          },
+        });
+      }
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("updateStockOnSale error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to update stock",
+    };
+  }
+}
+
+/**
+ * Manual stock adjustment
+ */
+export async function adjustStock(input: {
+  itemId: string;
+  warehouseId: string;
+  quantity: number; // Can be positive (increase) or negative (decrease)
+  notes?: string;
+}) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", stock: null };
+    }
+
+    // Permission check
+    const canAdjust = await hasPermission(session.user.id, "inventory.stock", "adjust");
+    if (!canAdjust) {
+      return {
+        success: false,
+        error: "You do not have permission to adjust stock",
+        stock: null,
+      };
+    }
+
+    // Validate item exists and tracks inventory
+    const item = await prisma.item.findUnique({
+      where: { id: input.itemId },
+      select: { trackInventory: true, name: true },
+    });
+
+    if (!item) {
+      return { success: false, error: "Item not found", stock: null };
+    }
+
+    if (!item.trackInventory) {
+      return {
+        success: false,
+        error: "Item does not track inventory",
+        stock: null,
+      };
+    }
+
+    // Validate warehouse exists
+    const warehouse = await prisma.warehouse.findUnique({
+      where: { id: input.warehouseId },
+    });
+
+    if (!warehouse) {
+      return { success: false, error: "Warehouse not found", stock: null };
+    }
+
+    // Transaction-safe stock update
+    const result = await prisma.$transaction(async (tx) => {
+      // Get or create Stock record
+      let stock = await tx.stock.findUnique({
+        where: {
+          itemId_warehouseId: {
+            itemId: input.itemId,
+            warehouseId: input.warehouseId,
+          },
+        },
+      });
+
+      const newQuantity = stock
+        ? Number(stock.quantity) + input.quantity
+        : input.quantity;
+
+      // Prevent negative stock (unless it's a decrease adjustment)
+      if (newQuantity < 0 && input.quantity < 0) {
+        // Allow negative adjustments but log warning
+        console.warn(`Stock adjustment results in negative quantity for item ${input.itemId}`);
+      }
+
+      if (stock) {
+        stock = await tx.stock.update({
+          where: { id: stock.id },
+          data: {
+            quantity: newQuantity,
+            lastUpdated: new Date(),
+          },
+          include: {
+            item: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                unit: {
+                  select: {
+                    symbol: true,
+                  },
+                },
+              },
+            },
+            warehouse: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
+          },
+        });
+      } else {
+        stock = await tx.stock.create({
+          data: {
+            itemId: input.itemId,
+            warehouseId: input.warehouseId,
+            quantity: newQuantity,
+            reservedQuantity: 0,
+          },
+          include: {
+            item: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                unit: {
+                  select: {
+                    symbol: true,
+                  },
+                },
+              },
+            },
+            warehouse: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
+          },
+        });
+      }
+
+      // Create StockLedger entry
+      await tx.stockLedger.create({
+        data: {
+          itemId: input.itemId,
+          warehouseId: input.warehouseId,
+          transactionType: StockTransactionType.ADJUSTMENT,
+          quantity: input.quantity,
+          referenceType: "ADJUSTMENT",
+          referenceId: stock.id,
+          notes: input.notes || `Manual stock adjustment`,
+          createdBy: session.user.id,
+        },
+      });
+
+      return stock;
+    });
+
+    // Log activity
+    await logItemUpdated(
+      session.user.id,
+      "Stock",
+      result.id,
+      [`Stock adjusted: ${input.quantity > 0 ? "+" : ""}${input.quantity}`],
+      `${item.name} - ${warehouse.name}`
+    );
+
+    // Send notification
+    await notifyItemUpdated(session.user.id, "Stock", `${item.name} - ${warehouse.name}`);
+
+    // Revalidate cache
+    await revalidateBothPaths("/dashboard/inventory/stock");
+
+    return {
+      success: true,
+      stock: result,
+    };
+  } catch (error) {
+    console.error("adjustStock error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to adjust stock",
+      stock: null,
+    };
+  }
+}
+
+/**
+ * Get current stock for item and warehouse
+ */
+export async function getStock(itemId: string, warehouseId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        stock: null,
+      };
+    }
+
+    // Permission check
+    const canView = await hasPermission(session.user.id, "inventory.stock", "view");
+    if (!canView) {
+      return {
+        success: false,
+        error: "You do not have permission to view stock",
+        stock: null,
+      };
+    }
+
+    const stock = await prisma.stock.findUnique({
+      where: {
+        itemId_warehouseId: {
+          itemId,
+          warehouseId,
+        },
+      },
+      include: {
+        item: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            unit: {
+              select: {
+                symbol: true,
+              },
+            },
+          },
+        },
+        warehouse: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      },
+    });
+
+    return {
+      success: true,
+      stock: stock || {
+        itemId,
+        warehouseId,
+        quantity: 0,
+        reservedQuantity: 0,
+        lastUpdated: new Date(),
+        item: await prisma.item.findUnique({
+          where: { id: itemId },
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            unit: {
+              select: {
+                symbol: true,
+              },
+            },
+          },
+        }),
+        warehouse: await prisma.warehouse.findUnique({
+          where: { id: warehouseId },
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        }),
+      },
+    };
+  } catch (error) {
+    console.error("getStock error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch stock",
+      stock: null,
+    };
+  }
+}
+
+/**
+ * Get paginated list of stocks with filters
+ */
+export async function getStocks(
+  page: number = 1,
+  limit: number = 10,
+  filters: {
+    itemId?: string;
+    warehouseId?: string;
+    search?: string;
+  } = {}
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        stocks: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          totalPages: 0,
+        },
+      };
+    }
+
+    // Permission check
+    const canView = await hasPermission(session.user.id, "inventory.stock", "view");
+    if (!canView) {
+      return {
+        success: false,
+        error: "You do not have permission to view stock",
+        stocks: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          totalPages: 0,
+        },
+      };
+    }
+
+    const skip = (page - 1) * limit;
+
+    // Build where clause
+    const where: Prisma.StockWhereInput = {};
+
+    if (filters.itemId) {
+      where.itemId = filters.itemId;
+    }
+
+    if (filters.warehouseId) {
+      where.warehouseId = filters.warehouseId;
+    }
+
+    if (filters.search) {
+      where.OR = [
+        { item: { name: { contains: filters.search, mode: "insensitive" } } },
+        { item: { code: { contains: filters.search, mode: "insensitive" } } },
+        { warehouse: { name: { contains: filters.search, mode: "insensitive" } } },
+        { warehouse: { code: { contains: filters.search, mode: "insensitive" } } },
+      ];
+    }
+
+    // Get total count
+    const total = await prisma.stock.count({ where });
+
+    // Get stocks
+    const stocks = await prisma.stock.findMany({
+      where,
+      skip,
+      take: limit,
+      include: {
+        item: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            unit: {
+              select: {
+                symbol: true,
+              },
+            },
+          },
+        },
+        warehouse: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      },
+      orderBy: {
+        lastUpdated: "desc",
+      },
+    });
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      success: true,
+      stocks,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
+  } catch (error) {
+    console.error("getStocks error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch stocks",
+      stocks: [],
+      pagination: {
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 0,
+      },
+    };
+  }
+}
+
+/**
+ * Get stock ledger entries with filters
+ */
+export async function getStockLedger(
+  page: number = 1,
+  limit: number = 10,
+  filters: {
+    itemId?: string;
+    warehouseId?: string;
+    transactionType?: StockTransactionType;
+    dateFrom?: Date;
+    dateTo?: Date;
+  } = {}
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        entries: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          totalPages: 0,
+        },
+      };
+    }
+
+    // Permission check
+    const canView = await hasPermission(session.user.id, "inventory.stock", "view");
+    if (!canView) {
+      return {
+        success: false,
+        error: "You do not have permission to view stock ledger",
+        entries: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          totalPages: 0,
+        },
+      };
+    }
+
+    const skip = (page - 1) * limit;
+
+    // Build where clause
+    const where: Prisma.StockLedgerWhereInput = {};
+
+    if (filters.itemId) {
+      where.itemId = filters.itemId;
+    }
+
+    if (filters.warehouseId) {
+      where.warehouseId = filters.warehouseId;
+    }
+
+    if (filters.transactionType) {
+      where.transactionType = filters.transactionType;
+    }
+
+    if (filters.dateFrom || filters.dateTo) {
+      where.createdAt = {};
+      if (filters.dateFrom) {
+        where.createdAt.gte = filters.dateFrom;
+      }
+      if (filters.dateTo) {
+        where.createdAt.lte = filters.dateTo;
+      }
+    }
+
+    // Get total count
+    const total = await prisma.stockLedger.count({ where });
+
+    // Get ledger entries
+    const entries = await prisma.stockLedger.findMany({
+      where,
+      skip,
+      take: limit,
+      include: {
+        item: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            unit: {
+              select: {
+                symbol: true,
+              },
+            },
+          },
+        },
+        warehouse: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+        creator: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      success: true,
+      entries,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
+  } catch (error) {
+    console.error("getStockLedger error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch stock ledger",
+      entries: [],
+      pagination: {
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 0,
+      },
+    };
+  }
+}
+
+/**
+ * Get stock report (aggregate data)
+ */
+export async function getStockReport(itemId?: string, warehouseId?: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        report: null,
+      };
+    }
+
+    // Permission check
+    const canView = await hasPermission(session.user.id, "inventory.stock", "view");
+    if (!canView) {
+      return {
+        success: false,
+        error: "You do not have permission to view stock reports",
+        report: null,
+      };
+    }
+
+    const where: Prisma.StockWhereInput = {};
+    if (itemId) where.itemId = itemId;
+    if (warehouseId) where.warehouseId = warehouseId;
+
+    // Get all stocks matching filters
+    const stocks = await prisma.stock.findMany({
+      where,
+      include: {
+        item: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            costPrice: true,
+            unit: {
+              select: {
+                symbol: true,
+              },
+            },
+          },
+        },
+        warehouse: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      },
+    });
+
+    // Calculate totals
+    let totalQuantity = 0;
+    let totalValue = 0;
+    let totalReserved = 0;
+
+    for (const stock of stocks) {
+      const qty = Number(stock.quantity);
+      const reserved = Number(stock.reservedQuantity);
+      const costPrice = stock.item.costPrice ? Number(stock.item.costPrice) : 0;
+
+      totalQuantity += qty;
+      totalReserved += reserved;
+      totalValue += qty * costPrice;
+    }
+
+    // Get recent movements (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const ledgerWhere: Prisma.StockLedgerWhereInput = {};
+    if (itemId) ledgerWhere.itemId = itemId;
+    if (warehouseId) ledgerWhere.warehouseId = warehouseId;
+    ledgerWhere.createdAt = { gte: thirtyDaysAgo };
+
+    const recentMovements = await prisma.stockLedger.count({ where: ledgerWhere });
+
+    return {
+      success: true,
+      report: {
+        totalStocks: stocks.length,
+        totalQuantity,
+        totalReserved,
+        availableQuantity: totalQuantity - totalReserved,
+        totalValue,
+        recentMovements,
+        stocks,
+      },
+    };
+  } catch (error) {
+    console.error("getStockReport error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to generate stock report",
+      report: null,
+    };
+  }
+}
+
+/**
+ * Get active items that track inventory (for dropdowns)
+ */
+export async function getActiveItems() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", items: [] };
+    }
+
+    const items = await prisma.item.findMany({
+      where: {
+        status: "active",
+        isTrash: false,
+        trackInventory: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        trackInventory: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return {
+      success: true,
+      items,
+    };
+  } catch (error) {
+    console.error("getActiveItems error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch items",
+      items: [],
+    };
+  }
+}
+
+/**
+ * Get active warehouses (for dropdowns)
+ */
+export async function getActiveWarehouses() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", warehouses: [] };
+    }
+
+    const warehouses = await prisma.warehouse.findMany({
+      where: {
+        status: "active",
+        isTrash: false,
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return {
+      success: true,
+      warehouses,
+    };
+  } catch (error) {
+    console.error("getActiveWarehouses error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch warehouses",
+      warehouses: [],
+    };
+  }
+}

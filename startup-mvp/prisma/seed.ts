@@ -721,6 +721,33 @@ async function main() {
     });
   }
 
+  // Register ModuleOperation rows for inventory.stock
+  const stockOperations = [
+    { operation: "view", label: "View Stock" },
+    { operation: "adjust", label: "Adjust Stock" },
+  ];
+
+  for (const op of stockOperations) {
+    await prisma.moduleOperation.upsert({
+      where: {
+        module_operation: {
+          module: "inventory.stock",
+          operation: op.operation,
+        },
+      },
+      update: {
+        label: op.label,
+        isActive: true,
+      },
+      create: {
+        module: "inventory.stock",
+        operation: op.operation,
+        label: op.label,
+        isActive: true,
+      },
+    });
+  }
+
   console.log("\n✅ Seed complete.");
   console.log(`- Admin login: ${adminEmail} / ${adminPassword}`);
 }
