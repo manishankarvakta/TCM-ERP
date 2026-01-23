@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { getWorkOrder } from "@/app/actions/work-orders";
 import { getWarehouseById } from "@/app/(dashboard)/dashboard/master/warehouses/_actions/warehouse.action";
 import { getItemById } from "@/app/(dashboard)/dashboard/master/items/_actions/item.action";
+import { getBOMById } from "@/app/(dashboard)/dashboard/production/boms/_actions/bom.action";
 
 // Map route paths to display names
 const routeMap: Record<string, string> = {
@@ -93,6 +94,7 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [itemName, setItemName] = useState<string | null>(null);
   const [warehouseName, setWarehouseName] = useState<string | null>(null);
   const [workOrderCode, setWorkOrderCode] = useState<string | null>(null);
+  const [bomName, setBomName] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
 
   // Check if we're on a warehouse detail or edit page
@@ -104,6 +106,11 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const isItemDetailMatch = pathname.match(/^\/dashboard\/master\/items\/([^\/]+)$/);
   const isItemEditMatch = pathname.match(/^\/dashboard\/master\/items\/([^\/]+)\/edit$/);
   const itemId = isItemDetailMatch?.[1] || isItemEditMatch?.[1] || null;
+
+  // Check if we're on a BOM detail or edit page
+  const isBOMDetailMatch = pathname.match(/^\/dashboard\/production\/boms\/([^\/]+)$/);
+  const isBOMEditMatch = pathname.match(/^\/dashboard\/production\/boms\/([^\/]+)\/edit$/);
+  const bomId = isBOMDetailMatch?.[1] || isBOMEditMatch?.[1] || null;
 
   // Fetch warehouse name when on warehouse detail/edit page
   useEffect(() => {
@@ -162,6 +169,35 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
       cancelled = true;
     };
   }, [itemId]);
+
+  // Fetch BOM name when on BOM detail/edit page
+  useEffect(() => {
+    if (!bomId) {
+      return;
+    }
+    
+    let cancelled = false;
+    const id: string = bomId; // Type assertion since we've checked for null
+    
+    async function fetchBOMName() {
+      try {
+        const result = await getBOMById(id);
+        if (!cancelled && result.success && result.bom) {
+          setBomName(result.bom.name);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error fetching BOM name:", error);
+        }
+      }
+    }
+    
+    fetchBOMName();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [bomId]);
 
   // If we're at the root dashboard, show just "Dashboard"
   if (pathname === "/dashboard" || items.length === 1) {
@@ -276,6 +312,27 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     } else {
       // Show loading state or default while fetching
       currentLabel = isItemEditMatch ? "Edit Item" : "Item Details";
+    }
+  }
+
+  // If we're on a BOM detail or edit page, use BOM name instead of ID
+  // For BOM routes, replace the ID segment with "Bill of Materials" as parent
+  if (isBOMDetailMatch || isBOMEditMatch) {
+    // Find the "Bill of Materials" item (should be before the ID)
+    const bomsItem = items.find(item => item.path === "/dashboard/production/boms");
+    if (bomsItem) {
+      parentItem = bomsItem;
+    } else {
+      // If not found, create a parent item pointing to BOMs list
+      parentItem = { path: "/dashboard/production/boms", label: "Bill of Materials" };
+    }
+    
+    // Update current label with BOM name
+    if (bomName) {
+      currentLabel = isBOMEditMatch ? `Edit ${bomName}` : bomName;
+    } else {
+      // Show loading state or default while fetching
+      currentLabel = isBOMEditMatch ? "Edit BOM" : "BOM Details";
     }
   }
 
