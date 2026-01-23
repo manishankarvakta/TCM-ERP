@@ -121,6 +121,19 @@ export const MENU_TEMPLATE: MenuItemData[] = [
       },
     ],
   },
+  {
+    label: "Production",
+    icon: "FiSettings",
+    module: "production",
+    subMenu: [
+      { 
+        href: "/dashboard/production/boms", 
+        label: "Bill of Materials", 
+        icon: "FiList", 
+        module: "production" 
+      },
+    ],
+  },
   { href: "/dashboard/files", label: "Files", icon: "FiFolder", module: "files" },
   { href: "/dashboard/notifications", label: "Notifications", icon: "FiBell", module: "notifications" },
   { href: "/dashboard/analytics", label: "Analytics", icon: "FiBarChart", module: "analytics" },

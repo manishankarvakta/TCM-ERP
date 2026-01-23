@@ -88,7 +88,7 @@ services:
   # Next.js Application
   bhagyakul-app:
     build:
-      context: ./bhagyakul
+      context: ./startup-mvp
       dockerfile: Dockerfile
     container_name: bhagyakul-app
     restart: unless-stopped

@@ -11,7 +11,8 @@ export type Module =
   | "notifications"
   | "analytics"
   | "reports"
-  | "inventory";
+  | "inventory"
+  | "production";
 
 // Basic operations
 export type BasicOperation = "create" | "read" | "update" | "delete" | "export" | "import";
@@ -185,6 +186,22 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     id: "reports",
     label: "Reports",
     description: "Generate and view reports",
+  },
+  inventory: {
+    id: "inventory",
+    label: "Inventory",
+    description: "Stock and inventory management",
+    subModules: [
+      { id: "stock", label: "Stock", path: "/dashboard/inventory/stock", module: "inventory", permissionKey: "inventory.stock" },
+    ],
+  },
+  production: {
+    id: "production",
+    label: "Production",
+    description: "Production and manufacturing",
+    subModules: [
+      { id: "boms", label: "Bill of Materials", path: "/dashboard/production/boms", module: "production", permissionKey: "production.boms" },
+    ],
   },
 };
 
@@ -556,6 +573,18 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         path: "/dashboard/inventory/stock/ledger",
         label: "Stock Ledger",
         operations: ["view"],
+      },
+    ],
+  },
+  {
+    id: "production",
+    label: "Production",
+    pages: [
+      {
+        permissionKey: "production.boms",
+        path: "/dashboard/production/boms",
+        label: "Bill of Materials",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
     ],
   },

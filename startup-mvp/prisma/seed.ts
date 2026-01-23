@@ -748,6 +748,36 @@ async function main() {
     });
   }
 
+  // Register ModuleOperation rows for production.boms
+  const bomOperations = [
+    { operation: "create", label: "Create BOM" },
+    { operation: "view", label: "View BOM" },
+    { operation: "edit", label: "Edit BOM" },
+    { operation: "move-to-trash", label: "Move BOM to Trash" },
+    { operation: "delete-permanently", label: "Delete BOM Permanently" },
+  ];
+
+  for (const op of bomOperations) {
+    await prisma.moduleOperation.upsert({
+      where: {
+        module_operation: {
+          module: "production.boms",
+          operation: op.operation,
+        },
+      },
+      update: {
+        label: op.label,
+        isActive: true,
+      },
+      create: {
+        module: "production.boms",
+        operation: op.operation,
+        label: op.label,
+        isActive: true,
+      },
+    });
+  }
+
   // Seed Stock data
   console.log("\n🌱 Seeding inventory stock data...");
   
@@ -865,6 +895,171 @@ async function main() {
     console.log(`✅ Seeded ${ledgerCount} stock ledger entries`);
   } else {
     console.log("⚠️  Skipping stock seed: No warehouses or items with inventory tracking found");
+  }
+
+  // Seed BOM data
+  console.log("\n🌱 Seeding BOM data...");
+  
+  // Get finished goods (biryani dishes)
+  const finishedGoods = await prisma.item.findMany({
+    where: {
+      itemType: ItemType.FINISHED_GOOD,
+      status: "active",
+      isTrash: false,
+    },
+    orderBy: { name: "asc" },
+  });
+
+  // Get raw materials
+  const rawMaterials = await prisma.item.findMany({
+    where: {
+      itemType: ItemType.RAW_MATERIAL,
+      status: "active",
+      isTrash: false,
+    },
+    orderBy: { name: "asc" },
+  });
+
+  if (finishedGoods.length > 0 && rawMaterials.length > 0) {
+    let bomCount = 0;
+    let bomItemCount = 0;
+
+    // Helper to find raw material by name
+    const findRawMaterial = (name: string) => {
+      return rawMaterials.find((rm) => rm.name.toLowerCase().includes(name.toLowerCase()));
+    };
+
+    // Create BOMs for each finished good
+    for (const fg of finishedGoods) {
+      // Skip if BOM already exists
+      const existingBOM = await prisma.bOM.findFirst({
+        where: { itemId: fg.id, isTrash: false },
+      });
+      if (existingBOM) continue;
+
+      // Determine quantity per unit based on portion size
+      const quantityPerUnit = fg.name.includes("Half") ? 0.5 : 1.0;
+
+      // Create BOM
+      const bomCode = `BOM-${new Date().getFullYear()}-${String(bomCount + 1).padStart(4, "0")}`;
+      const bom = await prisma.bOM.create({
+        data: {
+          code: bomCode,
+          name: `${fg.name} Recipe`,
+          description: `Bill of Materials for ${fg.name}`,
+          itemId: fg.id,
+          quantityPerUnit: quantityPerUnit,
+          status: "active",
+          isTrash: false,
+          createdBy: admin.id,
+        },
+      });
+      bomCount++;
+
+      // Add raw materials based on biryani type
+      const bomItems: Array<{ itemId: string; quantityRequired: string }> = [];
+
+      // Common ingredients for all biryani
+      const rice = findRawMaterial("basmati") || findRawMaterial("rice");
+      const onion = findRawMaterial("onion");
+      const ghee = findRawMaterial("ghee");
+      const biryaniMasala = findRawMaterial("biryani masala");
+      const salt = findRawMaterial("salt");
+      const turmeric = findRawMaterial("turmeric");
+      const redChili = findRawMaterial("red chili");
+      const ginger = findRawMaterial("ginger");
+      const garlic = findRawMaterial("garlic");
+      const yogurt = findRawMaterial("yogurt");
+      const mint = findRawMaterial("mint");
+      const coriander = findRawMaterial("coriander");
+
+      // Rice (main ingredient)
+      if (rice) {
+        bomItems.push({ itemId: rice.id, quantityRequired: tk(0.15) }); // 150g per portion
+      }
+
+      // Meat (varies by biryani type)
+      if (fg.name.includes("Chicken")) {
+        const chicken = findRawMaterial("chicken");
+        if (chicken) {
+          bomItems.push({ itemId: chicken.id, quantityRequired: tk(0.2) }); // 200g per portion
+        }
+      } else if (fg.name.includes("Mutton")) {
+        const mutton = findRawMaterial("mutton");
+        if (mutton) {
+          bomItems.push({ itemId: mutton.id, quantityRequired: tk(0.15) }); // 150g per portion
+        }
+      } else if (fg.name.includes("Beef")) {
+        const beef = findRawMaterial("beef");
+        if (beef) {
+          bomItems.push({ itemId: beef.id, quantityRequired: tk(0.15) }); // 150g per portion
+        }
+      } else if (fg.name.includes("Special")) {
+        // Special biryani uses more meat
+        const chicken = findRawMaterial("chicken");
+        const mutton = findRawMaterial("mutton");
+        if (chicken) {
+          bomItems.push({ itemId: chicken.id, quantityRequired: tk(0.15) });
+        }
+        if (mutton) {
+          bomItems.push({ itemId: mutton.id, quantityRequired: tk(0.1) });
+        }
+      }
+
+      // Spices and seasonings
+      if (biryaniMasala) {
+        bomItems.push({ itemId: biryaniMasala.id, quantityRequired: tk(0.01) }); // 10g
+      }
+      if (salt) {
+        bomItems.push({ itemId: salt.id, quantityRequired: tk(0.005) }); // 5g
+      }
+      if (turmeric) {
+        bomItems.push({ itemId: turmeric.id, quantityRequired: tk(0.003) }); // 3g
+      }
+      if (redChili) {
+        bomItems.push({ itemId: redChili.id, quantityRequired: tk(0.002) }); // 2g
+      }
+      if (ginger) {
+        bomItems.push({ itemId: ginger.id, quantityRequired: tk(0.01) }); // 10g
+      }
+      if (garlic) {
+        bomItems.push({ itemId: garlic.id, quantityRequired: tk(0.01) }); // 10g
+      }
+
+      // Cooking ingredients
+      if (ghee) {
+        bomItems.push({ itemId: ghee.id, quantityRequired: tk(0.02) }); // 20g
+      }
+      if (onion) {
+        bomItems.push({ itemId: onion.id, quantityRequired: tk(0.05) }); // 50g
+      }
+      if (yogurt) {
+        bomItems.push({ itemId: yogurt.id, quantityRequired: tk(0.03) }); // 30g
+      }
+      if (mint) {
+        bomItems.push({ itemId: mint.id, quantityRequired: tk(0.005) }); // 5g
+      }
+      if (coriander) {
+        bomItems.push({ itemId: coriander.id, quantityRequired: tk(0.005) }); // 5g
+      }
+
+      // Create BOM items
+      for (const bomItem of bomItems) {
+        await prisma.bOMItem.create({
+          data: {
+            bomId: bom.id,
+            itemId: bomItem.itemId,
+            quantityRequired: bomItem.quantityRequired,
+          },
+        });
+        bomItemCount++;
+      }
+    }
+
+    console.log(`✅ Seeded ${bomCount} BOM records`);
+    console.log(`✅ Seeded ${bomItemCount} BOM item records`);
+  } else {
+    console.log("⚠️  Skipping BOM seed: No finished goods or raw materials found");
   }
 
   console.log("\n✅ Seed complete.");

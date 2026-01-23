@@ -93,6 +93,7 @@ model User {
   createdItems                     Item[]              @relation("ItemCreator")
   createdWarehouses                 Warehouse[]         @relation("WarehouseCreator")
   createdStockLedgers               StockLedger[]       @relation("StockLedgerCreator")
+  createdBOMs                       BOM[]               @relation("BOMCreator")
 
   @@index([status])
   @@index([designationTemplateId])
@@ -301,6 +302,8 @@ model Item {
   creator           User      @relation("ItemCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   stocks            Stock[]
   stockLedgers      StockLedger[]
+  bomAsFinishedGood BOM[]     @relation("BOMFinishedGood")
+  bomAsRawMaterial  BOMItem[] @relation("BOMRawMaterial")
 
   @@index([code])
   @@index([name])
@@ -379,6 +382,46 @@ model StockLedger {
   @@index([referenceType, referenceId])
   @@index([createdAt])
   @@index([createdBy])
+}
+
+model BOM {
+  id                String   @id @default(cuid())
+  code              String   @unique // Auto-generated: BOM-2026-0001
+  name              String
+  description       String?
+  itemId            String   // Finished Good item
+  quantityPerUnit    Decimal  @db.Decimal(12, 2) // Quantity of FG produced (e.g., 10 pieces)
+  status            String   @default("active") // active, inactive, trash
+  isTrash           Boolean  @default(false)
+  createdBy         String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  item              Item     @relation("BOMFinishedGood", fields: [itemId], references: [id], onDelete: Restrict)
+  creator           User     @relation("BOMCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  items             BOMItem[]
+
+  @@index([code])
+  @@index([itemId])
+  @@index([status])
+  @@index([isTrash])
+  @@index([createdBy])
+}
+
+model BOMItem {
+  id                String   @id @default(cuid())
+  bomId             String
+  itemId            String   // Raw Material item
+  quantityRequired  Decimal  @db.Decimal(12, 2) // Quantity required per FG unit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  bom               BOM      @relation(fields: [bomId], references: [id], onDelete: Cascade)
+  item              Item     @relation("BOMRawMaterial", fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@unique([bomId, itemId])
+  @@index([bomId])
+  @@index([itemId])
 }
 
 model Client {
