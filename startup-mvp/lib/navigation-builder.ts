@@ -34,6 +34,7 @@ export const MENU_TEMPLATE: MenuItemData[] = [
       { href: "/dashboard/master/categories", label: "Categories", icon: "MdOutlineCategory", module: "master" },
       { href: "/dashboard/master/units", label: "Units", icon: "FiLayers", module: "master" },
       { href: "/dashboard/master/items", label: "Items", icon: "FiPackage", module: "master" },
+      { href: "/dashboard/master/warehouses", label: "Warehouses", icon: "FiHome", module: "master" },
     ],
   },
   {
@@ -99,6 +100,19 @@ export const MENU_TEMPLATE: MenuItemData[] = [
       { href: "/dashboard/clients", label: "Clients", icon: "FiUser", module: "peoples" },
       { href: "/dashboard/suppliers", label: "Suppliers", icon: "FiUser", module: "peoples" },
       { href: "/dashboard/employees", label: "Employees", icon: "FiUser", module: "peoples" },
+    ],
+  },
+  {
+    label: "Inventory",
+    icon: "FiPackage",
+    module: "inventory",
+    subMenu: [
+      { 
+        href: "/dashboard/inventory/warehouses", 
+        label: "Warehouses", 
+        icon: "FiHome", 
+        module: "inventory" 
+      },
     ],
   },
   { href: "/dashboard/files", label: "Files", icon: "FiFolder", module: "files" },

@@ -30,6 +30,12 @@ This directory contains comprehensive development documentation for all Master D
    - Required for all items
    - See [UNIT_MODULE.md](./UNIT_MODULE.md) for details
 
+4. **Warehouse Module** (`/dashboard/inventory/warehouses`)
+   - Warehouse location management
+   - Complete address information
+   - Auto-generated warehouse codes
+   - See [WAREHOUSE_MODULE.md](./WAREHOUSE_MODULE.md) for details
+
 ## 📚 Documentation Structure
 
 ```
@@ -38,6 +44,7 @@ docs/master/
 ├── ITEM_MASTER.md         # Item Master module documentation
 ├── CATEGORY_MODULE.md     # Category module documentation
 ├── UNIT_MODULE.md         # Unit module documentation
+├── WAREHOUSE_MODULE.md    # Warehouse module documentation
 ├── ARCHITECTURE.md        # Architecture patterns and conventions
 └── API_REFERENCE.md       # API reference for all modules
 ```
@@ -74,11 +81,11 @@ app/(dashboard)/dashboard/master/{module}/
 
 ## 🔐 Permissions
 
-All Master Data modules use the permission key pattern: `master.{module}`
-
+Master Data modules use permission keys:
 - `master.items` - Item Master permissions
 - `master.categories` - Category permissions
 - `master.units` - Unit permissions
+- `inventory.warehouses` - Warehouse permissions (under Inventory module)
 
 Each module supports standard operations:
 - `view` - View/list items
@@ -127,6 +134,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed patterns.
 - **[Item Master](./ITEM_MASTER.md)** - Complete guide to Item Master module
 - **[Category Module](./CATEGORY_MODULE.md)** - Category management
 - **[Unit Module](./UNIT_MODULE.md)** - Unit of measurement management
+- **[Warehouse Module](./WAREHOUSE_MODULE.md)** - Warehouse location management
 - **[Architecture](./ARCHITECTURE.md)** - Design patterns and conventions
 - **[API Reference](./API_REFERENCE.md)** - Complete API documentation
 

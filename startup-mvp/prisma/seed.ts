@@ -10,7 +10,7 @@ function tk(n: number): string {
 
 async function main() {
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("🌱 Seeding database (master: categories/units/items)");
+  console.log("🌱 Seeding database (master: categories/units/items/warehouses)");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
   const adminEmail = "admin@example.com";
@@ -580,6 +580,120 @@ async function main() {
         status: "active",
         isTrash: false,
         createdBy: admin.id,
+      },
+    });
+  }
+
+  // Seed Warehouses
+  const warehouses = [
+    {
+      code: "WH-2026-0001",
+      name: "Main Warehouse",
+      address: "123 Industrial Area",
+      city: "Dhaka",
+      state: "Dhaka",
+      zip: "1200",
+      country: "Bangladesh",
+      status: "active",
+    },
+    {
+      code: "WH-2026-0002",
+      name: "Kitchen Warehouse",
+      address: "456 Production Street",
+      city: "Dhaka",
+      state: "Dhaka",
+      zip: "1200",
+      country: "Bangladesh",
+      status: "active",
+    },
+    {
+      code: "WH-2026-0003",
+      name: "Retail Outlet Store",
+      address: "789 Commercial Road",
+      city: "Dhaka",
+      state: "Dhaka",
+      zip: "1200",
+      country: "Bangladesh",
+      status: "active",
+    },
+    {
+      code: "WH-2026-0004",
+      name: "Cold Storage Unit",
+      address: "321 Freezer Lane",
+      city: "Dhaka",
+      state: "Dhaka",
+      zip: "1200",
+      country: "Bangladesh",
+      status: "active",
+    },
+    {
+      code: "WH-2026-0005",
+      name: "Spice Storage",
+      address: "654 Spice Market",
+      city: "Dhaka",
+      state: "Dhaka",
+      zip: "1200",
+      country: "Bangladesh",
+      status: "active",
+    },
+  ];
+
+  for (const w of warehouses) {
+    await prisma.warehouse.upsert({
+      where: { code: w.code },
+      update: {
+        name: w.name,
+        address: w.address,
+        city: w.city,
+        state: w.state,
+        zip: w.zip,
+        country: w.country,
+        status: w.status,
+        isTrash: false,
+      },
+      create: {
+        code: w.code,
+        name: w.name,
+        address: w.address,
+        city: w.city,
+        state: w.state,
+        zip: w.zip,
+        country: w.country,
+        status: w.status,
+        isTrash: false,
+        createdBy: admin.id,
+      },
+    });
+  }
+
+  console.log(`✅ Seeded ${warehouses.length} warehouses`);
+
+  // Register ModuleOperation rows for inventory.warehouses
+  const warehouseOperations = [
+    { operation: "view", label: "View Warehouses" },
+    { operation: "create", label: "Create Warehouses" },
+    { operation: "edit", label: "Edit Warehouses" },
+    { operation: "move-to-trash", label: "Delete Warehouses" },
+    { operation: "delete-permanently", label: "Permanently Delete Warehouses" },
+  ];
+
+  for (const op of warehouseOperations) {
+    await prisma.moduleOperation.upsert({
+      where: {
+        module_operation: {
+          module: "inventory.warehouses",
+          operation: op.operation,
+        },
+      },
+      update: {
+        label: op.label,
+        isActive: true,
+      },
+      create: {
+        module: "inventory.warehouses",
+        operation: op.operation,
+        label: op.label,
+        isActive: true,
       },
     });
   }

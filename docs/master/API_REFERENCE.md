@@ -499,6 +499,199 @@ export async function deleteUnit(
 
 ---
 
+## 🏢 Warehouse API
+
+### `getWarehouses`
+
+Get paginated list of warehouses with search and filtering.
+
+**Location:** `app/(dashboard)/dashboard/inventory/warehouses/_actions/warehouse.action.tsx`
+
+**Signature:**
+```typescript
+export async function getWarehouses(
+  page: number = 1,
+  limit: number = 10,
+  search: string = "",
+  status: "active" | "inactive" | "trash" | "all" = "all"
+): Promise<{
+  success: boolean;
+  warehouses: Warehouse[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  error?: string;
+}>
+```
+
+**Example:**
+```typescript
+const result = await getWarehouses(1, 20, "main", "active");
+```
+
+---
+
+### `getWarehouseById`
+
+Get a single warehouse by ID with creator information.
+
+**Signature:**
+```typescript
+export async function getWarehouseById(
+  warehouseId: string
+): Promise<{
+  success: boolean;
+  warehouse: Warehouse | null;
+  error?: string;
+}>
+```
+
+**Example:**
+```typescript
+const result = await getWarehouseById("clx123...");
+```
+
+---
+
+### `createWarehouse`
+
+Create a new warehouse.
+
+**Signature:**
+```typescript
+export async function createWarehouse(input: {
+  name: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  status?: "active" | "inactive";
+}): Promise<{
+  success: boolean;
+  warehouse: Warehouse | null;
+  error?: string;
+}>
+```
+
+**Example:**
+```typescript
+const result = await createWarehouse({
+  name: "Main Warehouse",
+  address: "123 Industrial Area",
+  city: "Dhaka",
+  state: "Dhaka",
+  zip: "1200",
+  country: "Bangladesh",
+  status: "active"
+});
+```
+
+---
+
+### `updateWarehouse`
+
+Update an existing warehouse.
+
+**Signature:**
+```typescript
+export async function updateWarehouse(input: {
+  id: string;
+  name: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  status?: "active" | "inactive";
+}): Promise<{
+  success: boolean;
+  warehouse: Warehouse | null;
+  error?: string;
+}>
+```
+
+**Example:**
+```typescript
+const result = await updateWarehouse({
+  id: "clx123...",
+  name: "Updated Warehouse Name",
+  city: "Chittagong"
+});
+```
+
+---
+
+### `deleteWarehouse`
+
+Soft delete a warehouse (moves to trash).
+
+**Signature:**
+```typescript
+export async function deleteWarehouse(
+  warehouseId: string
+): Promise<{
+  success: boolean;
+  error?: string;
+}>
+```
+
+**Example:**
+```typescript
+const result = await deleteWarehouse("clx123...");
+```
+
+---
+
+### `deleteWarehousesPermanently`
+
+Permanently delete warehouses from database.
+
+**Signature:**
+```typescript
+export async function deleteWarehousesPermanently(
+  warehouseIds: string[]
+): Promise<{
+  success: boolean;
+  error?: string;
+}>
+```
+
+**Example:**
+```typescript
+const result = await deleteWarehousesPermanently(["clx123...", "clx456..."]);
+```
+
+---
+
+### `bulkUpdateWarehouseStatus`
+
+Bulk update warehouse status.
+
+**Signature:**
+```typescript
+export async function bulkUpdateWarehouseStatus(
+  warehouseIds: string[],
+  status: "active" | "inactive"
+): Promise<{
+  success: boolean;
+  error?: string;
+}>
+```
+
+**Example:**
+```typescript
+const result = await bulkUpdateWarehouseStatus(
+  ["clx123...", "clx456..."],
+  "active"
+);
+```
+
+---
+
 ## 🔐 Authentication & Permissions
 
 All API functions automatically:
@@ -538,6 +731,7 @@ All create, update, and delete operations automatically:
 - [Item Master](./ITEM_MASTER.md)
 - [Category Module](./CATEGORY_MODULE.md)
 - [Unit Module](./UNIT_MODULE.md)
+- [Warehouse Module](./WAREHOUSE_MODULE.md)
 - [Architecture Guide](./ARCHITECTURE.md)
 
 ---

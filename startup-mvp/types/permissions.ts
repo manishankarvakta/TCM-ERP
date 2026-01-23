@@ -10,7 +10,8 @@ export type Module =
   | "files"
   | "notifications"
   | "analytics"
-  | "reports";
+  | "reports"
+  | "inventory";
 
 // Basic operations
 export type BasicOperation = "create" | "read" | "update" | "delete" | "export" | "import";
@@ -126,6 +127,8 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     subModules: [
       { id: "categories", label: "Categories", path: "/dashboard/master/categories", module: "master", permissionKey: "master.categories" },
       { id: "units", label: "Units", path: "/dashboard/master/units", module: "master", permissionKey: "master.units" },
+      { id: "items", label: "Items", path: "/dashboard/master/items", module: "master", permissionKey: "master.items" },
+      { id: "warehouses", label: "Warehouses", path: "/dashboard/master/warehouses", module: "master", permissionKey: "master.warehouses" },
     ],
   },
   purchases: {
@@ -378,6 +381,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "master.items",
         path: "/dashboard/master/items",
         label: "Items",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "master.warehouses",
+        path: "/dashboard/master/warehouses",
+        label: "Warehouses",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
     ],

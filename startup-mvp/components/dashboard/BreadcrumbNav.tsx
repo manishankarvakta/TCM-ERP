@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getWorkOrder } from "@/app/actions/work-orders";
+import { getWarehouseById } from "@/app/(dashboard)/dashboard/master/warehouses/_actions/warehouse.action";
 import { getItemById } from "@/app/(dashboard)/dashboard/master/items/_actions/item.action";
 
 // Map route paths to display names
@@ -90,37 +91,77 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [groupCode, setGroupCode] = useState<string | null>(null);
   const [itemLabel, setItemLabel] = useState<string | null>(null);
   const [itemName, setItemName] = useState<string | null>(null);
+  const [warehouseName, setWarehouseName] = useState<string | null>(null);
   const [workOrderCode, setWorkOrderCode] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
+
+  // Check if we're on a warehouse detail or edit page
+  const isWarehouseDetailMatch = pathname.match(/^\/dashboard\/master\/warehouses\/([^\/]+)$/);
+  const isWarehouseEditMatch = pathname.match(/^\/dashboard\/master\/warehouses\/([^\/]+)\/edit$/);
+  const warehouseId = isWarehouseDetailMatch?.[1] || isWarehouseEditMatch?.[1] || null;
 
   // Check if we're on an item detail or edit page
   const isItemDetailMatch = pathname.match(/^\/dashboard\/master\/items\/([^\/]+)$/);
   const isItemEditMatch = pathname.match(/^\/dashboard\/master\/items\/([^\/]+)\/edit$/);
+  const itemId = isItemDetailMatch?.[1] || isItemEditMatch?.[1] || null;
+
+  // Fetch warehouse name when on warehouse detail/edit page
+  useEffect(() => {
+    if (!warehouseId) {
+      return;
+    }
+    
+    let cancelled = false;
+    const id = warehouseId; // Store in local variable for type narrowing
+    
+    async function fetchWarehouseName() {
+      try {
+        const result = await getWarehouseById(id);
+        if (!cancelled && result.success && result.warehouse) {
+          setWarehouseName(result.warehouse.name);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error fetching warehouse name:", error);
+        }
+      }
+    }
+    
+    fetchWarehouseName();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [warehouseId]);
 
   // Fetch item name when on item detail/edit page
   useEffect(() => {
-    if (isItemDetailMatch || isItemEditMatch) {
-      const itemId = isItemDetailMatch ? isItemDetailMatch[1] : isItemEditMatch![1];
-      
-      async function fetchItemName() {
-        try {
-          const result = await getItemById(itemId);
-          if (result.success && result.item) {
-            setItemName(result.item.name);
-          }
-        } catch (error) {
+    if (!itemId) {
+      return;
+    }
+    
+    let cancelled = false;
+    const id: string = itemId; // Type assertion since we've checked for null
+    
+    async function fetchItemName() {
+      try {
+        const result = await getItemById(id);
+        if (!cancelled && result.success && result.item) {
+          setItemName(result.item.name);
+        }
+      } catch (error) {
+        if (!cancelled) {
           console.error("Error fetching item name:", error);
         }
       }
-      
-      fetchItemName();
-      
-      // Cleanup: clear item name when leaving item pages
-      return () => {
-        setItemName(null);
-      };
     }
-  }, [pathname, isItemDetailMatch, isItemEditMatch]);
+    
+    fetchItemName();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [itemId]);
 
   // If we're at the root dashboard, show just "Dashboard"
   if (pathname === "/dashboard" || items.length === 1) {
@@ -193,6 +234,27 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     } else {
       // Show loading state or default while fetching
       currentLabel = isGroupEdit ? "Edit Group" : "Group Details";
+    }
+  }
+
+  // If we're on a warehouse detail or edit page, use warehouse name instead of ID
+  // For warehouse routes, replace the ID segment with "Warehouses" as parent
+  if (isWarehouseDetailMatch || isWarehouseEditMatch) {
+    // Find the "Warehouses" item (should be before the ID)
+    const warehousesItem = items.find(item => item.path === "/dashboard/master/warehouses");
+    if (warehousesItem) {
+      parentItem = warehousesItem;
+    } else {
+      // If not found, create a parent item pointing to warehouses list
+      parentItem = { path: "/dashboard/master/warehouses", label: "Warehouses" };
+    }
+    
+    // Update current label with warehouse name
+    if (warehouseName) {
+      currentLabel = isWarehouseEditMatch ? `Edit ${warehouseName}` : warehouseName;
+    } else {
+      // Show loading state or default while fetching
+      currentLabel = isWarehouseEditMatch ? "Edit Warehouse" : "Warehouse Details";
     }
   }
 

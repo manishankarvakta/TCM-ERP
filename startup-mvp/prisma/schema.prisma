@@ -84,6 +84,7 @@ model User {
   createdPurchases                 Purchase[]          @relation("PurchaseCreatedBy")
   updatedPurchases                 Purchase[]          @relation("PurchaseUpdatedBy")
   createdItems                     Item[]              @relation("ItemCreator")
+  createdWarehouses                 Warehouse[]         @relation("WarehouseCreator")
 
   @@index([status])
   @@index([designationTemplateId])
@@ -296,6 +297,30 @@ model Item {
   @@index([itemType])
   @@index([categoryId])
   @@index([unitId])
+  @@index([status])
+  @@index([isTrash])
+  @@index([createdBy])
+}
+
+model Warehouse {
+  id        String   @id @default(cuid())
+  code      String   @unique // Auto-generated: WH-2026-0001
+  name      String
+  address   String?
+  city      String?
+  state     String?
+  zip       String?
+  country   String?
+  status    String   @default("active") // active, inactive, trash
+  isTrash   Boolean  @default(false)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  creator   User     @relation("WarehouseCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@index([name])
   @@index([status])
   @@index([isTrash])
   @@index([createdBy])
