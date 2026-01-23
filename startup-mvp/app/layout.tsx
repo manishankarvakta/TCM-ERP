@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Espacio",
-  description: "Interior design and project management platform",
+  title: "BHAGYAKUL",
+  description: "BHAGYAKUL ERP",
   icons: {
     icon: "/site-icon.png",
     apple: "/site-icon.png",

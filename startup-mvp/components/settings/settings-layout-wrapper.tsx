@@ -78,13 +78,18 @@ export default function SettingsLayoutWrapper({
     }
   }, [pathname]);
 
+  // Detect if we're in admin or dashboard route
+  const isDashboardRoute = pathname?.startsWith("/dashboard/settings");
+  const basePath = isDashboardRoute ? "/dashboard/settings" : "/admin/settings";
+  const exitPath = isDashboardRoute ? "/dashboard" : "/admin";
+
   const handleSectionChange = (section: SettingsSection) => {
     startTransition(() => {
       setActiveSection(section);
       if (section === "permissions") {
-        router.push("/admin/settings?section=permissions");
+        router.push(`${basePath}?section=permissions`);
       } else {
-        router.push(`/admin/settings?section=${section}`);
+        router.push(`${basePath}?section=${section}`);
       }
     });
   };
@@ -162,7 +167,7 @@ export default function SettingsLayoutWrapper({
         {/* Header */}
         <div className="p-4 border-b">
           <Link
-            href="/admin"
+            href={exitPath}
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="h-4 w-4" />
@@ -231,11 +236,12 @@ export default function SettingsLayoutWrapper({
                                   ) => {
                                     // Handle permissions sub-menu with links
                                     if (item.id === "permissions") {
-                                      let href = "/admin/settings?section=permissions";
+                                      const usersPath = isDashboardRoute ? "/dashboard/users" : "/admin/users";
+                                      let href = `${basePath}?section=permissions`;
                                       if (child.id === "permissions-templates") {
-                                        href = "/admin/settings/permissions/templates";
+                                        href = `${basePath}/permissions/templates`;
                                       } else if (child.id === "permissions-users") {
-                                        href = "/admin/users"; // Users list page
+                                        href = usersPath; // Users list page
                                       }
 
                                       return (
@@ -314,12 +320,12 @@ export default function SettingsLayoutWrapper({
           {/* Breadcrumb */}
           <div className="mb-6">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Link href="/admin/settings?section=permissions" className="hover:text-foreground">
+              <Link href={`${basePath}?section=permissions`} className="hover:text-foreground">
                 Settings
               </Link>
               <ChevronRight className="h-4 w-4" />
               <Link
-                href="/admin/settings?section=permissions"
+                href={`${basePath}?section=permissions`}
                 className="hover:text-foreground"
               >
                 Permissions

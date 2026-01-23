@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -84,6 +85,8 @@ export default function UsersListClient({
 }: UsersListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const basePath = getBasePathFromPathname(pathname || "");
   const [search, setSearch] = useState(initialSearch);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [logoutUserId, setLogoutUserId] = useState<string | null>(null);
@@ -427,15 +430,15 @@ export default function UsersListClient({
                         {!isTrash && (
                           <>
                             <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/admin/users/${user.id}`}>View</Link>
+                              <Link href={`${basePath}/users/${user.id}`}>View</Link>
                             </Button>
                             <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/admin/users/edit-user?id=${user.id}`}>
+                              <Link href={`${basePath}/users/edit-user?id=${user.id}`}>
                                 <FiEdit className="h-4 w-4" />
                               </Link>
                             </Button>
                             <Button variant="ghost" size="sm" asChild title="Manage Permissions">
-                              <Link href={`/admin/settings/permissions/users/${user.id}`}>
+                              <Link href={`${basePath}/settings/permissions/users/${user.id}`}>
                                 <FiLock className="h-4 w-4" />
                               </Link>
                             </Button>

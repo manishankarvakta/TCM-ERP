@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -58,6 +59,8 @@ interface UserFormProps {
 
 export default function UserForm({ mode, initialData }: UserFormProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const basePath = getBasePathFromPathname(pathname || "");
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
@@ -134,7 +137,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           throw new Error(result.error || "Failed to create user");
         }
 
-        router.push("/admin/users");
+        router.push(`${basePath}/users`);
       } else {
         const result = await updateUser({
           id: initialData!.id,
@@ -150,7 +153,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           throw new Error(result.error || "Failed to update user");
         }
 
-        router.push("/admin/users");
+        router.push(`${basePath}/users`);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");

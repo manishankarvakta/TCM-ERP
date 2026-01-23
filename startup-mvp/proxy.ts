@@ -37,14 +37,13 @@ export default auth(async (req) => {
     return NextResponse.redirect(new URL("/dashboard", req.url))
   }
 
-  // Redirect /dashboard/settings to /admin/settings (settings is admin-only)
-  if (pathname.startsWith("/dashboard/settings") && isLoggedIn) {
-    const adminSettingsPath = pathname.replace("/dashboard/settings", "/admin/settings")
-    return NextResponse.redirect(new URL(adminSettingsPath, req.url))
+  // /dashboard/settings is admin-only - redirect non-admin users
+  if (pathname.startsWith("/dashboard/settings") && isLoggedIn && userRole !== "admin") {
+    return NextResponse.redirect(new URL("/dashboard", req.url))
   }
 
-  // Allow admin users to access both /admin and /dashboard routes
-  // No redirect needed - admin users have access to both
+  // Admin users have explicit access to /dashboard routes including /dashboard/settings
+  // Regular users can access /dashboard routes but not /dashboard/settings
 
   // Set pathname header for use in layouts
   const response = NextResponse.next()

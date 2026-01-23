@@ -1,20 +1,23 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import SettingsPageClient from "./settings-page-client-admin";
+import SettingsLayoutWrapper from "@/components/settings/settings-layout-wrapper";
 
-export default async function SettingsPage() {
+export default async function PermissionsLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const session = await auth();
 
-  // Check if user has valid session
   if (!session?.user?.id || !session?.user?.email) {
     redirect("/login");
   }
 
-  // Only admin users can access settings
+  // Check if user is admin
   const userRole = session.user.role?.toLowerCase();
   if (userRole !== "admin") {
     redirect("/dashboard");
   }
 
-  return <SettingsPageClient />;
+  return <SettingsLayoutWrapper activeSection="permissions">{children}</SettingsLayoutWrapper>;
 }
