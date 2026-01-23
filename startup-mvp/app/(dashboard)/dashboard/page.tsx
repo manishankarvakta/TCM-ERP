@@ -1,20 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import UserDashboardStats from "@/components/dashboard/user-dashboard-stats";
-import RecentQuotationsTable from "@/components/dashboard/recent-quotations-table";
 import RecentActivity from "@/components/dashboard/recent-activity";
-import QuotationStatusChart from "@/components/dashboard/quotation-status-chart";
 import {
   getUserDashboardStats,
-  // getUserRecentQuotations,
-  // getUserRecentItems,
   getUserActivity,
-  // getUserQuotationStatusBreakdown,
 } from "@/app/actions/dashboard.action";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import Link from "next/link";
-import { FiPlus, FiFileText, FiPackage, FiUsers } from "react-icons/fi";
+import { FiPackage, FiUsers } from "react-icons/fi";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -38,16 +33,10 @@ export default async function DashboardPage() {
   // Fetch all data in parallel
   const [
     statsResult,
-    quotationsResult,
-    // itemsResult,
-    // activityResult,
-    // statusBreakdownResult,
+    activityResult,
   ] = await Promise.all([
     getUserDashboardStats(),
-    // getUserRecentQuotations(10),
-    // getUserRecentItems(5),
     getUserActivity(10),
-    // getUserQuotationStatusBreakdown(),
   ]);
 
   const stats = statsResult.success ? statsResult.stats : null;
@@ -59,11 +48,6 @@ export default async function DashboardPage() {
   //   : [];
 
   // Check permissions for quick actions
-  const canCreateQuotation = await hasPermission(
-    userId,
-    "quotations.quotations",
-    "create"
-  );
   const canCreateItem = await hasPermission(userId, "items.items", "create");
   const canCreateClient = await hasPermission(
     userId,
@@ -81,14 +65,6 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {canCreateQuotation && (
-            <Button asChild>
-              <Link href="/dashboard/quotations/new">
-                <FiPlus className="mr-2 h-4 w-4" />
-                New Quotation
-              </Link>
-            </Button>
-          )}
         </div>
       </div>
 
@@ -202,7 +178,7 @@ export default async function DashboardPage() {
       </div> */}
 
       {/* Quick Actions */}
-      {(canCreateQuotation || canCreateItem || canCreateClient) && (
+      {(canCreateItem || canCreateClient) && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base font-semibold">Quick Actions</CardTitle>
@@ -210,20 +186,6 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-              {canCreateQuotation && (
-                <Button variant="outline" className="h-auto py-4 flex flex-col items-start" asChild>
-                  <Link href="/dashboard/quotations/new">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FiFileText className="h-5 w-5" />
-                      <span className="font-semibold">New Quotation</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground text-left">
-                      Create a new quotation for a client
-                    </span>
-                  </Link>
-                </Button>
-              )}
-
               {canCreateItem && (
                 <Button variant="outline" className="h-auto py-4 flex flex-col items-start" asChild>
                   <Link href="/dashboard/items/add">
