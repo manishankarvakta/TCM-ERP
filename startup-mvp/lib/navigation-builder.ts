@@ -31,9 +31,9 @@ export const MENU_TEMPLATE: MenuItemData[] = [
     icon: "FiDatabase",
     module: "master",
     subMenu: [
+      { href: "/dashboard/master/items", label: "Items", icon: "FiPackage", module: "master" },
       { href: "/dashboard/master/categories", label: "Categories", icon: "MdOutlineCategory", module: "master" },
       { href: "/dashboard/master/units", label: "Units", icon: "FiLayers", module: "master" },
-      { href: "/dashboard/master/items", label: "Items", icon: "FiPackage", module: "master" },
       { href: "/dashboard/master/warehouses", label: "Warehouses", icon: "FiHome", module: "master" },
     ],
   },
@@ -43,6 +43,15 @@ export const MENU_TEMPLATE: MenuItemData[] = [
     module: "purchases",
     subMenu: [
       { href: "/dashboard/purchases", label: "Purchases", icon: "FiShoppingCart", module: "purchases" },
+    ],
+  },
+  {
+    label: "Sales",
+    icon: "FiDollarSign",
+    module: "sales",
+    subMenu: [
+      { href: "/dashboard/sales", label: "Sales", icon: "FiDollarSign", module: "sales" },
+      { href: "/dashboard/sales/pos", label: "POS", icon: "FiShoppingBag", module: "sales" },
     ],
   },
   {
@@ -248,6 +257,7 @@ function getNavigationIdForMenuItem(item: MenuItemData): string | null {
     "/dashboard": "dashboard",
     "master": "master",
     "purchases": "purchases",
+    "sales": "sales",
     "accounts": "accounts",
     "peoples": "peoples",
     "/dashboard/files": "files",

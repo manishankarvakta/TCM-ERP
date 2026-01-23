@@ -1,5 +1,5 @@
 import React from "react";
-import { getWarehouseById } from "../../_actions/warehouse.action";
+// import { getWarehouseById } from "../_actions/warehouse.action";
 import PageGuard from "@/components/permissions/page-guard";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,7 @@ import {
 } from "react-icons/fi";
 import { hasPermission } from "@/lib/permissions";
 import { auth } from "@/lib/auth";
+import { getWarehouseById } from "../_actions/warehouse.action";
 
 interface WarehouseDetailsPageProps {
   params: Promise<{

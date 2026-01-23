@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma, AccountType } from "@prisma/client";
+import { randomBytes } from "crypto";
 
 /**
  * Get paginated list of clients with search
@@ -434,8 +435,12 @@ export async function createClient(input: {
       const customerName = input.name || input.email;
       const accountName = `AR - ${customerName}`;
 
+      // Generate a unique ID for ChartOfAccount (since schema doesn't have @default(cuid()))
+      const chartOfAccountId = `coa_${Date.now()}_${randomBytes(8).toString("hex")}`;
+
       const chartOfAccount = await tx.chartOfAccount.create({
         data: {
+          id: chartOfAccountId,
           code: accountCode,
           name: accountName,
           type: AccountType.ASSET,
@@ -443,6 +448,7 @@ export async function createClient(input: {
           description: `Accounts Receivable account for customer: ${customerName}`,
           status: "active",
           createdBy: session.user.id,
+          updatedAt: new Date(),
         },
       });
 
@@ -688,8 +694,12 @@ export async function updateClient(input: {
 
         // Create Chart of Account for customer
         const accountName = `AR - ${clientName}`;
+        // Generate a unique ID for ChartOfAccount (since schema doesn't have @default(cuid()))
+        const chartOfAccountId = `coa_${Date.now()}_${randomBytes(8).toString("hex")}`;
+        
         const chartOfAccount = await tx.chartOfAccount.create({
           data: {
+            id: chartOfAccountId,
             code: accountCode,
             name: accountName,
             type: AccountType.ASSET,
@@ -697,6 +707,7 @@ export async function updateClient(input: {
             description: `Accounts Receivable account for customer: ${clientName}`,
             status: "active",
             createdBy: session.user.id,
+            updatedAt: new Date(),
           },
         });
 

@@ -1,8 +1,9 @@
 import React from "react";
-import { getWarehouseById } from "../../_actions/warehouse.action";
+// import { getWarehouseById } from "../_actions/warehouse.action";
 import WarehouseForm from "../../_components/warehouseForm";
 import PageGuard from "@/components/permissions/page-guard";
 import { redirect } from "next/navigation";
+import { getWarehouseById } from "../../_actions/warehouse.action";
 
 interface EditWarehousePageProps {
   params: Promise<{

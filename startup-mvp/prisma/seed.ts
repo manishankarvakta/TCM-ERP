@@ -809,6 +809,37 @@ async function main() {
     });
   }
 
+  // Register ModuleOperation rows for sales.sales
+  const saleOperations = [
+    { operation: "view", label: "View Sales" },
+    { operation: "create", label: "Create Sale" },
+    { operation: "edit", label: "Edit Sale" },
+    { operation: "approve", label: "Complete Sale" },
+    { operation: "move-to-trash", label: "Move Sale to Trash" },
+    { operation: "delete-permanently", label: "Delete Sale Permanently" },
+  ];
+
+  for (const op of saleOperations) {
+    await prisma.moduleOperation.upsert({
+      where: {
+        module_operation: {
+          module: "sales.sales",
+          operation: op.operation,
+        },
+      },
+      update: {
+        label: op.label,
+        isActive: true,
+      },
+      create: {
+        module: "sales.sales",
+        operation: op.operation,
+        label: op.label,
+        isActive: true,
+      },
+    });
+  }
+
   // Seed Stock data
   console.log("\n🌱 Seeding inventory stock data...");
   
@@ -1374,6 +1405,244 @@ async function main() {
     console.log(`✅ Seeded ${purchaseItemCount} purchase item records`);
   } else {
     console.log("⚠️  Skipping purchase seed: No suppliers, warehouses, or raw materials found");
+  }
+
+  // Seed Sales data
+  console.log("\n🌱 Seeding sales data...");
+
+  // Get or create clients for biryani house
+  const clients = [
+    {
+      name: "Rahman Restaurant",
+      email: "rahman@restaurant.com",
+      phone: "+8801711111111",
+      company: "Rahman Restaurant",
+      address: "123 Food Street",
+      city: "Dhaka",
+      state: "Dhaka",
+      zip: "1200",
+      country: "Bangladesh",
+    },
+    {
+      name: "Karim Catering Services",
+      email: "karim@catering.com",
+      phone: "+8801711111112",
+      company: "Karim Catering Services",
+      address: "456 Event Avenue",
+      city: "Dhaka",
+      state: "Dhaka",
+      zip: "1200",
+      country: "Bangladesh",
+    },
+    {
+      name: "Walk-in Customer",
+      email: "walkin@customer.com",
+      phone: "+8801711111113",
+      company: null,
+      address: "N/A",
+      city: "Dhaka",
+      state: "Dhaka",
+      zip: "1200",
+      country: "Bangladesh",
+    },
+  ];
+
+  const seededClients = [];
+  for (const c of clients) {
+    const client = await prisma.client.upsert({
+      where: { email: c.email },
+      update: {
+        name: c.name,
+        phone: c.phone,
+        company: c.company,
+        address: c.address,
+        city: c.city,
+        state: c.state,
+        zip: c.zip,
+        country: c.country,
+        status: "active",
+      },
+      create: {
+        name: c.name,
+        email: c.email,
+        phone: c.phone,
+        company: c.company,
+        address: c.address,
+        city: c.city,
+        state: c.state,
+        zip: c.zip,
+        country: c.country,
+        status: "active",
+        createdBy: admin.id,
+      },
+    });
+    seededClients.push(client);
+  }
+
+  // Get active warehouses for sales
+  const warehousesForSale = await prisma.warehouse.findMany({
+    where: { status: "active", isTrash: false },
+    orderBy: { createdAt: "asc" },
+  });
+
+  // Get finished goods and retail items for sales
+  const finishedGoodsForSale = await prisma.item.findMany({
+    where: {
+      itemType: ItemType.FINISHED_GOOD,
+      status: "active",
+      isTrash: false,
+    },
+    orderBy: { name: "asc" },
+  });
+
+  const retailItemsForSale = await prisma.item.findMany({
+    where: {
+      itemType: ItemType.RETAIL,
+      status: "active",
+      isTrash: false,
+    },
+    orderBy: { name: "asc" },
+  });
+
+  if (seededClients.length > 0 && warehousesForSale.length > 0 && (finishedGoodsForSale.length > 0 || retailItemsForSale.length > 0)) {
+    let saleCount = 0;
+    let saleItemCount = 0;
+
+    // Helper to generate sale number
+    const generateSaleNumber = (index: number) => {
+      const year = new Date().getFullYear();
+      return `SAL-${year}-${String(index).padStart(4, "0")}`;
+    };
+
+    // Helper to find item by name pattern
+    const findFGItem = (pattern: string) => {
+      return finishedGoodsForSale.find((item) =>
+        item.name.toLowerCase().includes(pattern.toLowerCase())
+      );
+    };
+
+    const findRetailItem = (pattern: string) => {
+      return retailItemsForSale.find((item) =>
+        item.name.toLowerCase().includes(pattern.toLowerCase())
+      );
+    };
+
+
+    // Create sales orders
+    const salesOrders = [
+      // Completed sale - Restaurant order
+      {
+        client: seededClients[0], // Rahman Restaurant
+        warehouse: warehousesForSale[0], // Main Warehouse
+        date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+        status: "COMPLETED" as const,
+        items: [
+          { item: findFGItem("chicken biryani half"), quantity: 10, unitPrice: 180 },
+          { item: findFGItem("chicken biryani full"), quantity: 5, unitPrice: 320 },
+          { item: findRetailItem("coca cola"), quantity: 15, unitPrice: 40 },
+          { item: findRetailItem("lassi"), quantity: 10, unitPrice: 50 },
+        ],
+      },
+      // Completed sale - Catering order
+      {
+        client: seededClients[1], // Karim Catering
+        warehouse: warehousesForSale[0], // Main Warehouse
+        date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+        status: "COMPLETED" as const,
+        items: [
+          { item: findFGItem("mutton biryani full"), quantity: 20, unitPrice: 800 },
+          { item: findFGItem("special biryani full"), quantity: 10, unitPrice: 900 },
+          { item: findRetailItem("salad"), quantity: 30, unitPrice: 25 },
+          { item: findRetailItem("raita"), quantity: 30, unitPrice: 30 },
+        ],
+      },
+      // Completed sale - Walk-in customer
+      {
+        client: seededClients[2], // Walk-in Customer
+        warehouse: warehousesForSale[0], // Main Warehouse
+        date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+        status: "COMPLETED" as const,
+        items: [
+          { item: findFGItem("beef biryani half"), quantity: 2, unitPrice: 380 },
+          { item: findRetailItem("pepsi"), quantity: 2, unitPrice: 40 },
+          { item: findRetailItem("mineral water"), quantity: 2, unitPrice: 20 },
+        ],
+      },
+      // Draft sale - Pending order
+      {
+        client: seededClients[0], // Rahman Restaurant
+        warehouse: warehousesForSale[0], // Main Warehouse
+        date: new Date(), // Today
+        status: "DRAFT" as const,
+        items: [
+          { item: findFGItem("chicken biryani half"), quantity: 15, unitPrice: 180 },
+          { item: findFGItem("mutton biryani half"), quantity: 8, unitPrice: 450 },
+          { item: findRetailItem("coca cola"), quantity: 20, unitPrice: 40 },
+        ],
+      },
+      // Another completed sale
+      {
+        client: seededClients[1], // Karim Catering
+        warehouse: warehousesForSale[0], // Main Warehouse
+        date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000), // 4 days ago
+        status: "COMPLETED" as const,
+        items: [
+          { item: findFGItem("special biryani half"), quantity: 12, unitPrice: 500 },
+          { item: findFGItem("beef biryani full"), quantity: 6, unitPrice: 650 },
+          { item: findRetailItem("7up"), quantity: 18, unitPrice: 40 },
+          { item: findRetailItem("pickle"), quantity: 10, unitPrice: 15 },
+        ],
+      },
+    ];
+
+    for (const so of salesOrders) {
+      // Filter out null items
+      const validItems = so.items.filter((item) => item.item !== undefined);
+      if (validItems.length === 0) continue;
+
+      // Calculate totals
+      const subTotal = validItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+      const discountRaw = Math.random() > 0.8 ? subTotal * 0.05 : 0; // 20% chance of 5% discount
+      const discount = Math.min(discountRaw, 999.99); // Cap at Decimal(5,2) max
+      const taxRaw = (subTotal - discount) * 0.15; // 15% VAT
+      const tax = Math.min(taxRaw, 999.99); // Cap at Decimal(5,2) max
+      const grandTotal = subTotal - discount + tax;
+
+      // Create sale
+      const sale = await prisma.sale.create({
+        data: {
+          saleNumber: generateSaleNumber(saleCount + 1),
+          clientId: so.client.id,
+          warehouseId: so.warehouse.id,
+          date: so.date,
+          status: so.status,
+          notes: so.status === "COMPLETED" ? `Sale to ${so.client.name}` : `Draft order for ${so.client.name}`,
+          subTotal: new Prisma.Decimal(subTotal.toFixed(2)),
+          discount: discount > 0 ? new Prisma.Decimal(discount.toFixed(2)) : null,
+          tax: new Prisma.Decimal(tax.toFixed(2)),
+          grandTotal: new Prisma.Decimal(grandTotal.toFixed(2)),
+          completedAt: so.status === "COMPLETED" ? so.date : null,
+          createdBy: admin.id,
+          items: {
+            create: validItems.map((item) => ({
+              itemId: item.item!.id,
+              description: item.item!.name,
+              quantity: new Prisma.Decimal(item.quantity.toFixed(2)),
+              unitPrice: new Prisma.Decimal(item.unitPrice.toFixed(2)),
+              amount: new Prisma.Decimal((item.quantity * item.unitPrice).toFixed(2)),
+            })),
+          },
+        },
+      });
+
+      saleCount++;
+      saleItemCount += validItems.length;
+    }
+
+    console.log(`✅ Seeded ${saleCount} sale records`);
+    console.log(`✅ Seeded ${saleItemCount} sale item records`);
+  } else {
+    console.log("⚠️  Skipping sales seed: No clients, warehouses, or sellable items found");
   }
 
   console.log("\n✅ Seed complete.");

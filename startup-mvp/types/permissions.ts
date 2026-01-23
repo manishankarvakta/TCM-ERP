@@ -5,6 +5,7 @@ export type Module =
   | "dashboard"
   | "master"
   | "purchases"
+  | "sales"
   | "accounts"
   | "peoples"
   | "files"
@@ -138,6 +139,14 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     description: "Manage purchase orders and receipts",
     subModules: [
       { id: "purchases", label: "Purchases", path: "/dashboard/purchases", module: "purchases", permissionKey: "purchases.purchases" },
+    ],
+  },
+  sales: {
+    id: "sales",
+    label: "Sales",
+    description: "Sales and point of sale",
+    subModules: [
+      { id: "sales", label: "Sales", path: "/dashboard/sales", module: "sales", permissionKey: "sales.sales" },
     ],
   },
   accounts: {
@@ -418,6 +427,24 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         path: "/dashboard/purchases",
         label: "Purchases",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+    ],
+  },
+  {
+    id: "sales",
+    label: "Sales",
+    pages: [
+      {
+        permissionKey: "sales.sales",
+        path: "/dashboard/sales",
+        label: "Sales",
+        operations: ["view", "create", "edit", "approve", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "sales.sales",
+        path: "/dashboard/sales/pos",
+        label: "POS",
+        operations: ["view", "create"],
       },
     ],
   },
