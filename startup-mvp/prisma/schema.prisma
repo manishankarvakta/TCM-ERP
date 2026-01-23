@@ -55,17 +55,12 @@ model User {
   CashBankAccount                  CashBankAccount[]
   ChartOfAccount                   ChartOfAccount[]
   createdClients                   Client[]            @relation("ClientCreator")
-  createdCoverLetters              CoverLetter[]       @relation("CoverLetterCreator")
   Employee                         Employee?           @relation("UserEmployee")
   files                            File[]
   JournalEntryLine                 JournalEntryLine[]
-  createdModuleGroups              ModuleGroup[]       @relation("ModuleGroupCreator")
   createdNotifications             Notification[]      @relation("NotificationCreator")
   notifications                    Notification[]
   createdOrganizations             Organization[]      @relation("OrganizationCreator")
-  quotations                       Quotation[]         @relation("SubmittedBy")
-  updatedQuotations                Quotation[]         @relation("UpdatedBy")
-  sections                         Section[]           @relation("PreparedBy")
   sessions                         Session[]
   createdSuppliers                 Supplier[]          @relation("SupplierCreator")
   createdUnits                     Unit[]              @relation("UnitCreator")
@@ -75,12 +70,11 @@ model User {
   userLogs                         UserLog[]
   userPermissions                  UserPermission[]
   Voucher_Voucher_createdByToUser  Voucher[]           @relation("Voucher_createdByToUser")
-  Voucher_Voucher_postedByIdToUser Voucher[]           @relation("Voucher_postedByIdToUser")
+  Voucher_Voucher_postedByIdToUser  Voucher[]           @relation("Voucher_postedByIdToUser")
   Voucher_Voucher_userIdToUser     Voucher[]           @relation("Voucher_userIdToUser")
   VoucherLine                      VoucherLine[]
   createdSettings                  Settings[]          @relation("SettingsCreator")
   settings                         Settings[]          @relation("SettingsUser")
-  createdWorkOrders                WorkOrder[]         @relation("WorkOrderCreator")
   createdPurchases                 Purchase[]          @relation("PurchaseCreatedBy")
   updatedPurchases                 Purchase[]          @relation("PurchaseUpdatedBy")
 
@@ -225,7 +219,6 @@ model Unit {
   createdBy String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  items     Item[]   @relation("unit")
   creator   User     @relation("UnitCreator", fields: [createdBy], references: [id], onDelete: Cascade)
 
   @@index([status])
@@ -247,7 +240,6 @@ model Organization {
   updatedAt        DateTime           @updatedAt
   JournalEntryLine JournalEntryLine[]
   creator          User               @relation("OrganizationCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  quotations       Quotation[]
   Voucher          Voucher[]
   VoucherLine      VoucherLine[]
 
@@ -257,93 +249,17 @@ model Organization {
 }
 
 model Category {
-  id             String          @id @default(cuid())
-  name           String
-  description    String?
-  status         String          @default("active")
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  categoryGroups CategoryGroup[]
-  items          ItemCategory[]
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([name])
   @@index([status])
 }
 
-model Item {
-  id             String          @id @default(cuid())
-  code           String          @unique
-  description    String
-  unitId         String
-  unitPrice      Decimal         @db.Decimal(10, 2)
-  costPrice      Decimal         @default(0) @db.Decimal(10, 2)
-  image          String?
-  status         String          @default("active")
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  unit           Unit            @relation("unit", fields: [unitId], references: [id])
-  categories     ItemCategory[]
-  quotationItems QuotationItem[]
-  purchaseItems  PurchaseItem[]
-
-  @@index([code])
-  @@index([unitId])
-  @@index([status])
-}
-
-model ModuleGroup {
-  id            String            @id @default(cuid())
-  code          String?
-  description   String?
-  sortOrder     Int               @default(0)
-  status        String            @default("active")
-  createdBy     String
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  baseUnit      String?
-  baseUnitPrice Decimal?          @db.Decimal(10, 2)
-  costPrice     Decimal           @default(0) @db.Decimal(10, 2)
-  creator       User              @relation("ModuleGroupCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  items         ModuleGroupItem[]
-
-  @@index([status])
-  @@index([createdBy])
-}
-
-model ModuleGroupItem {
-  id             String          @id @default(cuid())
-  sl             Int
-  code           String?
-  description    String?
-  height         Decimal?        @db.Decimal(10, 2)
-  width          Decimal?        @db.Decimal(10, 2)
-  depth          Decimal?        @db.Decimal(10, 2)
-  unit           String?
-  unitPrice      Decimal         @db.Decimal(10, 2)
-  amount         Decimal         @db.Decimal(12, 2)
-  sortOrder      Int             @default(0)
-  quantity       Decimal?        @db.Decimal(10, 2)
-  moduleGroupId  String
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  moduleGroup    ModuleGroup     @relation(fields: [moduleGroupId], references: [id], onDelete: Cascade)
-  quotationItems QuotationItem[]
-
-  @@index([moduleGroupId])
-}
-
-model ItemCategory {
-  id         String   @id @default(cuid())
-  itemId     String
-  categoryId String
-  createdAt  DateTime @default(now())
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
-
-  @@unique([itemId, categoryId])
-  @@index([itemId])
-  @@index([categoryId])
-}
 
 model Client {
   id               String             @id @default(cuid())
@@ -366,7 +282,6 @@ model Client {
   ChartOfAccount   ChartOfAccount?    @relation(fields: [chartOfAccountId], references: [id])
   createdByUser    User               @relation("ClientCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   JournalEntryLine JournalEntryLine[]
-  Quotation        Quotation[]
   Voucher          Voucher[]
   VoucherLine      VoucherLine[]
 
@@ -407,44 +322,6 @@ model Supplier {
   @@index([email])
   @@index([chartOfAccountId])
   @@index([supplierCode])
-}
-
-model Quotation {
-  id                 String          @id @default(cuid())
-  quotationNumber    String          @unique
-  subject            String
-  date               DateTime        @default(now())
-  coverLetter        String?
-  financialStatement String?
-  tos                String?
-  total              Decimal?        @db.Decimal(12, 2)
-  discount           Decimal?        @db.Decimal(5, 2)
-  grandTotal         Decimal?        @db.Decimal(12, 2)
-  status             QuotationStatus @default(DRAFT)
-  expiredDate        DateTime?
-  clientId           String
-  organizationId     String?
-  submittedById      String
-  updatedById        String?
-  shippingCharges    Decimal?        @db.Decimal(10, 2)
-  vatIncluded        Boolean?        @default(false)
-  projectLocation    String?
-  isTrash            Boolean         @default(false)
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  client             Client          @relation(fields: [clientId], references: [id])
-  organization       Organization?   @relation(fields: [organizationId], references: [id])
-  submittedBy        User            @relation("SubmittedBy", fields: [submittedById], references: [id])
-  updatedBy          User?           @relation("UpdatedBy", fields: [updatedById], references: [id])
-  section            Section[]
-  workOrders        WorkOrder[]
-
-  @@index([clientId])
-  @@index([organizationId])
-  @@index([submittedById])
-  @@index([updatedById])
-  @@index([status])
-  @@index([isTrash])
 }
 
 model Purchase {
@@ -489,140 +366,8 @@ model PurchaseItem {
   updatedAt   DateTime @updatedAt
 
   purchase    Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
-  item        Item?    @relation(fields: [itemId], references: [id])
 
   @@index([purchaseId])
-  @@index([itemId])
-}
-
-model WorkOrder {
-  id          String            @id @default(cuid())
-  code        String            @unique
-  quotationId String
-  createdById String
-  amount      Decimal           @db.Decimal(12, 2)
-  advance     Decimal?          @db.Decimal(12, 2)
-  balance     Decimal           @db.Decimal(12, 2) // Calculated: amount - advance
-  status      WorkOrderStatus   @default(PROGRESS)
-  isTrash     Boolean           @default(false)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  
-  quotation   Quotation         @relation(fields: [quotationId], references: [id])
-  createdBy   User              @relation("WorkOrderCreator", fields: [createdById], references: [id])
-  
-  @@index([quotationId])
-  @@index([createdById])
-  @@index([status])
-}
-
-model Section {
-  id             String          @id @default(cuid())
-  title          String
-  note           String?
-  discount       Decimal?        @db.Decimal(5, 2)
-  total          Decimal?        @db.Decimal(12, 2)
-  grandTotal     Decimal?        @db.Decimal(12, 2)
-  sortOrder      Int             @default(0)
-  categoryId     String?
-  quotationId    String
-  preparedById   String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  categoryGroups CategoryGroup[]
-  groups         ItemGroup[]
-  items          QuotationItem[]
-  preparedBy     User?           @relation("PreparedBy", fields: [preparedById], references: [id])
-  quotation      Quotation       @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-
-  @@index([quotationId])
-}
-
-model ItemGroup {
-  id            String          @id @default(cuid())
-  code          String?
-  description   String
-  quantity      Decimal?        @db.Decimal(10, 2)
-  number        Int?
-  sortOrder     Int             @default(0)
-  moduleGroupId String?
-  baseUnit      String?
-  baseUnitPrice Decimal?        @db.Decimal(10, 2)
-  sectionId     String
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  section       Section         @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  items         QuotationItem[]
-
-  @@index([sectionId])
-}
-
-model CategoryGroup {
-  id         String          @id @default(cuid())
-  categoryId String?
-  sortOrder  Int             @default(0)
-  sectionId  String
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
-  category   Category?       @relation(fields: [categoryId], references: [id])
-  section    Section         @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  items      QuotationItem[]
-
-  @@index([sectionId])
-  @@index([categoryId])
-}
-
-model QuotationItem {
-  id                String           @id @default(cuid())
-  sl                Int
-  no                String?
-  code              String?
-  description       String?
-  height            Decimal?         @db.Decimal(10, 2)
-  width             Decimal?         @db.Decimal(10, 2)
-  depth             Decimal?         @db.Decimal(10, 2)
-  unit              String?
-  unitPrice         Decimal          @db.Decimal(10, 2)
-  quantity          Decimal          @db.Decimal(10, 2)
-  unitShutter       Decimal?         @db.Decimal(10, 2)
-  totalShutter      Decimal?         @db.Decimal(10, 2)
-  discount          Decimal?         @db.Decimal(10, 2)
-  amount            Decimal          @db.Decimal(12, 2)
-  note              String?
-  sortOrder         Int              @default(0)
-  itemId            String?
-  moduleGroupItemId String?
-  sectionId         String?
-  groupId           String?
-  categoryGroupId   String?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  categoryGroup     CategoryGroup?   @relation(fields: [categoryGroupId], references: [id], onDelete: Cascade)
-  group             ItemGroup?       @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  item              Item?            @relation(fields: [itemId], references: [id])
-  moduleGroupItem   ModuleGroupItem? @relation(fields: [moduleGroupItemId], references: [id])
-  section           Section?         @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-
-  @@index([itemId])
-  @@index([sectionId])
-  @@index([groupId])
-  @@index([categoryGroupId])
-  @@index([moduleGroupItemId])
-}
-
-model CoverLetter {
-  id        String   @id @default(cuid())
-  title     String
-  content   String
-  status    String   @default("active")
-  createdBy String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  creator   User     @relation("CoverLetterCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-
-  @@index([status])
-  @@index([createdBy])
-  @@index([title])
 }
 
 model Settings {
@@ -854,23 +599,6 @@ model VoucherLine {
   @@index([supplierId])
   @@index([userId])
   @@index([voucherId])
-}
-
-enum QuotationStatus {
-  DRAFT
-  REVIEW
-  SENT
-  ACCEPTED
-  REJECTED
-  EXPIRED
-  REVISED
-}
-
-enum WorkOrderStatus {
-  PROGRESS
-  COMPLETE
-  CANCELED
-  HOLD
 }
 
 enum NotificationType {

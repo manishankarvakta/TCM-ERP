@@ -19,15 +19,9 @@ export function getPathPermissionKey(pathname: string): string | null {
 
   // Map paths to permission keys
   const pathMappings: Record<string, string> = {
-    // Items
-    "/dashboard/items": "items.items",
-    "/dashboard/items/groups": "items.groups",
-    "/dashboard/items/category": "items.category",
-    "/dashboard/items/units": "items.units",
-    // Quotations
-    "/dashboard/quotations": "quotations.quotations",
-    "/dashboard/quotations/invoices": "quotations.invoices",
-    "/dashboard/quotations/orders": "quotations.orders",
+    // Master Data
+    "/dashboard/master/categories": "master.categories",
+    "/dashboard/master/units": "master.units",
     // Accounts
     "/dashboard/accounts/chart-of-accounts": "accounts.chart-of-accounts",
     "/dashboard/accounts/ledgers": "accounts.ledgers",

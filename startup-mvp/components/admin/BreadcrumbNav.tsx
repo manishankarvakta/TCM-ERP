@@ -5,10 +5,10 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getQuotation } from "@/app/actions/quotations";
-import { getGroupById } from "@/app/(dashboard)/admin/items/groups/_actions/group.action";
-import { getItemById } from "@/app/(dashboard)/admin/items/_actions/item.action";
-import { getWorkOrder } from "@/app/actions/work-orders";
+// import { getQuotation } from "@/app/actions/quotations";
+// import { getGroupById } from "@/app/(dashboard)/admin/items/groups/_actions/group.action";
+// import { getItemById } from "@/app/(dashboard)/admin/items/_actions/item.action";
+// import { getWorkOrder } from "@/app/actions/work-orders";
 
 // Map route paths to display names
 const routeMap: Record<string, string> = {
@@ -94,115 +94,7 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [workOrderCode, setWorkOrderCode] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
 
-  // Fetch quotation number if we're on a quotation detail or edit page
-  useEffect(() => {
-    const quotationMatch = pathname.match(/^\/admin\/quotations\/([^\/]+)(?:\/edit)?$/);
-    if (!quotationMatch) {
-      return;
-    }
-    
-    const quotationId = quotationMatch[1];
-    let cancelled = false;
-    
-    getQuotation(quotationId)
-      .then((result) => {
-        if (!cancelled && result.success && result.data) {
-          setQuotationNumber(result.data.quotationNumber);
-        }
-      })
-      .catch(() => {
-        // Silently fail - will show default label
-      });
-    
-    return () => {
-      cancelled = true;
-      setQuotationNumber(null);
-    };
-  }, [pathname]);
-
-  // Fetch group code if we're on a group detail or edit page
-  useEffect(() => {
-    const groupMatch = pathname.match(/^\/admin\/items\/groups\/([^\/]+)(?:\/edit)?$/);
-    if (!groupMatch) {
-      return;
-    }
-    
-    const groupId = groupMatch[1];
-    let cancelled = false;
-    
-    getGroupById(groupId)
-      .then((result) => {
-        if (!cancelled && result.success && result.group) {
-          setGroupCode(result.group.code || null);
-        }
-      })
-      .catch(() => {
-        // Silently fail - will show default label
-      });
-    
-    return () => {
-      cancelled = true;
-      setGroupCode(null);
-    };
-  }, [pathname]);
-
-  // Fetch item label if we're on an item edit page (/admin/items/:id)
-  useEffect(() => {
-    const itemMatch = pathname.match(/^\/admin\/items\/([^\/]+)$/);
-    if (!itemMatch) {
-      return;
-    }
-
-    // Ignore non-item subroutes under /admin/items/*
-    const segment = itemMatch[1];
-    if (segment === "groups" || segment === "units" || segment === "category" || segment === "details") {
-      return;
-    }
-
-    const itemId = segment;
-    let cancelled = false;
-
-    getItemById(itemId)
-      .then((result) => {
-        if (!cancelled && result.success && result.item) {
-          setItemLabel(result.item.code || result.item.description || null);
-        }
-      })
-      .catch(() => {
-        // Silently fail - will show default label
-      });
-
-    return () => {
-      cancelled = true;
-      setItemLabel(null);
-    };
-  }, [pathname]);
-
-  // Fetch work order code if we're on a work order detail or edit page
-  useEffect(() => {
-    const workOrderMatch = pathname.match(/^\/admin\/work-orders\/([^\/]+)(?:\/edit)?$/);
-    if (!workOrderMatch) {
-      return;
-    }
-    
-    const workOrderId = workOrderMatch[1];
-    let cancelled = false;
-    
-    getWorkOrder(workOrderId)
-      .then((result) => {
-        if (!cancelled && result.success && result.data) {
-          setWorkOrderCode(result.data.code);
-        }
-      })
-      .catch(() => {
-        // Silently fail - will show default label
-      });
-    
-    return () => {
-      cancelled = true;
-      setWorkOrderCode(null);
-    };
-  }, [pathname]);
+ 
 
   // If we're at the root admin dashboard, show just "Dashboard"
   if (pathname === "/admin" || items.length === 1) {

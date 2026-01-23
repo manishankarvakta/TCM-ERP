@@ -6,10 +6,10 @@ import RecentActivity from "@/components/dashboard/recent-activity";
 import QuotationStatusChart from "@/components/dashboard/quotation-status-chart";
 import {
   getUserDashboardStats,
-  getUserRecentQuotations,
-  getUserRecentItems,
+  // getUserRecentQuotations,
+  // getUserRecentItems,
   getUserActivity,
-  getUserQuotationStatusBreakdown,
+  // getUserQuotationStatusBreakdown,
 } from "@/app/actions/dashboard.action";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
@@ -39,24 +39,24 @@ export default async function DashboardPage() {
   const [
     statsResult,
     quotationsResult,
-    itemsResult,
-    activityResult,
-    statusBreakdownResult,
+    // itemsResult,
+    // activityResult,
+    // statusBreakdownResult,
   ] = await Promise.all([
     getUserDashboardStats(),
-    getUserRecentQuotations(10),
-    getUserRecentItems(5),
+    // getUserRecentQuotations(10),
+    // getUserRecentItems(5),
     getUserActivity(10),
-    getUserQuotationStatusBreakdown(),
+    // getUserQuotationStatusBreakdown(),
   ]);
 
   const stats = statsResult.success ? statsResult.stats : null;
-  const quotations = quotationsResult.success ? quotationsResult.quotations : [];
-  const items = itemsResult.success ? itemsResult.items : [];
-  const activities = activityResult.success ? activityResult.activities : [];
-  const statusBreakdown = statusBreakdownResult.success
-    ? statusBreakdownResult.breakdown
-    : [];
+  // const quotations = quotationsResult.success ? quotationsResult.quotations : [];
+  // const items = itemsResult.success ? itemsResult.items : [];
+  // const activities = activityResult.success ? activityResult.activities : [];
+  // const statusBreakdown = statusBreakdownResult.success
+  //   ? statusBreakdownResult.breakdown
+  //   : [];
 
   // Check permissions for quick actions
   const canCreateQuotation = await hasPermission(
@@ -93,10 +93,10 @@ export default async function DashboardPage() {
       </div>
 
       {/* Statistics Cards */}
-      <UserDashboardStats stats={stats} />
+      {/* <UserDashboardStats stats={stats} /> */}
 
       {/* Recent Quotations and Status Breakdown */}
-      {stats?.permissions.canAccessQuotations && (
+      {/* {stats?.permissions.canAccessQuotations && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <Card className="col-span-4">
             <CardHeader>
@@ -127,10 +127,10 @@ export default async function DashboardPage() {
             </Card>
           )}
         </div>
-      )}
+      )} */}
 
       {/* Recent Items and Activity */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+      {/* <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         {stats?.permissions.canAccessItems && items.length > 0 && (
           <Card className="col-span-3">
             <CardHeader>
@@ -199,7 +199,7 @@ export default async function DashboardPage() {
             </>
           )}
         </Card>
-      </div>
+      </div> */}
 
       {/* Quick Actions */}
       {(canCreateQuotation || canCreateItem || canCreateClient) && (

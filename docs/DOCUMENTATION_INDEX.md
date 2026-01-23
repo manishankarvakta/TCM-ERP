@@ -39,7 +39,10 @@
 - **EMPLOYEE_USER_ANALYSIS.md** - Employee/User model analysis
 
 #### Quotations
-- **QUOTATION_SYSTEM_DEV_DOCS.md** - Quotation system development documentation
+- **QUOTATION_SYSTEM_DEV_DOCS.md** - Quotation system development documentation (⚠️ DEPRECATED - Module Removed)
+
+#### Module Cleanup
+- **ERP_MODULE_REMOVAL_CLEANUP.md** - ⚠️ **IMPORTANT** - Complete documentation of quotation/item module removal and master data reorganization
 
 ---
 
@@ -155,10 +158,10 @@
 
 ## 📊 Statistics
 
-- **Total Documentation Files**: 63
-- **Development Guides**: 1 ⭐ (NEW)
+- **Total Documentation Files**: 64
+- **Development Guides**: 1 ⭐
 - **Planning Documents**: 4
-- **Module Documentation**: 6
+- **Module Documentation**: 7 (includes cleanup docs)
 - **Deployment Guides**: 15
 - **Fixes & Troubleshooting**: 12
 - **System Documentation**: 10
@@ -183,4 +186,4 @@ All documentation files are now organized in the `docs/` folder. The root direct
 
 ---
 
-**Last Updated**: January 2025
+**Last Updated**: January 2026

@@ -3,8 +3,7 @@
 // Module names
 export type Module =
   | "dashboard"
-  | "items"
-  | "quotations"
+  | "master"
   | "purchases"
   | "accounts"
   | "peoples"
@@ -120,25 +119,13 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     label: "Dashboard",
     description: "Main dashboard overview",
   },
-  items: {
-    id: "items",
-    label: "Items",
-    description: "Manage items, categories, units, and groups",
+  master: {
+    id: "master",
+    label: "Master Data",
+    description: "Manage categories and units",
     subModules: [
-      { id: "items", label: "Items", path: "/dashboard/items", module: "items", permissionKey: "items.items" },
-      { id: "groups", label: "Groups", path: "/dashboard/items/groups", module: "items", permissionKey: "items.groups" },
-      { id: "category", label: "Categories", path: "/dashboard/items/category", module: "items", permissionKey: "items.category" },
-      { id: "units", label: "Units", path: "/dashboard/items/units", module: "items", permissionKey: "items.units" },
-    ],
-  },
-  quotations: {
-    id: "quotations",
-    label: "Quotations",
-    description: "Manage quotations, invoices, and orders",
-    subModules: [
-      { id: "quotations", label: "Quotations", path: "/dashboard/quotations", module: "quotations", permissionKey: "quotations.quotations" },
-      { id: "invoices", label: "Invoices", path: "/dashboard/quotations/invoices", module: "quotations", permissionKey: "quotations.invoices" },
-      { id: "orders", label: "Orders", path: "/dashboard/quotations/orders", module: "quotations", permissionKey: "quotations.orders" },
+      { id: "categories", label: "Categories", path: "/dashboard/master/categories", module: "master", permissionKey: "master.categories" },
+      { id: "units", label: "Units", path: "/dashboard/master/units", module: "master", permissionKey: "master.units" },
     ],
   },
   purchases: {
@@ -372,61 +359,19 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
     ],
   },
   {
-    id: "items",
-    label: "Items",
+    id: "master",
+    label: "Master Data",
     pages: [
       {
-        permissionKey: "items.items",
-        path: "/dashboard/items",
-        label: "Items",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "items.groups",
-        path: "/dashboard/items/groups",
-        label: "Groups",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "items.category",
-        path: "/dashboard/items/category",
+        permissionKey: "master.categories",
+        path: "/dashboard/master/categories",
         label: "Categories",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
       {
-        permissionKey: "items.units",
-        path: "/dashboard/items/units",
+        permissionKey: "master.units",
+        path: "/dashboard/master/units",
         label: "Units",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-    ],
-  },
-  {
-    id: "quotations",
-    label: "Quotations",
-    pages: [
-      {
-        permissionKey: "quotations.quotations",
-        path: "/dashboard/quotations",
-        label: "Quotations",
-        operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "quotations.invoices",
-        path: "/dashboard/quotations/invoices",
-        label: "Invoices",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "quotations.orders",
-        path: "/dashboard/quotations/orders",
-        label: "Orders",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "work-orders.work-orders",
-        path: "/dashboard/work-orders",
-        label: "Work Orders",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
     ],
@@ -439,18 +384,6 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "purchases.purchases",
         path: "/dashboard/purchases",
         label: "Purchases",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-    ],
-  },
-  {
-    id: "work-orders",
-    label: "Work Orders",
-    pages: [
-      {
-        permissionKey: "work-orders.work-orders",
-        path: "/dashboard/work-orders",
-        label: "Work Orders",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
     ],

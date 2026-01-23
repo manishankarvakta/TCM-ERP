@@ -27,25 +27,12 @@ export interface SubMenuGroup {
 export const MENU_TEMPLATE: MenuItemData[] = [
   { href: "/dashboard", label: "Dashboard", icon: "FiHome", module: "dashboard" },
   {
-    label: "Items",
-    icon: "FiArchive",
-    module: "items",
+    label: "Master Data",
+    icon: "FiDatabase",
+    module: "master",
     subMenu: [
-      { href: "/dashboard/items/groups", label: "Groups", icon: "FiLayers", module: "items" },
-      { href: "/dashboard/items", label: "All Items", icon: "FiPackage", module: "items" },
-      { href: "/dashboard/items/category", label: "Categories", icon: "MdOutlineCategory", module: "items" },
-      { href: "/dashboard/items/units", label: "Units", icon: "FiLayers", module: "items" },
-    ],
-  },
-  {
-    label: "Quotations",
-    icon: "FiFileText",
-    module: "quotations",
-    subMenu: [
-      { href: "/dashboard/quotations", label: "Quotations", icon: "FiFileText", module: "quotations" },
-      { href: "/dashboard/quotations/invoices", label: "Invoices", icon: "FiDollarSign", module: "quotations" },
-      { href: "/dashboard/quotations/orders", label: "Orders", icon: "FiShoppingCart", module: "quotations" },
-      { href: "/dashboard/work-orders", label: "Work Orders", icon: "FiBriefcase", module: "work-orders" },
+      { href: "/dashboard/master/categories", label: "Categories", icon: "MdOutlineCategory", module: "master" },
+      { href: "/dashboard/master/units", label: "Units", icon: "FiLayers", module: "master" },
     ],
   },
   {
@@ -219,10 +206,8 @@ export function getPermissionKeyFromPath(path: string): string | null {
 function getNavigationIdForMenuItem(item: MenuItemData): string | null {
   const navMap: Record<string, string> = {
     "/dashboard": "dashboard",
-    "items": "items",
-    "quotations": "quotations",
+    "master": "master",
     "purchases": "purchases",
-    "work-orders": "work-orders",
     "accounts": "accounts",
     "peoples": "peoples",
     "/dashboard/files": "files",

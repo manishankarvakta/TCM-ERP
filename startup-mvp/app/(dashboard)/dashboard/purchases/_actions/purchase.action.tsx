@@ -124,44 +124,6 @@ export async function getSuppliersForPurchase() {
   }
 }
 
-export async function getItemsForPurchase() {
-  try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "Unauthorized", items: [] };
-    }
-
-    const items = await prisma.item.findMany({
-      where: {
-        status: "active",
-      },
-      select: {
-        id: true,
-        code: true,
-        description: true,
-        unitPrice: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return {
-      success: true,
-      items: items.map((item) => ({
-        ...item,
-        unitPrice: Number(item.unitPrice),
-      })),
-    };
-  } catch (error) {
-    console.error("getItemsForPurchase error:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Failed to fetch items",
-      items: [],
-    };
-  }
-}
 
 export async function getPurchases(
   page: number = 1,
@@ -279,14 +241,6 @@ export async function getPurchaseById(purchaseId: string) {
             quantity: true,
             unitPrice: true,
             amount: true,
-            item: {
-              select: {
-                id: true,
-                code: true,
-                description: true,
-                unitPrice: true,
-              },
-            },
           },
         },
         createdAt: true,
@@ -307,12 +261,6 @@ export async function getPurchaseById(purchaseId: string) {
           quantity: Number(item.quantity),
           unitPrice: Number(item.unitPrice),
           amount: Number(item.amount),
-          item: item.item
-            ? {
-                ...item.item,
-                unitPrice: Number(item.item.unitPrice),
-              }
-            : null,
         })),
       },
     };
