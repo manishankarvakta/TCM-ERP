@@ -9,6 +9,7 @@ import { getWorkOrder } from "@/app/actions/work-orders";
 import { getWarehouseById } from "@/app/(dashboard)/dashboard/master/warehouses/_actions/warehouse.action";
 import { getItemById } from "@/app/(dashboard)/dashboard/master/items/_actions/item.action";
 import { getBOMById } from "@/app/(dashboard)/dashboard/production/boms/_actions/bom.action";
+import { getProductionOrderById } from "@/app/(dashboard)/dashboard/production/orders/_actions/production.action";
 
 // Map route paths to display names
 const routeMap: Record<string, string> = {
@@ -95,6 +96,7 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [warehouseName, setWarehouseName] = useState<string | null>(null);
   const [workOrderCode, setWorkOrderCode] = useState<string | null>(null);
   const [bomName, setBomName] = useState<string | null>(null);
+  const [productionOrderCode, setProductionOrderCode] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
 
   // Check if we're on a warehouse detail or edit page
@@ -111,6 +113,11 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const isBOMDetailMatch = pathname.match(/^\/dashboard\/production\/boms\/([^\/]+)$/);
   const isBOMEditMatch = pathname.match(/^\/dashboard\/production\/boms\/([^\/]+)\/edit$/);
   const bomId = isBOMDetailMatch?.[1] || isBOMEditMatch?.[1] || null;
+
+  // Check if we're on a production order detail or edit page
+  const isProductionOrderDetailMatch = pathname.match(/^\/dashboard\/production\/orders\/([^\/]+)$/);
+  const isProductionOrderEditMatch = pathname.match(/^\/dashboard\/production\/orders\/([^\/]+)\/edit$/);
+  const productionOrderId = isProductionOrderDetailMatch?.[1] || isProductionOrderEditMatch?.[1] || null;
 
   // Fetch warehouse name when on warehouse detail/edit page
   useEffect(() => {
@@ -198,6 +205,35 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
       cancelled = true;
     };
   }, [bomId]);
+
+  // Fetch production order code when on production order detail/edit page
+  useEffect(() => {
+    if (!productionOrderId) {
+      return;
+    }
+    
+    let cancelled = false;
+    const id: string = productionOrderId; // Type assertion since we've checked for null
+    
+    async function fetchProductionOrderCode() {
+      try {
+        const result = await getProductionOrderById(id);
+        if (!cancelled && result.success && result.order) {
+          setProductionOrderCode(result.order.code);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error fetching production order code:", error);
+        }
+      }
+    }
+    
+    fetchProductionOrderCode();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [productionOrderId]);
 
   // If we're at the root dashboard, show just "Dashboard"
   if (pathname === "/dashboard" || items.length === 1) {
@@ -333,6 +369,27 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     } else {
       // Show loading state or default while fetching
       currentLabel = isBOMEditMatch ? "Edit BOM" : "BOM Details";
+    }
+  }
+
+  // If we're on a production order detail or edit page, use production order code instead of ID
+  // For production order routes, replace the ID segment with "Production Orders" as parent
+  if (isProductionOrderDetailMatch || isProductionOrderEditMatch) {
+    // Find the "Production Orders" item (should be before the ID)
+    const ordersItem = items.find(item => item.path === "/dashboard/production/orders");
+    if (ordersItem) {
+      parentItem = ordersItem;
+    } else {
+      // If not found, create a parent item pointing to production orders list
+      parentItem = { path: "/dashboard/production/orders", label: "Production Orders" };
+    }
+    
+    // Update current label with production order code
+    if (productionOrderCode) {
+      currentLabel = isProductionOrderEditMatch ? `Edit ${productionOrderCode}` : productionOrderCode;
+    } else {
+      // Show loading state or default while fetching
+      currentLabel = isProductionOrderEditMatch ? "Edit Production Order" : "Production Order Details";
     }
   }
 

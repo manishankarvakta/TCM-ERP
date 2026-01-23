@@ -201,6 +201,7 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     description: "Production and manufacturing",
     subModules: [
       { id: "boms", label: "Bill of Materials", path: "/dashboard/production/boms", module: "production", permissionKey: "production.boms" },
+      { id: "orders", label: "Production Orders", path: "/dashboard/production/orders", module: "production", permissionKey: "production.orders" },
     ],
   },
 };
@@ -585,6 +586,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         path: "/dashboard/production/boms",
         label: "Bill of Materials",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "production.orders",
+        path: "/dashboard/production/orders",
+        label: "Production Orders",
+        operations: ["view", "create", "edit", "start", "complete", "cancel"],
       },
     ],
   },

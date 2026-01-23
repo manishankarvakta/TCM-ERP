@@ -132,6 +132,12 @@ export const MENU_TEMPLATE: MenuItemData[] = [
         icon: "FiList", 
         module: "production" 
       },
+      { 
+        href: "/dashboard/production/orders", 
+        label: "Production Orders", 
+        icon: "FiPackage", 
+        module: "production" 
+      },
     ],
   },
   { href: "/dashboard/files", label: "Files", icon: "FiFolder", module: "files" },

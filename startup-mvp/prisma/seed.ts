@@ -778,6 +778,37 @@ async function main() {
     });
   }
 
+  // Register ModuleOperation rows for production.orders
+  const productionOrderOperations = [
+    { operation: "view", label: "View Production Orders" },
+    { operation: "create", label: "Create Production Order" },
+    { operation: "edit", label: "Edit Production Order" },
+    { operation: "start", label: "Start Production Order" },
+    { operation: "complete", label: "Complete Production Order" },
+    { operation: "cancel", label: "Cancel Production Order" },
+  ];
+
+  for (const op of productionOrderOperations) {
+    await prisma.moduleOperation.upsert({
+      where: {
+        module_operation: {
+          module: "production.orders",
+          operation: op.operation,
+        },
+      },
+      update: {
+        label: op.label,
+        isActive: true,
+      },
+      create: {
+        module: "production.orders",
+        operation: op.operation,
+        label: op.label,
+        isActive: true,
+      },
+    });
+  }
+
   // Seed Stock data
   console.log("\n🌱 Seeding inventory stock data...");
   
