@@ -374,6 +374,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         label: "Units",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
+      {
+        permissionKey: "master.items",
+        path: "/dashboard/master/items",
+        label: "Items",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
     ],
   },
   {

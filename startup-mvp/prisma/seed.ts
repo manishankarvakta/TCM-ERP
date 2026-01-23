@@ -1,39 +1,622 @@
-/**
- * Main seed file that orchestrates all seed operations
- * 
- * NOTE: Each seed file runs independently with its own PrismaClient instance.
- * To run all seeds in the correct dependency order, execute:
- * 
- *   npx tsx prisma/seed-users.ts && \
- *   npx tsx prisma/seed-units.ts && \
- *   npx tsx prisma/seed-categories.ts && \
- *   npx tsx prisma/seed-items-1.ts && \
- *   npx tsx prisma/seed-items-2.ts && \
- *   npx tsx prisma/seed-items-3.ts && \
- *   npx tsx prisma/seed-items-4.ts && \
- *   npx tsx prisma/seed-items-5.ts && \
- *   npx tsx prisma/seed-item-categories.ts && \
- *   npx tsx prisma/seed-module-groups.ts && \
- *   npx tsx prisma/seed-module-group-items-1.ts && \
- *   npx tsx prisma/seed-module-group-items-2.ts && \
- *   npx tsx prisma/seed-module-group-items-3.ts && \
- *   npx tsx prisma/seed-module-group-items-4.ts
- * 
- * Or run individually: npx tsx prisma/seed-*.ts
- */
+import { PrismaClient, ItemType } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-console.log("🌱 Database Seeding Guide");
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-console.log("\n📋 Execution Order (respects dependencies):");
-console.log("   1. seed-users.ts (3 users + organization)");
-console.log("   2. seed-units.ts (10 units, depends on users)");
-console.log("   3. seed-categories.ts (3 categories)");
-console.log("   4. seed-items-1.ts through seed-items-5.ts (depends on units)");
-console.log("   5. seed-item-categories.ts (depends on items & categories)");
-console.log("   6. seed-module-groups.ts (29 groups, depends on users)");
-console.log("   7. seed-module-group-items-1.ts through seed-module-group-items-4.ts");
-console.log("      (~145 items, depends on module groups)");
-console.log("\n   See SEED_README.md for more details.");
-console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+const prisma = new PrismaClient();
+
+function tk(n: number): string {
+  // Prisma Decimal accepts string or Decimal-like; using string is simplest
+  return n.toFixed(2);
+}
+
+async function main() {
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("🌱 Seeding database (master: categories/units/items)");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+  const adminEmail = "admin@example.com";
+  const adminPassword = "admin123";
+  const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
+
+  const admin = await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: {
+      name: "Admin",
+      password: adminPasswordHash,
+      role: "admin",
+      status: "active",
+    },
+    create: {
+      name: "Admin",
+      email: adminEmail,
+      password: adminPasswordHash,
+      role: "admin",
+      status: "active",
+    },
+    select: { id: true, email: true },
+  });
+
+  await prisma.organization.upsert({
+    where: { id: "default-org" },
+    update: {
+      name: "Bhagyakul Biryani House",
+      status: "active",
+    },
+    create: {
+      id: "default-org",
+      name: "Bhagyakul Biryani House",
+      details: "Premium biryani production house",
+      status: "active",
+      createdBy: admin.id,
+    },
+  });
+
+  const units = [
+    { symbol: "kg", details: "Kilogram" },
+    { symbol: "g", details: "Gram" },
+    { symbol: "l", details: "Liter" },
+    { symbol: "ml", details: "Milliliter" },
+    { symbol: "pcs", details: "Pieces" },
+    { symbol: "pack", details: "Pack" },
+  ] as const;
+
+  for (const u of units) {
+    await prisma.unit.upsert({
+      where: { symbol: u.symbol },
+      update: {
+        details: u.details,
+        status: "active",
+      },
+      create: {
+        symbol: u.symbol,
+        details: u.details,
+        status: "active",
+        createdBy: admin.id,
+      },
+    });
+  }
+
+  const categories = [
+    { name: "Rice & Grains", description: "Rice varieties and grains" },
+    { name: "Meat & Poultry", description: "Chicken, mutton, beef" },
+    { name: "Spices & Seasonings", description: "Whole spices, ground spices, masalas" },
+    { name: "Dairy & Fats", description: "Yogurt, ghee, butter, cream" },
+    { name: "Vegetables", description: "Onions, tomatoes, potatoes, etc." },
+    { name: "Beverages", description: "Soft drinks, juices, water" },
+    { name: "Sides & Accompaniments", description: "Raita, salad, pickles, chutney" },
+    { name: "Biryani Dishes", description: "Finished biryani products" },
+  ] as const;
+
+  for (const c of categories) {
+    const existing = await prisma.category.findFirst({
+      where: { name: c.name },
+    });
+    if (existing) {
+      await prisma.category.update({
+        where: { id: existing.id },
+        data: { description: c.description, status: "active" },
+      });
+    } else {
+      await prisma.category.create({
+        data: { name: c.name, description: c.description, status: "active" },
+      });
+    }
+  }
+
+  const [kg, g, l, ml, pcs, pack] = await Promise.all([
+    prisma.unit.findUniqueOrThrow({ where: { symbol: "kg" } }),
+    prisma.unit.findUniqueOrThrow({ where: { symbol: "g" } }),
+    prisma.unit.findUniqueOrThrow({ where: { symbol: "l" } }),
+    prisma.unit.findUniqueOrThrow({ where: { symbol: "ml" } }),
+    prisma.unit.findUniqueOrThrow({ where: { symbol: "pcs" } }),
+    prisma.unit.findUniqueOrThrow({ where: { symbol: "pack" } }),
+  ]);
+
+  const [catRice, catMeat, catSpices, catDairy, catVeg, catBeverages, catSides, catBiryani] = await Promise.all([
+    prisma.category.findFirstOrThrow({ where: { name: "Rice & Grains" } }),
+    prisma.category.findFirstOrThrow({ where: { name: "Meat & Poultry" } }),
+    prisma.category.findFirstOrThrow({ where: { name: "Spices & Seasonings" } }),
+    prisma.category.findFirstOrThrow({ where: { name: "Dairy & Fats" } }),
+    prisma.category.findFirstOrThrow({ where: { name: "Vegetables" } }),
+    prisma.category.findFirstOrThrow({ where: { name: "Beverages" } }),
+    prisma.category.findFirstOrThrow({ where: { name: "Sides & Accompaniments" } }),
+    prisma.category.findFirstOrThrow({ where: { name: "Biryani Dishes" } }),
+  ]);
+
+  const year = new Date().getFullYear();
+  const items = [
+    // RAW MATERIALS - Rice & Grains
+    {
+      code: `RM-${year}-0001`,
+      name: "Basmati Rice (Premium)",
+      description: "Premium quality basmati rice for biryani",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catRice.id,
+      unitId: kg.id,
+      costPrice: tk(120),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    {
+      code: `RM-${year}-0002`,
+      name: "Kali Jeera Rice",
+      description: "Traditional biryani rice variety",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catRice.id,
+      unitId: kg.id,
+      costPrice: tk(95),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    // RAW MATERIALS - Meat & Poultry
+    {
+      code: `RM-${year}-0003`,
+      name: "Chicken (Whole)",
+      description: "Fresh whole chicken for biryani",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catMeat.id,
+      unitId: kg.id,
+      costPrice: tk(180),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    {
+      code: `RM-${year}-0004`,
+      name: "Mutton (Goat Meat)",
+      description: "Premium mutton for biryani",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catMeat.id,
+      unitId: kg.id,
+      costPrice: tk(650),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    {
+      code: `RM-${year}-0005`,
+      name: "Beef",
+      description: "Beef for beef biryani",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catMeat.id,
+      unitId: kg.id,
+      costPrice: tk(550),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    // RAW MATERIALS - Spices
+    {
+      code: `RM-${year}-0006`,
+      name: "Garam Masala",
+      description: "Mixed spice blend for biryani",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catSpices.id,
+      unitId: g.id,
+      costPrice: tk(1.5),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    {
+      code: `RM-${year}-0007`,
+      name: "Biryani Masala",
+      description: "Special biryani spice mix",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catSpices.id,
+      unitId: g.id,
+      costPrice: tk(2.0),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    {
+      code: `RM-${year}-0008`,
+      name: "Turmeric Powder",
+      description: "Ground turmeric",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catSpices.id,
+      unitId: g.id,
+      costPrice: tk(0.8),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    {
+      code: `RM-${year}-0009`,
+      name: "Red Chili Powder",
+      description: "Ground red chili",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catSpices.id,
+      unitId: g.id,
+      costPrice: tk(1.2),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    {
+      code: `RM-${year}-0010`,
+      name: "Cumin Seeds",
+      description: "Whole cumin seeds",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catSpices.id,
+      unitId: g.id,
+      costPrice: tk(1.0),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    {
+      code: `RM-${year}-0011`,
+      name: "Cardamom (Green)",
+      description: "Green cardamom pods",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catSpices.id,
+      unitId: g.id,
+      costPrice: tk(3.5),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    {
+      code: `RM-${year}-0012`,
+      name: "Cinnamon Sticks",
+      description: "Cinnamon bark",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catSpices.id,
+      unitId: g.id,
+      costPrice: tk(2.5),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    {
+      code: `RM-${year}-0013`,
+      name: "Bay Leaves",
+      description: "Dried bay leaves",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catSpices.id,
+      unitId: g.id,
+      costPrice: tk(1.8),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    // RAW MATERIALS - Dairy & Fats
+    {
+      code: `RM-${year}-0014`,
+      name: "Ghee (Clarified Butter)",
+      description: "Pure ghee for biryani",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catDairy.id,
+      unitId: kg.id,
+      costPrice: tk(850),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    {
+      code: `RM-${year}-0015`,
+      name: "Yogurt (Curd)",
+      description: "Fresh yogurt for marination",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catDairy.id,
+      unitId: kg.id,
+      costPrice: tk(80),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    // RAW MATERIALS - Vegetables
+    {
+      code: `RM-${year}-0016`,
+      name: "Onions",
+      description: "Fresh onions for biryani",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catVeg.id,
+      unitId: kg.id,
+      costPrice: tk(45),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    {
+      code: `RM-${year}-0017`,
+      name: "Tomatoes",
+      description: "Fresh tomatoes",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catVeg.id,
+      unitId: kg.id,
+      costPrice: tk(60),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    {
+      code: `RM-${year}-0018`,
+      name: "Ginger",
+      description: "Fresh ginger root",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catVeg.id,
+      unitId: kg.id,
+      costPrice: tk(200),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    {
+      code: `RM-${year}-0019`,
+      name: "Garlic",
+      description: "Fresh garlic bulbs",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catVeg.id,
+      unitId: kg.id,
+      costPrice: tk(150),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    {
+      code: `RM-${year}-0020`,
+      name: "Green Chilies",
+      description: "Fresh green chilies",
+      itemType: "RAW_MATERIAL" as ItemType,
+      categoryId: catVeg.id,
+      unitId: kg.id,
+      costPrice: tk(120),
+      salesPrice: null,
+      trackInventory: true,
+    },
+    // FINISHED GOODS - Biryani Dishes
+    {
+      code: `FG-${year}-0001`,
+      name: "Chicken Biryani (Half)",
+      description: "Half portion chicken biryani",
+      itemType: "FINISHED_GOOD" as ItemType,
+      categoryId: catBiryani.id,
+      unitId: pcs.id,
+      costPrice: tk(90),
+      salesPrice: tk(180),
+      trackInventory: true,
+    },
+    {
+      code: `FG-${year}-0002`,
+      name: "Chicken Biryani (Full)",
+      description: "Full portion chicken biryani",
+      itemType: "FINISHED_GOOD" as ItemType,
+      categoryId: catBiryani.id,
+      unitId: pcs.id,
+      costPrice: tk(160),
+      salesPrice: tk(320),
+      trackInventory: true,
+    },
+    {
+      code: `FG-${year}-0003`,
+      name: "Mutton Biryani (Half)",
+      description: "Half portion mutton biryani",
+      itemType: "FINISHED_GOOD" as ItemType,
+      categoryId: catBiryani.id,
+      unitId: pcs.id,
+      costPrice: tk(220),
+      salesPrice: tk(450),
+      trackInventory: true,
+    },
+    {
+      code: `FG-${year}-0004`,
+      name: "Mutton Biryani (Full)",
+      description: "Full portion mutton biryani",
+      itemType: "FINISHED_GOOD" as ItemType,
+      categoryId: catBiryani.id,
+      unitId: pcs.id,
+      costPrice: tk(400),
+      salesPrice: tk(800),
+      trackInventory: true,
+    },
+    {
+      code: `FG-${year}-0005`,
+      name: "Beef Biryani (Half)",
+      description: "Half portion beef biryani",
+      itemType: "FINISHED_GOOD" as ItemType,
+      categoryId: catBiryani.id,
+      unitId: pcs.id,
+      costPrice: tk(180),
+      salesPrice: tk(380),
+      trackInventory: true,
+    },
+    {
+      code: `FG-${year}-0006`,
+      name: "Beef Biryani (Full)",
+      description: "Full portion beef biryani",
+      itemType: "FINISHED_GOOD" as ItemType,
+      categoryId: catBiryani.id,
+      unitId: pcs.id,
+      costPrice: tk(320),
+      salesPrice: tk(650),
+      trackInventory: true,
+    },
+    {
+      code: `FG-${year}-0007`,
+      name: "Special Biryani (Half)",
+      description: "Half portion special biryani with extra meat",
+      itemType: "FINISHED_GOOD" as ItemType,
+      categoryId: catBiryani.id,
+      unitId: pcs.id,
+      costPrice: tk(250),
+      salesPrice: tk(500),
+      trackInventory: true,
+    },
+    {
+      code: `FG-${year}-0008`,
+      name: "Special Biryani (Full)",
+      description: "Full portion special biryani with extra meat",
+      itemType: "FINISHED_GOOD" as ItemType,
+      categoryId: catBiryani.id,
+      unitId: pcs.id,
+      costPrice: tk(450),
+      salesPrice: tk(900),
+      trackInventory: true,
+    },
+    // RETAIL - Beverages
+    {
+      code: `RT-${year}-0001`,
+      name: "Coca Cola (500ml)",
+      description: "Soft drink",
+      itemType: "RETAIL" as ItemType,
+      categoryId: catBeverages.id,
+      unitId: pcs.id,
+      costPrice: tk(30),
+      salesPrice: tk(40),
+      trackInventory: true,
+    },
+    {
+      code: `RT-${year}-0002`,
+      name: "Pepsi (500ml)",
+      description: "Soft drink",
+      itemType: "RETAIL" as ItemType,
+      categoryId: catBeverages.id,
+      unitId: pcs.id,
+      costPrice: tk(30),
+      salesPrice: tk(40),
+      trackInventory: true,
+    },
+    {
+      code: `RT-${year}-0003`,
+      name: "7UP (500ml)",
+      description: "Soft drink",
+      itemType: "RETAIL" as ItemType,
+      categoryId: catBeverages.id,
+      unitId: pcs.id,
+      costPrice: tk(30),
+      salesPrice: tk(40),
+      trackInventory: true,
+    },
+    {
+      code: `RT-${year}-0004`,
+      name: "Mineral Water (500ml)",
+      description: "Bottled water",
+      itemType: "RETAIL" as ItemType,
+      categoryId: catBeverages.id,
+      unitId: pcs.id,
+      costPrice: tk(12),
+      salesPrice: tk(20),
+      trackInventory: true,
+    },
+    {
+      code: `RT-${year}-0005`,
+      name: "Lassi (Sweet)",
+      description: "Sweet yogurt drink",
+      itemType: "RETAIL" as ItemType,
+      categoryId: catBeverages.id,
+      unitId: pcs.id,
+      costPrice: tk(25),
+      salesPrice: tk(50),
+      trackInventory: true,
+    },
+    // RETAIL - Sides & Accompaniments
+    {
+      code: `RT-${year}-0006`,
+      name: "Raita (Bowl)",
+      description: "Yogurt raita with cucumber",
+      itemType: "RETAIL" as ItemType,
+      categoryId: catSides.id,
+      unitId: pcs.id,
+      costPrice: tk(15),
+      salesPrice: tk(30),
+      trackInventory: true,
+    },
+    {
+      code: `RT-${year}-0007`,
+      name: "Salad (Bowl)",
+      description: "Fresh mixed salad",
+      itemType: "RETAIL" as ItemType,
+      categoryId: catSides.id,
+      unitId: pcs.id,
+      costPrice: tk(10),
+      salesPrice: tk(25),
+      trackInventory: true,
+    },
+    {
+      code: `RT-${year}-0008`,
+      name: "Pickle (Small)",
+      description: "Mixed pickle",
+      itemType: "RETAIL" as ItemType,
+      categoryId: catSides.id,
+      unitId: pcs.id,
+      costPrice: tk(8),
+      salesPrice: tk(15),
+      trackInventory: true,
+    },
+    {
+      code: `RT-${year}-0009`,
+      name: "Chutney (Small)",
+      description: "Mint chutney",
+      itemType: "RETAIL" as ItemType,
+      categoryId: catSides.id,
+      unitId: pcs.id,
+      costPrice: tk(5),
+      salesPrice: tk(10),
+      trackInventory: true,
+    },
+    {
+      code: `RT-${year}-0010`,
+      name: "Boiled Egg",
+      description: "Boiled egg",
+      itemType: "RETAIL" as ItemType,
+      categoryId: catSides.id,
+      unitId: pcs.id,
+      costPrice: tk(8),
+      salesPrice: tk(15),
+      trackInventory: true,
+    },
+  ] as const;
+
+  for (const it of items) {
+    await prisma.item.upsert({
+      where: { code: it.code },
+      update: {
+        name: it.name,
+        description: it.description,
+        itemType: it.itemType,
+        categoryId: it.categoryId,
+        unitId: it.unitId,
+        costPrice: it.costPrice,
+        salesPrice: it.salesPrice,
+        trackInventory: it.trackInventory,
+        status: "active",
+        isTrash: false,
+      },
+      create: {
+        code: it.code,
+        name: it.name,
+        description: it.description,
+        itemType: it.itemType,
+        categoryId: it.categoryId,
+        unitId: it.unitId,
+        costPrice: it.costPrice,
+        salesPrice: it.salesPrice,
+        trackInventory: it.trackInventory,
+        status: "active",
+        isTrash: false,
+        createdBy: admin.id,
+      },
+    });
+  }
+
+  // Register ModuleOperation rows for master.items
+  const ops = [
+    { operation: "create", label: "Create", description: "Create items" },
+    { operation: "view", label: "View", description: "View items" },
+    { operation: "edit", label: "Edit", description: "Edit items" },
+    { operation: "move-to-trash", label: "Move to Trash", description: "Move items to trash" },
+    { operation: "delete-permanently", label: "Delete Permanently", description: "Delete items permanently" },
+  ] as const;
+
+  for (const op of ops) {
+    await prisma.moduleOperation.upsert({
+      where: { module_operation: { module: "master.items", operation: op.operation } },
+      update: { label: op.label, description: op.description, isActive: true },
+      create: {
+        module: "master.items",
+        operation: op.operation,
+        label: op.label,
+        description: op.description,
+        isActive: true,
+      },
+    });
+  }
+
+  console.log("\n✅ Seed complete.");
+  console.log(`- Admin login: ${adminEmail} / ${adminPassword}`);
+}
+
+main()
+  .catch((e) => {
+    console.error("❌ Seed failed:", e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
 

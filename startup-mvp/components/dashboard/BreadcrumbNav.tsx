@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getWorkOrder } from "@/app/actions/work-orders";
+import { getItemById } from "@/app/(dashboard)/dashboard/master/items/_actions/item.action";
 
 // Map route paths to display names
 const routeMap: Record<string, string> = {
@@ -88,9 +89,38 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [quotationNumber, setQuotationNumber] = useState<string | null>(null);
   const [groupCode, setGroupCode] = useState<string | null>(null);
   const [itemLabel, setItemLabel] = useState<string | null>(null);
+  const [itemName, setItemName] = useState<string | null>(null);
   const [workOrderCode, setWorkOrderCode] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
 
+  // Check if we're on an item detail or edit page
+  const isItemDetailMatch = pathname.match(/^\/dashboard\/master\/items\/([^\/]+)$/);
+  const isItemEditMatch = pathname.match(/^\/dashboard\/master\/items\/([^\/]+)\/edit$/);
+
+  // Fetch item name when on item detail/edit page
+  useEffect(() => {
+    if (isItemDetailMatch || isItemEditMatch) {
+      const itemId = isItemDetailMatch ? isItemDetailMatch[1] : isItemEditMatch![1];
+      
+      async function fetchItemName() {
+        try {
+          const result = await getItemById(itemId);
+          if (result.success && result.item) {
+            setItemName(result.item.name);
+          }
+        } catch (error) {
+          console.error("Error fetching item name:", error);
+        }
+      }
+      
+      fetchItemName();
+      
+      // Cleanup: clear item name when leaving item pages
+      return () => {
+        setItemName(null);
+      };
+    }
+  }, [pathname, isItemDetailMatch, isItemEditMatch]);
 
   // If we're at the root dashboard, show just "Dashboard"
   if (pathname === "/dashboard" || items.length === 1) {
@@ -166,10 +196,31 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     }
   }
 
-  // If we're on an item edit page, use item code/description instead of ID
-  const isItemEdit = pathname.match(/^\/dashboard\/items\/([^\/]+)$/);
-  if (isItemEdit) {
-    const segment = isItemEdit[1];
+  // If we're on an item detail or edit page, use item name instead of ID
+  // For item routes, replace the ID segment with "Items" as parent
+  if (isItemDetailMatch || isItemEditMatch) {
+    // Find the "Items" item (should be before the ID)
+    const itemsItem = items.find(item => item.path === "/dashboard/master/items");
+    if (itemsItem) {
+      parentItem = itemsItem;
+    } else {
+      // If not found, create a parent item pointing to items list
+      parentItem = { path: "/dashboard/master/items", label: "Items" };
+    }
+    
+    // Update current label with item name
+    if (itemName) {
+      currentLabel = isItemEditMatch ? `Edit ${itemName}` : itemName;
+    } else {
+      // Show loading state or default while fetching
+      currentLabel = isItemEditMatch ? "Edit Item" : "Item Details";
+    }
+  }
+
+  // Legacy item route handling (for old routes)
+  const isLegacyItemEdit = pathname.match(/^\/dashboard\/items\/([^\/]+)$/);
+  if (isLegacyItemEdit) {
+    const segment = isLegacyItemEdit[1];
     if (segment !== "groups" && segment !== "units" && segment !== "category" && segment !== "details") {
       if (itemLabel) {
         currentLabel = `Edit ${itemLabel}`;

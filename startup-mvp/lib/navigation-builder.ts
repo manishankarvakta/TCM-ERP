@@ -33,6 +33,7 @@ export const MENU_TEMPLATE: MenuItemData[] = [
     subMenu: [
       { href: "/dashboard/master/categories", label: "Categories", icon: "MdOutlineCategory", module: "master" },
       { href: "/dashboard/master/units", label: "Units", icon: "FiLayers", module: "master" },
+      { href: "/dashboard/master/items", label: "Items", icon: "FiPackage", module: "master" },
     ],
   },
   {

@@ -37,6 +37,12 @@ enum PurchaseStatus {
   CANCELLED
 }
 
+enum ItemType {
+  RAW_MATERIAL
+  FINISHED_GOOD
+  RETAIL
+}
+
 model User {
   id                               String              @id @default(cuid())
   name                             String?
@@ -77,6 +83,7 @@ model User {
   settings                         Settings[]          @relation("SettingsUser")
   createdPurchases                 Purchase[]          @relation("PurchaseCreatedBy")
   updatedPurchases                 Purchase[]          @relation("PurchaseUpdatedBy")
+  createdItems                     Item[]              @relation("ItemCreator")
 
   @@index([status])
   @@index([designationTemplateId])
@@ -220,6 +227,7 @@ model Unit {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   creator   User     @relation("UnitCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  items     Item[]
 
   @@index([status])
   @@index([createdBy])
@@ -255,11 +263,43 @@ model Category {
   status      String   @default("active")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  items       Item[]
 
   @@index([name])
   @@index([status])
 }
 
+model Item {
+  id                String    @id @default(cuid())
+  code              String    @unique // Auto-generated: RM-2026-0001, FG-2026-0001, RT-2026-0001
+  name              String
+  description       String?
+  itemType          ItemType
+  categoryId        String?
+  unitId            String
+  costPrice         Decimal   @db.Decimal(12, 2) // Purchase/cost price
+  salesPrice        Decimal?  @db.Decimal(12, 2) // Selling price (required for FINISHED_GOOD)
+  trackInventory    Boolean   @default(false) // Inventory tracking flag
+  image             String?   // Image URL/path
+  status            String    @default("active") // active, inactive, trash
+  isTrash           Boolean   @default(false)
+  createdBy         String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  category          Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  unit              Unit      @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  creator           User      @relation("ItemCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@index([name])
+  @@index([itemType])
+  @@index([categoryId])
+  @@index([unitId])
+  @@index([status])
+  @@index([isTrash])
+  @@index([createdBy])
+}
 
 model Client {
   id               String             @id @default(cuid())
