@@ -8,7 +8,9 @@ import { PurchaseStatus, type Prisma } from "@prisma/client";
 import * as z from "zod";
 import { updateStockOnPurchase } from "@/app/(dashboard)/dashboard/inventory/stock/_actions/stock.action";
 import { createVoucher, postVoucher } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
-import { ItemType, AccountType, VoucherType } from "@prisma/client";
+import { findControlAccount } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/accounting-helpers";
+import { ItemType, AccountType, VoucherType, Prisma } from "@prisma/client";
+import { createUserLog, LogAction } from "@/lib/user-log";
 
 const purchaseItemSchema = z.object({
   itemId: z.string().optional().nullable(),
@@ -359,6 +361,227 @@ export async function getPurchaseById(purchaseId: string) {
   }
 }
 
+/**
+ * Create accounting voucher for purchase receipt
+ * Creates item-type based accounting entries: Debit Inventory, Credit Accounts Payable
+ */
+async function createPurchaseAccountingVoucher(
+  purchaseId: string,
+  tx?: Prisma.TransactionClient
+): Promise<{ success: boolean; error?: string; voucherId?: string }> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const client = tx || prisma;
+
+    // Get purchase with items and item details
+    const purchase = await client.purchase.findUnique({
+      where: { id: purchaseId },
+      include: {
+        supplier: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        items: {
+          where: { itemId: { not: null } },
+          include: {
+            item: {
+              select: {
+                id: true,
+                itemType: true,
+                costPrice: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!purchase) {
+      return { success: false, error: "Purchase not found" };
+    }
+
+    // Check if voucher already exists
+    if (purchase.voucherId) {
+      return { success: true, voucherId: purchase.voucherId };
+    }
+
+    // Find control accounts
+    const apAccountId = await findControlAccount("Accounts Payable");
+    const rawMaterialInventoryId = await findControlAccount("Raw Material Inventory");
+    const finishedGoodsInventoryId = await findControlAccount("Finished Goods Inventory");
+    const retailInventoryId = await findControlAccount("Retail Inventory");
+
+    if (!apAccountId) {
+      return {
+        success: false,
+        error: "Accounts Payable control account not found. Please ensure it exists in Chart of Accounts.",
+      };
+    }
+
+    // Group items by itemType and calculate totals
+    const itemsByType: Record<
+      ItemType,
+      Array<{ quantity: number; costPrice: number; totalCost: number; description: string }>
+    > = {
+      RAW_MATERIAL: [],
+      FINISHED_GOOD: [],
+      RETAIL: [],
+    };
+
+    for (const purchaseItem of purchase.items) {
+      if (!purchaseItem.item || !purchaseItem.item.costPrice) continue;
+
+      const quantity = Number(purchaseItem.quantity);
+      const costPrice = Number(purchaseItem.item.costPrice);
+      const totalCost = quantity * costPrice;
+
+      itemsByType[purchaseItem.item.itemType].push({
+        quantity,
+        costPrice,
+        totalCost,
+        description: purchaseItem.description,
+      });
+    }
+
+    // Create voucher lines
+    const voucherLines: Array<{
+      lineNumber: number;
+      debitAmount: number;
+      creditAmount: number;
+      description?: string;
+      chartOfAccountId: string;
+      supplierId?: string;
+    }> = [];
+
+    let lineNumber = 1;
+    let totalDebit = 0;
+
+    // Debit: Inventory accounts based on item type
+    if (itemsByType.RAW_MATERIAL.length > 0 && rawMaterialInventoryId) {
+      const totalRawMaterialCost = itemsByType.RAW_MATERIAL.reduce(
+        (sum, item) => sum + item.totalCost,
+        0
+      );
+      if (totalRawMaterialCost > 0) {
+        voucherLines.push({
+          lineNumber: lineNumber++,
+          debitAmount: totalRawMaterialCost,
+          creditAmount: 0,
+          description: `Raw Material Inventory - ${purchase.purchaseNumber}`,
+          chartOfAccountId: rawMaterialInventoryId,
+        });
+        totalDebit += totalRawMaterialCost;
+      }
+    }
+
+    if (itemsByType.FINISHED_GOOD.length > 0 && finishedGoodsInventoryId) {
+      const totalFGCost = itemsByType.FINISHED_GOOD.reduce((sum, item) => sum + item.totalCost, 0);
+      if (totalFGCost > 0) {
+        voucherLines.push({
+          lineNumber: lineNumber++,
+          debitAmount: totalFGCost,
+          creditAmount: 0,
+          description: `Finished Goods Inventory - ${purchase.purchaseNumber}`,
+          chartOfAccountId: finishedGoodsInventoryId,
+        });
+        totalDebit += totalFGCost;
+      }
+    }
+
+    if (itemsByType.RETAIL.length > 0 && retailInventoryId) {
+      const totalRetailCost = itemsByType.RETAIL.reduce((sum, item) => sum + item.totalCost, 0);
+      if (totalRetailCost > 0) {
+        voucherLines.push({
+          lineNumber: lineNumber++,
+          debitAmount: totalRetailCost,
+          creditAmount: 0,
+          description: `Retail Inventory - ${purchase.purchaseNumber}`,
+          chartOfAccountId: retailInventoryId,
+        });
+        totalDebit += totalRetailCost;
+      }
+    }
+
+    // Credit: Accounts Payable
+    if (totalDebit > 0) {
+      voucherLines.push({
+        lineNumber: lineNumber++,
+        debitAmount: 0,
+        creditAmount: totalDebit,
+        description: `Accounts Payable - ${purchase.purchaseNumber} - ${purchase.supplier.name || purchase.supplier.email}`,
+        chartOfAccountId: apAccountId,
+        supplierId: purchase.supplierId,
+      });
+    }
+
+    if (voucherLines.length === 0) {
+      return { success: false, error: "No items with cost price found" };
+    }
+
+    // Create voucher
+    const voucherResult = await createVoucher({
+      date: purchase.date,
+      type: VoucherType.PURCHASE,
+      reference: purchase.purchaseNumber,
+      description: `Purchase ${purchase.purchaseNumber} - ${purchase.supplier.name || purchase.supplier.email}`,
+      supplierId: purchase.supplierId,
+      lines: voucherLines,
+    });
+
+    if (!voucherResult.success || !voucherResult.voucher) {
+      return {
+        success: false,
+        error: voucherResult.error || "Failed to create accounting voucher",
+      };
+    }
+
+    // Post voucher
+    const postResult = await postVoucher(voucherResult.voucher.id);
+    if (!postResult.success) {
+      return {
+        success: false,
+        error: postResult.error || "Failed to post accounting voucher",
+      };
+    }
+
+    // Link voucher to purchase
+    await client.purchase.update({
+      where: { id: purchaseId },
+      data: { voucherId: voucherResult.voucher.id },
+    });
+
+    // Log activity
+    await createUserLog(
+      session.user.id,
+      LogAction.CREATE,
+      "Voucher",
+      voucherResult.voucher.id,
+      `Created and posted purchase accounting voucher for ${purchase.purchaseNumber}`,
+      {
+        purchaseId: purchase.id,
+        purchaseNumber: purchase.purchaseNumber,
+        voucherNumber: voucherResult.voucher.voucherNumber,
+      }
+    );
+
+    return { success: true, voucherId: voucherResult.voucher.id };
+  } catch (error) {
+    console.error("createPurchaseAccountingVoucher error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to create purchase accounting voucher",
+    };
+  }
+}
+
 export async function createPurchase(input: z.infer<typeof purchaseSchema>) {
   try {
     const session = await auth();
@@ -537,9 +760,13 @@ export async function updatePurchase(input: z.infer<typeof updatePurchaseSchema>
       }
     );
 
-    // Update stock if purchase is received
+    // Update stock and create accounting voucher if purchase is received
     if (validated.status === "RECEIVED" || validated.status === "PARTIALLY_RECEIVED") {
       await updateStockOnPurchase(purchase.id);
+      // Create accounting voucher (only if not already created)
+      if (!purchase.voucherId) {
+        await createPurchaseAccountingVoucher(purchase.id);
+      }
     }
 
     revalidateBothPaths("purchases");
@@ -632,10 +859,18 @@ export async function bulkUpdatePurchaseStatus(
         data: { status, isTrash: false },
       });
 
-      // Update stock if status is RECEIVED or PARTIALLY_RECEIVED
+      // Update stock and create accounting vouchers if status is RECEIVED or PARTIALLY_RECEIVED
       if (status === "RECEIVED" || status === "PARTIALLY_RECEIVED") {
         for (const purchaseId of purchaseIds) {
           await updateStockOnPurchase(purchaseId);
+          // Check if voucher already exists before creating
+          const purchase = await prisma.purchase.findUnique({
+            where: { id: purchaseId },
+            select: { voucherId: true },
+          });
+          if (!purchase?.voucherId) {
+            await createPurchaseAccountingVoucher(purchaseId);
+          }
         }
       }
     }

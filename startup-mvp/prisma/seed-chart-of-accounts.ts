@@ -1,6 +1,14 @@
 import { PrismaClient, AccountType } from "@prisma/client";
+import { randomBytes } from "crypto";
 
 const prisma = new PrismaClient();
+
+/**
+ * Generate unique ID for ChartOfAccount
+ */
+function generateAccountId(): string {
+  return `coa_${Date.now()}_${randomBytes(8).toString("hex")}`;
+}
 
 /**
  * Seeds comprehensive Chart of Accounts
@@ -192,6 +200,30 @@ async function main() {
       type: "ASSET" as AccountType,
       parentCode: "1600",
       description: "Goods held for sale",
+      isPostable: true,
+    },
+    {
+      code: "1620",
+      name: "Raw Material Inventory",
+      type: "ASSET" as AccountType,
+      parentCode: "1600",
+      description: "Raw materials inventory",
+      isPostable: true,
+    },
+    {
+      code: "1630",
+      name: "Finished Goods Inventory",
+      type: "ASSET" as AccountType,
+      parentCode: "1600",
+      description: "Finished goods inventory",
+      isPostable: true,
+    },
+    {
+      code: "1640",
+      name: "Retail Inventory",
+      type: "ASSET" as AccountType,
+      parentCode: "1600",
+      description: "Retail items inventory",
       isPostable: true,
     },
     {
@@ -502,6 +534,14 @@ async function main() {
   console.log("📝 Creating/updating accounts...\n");
 
   for (const account of sortedAccounts) {
+    // Check if account already exists
+    const existing = await prisma.chartOfAccount.findUnique({
+      where: { code: account.code },
+      select: { id: true },
+    });
+
+    const accountId = existing?.id || generateAccountId();
+
     const upserted = await prisma.chartOfAccount.upsert({
       where: { code: account.code },
       update: {
@@ -513,6 +553,7 @@ async function main() {
         // Only set parentId if the account doesn't exist yet
       },
       create: {
+        id: accountId,
         code: account.code,
         name: account.name,
         type: account.type,
@@ -520,6 +561,7 @@ async function main() {
         status: "active",
         parentId: null, // Will be set later if needed
         createdBy: creator.id,
+        updatedAt: new Date(),
       },
     });
 

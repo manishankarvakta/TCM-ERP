@@ -456,6 +456,7 @@ model ProductionOrder {
   warehouseId String // Production warehouse
   quantity    Decimal               @db.Decimal(12, 2) // Quantity to produce
   status      ProductionOrderStatus @default(PLANNED)
+  voucherId   String? // Link to accounting voucher
   notes       String?
   isTrash     Boolean               @default(false)
   createdBy   String
@@ -466,6 +467,7 @@ model ProductionOrder {
   bom       BOM       @relation(fields: [bomId], references: [id], onDelete: Restrict)
   item      Item      @relation("ProductionOrderFG", fields: [itemId], references: [id], onDelete: Restrict)
   warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  voucher   Voucher?  @relation(fields: [voucherId], references: [id], onDelete: SetNull)
   creator   User      @relation("ProductionOrderCreator", fields: [createdBy], references: [id], onDelete: Cascade)
 
   @@index([code])
@@ -473,6 +475,7 @@ model ProductionOrder {
   @@index([itemId])
   @@index([warehouseId])
   @@index([status])
+  @@index([voucherId])
   @@index([isTrash])
   @@index([createdBy])
 }
@@ -596,32 +599,32 @@ model PurchaseItem {
 }
 
 model Sale {
-  id             String      @id @default(cuid())
-  saleNumber     String      @unique // Auto-generated: SAL-2026-0001
-  clientId       String
-  warehouseId    String
-  voucherId      String?     // Link to accounting voucher
-  date           DateTime    @default(now())
-  status         SaleStatus  @default(DRAFT)
-  notes          String?
-  attachmentUrl  String?
-  subTotal       Decimal     @db.Decimal(12, 2)
-  discount       Decimal?    @db.Decimal(5, 2)
-  tax            Decimal?    @db.Decimal(5, 2)
-  grandTotal     Decimal     @db.Decimal(12, 2)
-  isTrash        Boolean     @default(false)
-  createdBy      String
-  updatedBy      String?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  completedAt    DateTime?   // When status = COMPLETED
+  id            String     @id @default(cuid())
+  saleNumber    String     @unique // Auto-generated: SAL-2026-0001
+  clientId      String
+  warehouseId   String
+  voucherId     String? // Link to accounting voucher
+  date          DateTime   @default(now())
+  status        SaleStatus @default(DRAFT)
+  notes         String?
+  attachmentUrl String?
+  subTotal      Decimal    @db.Decimal(12, 2)
+  discount      Decimal?   @db.Decimal(5, 2)
+  tax           Decimal?   @db.Decimal(5, 2)
+  grandTotal    Decimal    @db.Decimal(12, 2)
+  isTrash       Boolean    @default(false)
+  createdBy     String
+  updatedBy     String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  completedAt   DateTime? // When status = COMPLETED
 
-  client         Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  warehouse      Warehouse   @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
-  voucher        Voucher?    @relation(fields: [voucherId], references: [id], onDelete: SetNull)
-  createdByUser  User        @relation("SaleCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
-  updatedByUser  User?       @relation("SaleUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
-  items          SaleItem[]
+  client        Client     @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  warehouse     Warehouse  @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  voucher       Voucher?   @relation(fields: [voucherId], references: [id], onDelete: SetNull)
+  createdByUser User       @relation("SaleCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  updatedByUser User?      @relation("SaleUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  items         SaleItem[]
 
   @@index([clientId])
   @@index([warehouseId])
@@ -636,7 +639,7 @@ model Sale {
 model SaleItem {
   id          String   @id @default(cuid())
   saleId      String
-  itemId      String   // Required - only FG and RETAIL items
+  itemId      String // Required - only FG and RETAIL items
   description String
   quantity    Decimal  @db.Decimal(10, 2)
   unitPrice   Decimal  @db.Decimal(10, 2)
@@ -816,32 +819,33 @@ model JournalEntryLine {
 }
 
 model Voucher {
-  id                            String         @id
-  voucherNumber                 String         @unique
-  date                          DateTime       @default(now())
+  id                            String            @id
+  voucherNumber                 String            @unique
+  date                          DateTime          @default(now())
   type                          VoucherType
   reference                     String?
   description                   String?
-  status                        String         @default("draft")
+  status                        String            @default("draft")
   createdBy                     String
   postedById                    String?
   postedAt                      DateTime?
-  createdAt                     DateTime       @default(now())
+  createdAt                     DateTime          @default(now())
   updatedAt                     DateTime
   clientId                      String?
   supplierId                    String?
   userId                        String?
   organizationId                String?
   JournalEntry                  JournalEntry[]
-  Client                        Client?        @relation(fields: [clientId], references: [id])
-  User_Voucher_createdByToUser  User           @relation("Voucher_createdByToUser", fields: [createdBy], references: [id], onDelete: Cascade)
-  Organization                  Organization?  @relation(fields: [organizationId], references: [id])
-  User_Voucher_postedByIdToUser User?          @relation("Voucher_postedByIdToUser", fields: [postedById], references: [id])
-  Supplier                      Supplier?      @relation(fields: [supplierId], references: [id])
-  User_Voucher_userIdToUser     User?          @relation("Voucher_userIdToUser", fields: [userId], references: [id])
+  Client                        Client?           @relation(fields: [clientId], references: [id])
+  User_Voucher_createdByToUser  User              @relation("Voucher_createdByToUser", fields: [createdBy], references: [id], onDelete: Cascade)
+  Organization                  Organization?     @relation(fields: [organizationId], references: [id])
+  User_Voucher_postedByIdToUser User?             @relation("Voucher_postedByIdToUser", fields: [postedById], references: [id])
+  Supplier                      Supplier?         @relation(fields: [supplierId], references: [id])
+  User_Voucher_userIdToUser     User?             @relation("Voucher_userIdToUser", fields: [userId], references: [id])
   VoucherLine                   VoucherLine[]
   purchases                     Purchase[]
   sales                         Sale[]
+  productionOrders              ProductionOrder[]
 
   @@index([clientId])
   @@index([createdBy])

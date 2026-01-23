@@ -3,10 +3,12 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
-import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
+import { logItemCreated, logItemUpdated, logItemDeleted, createUserLog, LogAction } from "@/lib/user-log";
 import { notifyItemCreated, notifyItemUpdated } from "@/lib/notification";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
-import { type Prisma, ProductionOrderStatus, StockTransactionType, Prisma as PrismaClient } from "@prisma/client";
+import { type Prisma, ProductionOrderStatus, StockTransactionType, Prisma as PrismaClient, VoucherType } from "@prisma/client";
+import { createVoucher, postVoucher } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
+import { findControlAccount } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/accounting-helpers";
 
 /**
  * Generate unique Production Order code
@@ -1006,7 +1008,7 @@ export async function completeProductionOrder(id: string) {
       };
     }
 
-    // Get order with BOM
+    // Get order with BOM and item cost prices
     const order = await prisma.productionOrder.findUnique({
       where: { id },
       include: {
@@ -1018,6 +1020,8 @@ export async function completeProductionOrder(id: string) {
                   select: {
                     id: true,
                     trackInventory: true,
+                    costPrice: true,
+                    name: true,
                   },
                 },
               },
@@ -1028,6 +1032,7 @@ export async function completeProductionOrder(id: string) {
           select: {
             id: true,
             trackInventory: true,
+            name: true,
           },
         },
       },
@@ -1195,6 +1200,79 @@ export async function completeProductionOrder(id: string) {
         },
       });
     });
+
+    // Create accounting voucher (after transaction completes)
+    // Calculate total raw material cost
+    // Note: productionQuantity and bomQuantityPerUnit are already declared above
+    let totalRawMaterialCost = 0;
+
+    for (const bomItem of order.bom.items) {
+      if (!bomItem.item.trackInventory || !bomItem.item.costPrice) continue;
+
+      const quantityNeeded =
+        (Number(bomItem.quantityRequired) * productionQuantity) / bomQuantityPerUnit;
+      const costPrice = Number(bomItem.item.costPrice);
+      totalRawMaterialCost += quantityNeeded * costPrice;
+    }
+
+    // Create accounting voucher if there's a cost to move
+    if (totalRawMaterialCost > 0 && !order.voucherId) {
+      const rawMaterialInventoryId = await findControlAccount("Raw Material Inventory");
+      const finishedGoodsInventoryId = await findControlAccount("Finished Goods Inventory");
+
+      if (rawMaterialInventoryId && finishedGoodsInventoryId) {
+        const voucherLines = [
+          {
+            lineNumber: 1,
+            debitAmount: totalRawMaterialCost,
+            creditAmount: 0,
+            description: `Finished Goods Inventory - ${order.code}`,
+            chartOfAccountId: finishedGoodsInventoryId,
+          },
+          {
+            lineNumber: 2,
+            debitAmount: 0,
+            creditAmount: totalRawMaterialCost,
+            description: `Raw Material Inventory - ${order.code}`,
+            chartOfAccountId: rawMaterialInventoryId,
+          },
+        ];
+
+        const voucherResult = await createVoucher({
+          date: new Date(),
+          type: VoucherType.JOURNAL,
+          reference: order.code,
+          description: `Production ${order.code} - Move raw material cost to finished goods`,
+          lines: voucherLines,
+        });
+
+        if (voucherResult.success && voucherResult.voucher) {
+          // Post voucher
+          await postVoucher(voucherResult.voucher.id);
+
+          // Link voucher to production order
+          await prisma.productionOrder.update({
+            where: { id },
+            data: { voucherId: voucherResult.voucher.id },
+          });
+
+          // Log activity
+          await createUserLog(
+            session.user.id,
+            LogAction.CREATE,
+            "Voucher",
+            voucherResult.voucher.id,
+            `Created and posted production accounting voucher for ${order.code}`,
+            {
+              productionOrderId: order.id,
+              productionCode: order.code,
+              voucherNumber: voucherResult.voucher.voucherNumber,
+              totalCost: totalRawMaterialCost,
+            }
+          );
+        }
+      }
+    }
 
     // Log and notify
     await logItemUpdated(
