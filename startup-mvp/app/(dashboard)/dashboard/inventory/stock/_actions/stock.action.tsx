@@ -441,9 +441,14 @@ export async function adjustStock(input: {
     // Revalidate cache
     await revalidateBothPaths("/dashboard/inventory/stock");
 
+    // Convert Decimal to number for client components
     return {
       success: true,
-      stock: result,
+      stock: {
+        ...result,
+        quantity: Number(result.quantity),
+        reservedQuantity: Number(result.reservedQuantity),
+      },
     };
   } catch (error) {
     console.error("adjustStock error:", error);
@@ -509,35 +514,64 @@ export async function getStock(itemId: string, warehouseId: string) {
       },
     });
 
+    if (stock) {
+      // Convert Decimal to number for client components
+      return {
+        success: true,
+        stock: {
+          ...stock,
+          quantity: Number(stock.quantity),
+          reservedQuantity: Number(stock.reservedQuantity),
+        },
+      };
+    }
+
+    // Return default stock if not found
+    const defaultItem = await prisma.item.findUnique({
+      where: { id: itemId },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        unit: {
+          select: {
+            symbol: true,
+          },
+        },
+      },
+    });
+
+    const defaultWarehouse = await prisma.warehouse.findUnique({
+      where: { id: warehouseId },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+      },
+    });
+
     return {
       success: true,
-      stock: stock || {
+      stock: {
+        id: "",
         itemId,
         warehouseId,
         quantity: 0,
         reservedQuantity: 0,
         lastUpdated: new Date(),
-        item: await prisma.item.findUnique({
-          where: { id: itemId },
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            unit: {
-              select: {
-                symbol: true,
-              },
-            },
-          },
-        }),
-        warehouse: await prisma.warehouse.findUnique({
-          where: { id: warehouseId },
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        }),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        item: defaultItem || {
+          id: itemId,
+          name: "",
+          code: "",
+          unit: { symbol: "" },
+        },
+        warehouse: defaultWarehouse || {
+          id: warehouseId,
+          name: "",
+          code: "",
+        },
       },
     };
   } catch (error) {
@@ -652,9 +686,16 @@ export async function getStocks(
 
     const totalPages = Math.ceil(total / limit);
 
+    // Convert Decimal to number for client components
+    const serializedStocks = stocks.map((stock) => ({
+      ...stock,
+      quantity: Number(stock.quantity),
+      reservedQuantity: Number(stock.reservedQuantity),
+    }));
+
     return {
       success: true,
-      stocks,
+      stocks: serializedStocks,
       pagination: {
         page,
         limit,
@@ -690,6 +731,7 @@ export async function getStockLedger(
     transactionType?: StockTransactionType;
     dateFrom?: Date;
     dateTo?: Date;
+    search?: string;
   } = {}
 ) {
   try {
@@ -751,6 +793,15 @@ export async function getStockLedger(
       }
     }
 
+    if (filters.search) {
+      where.OR = [
+        { item: { name: { contains: filters.search, mode: "insensitive" } } },
+        { item: { code: { contains: filters.search, mode: "insensitive" } } },
+        { warehouse: { name: { contains: filters.search, mode: "insensitive" } } },
+        { warehouse: { code: { contains: filters.search, mode: "insensitive" } } },
+      ];
+    }
+
     // Get total count
     const total = await prisma.stockLedger.count({ where });
 
@@ -794,9 +845,15 @@ export async function getStockLedger(
 
     const totalPages = Math.ceil(total / limit);
 
+    // Convert Decimal to number for client components
+    const serializedEntries = entries.map((entry) => ({
+      ...entry,
+      quantity: Number(entry.quantity),
+    }));
+
     return {
       success: true,
-      entries,
+      entries: serializedEntries,
       pagination: {
         page,
         limit,
@@ -880,7 +937,8 @@ export async function getStockReport(itemId?: string, warehouseId?: string) {
     let totalValue = 0;
     let totalReserved = 0;
 
-    for (const stock of stocks) {
+    // Convert Decimal to number for client components
+    const serializedStocks = stocks.map((stock) => {
       const qty = Number(stock.quantity);
       const reserved = Number(stock.reservedQuantity);
       const costPrice = stock.item.costPrice ? Number(stock.item.costPrice) : 0;
@@ -888,7 +946,17 @@ export async function getStockReport(itemId?: string, warehouseId?: string) {
       totalQuantity += qty;
       totalReserved += reserved;
       totalValue += qty * costPrice;
-    }
+
+      return {
+        ...stock,
+        quantity: qty,
+        reservedQuantity: reserved,
+        item: {
+          ...stock.item,
+          costPrice: costPrice,
+        },
+      };
+    });
 
     // Get recent movements (last 30 days)
     const thirtyDaysAgo = new Date();
@@ -910,7 +978,7 @@ export async function getStockReport(itemId?: string, warehouseId?: string) {
         availableQuantity: totalQuantity - totalReserved,
         totalValue,
         recentMovements,
-        stocks,
+        stocks: serializedStocks,
       },
     };
   } catch (error) {

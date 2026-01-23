@@ -748,6 +748,125 @@ async function main() {
     });
   }
 
+  // Seed Stock data
+  console.log("\n🌱 Seeding inventory stock data...");
+  
+  // Get all active warehouses
+  const activeWarehouses = await prisma.warehouse.findMany({
+    where: { status: "active", isTrash: false },
+    orderBy: { createdAt: "asc" },
+  });
+
+  // Get all items that track inventory
+  const itemsWithInventory = await prisma.item.findMany({
+    where: {
+      trackInventory: true,
+      status: "active",
+      isTrash: false,
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (activeWarehouses.length > 0 && itemsWithInventory.length > 0) {
+    let stockCount = 0;
+    let ledgerCount = 0;
+
+    // Create stock entries for each item in each warehouse
+    for (const item of itemsWithInventory) {
+      for (const warehouse of activeWarehouses) {
+        // Generate realistic stock quantities based on item type
+        let quantity = 0;
+        let reservedQuantity = 0;
+
+        if (item.itemType === "RAW_MATERIAL") {
+          // Raw materials: higher quantities (kg, liters, etc.)
+          if (item.name.toLowerCase().includes("rice") || item.name.toLowerCase().includes("basmati")) {
+            quantity = Math.floor(Math.random() * 500) + 200; // 200-700 kg
+          } else if (item.name.toLowerCase().includes("chicken") || item.name.toLowerCase().includes("mutton") || item.name.toLowerCase().includes("beef")) {
+            quantity = Math.floor(Math.random() * 100) + 50; // 50-150 kg
+          } else if (item.name.toLowerCase().includes("spice") || item.name.toLowerCase().includes("masala")) {
+            quantity = Math.floor(Math.random() * 50) + 20; // 20-70 kg
+          } else if (item.name.toLowerCase().includes("oil") || item.name.toLowerCase().includes("ghee")) {
+            quantity = Math.floor(Math.random() * 100) + 30; // 30-130 liters
+          } else {
+            quantity = Math.floor(Math.random() * 200) + 50; // 50-250 units
+          }
+        } else if (item.itemType === "FINISHED_GOOD") {
+          // Finished goods: lower quantities (pieces)
+          quantity = Math.floor(Math.random() * 50) + 10; // 10-60 pieces
+          reservedQuantity = Math.floor(Math.random() * 10); // 0-10 reserved
+        } else if (item.itemType === "RETAIL") {
+          // Retail items: medium quantities (pieces)
+          quantity = Math.floor(Math.random() * 200) + 50; // 50-250 pieces
+        }
+
+        // Create or update stock
+        const stock = await prisma.stock.upsert({
+          where: {
+            itemId_warehouseId: {
+              itemId: item.id,
+              warehouseId: warehouse.id,
+            },
+          },
+          update: {
+            quantity: quantity,
+            reservedQuantity: reservedQuantity,
+            lastUpdated: new Date(),
+          },
+          create: {
+            itemId: item.id,
+            warehouseId: warehouse.id,
+            quantity: quantity,
+            reservedQuantity: reservedQuantity,
+            lastUpdated: new Date(),
+          },
+        });
+
+        stockCount++;
+
+        // Create initial StockLedger entry for the stock
+        await prisma.stockLedger.create({
+          data: {
+            itemId: item.id,
+            warehouseId: warehouse.id,
+            transactionType: "ADJUSTMENT",
+            quantity: quantity,
+            referenceType: "ADJUSTMENT",
+            referenceId: stock.id,
+            notes: `Initial stock seed - ${item.name} in ${warehouse.name}`,
+            createdBy: admin.id,
+          },
+        });
+
+        ledgerCount++;
+
+        // Create some additional ledger entries for variety (simulating purchases)
+        if (Math.random() > 0.7) { // 30% chance
+          const purchaseQty = Math.floor(Math.random() * 100) + 20;
+          await prisma.stockLedger.create({
+            data: {
+              itemId: item.id,
+              warehouseId: warehouse.id,
+              transactionType: "IN",
+              quantity: purchaseQty,
+              referenceType: "PURCHASE",
+              referenceId: `seed-purchase-${stock.id}`,
+              notes: `Simulated purchase receipt - ${item.name}`,
+              createdBy: admin.id,
+              createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000), // Random date in last 7 days
+            },
+          });
+          ledgerCount++;
+        }
+      }
+    }
+
+    console.log(`✅ Seeded ${stockCount} stock records`);
+    console.log(`✅ Seeded ${ledgerCount} stock ledger entries`);
+  } else {
+    console.log("⚠️  Skipping stock seed: No warehouses or items with inventory tracking found");
+  }
+
   console.log("\n✅ Seed complete.");
   console.log(`- Admin login: ${adminEmail} / ${adminPassword}`);
 }

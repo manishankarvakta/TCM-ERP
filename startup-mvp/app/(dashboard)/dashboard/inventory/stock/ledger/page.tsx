@@ -39,6 +39,7 @@ export default async function StockLedgerPage({ searchParams }: StockLedgerPageP
       transactionType,
       dateFrom,
       dateTo,
+      search,
     }),
     getActiveItems(),
     getActiveWarehouses(),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,13 +23,15 @@ import {
 import { FiSearch, FiX, FiPackage, FiBox, FiArrowDown, FiArrowUp, FiEdit, FiRefreshCw } from "react-icons/fi";
 import { format } from "date-fns";
 import { StockTransactionType } from "@prisma/client";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 interface StockLedgerEntry {
   id: string;
   itemId: string;
   warehouseId: string;
   transactionType: StockTransactionType;
-  quantity: any; // Decimal from Prisma
+  quantity: number; // Converted from Decimal
   referenceType: string | null;
   referenceId: string | null;
   notes: string | null;
@@ -88,64 +90,74 @@ export default function StockLedgerClient({
 }: StockLedgerClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [search, setSearch] = useState(initialSearch);
   const [itemFilter, setItemFilter] = useState(initialItemId || "all");
   const [warehouseFilter, setWarehouseFilter] = useState(initialWarehouseId || "all");
   const [transactionTypeFilter, setTransactionTypeFilter] = useState(initialTransactionType);
   const [dateFrom, setDateFrom] = useState(initialDateFrom || "");
   const [dateTo, setDateTo] = useState(initialDateTo || "");
   const [isPending, startTransition] = useTransition();
+  const [searchInput, setSearchInput] = useState(initialSearch);
 
-  const updateFilters = () => {
-    const params = new URLSearchParams(searchParams.toString());
-    
-    if (search) {
-      params.set("search", search);
-    } else {
-      params.delete("search");
+  // Debounce search input - only update if search actually changed
+  useEffect(() => {
+    // Skip if search hasn't changed from initial value (prevents initial load trigger)
+    if (searchInput === initialSearch) {
+      return;
     }
 
-    if (itemFilter !== "all") {
-      params.set("itemId", itemFilter);
-    } else {
-      params.delete("itemId");
-    }
+    const timer = setTimeout(() => {
+      startTransition(() => {
+        const params = new URLSearchParams();
+        
+        if (searchInput.trim()) {
+          params.set("search", searchInput.trim());
+        }
 
-    if (warehouseFilter !== "all") {
-      params.set("warehouseId", warehouseFilter);
-    } else {
-      params.delete("warehouseId");
-    }
+        if (itemFilter !== "all") {
+          params.set("itemId", itemFilter);
+        }
 
-    if (transactionTypeFilter !== "all") {
-      params.set("transactionType", transactionTypeFilter);
-    } else {
-      params.delete("transactionType");
-    }
+        if (warehouseFilter !== "all") {
+          params.set("warehouseId", warehouseFilter);
+        }
 
-    if (dateFrom) {
-      params.set("dateFrom", dateFrom);
-    } else {
-      params.delete("dateFrom");
-    }
+        if (transactionTypeFilter !== "all") {
+          params.set("transactionType", transactionTypeFilter);
+        }
 
-    if (dateTo) {
-      params.set("dateTo", dateTo);
-    } else {
-      params.delete("dateTo");
-    }
+        if (dateFrom) {
+          params.set("dateFrom", dateFrom);
+        }
 
-    params.set("page", "1");
-    router.push(`/dashboard/inventory/stock/ledger?${params.toString()}`);
+        if (dateTo) {
+          params.set("dateTo", dateTo);
+        }
+
+        params.set("page", "1");
+        router.push(`/dashboard/inventory/stock/ledger?${params.toString()}`);
+      });
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
+
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value);
   };
 
-  const handleSearch = (value: string) => {
-    setSearch(value);
-    updateFilters();
+  const handleSearchClear = () => {
+    setSearchInput("");
+    startTransition(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("search");
+      params.set("page", "1");
+      router.push(`/dashboard/inventory/stock/ledger?${params.toString()}`);
+    });
   };
 
   const getTransactionTypeBadge = (type: StockTransactionType) => {
-    const variants: Record<StockTransactionType, { label: string; variant: "default" | "secondary" | "outline" | "destructive"; icon: any }> = {
+    const variants: Record<StockTransactionType, { label: string; variant: "default" | "secondary" | "outline" | "destructive"; icon: React.ComponentType<{ className?: string }> }> = {
       IN: { label: "IN", variant: "default", icon: FiArrowDown },
       OUT: { label: "OUT", variant: "destructive", icon: FiArrowUp },
       ADJUSTMENT: { label: "ADJUST", variant: "secondary", icon: FiEdit },
@@ -161,8 +173,8 @@ export default function StockLedgerClient({
     );
   };
 
-  const formatQuantity = (qty: any) => {
-    if (!qty) return "0.00";
+  const formatQuantity = (qty: number) => {
+    if (qty === undefined || qty === null) return "0.00";
     const num = Number(qty);
     const sign = num >= 0 ? "+" : "";
     return `${sign}${num.toLocaleString("en-BD", {
@@ -179,16 +191,18 @@ export default function StockLedgerClient({
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by item name, code, or warehouse..."
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-10"
+            disabled={isPending}
           />
-          {search && (
+          {searchInput && (
             <Button
               variant="ghost"
               size="icon"
               className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-              onClick={() => handleSearch("")}
+              onClick={handleSearchClear}
+              disabled={isPending}
             >
               <FiX className="h-4 w-4" />
             </Button>
@@ -197,7 +211,37 @@ export default function StockLedgerClient({
 
         <Select value={itemFilter} onValueChange={(value) => {
           setItemFilter(value);
-          updateFilters();
+          // Update filters immediately for select changes
+          startTransition(() => {
+            const params = new URLSearchParams();
+            
+            if (searchInput.trim()) {
+              params.set("search", searchInput.trim());
+            }
+
+            if (value !== "all") {
+              params.set("itemId", value);
+            }
+
+            if (warehouseFilter !== "all") {
+              params.set("warehouseId", warehouseFilter);
+            }
+
+            if (transactionTypeFilter !== "all") {
+              params.set("transactionType", transactionTypeFilter);
+            }
+
+            if (dateFrom) {
+              params.set("dateFrom", dateFrom);
+            }
+
+            if (dateTo) {
+              params.set("dateTo", dateTo);
+            }
+
+            params.set("page", "1");
+            router.push(`/dashboard/inventory/stock/ledger?${params.toString()}`);
+          });
         }}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Filter by item" />
@@ -214,7 +258,37 @@ export default function StockLedgerClient({
 
         <Select value={warehouseFilter} onValueChange={(value) => {
           setWarehouseFilter(value);
-          updateFilters();
+          // Update filters immediately for select changes
+          startTransition(() => {
+            const params = new URLSearchParams();
+            
+            if (searchInput.trim()) {
+              params.set("search", searchInput.trim());
+            }
+
+            if (itemFilter !== "all") {
+              params.set("itemId", itemFilter);
+            }
+
+            if (value !== "all") {
+              params.set("warehouseId", value);
+            }
+
+            if (transactionTypeFilter !== "all") {
+              params.set("transactionType", transactionTypeFilter);
+            }
+
+            if (dateFrom) {
+              params.set("dateFrom", dateFrom);
+            }
+
+            if (dateTo) {
+              params.set("dateTo", dateTo);
+            }
+
+            params.set("page", "1");
+            router.push(`/dashboard/inventory/stock/ledger?${params.toString()}`);
+          });
         }}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Filter by warehouse" />
@@ -231,7 +305,37 @@ export default function StockLedgerClient({
 
         <Select value={transactionTypeFilter} onValueChange={(value) => {
           setTransactionTypeFilter(value as StockTransactionType | "all");
-          updateFilters();
+          // Update filters immediately for select changes
+          startTransition(() => {
+            const params = new URLSearchParams();
+            
+            if (searchInput.trim()) {
+              params.set("search", searchInput.trim());
+            }
+
+            if (itemFilter !== "all") {
+              params.set("itemId", itemFilter);
+            }
+
+            if (warehouseFilter !== "all") {
+              params.set("warehouseId", warehouseFilter);
+            }
+
+            if (value !== "all") {
+              params.set("transactionType", value);
+            }
+
+            if (dateFrom) {
+              params.set("dateFrom", dateFrom);
+            }
+
+            if (dateTo) {
+              params.set("dateTo", dateTo);
+            }
+
+            params.set("page", "1");
+            router.push(`/dashboard/inventory/stock/ledger?${params.toString()}`);
+          });
         }}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Transaction Type" />
@@ -251,7 +355,37 @@ export default function StockLedgerClient({
           value={dateFrom}
           onChange={(e) => {
             setDateFrom(e.target.value);
-            updateFilters();
+            // Update filters immediately for date changes
+            startTransition(() => {
+              const params = new URLSearchParams();
+              
+              if (searchInput.trim()) {
+                params.set("search", searchInput.trim());
+              }
+
+              if (itemFilter !== "all") {
+                params.set("itemId", itemFilter);
+              }
+
+              if (warehouseFilter !== "all") {
+                params.set("warehouseId", warehouseFilter);
+              }
+
+              if (transactionTypeFilter !== "all") {
+                params.set("transactionType", transactionTypeFilter);
+              }
+
+              if (e.target.value) {
+                params.set("dateFrom", e.target.value);
+              }
+
+              if (dateTo) {
+                params.set("dateTo", dateTo);
+              }
+
+              params.set("page", "1");
+              router.push(`/dashboard/inventory/stock/ledger?${params.toString()}`);
+            });
           }}
           className="w-[150px]"
         />
@@ -262,7 +396,37 @@ export default function StockLedgerClient({
           value={dateTo}
           onChange={(e) => {
             setDateTo(e.target.value);
-            updateFilters();
+            // Update filters immediately for date changes
+            startTransition(() => {
+              const params = new URLSearchParams();
+              
+              if (searchInput.trim()) {
+                params.set("search", searchInput.trim());
+              }
+
+              if (itemFilter !== "all") {
+                params.set("itemId", itemFilter);
+              }
+
+              if (warehouseFilter !== "all") {
+                params.set("warehouseId", warehouseFilter);
+              }
+
+              if (transactionTypeFilter !== "all") {
+                params.set("transactionType", transactionTypeFilter);
+              }
+
+              if (dateFrom) {
+                params.set("dateFrom", dateFrom);
+              }
+
+              if (e.target.value) {
+                params.set("dateTo", e.target.value);
+              }
+
+              params.set("page", "1");
+              router.push(`/dashboard/inventory/stock/ledger?${params.toString()}`);
+            });
           }}
           className="w-[150px]"
         />
