@@ -227,6 +227,14 @@ async function main() {
       isPostable: true,
     },
     {
+      code: "1650",
+      name: "Work In Progress (WIP)",
+      type: "ASSET" as AccountType,
+      parentCode: "1600",
+      description: "Value of items in production",
+      isPostable: true,
+    },
+    {
       code: "1700",
       name: "Fixed Assets",
       type: "ASSET" as AccountType,
@@ -404,6 +412,14 @@ async function main() {
       isPostable: true,
     },
     {
+      code: "4130",
+      name: "Inventory Adjustment Revenue",
+      type: "REVENUE" as AccountType,
+      parentCode: "4000",
+      description: "Gains from stock adjustments",
+      isPostable: true,
+    },
+    {
       code: "4190",
       name: "Other Income",
       type: "REVENUE" as AccountType,
@@ -511,6 +527,22 @@ async function main() {
       type: "EXPENSE" as AccountType,
       parentCode: "6000",
       description: "Other small expenses",
+      isPostable: true,
+    },
+    {
+      code: "6200",
+      name: "Inventory Adjustment Expense",
+      type: "EXPENSE" as AccountType,
+      parentCode: "6000",
+      description: "Losses/Shrinkage from stock adjustments",
+      isPostable: true,
+    },
+    {
+      code: "6300",
+      name: "Production Variance",
+      type: "EXPENSE" as AccountType,
+      parentCode: "6000",
+      description: "Difference between standard and actual production costs",
       isPostable: true,
     },
   ];

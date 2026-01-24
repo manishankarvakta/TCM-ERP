@@ -963,6 +963,51 @@ export async function startProductionOrder(id: string) {
       },
     });
 
+    // --- WIP ACCOUNTING INTEGRATION ---
+    // Calculate total raw material cost
+    const materialsResult = await calculateRawMaterialsNeeded(order.bomId, Number(order.quantity));
+    let totalRawMaterialCost = 0;
+    if (materialsResult.success) {
+      totalRawMaterialCost = materialsResult.materials.reduce((sum, m) => sum + (m.quantityNeeded * m.costPrice), 0);
+    }
+
+    if (totalRawMaterialCost > 0) {
+      const rawMaterialInventoryId = await findControlAccount("Raw Material Inventory");
+      const wipAccountId = await findControlAccount("Work In Progress (WIP)");
+
+      if (rawMaterialInventoryId && wipAccountId) {
+        const voucherLines = [
+          {
+            lineNumber: 1,
+            debitAmount: totalRawMaterialCost,
+            creditAmount: 0,
+            description: `Work In Progress - ${order.code}`,
+            chartOfAccountId: wipAccountId,
+          },
+          {
+            lineNumber: 2,
+            debitAmount: 0,
+            creditAmount: totalRawMaterialCost,
+            description: `Raw Material Issue - ${order.code}`,
+            chartOfAccountId: rawMaterialInventoryId,
+          },
+        ];
+
+        const voucherResult = await createVoucher({
+          date: new Date(),
+          type: VoucherType.JOURNAL,
+          reference: order.code,
+          description: `Production Start ${order.code} - Move raw material cost to WIP`,
+          lines: voucherLines,
+        });
+
+        if (voucherResult.success && voucherResult.voucher) {
+          await postVoucher(voucherResult.voucher.id);
+        }
+      }
+    }
+    // --- END WIP ACCOUNTING INTEGRATION ---
+
     // Log and notify
     await logItemUpdated(
       session.user.id,
@@ -1217,10 +1262,10 @@ export async function completeProductionOrder(id: string) {
 
     // Create accounting voucher if there's a cost to move
     if (totalRawMaterialCost > 0 && !order.voucherId) {
-      const rawMaterialInventoryId = await findControlAccount("Raw Material Inventory");
+      const wipAccountId = await findControlAccount("Work In Progress (WIP)");
       const finishedGoodsInventoryId = await findControlAccount("Finished Goods Inventory");
 
-      if (rawMaterialInventoryId && finishedGoodsInventoryId) {
+      if (wipAccountId && finishedGoodsInventoryId) {
         const voucherLines = [
           {
             lineNumber: 1,
@@ -1233,8 +1278,8 @@ export async function completeProductionOrder(id: string) {
             lineNumber: 2,
             debitAmount: 0,
             creditAmount: totalRawMaterialCost,
-            description: `Raw Material Inventory - ${order.code}`,
-            chartOfAccountId: rawMaterialInventoryId,
+            description: `WIP Completion - ${order.code}`,
+            chartOfAccountId: wipAccountId,
           },
         ];
 
@@ -1348,6 +1393,52 @@ export async function cancelProductionOrder(id: string) {
         status: ProductionOrderStatus.CANCELLED,
       },
     });
+
+    // --- WIP ACCOUNTING REVERSAL ---
+    if (order.status === ProductionOrderStatus.IN_PROGRESS) {
+      const materialsResult = await calculateRawMaterialsNeeded(order.bomId, Number(order.quantity));
+      let totalRawMaterialCost = 0;
+      if (materialsResult.success) {
+        totalRawMaterialCost = materialsResult.materials.reduce((sum, m) => sum + (m.quantityNeeded * m.costPrice), 0);
+      }
+
+      if (totalRawMaterialCost > 0) {
+        const rawMaterialInventoryId = await findControlAccount("Raw Material Inventory");
+        const wipAccountId = await findControlAccount("Work In Progress (WIP)");
+
+        if (rawMaterialInventoryId && wipAccountId) {
+          const voucherLines = [
+            {
+              lineNumber: 1,
+              debitAmount: 0,
+              creditAmount: totalRawMaterialCost,
+              description: `WIP Reversal (Cancelled) - ${order.code}`,
+              chartOfAccountId: wipAccountId,
+            },
+            {
+              lineNumber: 2,
+              debitAmount: totalRawMaterialCost,
+              creditAmount: 0,
+              description: `Raw Material Return (Cancelled) - ${order.code}`,
+              chartOfAccountId: rawMaterialInventoryId,
+            },
+          ];
+
+          const voucherResult = await createVoucher({
+            date: new Date(),
+            type: VoucherType.JOURNAL,
+            reference: order.code,
+            description: `Production Cancelled ${order.code} - Reverse WIP to RM`,
+            lines: voucherLines,
+          });
+
+          if (voucherResult.success && voucherResult.voucher) {
+            await postVoucher(voucherResult.voucher.id);
+          }
+        }
+      }
+    }
+    // --- END WIP ACCOUNTING REVERSAL ---
 
     // Log and notify
     await logItemDeleted(

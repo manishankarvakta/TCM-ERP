@@ -6,7 +6,9 @@ import { hasPermission } from "@/lib/permissions";
 import { logItemCreated, logItemUpdated } from "@/lib/user-log";
 import { notifyItemCreated, notifyItemUpdated } from "@/lib/notification";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
-import { type Prisma, StockTransactionType, Prisma as PrismaClient } from "@prisma/client";
+import { type Prisma, StockTransactionType, Prisma as PrismaClient, VoucherType } from "@prisma/client";
+import { createVoucher, postVoucher } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
+import { findControlAccount } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/accounting-helpers";
 
 /**
  * Update stock when Purchase is received
@@ -302,7 +304,7 @@ export async function adjustStock(input: {
     // Validate item exists and tracks inventory
     const item = await prisma.item.findUnique({
       where: { id: input.itemId },
-      select: { trackInventory: true, name: true },
+      select: { trackInventory: true, name: true, itemType: true, costPrice: true },
     });
 
     if (!item) {
@@ -425,6 +427,59 @@ export async function adjustStock(input: {
 
       return stock;
     });
+
+    // --- ACCOUNTING INTEGRATION ---
+    const adjustmentValue = Math.abs(input.quantity) * Number(item.costPrice || 0);
+    
+    if (adjustmentValue > 0) {
+      try {
+        // Determine Inventory account based on item type
+        let inventoryAccountName = "Raw Material Inventory";
+        if (item.itemType === "FINISHED_GOOD") inventoryAccountName = "Finished Goods Inventory";
+        if (item.itemType === "RETAIL") inventoryAccountName = "Retail Inventory";
+
+        const inventoryAccountId = await findControlAccount(inventoryAccountName);
+        const adjustmentRevenueId = await findControlAccount("Inventory Adjustment Revenue");
+        const adjustmentExpenseId = await findControlAccount("Inventory Adjustment Expense");
+
+        if (inventoryAccountId && (input.quantity > 0 ? adjustmentRevenueId : adjustmentExpenseId)) {
+          const isPositive = input.quantity > 0;
+          
+          const voucherLines = [
+            {
+              lineNumber: 1,
+              debitAmount: isPositive ? adjustmentValue : 0,
+              creditAmount: isPositive ? 0 : adjustmentValue,
+              description: `Stock Adjustment - ${item.name} (${input.quantity > 0 ? '+' : ''}${input.quantity})`,
+              chartOfAccountId: inventoryAccountId,
+            },
+            {
+              lineNumber: 2,
+              debitAmount: isPositive ? 0 : adjustmentValue,
+              creditAmount: isPositive ? adjustmentValue : 0,
+              description: `Inventory ${isPositive ? 'Gain' : 'Shrinkage'} - ${item.name}`,
+              chartOfAccountId: isPositive ? adjustmentRevenueId! : adjustmentExpenseId!,
+            },
+          ];
+
+          const voucherResult = await createVoucher({
+            date: new Date(),
+            type: VoucherType.JOURNAL,
+            reference: `ADJ-${result.id.slice(-8)}`,
+            description: `Automatic voucher for manual stock adjustment: ${item.name}`,
+            lines: voucherLines,
+          });
+
+          if (voucherResult.success && voucherResult.voucher) {
+            await postVoucher(voucherResult.voucher.id);
+          }
+        }
+      } catch (accError) {
+        console.error("Accounting adjustment error:", accError);
+        // We don't fail the whole operation if accounting fails, but we log it
+      }
+    }
+    // --- END ACCOUNTING INTEGRATION ---
 
     // Log activity
     await logItemUpdated(

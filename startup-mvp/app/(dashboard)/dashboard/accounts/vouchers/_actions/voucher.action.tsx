@@ -6,6 +6,7 @@ import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { Prisma } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
 import { createUserLog, LogAction } from "@/lib/user-log";
+import { isControlAccount } from "./accounting-helpers";
 
 /**
  * Generate unique voucher number
@@ -630,6 +631,19 @@ export async function createVoucher(input: {
         error: "One or more chart of accounts are invalid or inactive",
         voucher: null,
       };
+    }
+
+    // Manual JOURNAL restriction for control accounts
+    if (input.type === "JOURNAL") {
+      for (const line of input.lines) {
+        if (await isControlAccount(line.chartOfAccountId)) {
+          return {
+            success: false,
+            error: "Manual journal entries to control accounts (AR, AP, Inventory) are prohibited. Please use the appropriate module (Sales, Purchases, etc.)",
+            voucher: null,
+          };
+        }
+      }
     }
 
     // Generate voucher number

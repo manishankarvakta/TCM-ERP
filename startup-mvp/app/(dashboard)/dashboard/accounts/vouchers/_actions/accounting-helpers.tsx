@@ -27,3 +27,49 @@ export async function findControlAccount(accountName: string): Promise<string | 
     return null;
   }
 }
+
+/**
+ * Check if an account is a restricted control account
+ * Restricted accounts: Accounts Receivable, Accounts Payable, and Inventory accounts
+ */
+export async function isControlAccount(accountId: string): Promise<boolean> {
+  try {
+    const account = await prisma.chartOfAccount.findUnique({
+      where: { id: accountId },
+      include: {
+        ChartOfAccount: { // Parent account
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!account) return false;
+
+    const restrictedNames = [
+      "Accounts Receivable",
+      "Accounts Payable",
+      "Raw Material Inventory",
+      "Finished Goods Inventory",
+      "Retail Inventory",
+      "Inventory Stock",
+      "Work In Progress (WIP)",
+    ];
+
+    // Check if account name is restricted
+    if (restrictedNames.some(name => account.name.includes(name))) {
+      return true;
+    }
+
+    // Check if parent account name is restricted (e.g., individual customer/supplier accounts)
+    if (account.ChartOfAccount && restrictedNames.some(name => account.ChartOfAccount!.name.includes(name))) {
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error("isControlAccount error:", error);
+    return false;
+  }
+}
