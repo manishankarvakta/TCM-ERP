@@ -283,12 +283,21 @@ export async function adjustStock(input: {
   itemId: string;
   warehouseId: string;
   quantity: number; // Can be positive (increase) or negative (decrease)
-  notes?: string;
+  notes: string; // Mandatory reason for adjustment
 }) {
   try {
     const session = await auth();
     if (!session?.user) {
       return { success: false, error: "Unauthorized", stock: null };
+    }
+
+    // Mandatory reason validation
+    if (!input.notes || input.notes.trim().length < 5) {
+      return {
+        success: false,
+        error: "A valid reason (minimum 5 characters) is mandatory for stock adjustments.",
+        stock: null,
+      };
     }
 
     // Permission check
@@ -328,7 +337,75 @@ export async function adjustStock(input: {
       return { success: false, error: "Warehouse not found", stock: null };
     }
 
-    // Transaction-safe stock update
+    // --- RISK THRESHOLD CHECK ---
+    const adjustmentValue = Math.abs(input.quantity) * Number(item.costPrice || 0);
+    const RISK_THRESHOLD = 10000;
+    const isHighRisk = adjustmentValue > RISK_THRESHOLD;
+
+    if (isHighRisk) {
+      // For high risk, we create a DRAFT voucher and do NOT update stock yet
+      try {
+        let inventoryAccountName = "Raw Material Inventory";
+        if (item.itemType === "FINISHED_GOOD") inventoryAccountName = "Finished Goods Inventory";
+        if (item.itemType === "RETAIL") inventoryAccountName = "Retail Inventory";
+
+        const inventoryAccountId = await findControlAccount(inventoryAccountName);
+        const adjustmentRevenueId = await findControlAccount("Inventory Adjustment Revenue");
+        const adjustmentExpenseId = await findControlAccount("Inventory Adjustment Expense");
+
+        if (inventoryAccountId && (input.quantity > 0 ? adjustmentRevenueId : adjustmentExpenseId)) {
+          const isPositive = input.quantity > 0;
+          
+          const voucherLines = [
+            {
+              lineNumber: 1,
+              debitAmount: isPositive ? adjustmentValue : 0,
+              creditAmount: isPositive ? 0 : adjustmentValue,
+              description: `High-Risk Stock Adjustment - ${item.name} (${input.quantity > 0 ? '+' : ''}${input.quantity})`,
+              chartOfAccountId: inventoryAccountId,
+            },
+            {
+              lineNumber: 2,
+              debitAmount: isPositive ? 0 : adjustmentValue,
+              creditAmount: isPositive ? adjustmentValue : 0,
+              description: `Inventory ${isPositive ? 'Gain' : 'Shrinkage'} (Pending Approval) - ${item.name}`,
+              chartOfAccountId: isPositive ? adjustmentRevenueId! : adjustmentExpenseId!,
+            },
+          ];
+
+          const voucherResult = await createVoucher({
+            date: new Date(),
+            type: VoucherType.JOURNAL,
+            reference: `PENDING-ADJ`,
+            description: `PENDING APPROVAL: Stock adjustment for ${item.name}. Reason: ${input.notes}`,
+            lines: voucherLines,
+          });
+
+          if (voucherResult.success && voucherResult.voucher) {
+            // Log activity for pending adjustment
+            await logItemUpdated(
+              session.user.id,
+              "Stock",
+              "PENDING",
+              [`High-risk adjustment pending approval: ${input.quantity > 0 ? "+" : ""}${input.quantity}`],
+              `${item.name} - ${warehouse.name}`
+            );
+
+            return {
+              success: true,
+              message: `High-value adjustment (৳${adjustmentValue.toLocaleString()}) requires approval. A draft voucher ${voucherResult.voucher.voucherNumber} has been created for manager review. Stock will be updated upon posting.`,
+              stock: null,
+            };
+          }
+        }
+      } catch (accError) {
+        console.error("High-risk adjustment error:", accError);
+        return { success: false, error: "Failed to create approval request for high-value adjustment.", stock: null };
+      }
+    }
+    // --- END RISK THRESHOLD CHECK ---
+
+    // Transaction-safe stock update (Only for non-high-risk or if approved)
     const result = await prisma.$transaction(async (tx) => {
       // Get or create Stock record
       let stock = await tx.stock.findUnique({
