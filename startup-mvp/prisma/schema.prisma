@@ -848,6 +848,7 @@ model Voucher {
   purchases                     Purchase[]
   sales                         Sale[]
   productionOrders              ProductionOrder[]
+  isLocked                      Boolean           @default(false)
 
   @@index([clientId])
   @@index([createdBy])
@@ -897,4 +898,19 @@ enum NotificationType {
   WARNING
   ERROR
   SUCCESS
+}
+
+model AccountingPeriod {
+  id        String    @id @default(cuid())
+  name      String    @unique // e.g., "Jan 2026"
+  startDate DateTime
+  endDate   DateTime
+  isLocked  Boolean   @default(false)
+  lockedAt  DateTime?
+  lockedBy  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([startDate, endDate])
+  @@index([isLocked])
 }

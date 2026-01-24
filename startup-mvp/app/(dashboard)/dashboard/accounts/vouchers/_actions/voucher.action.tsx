@@ -7,6 +7,7 @@ import { Prisma } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
 import { createUserLog, LogAction } from "@/lib/user-log";
 import { isControlAccount } from "./accounting-helpers";
+import { isPeriodLocked } from "../../periods/_actions/period.action";
 
 /**
  * Generate unique voucher number
@@ -605,6 +606,15 @@ export async function createVoucher(input: {
       };
     }
 
+    // Accounting Period Lock Check
+    if (await isPeriodLocked(input.date || new Date())) {
+      return {
+        success: false,
+        error: "Cannot create voucher in a locked accounting period.",
+        voucher: null,
+      };
+    }
+
     // Validate voucher lines
     const validation = validateVoucherLines(input.lines);
     if (!validation.valid) {
@@ -819,7 +829,14 @@ export async function createVoucher(input: {
     await createUserLog({
       userId: session.user.id,
       action: LogAction.ITEM_CREATED,
-      details: `Created voucher: ${voucherNumber}`,
+      details: `Created voucher: ${voucherNumber} (${input.type})`,
+      metadata: { 
+        voucherId: voucher.id, 
+        voucherNumber, 
+        type: input.type,
+        linesCount: input.lines.length,
+        grandTotal: input.lines.reduce((sum, line) => sum + (line.debitAmount || 0), 0)
+      },
     });
 
     // Revalidate paths
@@ -912,6 +929,16 @@ export async function postVoucher(voucherId: string) {
       return {
         success: false,
         error: `Cannot post voucher with status "${voucher.status}". Only draft vouchers can be posted.`,
+        voucher: null,
+        journalEntry: null,
+      };
+    }
+
+    // Accounting Period Lock Check
+    if (await isPeriodLocked(voucher.date)) {
+      return {
+        success: false,
+        error: "Cannot post voucher in a locked accounting period.",
         voucher: null,
         journalEntry: null,
       };
@@ -1060,6 +1087,12 @@ export async function postVoucher(voucherId: string) {
       userId: session.user.id,
       action: LogAction.ITEM_UPDATED,
       details: `Posted voucher: ${voucher.voucherNumber} (Journal Entry: ${entryNumber})`,
+      metadata: { 
+        voucherId: voucher.id, 
+        entryNumber, 
+        postedAt: new Date(),
+        totalAmount: ((voucher as any).VoucherLine || []).reduce((sum: number, line: any) => sum + Number(line.debitAmount), 0)
+      },
     });
 
     // Revalidate paths
@@ -1390,6 +1423,136 @@ export async function getEmployeesForVoucher() {
       error: error instanceof Error ? error.message : "Failed to fetch employees",
       employees: [],
     };
+  }
+}
+
+/**
+ * Update a draft voucher
+ */
+export async function updateVoucher(
+  voucherId: string,
+  input: {
+    date?: Date | string;
+    reference?: string;
+    description?: string;
+    lines: Array<{
+      lineNumber: number;
+      debitAmount: number;
+      creditAmount: number;
+      description?: string;
+      chartOfAccountId: string;
+    }>;
+  }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const canEdit = await hasPermission(session.user.id, "accounts.vouchers", "edit");
+    if (!canEdit) return { success: false, error: "Unauthorized" };
+
+    const voucher = await prisma.voucher.findUnique({
+      where: { id: voucherId },
+      include: { VoucherLine: true },
+    });
+
+    if (!voucher) return { success: false, error: "Voucher not found" };
+    if (voucher.status === "posted") {
+      return { success: false, error: "Cannot edit a posted voucher. Reverse it instead." };
+    }
+
+    // Accounting Period Lock Check
+    if (await isPeriodLocked(input.date || voucher.date)) {
+      return { success: false, error: "Cannot update voucher in a locked accounting period." };
+    }
+
+    // Validate lines
+    const validation = validateVoucherLines(input.lines);
+    if (!validation.valid) return { success: false, error: validation.error };
+
+    const updatedVoucher = await prisma.$transaction(async (tx) => {
+      // Delete old lines
+      await tx.voucherLine.deleteMany({ where: { voucherId } });
+
+      // Update voucher and create new lines
+      return tx.voucher.update({
+        where: { id: voucherId },
+        data: {
+          date: input.date ? new Date(input.date) : voucher.date,
+          reference: input.reference ?? voucher.reference,
+          description: input.description ?? voucher.description,
+          voucherLines: {
+            create: input.lines.map((line) => ({
+              lineNumber: line.lineNumber,
+              debitAmount: new Prisma.Decimal(line.debitAmount),
+              creditAmount: new Prisma.Decimal(line.creditAmount),
+              description: line.description,
+              chartOfAccountId: line.chartOfAccountId,
+            })),
+          },
+        },
+      });
+    });
+
+    await createUserLog({
+      userId: session.user.id,
+      action: LogAction.ITEM_UPDATED,
+      details: `Updated voucher: ${voucher.voucherNumber}`,
+      metadata: { 
+        voucherId, 
+        oldStatus: voucher.status,
+        oldLinesCount: voucher.VoucherLine.length,
+        newLinesCount: input.lines.length 
+      },
+    });
+
+    revalidateBothPaths("accounts/vouchers");
+    return { success: true, voucher: updatedVoucher };
+  } catch (error) {
+    console.error("updateVoucher error:", error);
+    return { success: false, error: "Failed to update voucher" };
+  }
+}
+
+/**
+ * Delete a draft voucher
+ */
+export async function deleteVoucher(voucherId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const canDelete = await hasPermission(session.user.id, "accounts.vouchers", "delete");
+    if (!canDelete) return { success: false, error: "Unauthorized" };
+
+    const voucher = await prisma.voucher.findUnique({
+      where: { id: voucherId },
+    });
+
+    if (!voucher) return { success: false, error: "Voucher not found" };
+    if (voucher.status === "posted") {
+      return { success: false, error: "Cannot delete a posted voucher. Cancel/Reverse it instead." };
+    }
+
+    // Accounting Period Lock Check
+    if (await isPeriodLocked(voucher.date)) {
+      return { success: false, error: "Cannot delete voucher in a locked accounting period." };
+    }
+
+    await prisma.voucher.delete({ where: { id: voucherId } });
+
+    await createUserLog({
+      userId: session.user.id,
+      action: LogAction.ITEM_DELETED,
+      details: `Deleted voucher: ${voucher.voucherNumber}`,
+      metadata: { voucherId, voucherNumber: voucher.voucherNumber },
+    });
+
+    revalidateBothPaths("accounts/vouchers");
+    return { success: true };
+  } catch (error) {
+    console.error("deleteVoucher error:", error);
+    return { success: false, error: "Failed to delete voucher" };
   }
 }
 

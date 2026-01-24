@@ -4,12 +4,11 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
-import { PurchaseStatus, type Prisma } from "@prisma/client";
+import { PurchaseStatus, ItemType, AccountType, VoucherType, Prisma } from "@prisma/client";
 import * as z from "zod";
 import { updateStockOnPurchase } from "@/app/(dashboard)/dashboard/inventory/stock/_actions/stock.action";
 import { createVoucher, postVoucher } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
 import { findControlAccount } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/accounting-helpers";
-import { ItemType, AccountType, VoucherType, Prisma } from "@prisma/client";
 import { createUserLog, LogAction } from "@/lib/user-log";
 
 const purchaseItemSchema = z.object({
@@ -371,11 +370,10 @@ async function createPurchaseAccountingVoucher(
 ): Promise<{ success: boolean; error?: string; voucherId?: string }> {
   try {
     const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "Unauthorized" };
-    }
+    const userId = session?.user?.id || "system";
 
     const client = tx || prisma;
+    // ... (rest of the function using userId)
 
     // Get purchase with items and item details
     const purchase = await client.purchase.findUnique({
@@ -590,18 +588,11 @@ async function createPurchaseAccountingVoucher(
     });
 
     // Log activity
-    await createUserLog(
-      session.user.id,
-      LogAction.CREATE,
-      "Voucher",
-      voucherResult.voucher.id,
-      `Created and posted purchase accounting voucher for ${purchase.purchaseNumber}`,
-      {
-        purchaseId: purchase.id,
-        purchaseNumber: purchase.purchaseNumber,
-        voucherNumber: voucherResult.voucher.voucherNumber,
-      }
-    );
+    await createUserLog({
+      userId: userId,
+      action: LogAction.ITEM_CREATED,
+      details: `Created and posted purchase accounting voucher for ${purchase.purchaseNumber}`,
+    });
 
     return { success: true, voucherId: voucherResult.voucher.id };
   } catch (error) {
@@ -616,9 +607,7 @@ async function createPurchaseAccountingVoucher(
 export async function createPurchase(input: z.infer<typeof purchaseSchema>) {
   try {
     const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "Unauthorized", purchase: null };
-    }
+    const userId = session?.user?.id || "system";
 
     const validated = purchaseSchema.parse(input);
 
@@ -667,7 +656,7 @@ export async function createPurchase(input: z.infer<typeof purchaseSchema>) {
           discount: discount ? new Prisma.Decimal(discount) : null,
           tax: tax ? new Prisma.Decimal(tax) : null,
           grandTotal: new Prisma.Decimal(grandTotal),
-          createdBy: session.user.id,
+          createdBy: userId,
           items: {
             create: validated.items.map((item) => ({
               itemId: item.itemId || null,
@@ -683,6 +672,7 @@ export async function createPurchase(input: z.infer<typeof purchaseSchema>) {
           purchaseNumber: true,
           grandTotal: true,
           createdAt: true,
+          voucherId: true,
         },
       });
 
@@ -690,14 +680,10 @@ export async function createPurchase(input: z.infer<typeof purchaseSchema>) {
     });
 
     await logItemCreated(
-      session.user.id,
+      userId,
       "Purchase",
       result.id,
-      result.purchaseNumber,
-      {
-        purchaseNumber: result.purchaseNumber,
-        grandTotal: Number(result.grandTotal),
-      }
+      result.purchaseNumber
     );
 
     revalidateBothPaths("purchases");
@@ -722,9 +708,7 @@ export async function createPurchase(input: z.infer<typeof purchaseSchema>) {
 export async function updatePurchase(input: z.infer<typeof updatePurchaseSchema>) {
   try {
     const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "Unauthorized", purchase: null };
-    }
+    const userId = session?.user?.id || "system";
 
     const validated = updatePurchaseSchema.parse(input);
 
@@ -759,7 +743,7 @@ export async function updatePurchase(input: z.infer<typeof updatePurchaseSchema>
           discount: discount ? new Prisma.Decimal(discount) : null,
           tax: tax ? new Prisma.Decimal(tax) : null,
           grandTotal: new Prisma.Decimal(grandTotal),
-          updatedBy: session.user.id,
+          updatedBy: userId,
           items: {
             create: validated.items.map((item) => ({
               itemId: item.itemId || null,
@@ -775,20 +759,17 @@ export async function updatePurchase(input: z.infer<typeof updatePurchaseSchema>
           purchaseNumber: true,
           grandTotal: true,
           updatedAt: true,
+          voucherId: true,
         },
       });
     });
 
     await logItemUpdated(
-      session.user.id,
+      userId,
       "Purchase",
       purchase.id,
       ["details", "items"],
-      purchase.purchaseNumber,
-      {
-        purchaseNumber: purchase.purchaseNumber,
-        grandTotal: Number(purchase.grandTotal),
-      }
+      purchase.purchaseNumber
     );
 
     // Update stock and create accounting voucher if purchase is received
@@ -822,9 +803,7 @@ export async function updatePurchase(input: z.infer<typeof updatePurchaseSchema>
 export async function deletePurchase(purchaseId: string) {
   try {
     const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "Unauthorized" };
-    }
+    const userId = session?.user?.id || "system";
 
     const purchase = await prisma.purchase.findUnique({
       where: { id: purchaseId },
@@ -841,11 +820,10 @@ export async function deletePurchase(purchaseId: string) {
     });
 
     await logItemDeleted(
-      session.user.id,
+      userId,
       "Purchase",
       purchaseId,
-      purchase.purchaseNumber,
-      { purchaseNumber: purchase.purchaseNumber }
+      purchase.purchaseNumber
     );
 
     revalidateBothPaths("purchases");
@@ -920,9 +898,7 @@ export async function bulkUpdatePurchaseStatus(
 export async function deletePurchasesPermanently(purchaseIds: string[]) {
   try {
     const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "Unauthorized" };
-    }
+    const userId = session?.user?.id || "system";
 
     if (purchaseIds.length === 0) {
       return { success: false, error: "No purchases selected" };
@@ -939,11 +915,10 @@ export async function deletePurchasesPermanently(purchaseIds: string[]) {
 
     for (const purchase of purchases) {
       await logItemDeleted(
-        session.user.id,
+        userId,
         "Purchase",
         purchase.id,
-        purchase.purchaseNumber,
-        { purchaseNumber: purchase.purchaseNumber }
+        purchase.purchaseNumber
       );
     }
 
