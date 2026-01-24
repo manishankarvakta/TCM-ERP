@@ -17,10 +17,9 @@ export function calculateGrandTotal(items: QuotationItem[]): number {
 }
 
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
+  return `৳ ${new Intl.NumberFormat('en-BD', {
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(amount);
+  }).format(amount)}`;
 }
 

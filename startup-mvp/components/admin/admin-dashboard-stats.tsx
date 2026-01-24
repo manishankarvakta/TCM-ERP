@@ -1,24 +1,10 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowUpRight, ArrowDownRight } from "lucide-react";
-import { FiDollarSign, FiUsers, FiTrendingUp, FiActivity, FiFileText, FiPackage } from "react-icons/fi";
+import { FiUsers, FiPackage, FiShoppingBag, FiTruck, FiLayers, FiFileText } from "react-icons/fi";
 
 interface DashboardStats {
-  quotations: {
-    total: number;
-    byStatus: Record<string, number>;
-    recent: number;
-  };
-  revenue: {
-    total: number;
-    formatted: string;
-  };
   clients: {
-    total: number;
-    recent: number;
-  };
-  items: {
     total: number;
     recent: number;
   };
@@ -28,9 +14,6 @@ interface DashboardStats {
     regular: number;
   };
   categories: {
-    total: number;
-  };
-  moduleGroups: {
     total: number;
   };
   suppliers: {
@@ -65,83 +48,61 @@ export default function AdminDashboardStats({ stats }: AdminDashboardStatsProps)
     );
   }
 
-  const statsData = []
-  // [
-  //   {
-  //     title: "Total Quotations",
-  //     value: 0,
-  //     change: 0,
-  //     trend: 0,
-  //     description: "No new quotations",
-  //     icon: FiFileText,
-  //   },
-  //   {
-  //     title: "Total Revenue",
-  //     value: stats.revenue.formatted,
-  //     change: "",
-  //     trend: "neutral" as const,
-  //     description: "From accepted quotations",
-  //     icon: FiDollarSign,
-  //   },
-  //   {
-  //     title: "Active Clients",
-  //     value: stats.clients.total.toLocaleString(),
-  //     change: stats.clients.recent > 0 ? `+${stats.clients.recent}` : "0",
-  //     trend: stats.clients.recent > 0 ? "up" : "neutral",
-  //     description: stats.clients.recent > 0 
-  //       ? `${stats.clients.recent} new this week` 
-  //       : "No new clients",
-  //     icon: FiUsers,
-  //   },
-  //   {
-  //     title: "Total Items",
-  //     value: stats.items.total.toLocaleString(),
-  //     change: stats.items.recent > 0 ? `+${stats.items.recent}` : "0",
-  //     trend: stats.items.recent > 0 ? "up" : "neutral",
-  //     description: stats.items.recent > 0 
-  //       ? `${stats.items.recent} new today` 
-  //       : "No new items",
-  //     icon: FiPackage,
-  //   },
-  // ];
+  const statsData = [
+    {
+      title: "Total Clients",
+      value: stats.clients.total.toLocaleString(),
+      description: `${stats.clients.recent} new this week`,
+      icon: FiUsers,
+      color: "text-blue-600",
+      bgColor: "bg-blue-100 dark:bg-blue-900/20"
+    },
+    {
+      title: "Active Suppliers",
+      value: stats.suppliers.total.toLocaleString(),
+      description: "Vendors & Partners",
+      icon: FiTruck,
+      color: "text-orange-600",
+      bgColor: "bg-orange-100 dark:bg-orange-900/20"
+    },
+    {
+      title: "Total Users",
+      value: stats.users.total.toLocaleString(),
+      description: `${stats.users.admin} Admins, ${stats.users.regular} Staff`,
+      icon: FiUsers,
+      color: "text-emerald-600",
+      bgColor: "bg-emerald-100 dark:bg-emerald-900/20"
+    },
+    {
+      title: "Item Categories",
+      value: stats.categories.total.toLocaleString(),
+      description: "Menu & Inventory Groups",
+      icon: FiLayers,
+      color: "text-purple-600",
+      bgColor: "bg-purple-100 dark:bg-purple-900/20"
+    },
+  ];
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {statsData.map((stat) => {
         const Icon = stat.icon;
-        const TrendIcon = stat.trend === "up" ? ArrowUpRight : ArrowDownRight;
-        const showTrend = stat.trend !== "neutral" && stat.change;
         
         return (
           <Card key={stat.title}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 {stat.title}
               </CardTitle>
-              <Icon className="h-4 w-4 text-muted-foreground" />
+              <div className={`p-1.5 rounded-md ${stat.bgColor}`}>
+                <Icon className={`h-4 w-4 ${stat.color}`} />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              {showTrend && (
-                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
-                  <span
-                    className={`flex items-center gap-0.5 font-medium ${
-                      stat.trend === "up"
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-red-600 dark:text-red-400"
-                    }`}
-                  >
-                    <TrendIcon className="h-3 w-3" />
-                    {stat.change}
-                  </span>
-                  <span className="text-muted-foreground">{stat.description}</span>
-                </p>
-              )}
-              {!showTrend && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  {stat.description}
-                </p>
-              )}
+              <div className="text-2xl font-black">{stat.value}</div>
+              <p className="text-xs text-muted-foreground mt-1 font-medium">
+                {stat.description}
+              </p>
             </CardContent>
           </Card>
         );
@@ -149,4 +110,3 @@ export default function AdminDashboardStats({ stats }: AdminDashboardStatsProps)
     </div>
   );
 }
-

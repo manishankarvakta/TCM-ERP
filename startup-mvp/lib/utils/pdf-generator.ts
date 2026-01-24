@@ -9,13 +9,13 @@ const getUnitDescription = (item: any): string => {
   return item.unit || 'PC';
 };
 
-// Helper function to format currency with BDT on the right
+// Helper function to format currency with TAKA symbol on the left
 const formatCurrencyRight = (amount: number): string => {
   const formatted = new Intl.NumberFormat('en-BD', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
-  return `${formatted} BDT`;
+  return `৳ ${formatted}`;
 };
 
 // Helper function to combine all items from a section (groups + category groups + direct items)

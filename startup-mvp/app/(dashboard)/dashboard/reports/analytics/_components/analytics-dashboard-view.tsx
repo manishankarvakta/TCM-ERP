@@ -95,10 +95,10 @@ export default function AnalyticsDashboardView({
               value: item.value,
             }))}
             valueFormatter={(value) =>
-              new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: "USD",
-              }).format(value)
+              `৳ ${new Intl.NumberFormat("en-BD", {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+              }).format(value)}`
             }
           />
           <BarChart
@@ -108,10 +108,10 @@ export default function AnalyticsDashboardView({
               value: item.value,
             }))}
             valueFormatter={(value) =>
-              new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: "USD",
-              }).format(value)
+              `৳ ${new Intl.NumberFormat("en-BD", {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+              }).format(value)}`
             }
           />
         </div>
@@ -172,10 +172,10 @@ export default function AnalyticsDashboardView({
             title="Revenue Trend (Last 12 Months)"
             data={data.sales.revenueTrend}
             valueFormatter={(value) =>
-              new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: "USD",
-              }).format(value)
+              `৳ ${new Intl.NumberFormat("en-BD", {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+              }).format(value)}`
             }
           />
           <PieChart
@@ -185,10 +185,10 @@ export default function AnalyticsDashboardView({
               value: item.revenue,
             }))}
             valueFormatter={(value) =>
-              new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: "USD",
-              }).format(value)
+              `৳ ${new Intl.NumberFormat("en-BD", {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+              }).format(value)}`
             }
           />
         </div>
@@ -200,10 +200,10 @@ export default function AnalyticsDashboardView({
               value: item.revenue,
             }))}
             valueFormatter={(value) =>
-              new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: "USD",
-              }).format(value)
+              `৳ ${new Intl.NumberFormat("en-BD", {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+              }).format(value)}`
             }
           />
           <BarChart
@@ -213,10 +213,10 @@ export default function AnalyticsDashboardView({
               value: item.revenue,
             }))}
             valueFormatter={(value) =>
-              new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: "USD",
-              }).format(value)
+              `৳ ${new Intl.NumberFormat("en-BD", {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+              }).format(value)}`
             }
           />
         </div>
@@ -249,10 +249,10 @@ export default function AnalyticsDashboardView({
               value: item.averageCost,
             }))}
             valueFormatter={(value) =>
-              new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: "USD",
-              }).format(value)
+              `৳ ${new Intl.NumberFormat("en-BD", {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+              }).format(value)}`
             }
           />
           <BarChart

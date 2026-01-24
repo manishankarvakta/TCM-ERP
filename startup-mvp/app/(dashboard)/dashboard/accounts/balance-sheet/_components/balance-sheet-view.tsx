@@ -78,11 +78,10 @@ export default function BalanceSheetView({
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
+    return `৳ ${new Intl.NumberFormat("en-BD", {
       minimumFractionDigits: 2,
-    }).format(amount);
+      maximumFractionDigits: 2,
+    }).format(amount)}`;
   };
 
   const handleExportCSV = () => {

@@ -66,10 +66,10 @@ export default function RecentQuotationsTable({ quotations }: RecentQuotationsTa
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
+    return `৳ ${new Intl.NumberFormat('en-BD', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount)}`;
   };
 
   return (

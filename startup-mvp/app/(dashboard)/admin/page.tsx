@@ -5,12 +5,14 @@ import {
   getDashboardStats,
   getSystemActivity,
 } from "@/app/actions/dashboard.action";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import Link from "next/link";
-import { FiPackage, FiUsers, FiShoppingCart } from "react-icons/fi";
 import AdminDashboardStats from "@/components/admin/admin-dashboard-stats";
 import RecentActivity from "@/components/admin/recent-activity";
+import ProductionWidget from "@/components/dashboard/widgets/ProductionWidget";
+import InventoryWidget from "@/components/dashboard/widgets/InventoryWidget";
+import SalesWidget from "@/components/dashboard/widgets/SalesWidget";
+import AccountsWidget from "@/components/dashboard/widgets/AccountsWidget";
+import QuickActionsWidget from "@/components/dashboard/widgets/QuickActionsWidget";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function AdminDashboardPage() {
   const session = await auth();
@@ -26,98 +28,60 @@ export default async function AdminDashboardPage() {
     redirect("/dashboard");
   }
 
-  // Fetch all dashboard data in parallel
+  const userId = session.user.id;
+
+  // Fetch admin-specific dashboard data
   const [
     statsResult,
     activityResult,
+    canViewProduction,
+    canViewInventory,
+    canViewSales,
+    canViewAccounts,
   ] = await Promise.all([
     getDashboardStats(),
     getSystemActivity(10),
+    hasPermission(userId, "production.orders", "view"),
+    hasPermission(userId, "inventory.stock", "view"),
+    hasPermission(userId, "sales.sales", "view"),
+    hasPermission(userId, "accounts.vouchers", "view"),
   ]);
 
   return (
-    <div className="flex-1 space-y-6">
+    <div className="flex-1 space-y-6 p-1 md:p-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Admin Dashboard</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Overview of your system data and statistics
+          <h2 className="text-3xl font-black tracking-tight text-primary">System Administration</h2>
+          <p className="text-sm text-muted-foreground mt-1 font-medium">
+            Global overview of Bhagyakul Biryani House operations
           </p>
-        </div>
-        <div className="flex items-center gap-2">
         </div>
       </div>
 
-      {/* Statistics Cards */}
+      {/* Admin Statistics Cards */}
       <AdminDashboardStats stats={statsResult.success ? statsResult.stats : null} />
 
-      {/* Recent Activity */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-7">
+      {/* Quick Actions */}
+      <QuickActionsWidget userId={userId} />
+
+      {/* Operational Widgets Grid */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {canViewSales && <SalesWidget />}
+        {canViewInventory && <InventoryWidget />}
+        {canViewProduction && <ProductionWidget />}
+        {canViewAccounts && <AccountsWidget />}
+
+        {/* System Activity */}
+        <div className="col-span-full">
           {activityResult.success ? (
             <RecentActivity activities={activityResult.activities} />
           ) : (
-            <>
-              <CardHeader>
-                <CardTitle className="text-base font-semibold">Recent Activity</CardTitle>
-                <CardDescription className="text-sm">System activity and user actions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[200px] flex items-center justify-center text-sm text-destructive">
-                  {activityResult.error || "Failed to load recent activity"}
-                </div>
-              </CardContent>
-            </>
+            <div className="h-[200px] flex items-center justify-center text-sm text-destructive border rounded-lg bg-destructive/5">
+              {activityResult.error || "Failed to load recent activity"}
+            </div>
           )}
-        </Card>
+        </div>
       </div>
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">Quick Actions</CardTitle>
-          <CardDescription className="text-sm">Quick links to create new entities</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <Button variant="outline" className="h-auto py-4 flex flex-col items-start" asChild>
-              <Link href="/admin/items/add">
-                <div className="flex items-center gap-2 mb-2">
-                  <FiPackage className="h-5 w-5" />
-                  <span className="font-semibold">Add Item</span>
-                </div>
-                <span className="text-xs text-muted-foreground text-left">
-                  Add a new item to the catalog
-                </span>
-              </Link>
-            </Button>
-
-            <Button variant="outline" className="h-auto py-4 flex flex-col items-start" asChild>
-              <Link href="/admin/clients/add">
-                <div className="flex items-center gap-2 mb-2">
-                  <FiUsers className="h-5 w-5" />
-                  <span className="font-semibold">Add Client</span>
-                </div>
-                <span className="text-xs text-muted-foreground text-left">
-                  Add a new client to the system
-                </span>
-              </Link>
-            </Button>
-
-            <Button variant="outline" className="h-auto py-4 flex flex-col items-start" asChild>
-              <Link href="/admin/suppliers/add">
-                <div className="flex items-center gap-2 mb-2">
-                  <FiShoppingCart className="h-5 w-5" />
-                  <span className="font-semibold">Add Supplier</span>
-                </div>
-                <span className="text-xs text-muted-foreground text-left">
-                  Add a new supplier to the system
-                </span>
-              </Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
