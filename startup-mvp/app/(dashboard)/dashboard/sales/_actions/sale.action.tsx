@@ -835,37 +835,26 @@ export async function completeSale(saleId: string) {
       }
     }
 
-    // 1. Deduct stock (before main transaction to avoid nested transactions)
-    const stockItems = sale.items
-      .filter((item) => item.item?.trackInventory)
-      .map((item) => ({
-        itemId: item.itemId,
-        quantity: Number(item.quantity),
-      }));
-
-    if (stockItems.length > 0) {
-      const stockResult = await updateStockOnSale(
-        saleId,
-        sale.warehouseId,
-        stockItems
-      );
-      if (!stockResult.success) {
-        return {
-          success: false,
-          error: stockResult.error || "Failed to update stock",
-          sale: null,
-        };
-      }
-    }
-
     // Use transaction for accounting and status update
     const result = await prisma.$transaction(async (tx) => {
+      // 1. Deduct stock (moved inside transaction for atomicity)
+      if (stockItems.length > 0) {
+        const stockResult = await updateStockOnSale(
+          saleId,
+          sale.warehouseId,
+          stockItems
+        );
+        if (!stockResult.success) {
+          throw new Error(stockResult.error || "Failed to update stock");
+        }
+      }
 
       // 2. Find control accounts
       const arAccountId = await findControlAccount("Accounts Receivable");
       const salesRevenueAccountId = await findControlAccount("Sales Revenue");
       const cogsAccountId = await findControlAccount("Cost of Goods Sold");
       const fgInventoryAccountId = await findControlAccount("Finished Goods Inventory");
+      const retailInventoryAccountId = await findControlAccount("Retail Inventory");
 
       if (!arAccountId || !salesRevenueAccountId) {
         throw new Error(
@@ -873,36 +862,34 @@ export async function completeSale(saleId: string) {
         );
       }
 
-      // 3. Calculate COGS (only for FINISHED_GOOD items)
-      let totalCOGS = 0;
-      const cogsLines: Array<{
-        chartOfAccountId: string;
-        debitAmount: number;
-        creditAmount: number;
-        description: string;
-      }> = [];
+      // 3. Calculate COGS (for FINISHED_GOOD and RETAIL items)
+      const cogsByAccount: Record<string, { amount: number; description: string }> = {};
 
       for (const saleItem of sale.items) {
-        if (saleItem.item?.type === ItemType.FINISHED_GOOD && saleItem.item.costPrice) {
-          const itemCOGS = Number(saleItem.quantity) * Number(saleItem.item.costPrice);
-          totalCOGS += itemCOGS;
+        if (!saleItem.item.costPrice) continue;
 
-          if (fgInventoryAccountId) {
-            // Debit COGS
-            cogsLines.push({
-              chartOfAccountId: cogsAccountId || "",
-              debitAmount: itemCOGS,
-              creditAmount: 0,
-              description: `COGS for ${saleItem.item.name}`,
-            });
+        const itemCOGS = Number(saleItem.quantity) * Number(saleItem.item.costPrice);
+        if (itemCOGS <= 0) continue;
 
-            // Credit Finished Goods Inventory
-            cogsLines.push({
-              chartOfAccountId: fgInventoryAccountId,
-              debitAmount: 0,
-              creditAmount: itemCOGS,
-              description: `Inventory reduction for ${saleItem.item.name}`,
-            });
+        let inventoryAccountId: string | null = null;
+        if (saleItem.item.type === ItemType.FINISHED_GOOD) {
+          inventoryAccountId = fgInventoryAccountId;
+        } else if (saleItem.item.type === ItemType.RETAIL) {
+          inventoryAccountId = retailInventoryAccountId;
+        }
+
+        if (inventoryAccountId && cogsAccountId) {
+          if (!cogsByAccount[inventoryAccountId]) {
+            cogsByAccount[inventoryAccountId] = { amount: 0, description: "COGS for " };
+          }
+          cogsByAccount[inventoryAccountId].amount += itemCOGS;
+          // Append item name to description (limited to avoid too long string)
+          if (!cogsByAccount[inventoryAccountId].description.includes(saleItem.item.name)) {
+            if (cogsByAccount[inventoryAccountId].description.length < 100) {
+              cogsByAccount[inventoryAccountId].description += (cogsByAccount[inventoryAccountId].description === "COGS for " ? "" : ", ") + saleItem.item.name;
+            } else if (!cogsByAccount[inventoryAccountId].description.endsWith("...")) {
+              cogsByAccount[inventoryAccountId].description += "...";
+            }
           }
         }
       }
@@ -938,14 +925,25 @@ export async function completeSale(saleId: string) {
         chartOfAccountId: salesRevenueAccountId,
       });
 
-      // Add COGS lines if applicable
-      if (cogsLines.length > 0 && cogsAccountId && fgInventoryAccountId) {
-        for (const cogsLine of cogsLines) {
-          voucherLines.push({
-            lineNumber: lineNumber++,
-            ...cogsLine,
-          });
-        }
+      // Add COGS lines (Aggregated by inventory account)
+      for (const [invAccountId, data] of Object.entries(cogsByAccount)) {
+        // Debit COGS
+        voucherLines.push({
+          lineNumber: lineNumber++,
+          chartOfAccountId: cogsAccountId!,
+          debitAmount: data.amount,
+          creditAmount: 0,
+          description: `${data.description} (${sale.saleNumber})`,
+        });
+
+        // Credit Inventory
+        voucherLines.push({
+          lineNumber: lineNumber++,
+          chartOfAccountId: invAccountId,
+          debitAmount: 0,
+          creditAmount: data.amount,
+          description: `Inventory reduction for ${sale.saleNumber}`,
+        });
       }
 
       // Create voucher
