@@ -30,6 +30,7 @@ import { createVoucher } from "../../_actions/voucher.action";
 import { getChartOfAccounts } from "../../../chart-of-accounts/_actions/chart-of-accounts.action";
 import { getCashBankAccounts } from "../../../cash-bank/_actions/cash-bank.action";
 import { getSuppliersForPurchase } from "../../../purchases/_actions/purchase.action";
+import { getClientsForSale } from "../../../sales/_actions/sale.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType, AccountType } from "@prisma/client";
 
@@ -54,6 +55,7 @@ const voucherFormSchema = z.object({
   date: z.string().min(1, "Date is required"),
   description: z.string().optional().or(z.literal("")),
   supplierId: z.string().optional().nullable(),
+  clientId: z.string().optional().nullable(),
   lines: z.array(voucherLineSchema).min(2, "At least 2 lines are required"),
 }).refine(
   (data) => {
@@ -84,6 +86,13 @@ interface SupplierOption {
   company: string | null;
 }
 
+interface ClientOption {
+  id: string;
+  name: string | null;
+  email: string;
+  company: string | null;
+}
+
 interface CashBankAccountOption {
   id: string;
   chartOfAccountId: string;
@@ -103,6 +112,7 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
   const [loading, setLoading] = useState(false);
   const [allAccounts, setAllAccounts] = useState<AccountOption[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
+  const [clients, setClients] = useState<ClientOption[]>([]);
   const [cashBankAccounts, setCashBankAccounts] = useState<CashBankAccountOption[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [accountSearch, setAccountSearch] = useState("");
@@ -113,11 +123,12 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        // Fetch all active accounts and suppliers
-        const [accountsResult, cashBankResult, suppliersResult] = await Promise.all([
+        // Fetch all active accounts, suppliers, and clients
+        const [accountsResult, cashBankResult, suppliersResult, clientsResult] = await Promise.all([
           getChartOfAccounts(1, 1000, "", "active"),
           getCashBankAccounts(),
           getSuppliersForPurchase(),
+          getClientsForSale(),
         ]);
 
         if (accountsResult.success) {
@@ -153,6 +164,10 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
 
         if (suppliersResult.success) {
           setSuppliers(suppliersResult.suppliers);
+        }
+
+        if (clientsResult.success) {
+          setClients(clientsResult.clients);
         }
       } catch (err) {
         console.error("Failed to fetch initial data:", err);
@@ -294,6 +309,7 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
         type: voucherType,
         description: data.description || undefined,
         supplierId: data.supplierId || undefined,
+        clientId: data.clientId || undefined,
         lines,
       });
 
@@ -407,6 +423,35 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
                   )}
                 />
                 <p className="text-xs text-muted-foreground">Select a supplier if this payment is against an Accounts Payable balance.</p>
+              </div>
+            )}
+
+            {isReceipt && (
+              <div className="space-y-2">
+                <Label htmlFor="clientId">Client (Optional)</Label>
+                <Controller
+                  name="clientId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value || ""}
+                      onValueChange={field.onChange}
+                      disabled={loading || loadingAccounts}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select client for AR tracking" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clients.map((client) => (
+                          <SelectItem key={client.id} value={client.id}>
+                            {client.name || client.email} {client.company ? `(${client.company})` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                <p className="text-xs text-muted-foreground">Select a client if this receipt is against an Accounts Receivable balance.</p>
               </div>
             )}
 

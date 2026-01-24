@@ -715,6 +715,37 @@ export async function createVoucher(input: {
     }
     // --- END OVERPAYMENT GUARD ---
 
+    // --- OVER-RECEIPT GUARD ---
+    if (input.type === "RECEIPT" && input.clientId) {
+      const totalReceiptAmount = input.lines.reduce((sum, line) => sum + (line.creditAmount || 0), 0);
+      
+      // Calculate current AR balance for this client
+      const clientAccount = await prisma.chartOfAccount.findFirst({
+        where: {
+          Client: { some: { id: input.clientId } }
+        },
+        select: { id: true }
+      });
+
+      if (clientAccount) {
+        const balanceResult = await prisma.journalEntryLine.aggregate({
+          where: { chartOfAccountId: clientAccount.id },
+          _sum: { debitAmount: true, creditAmount: true }
+        });
+
+        const currentBalance = Number(balanceResult._sum.debitAmount || 0) - Number(balanceResult._sum.creditAmount || 0);
+        
+        if (totalReceiptAmount > currentBalance + 0.01) {
+          return {
+            success: false,
+            error: `Over-receipt detected. Current outstanding balance for this client is ৳${currentBalance.toFixed(2)}. You are attempting to record a receipt of ৳${totalReceiptAmount.toFixed(2)}.`,
+            voucher: null,
+          };
+        }
+      }
+    }
+    // --- END OVER-RECEIPT GUARD ---
+
     // Create voucher with lines
     const voucher = await prisma.voucher.create({
       data: {
