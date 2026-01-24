@@ -633,13 +633,48 @@ export async function createVoucher(input: {
       };
     }
 
-    // Manual JOURNAL restriction for control accounts
-    if (input.type === "JOURNAL") {
+    // Manual Voucher Type Restrictions
+    const manualAllowedTypes = ["JOURNAL", "PAYMENT", "RECEIPT", "CONTRA"];
+    if (!manualAllowedTypes.includes(input.type)) {
+      return {
+        success: false,
+        error: `Manual creation of ${input.type} vouchers is prohibited. These are system-reserved types.`,
+        voucher: null,
+      };
+    }
+
+    // Manual JOURNAL/PAYMENT/RECEIPT restriction for control accounts
+    if (["JOURNAL", "PAYMENT", "RECEIPT"].includes(input.type)) {
       for (const line of input.lines) {
         if (await isControlAccount(line.chartOfAccountId)) {
           return {
             success: false,
-            error: "Manual journal entries to control accounts (AR, AP, Inventory) are prohibited. Please use the appropriate module (Sales, Purchases, etc.)",
+            error: `Manual ${input.type} entries to control accounts (AR, AP, Inventory) are prohibited. Please use the appropriate module (Sales, Purchases, etc.)`,
+            voucher: null,
+          };
+        }
+      }
+    }
+
+    // CONTRA validation: Only Cash and Bank accounts allowed
+    if (input.type === "CONTRA") {
+      const contraAccounts = await prisma.chartOfAccount.findMany({
+        where: {
+          id: { in: accountIds },
+        },
+        select: {
+          id: true,
+          CashBankAccount: {
+            select: { id: true }
+          }
+        }
+      });
+
+      for (const account of contraAccounts) {
+        if (!account.CashBankAccount) {
+          return {
+            success: false,
+            error: "Contra vouchers can only involve Cash or Bank accounts.",
             voucher: null,
           };
         }
