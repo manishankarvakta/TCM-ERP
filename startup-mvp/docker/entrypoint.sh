@@ -2,7 +2,7 @@
 set -e
 
 echo "⏳ Waiting for PostgreSQL..."
-until nc -z espacio-postgres 5432; do
+until nc -z bhagyakul-postgres 5432; do
   sleep 2
 done
 

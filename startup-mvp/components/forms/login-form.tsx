@@ -62,19 +62,9 @@ export default function LoginForm() {
           description: "Logged in successfully!",
           variant: "default",
         });
-        // Get user role from session to determine redirect
-        const sessionResponse = await fetch("/api/auth/session");
-        if (sessionResponse.ok) {
-          const session = await sessionResponse.json();
-          const userRole = session?.user?.role?.toLowerCase();
-          if (userRole === "admin") {
-            router.push("/admin");
-          } else {
-            router.push("/dashboard");
-          }
-        } else {
-          router.push("/dashboard");
-        }
+        
+        // Always redirect to dashboard for all users
+        router.push("/dashboard");
         router.refresh();
       }
     } catch (err) {

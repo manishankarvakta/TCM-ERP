@@ -191,7 +191,7 @@ export const MENU_TEMPLATE: MenuItemData[] = [
 
 export const BOTTOM_MENU_TEMPLATE: MenuItemData[] = [
   { href: "/dashboard/profile", label: "Profile", icon: "FiUser" },
-  { href: "/admin/settings", label: "Settings", icon: "FiSettings" },
+  { href: "/dashboard/settings", label: "Settings", icon: "FiSettings" },
 ];
 
 /**

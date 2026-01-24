@@ -610,17 +610,14 @@ async function seedPermissions() {
   ];
 
   for (const template of templates) {
-    const existing = await prisma.permissionTemplate.findUnique({
+    await prisma.permissionTemplate.upsert({
       where: { name: template.name },
-    });
-
-    if (existing) {
-      console.log(`Template "${template.name}" already exists, skipping...`);
-      continue;
-    }
-
-    await prisma.permissionTemplate.create({
-      data: {
+      update: {
+        description: template.description,
+        permissions: template.permissions as any,
+        isActive: true,
+      },
+      create: {
         name: template.name,
         description: template.description,
         permissions: template.permissions as any,
@@ -628,7 +625,7 @@ async function seedPermissions() {
       },
     });
 
-    console.log(`Created template: ${template.name}`);
+    console.log(`Synced template: ${template.name}`);
   }
 
   console.log("Permission templates seeded successfully!");
