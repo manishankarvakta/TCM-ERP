@@ -17,6 +17,9 @@ import {
   ChevronRight,
   Fingerprint,
   LucideUserCog,
+  Package,
+  Settings2,
+  Calculator,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -44,6 +47,9 @@ import Webhooks from "./_components/Webhooks";
 import { SlEnvolopeLetter } from "react-icons/sl";
 import CoverLetter from "./_components/coverLetter/CoverLetter";
 import TOS from "./_components/Tos";
+import Inventory from "../admin/settings/_components/Inventory";
+import Production from "../admin/settings/_components/Production";
+import Accounting from "../admin/settings/_components/Accounting";
 
 
 type SettingsSection = "profile" | 
@@ -68,7 +74,10 @@ type SettingsSection = "profile" |
                        "paymentMethods" | 
                        "coverLetter" | 
                        "tos" | 
-                       "preferences";
+                       "preferences" |
+                       "inventory" |
+                       "production" |
+                       "accounting";
 
 interface SettingsMenuItem {
   id: SettingsSection;
@@ -205,6 +214,14 @@ export default function SettingsPageClient({ accessiblePages }: SettingsPageClie
         { id: "tex" as SettingsSection, label: "Tex", icon: TbReceiptTax, active: activeSection === "tex" },
         { id: "paymentMethods" as SettingsSection, label: "Payment Methods", icon: TbCreditCardPay, active: activeSection === "paymentMethods" },
         { id: "preferences" as SettingsSection, label: "Preferences", icon: LucideUserCog, active: activeSection === "preferences" },
+        { id: "accounting" as SettingsSection, label: "Accounting Defaults", icon: Calculator, active: activeSection === "accounting" },
+      ],
+    },
+    {
+      category: "Operations",
+      items: [
+        { id: "inventory" as SettingsSection, label: "Inventory", icon: Package, active: activeSection === "inventory" },
+        { id: "production" as SettingsSection, label: "Production", icon: Settings2, active: activeSection === "production" },
       ],
     },
     {
@@ -277,6 +294,12 @@ export default function SettingsPageClient({ accessiblePages }: SettingsPageClie
         return <APIs />;
       case "webhooks":
         return <Webhooks />;
+      case "inventory":
+        return <Inventory />;
+      case "production":
+        return <Production />;
+      case "accounting":
+        return <Accounting />;
       default:
         return (
           <div className="space-y-6">

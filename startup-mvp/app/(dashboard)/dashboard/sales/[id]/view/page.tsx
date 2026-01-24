@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 import { notFound } from "next/navigation";
 import type { SaleStatus } from "@prisma/client";
+import PageGuard from "@/components/permissions/page-guard";
 
 interface SaleDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -60,7 +61,8 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
   };
 
   return (
-    <div className="space-y-6">
+    <PageGuard permissionKey="sales.sales" requiredOperation="view">
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
@@ -461,6 +463,7 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
           </CardContent>
         </Card>
       </div>
-    </div>
+      </div>
+    </PageGuard>
   );
 }

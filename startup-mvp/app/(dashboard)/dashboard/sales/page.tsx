@@ -7,6 +7,7 @@ import { FiPlus } from "react-icons/fi";
 import SalesListClient from "./_components/sales";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
+import PageGuard from "@/components/permissions/page-guard";
 
 interface SalesPageProps {
   searchParams: Promise<{
@@ -37,24 +38,27 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
 
   if (!result.success) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">Sales</h1>
-            <p className="text-sm text-muted-foreground">Manage sales in your system</p>
+      <PageGuard permissionKey="sales.sales" requiredOperation="view">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold">Sales</h1>
+              <p className="text-sm text-muted-foreground">Manage sales in your system</p>
+            </div>
+          </div>
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+            <p className="text-sm text-destructive">
+              {result.error || "Failed to load sales"}
+            </p>
           </div>
         </div>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-          <p className="text-sm text-destructive">
-            {result.error || "Failed to load sales"}
-          </p>
-        </div>
-      </div>
+      </PageGuard>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <PageGuard permissionKey="sales.sales" requiredOperation="view">
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Sales</h1>
@@ -125,5 +129,6 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
         </TabsContent>
       </Tabs>
     </div>
+    </PageGuard>
   );
 }

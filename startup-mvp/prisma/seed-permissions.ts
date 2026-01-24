@@ -75,6 +75,8 @@ async function seedPermissions() {
     ...createPermissionsForPages(["files"], ["view", "create"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
     ...createPermissionsForPages(["reports.view"], ["view"]),
+    // Sales - full access
+    ...createPermissionsForPages(["sales.sales"], ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"]),
   };
 
   // Accounts Template - Accounts module focus
@@ -110,6 +112,12 @@ async function seedPermissions() {
     ),
     // Purchases - full access
     ...createPermissionsForPages(["purchases.purchases"], allStandardOps),
+    // Sales - view only
+    ...createPermissionsForPages(["sales.sales"], ["view"]),
+    // Inventory - view only
+    ...createPermissionsForPages(["inventory.stock"], ["view"]),
+    // Production - view only
+    ...createPermissionsForPages(["production.boms", "production.orders"], ["view"]),
     // Peoples - read-only
     ...createPermissionsForPages(
       ["peoples.users", "peoples.clients", "peoples.suppliers"],
@@ -165,6 +173,13 @@ async function seedPermissions() {
     ),
     // Purchases - full access
     ...createPermissionsForPages(["purchases.purchases"], allStandardOps),
+    // Sales - full access
+    ...createPermissionsForPages(["sales.sales"], ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"]),
+    // Inventory - full access
+    ...createPermissionsForPages(["inventory.stock"], ["view", "adjust"]),
+    // Production - full access
+    ...createPermissionsForPages(["production.boms"], allStandardOps),
+    ...createPermissionsForPages(["production.orders"], ["view", "create", "edit", "start", "complete", "cancel"]),
     // Peoples - full access
     ...createPermissionsForPages(
       ["peoples.users", "peoples.clients", "peoples.suppliers"],
@@ -172,7 +187,7 @@ async function seedPermissions() {
     ),
     ...createPermissionsForPages(["files"], allStandardOps),
     ...createPermissionsForPages(["notifications"], ["view", "edit"]),
-    ...createPermissionsForPages(["analytics", "reports.view"], ["view", "export"]),
+    ...createPermissionsForPages(["reports.view"], ["view", "export"]),
     // Settings - full access except developer tools
     ...createPermissionsForPages(
       [
@@ -238,9 +253,15 @@ async function seedPermissions() {
       ["peoples.users", "peoples.clients", "peoples.suppliers"],
       ["view"]
     ),
+    // Sales - view only
+    ...createPermissionsForPages(["sales.sales"], ["view"]),
+    // Inventory - view only
+    ...createPermissionsForPages(["inventory.stock"], ["view"]),
+    // Production - view only
+    ...createPermissionsForPages(["production.boms", "production.orders"], ["view"]),
     ...createPermissionsForPages(["files"], ["view"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["analytics", "reports.view"], ["view", "export"]),
+    ...createPermissionsForPages(["reports.view"], ["view", "export"]),
   };
 
   // ============================================
@@ -280,6 +301,12 @@ async function seedPermissions() {
     ),
     // Purchases - full access
     ...createPermissionsForPages(["purchases.purchases"], allStandardOps),
+    // Sales - view only
+    ...createPermissionsForPages(["sales.sales"], ["view"]),
+    // Inventory - view only
+    ...createPermissionsForPages(["inventory.stock"], ["view"]),
+    // Production - view only
+    ...createPermissionsForPages(["production.boms", "production.orders"], ["view"]),
     // Peoples - view and limited edit
     ...createPermissionsForPages(
       ["peoples.clients", "peoples.suppliers"],
@@ -288,7 +315,7 @@ async function seedPermissions() {
     ...createPermissionsForPages(["peoples.users"], ["view"]),
     ...createPermissionsForPages(["files"], ["view"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["analytics", "reports.view"], ["view", "export"]),
+    ...createPermissionsForPages(["reports.view"], ["view", "export"]),
     // Settings - accounts related
     ...createPermissionsForPages(
       ["settings.accounts", "settings.tex", "settings.paymentMethods"],
@@ -339,9 +366,15 @@ async function seedPermissions() {
       ["peoples.users", "peoples.clients", "peoples.suppliers"],
       ["view"]
     ),
+    // Sales - view only
+    ...createPermissionsForPages(["sales.sales"], ["view"]),
+    // Inventory - view only
+    ...createPermissionsForPages(["inventory.stock"], ["view"]),
+    // Production - view only
+    ...createPermissionsForPages(["production.boms", "production.orders"], ["view"]),
     ...createPermissionsForPages(["files"], ["view", "create"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["analytics", "reports.view"], ["view", "export"]),
+    ...createPermissionsForPages(["reports.view"], ["view", "export"]),
   };
 
   // SR (Sales Representative) Template - Quotation creation and client management
@@ -394,6 +427,12 @@ async function seedPermissions() {
       ["peoples.suppliers", "peoples.users"],
       ["view"]
     ),
+    // Sales - full access
+    ...createPermissionsForPages(["sales.sales"], ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"]),
+    // Inventory - view only
+    ...createPermissionsForPages(["inventory.stock"], ["view"]),
+    // Production - view only
+    ...createPermissionsForPages(["production.boms", "production.orders"], ["view"]),
     ...createPermissionsForPages(["files"], ["view", "create"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
     ...createPermissionsForPages(["reports.view"], ["view"]),
@@ -445,9 +484,15 @@ async function seedPermissions() {
       ["peoples.suppliers", "peoples.users"],
       ["view"]
     ),
+    // Sales - view only
+    ...createPermissionsForPages(["sales.sales"], ["view"]),
+    // Inventory - view only
+    ...createPermissionsForPages(["inventory.stock"], ["view"]),
+    // Production - view only
+    ...createPermissionsForPages(["production.boms", "production.orders"], ["view"]),
     ...createPermissionsForPages(["files"], allStandardOps),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["analytics", "reports.view"], ["view", "export"]),
+    ...createPermissionsForPages(["reports.view"], ["view", "export"]),
   };
 
   // Factory Manager Template - Order management and production tracking
@@ -483,6 +528,13 @@ async function seedPermissions() {
       ["peoples.clients", "peoples.users"],
       ["view"]
     ),
+    // Sales - view only
+    ...createPermissionsForPages(["sales.sales"], ["view"]),
+    // Inventory - view and adjust
+    ...createPermissionsForPages(["inventory.stock"], ["view", "adjust"]),
+    // Production - full access
+    ...createPermissionsForPages(["production.boms"], allStandardOps),
+    ...createPermissionsForPages(["production.orders"], ["view", "create", "edit", "start", "complete", "cancel"]),
     ...createPermissionsForPages(["files"], ["view", "create"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
     ...createPermissionsForPages(["reports.view"], ["view"]),

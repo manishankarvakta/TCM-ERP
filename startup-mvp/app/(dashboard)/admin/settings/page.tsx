@@ -19,6 +19,9 @@ import {
   LucideUserCog,
   LucideDatabaseBackup,
   Lock,
+  Package,
+  Settings2,
+  Calculator,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -49,6 +52,9 @@ import PermissionsSettings from "./_components/PermissionsSettings";
 import { SlEnvolopeLetter } from "react-icons/sl";
 import CoverLetter from "./_components/coverLetter/CoverLetter";
 import TOS from "./_components/Tos";
+import Inventory from "./_components/Inventory";
+import Production from "./_components/Production";
+import Accounting from "./_components/Accounting";
 
 
 type SettingsSection = "profile" | 
@@ -75,7 +81,10 @@ type SettingsSection = "profile" |
                        "paymentMethods" | 
                        "coverLetter" | 
                        "tos" | 
-                       "preferences";
+                       "preferences" |
+                       "inventory" |
+                       "production" |
+                       "accounting";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -146,6 +155,14 @@ export default function SettingsPage() {
         { id: "tex" as SettingsSection, label: "Tex", icon: TbReceiptTax, active: activeSection === "tex" },
         { id: "paymentMethods" as SettingsSection, label: "Payment Methods", icon: TbCreditCardPay, active: activeSection === "paymentMethods" },
         { id: "preferences" as SettingsSection, label: "Preferences", icon: LucideUserCog, active: activeSection === "preferences" },
+        { id: "accounting" as SettingsSection, label: "Accounting Defaults", icon: Calculator, active: activeSection === "accounting" },
+      ],
+    },
+    {
+      category: "Operations",
+      items: [
+        { id: "inventory" as SettingsSection, label: "Inventory", icon: Package, active: activeSection === "inventory" },
+        { id: "production" as SettingsSection, label: "Production", icon: Settings2, active: activeSection === "production" },
       ],
     },
     {
@@ -215,6 +232,12 @@ export default function SettingsPage() {
         return <Backup />;
       case "permissions":
         return <PermissionsSettings />;
+      case "inventory":
+        return <Inventory />;
+      case "production":
+        return <Production />;
+      case "accounting":
+        return <Accounting />;
       default:
         return (
           <div className="space-y-6">

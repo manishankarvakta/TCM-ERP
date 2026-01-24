@@ -100,7 +100,7 @@ services:
       
       # NextAuth
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-I5p97Jpv0Xr7Zz7Ay8W6+O2eLmBR6N2gllGrZO01Szo=}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://dev.espaciobd.com}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://bhagyakul.aamardokan.online}
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
       
       # MinIO Configuration - Internal Only (like PostgreSQL)

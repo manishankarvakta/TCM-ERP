@@ -294,6 +294,8 @@ function getNavigationIdForMenuItem(item: MenuItemData): string | null {
     "sales": "sales",
     "accounts": "accounts",
     "peoples": "peoples",
+    "inventory": "inventory",
+    "production": "production",
     "/dashboard/files": "files",
     "/dashboard/notifications": "notifications",
     "/dashboard/reports": "reports.view",
