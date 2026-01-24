@@ -615,14 +615,21 @@ export async function createVoucher(input: {
       };
     }
 
-    // Validate all chart of accounts exist
+    // Validate all chart of accounts exist and check for control accounts
     const accountIds = input.lines.map((line) => line.chartOfAccountId);
     const accounts = await prisma.chartOfAccount.findMany({
       where: {
         id: { in: accountIds },
         status: "active",
       },
-      select: { id: true },
+      select: { 
+        id: true,
+        name: true,
+        isControl: true,
+        CashBankAccount: {
+          select: { id: true }
+        }
+      },
     });
 
     if (accounts.length !== accountIds.length) {
@@ -645,8 +652,8 @@ export async function createVoucher(input: {
 
     // Manual JOURNAL/PAYMENT/RECEIPT restriction for control accounts
     if (["JOURNAL", "PAYMENT", "RECEIPT"].includes(input.type)) {
-      for (const line of input.lines) {
-        if (await isControlAccount(line.chartOfAccountId)) {
+      for (const account of accounts) {
+        if (account.isControl) {
           return {
             success: false,
             error: `Manual ${input.type} entries to control accounts (AR, AP, Inventory) are prohibited. Please use the appropriate module (Sales, Purchases, etc.)`,
@@ -658,19 +665,7 @@ export async function createVoucher(input: {
 
     // CONTRA validation: Only Cash and Bank accounts allowed
     if (input.type === "CONTRA") {
-      const contraAccounts = await prisma.chartOfAccount.findMany({
-        where: {
-          id: { in: accountIds },
-        },
-        select: {
-          id: true,
-          CashBankAccount: {
-            select: { id: true }
-          }
-        }
-      });
-
-      for (const account of contraAccounts) {
+      for (const account of accounts) {
         if (!account.CashBankAccount) {
           return {
             success: false,

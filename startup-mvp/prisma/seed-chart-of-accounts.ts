@@ -65,6 +65,7 @@ async function main() {
       parentCode: null,
       description: "Root asset group",
       isPostable: false,
+      isControl: false,
     },
     {
       code: "1100",
@@ -73,6 +74,7 @@ async function main() {
       parentCode: "1000",
       description: "Short-term assets",
       isPostable: false,
+      isControl: false,
     },
     {
       code: "1110",
@@ -81,6 +83,7 @@ async function main() {
       parentCode: "1100",
       description: "Physical cash available",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "1120",
@@ -89,6 +92,7 @@ async function main() {
       parentCode: "1100",
       description: "Small cash expenses",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "1200",
@@ -97,6 +101,7 @@ async function main() {
       parentCode: "1100",
       description: "All bank accounts",
       isPostable: false,
+      isControl: false,
     },
     {
       code: "1210",
@@ -105,6 +110,7 @@ async function main() {
       parentCode: "1200",
       description: "Main bank account",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "1220",
@@ -113,6 +119,7 @@ async function main() {
       parentCode: "1200",
       description: "Secondary bank account",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "1300",
@@ -121,6 +128,7 @@ async function main() {
       parentCode: "1100",
       description: "Mobile and digital wallets",
       isPostable: false,
+      isControl: false,
     },
     {
       code: "1310",
@@ -129,6 +137,7 @@ async function main() {
       parentCode: "1300",
       description: "bKash mobile wallet",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "1320",
@@ -137,6 +146,7 @@ async function main() {
       parentCode: "1300",
       description: "Nagad mobile wallet",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "1330",
@@ -145,6 +155,7 @@ async function main() {
       parentCode: "1300",
       description: "Rocket mobile wallet",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "1400",
@@ -153,6 +164,7 @@ async function main() {
       parentCode: "1100",
       description: "Amounts receivable",
       isPostable: false,
+      isControl: true,
     },
     {
       code: "1410",
@@ -161,6 +173,7 @@ async function main() {
       parentCode: "1400",
       description: "Customer balances (control account)",
       isPostable: true,
+      isControl: true,
     },
     {
       code: "1500",
@@ -169,6 +182,7 @@ async function main() {
       parentCode: "1100",
       description: "Other short-term assets",
       isPostable: false,
+      isControl: false,
     },
     {
       code: "1510",
@@ -177,6 +191,7 @@ async function main() {
       parentCode: "1500",
       description: "Supplier advances",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "1520",
@@ -185,6 +200,7 @@ async function main() {
       parentCode: "1500",
       description: "Expenses paid in advance",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "1600",
@@ -193,6 +209,7 @@ async function main() {
       parentCode: "1000",
       description: "Inventory assets",
       isPostable: false,
+      isControl: true,
     },
     {
       code: "1610",
@@ -201,6 +218,7 @@ async function main() {
       parentCode: "1600",
       description: "Goods held for sale",
       isPostable: true,
+      isControl: true,
     },
     {
       code: "1620",
@@ -209,6 +227,7 @@ async function main() {
       parentCode: "1600",
       description: "Raw materials inventory",
       isPostable: true,
+      isControl: true,
     },
     {
       code: "1630",
@@ -217,6 +236,7 @@ async function main() {
       parentCode: "1600",
       description: "Finished goods inventory",
       isPostable: true,
+      isControl: true,
     },
     {
       code: "1640",
@@ -225,6 +245,7 @@ async function main() {
       parentCode: "1600",
       description: "Retail items inventory",
       isPostable: true,
+      isControl: true,
     },
     {
       code: "1650",
@@ -233,6 +254,7 @@ async function main() {
       parentCode: "1600",
       description: "Value of items in production",
       isPostable: true,
+      isControl: true,
     },
     {
       code: "1700",
@@ -241,6 +263,7 @@ async function main() {
       parentCode: "1000",
       description: "Long-term assets",
       isPostable: false,
+      isControl: false,
     },
     {
       code: "1710",
@@ -249,6 +272,7 @@ async function main() {
       parentCode: "1700",
       description: "Furniture and fixtures",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "1720",
@@ -257,6 +281,7 @@ async function main() {
       parentCode: "1700",
       description: "Computers and equipment",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "1730",
@@ -265,6 +290,7 @@ async function main() {
       parentCode: "1700",
       description: "Company vehicles",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "1790",
@@ -273,6 +299,7 @@ async function main() {
       parentCode: "1700",
       description: "Depreciation group",
       isPostable: false,
+      isControl: false,
     },
     {
       code: "1791",
@@ -281,6 +308,7 @@ async function main() {
       parentCode: "1790",
       description: "Depreciation for furniture",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "1792",
@@ -289,6 +317,7 @@ async function main() {
       parentCode: "1790",
       description: "Depreciation for equipment",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "1793",
@@ -297,6 +326,7 @@ async function main() {
       parentCode: "1790",
       description: "Depreciation for vehicles",
       isPostable: true,
+      isControl: false,
     },
     // ============================================
     // LIABILITIES
@@ -308,6 +338,7 @@ async function main() {
       parentCode: null,
       description: "Root liability group",
       isPostable: false,
+      isControl: false,
     },
     {
       code: "2100",
@@ -316,6 +347,7 @@ async function main() {
       parentCode: "2000",
       description: "Short-term obligations",
       isPostable: false,
+      isControl: true,
     },
     {
       code: "2110",
@@ -324,6 +356,7 @@ async function main() {
       parentCode: "2100",
       description: "Supplier balances (control account)",
       isPostable: true,
+      isControl: true,
     },
     {
       code: "2120",
@@ -332,6 +365,7 @@ async function main() {
       parentCode: "2100",
       description: "Expenses incurred but unpaid",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "2130",
@@ -340,6 +374,7 @@ async function main() {
       parentCode: "2100",
       description: "Salaries owed to staff",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "2140",
@@ -348,6 +383,7 @@ async function main() {
       parentCode: "2100",
       description: "Taxes owed to authorities",
       isPostable: true,
+      isControl: false,
     },
     // ============================================
     // EQUITY
@@ -359,6 +395,7 @@ async function main() {
       parentCode: null,
       description: "Owner's equity",
       isPostable: false,
+      isControl: false,
     },
     {
       code: "3110",
@@ -367,6 +404,7 @@ async function main() {
       parentCode: "3000",
       description: "Owner investment",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "3120",
@@ -375,6 +413,7 @@ async function main() {
       parentCode: "3000",
       description: "Accumulated profits",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "3130",
@@ -383,6 +422,7 @@ async function main() {
       parentCode: "3000",
       description: "System-calculated net result",
       isPostable: true,
+      isControl: false,
     },
     // ============================================
     // INCOME (mapped to REVENUE)
@@ -394,6 +434,7 @@ async function main() {
       parentCode: null,
       description: "Revenue accounts",
       isPostable: false,
+      isControl: false,
     },
     {
       code: "4110",
@@ -402,6 +443,7 @@ async function main() {
       parentCode: "4000",
       description: "Product sales income",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "4120",
@@ -410,6 +452,7 @@ async function main() {
       parentCode: "4000",
       description: "Service income",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "4130",
@@ -418,6 +461,7 @@ async function main() {
       parentCode: "4000",
       description: "Gains from stock adjustments",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "4190",
@@ -426,6 +470,7 @@ async function main() {
       parentCode: "4000",
       description: "Miscellaneous income",
       isPostable: true,
+      isControl: false,
     },
     // ============================================
     // COST OF GOODS SOLD
@@ -437,6 +482,7 @@ async function main() {
       parentCode: null,
       description: "Direct cost of sales",
       isPostable: false,
+      isControl: false,
     },
     {
       code: "5110",
@@ -445,6 +491,7 @@ async function main() {
       parentCode: "5000",
       description: "Cost of sold inventory",
       isPostable: true,
+      isControl: false,
     },
     // ============================================
     // EXPENSES
@@ -456,6 +503,7 @@ async function main() {
       parentCode: null,
       description: "Operating costs",
       isPostable: false,
+      isControl: false,
     },
     {
       code: "6110",
@@ -464,6 +512,7 @@ async function main() {
       parentCode: "6000",
       description: "Office rent",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "6120",
@@ -472,6 +521,7 @@ async function main() {
       parentCode: "6000",
       description: "Electricity, water, gas",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "6130",
@@ -480,6 +530,7 @@ async function main() {
       parentCode: "6000",
       description: "Employee salaries",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "6140",
@@ -488,6 +539,7 @@ async function main() {
       parentCode: "6000",
       description: "Stationery & supplies",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "6150",
@@ -496,6 +548,7 @@ async function main() {
       parentCode: "6000",
       description: "Internet and phone",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "6160",
@@ -504,6 +557,7 @@ async function main() {
       parentCode: "6000",
       description: "Travel & transport",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "6170",
@@ -512,6 +566,7 @@ async function main() {
       parentCode: "6000",
       description: "bKash/Nagad fees",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "6180",
@@ -520,6 +575,7 @@ async function main() {
       parentCode: "6000",
       description: "Bank service fees",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "6190",
@@ -528,6 +584,7 @@ async function main() {
       parentCode: "6000",
       description: "Other small expenses",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "6200",
@@ -536,6 +593,7 @@ async function main() {
       parentCode: "6000",
       description: "Losses/Shrinkage from stock adjustments",
       isPostable: true,
+      isControl: false,
     },
     {
       code: "6300",
@@ -544,6 +602,7 @@ async function main() {
       parentCode: "6000",
       description: "Difference between standard and actual production costs",
       isPostable: true,
+      isControl: false,
     },
   ];
 
@@ -580,6 +639,7 @@ async function main() {
         name: account.name,
         type: account.type,
         description: account.description,
+        isControl: account.isControl,
         status: "active",
         // Note: We don't update parentId here to avoid breaking existing hierarchies
         // Only set parentId if the account doesn't exist yet
@@ -590,6 +650,7 @@ async function main() {
         name: account.name,
         type: account.type,
         description: account.description,
+        isControl: account.isControl,
         status: "active",
         parentId: null, // Will be set later if needed
         createdBy: creator.id,
