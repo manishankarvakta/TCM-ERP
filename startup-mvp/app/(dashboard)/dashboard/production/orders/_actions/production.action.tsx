@@ -964,7 +964,7 @@ export async function startProductionOrder(id: string) {
     });
 
     // --- WIP ACCOUNTING INTEGRATION ---
-    // Calculate total raw material cost
+    // Calculate total raw material cost using latest prices
     const materialsResult = await calculateRawMaterialsNeeded(order.bomId, Number(order.quantity));
     let totalRawMaterialCost = 0;
     if (materialsResult.success) {
@@ -975,7 +975,13 @@ export async function startProductionOrder(id: string) {
       const rawMaterialInventoryId = await findControlAccount("Raw Material Inventory");
       const wipAccountId = await findControlAccount("Work In Progress (WIP)");
 
-      if (rawMaterialInventoryId && wipAccountId) {
+      if (!rawMaterialInventoryId || !wipAccountId) {
+        console.error("Missing control accounts for production start:", { 
+          rawMaterialInventoryId, 
+          wipAccountId 
+        });
+        // We log the error but don't fail the status change, as stock is still tracked
+      } else {
         const voucherLines = [
           {
             lineNumber: 1,
@@ -1003,6 +1009,22 @@ export async function startProductionOrder(id: string) {
 
         if (voucherResult.success && voucherResult.voucher) {
           await postVoucher(voucherResult.voucher.id);
+          
+          // Log accounting move
+          await createUserLog(
+            session.user.id,
+            LogAction.CREATE,
+            "Voucher",
+            voucherResult.voucher.id,
+            `WIP Move: ${order.code} - ৳${totalRawMaterialCost.toLocaleString()}`,
+            {
+              productionOrderId: order.id,
+              totalCost: totalRawMaterialCost,
+              voucherNumber: voucherResult.voucher.voucherNumber
+            }
+          );
+        } else {
+          console.error("Failed to create WIP voucher for production start:", voucherResult.error);
         }
       }
     }
@@ -1236,90 +1258,88 @@ export async function completeProductionOrder(id: string) {
         });
       }
 
-      // Update order status
-      await tx.productionOrder.update({
-        where: { id },
-        data: {
-          status: ProductionOrderStatus.COMPLETED,
-          completedAt: new Date(),
-        },
-      });
-    });
+      // --- ACCOUNTING INTEGRATION (Within Transaction) ---
+      // Calculate total raw material cost
+      let totalRawMaterialCost = 0;
+      for (const bomItem of order.bom.items) {
+        if (!bomItem.item.trackInventory || !bomItem.item.costPrice) continue;
+        const quantityNeeded = (Number(bomItem.quantityRequired) * productionQuantity) / bomQuantityPerUnit;
+        totalRawMaterialCost += quantityNeeded * Number(bomItem.item.costPrice);
+      }
 
-    // Create accounting voucher (after transaction completes)
-    // Calculate total raw material cost
-    // Note: productionQuantity and bomQuantityPerUnit are already declared above
-    let totalRawMaterialCost = 0;
+      if (totalRawMaterialCost > 0) {
+        const wipAccountId = await findControlAccount("Work In Progress (WIP)");
+        const finishedGoodsInventoryId = await findControlAccount("Finished Goods Inventory");
 
-    for (const bomItem of order.bom.items) {
-      if (!bomItem.item.trackInventory || !bomItem.item.costPrice) continue;
-
-      const quantityNeeded =
-        (Number(bomItem.quantityRequired) * productionQuantity) / bomQuantityPerUnit;
-      const costPrice = Number(bomItem.item.costPrice);
-      totalRawMaterialCost += quantityNeeded * costPrice;
-    }
-
-    // Create accounting voucher if there's a cost to move
-    if (totalRawMaterialCost > 0 && !order.voucherId) {
-      const wipAccountId = await findControlAccount("Work In Progress (WIP)");
-      const finishedGoodsInventoryId = await findControlAccount("Finished Goods Inventory");
-
-      if (wipAccountId && finishedGoodsInventoryId) {
-        const voucherLines = [
-          {
-            lineNumber: 1,
-            debitAmount: totalRawMaterialCost,
-            creditAmount: 0,
-            description: `Finished Goods Inventory - ${order.code}`,
-            chartOfAccountId: finishedGoodsInventoryId,
-          },
-          {
-            lineNumber: 2,
-            debitAmount: 0,
-            creditAmount: totalRawMaterialCost,
-            description: `WIP Completion - ${order.code}`,
-            chartOfAccountId: wipAccountId,
-          },
-        ];
-
-        const voucherResult = await createVoucher({
-          date: new Date(),
-          type: VoucherType.JOURNAL,
-          reference: order.code,
-          description: `Production ${order.code} - Move raw material cost to finished goods`,
-          lines: voucherLines,
-        });
-
-        if (voucherResult.success && voucherResult.voucher) {
-          // Post voucher
-          await postVoucher(voucherResult.voucher.id);
-
-          // Link voucher to production order
-          await prisma.productionOrder.update({
-            where: { id },
-            data: { voucherId: voucherResult.voucher.id },
+        if (wipAccountId && finishedGoodsInventoryId) {
+          const voucherResult = await createVoucher({
+            date: new Date(),
+            type: VoucherType.JOURNAL,
+            reference: order.code,
+            description: `Production ${order.code} - Move raw material cost to finished goods`,
+            lines: [
+              {
+                lineNumber: 1,
+                debitAmount: totalRawMaterialCost,
+                creditAmount: 0,
+                description: `Finished Goods Inventory - ${order.code}`,
+                chartOfAccountId: finishedGoodsInventoryId,
+              },
+              {
+                lineNumber: 2,
+                debitAmount: 0,
+                creditAmount: totalRawMaterialCost,
+                description: `WIP Completion - ${order.code}`,
+                chartOfAccountId: wipAccountId,
+              },
+            ],
           });
 
-          // Log activity
-          await createUserLog(
-            session.user.id,
-            LogAction.CREATE,
-            "Voucher",
-            voucherResult.voucher.id,
-            `Created and posted production accounting voucher for ${order.code}`,
-            {
-              productionOrderId: order.id,
-              productionCode: order.code,
-              voucherNumber: voucherResult.voucher.voucherNumber,
-              totalCost: totalRawMaterialCost,
-            }
-          );
-        }
-      }
-    }
+          if (voucherResult.success && voucherResult.voucher) {
+            await postVoucher(voucherResult.voucher.id);
+            
+            // Link voucher to production order
+            await tx.productionOrder.update({
+              where: { id },
+              data: { 
+                status: ProductionOrderStatus.COMPLETED,
+                completedAt: new Date(),
+                voucherId: voucherResult.voucher.id 
+              },
+            });
 
-    // Log and notify
+            // Log activity
+            await createUserLog(
+              session.user.id,
+              LogAction.CREATE,
+              "Voucher",
+              voucherResult.voucher.id,
+              `Production Completion Voucher: ${order.code} - ৳${totalRawMaterialCost.toLocaleString()}`,
+              {
+                productionOrderId: order.id,
+                totalCost: totalRawMaterialCost,
+                voucherNumber: voucherResult.voucher.voucherNumber
+              }
+            );
+          } else {
+            throw new Error(`Failed to create accounting voucher: ${voucherResult.error}`);
+          }
+        } else {
+          throw new Error("Missing control accounts for production completion (WIP or Finished Goods Inventory)");
+        }
+      } else {
+        // Update order status if no cost to move
+        await tx.productionOrder.update({
+          where: { id },
+          data: {
+            status: ProductionOrderStatus.COMPLETED,
+            completedAt: new Date(),
+          },
+        });
+      }
+    });
+
+    // Log and notify (after transaction)
     await logItemUpdated(
       session.user.id,
       "ProductionOrder",
@@ -1396,6 +1416,7 @@ export async function cancelProductionOrder(id: string) {
 
     // --- WIP ACCOUNTING REVERSAL ---
     if (order.status === ProductionOrderStatus.IN_PROGRESS) {
+      // Calculate total raw material cost to reverse
       const materialsResult = await calculateRawMaterialsNeeded(order.bomId, Number(order.quantity));
       let totalRawMaterialCost = 0;
       if (materialsResult.success) {
@@ -1406,7 +1427,12 @@ export async function cancelProductionOrder(id: string) {
         const rawMaterialInventoryId = await findControlAccount("Raw Material Inventory");
         const wipAccountId = await findControlAccount("Work In Progress (WIP)");
 
-        if (rawMaterialInventoryId && wipAccountId) {
+        if (!rawMaterialInventoryId || !wipAccountId) {
+          console.error("Missing control accounts for production cancellation reversal:", {
+            rawMaterialInventoryId,
+            wipAccountId
+          });
+        } else {
           const voucherLines = [
             {
               lineNumber: 1,
@@ -1434,6 +1460,22 @@ export async function cancelProductionOrder(id: string) {
 
           if (voucherResult.success && voucherResult.voucher) {
             await postVoucher(voucherResult.voucher.id);
+            
+            // Log reversal
+            await createUserLog(
+              session.user.id,
+              LogAction.DELETE,
+              "Voucher",
+              voucherResult.voucher.id,
+              `WIP Reversal (Cancelled): ${order.code} - ৳${totalRawMaterialCost.toLocaleString()}`,
+              {
+                productionOrderId: order.id,
+                totalCost: totalRawMaterialCost,
+                voucherNumber: voucherResult.voucher.voucherNumber
+              }
+            );
+          } else {
+            console.error("Failed to create WIP reversal voucher for production cancellation:", voucherResult.error);
           }
         }
       }
