@@ -141,6 +141,9 @@ export async function getItemsForPurchase() {
       where: {
         status: "active",
         isTrash: false,
+        itemType: {
+          in: [ItemType.RAW_MATERIAL, ItemType.RETAIL],
+        },
       },
       select: {
         id: true,
