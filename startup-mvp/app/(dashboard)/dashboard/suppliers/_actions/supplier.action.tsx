@@ -91,7 +91,7 @@ export async function getSuppliers(
             email: true,
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -173,7 +173,7 @@ export async function getSupplierById(supplierId: string) {
             email: true,
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -441,9 +441,11 @@ export async function createSupplier(input: {
       // Create Chart of Account for supplier
       const supplierName = input.name || input.email;
       const accountName = `AP - ${supplierName}`;
+      const coaId = `coa_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
       const chartOfAccount = await tx.chartOfAccount.create({
         data: {
+          id: coaId,
           code: accountCode,
           name: accountName,
           type: AccountType.LIABILITY,
@@ -697,8 +699,10 @@ export async function updateSupplier(input: {
 
         // Create Chart of Account for supplier
         const accountName = `AP - ${supplierName}`;
+        const coaId = `coa_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
         const chartOfAccount = await tx.chartOfAccount.create({
           data: {
+            id: coaId,
             code: accountCode,
             name: accountName,
             type: AccountType.LIABILITY,

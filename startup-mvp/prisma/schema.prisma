@@ -753,7 +753,7 @@ model ChartOfAccount {
   status                                                   String             @default("active")
   createdBy                                                String
   createdAt                                                DateTime           @default(now())
-  updatedAt                                                DateTime
+  updatedAt                                                DateTime           @updatedAt
   CashBankAccount                                          CashBankAccount?
   User                                                     User               @relation(fields: [createdBy], references: [id], onDelete: Cascade)
   ChartOfAccount                                           ChartOfAccount?    @relation("ChartOfAccountToChartOfAccount", fields: [parentId], references: [id])
@@ -832,7 +832,7 @@ model Voucher {
   postedById                    String?
   postedAt                      DateTime?
   createdAt                     DateTime          @default(now())
-  updatedAt                     DateTime
+  updatedAt                     DateTime          @updatedAt
   clientId                      String?
   supplierId                    String?
   userId                        String?
@@ -871,7 +871,7 @@ model VoucherLine {
   voucherId        String
   chartOfAccountId String
   createdAt        DateTime       @default(now())
-  updatedAt        DateTime
+  updatedAt        DateTime       @updatedAt
   clientId         String?
   supplierId       String?
   userId           String?
