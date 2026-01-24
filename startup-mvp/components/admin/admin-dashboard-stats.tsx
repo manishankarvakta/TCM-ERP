@@ -65,46 +65,45 @@ export default function AdminDashboardStats({ stats }: AdminDashboardStatsProps)
     );
   }
 
-  const statsData = [
-    {
-      title: "Total Quotations",
-      value: stats.quotations.total.toLocaleString(),
-      change: stats.quotations.recent > 0 ? `+${stats.quotations.recent}` : "0",
-      trend: stats.quotations.recent > 0 ? "up" : "neutral",
-      description: stats.quotations.recent > 0 
-        ? `${stats.quotations.recent} new this week` 
-        : "No new quotations",
-      icon: FiFileText,
-    },
-    {
-      title: "Total Revenue",
-      value: stats.revenue.formatted,
-      change: "",
-      trend: "neutral" as const,
-      description: "From accepted quotations",
-      icon: FiDollarSign,
-    },
-    {
-      title: "Active Clients",
-      value: stats.clients.total.toLocaleString(),
-      change: stats.clients.recent > 0 ? `+${stats.clients.recent}` : "0",
-      trend: stats.clients.recent > 0 ? "up" : "neutral",
-      description: stats.clients.recent > 0 
-        ? `${stats.clients.recent} new this week` 
-        : "No new clients",
-      icon: FiUsers,
-    },
-    {
-      title: "Total Items",
-      value: stats.items.total.toLocaleString(),
-      change: stats.items.recent > 0 ? `+${stats.items.recent}` : "0",
-      trend: stats.items.recent > 0 ? "up" : "neutral",
-      description: stats.items.recent > 0 
-        ? `${stats.items.recent} new today` 
-        : "No new items",
-      icon: FiPackage,
-    },
-  ];
+  const statsData = []
+  // [
+  //   {
+  //     title: "Total Quotations",
+  //     value: 0,
+  //     change: 0,
+  //     trend: 0,
+  //     description: "No new quotations",
+  //     icon: FiFileText,
+  //   },
+  //   {
+  //     title: "Total Revenue",
+  //     value: stats.revenue.formatted,
+  //     change: "",
+  //     trend: "neutral" as const,
+  //     description: "From accepted quotations",
+  //     icon: FiDollarSign,
+  //   },
+  //   {
+  //     title: "Active Clients",
+  //     value: stats.clients.total.toLocaleString(),
+  //     change: stats.clients.recent > 0 ? `+${stats.clients.recent}` : "0",
+  //     trend: stats.clients.recent > 0 ? "up" : "neutral",
+  //     description: stats.clients.recent > 0 
+  //       ? `${stats.clients.recent} new this week` 
+  //       : "No new clients",
+  //     icon: FiUsers,
+  //   },
+  //   {
+  //     title: "Total Items",
+  //     value: stats.items.total.toLocaleString(),
+  //     change: stats.items.recent > 0 ? `+${stats.items.recent}` : "0",
+  //     trend: stats.items.recent > 0 ? "up" : "neutral",
+  //     description: stats.items.recent > 0 
+  //       ? `${stats.items.recent} new today` 
+  //       : "No new items",
+  //     icon: FiPackage,
+  //   },
+  // ];
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

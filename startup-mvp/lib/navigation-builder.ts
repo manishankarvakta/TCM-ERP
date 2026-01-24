@@ -151,8 +151,42 @@ export const MENU_TEMPLATE: MenuItemData[] = [
   },
   { href: "/dashboard/files", label: "Files", icon: "FiFolder", module: "files" },
   { href: "/dashboard/notifications", label: "Notifications", icon: "FiBell", module: "notifications" },
-  { href: "/dashboard/analytics", label: "Analytics", icon: "FiBarChart", module: "analytics" },
-  { href: "/dashboard/reports", label: "Reports", icon: "FiFileText", module: "reports" },
+  {
+    label: "Reports",
+    icon: "FiBarChart",
+    module: "reports",
+    subMenuGroups: [
+      {
+        label: "Inventory",
+        items: [
+          { href: "/dashboard/reports/inventory/stock-summary", label: "Stock Summary", icon: "FiPackage", module: "reports" },
+          { href: "/dashboard/reports/inventory/stock-ledger", label: "Stock Ledger", icon: "FiFileText", module: "reports" },
+          { href: "/dashboard/reports/inventory/raw-material-consumption", label: "Raw Material Consumption", icon: "FiBox", module: "reports" },
+        ],
+      },
+      {
+        label: "Production",
+        items: [
+          { href: "/dashboard/reports/production/production-order-summary", label: "Production Order Summary", icon: "FiList", module: "reports" },
+          { href: "/dashboard/reports/production/cost-per-batch", label: "Cost Per Batch", icon: "FiDollarSign", module: "reports" },
+        ],
+      },
+      {
+        label: "Sales",
+        items: [
+          { href: "/dashboard/reports/sales/revenue-by-client", label: "Revenue by Client", icon: "FiUsers", module: "reports" },
+          { href: "/dashboard/reports/sales/revenue-by-item", label: "Revenue by Item", icon: "FiPackage", module: "reports" },
+          { href: "/dashboard/reports/sales/sales-trends", label: "Sales Trends", icon: "FiTrendingUp", module: "reports" },
+        ],
+      },
+      {
+        label: "Analytics",
+        items: [
+          { href: "/dashboard/reports/analytics", label: "Analytics Dashboard", icon: "FiBarChart", module: "reports" },
+        ],
+      },
+    ],
+  },
 ];
 
 export const BOTTOM_MENU_TEMPLATE: MenuItemData[] = [
@@ -262,8 +296,7 @@ function getNavigationIdForMenuItem(item: MenuItemData): string | null {
     "peoples": "peoples",
     "/dashboard/files": "files",
     "/dashboard/notifications": "notifications",
-    "/dashboard/analytics": "analytics",
-    "/dashboard/reports": "reports",
+    "/dashboard/reports": "reports.view",
   };
   
   if (item.href) {

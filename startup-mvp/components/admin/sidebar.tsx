@@ -151,7 +151,6 @@ const menuItems: MenuItem[] = [
   
   { href: "/admin/files", label: "Files", icon: FiFolder, module: "files" },
   { href: "/admin/notifications", label: "Notifications", icon: FiBell, module: "notifications" },
-  { href: "/admin/analytics", label: "Analytics", icon: FiBarChart, module: "analytics" },
   { href: "/admin/reports", label: "Reports", icon: FiFileText, module: "reports" },
 ];
 
@@ -219,7 +218,7 @@ function getPermissionKeyFromPath(path: string): string | null {
     } else if (pathParts.length === 1) {
       const moduleName = pathParts[0];
       // Check if it's a direct module page
-      if (["files", "notifications", "analytics", "reports", "profile", "settings"].includes(moduleName)) {
+      if (["files", "notifications", "reports", "profile", "settings"].includes(moduleName)) {
         return moduleName;
       }
       // For items, quotations, accounts, peoples - find the main page

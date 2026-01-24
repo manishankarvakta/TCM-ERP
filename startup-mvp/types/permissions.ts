@@ -10,7 +10,6 @@ export type Module =
   | "peoples"
   | "files"
   | "notifications"
-  | "analytics"
   | "reports"
   | "inventory"
   | "production";
@@ -195,6 +194,18 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     id: "reports",
     label: "Reports",
     description: "Generate and view reports",
+    subModules: [
+      { id: "reports", label: "Reports", path: "/dashboard/reports", module: "reports", permissionKey: "reports.view" },
+      { id: "inventory-stock-summary", label: "Stock Summary", path: "/dashboard/reports/inventory/stock-summary", module: "reports", permissionKey: "reports.view" },
+      { id: "inventory-stock-ledger", label: "Stock Ledger", path: "/dashboard/reports/inventory/stock-ledger", module: "reports", permissionKey: "reports.view" },
+      { id: "inventory-raw-material-consumption", label: "Raw Material Consumption", path: "/dashboard/reports/inventory/raw-material-consumption", module: "reports", permissionKey: "reports.view" },
+      { id: "production-order-summary", label: "Production Order Summary", path: "/dashboard/reports/production/production-order-summary", module: "reports", permissionKey: "reports.view" },
+      { id: "production-cost-per-batch", label: "Cost Per Batch", path: "/dashboard/reports/production/cost-per-batch", module: "reports", permissionKey: "reports.view" },
+      { id: "sales-revenue-by-client", label: "Revenue by Client", path: "/dashboard/reports/sales/revenue-by-client", module: "reports", permissionKey: "reports.view" },
+      { id: "sales-revenue-by-item", label: "Revenue by Item", path: "/dashboard/reports/sales/revenue-by-item", module: "reports", permissionKey: "reports.view" },
+      { id: "sales-trends", label: "Sales Trends", path: "/dashboard/reports/sales/sales-trends", module: "reports", permissionKey: "reports.view" },
+      { id: "analytics", label: "Analytics", path: "/dashboard/reports/analytics", module: "reports", permissionKey: "reports.view" },
+    ],
   },
   inventory: {
     id: "inventory",
@@ -563,25 +574,67 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
     ],
   },
   {
-    id: "analytics",
-    label: "Analytics",
-    pages: [
-      {
-        permissionKey: "analytics",
-        path: "/dashboard/analytics",
-        label: "Analytics",
-        operations: ["view", "export"],
-      },
-    ],
-  },
-  {
     id: "reports",
     label: "Reports",
     pages: [
       {
-        permissionKey: "reports",
+        permissionKey: "reports.view",
         path: "/dashboard/reports",
         label: "Reports",
+        operations: ["view", "export"],
+      },
+      {
+        permissionKey: "reports.view",
+        path: "/dashboard/reports/inventory/stock-summary",
+        label: "Stock Summary",
+        operations: ["view", "export"],
+      },
+      {
+        permissionKey: "reports.view",
+        path: "/dashboard/reports/inventory/stock-ledger",
+        label: "Stock Ledger",
+        operations: ["view", "export"],
+      },
+      {
+        permissionKey: "reports.view",
+        path: "/dashboard/reports/inventory/raw-material-consumption",
+        label: "Raw Material Consumption",
+        operations: ["view", "export"],
+      },
+      {
+        permissionKey: "reports.view",
+        path: "/dashboard/reports/production/production-order-summary",
+        label: "Production Order Summary",
+        operations: ["view", "export"],
+      },
+      {
+        permissionKey: "reports.view",
+        path: "/dashboard/reports/production/cost-per-batch",
+        label: "Cost Per Batch",
+        operations: ["view", "export"],
+      },
+      {
+        permissionKey: "reports.view",
+        path: "/dashboard/reports/sales/revenue-by-client",
+        label: "Revenue by Client",
+        operations: ["view", "export"],
+      },
+      {
+        permissionKey: "reports.view",
+        path: "/dashboard/reports/sales/revenue-by-item",
+        label: "Revenue by Item",
+        operations: ["view", "export"],
+      },
+      {
+        permissionKey: "reports.view",
+        path: "/dashboard/reports/sales/sales-trends",
+        label: "Sales Trends",
+        operations: ["view", "export"],
+      },
+      {
+        permissionKey: "reports.view",
+        path: "/dashboard/reports/analytics",
+        label: "Analytics",
         operations: ["view", "export"],
       },
     ],

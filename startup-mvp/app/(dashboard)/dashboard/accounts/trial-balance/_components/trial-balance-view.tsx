@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -11,6 +12,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { FiDownload, FiFileText, FiFile } from "react-icons/fi";
+import { exportToCSV } from "@/lib/utils/export-csv";
+import { exportToExcel } from "@/lib/utils/export-excel";
+import { format } from "date-fns";
 
 interface Account {
   id: string;
@@ -77,19 +88,71 @@ export default function TrialBalanceView({
     }
   };
 
+  const handleExportCSV = () => {
+    const csvData = accounts.map((account) => ({
+      Code: account.code,
+      "Account Name": account.name,
+      Type: account.type,
+      Debit: account.debit,
+      Credit: account.credit,
+      Balance: account.balance,
+    }));
+    exportToCSV(
+      csvData,
+      `trial-balance-${format(date, "yyyy-MM-dd")}.csv`,
+      ["Code", "Account Name", "Type", "Debit", "Credit", "Balance"]
+    );
+  };
+
+  const handleExportExcel = () => {
+    const excelData = accounts.map((account) => ({
+      Code: account.code,
+      "Account Name": account.name,
+      Type: account.type,
+      Debit: account.debit,
+      Credit: account.credit,
+      Balance: account.balance,
+    }));
+    exportToExcel(excelData, {
+      filename: `trial-balance-${format(date, "yyyy-MM-dd")}.xlsx`,
+      headers: ["Code", "Account Name", "Type", "Debit", "Credit", "Balance"],
+      columnWidths: [15, 40, 15, 15, 15, 15],
+    });
+  };
+
   return (
     <div className="space-y-4">
-      {/* Date Filter */}
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">As of Date:</label>
-          <Input
-            type="date"
-            value={dateParam || new Date().toISOString().split("T")[0]}
-            onChange={(e) => handleDateChange(e.target.value)}
-            className="w-[200px]"
-          />
+      {/* Date Filter and Export */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">As of Date:</label>
+            <Input
+              type="date"
+              value={dateParam || new Date().toISOString().split("T")[0]}
+              onChange={(e) => handleDateChange(e.target.value)}
+              className="w-[200px]"
+            />
+          </div>
         </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <FiDownload className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleExportCSV}>
+              <FiFileText className="h-4 w-4 mr-2" />
+              Export as CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleExportExcel}>
+              <FiFile className="h-4 w-4 mr-2" />
+              Export as Excel
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Table */}

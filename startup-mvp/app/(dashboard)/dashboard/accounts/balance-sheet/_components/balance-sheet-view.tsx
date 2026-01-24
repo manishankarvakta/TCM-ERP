@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -12,6 +13,16 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { FiDownload, FiFileText, FiFile } from "react-icons/fi";
+import { exportToCSV } from "@/lib/utils/export-csv";
+import { exportToExcel } from "@/lib/utils/export-excel";
+import { format } from "date-fns";
 
 interface Account {
   id: string;
@@ -74,22 +85,94 @@ export default function BalanceSheetView({
     }).format(amount);
   };
 
+  const handleExportCSV = () => {
+    const csvData = [
+      ...assets.accounts.map((acc) => ({
+        Section: "Assets",
+        Code: acc.code,
+        "Account Name": acc.name,
+        Balance: acc.balance,
+      })),
+      ...liabilities.accounts.map((acc) => ({
+        Section: "Liabilities",
+        Code: acc.code,
+        "Account Name": acc.name,
+        Balance: acc.balance,
+      })),
+      ...equity.accounts.map((acc) => ({
+        Section: "Equity",
+        Code: acc.code,
+        "Account Name": acc.name,
+        Balance: acc.balance,
+      })),
+    ];
+    exportToCSV(csvData, `balance-sheet-${format(date, "yyyy-MM-dd")}.csv`);
+  };
+
+  const handleExportExcel = () => {
+    const excelData = [
+      ...assets.accounts.map((acc) => ({
+        Section: "Assets",
+        Code: acc.code,
+        "Account Name": acc.name,
+        Balance: acc.balance,
+      })),
+      ...liabilities.accounts.map((acc) => ({
+        Section: "Liabilities",
+        Code: acc.code,
+        "Account Name": acc.name,
+        Balance: acc.balance,
+      })),
+      ...equity.accounts.map((acc) => ({
+        Section: "Equity",
+        Code: acc.code,
+        "Account Name": acc.name,
+        Balance: acc.balance,
+      })),
+    ];
+    exportToExcel(excelData, {
+      filename: `balance-sheet-${format(date, "yyyy-MM-dd")}.xlsx`,
+      headers: ["Section", "Code", "Account Name", "Balance"],
+      columnWidths: [15, 15, 40, 20],
+    });
+  };
+
   return (
     <div className="space-y-4">
-      {/* Date Filter */}
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">As of Date:</label>
-          <Input
-            type="date"
-            value={dateParam || new Date().toISOString().split("T")[0]}
-            onChange={(e) => handleDateChange(e.target.value)}
-            className="w-[200px]"
-          />
+      {/* Date Filter and Export */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">As of Date:</label>
+            <Input
+              type="date"
+              value={dateParam || new Date().toISOString().split("T")[0]}
+              onChange={(e) => handleDateChange(e.target.value)}
+              className="w-[200px]"
+            />
+          </div>
+          <Badge variant={validation.isBalanced ? "default" : "destructive"}>
+            {validation.isBalanced ? "Balanced" : `Unbalanced: ${formatCurrency(validation.difference)}`}
+          </Badge>
         </div>
-        <Badge variant={validation.isBalanced ? "default" : "destructive"}>
-          {validation.isBalanced ? "Balanced" : `Unbalanced: ${formatCurrency(validation.difference)}`}
-        </Badge>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <FiDownload className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleExportCSV}>
+              <FiFileText className="h-4 w-4 mr-2" />
+              Export as CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleExportExcel}>
+              <FiFile className="h-4 w-4 mr-2" />
+              Export as Excel
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
