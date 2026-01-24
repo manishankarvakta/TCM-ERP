@@ -684,6 +684,37 @@ export async function createVoucher(input: {
     // Generate voucher number
     const voucherNumber = await generateVoucherNumber();
 
+    // --- OVERPAYMENT GUARD ---
+    if (input.type === "PAYMENT" && input.supplierId) {
+      const totalPaymentAmount = input.lines.reduce((sum, line) => sum + (line.debitAmount || 0), 0);
+      
+      // Calculate current AP balance for this supplier
+      const supplierAccount = await prisma.chartOfAccount.findFirst({
+        where: {
+          Supplier: { some: { id: input.supplierId } }
+        },
+        select: { id: true }
+      });
+
+      if (supplierAccount) {
+        const balanceResult = await prisma.journalEntryLine.aggregate({
+          where: { chartOfAccountId: supplierAccount.id },
+          _sum: { debitAmount: true, creditAmount: true }
+        });
+
+        const currentBalance = Number(balanceResult._sum.creditAmount || 0) - Number(balanceResult._sum.debitAmount || 0);
+        
+        if (totalPaymentAmount > currentBalance + 0.01) {
+          return {
+            success: false,
+            error: `Overpayment detected. Current outstanding balance for this supplier is ৳${currentBalance.toFixed(2)}. You are attempting to pay ৳${totalPaymentAmount.toFixed(2)}.`,
+            voucher: null,
+          };
+        }
+      }
+    }
+    // --- END OVERPAYMENT GUARD ---
+
     // Create voucher with lines
     const voucher = await prisma.voucher.create({
       data: {
