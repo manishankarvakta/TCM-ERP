@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
+import { revalidatePath } from "next/cache";
 import { type Prisma, AccountType } from "@prisma/client";
 import { randomBytes } from "crypto";
 
@@ -73,6 +74,7 @@ export async function getClients(
       select: {
         id: true,
         name: true,
+        clientCode: true,
         email: true,
         phone: true,
         address: true,
@@ -89,6 +91,14 @@ export async function getClients(
             id: true,
             name: true,
             email: true,
+          },
+        },
+        ChartOfAccount: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            type: true,
           },
         },
         createdAt: true,
@@ -166,7 +176,7 @@ export async function getClientById(clientId: string) {
             email: true,
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
