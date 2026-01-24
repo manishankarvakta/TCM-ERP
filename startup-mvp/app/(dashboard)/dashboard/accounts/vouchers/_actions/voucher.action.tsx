@@ -572,6 +572,7 @@ export async function createVoucher(input: {
   supplierId?: string;
   userId?: string;
   organizationId?: string;
+  isSystemAction?: boolean;
   lines: Array<{
     lineNumber: number;
     debitAmount: number;
@@ -652,7 +653,7 @@ export async function createVoucher(input: {
 
     // Manual Voucher Type Restrictions
     const manualAllowedTypes = ["JOURNAL", "PAYMENT", "RECEIPT", "CONTRA"];
-    if (!manualAllowedTypes.includes(input.type)) {
+    if (!input.isSystemAction && !manualAllowedTypes.includes(input.type)) {
       return {
         success: false,
         error: `Manual creation of ${input.type} vouchers is prohibited. These are system-reserved types.`,
@@ -661,7 +662,7 @@ export async function createVoucher(input: {
     }
 
     // Manual JOURNAL/PAYMENT/RECEIPT restriction for control accounts
-    if (["JOURNAL", "PAYMENT", "RECEIPT"].includes(input.type)) {
+    if (!input.isSystemAction && ["JOURNAL", "PAYMENT", "RECEIPT"].includes(input.type)) {
       for (const account of accounts) {
         if (account.isControl) {
           return {

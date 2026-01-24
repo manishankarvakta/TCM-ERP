@@ -1004,6 +1004,7 @@ export async function startProductionOrder(id: string) {
           type: VoucherType.JOURNAL,
           reference: order.code,
           description: `Production Start ${order.code} - Move raw material cost to WIP`,
+          isSystemAction: true,
           lines: voucherLines,
         });
 
@@ -1277,6 +1278,7 @@ export async function completeProductionOrder(id: string) {
             type: VoucherType.JOURNAL,
             reference: order.code,
             description: `Production ${order.code} - Move raw material cost to finished goods`,
+            isSystemAction: true,
             lines: [
               {
                 lineNumber: 1,
@@ -1455,6 +1457,7 @@ export async function cancelProductionOrder(id: string) {
             type: VoucherType.JOURNAL,
             reference: order.code,
             description: `Production Cancelled ${order.code} - Reverse WIP to RM`,
+            isSystemAction: true,
             lines: voucherLines,
           });
 

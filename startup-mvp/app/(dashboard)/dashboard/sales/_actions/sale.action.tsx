@@ -1051,6 +1051,7 @@ export async function completeSale(saleId: string) {
         reference: sale.saleNumber,
         description: `Sale ${sale.saleNumber} - ${sale.client.name}`,
         clientId: sale.clientId,
+        isSystemAction: true,
         lines: voucherLines,
       });
 

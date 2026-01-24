@@ -130,6 +130,7 @@ export async function runScenario() {
       type: "PAYMENT",
       supplierId: supplier.id,
       date: new Date(),
+      isSystemAction: true,
       lines: [
         { lineNumber: 1, chartOfAccountId: apAccount.id, debitAmount: 5000, creditAmount: 0, supplierId: supplier.id },
         { lineNumber: 2, chartOfAccountId: cashAccount.id, debitAmount: 0, creditAmount: 5000 }
@@ -189,6 +190,7 @@ export async function runScenario() {
       type: "RECEIPT",
       clientId: client.id,
       date: new Date(),
+      isSystemAction: true,
       lines: [
         { lineNumber: 1, chartOfAccountId: cashAccount.id, debitAmount: 1000, creditAmount: 0 },
         { lineNumber: 2, chartOfAccountId: arAccount.id, debitAmount: 0, creditAmount: 1000, clientId: client.id }

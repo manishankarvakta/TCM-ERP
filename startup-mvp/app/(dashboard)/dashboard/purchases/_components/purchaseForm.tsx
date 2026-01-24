@@ -82,7 +82,6 @@ interface PurchaseFormProps {
 const STATUS_OPTIONS: { value: PurchaseStatus; label: string }[] = [
   { value: "DRAFT", label: "Draft" },
   { value: "APPROVED", label: "Approved" },
-  { value: "PARTIALLY_RECEIVED", label: "Partially Received" },
   { value: "RECEIVED", label: "Received" },
   { value: "CANCELLED", label: "Cancelled" },
 ];

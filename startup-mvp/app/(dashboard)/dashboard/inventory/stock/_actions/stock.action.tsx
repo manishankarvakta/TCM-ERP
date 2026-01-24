@@ -378,6 +378,7 @@ export async function adjustStock(input: {
             type: VoucherType.JOURNAL,
             reference: `PENDING-ADJ`,
             description: `PENDING APPROVAL: Stock adjustment for ${item.name}. Reason: ${input.notes}`,
+            isSystemAction: true,
             lines: voucherLines,
           });
 
@@ -542,6 +543,7 @@ export async function adjustStock(input: {
             type: VoucherType.JOURNAL,
             reference: `ADJ-${result.id.slice(-8)}`,
             description: `Automatic voucher for manual stock adjustment: ${item.name}`,
+            isSystemAction: true,
             lines: voucherLines,
           });
 

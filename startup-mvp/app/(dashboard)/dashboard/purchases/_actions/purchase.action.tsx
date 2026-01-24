@@ -566,6 +566,7 @@ async function createPurchaseAccountingVoucher(
       reference: purchase.purchaseNumber,
       description: `Purchase ${purchase.purchaseNumber} - ${purchase.supplier.name || purchase.supplier.email}`,
       supplierId: purchase.supplierId,
+      isSystemAction: true,
       lines: voucherLines,
     });
 
@@ -692,6 +693,12 @@ export async function createPurchase(input: z.infer<typeof purchaseSchema>) {
 
     revalidateBothPaths("purchases");
 
+    // Update stock and create accounting voucher if purchase is received
+    if (validated.status === "RECEIVED") {
+      await updateStockOnPurchase(result.id);
+      await createPurchaseAccountingVoucher(result.id);
+    }
+
     return {
       success: true,
       purchase: {
@@ -777,7 +784,7 @@ export async function updatePurchase(input: z.infer<typeof updatePurchaseSchema>
     );
 
     // Update stock and create accounting voucher if purchase is received
-    if (validated.status === "RECEIVED" || validated.status === "PARTIALLY_RECEIVED") {
+    if (validated.status === "RECEIVED") {
       await updateStockOnPurchase(purchase.id);
       // Create accounting voucher (only if not already created)
       if (!purchase.voucherId) {
@@ -872,8 +879,8 @@ export async function bulkUpdatePurchaseStatus(
         data: { status, isTrash: false },
       });
 
-      // Update stock and create accounting vouchers if status is RECEIVED or PARTIALLY_RECEIVED
-      if (status === "RECEIVED" || status === "PARTIALLY_RECEIVED") {
+      // Update stock and create accounting vouchers if status is RECEIVED
+      if (status === "RECEIVED") {
         for (const purchaseId of purchaseIds) {
           await updateStockOnPurchase(purchaseId);
           // Check if voucher already exists before creating
