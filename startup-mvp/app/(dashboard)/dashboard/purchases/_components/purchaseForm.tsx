@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { FiAlertCircle, FiPlus, FiTrash2 } from "react-icons/fi";
+import { FiAlertCircle, FiPlus, FiTrash2, FiSearch } from "react-icons/fi";
 import { createPurchase, updatePurchase } from "../_actions/purchase.action";
 import { PurchaseStatus } from "@prisma/client";
 import { format } from "date-fns";
@@ -50,6 +50,7 @@ interface PurchaseFormProps {
     name: string | null;
     email: string;
     company: string | null;
+    supplierCode: string | null;
   }>;
   items: Array<{
     id: string;
@@ -95,6 +96,30 @@ export default function PurchaseForm({
   const router = useRouter();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [itemSearch, setItemSearch] = useState("");
+
+  const filteredSuppliers = useMemo(() => {
+    if (!supplierSearch) return suppliers;
+    const searchLower = supplierSearch.toLowerCase();
+    return suppliers.filter(
+      (s) =>
+        (s.name?.toLowerCase().includes(searchLower) || false) ||
+        s.email.toLowerCase().includes(searchLower) ||
+        (s.company?.toLowerCase().includes(searchLower) || false) ||
+        (s.supplierCode?.toLowerCase().includes(searchLower) || false)
+    );
+  }, [suppliers, supplierSearch]);
+
+  const filteredItemsForSelect = useMemo(() => {
+    if (!itemSearch) return items;
+    const searchLower = itemSearch.toLowerCase();
+    return items.filter(
+      (item) =>
+        item.code.toLowerCase().includes(searchLower) ||
+        item.description.toLowerCase().includes(searchLower)
+    );
+  }, [items, itemSearch]);
 
   const defaultItems =
     initialData?.items.map((item) => ({
@@ -223,22 +248,55 @@ export default function PurchaseForm({
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="supplierId">Supplier *</Label>
-                <Select
-                  defaultValue={initialData?.supplier.id || ""}
-                  onValueChange={(value) => setValue("supplierId", value)}
-                  disabled={loading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select supplier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map((supplier) => (
-                      <SelectItem key={supplier.id} value={supplier.id}>
-                        {supplier.name || supplier.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Controller
+                  name="supplierId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={loading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select supplier" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        <div className="p-2">
+                          <div className="relative">
+                            <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
+                            <Input
+                              placeholder="Search Supplier..."
+                              value={supplierSearch}
+                              onChange={(e) => {
+                                setSupplierSearch(e.target.value);
+                              }}
+                              onKeyDown={(e) => {
+                                e.stopPropagation();
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                }
+                              }}
+                              className="pl-8 h-8 text-xs"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        </div>
+                        <div className="max-h-[200px] overflow-y-auto">
+                          {filteredSuppliers.map((s) => (
+                            <SelectItem key={s.id} value={s.id} className="text-left">
+                              {s.supplierCode || "N/A"} - {s.name || s.email}
+                              {s.company && (
+                                <span className="block text-xs text-muted-foreground">
+                                  {s.company}
+                                </span>
+                              )}
+                            </SelectItem>
+                          ))}
+                        </div>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
                 {errors.supplierId && (
                   <p className="text-sm text-destructive">{errors.supplierId.message}</p>
                 )}
@@ -348,31 +406,59 @@ export default function PurchaseForm({
                   <tbody>
                     {fields.map((field, index) => (
                       <tr key={field.id} className="border-t">
-                        <td className="px-3 py-2 align-top min-w-[180px]">
-                          <Select
-                            defaultValue={getValues(`items.${index}.itemId`) || ""}
-                            onValueChange={(value) => {
-                              setValue(`items.${index}.itemId`, value);
-                              const selectedItem = items.find((item) => item.id === value);
-                              if (selectedItem) {
-                                setValue(`items.${index}.description`, selectedItem.description);
-                                setValue(`items.${index}.unitPrice`, selectedItem.unitPrice);
-                                updateAmount(index);
-                              }
-                            }}
-                            disabled={loading}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select item" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {items.map((item) => (
-                                <SelectItem key={item.id} value={item.id}>
-                                  {item.code}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                        <td className="px-3 py-2 align-top min-w-[220px]">
+                          <Controller
+                            name={`items.${index}.itemId`}
+                            control={control}
+                            render={({ field: itemField }) => (
+                              <Select
+                                value={itemField.value || ""}
+                                onValueChange={(value) => {
+                                  itemField.onChange(value || "");
+                                  const selectedItem = items.find((item) => item.id === value);
+                                  if (selectedItem) {
+                                    setValue(`items.${index}.description`, selectedItem.description);
+                                    setValue(`items.${index}.unitPrice`, selectedItem.unitPrice);
+                                    updateAmount(index);
+                                  }
+                                }}
+                                disabled={loading}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select item" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-[300px]">
+                                  <div className="p-2">
+                                    <div className="relative">
+                                      <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
+                                      <Input
+                                        placeholder="Search items..."
+                                        value={itemSearch}
+                                        onChange={(e) => {
+                                          setItemSearch(e.target.value);
+                                        }}
+                                        onKeyDown={(e) => {
+                                          e.stopPropagation();
+                                          if (e.key === "Enter") {
+                                            e.preventDefault();
+                                          }
+                                        }}
+                                        className="pl-8 h-8 text-xs"
+                                        onClick={(e) => e.stopPropagation()}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="max-h-[200px] overflow-y-auto">
+                                    {filteredItemsForSelect.map((item) => (
+                                      <SelectItem key={item.id} value={item.id} className="text-left">
+                                        {item.code} - {item.description}
+                                      </SelectItem>
+                                    ))}
+                                  </div>
+                                </SelectContent>
+                              </Select>
+                            )}
+                          />
                         </td>
                         <td className="px-3 py-2 align-top">
                           <Input

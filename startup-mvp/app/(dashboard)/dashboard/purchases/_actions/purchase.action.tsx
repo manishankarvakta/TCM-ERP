@@ -112,6 +112,7 @@ export async function getSuppliersForPurchase() {
         name: true,
         email: true,
         company: true,
+        supplierCode: true,
       },
       orderBy: {
         createdAt: "desc",

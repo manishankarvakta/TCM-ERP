@@ -729,6 +729,96 @@ export async function deleteSalesPermanently(saleIds: string[]) {
   }
 }
 
+export async function bulkUpdateSaleStatus(
+  saleIds: string[],
+  status: SaleStatus | "trash" | "restore"
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (saleIds.length === 0) {
+      return { success: false, error: "No sales selected" };
+    }
+
+    if (status === "trash") {
+      // Only allow trashing DRAFT sales
+      const result = await prisma.sale.updateMany({
+        where: { 
+          id: { in: saleIds },
+          status: SaleStatus.DRAFT
+        },
+        data: { isTrash: true },
+      });
+      
+      if (result.count === 0) {
+        return { 
+          success: false, 
+          error: "No eligible sales found. Only DRAFT sales can be moved to trash." 
+        };
+      }
+    } else if (status === "restore") {
+      await prisma.sale.updateMany({
+        where: { id: { in: saleIds } },
+        data: { isTrash: false },
+      });
+    } else if (status === "COMPLETED") {
+      // For bulk completion, we should use the completeSale function for each to ensure stock and accounting
+      let successCount = 0;
+      let errors: string[] = [];
+
+      for (const id of saleIds) {
+        try {
+          const result = await completeSale(id);
+          if (result.success) {
+            successCount++;
+          } else {
+            errors.push(`${id}: ${result.error}`);
+          }
+        } catch (err) {
+          errors.push(`${id}: ${err instanceof Error ? err.message : "Unknown error"}`);
+        }
+      }
+
+      if (successCount === 0 && errors.length > 0) {
+        return { success: false, error: `Failed to complete sales: ${errors.join(", ")}` };
+      }
+      
+      return { 
+        success: true, 
+        message: `Successfully completed ${successCount} sales.${errors.length > 0 ? ` Errors in ${errors.length} sales.` : ""}` 
+      };
+    } else {
+      // For other statuses (DRAFT, CANCELLED)
+      const result = await prisma.sale.updateMany({
+        where: { 
+          id: { in: saleIds },
+          status: { not: SaleStatus.COMPLETED } // Don't change completed sales
+        },
+        data: { status, isTrash: false },
+      });
+
+      if (result.count === 0 && status === "CANCELLED") {
+        return { 
+          success: false, 
+          error: "No eligible sales found. COMPLETED sales cannot be cancelled." 
+        };
+      }
+    }
+
+    revalidateBothPaths("sales");
+    return { success: true };
+  } catch (error) {
+    console.error("bulkUpdateSaleStatus error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to update sales",
+    };
+  }
+}
+
 /**
  * Helper function to find control account by name
  */
@@ -803,6 +893,14 @@ export async function completeSale(saleId: string) {
         sale: null,
       };
     }
+
+    // Prepare stock items for update
+    const stockItems = sale.items
+      .filter((item) => item.item?.trackInventory)
+      .map((item) => ({
+        itemId: item.itemId,
+        quantity: Number(item.quantity),
+      }));
 
     // Validate stock availability for all items
     for (const saleItem of sale.items) {

@@ -506,8 +506,6 @@ export async function adjustStock(input: {
     });
 
     // --- ACCOUNTING INTEGRATION ---
-    const adjustmentValue = Math.abs(input.quantity) * Number(item.costPrice || 0);
-    
     if (adjustmentValue > 0) {
       try {
         // Determine Inventory account based on item type

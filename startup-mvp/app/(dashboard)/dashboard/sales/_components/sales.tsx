@@ -30,6 +30,7 @@ import {
 import {
   deleteSale,
   deleteSalesPermanently,
+  bulkUpdateSaleStatus,
 } from "../_actions/sale.action";
 import ProtectedAction from "@/components/permissions/protected-action";
 import {
@@ -162,7 +163,7 @@ export default function SalesListClient({
     }
   };
 
-  const handleBulkAction = async (action: "delete-permanently") => {
+  const handleBulkAction = async (action: SaleStatus | "trash" | "restore" | "delete-permanently") => {
     if (selectedSales.size === 0) {
       toast({
         title: "No selection",
@@ -175,7 +176,12 @@ export default function SalesListClient({
     const saleIds = Array.from(selectedSales);
 
     startTransition(async () => {
-      const result = await deleteSalesPermanently(saleIds);
+      let result;
+      if (action === "delete-permanently") {
+        result = await deleteSalesPermanently(saleIds);
+      } else {
+        result = await bulkUpdateSaleStatus(saleIds, action);
+      }
 
       if (result.success) {
         setSelectedSales(new Set());
@@ -220,52 +226,84 @@ export default function SalesListClient({
           )}
         </div>
 
-        {isTrash && (
-          <div className="flex items-center gap-2">
-            {selectedSales.size > 0 && (
-              <span className="text-sm text-muted-foreground whitespace-nowrap">
-                {selectedSales.size} selected
-              </span>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isPending || selectedSales.size === 0}
-                >
-                  <FiMoreVertical className="mr-2 h-4 w-4" />
-                  Bulk Actions
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => handleBulkAction("delete-permanently")}
-                  className="text-destructive"
-                  disabled={selectedSales.size === 0}
-                >
-                  <FiTrash2 className="mr-2 h-4 w-4" />
-                  Delete Permanently
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {selectedSales.size > 0 && (
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              {selectedSales.size} selected
+            </span>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isPending || selectedSales.size === 0}
+              >
+                <FiMoreVertical className="mr-2 h-4 w-4" />
+                Bulk Actions
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {!isTrash ? (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("COMPLETED")}
+                    disabled={selectedSales.size === 0}
+                  >
+                    <FiRotateCw className="mr-2 h-4 w-4" />
+                    Mark as Completed
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("CANCELLED")}
+                    disabled={selectedSales.size === 0}
+                  >
+                    <FiX className="mr-2 h-4 w-4" />
+                    Cancel Sales
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("trash")}
+                    className="text-destructive"
+                    disabled={selectedSales.size === 0}
+                  >
+                    <FiTrash2 className="mr-2 h-4 w-4" />
+                    Move to Trash
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("restore")}
+                    disabled={selectedSales.size === 0}
+                  >
+                    <FiRotateCw className="mr-2 h-4 w-4" />
+                    Restore
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("delete-permanently")}
+                    className="text-destructive"
+                    disabled={selectedSales.size === 0}
+                  >
+                    <FiTrash2 className="mr-2 h-4 w-4" />
+                    Delete Permanently
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
-              {isTrash && (
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={handleSelectAll}
-                    aria-label="Select all"
-                  />
-                </TableHead>
-              )}
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                  aria-label="Select all"
+                />
+              </TableHead>
               <TableHead>Sale #</TableHead>
               <TableHead>Client</TableHead>
               <TableHead>Status</TableHead>
@@ -277,7 +315,7 @@ export default function SalesListClient({
           <TableBody>
             {initialSales.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isTrash ? 7 : 6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed sales found" : "No sales found"}
                 </TableCell>
               </TableRow>
@@ -287,17 +325,15 @@ export default function SalesListClient({
 
                 return (
                   <TableRow key={sale.id} className={cn(isSelected && "bg-muted/50")}>
-                    {isTrash && (
-                      <TableCell>
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={(checked) =>
-                            handleSelectSale(sale.id, checked as boolean)
-                          }
-                          aria-label={`Select ${sale.saleNumber}`}
-                        />
-                      </TableCell>
-                    )}
+                    <TableCell>
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) =>
+                          handleSelectSale(sale.id, checked as boolean)
+                        }
+                        aria-label={`Select ${sale.saleNumber}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">
                       {sale.saleNumber}
                     </TableCell>
