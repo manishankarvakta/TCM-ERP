@@ -429,7 +429,7 @@ async function createPurchaseAccountingVoucher(
     // Group items by itemType and calculate totals
     const itemsByType: Record<
       ItemType,
-      Array<{ quantity: number; costPrice: number; totalCost: number; description: string }>
+      Array<{ quantity: number; unitPrice: number; totalCost: number; description: string }>
     > = {
       RAW_MATERIAL: [],
       FINISHED_GOOD: [],
@@ -437,15 +437,15 @@ async function createPurchaseAccountingVoucher(
     };
 
     for (const purchaseItem of purchase.items) {
-      if (!purchaseItem.item || !purchaseItem.item.costPrice) continue;
+      if (!purchaseItem.item) continue;
 
       const quantity = Number(purchaseItem.quantity);
-      const costPrice = Number(purchaseItem.item.costPrice);
-      const totalCost = quantity * costPrice;
+      const unitPrice = Number(purchaseItem.unitPrice);
+      const totalCost = quantity * unitPrice;
 
       itemsByType[purchaseItem.item.itemType].push({
         quantity,
-        costPrice,
+        unitPrice,
         totalCost,
         description: purchaseItem.description,
       });
@@ -462,7 +462,7 @@ async function createPurchaseAccountingVoucher(
     }> = [];
 
     let lineNumber = 1;
-    let totalDebit = 0;
+    let totalInventoryDebit = 0;
 
     // Debit: Inventory accounts based on item type
     if (itemsByType.RAW_MATERIAL.length > 0 && rawMaterialInventoryId) {
@@ -478,7 +478,7 @@ async function createPurchaseAccountingVoucher(
           description: `Raw Material Inventory - ${purchase.purchaseNumber}`,
           chartOfAccountId: rawMaterialInventoryId,
         });
-        totalDebit += totalRawMaterialCost;
+        totalInventoryDebit += totalRawMaterialCost;
       }
     }
 
@@ -492,7 +492,7 @@ async function createPurchaseAccountingVoucher(
           description: `Finished Goods Inventory - ${purchase.purchaseNumber}`,
           chartOfAccountId: finishedGoodsInventoryId,
         });
-        totalDebit += totalFGCost;
+        totalInventoryDebit += totalFGCost;
       }
     }
 
@@ -506,16 +506,47 @@ async function createPurchaseAccountingVoucher(
           description: `Retail Inventory - ${purchase.purchaseNumber}`,
           chartOfAccountId: retailInventoryId,
         });
-        totalDebit += totalRetailCost;
+        totalInventoryDebit += totalRetailCost;
+      }
+    }
+
+    // Handle Tax and Discount
+    const discount = Number(purchase.discount || 0);
+    const tax = Number(purchase.tax || 0);
+    const grandTotal = Number(purchase.grandTotal);
+
+    if (tax > 0) {
+      const taxAccountId = await findControlAccount("Tax Payable"); // Or a specific Purchase Tax account if available
+      if (taxAccountId) {
+        voucherLines.push({
+          lineNumber: lineNumber++,
+          debitAmount: tax,
+          creditAmount: 0,
+          description: `Purchase Tax - ${purchase.purchaseNumber}`,
+          chartOfAccountId: taxAccountId,
+        });
+      }
+    }
+
+    if (discount > 0) {
+      const discountAccountId = await findControlAccount("Other Income"); // Or "Purchase Discount" if available
+      if (discountAccountId) {
+        voucherLines.push({
+          lineNumber: lineNumber++,
+          debitAmount: 0,
+          creditAmount: discount,
+          description: `Purchase Discount - ${purchase.purchaseNumber}`,
+          chartOfAccountId: discountAccountId,
+        });
       }
     }
 
     // Credit: Accounts Payable
-    if (totalDebit > 0) {
+    if (grandTotal > 0) {
       voucherLines.push({
         lineNumber: lineNumber++,
         debitAmount: 0,
-        creditAmount: totalDebit,
+        creditAmount: grandTotal,
         description: `Accounts Payable - ${purchase.purchaseNumber} - ${purchase.supplier.name || purchase.supplier.email}`,
         chartOfAccountId: apAccountId,
         supplierId: purchase.supplierId,
@@ -523,7 +554,7 @@ async function createPurchaseAccountingVoucher(
     }
 
     if (voucherLines.length === 0) {
-      return { success: false, error: "No items with cost price found" };
+      return { success: false, error: "No valid items or amounts found for voucher" };
     }
 
     // Create voucher
