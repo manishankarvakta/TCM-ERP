@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getCategoryById } from "@/app/(dashboard)/admin/category/_actions/category.action";
 // import { getQuotation } from "@/app/actions/quotations";
 // import { getGroupById } from "@/app/(dashboard)/admin/items/groups/_actions/group.action";
 // import { getItemById } from "@/app/(dashboard)/admin/items/_actions/item.action";
@@ -92,7 +93,47 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [groupCode, setGroupCode] = useState<string | null>(null);
   const [itemLabel, setItemLabel] = useState<string | null>(null);
   const [workOrderCode, setWorkOrderCode] = useState<string | null>(null);
+  const [categoryName, setCategoryName] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
+
+  // Check if we're on a category detail or edit page
+  const isCategoryDetailMatch = pathname.match(/^\/admin\/category\/([^\/]+)$/);
+  const isCategoryEditMatch = pathname.match(/^\/admin\/category\/([^\/]+)\/edit$/);
+  const isCategoryDetailsPage = pathname.match(/^\/admin\/category\/details$/);
+  
+  // For admin category, the ID might be in the query param for details page
+  const searchParams = useSearchParams();
+  const categoryIdFromParam = searchParams.get("id");
+  const categoryId = isCategoryDetailMatch?.[1] || isCategoryEditMatch?.[1] || categoryIdFromParam || null;
+
+  // Fetch category name when on category detail/edit page
+  useEffect(() => {
+    if (!categoryId || categoryId === "add" || categoryId === "details") {
+      return;
+    }
+    
+    let cancelled = false;
+    const id = categoryId;
+    
+    async function fetchCategoryName() {
+      try {
+        const result = await getCategoryById(id);
+        if (!cancelled && result.success && result.category) {
+          setCategoryName(result.category.name);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error fetching category name:", error);
+        }
+      }
+    }
+    
+    fetchCategoryName();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [categoryId]);
 
  
 
@@ -167,6 +208,29 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     } else {
       // Show loading state or default while fetching
       currentLabel = isGroupEdit ? "Edit Group" : "Group Details";
+    }
+  }
+
+  // If we're on a category detail or edit page, use category name instead of ID
+  // For category routes, replace the ID segment with "Categories" as parent
+  if (isCategoryDetailMatch || isCategoryEditMatch || isCategoryDetailsPage) {
+    // Find the "Categories" item (should be before the ID)
+    const categoriesItem = items.find(item => item.path === "/admin/category");
+    if (categoriesItem) {
+      parentItem = categoriesItem;
+    } else {
+      // If not found, create a parent item pointing to categories list
+      parentItem = { path: "/admin/category", label: "Categories" };
+    }
+    
+    // Update current label with category name
+    if (categoryName) {
+      currentLabel = isCategoryEditMatch ? `Edit ${categoryName}` : categoryName;
+    } else if (isCategoryDetailsPage) {
+      currentLabel = categoryName || "Category Details";
+    } else {
+      // Show loading state or default while fetching
+      currentLabel = isCategoryEditMatch ? "Edit Category" : "Category Details";
     }
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { getItemById } from "@/app/(dashboard)/dashboard/master/items/_actions/i
 import { getBOMById } from "@/app/(dashboard)/dashboard/production/boms/_actions/bom.action";
 import { getProductionOrderById } from "@/app/(dashboard)/dashboard/production/orders/_actions/production.action";
 import { getPurchaseById } from "@/app/(dashboard)/dashboard/purchases/_actions/purchase.action";
+import { getCategoryById } from "@/app/(dashboard)/dashboard/master/categories/_actions/category.action";
+import { getUnitById } from "@/app/(dashboard)/dashboard/master/units/_actions/unit.action";
 
 // Map route paths to display names
 const routeMap: Record<string, string> = {
@@ -90,6 +92,7 @@ interface BreadcrumbNavProps {
 export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [quotationNumber, setQuotationNumber] = useState<string | null>(null);
   const [groupCode, setGroupCode] = useState<string | null>(null);
   const [itemLabel, setItemLabel] = useState<string | null>(null);
@@ -99,7 +102,20 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [bomName, setBomName] = useState<string | null>(null);
   const [productionOrderCode, setProductionOrderCode] = useState<string | null>(null);
   const [purchaseCode, setPurchaseCode] = useState<string | null>(null);
+  const [categoryName, setCategoryName] = useState<string | null>(null);
+  const [unitSymbol, setUnitSymbol] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
+
+  // Check if we're on a unit detail or edit page
+  const isUnitDetailMatch = pathname.match(/^\/dashboard\/master\/units\/([^\/]+)$/);
+  const isUnitEditMatch = pathname.match(/^\/dashboard\/master\/units\/([^\/]+)\/edit$/);
+  const isUnitDetailsPageMatch = pathname.match(/^\/dashboard\/master\/units\/details$/);
+  const unitId = isUnitDetailMatch?.[1] || isUnitEditMatch?.[1] || (isUnitDetailsPageMatch ? searchParams.get("id") : null);
+
+  // Check if we're on a category detail or edit page
+  const isCategoryDetailMatch = pathname.match(/^\/dashboard\/master\/categories\/([^\/]+)$/);
+  const isCategoryEditMatch = pathname.match(/^\/dashboard\/master\/categories\/([^\/]+)\/edit$/);
+  const categoryId = isCategoryDetailMatch?.[1] || isCategoryEditMatch?.[1] || null;
 
   // Check if we're on a warehouse detail or edit page
   const isWarehouseDetailMatch = pathname.match(/^\/dashboard\/master\/warehouses\/([^\/]+)$/);
@@ -272,6 +288,64 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     };
   }, [purchaseId]);
 
+  // Fetch category name when on category detail/edit page
+  useEffect(() => {
+    if (!categoryId || categoryId === "add") {
+      return;
+    }
+    
+    let cancelled = false;
+    const id = categoryId;
+    
+    async function fetchCategoryName() {
+      try {
+        const result = await getCategoryById(id);
+        if (!cancelled && result.success && result.category) {
+          setCategoryName(result.category.name);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error fetching category name:", error);
+        }
+      }
+    }
+    
+    fetchCategoryName();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [categoryId]);
+
+  // Fetch unit symbol when on unit detail/edit page
+  useEffect(() => {
+    if (!unitId || unitId === "add" || unitId === "details") {
+      return;
+    }
+    
+    let cancelled = false;
+    const id = unitId;
+    
+    async function fetchUnitSymbol() {
+      try {
+        const result = await getUnitById(id);
+        if (!cancelled && result.success && result.unit) {
+          setUnitSymbol(result.unit.symbol);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error fetching unit symbol:", error);
+        }
+      }
+    }
+    
+    fetchUnitSymbol();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [unitId]);
+
   // If we're at the root dashboard, show just "Dashboard"
   if (pathname === "/dashboard" || items.length === 1) {
     return (
@@ -343,6 +417,50 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     } else {
       // Show loading state or default while fetching
       currentLabel = isGroupEdit ? "Edit Group" : "Group Details";
+    }
+  }
+
+  // If we're on a unit detail or edit page, use unit symbol instead of ID
+  // For unit routes, replace the ID segment with "Units" as parent
+  if (isUnitDetailMatch || isUnitEditMatch || isUnitDetailsPageMatch) {
+    // Find the "Units" item (should be before the ID)
+    const unitsItem = items.find(item => item.path === "/dashboard/master/units");
+    if (unitsItem) {
+      parentItem = unitsItem;
+    } else {
+      // If not found, create a parent item pointing to units list
+      parentItem = { path: "/dashboard/master/units", label: "Units" };
+    }
+    
+    // Update current label with unit symbol
+    if (unitSymbol) {
+      currentLabel = isUnitEditMatch ? `Edit ${unitSymbol}` : unitSymbol;
+    } else if (isUnitDetailsPageMatch) {
+      currentLabel = unitSymbol || "Unit Details";
+    } else {
+      // Show loading state or default while fetching
+      currentLabel = isUnitEditMatch ? "Edit Unit" : "Unit Details";
+    }
+  }
+
+  // If we're on a category detail or edit page, use category name instead of ID
+  // For category routes, replace the ID segment with "Categories" as parent
+  if (isCategoryDetailMatch || isCategoryEditMatch) {
+    // Find the "Categories" item (should be before the ID)
+    const categoriesItem = items.find(item => item.path === "/dashboard/master/categories");
+    if (categoriesItem) {
+      parentItem = categoriesItem;
+    } else {
+      // If not found, create a parent item pointing to categories list
+      parentItem = { path: "/dashboard/master/categories", label: "Categories" };
+    }
+    
+    // Update current label with category name
+    if (categoryName) {
+      currentLabel = isCategoryEditMatch ? `Edit ${categoryName}` : categoryName;
+    } else {
+      // Show loading state or default while fetching
+      currentLabel = isCategoryEditMatch ? "Edit Category" : "Category Details";
     }
   }
 

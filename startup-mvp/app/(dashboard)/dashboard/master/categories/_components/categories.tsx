@@ -89,7 +89,7 @@ export default function CategoriesListClient({
     if (tab) {
       params.set("tab", tab);
     }
-    router.push(`/dashboard/category?${params.toString()}`);
+    router.push(`/dashboard/master/categories?${params.toString()}`);
   };
 
   const handleSelectCategory = (categoryId: string, selected: boolean) => {
@@ -383,12 +383,12 @@ export default function CategoriesListClient({
                         {!isTrash && (
                           <>
                             <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/dashboard/category/details?id=${category.id}`}>
+                              <Link href={`/dashboard/master/categories/${category.id}`}>
                                 <FiEye className="h-4 w-4" />
                               </Link>
                             </Button>
                             <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/dashboard/category/${category.id}`}>
+                              <Link href={`/dashboard/master/categories/${category.id}/edit`}>
                                 <FiEdit className="h-4 w-4" />
                               </Link>
                             </Button>
@@ -440,7 +440,7 @@ export default function CategoriesListClient({
               onClick={() => {
                 const params = new URLSearchParams(searchParams.toString());
                 params.set("page", String(Math.max(1, initialPagination.page - 1)));
-                router.push(`/dashboard/category?${params.toString()}`);
+                router.push(`/dashboard/master/categories?${params.toString()}`);
               }}
               disabled={initialPagination.page === 1 || isPending}
             >
@@ -452,7 +452,7 @@ export default function CategoriesListClient({
               onClick={() => {
                 const params = new URLSearchParams(searchParams.toString());
                 params.set("page", String(Math.min(initialPagination.totalPages, initialPagination.page + 1)));
-                router.push(`/dashboard/category?${params.toString()}`);
+                router.push(`/dashboard/master/categories?${params.toString()}`);
               }}
               disabled={initialPagination.page === initialPagination.totalPages || isPending}
             >
@@ -461,6 +461,7 @@ export default function CategoriesListClient({
           </div>
         </div>
       )}
+
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteCategoryId} onOpenChange={() => setDeleteCategoryId(null)}>
