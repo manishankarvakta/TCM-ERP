@@ -1,10 +1,9 @@
 import React from "react";
 import { listVouchers } from "./_actions/voucher.action";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
-import { FiPlus } from "react-icons/fi";
 import VouchersListClient from "./_components/vouchers-list";
+import VoucherQuickCreate from "./_components/voucher-quick-create";
 import PageGuard from "@/components/permissions/page-guard";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
@@ -66,15 +65,12 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
             <h1 className="text-2xl font-semibold">Vouchers</h1>
             <p className="text-sm text-muted-foreground">Create and manage accounting vouchers</p>
           </div>
-          {canCreate && (
-            <Button asChild>
-              <Link href="/dashboard/accounts/vouchers/add">
-                <FiPlus className="mr-2 h-4 w-4" />
-                Add Voucher
-              </Link>
-            </Button>
-          )}
         </div>
+
+        {/* Quick Create Section */}
+        {canCreate && (
+          <VoucherQuickCreate basePath="/dashboard/accounts/vouchers" />
+        )}
 
         <Tabs defaultValue={tab} className="w-full">
           <TabsList>

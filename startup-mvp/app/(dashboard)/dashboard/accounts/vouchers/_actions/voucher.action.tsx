@@ -647,6 +647,7 @@ export async function createVoucher(input: {
       select: { 
         id: true,
         name: true,
+        type: true,
         isControl: true,
         CashBankAccount: {
           select: { id: true }
@@ -692,6 +693,96 @@ export async function createVoucher(input: {
           return {
             success: false,
             error: "Contra vouchers can only involve Cash or Bank accounts.",
+            voucher: null,
+          };
+        }
+      }
+    }
+
+    // ===== VOUCHER TYPE-SPECIFIC ACCOUNT VALIDATION =====
+    // These validations apply to MANUAL vouchers only (not isSystemAction)
+    if (!input.isSystemAction) {
+      // Build account lookup map
+      const accountMap = new Map(accounts.map(a => [a.id, a]));
+
+      // PAYMENT: CR must be Cash/Bank, DR must not be Revenue
+      if (input.type === "PAYMENT") {
+        for (const line of input.lines) {
+          const account = accountMap.get(line.chartOfAccountId);
+          if (!account) continue;
+
+          // Credit side must be Cash/Bank
+          if (Number(line.creditAmount) > 0 && !account.CashBankAccount) {
+            return {
+              success: false,
+              error: "Payment voucher credit lines must be Cash or Bank accounts only.",
+              voucher: null,
+            };
+          }
+
+          // Debit side: block Revenue accounts
+          if (Number(line.debitAmount) > 0) {
+            if (account.type === "REVENUE") {
+              return {
+                success: false,
+                error: "Payment vouchers cannot debit Revenue accounts.",
+                voucher: null,
+              };
+            }
+          }
+        }
+      }
+
+      // RECEIPT: DR must be Cash/Bank, CR must not be Expense
+      if (input.type === "RECEIPT") {
+        for (const line of input.lines) {
+          const account = accountMap.get(line.chartOfAccountId);
+          if (!account) continue;
+
+          // Debit side must be Cash/Bank
+          if (Number(line.debitAmount) > 0 && !account.CashBankAccount) {
+            return {
+              success: false,
+              error: "Receipt voucher debit lines must be Cash or Bank accounts only.",
+              voucher: null,
+            };
+          }
+
+          // Credit side: block Expense accounts
+          if (Number(line.creditAmount) > 0) {
+            if (account.type === "EXPENSE") {
+              return {
+                success: false,
+                error: "Receipt vouchers cannot credit Expense accounts.",
+                voucher: null,
+              };
+            }
+          }
+        }
+      }
+
+      // JOURNAL: Block Cash/Bank accounts (use CONTRA, PAYMENT, RECEIPT instead)
+      if (input.type === "JOURNAL") {
+        for (const line of input.lines) {
+          const account = accountMap.get(line.chartOfAccountId);
+          if (account?.CashBankAccount) {
+            return {
+              success: false,
+              error: "Journal entries cannot involve Cash or Bank accounts. Use Contra, Payment, or Receipt vouchers instead.",
+              voucher: null,
+            };
+          }
+        }
+      }
+
+      // CONTRA: Validate From ≠ To (accounts must be different)
+      if (input.type === "CONTRA") {
+        const accountIdsUsed = input.lines.map(l => l.chartOfAccountId);
+        const uniqueAccountIds = new Set(accountIdsUsed);
+        if (uniqueAccountIds.size < 2) {
+          return {
+            success: false,
+            error: "Contra voucher must involve at least 2 different accounts.",
             voucher: null,
           };
         }
@@ -838,17 +929,25 @@ export async function createVoucher(input: {
         },
       });
 
-      // Log action
+      // Log action with detailed audit trail
       await createUserLog({
         userId: session.user.id,
         action: LogAction.ITEM_CREATED,
-        details: `Created voucher: ${voucherNumber} (${input.type})`,
+        details: `Created voucher: ${voucherNumber} (${input.type}) - Total: ৳${input.lines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0).toFixed(2)}`,
         metadata: { 
           voucherId: voucher.id, 
           voucherNumber, 
           type: input.type,
+          totalDebit: input.lines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0),
+          totalCredit: input.lines.reduce((sum, line) => sum + Number(line.creditAmount || 0), 0),
           linesCount: input.lines.length,
-          grandTotal: input.lines.reduce((sum, line) => sum + (line.debitAmount || 0), 0)
+          accounts: input.lines.map(line => ({
+            accountId: line.chartOfAccountId,
+            debit: Number(line.debitAmount || 0),
+            credit: Number(line.creditAmount || 0),
+          })),
+          clientId: input.clientId || null,
+          supplierId: input.supplierId || null,
         },
       });
 
@@ -1108,16 +1207,32 @@ export async function postVoucher(voucherId: string, tx?: Prisma.TransactionClie
         },
       });
 
-      // Log action
+      // Log action with detailed audit trail
+      const voucherLines = (voucher as any).VoucherLine || [];
+      const postTotalDebit = voucherLines.reduce((sum: number, line: any) => sum + Number(line.debitAmount), 0);
+      const postTotalCredit = voucherLines.reduce((sum: number, line: any) => sum + Number(line.creditAmount), 0);
+      
       await createUserLog({
         userId: session.user.id,
         action: LogAction.ITEM_UPDATED,
-        details: `Posted voucher: ${voucher.voucherNumber} (Journal Entry: ${entryNumber})`,
+        details: `Posted voucher: ${voucher.voucherNumber} (Journal Entry: ${entryNumber}) - Total: ৳${postTotalDebit.toFixed(2)}`,
         metadata: { 
           voucherId: voucher.id, 
+          voucherNumber: voucher.voucherNumber,
+          type: voucher.type,
+          journalEntryId: journalEntry.id,
           entryNumber, 
           postedAt: new Date(),
-          totalAmount: ((voucher as any).VoucherLine || []).reduce((sum: number, line: any) => sum + Number(line.debitAmount), 0)
+          totalDebit: postTotalDebit,
+          totalCredit: postTotalCredit,
+          accounts: voucherLines.map((line: any) => ({
+            accountId: line.chartOfAccountId,
+            accountName: line.ChartOfAccount?.name || null,
+            debit: Number(line.debitAmount),
+            credit: Number(line.creditAmount),
+          })),
+          clientId: voucher.clientId,
+          supplierId: voucher.supplierId,
         },
       });
 
@@ -1531,15 +1646,29 @@ export async function updateVoucher(
       });
     });
 
+    // Log action with detailed audit trail
+    const updateTotalDebit = input.lines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0);
+    const updateTotalCredit = input.lines.reduce((sum, line) => sum + Number(line.creditAmount || 0), 0);
+    
     await createUserLog({
       userId: session.user.id,
       action: LogAction.ITEM_UPDATED,
-      details: `Updated voucher: ${voucher.voucherNumber}`,
+      details: `Updated voucher: ${voucher.voucherNumber} - Total: ৳${updateTotalDebit.toFixed(2)}`,
       metadata: { 
         voucherId, 
-        oldStatus: voucher.status,
+        voucherNumber: voucher.voucherNumber,
+        type: voucher.type,
+        totalDebit: updateTotalDebit,
+        totalCredit: updateTotalCredit,
         oldLinesCount: voucher.VoucherLine.length,
-        newLinesCount: input.lines.length 
+        newLinesCount: input.lines.length,
+        accounts: input.lines.map(line => ({
+          accountId: line.chartOfAccountId,
+          debit: Number(line.debitAmount || 0),
+          credit: Number(line.creditAmount || 0),
+        })),
+        clientId: voucher.clientId,
+        supplierId: voucher.supplierId,
       },
     });
 
@@ -1564,6 +1693,15 @@ export async function deleteVoucher(voucherId: string) {
 
     const voucher = await prisma.voucher.findUnique({
       where: { id: voucherId },
+      include: {
+        VoucherLine: {
+          include: {
+            ChartOfAccount: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+      },
     });
 
     if (!voucher) return { success: false, error: "Voucher not found" };
@@ -1576,13 +1714,34 @@ export async function deleteVoucher(voucherId: string) {
       return { success: false, error: "Cannot delete voucher in a locked accounting period." };
     }
 
+    // Calculate totals before deletion for audit log
+    const deleteTotalDebit = voucher.VoucherLine.reduce((sum, line) => sum + Number(line.debitAmount), 0);
+    const deleteTotalCredit = voucher.VoucherLine.reduce((sum, line) => sum + Number(line.creditAmount), 0);
+    const deleteAccounts = voucher.VoucherLine.map(line => ({
+      accountId: line.chartOfAccountId,
+      accountName: line.ChartOfAccount?.name || null,
+      debit: Number(line.debitAmount),
+      credit: Number(line.creditAmount),
+    }));
+
     await prisma.voucher.delete({ where: { id: voucherId } });
 
+    // Log action with detailed audit trail
     await createUserLog({
       userId: session.user.id,
       action: LogAction.ITEM_DELETED,
-      details: `Deleted voucher: ${voucher.voucherNumber}`,
-      metadata: { voucherId, voucherNumber: voucher.voucherNumber },
+      details: `Deleted voucher: ${voucher.voucherNumber} (${voucher.type}) - Total: ৳${deleteTotalDebit.toFixed(2)}`,
+      metadata: { 
+        voucherId, 
+        voucherNumber: voucher.voucherNumber,
+        type: voucher.type,
+        totalDebit: deleteTotalDebit,
+        totalCredit: deleteTotalCredit,
+        linesCount: voucher.VoucherLine.length,
+        accounts: deleteAccounts,
+        clientId: voucher.clientId,
+        supplierId: voucher.supplierId,
+      },
     });
 
     revalidateBothPaths("accounts/vouchers");
