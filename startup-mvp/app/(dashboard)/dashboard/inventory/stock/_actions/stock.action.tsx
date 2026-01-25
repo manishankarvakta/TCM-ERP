@@ -219,7 +219,8 @@ export async function updateStockOnProduction(
 export async function updateStockOnSale(
   saleId: string,
   warehouseId: string,
-  items: Array<{ itemId: string; quantity: number }>
+  items: Array<{ itemId: string; quantity: number }>,
+  tx?: Prisma.TransactionClient
 ) {
   try {
     const session = await auth();
@@ -227,9 +228,11 @@ export async function updateStockOnSale(
       return { success: false, error: "Unauthorized" };
     }
 
-    await prisma.$transaction(async (tx) => {
+    const client = tx || prisma;
+
+    const performUpdate = async (transaction: Prisma.TransactionClient) => {
       for (const item of items) {
-        const stockItem = await tx.item.findUnique({
+        const stockItem = await transaction.item.findUnique({
           where: { id: item.itemId },
           select: { trackInventory: true },
         });
@@ -237,7 +240,7 @@ export async function updateStockOnSale(
         if (!stockItem || !stockItem.trackInventory) continue;
 
         // Update Stock (decrease)
-        const existingStock = await tx.stock.findUnique({
+        const existingStock = await transaction.stock.findUnique({
           where: {
             itemId_warehouseId: {
               itemId: item.itemId,
@@ -247,7 +250,7 @@ export async function updateStockOnSale(
         });
 
         if (existingStock) {
-          await tx.stock.update({
+          await transaction.stock.update({
             where: { id: existingStock.id },
             data: {
               quantity: {
@@ -259,7 +262,7 @@ export async function updateStockOnSale(
         }
 
         // Create StockLedger entry
-        await tx.stockLedger.create({
+        await transaction.stockLedger.create({
           data: {
             itemId: item.itemId,
             warehouseId: warehouseId,
@@ -272,7 +275,13 @@ export async function updateStockOnSale(
           },
         });
       }
-    });
+    };
+
+    if (tx) {
+      await performUpdate(tx);
+    } else {
+      await prisma.$transaction(async (t) => await performUpdate(t));
+    }
 
     return { success: true };
   } catch (error) {
