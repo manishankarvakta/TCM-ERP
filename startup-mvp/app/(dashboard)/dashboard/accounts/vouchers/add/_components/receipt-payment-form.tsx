@@ -29,8 +29,8 @@ import { FiAlertCircle, FiPlus, FiTrash2, FiSearch, FiUser } from "react-icons/f
 import { createVoucher } from "../../_actions/voucher.action";
 import { getChartOfAccounts } from "../../../chart-of-accounts/_actions/chart-of-accounts.action";
 import { getCashBankAccounts } from "../../../cash-bank/_actions/cash-bank.action";
-import { getSuppliersForPurchase } from "../../../purchases/_actions/purchase.action";
-import { getClientsForSale } from "../../../sales/_actions/sale.action";
+import { getSuppliersForPurchase } from "../../../../purchases/_actions/purchase.action";
+import { getClientsForSale } from "../../../../sales/_actions/sale.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType, AccountType } from "@prisma/client";
 
