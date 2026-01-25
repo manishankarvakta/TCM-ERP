@@ -8,7 +8,7 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -22,6 +22,9 @@ import { getCashBankAccounts } from "../../../cash-bank/_actions/cash-bank.actio
 import { createVoucher, postVoucher } from "../../../vouchers/_actions/voucher.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType } from "@prisma/client";
+import VoucherFormHeader from "../../../_components/VoucherFormHeader";
+import AmountInput from "../../../_components/AmountInput";
+import { matchesShortcut, getKeyboardShortcuts } from "../../../_lib/voucher-form-helpers";
 
 // Form validation schema with refinement for From ≠ To
 const contraVoucherSchema = z.object({
@@ -53,6 +56,28 @@ export default function ContraVoucherForm() {
   const [loading, setLoading] = useState(false);
   const [cashBankAccounts, setCashBankAccounts] = useState<CashBankAccountOption[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+
+  // Keyboard shortcuts handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const shortcuts = getKeyboardShortcuts();
+      const submitShortcut = shortcuts.find(s => s.key === "Enter" && s.ctrl);
+      const cancelShortcut = shortcuts.find(s => s.key === "Escape");
+
+      if (submitShortcut && matchesShortcut(e, submitShortcut)) {
+        e.preventDefault();
+        if (!loading) {
+          handleSubmit(onSubmit)();
+        }
+      } else if (cancelShortcut && matchesShortcut(e, cancelShortcut)) {
+        e.preventDefault();
+        router.back();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [loading, router]);
 
   // Fetch cash/bank accounts on mount
   useEffect(() => {
@@ -247,14 +272,13 @@ export default function ContraVoucherForm() {
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Create Contra Voucher</CardTitle>
-        <CardDescription>
-          Transfer funds between Cash and Bank accounts. This will debit the destination account and credit the source account.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <Card className="border-none shadow-none">
+      <CardContent className="p-0">
+        <VoucherFormHeader
+          voucherType="CONTRA"
+          title="Create Contra Voucher"
+          description="Transfer funds between Cash and Bank accounts. This will debit the 'To' account and credit the 'From' account."
+        />
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-6">
             {error && (
@@ -280,32 +304,23 @@ export default function ContraVoucherForm() {
               watchedFromAccountId
             )}
 
-            {/* Amount */}
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount *</Label>
-              <Controller
-                name="amount"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    placeholder="0.00"
-                    value={field.value || ""}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value) || 0;
-                      field.onChange(value);
-                    }}
-                    disabled={loading}
-                  />
-                )}
-              />
-              {errors.amount && (
-                <p className="text-sm text-destructive">{errors.amount.message}</p>
+            {/* Amount with enhanced input */}
+            <Controller
+              name="amount"
+              control={control}
+              render={({ field }) => (
+                <AmountInput
+                  id="amount"
+                  value={field.value || 0}
+                  onChange={field.onChange}
+                  label="Transfer Amount"
+                  required
+                  disabled={loading}
+                  showWords={true}
+                  showWarnings={true}
+                />
               )}
-            </div>
+            />
 
             {/* Date */}
             <div className="space-y-2">
