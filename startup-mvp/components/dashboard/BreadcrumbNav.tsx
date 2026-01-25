@@ -13,6 +13,7 @@ import { getProductionOrderById } from "@/app/(dashboard)/dashboard/production/o
 import { getPurchaseById } from "@/app/(dashboard)/dashboard/purchases/_actions/purchase.action";
 import { getCategoryById } from "@/app/(dashboard)/dashboard/master/categories/_actions/category.action";
 import { getUnitById } from "@/app/(dashboard)/dashboard/master/units/_actions/unit.action";
+import { getVoucherById } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
 
 // Map route paths to display names
 const routeMap: Record<string, string> = {
@@ -104,6 +105,7 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [purchaseCode, setPurchaseCode] = useState<string | null>(null);
   const [categoryName, setCategoryName] = useState<string | null>(null);
   const [unitSymbol, setUnitSymbol] = useState<string | null>(null);
+  const [voucherNumber, setVoucherNumber] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
 
   // Check if we're on a unit detail or edit page
@@ -142,6 +144,10 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const isPurchaseEditMatch = pathname.match(/^\/dashboard\/purchases\/([^\/]+)\/edit$/);
   const isPurchaseViewMatch = pathname.match(/^\/dashboard\/purchases\/([^\/]+)\/view$/);
   const purchaseId = isPurchaseDetailMatch?.[1] || isPurchaseEditMatch?.[1] || isPurchaseViewMatch?.[1] || null;
+
+  // Check if we're on a voucher detail page
+  const isVoucherDetailMatch = pathname.match(/^\/dashboard\/accounts\/vouchers\/([^\/]+)$/);
+  const voucherId = isVoucherDetailMatch?.[1] || null;
 
   // Fetch warehouse name when on warehouse detail/edit page
   useEffect(() => {
@@ -345,6 +351,35 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
       cancelled = true;
     };
   }, [unitId]);
+
+  // Fetch voucher number when on voucher detail page
+  useEffect(() => {
+    if (!voucherId) {
+      return;
+    }
+    
+    let cancelled = false;
+    const id = voucherId;
+    
+    async function fetchVoucherNumber() {
+      try {
+        const result = await getVoucherById(id);
+        if (!cancelled && result.success && result.voucher) {
+          setVoucherNumber(result.voucher.voucherNumber);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error fetching voucher number:", error);
+        }
+      }
+    }
+    
+    fetchVoucherNumber();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [voucherId]);
 
   // If we're at the root dashboard, show just "Dashboard"
   if (pathname === "/dashboard" || items.length === 1) {
@@ -577,6 +612,26 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
       } else {
         currentLabel = "Purchase Details";
       }
+    }
+  }
+
+  // If we're on a voucher detail page, use voucher number instead of ID
+  if (isVoucherDetailMatch) {
+    // Find the "Vouchers" item (should be before the ID)
+    const vouchersItem = items.find(item => item.path === "/dashboard/accounts/vouchers");
+    if (vouchersItem) {
+      parentItem = vouchersItem;
+    } else {
+      // If not found, create a parent item pointing to vouchers list
+      parentItem = { path: "/dashboard/accounts/vouchers", label: "Vouchers" };
+    }
+    
+    // Update current label with voucher number
+    if (voucherNumber) {
+      currentLabel = voucherNumber;
+    } else {
+      // Show loading state or default while fetching
+      currentLabel = "Voucher Details";
     }
   }
 

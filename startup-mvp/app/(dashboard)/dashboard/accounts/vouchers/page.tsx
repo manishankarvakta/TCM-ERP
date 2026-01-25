@@ -101,6 +101,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
                 totalPages: 0,
               }}
               initialSearch={search}
+              userId={userId}
               permissions={{
                 view: canView,
                 edit: canEdit,
@@ -118,6 +119,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
                 totalPages: 0,
               }}
               initialSearch={search}
+              userId={userId}
               permissions={{
                 view: canView,
                 edit: canEdit,
@@ -135,6 +137,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
                 totalPages: 0,
               }}
               initialSearch={search}
+              userId={userId}
               permissions={{
                 view: canView,
                 edit: canEdit,
@@ -152,6 +155,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
                 totalPages: 0,
               }}
               initialSearch={search}
+              userId={userId}
               permissions={{
                 view: canView,
                 edit: canEdit,

@@ -64,6 +64,7 @@ interface VouchersListClientProps {
   initialVouchers: Voucher[];
   initialPagination: Pagination;
   initialSearch: string;
+  userId?: string;
   permissions?: {
     view: boolean;
     edit: boolean;
@@ -75,6 +76,7 @@ export default function VouchersListClient({
   initialVouchers = [],
   initialPagination,
   initialSearch,
+  userId,
   permissions,
 }: VouchersListClientProps) {
   const router = useRouter();
@@ -232,6 +234,8 @@ export default function VouchersListClient({
                           permissionKey="accounts.vouchers" 
                           action="view"
                           href={`/dashboard/accounts/vouchers/${voucher.id}`}
+                          userId={userId}
+                          hasAccess={permissions?.view}
                         >
                           <FiEye className="h-4 w-4" />
                         </ProtectedAction>
@@ -241,6 +245,8 @@ export default function VouchersListClient({
                             action="edit"
                             onClick={() => handlePostVoucher(voucher.id)}
                             buttonProps={{ disabled: isPending }}
+                            userId={userId}
+                            hasAccess={permissions?.edit}
                           >
                             <FiCheck className="h-4 w-4" />
                           </ProtectedAction>

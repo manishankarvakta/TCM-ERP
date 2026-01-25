@@ -308,7 +308,7 @@ export async function listVouchers(
         client: Client,
         supplier: Supplier,
         organization: Organization,
-        VoucherLine: (VoucherLine || []).map((line: any) => ({
+        voucherLines: (VoucherLine || []).map((line: any) => ({
           ...line,
           chartOfAccount: line.ChartOfAccount,
           debitAmount: Number(line.debitAmount),
@@ -532,7 +532,7 @@ export async function getVoucherById(voucherId: string) {
       supplier: Supplier,
       user: User_Voucher_userIdToUser,
       organization: Organization,
-      VoucherLine: (VoucherLine || []).map((line: any) => ({
+      voucherLines: (VoucherLine || []).map((line: any) => ({
         ...line,
         chartOfAccount: line.ChartOfAccount,
         client: line.Client,
@@ -544,7 +544,7 @@ export async function getVoucherById(voucherId: string) {
       })),
       journalEntries: (JournalEntry || []).map((entry: any) => ({
         ...entry,
-        JournalEntryLine: (entry.JournalEntryLine || []).map((line: any) => ({
+        journalEntryLines: (entry.JournalEntryLine || []).map((line: any) => ({
           ...line,
           chartOfAccount: line.ChartOfAccount,
           debitAmount: Number(line.debitAmount),
@@ -874,7 +874,7 @@ export async function createVoucher(input: {
       client: Client,
       supplier: Supplier,
       organization: Organization,
-      VoucherLine: (VoucherLine || []).map((line: any) => ({
+      voucherLines: (VoucherLine || []).map((line: any) => ({
         ...line,
         chartOfAccount: line.ChartOfAccount,
         debitAmount: Number(line.debitAmount),
@@ -1142,7 +1142,7 @@ export async function postVoucher(voucherId: string, tx?: Prisma.TransactionClie
       ...voucherWithoutRelations,
       creator: User_Voucher_createdByToUser,
       postedBy: User_Voucher_postedByIdToUser,
-      VoucherLine: (VoucherLine || []).map((line: any) => ({
+      voucherLines: (VoucherLine || []).map((line: any) => ({
         ...line,
         chartOfAccount: line.ChartOfAccount,
         debitAmount: Number(line.debitAmount),
@@ -1152,7 +1152,7 @@ export async function postVoucher(voucherId: string, tx?: Prisma.TransactionClie
 
     const serializedJournalEntry = {
       ...result.journalEntry,
-      JournalEntryLine: result.journalEntry.JournalEntryLine.map((line) => ({
+      journalEntryLines: result.journalEntry.JournalEntryLine.map((line) => ({
         ...line,
         chartOfAccount: line.ChartOfAccount,
         debitAmount: Number(line.debitAmount),
