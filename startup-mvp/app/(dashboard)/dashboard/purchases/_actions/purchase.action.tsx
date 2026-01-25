@@ -377,7 +377,6 @@ async function createPurchaseAccountingVoucher(
     const userId = session?.user?.id || "system";
 
     const client = tx || prisma;
-    // ... (rest of the function using userId)
 
     // Get purchase with items and item details
     const purchase = await client.purchase.findUnique({
@@ -568,7 +567,7 @@ async function createPurchaseAccountingVoucher(
       supplierId: purchase.supplierId,
       isSystemAction: true,
       lines: voucherLines,
-    });
+    }, tx);
 
     if (!voucherResult.success || !voucherResult.voucher) {
       return {
@@ -578,7 +577,7 @@ async function createPurchaseAccountingVoucher(
     }
 
     // Post voucher
-    const postResult = await postVoucher(voucherResult.voucher.id);
+    const postResult = await postVoucher(voucherResult.voucher.id, tx, true);
     if (!postResult.success) {
       return {
         success: false,
@@ -681,6 +680,15 @@ export async function createPurchase(input: z.infer<typeof purchaseSchema>) {
         },
       });
 
+      // Update stock and create accounting voucher if purchase is received
+      if (validated.status === "RECEIVED") {
+        const stockResult = await updateStockOnPurchase(purchase.id, undefined, tx);
+        if (!stockResult.success) throw new Error(stockResult.error || "Failed to update stock");
+
+        const voucherResult = await createPurchaseAccountingVoucher(purchase.id, tx);
+        if (!voucherResult.success) throw new Error(voucherResult.error || "Failed to create accounting voucher");
+      }
+
       return purchase;
     });
 
@@ -692,12 +700,6 @@ export async function createPurchase(input: z.infer<typeof purchaseSchema>) {
     );
 
     revalidateBothPaths("purchases");
-
-    // Update stock and create accounting voucher if purchase is received
-    if (validated.status === "RECEIVED") {
-      await updateStockOnPurchase(result.id);
-      await createPurchaseAccountingVoucher(result.id);
-    }
 
     return {
       success: true,
@@ -773,6 +775,17 @@ export async function updatePurchase(input: z.infer<typeof updatePurchaseSchema>
           voucherId: true,
         },
       });
+
+      // Update stock and create accounting voucher if purchase is received
+      if (validated.status === "RECEIVED") {
+        const stockResult = await updateStockOnPurchase(purchase.id, undefined, tx);
+        if (!stockResult.success) throw new Error(stockResult.error || "Failed to update stock");
+
+        const voucherResult = await createPurchaseAccountingVoucher(purchase.id, tx);
+        if (!voucherResult.success) throw new Error(voucherResult.error || "Failed to create accounting voucher");
+      }
+
+      return purchase;
     });
 
     await logItemUpdated(
@@ -782,15 +795,6 @@ export async function updatePurchase(input: z.infer<typeof updatePurchaseSchema>
       ["details", "items"],
       purchase.purchaseNumber
     );
-
-    // Update stock and create accounting voucher if purchase is received
-    if (validated.status === "RECEIVED") {
-      await updateStockOnPurchase(purchase.id);
-      // Create accounting voucher (only if not already created)
-      if (!purchase.voucherId) {
-        await createPurchaseAccountingVoucher(purchase.id);
-      }
-    }
 
     revalidateBothPaths("purchases");
 
@@ -874,25 +878,30 @@ export async function bulkUpdatePurchaseStatus(
         data: { isTrash: false },
       });
     } else {
-      await prisma.purchase.updateMany({
-        where: { id: { in: purchaseIds } },
-        data: { status, isTrash: false },
-      });
+      await prisma.$transaction(async (tx) => {
+        await tx.purchase.updateMany({
+          where: { id: { in: purchaseIds } },
+          data: { status, isTrash: false },
+        });
 
-      // Update stock and create accounting vouchers if status is RECEIVED
-      if (status === "RECEIVED") {
-        for (const purchaseId of purchaseIds) {
-          await updateStockOnPurchase(purchaseId);
-          // Check if voucher already exists before creating
-          const purchase = await prisma.purchase.findUnique({
-            where: { id: purchaseId },
-            select: { voucherId: true },
-          });
-          if (!purchase?.voucherId) {
-            await createPurchaseAccountingVoucher(purchaseId);
+        // Update stock and create accounting vouchers if status is RECEIVED
+        if (status === "RECEIVED") {
+          for (const purchaseId of purchaseIds) {
+            const stockResult = await updateStockOnPurchase(purchaseId, undefined, tx);
+            if (!stockResult.success) throw new Error(stockResult.error || "Failed to update stock");
+
+            // Check if voucher already exists before creating
+            const purchase = await tx.purchase.findUnique({
+              where: { id: purchaseId },
+              select: { voucherId: true },
+            });
+            if (!purchase?.voucherId) {
+              const voucherResult = await createPurchaseAccountingVoucher(purchaseId, tx);
+              if (!voucherResult.success) throw new Error(voucherResult.error || "Failed to create accounting voucher");
+            }
           }
         }
-      }
+      });
     }
 
     revalidateBothPaths("purchases");

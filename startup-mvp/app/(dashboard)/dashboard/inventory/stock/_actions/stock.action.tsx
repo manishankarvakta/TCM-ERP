@@ -16,7 +16,8 @@ import { findControlAccount } from "@/app/(dashboard)/dashboard/accounts/voucher
  */
 export async function updateStockOnPurchase(
   purchaseId: string,
-  warehouseId?: string
+  warehouseId?: string,
+  tx?: Prisma.TransactionClient
 ) {
   try {
     const session = await auth();
@@ -24,8 +25,10 @@ export async function updateStockOnPurchase(
       return { success: false, error: "Unauthorized" };
     }
 
+    const client = tx || prisma;
+
     // Get purchase with items
-    const purchase = await prisma.purchase.findUnique({
+    const purchase = await client.purchase.findUnique({
       where: { id: purchaseId },
       include: {
         items: {
@@ -41,7 +44,7 @@ export async function updateStockOnPurchase(
     // Get default warehouse if not provided
     let targetWarehouseId = warehouseId;
     if (!targetWarehouseId) {
-      const defaultWarehouse = await prisma.warehouse.findFirst({
+      const defaultWarehouse = await client.warehouse.findFirst({
         where: { status: "active", isTrash: false },
         orderBy: { createdAt: "asc" },
       });
@@ -51,12 +54,11 @@ export async function updateStockOnPurchase(
       targetWarehouseId = defaultWarehouse.id;
     }
 
-    // Use transaction for atomicity
-    await prisma.$transaction(async (tx) => {
+    const performUpdate = async (transaction: Prisma.TransactionClient) => {
       for (const purchaseItem of purchase.items) {
         if (!purchaseItem.itemId) continue;
 
-        const item = await tx.item.findUnique({
+        const item = await transaction.item.findUnique({
           where: { id: purchaseItem.itemId },
           select: { trackInventory: true },
         });
@@ -67,7 +69,7 @@ export async function updateStockOnPurchase(
         const quantity = Number(purchaseItem.quantity);
 
         // Update or create Stock record
-        const existingStock = await tx.stock.findUnique({
+        const existingStock = await transaction.stock.findUnique({
           where: {
             itemId_warehouseId: {
               itemId: purchaseItem.itemId,
@@ -77,7 +79,7 @@ export async function updateStockOnPurchase(
         });
 
         if (existingStock) {
-          await tx.stock.update({
+          await transaction.stock.update({
             where: { id: existingStock.id },
             data: {
               quantity: {
@@ -87,7 +89,7 @@ export async function updateStockOnPurchase(
             },
           });
         } else {
-          await tx.stock.create({
+          await transaction.stock.create({
             data: {
               itemId: purchaseItem.itemId,
               warehouseId: targetWarehouseId,
@@ -98,7 +100,7 @@ export async function updateStockOnPurchase(
         }
 
         // Create StockLedger entry
-        await tx.stockLedger.create({
+        await transaction.stockLedger.create({
           data: {
             itemId: purchaseItem.itemId,
             warehouseId: targetWarehouseId,
@@ -111,7 +113,13 @@ export async function updateStockOnPurchase(
           },
         });
       }
-    });
+    };
+
+    if (tx) {
+      await performUpdate(tx);
+    } else {
+      await prisma.$transaction(async (t) => await performUpdate(t));
+    }
 
     return { success: true };
   } catch (error) {
@@ -548,7 +556,7 @@ export async function adjustStock(input: {
           });
 
           if (voucherResult.success && voucherResult.voucher) {
-            await postVoucher(voucherResult.voucher.id);
+            await postVoucher(voucherResult.voucher.id, undefined, true);
           }
         }
       } catch (accError) {

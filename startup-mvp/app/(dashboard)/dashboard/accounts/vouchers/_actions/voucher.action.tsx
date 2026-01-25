@@ -13,12 +13,13 @@ import { isPeriodLocked } from "../../periods/_actions/period.action";
  * Generate unique voucher number
  * Format: VCH-YYYY-XXXX (e.g., VCH-2025-0001)
  */
-async function generateVoucherNumber(): Promise<string> {
+async function generateVoucherNumber(tx?: Prisma.TransactionClient): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `VCH-${year}-`;
+  const client = tx || prisma;
   
   // Find the highest number for this year
-  const lastVoucher = await prisma.voucher.findFirst({
+  const lastVoucher = await client.voucher.findFirst({
     where: {
       voucherNumber: {
         startsWith: prefix,
@@ -42,12 +43,13 @@ async function generateVoucherNumber(): Promise<string> {
  * Generate unique journal entry number
  * Format: JE-YYYY-XXXX (e.g., JE-2025-0001)
  */
-async function generateJournalEntryNumber(): Promise<string> {
+async function generateJournalEntryNumber(tx?: Prisma.TransactionClient): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `JE-${year}-`;
+  const client = tx || prisma;
   
   // Find the highest number for this year
-  const lastEntry = await prisma.journalEntry.findFirst({
+  const lastEntry = await client.journalEntry.findFirst({
     where: {
       entryNumber: {
         startsWith: prefix,
@@ -306,7 +308,7 @@ export async function listVouchers(
         client: Client,
         supplier: Supplier,
         organization: Organization,
-        voucherLines: (VoucherLine || []).map((line: any) => ({
+        VoucherLine: (VoucherLine || []).map((line: any) => ({
           ...line,
           chartOfAccount: line.ChartOfAccount,
           debitAmount: Number(line.debitAmount),
@@ -434,11 +436,7 @@ export async function getVoucherById(voucherId: string) {
             creditAmount: true,
             description: true,
             chartOfAccountId: true,
-            clientId: true,
-            supplierId: true,
-            userId: true,
-            organizationId: true,
-            chartOfAccount: {
+            ChartOfAccount: {
               select: {
                 id: true,
                 code: true,
@@ -446,28 +444,28 @@ export async function getVoucherById(voucherId: string) {
                 type: true,
               },
             },
-            client: {
+            Client: {
               select: {
                 id: true,
                 name: true,
                 email: true,
               },
             },
-            supplier: {
+            Supplier: {
               select: {
                 id: true,
                 name: true,
                 email: true,
               },
             },
-            user: {
+            User: {
               select: {
                 id: true,
                 name: true,
                 email: true,
               },
             },
-            organization: {
+            Organization: {
               select: {
                 id: true,
                 name: true,
@@ -478,7 +476,7 @@ export async function getVoucherById(voucherId: string) {
             lineNumber: "asc",
           },
         },
-        journalEntries: {
+        JournalEntry: {
           select: {
             id: true,
             entryNumber: true,
@@ -488,7 +486,7 @@ export async function getVoucherById(voucherId: string) {
             postedBy: true,
             postedAt: true,
             createdAt: true,
-            journalEntryLines: {
+            JournalEntryLine: {
               select: {
                 id: true,
                 lineNumber: true,
@@ -496,7 +494,7 @@ export async function getVoucherById(voucherId: string) {
                 creditAmount: true,
                 description: true,
                 chartOfAccountId: true,
-                chartOfAccount: {
+                ChartOfAccount: {
                   select: {
                     id: true,
                     code: true,
@@ -526,20 +524,29 @@ export async function getVoucherById(voucherId: string) {
 
     // Serialize Decimal fields and map relation names
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { User_Voucher_createdByToUser, VoucherLine, JournalEntry, ...voucherWithoutRelations } = voucher as any;
+    const { User_Voucher_createdByToUser, VoucherLine, JournalEntry, Client, Supplier, User_Voucher_userIdToUser, Organization, ...voucherWithoutRelations } = voucher as any;
     const serializedVoucher = {
       ...voucherWithoutRelations,
       creator: User_Voucher_createdByToUser,
-      voucherLines: (VoucherLine || []).map((line: any) => ({
+      client: Client,
+      supplier: Supplier,
+      user: User_Voucher_userIdToUser,
+      organization: Organization,
+      VoucherLine: (VoucherLine || []).map((line: any) => ({
         ...line,
         chartOfAccount: line.ChartOfAccount,
+        client: line.Client,
+        supplier: line.Supplier,
+        user: line.User,
+        organization: line.Organization,
         debitAmount: Number(line.debitAmount),
         creditAmount: Number(line.creditAmount),
       })),
       journalEntries: (JournalEntry || []).map((entry: any) => ({
         ...entry,
-        journalEntryLines: (entry.JournalEntryLine || []).map((line: any) => ({
+        JournalEntryLine: (entry.JournalEntryLine || []).map((line: any) => ({
           ...line,
+          chartOfAccount: line.ChartOfAccount,
           debitAmount: Number(line.debitAmount),
           creditAmount: Number(line.creditAmount),
         })),
@@ -584,7 +591,7 @@ export async function createVoucher(input: {
     userId?: string;
     organizationId?: string;
   }>;
-}) {
+}, tx?: Prisma.TransactionClient) {
   try {
     const session = await auth();
 
@@ -596,15 +603,19 @@ export async function createVoucher(input: {
       };
     }
 
-    // Check permission
-    const canCreate = await hasPermission(session.user.id, "accounts.vouchers", "create");
+    const client = tx || prisma;
 
-    if (!canCreate) {
-      return {
-        success: false,
-        error: "You do not have permission to create vouchers",
-        voucher: null,
-      };
+    // Check permission
+    if (!input.isSystemAction) {
+      const canCreate = await hasPermission(session.user.id, "accounts.vouchers", "create");
+
+      if (!canCreate) {
+        return {
+          success: false,
+          error: "You do not have permission to create vouchers",
+          voucher: null,
+        };
+      }
     }
 
     // Accounting Period Lock Check
@@ -628,7 +639,7 @@ export async function createVoucher(input: {
 
     // Validate all chart of accounts exist and check for control accounts
     const accountIds = input.lines.map((line) => line.chartOfAccountId);
-    const accounts = await prisma.chartOfAccount.findMany({
+    const accounts = await client.chartOfAccount.findMany({
       where: {
         id: { in: accountIds },
         status: "active",
@@ -688,14 +699,14 @@ export async function createVoucher(input: {
     }
 
     // Generate voucher number
-    const voucherNumber = await generateVoucherNumber();
+    const voucherNumber = await generateVoucherNumber(tx);
 
     // --- OVERPAYMENT GUARD ---
     if (input.type === "PAYMENT" && input.supplierId) {
       const totalPaymentAmount = input.lines.reduce((sum, line) => sum + (line.debitAmount || 0), 0);
       
       // Calculate current AP balance for this supplier
-      const supplierAccount = await prisma.chartOfAccount.findFirst({
+      const supplierAccount = await client.chartOfAccount.findFirst({
         where: {
           Supplier: { some: { id: input.supplierId } }
         },
@@ -703,7 +714,7 @@ export async function createVoucher(input: {
       });
 
       if (supplierAccount) {
-        const balanceResult = await prisma.journalEntryLine.aggregate({
+        const balanceResult = await client.journalEntryLine.aggregate({
           where: { chartOfAccountId: supplierAccount.id },
           _sum: { debitAmount: true, creditAmount: true }
         });
@@ -726,7 +737,7 @@ export async function createVoucher(input: {
       const totalReceiptAmount = input.lines.reduce((sum, line) => sum + (line.creditAmount || 0), 0);
       
       // Calculate current AR balance for this client
-      const clientAccount = await prisma.chartOfAccount.findFirst({
+      const clientAccount = await client.chartOfAccount.findFirst({
         where: {
           Client: { some: { id: input.clientId } }
         },
@@ -734,7 +745,7 @@ export async function createVoucher(input: {
       });
 
       if (clientAccount) {
-        const balanceResult = await prisma.journalEntryLine.aggregate({
+        const balanceResult = await client.journalEntryLine.aggregate({
           where: { chartOfAccountId: clientAccount.id },
           _sum: { debitAmount: true, creditAmount: true }
         });
@@ -752,104 +763,118 @@ export async function createVoucher(input: {
     }
     // --- END OVER-RECEIPT GUARD ---
 
-    // Create voucher with lines
-    const voucher = await prisma.voucher.create({
-      data: {
-        voucherNumber,
-        date: input.date ? (typeof input.date === "string" ? new Date(input.date) : input.date) : new Date(),
-        type: input.type as any,
-        reference: input.reference || null,
-        description: input.description || null,
-        status: "draft",
-        createdBy: session.user.id,
-        clientId: input.clientId || null,
-        supplierId: input.supplierId || null,
-        userId: input.userId || null,
-        organizationId: input.organizationId || null,
-        voucherLines: {
-          create: input.lines.map((line) => ({
-            lineNumber: line.lineNumber,
-            debitAmount: new Prisma.Decimal(line.debitAmount || 0),
-            creditAmount: new Prisma.Decimal(line.creditAmount || 0),
-            description: line.description || null,
-            chartOfAccountId: line.chartOfAccountId,
-            clientId: line.clientId || null,
-            supplierId: line.supplierId || null,
-            userId: line.userId || null,
-            organizationId: line.organizationId || null,
-          })),
-        },
-      },
-      include: {
-        User_Voucher_createdByToUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    const performCreate = async (transaction: Prisma.TransactionClient) => {
+      // Create voucher with lines
+      const voucher = await transaction.voucher.create({
+        data: {
+          voucherNumber,
+          date: input.date ? (typeof input.date === "string" ? new Date(input.date) : input.date) : new Date(),
+          type: input.type as any,
+          reference: input.reference || null,
+          description: input.description || null,
+          status: "draft",
+          createdBy: session.user.id,
+          clientId: input.clientId || null,
+          supplierId: input.supplierId || null,
+          userId: input.userId || null,
+          organizationId: input.organizationId || null,
+          VoucherLine: {
+            create: input.lines.map((line) => ({
+              lineNumber: line.lineNumber,
+              debitAmount: new Prisma.Decimal(line.debitAmount || 0),
+              creditAmount: new Prisma.Decimal(line.creditAmount || 0),
+              description: line.description || null,
+              chartOfAccountId: line.chartOfAccountId,
+              clientId: line.clientId || null,
+              supplierId: line.supplierId || null,
+              userId: line.userId || null,
+              organizationId: line.organizationId || null,
+            })),
           },
         },
-        VoucherLine: {
-          include: {
-            ChartOfAccount: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-                type: true,
-              },
+        include: {
+          User_Voucher_createdByToUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
             },
           },
-          orderBy: {
-            lineNumber: "asc",
+          VoucherLine: {
+            include: {
+              ChartOfAccount: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  type: true,
+                },
+              },
+            },
+            orderBy: {
+              lineNumber: "asc",
+            },
+          },
+          Client: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          Supplier: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          Organization: {
+            select: {
+              id: true,
+              name: true,
+            },
           },
         },
-        client: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        supplier: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        organization: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
+      });
 
-    // Log action
-    await createUserLog({
-      userId: session.user.id,
-      action: LogAction.ITEM_CREATED,
-      details: `Created voucher: ${voucherNumber} (${input.type})`,
-      metadata: { 
-        voucherId: voucher.id, 
-        voucherNumber, 
-        type: input.type,
-        linesCount: input.lines.length,
-        grandTotal: input.lines.reduce((sum, line) => sum + (line.debitAmount || 0), 0)
-      },
-    });
+      // Log action
+      await createUserLog({
+        userId: session.user.id,
+        action: LogAction.ITEM_CREATED,
+        details: `Created voucher: ${voucherNumber} (${input.type})`,
+        metadata: { 
+          voucherId: voucher.id, 
+          voucherNumber, 
+          type: input.type,
+          linesCount: input.lines.length,
+          grandTotal: input.lines.reduce((sum, line) => sum + (line.debitAmount || 0), 0)
+        },
+      });
+
+      return voucher;
+    };
+
+    let voucher;
+    if (tx) {
+      voucher = await performCreate(tx);
+    } else {
+      voucher = await prisma.$transaction(async (t) => await performCreate(t));
+    }
 
     // Revalidate paths
     revalidateBothPaths("accounts/vouchers", "page");
 
     // Serialize Decimal fields and map relation names
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { User_Voucher_createdByToUser, VoucherLine, ...voucherWithoutRelations } = voucher as any;
+    const { User_Voucher_createdByToUser, VoucherLine, Client, Supplier, Organization, ...voucherWithoutRelations } = voucher as any;
     const serializedVoucher = {
       ...voucherWithoutRelations,
       creator: User_Voucher_createdByToUser,
-      voucherLines: (VoucherLine || []).map((line: any) => ({
+      client: Client,
+      supplier: Supplier,
+      organization: Organization,
+      VoucherLine: (VoucherLine || []).map((line: any) => ({
         ...line,
         chartOfAccount: line.ChartOfAccount,
         debitAmount: Number(line.debitAmount),
@@ -874,7 +899,7 @@ export async function createVoucher(input: {
 /**
  * Post a draft voucher (creates JournalEntry and locks voucher)
  */
-export async function postVoucher(voucherId: string) {
+export async function postVoucher(voucherId: string, tx?: Prisma.TransactionClient, isSystemAction?: boolean) {
   try {
     const session = await auth();
 
@@ -887,22 +912,26 @@ export async function postVoucher(voucherId: string) {
       };
     }
 
-    // Check permission - allow update, approve, or edit (for UI consistency)
-    const canUpdate = await hasPermission(session.user.id, "accounts.vouchers", "update");
-    const canApprove = await hasPermission(session.user.id, "accounts.vouchers", "approve");
-    const canEdit = await hasPermission(session.user.id, "accounts.vouchers", "edit");
+    const client = tx || prisma;
 
-    if (!canUpdate && !canApprove && !canEdit) {
-      return {
-        success: false,
-        error: "You do not have permission to post vouchers",
-        voucher: null,
-        journalEntry: null,
-      };
+    // Check permission - allow update, approve, or edit (for UI consistency)
+    if (!isSystemAction) {
+      const canUpdate = await hasPermission(session.user.id, "accounts.vouchers", "update");
+      const canApprove = await hasPermission(session.user.id, "accounts.vouchers", "approve");
+      const canEdit = await hasPermission(session.user.id, "accounts.vouchers", "edit");
+
+      if (!canUpdate && !canApprove && !canEdit) {
+        return {
+          success: false,
+          error: "You do not have permission to post vouchers",
+          voucher: null,
+          journalEntry: null,
+        };
+      }
     }
 
     // Get voucher with lines
-    const voucher = await prisma.voucher.findUnique({
+    const voucher = await client.voucher.findUnique({
       where: { id: voucherId },
       include: {
         VoucherLine: {
@@ -964,7 +993,7 @@ export async function postVoucher(voucherId: string) {
     }
 
     // Check if journal entry already exists
-    const existingJournalEntry = await prisma.journalEntry.findFirst({
+    const existingJournalEntry = await client.journalEntry.findFirst({
       where: { voucherId: voucher.id },
     });
 
@@ -978,12 +1007,11 @@ export async function postVoucher(voucherId: string) {
     }
 
     // Generate journal entry number
-    const entryNumber = await generateJournalEntryNumber();
+    const entryNumber = await generateJournalEntryNumber(tx);
 
-    // Use transaction to ensure atomicity
-    const result = await prisma.$transaction(async (tx) => {
+    const performPost = async (transaction: Prisma.TransactionClient) => {
       // Create JournalEntry
-      const journalEntry = await tx.journalEntry.create({
+      const journalEntry = await transaction.journalEntry.create({
         data: {
           entryNumber,
           date: voucher.date,
@@ -993,7 +1021,7 @@ export async function postVoucher(voucherId: string) {
           createdBy: voucher.createdBy,
           postedBy: session.user.id,
           postedAt: new Date(),
-          journalEntryLines: {
+          JournalEntryLine: {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             create: ((voucher as any).VoucherLine || []).map((line: any) => ({
               lineNumber: line.lineNumber,
@@ -1009,9 +1037,9 @@ export async function postVoucher(voucherId: string) {
           },
         },
         include: {
-          journalEntryLines: {
+          JournalEntryLine: {
             include: {
-              chartOfAccount: {
+              ChartOfAccount: {
                 select: {
                   id: true,
                   code: true,
@@ -1028,7 +1056,7 @@ export async function postVoucher(voucherId: string) {
       });
 
       // Update voucher status
-      const updatedVoucher = await tx.voucher.update({
+      const updatedVoucher = await transaction.voucher.update({
         where: { id: voucher.id },
         data: {
           status: "posted",
@@ -1065,7 +1093,7 @@ export async function postVoucher(voucherId: string) {
               lineNumber: "asc",
             },
           },
-          journalEntries: {
+          JournalEntry: {
             select: {
               id: true,
               entryNumber: true,
@@ -1080,21 +1108,28 @@ export async function postVoucher(voucherId: string) {
         },
       });
 
-      return { journalEntry, voucher: updatedVoucher };
-    });
+      // Log action
+      await createUserLog({
+        userId: session.user.id,
+        action: LogAction.ITEM_UPDATED,
+        details: `Posted voucher: ${voucher.voucherNumber} (Journal Entry: ${entryNumber})`,
+        metadata: { 
+          voucherId: voucher.id, 
+          entryNumber, 
+          postedAt: new Date(),
+          totalAmount: ((voucher as any).VoucherLine || []).reduce((sum: number, line: any) => sum + Number(line.debitAmount), 0)
+        },
+      });
 
-    // Log action
-    await createUserLog({
-      userId: session.user.id,
-      action: LogAction.ITEM_UPDATED,
-      details: `Posted voucher: ${voucher.voucherNumber} (Journal Entry: ${entryNumber})`,
-      metadata: { 
-        voucherId: voucher.id, 
-        entryNumber, 
-        postedAt: new Date(),
-        totalAmount: ((voucher as any).VoucherLine || []).reduce((sum: number, line: any) => sum + Number(line.debitAmount), 0)
-      },
-    });
+      return { journalEntry, voucher: updatedVoucher };
+    };
+
+    let result;
+    if (tx) {
+      result = await performPost(tx);
+    } else {
+      result = await prisma.$transaction(async (t) => await performPost(t));
+    }
 
     // Revalidate paths
     revalidateBothPaths("accounts/vouchers", "page");
@@ -1102,12 +1137,12 @@ export async function postVoucher(voucherId: string) {
 
     // Serialize Decimal fields and map relation names
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { User_Voucher_createdByToUser, User_Voucher_postedByIdToUser, VoucherLine, ...voucherWithoutRelations } = (result.voucher as any);
+    const { User_Voucher_createdByToUser, User_Voucher_postedByIdToUser, VoucherLine, JournalEntry, ...voucherWithoutRelations } = (result.voucher as any);
     const serializedVoucher = {
       ...voucherWithoutRelations,
       creator: User_Voucher_createdByToUser,
       postedBy: User_Voucher_postedByIdToUser,
-      voucherLines: (VoucherLine || []).map((line: any) => ({
+      VoucherLine: (VoucherLine || []).map((line: any) => ({
         ...line,
         chartOfAccount: line.ChartOfAccount,
         debitAmount: Number(line.debitAmount),
@@ -1117,8 +1152,9 @@ export async function postVoucher(voucherId: string) {
 
     const serializedJournalEntry = {
       ...result.journalEntry,
-      journalEntryLines: result.journalEntry.journalEntryLines.map((line) => ({
+      JournalEntryLine: result.journalEntry.JournalEntryLine.map((line) => ({
         ...line,
+        chartOfAccount: line.ChartOfAccount,
         debitAmount: Number(line.debitAmount),
         creditAmount: Number(line.creditAmount),
       })),
@@ -1482,7 +1518,7 @@ export async function updateVoucher(
           date: input.date ? new Date(input.date) : voucher.date,
           reference: input.reference ?? voucher.reference,
           description: input.description ?? voucher.description,
-          voucherLines: {
+          VoucherLine: {
             create: input.lines.map((line) => ({
               lineNumber: line.lineNumber,
               debitAmount: new Prisma.Decimal(line.debitAmount),

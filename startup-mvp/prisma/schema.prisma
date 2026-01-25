@@ -726,7 +726,7 @@ model ModuleOperation {
 }
 
 model CashBankAccount {
-  id               String              @id
+  id               String              @id @default(cuid())
   chartOfAccountId String              @unique
   type             CashBankAccountType
   status           String              @default("active")
@@ -743,7 +743,7 @@ model CashBankAccount {
 }
 
 model ChartOfAccount {
-  id                                                       String             @id
+  id                                                       String             @id @default(cuid())
   code                                                     String             @unique
   name                                                     String
   type                                                     AccountType
@@ -773,7 +773,7 @@ model ChartOfAccount {
 }
 
 model JournalEntry {
-  id               String             @id
+  id               String             @id @default(cuid())
   entryNumber      String             @unique
   date             DateTime           @default(now())
   voucherId        String
@@ -793,7 +793,7 @@ model JournalEntry {
 }
 
 model JournalEntryLine {
-  id               String         @id
+  id               String         @id @default(cuid())
   lineNumber       Int
   debitAmount      Decimal        @default(0) @db.Decimal(12, 2)
   creditAmount     Decimal        @default(0) @db.Decimal(12, 2)
@@ -821,7 +821,7 @@ model JournalEntryLine {
 }
 
 model Voucher {
-  id                            String            @id
+  id                            String            @id @default(cuid())
   voucherNumber                 String            @unique
   date                          DateTime          @default(now())
   type                          VoucherType
@@ -863,7 +863,7 @@ model Voucher {
 }
 
 model VoucherLine {
-  id               String         @id
+  id               String         @id @default(cuid())
   lineNumber       Int
   debitAmount      Decimal        @default(0) @db.Decimal(12, 2)
   creditAmount     Decimal        @default(0) @db.Decimal(12, 2)

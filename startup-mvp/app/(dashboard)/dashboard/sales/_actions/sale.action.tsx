@@ -1062,7 +1062,7 @@ export async function completeSale(saleId: string) {
       }
 
       // 5. Post voucher
-      const postResult = await postVoucher(voucherResult.voucher.id);
+      const postResult = await postVoucher(voucherResult.voucher.id, undefined, true);
       if (!postResult.success) {
         throw new Error(postResult.error || "Failed to post accounting voucher");
       }

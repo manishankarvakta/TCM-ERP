@@ -1009,7 +1009,7 @@ export async function startProductionOrder(id: string) {
         });
 
         if (voucherResult.success && voucherResult.voucher) {
-          await postVoucher(voucherResult.voucher.id);
+          await postVoucher(voucherResult.voucher.id, undefined, true);
           
           // Log accounting move
           await createUserLog(
@@ -1298,7 +1298,7 @@ export async function completeProductionOrder(id: string) {
           });
 
           if (voucherResult.success && voucherResult.voucher) {
-            await postVoucher(voucherResult.voucher.id);
+            await postVoucher(voucherResult.voucher.id, undefined, true);
             
             // Link voucher to production order
             await tx.productionOrder.update({
@@ -1462,7 +1462,7 @@ export async function cancelProductionOrder(id: string) {
           });
 
           if (voucherResult.success && voucherResult.voucher) {
-            await postVoucher(voucherResult.voucher.id);
+            await postVoucher(voucherResult.voucher.id, undefined, true);
             
             // Log reversal
             await createUserLog(

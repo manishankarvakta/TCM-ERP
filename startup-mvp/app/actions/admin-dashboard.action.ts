@@ -43,11 +43,11 @@ export async function getAdminFinancialOverview() {
 
     const [revToday, revMonth] = await Promise.all([
       prisma.journalEntryLine.aggregate({
-        where: { chartOfAccountId: { in: revIds }, journalEntry: { date: { gte: startOfToday, lte: endOfToday } } },
+        where: { chartOfAccountId: { in: revIds }, JournalEntry: { date: { gte: startOfToday, lte: endOfToday } } },
         _sum: { creditAmount: true, debitAmount: true }
       }),
       prisma.journalEntryLine.aggregate({
-        where: { chartOfAccountId: { in: revIds }, journalEntry: { date: { gte: startOfMo, lte: endOfMo } } },
+        where: { chartOfAccountId: { in: revIds }, JournalEntry: { date: { gte: startOfMo, lte: endOfMo } } },
         _sum: { creditAmount: true, debitAmount: true }
       })
     ]);
@@ -61,11 +61,11 @@ export async function getAdminFinancialOverview() {
 
     const [expToday, expMonth] = await Promise.all([
       prisma.journalEntryLine.aggregate({
-        where: { chartOfAccountId: { in: expIds }, journalEntry: { date: { gte: startOfToday, lte: endOfToday } } },
+        where: { chartOfAccountId: { in: expIds }, JournalEntry: { date: { gte: startOfToday, lte: endOfToday } } },
         _sum: { debitAmount: true, creditAmount: true }
       }),
       prisma.journalEntryLine.aggregate({
-        where: { chartOfAccountId: { in: expIds }, journalEntry: { date: { gte: startOfMo, lte: endOfMo } } },
+        where: { chartOfAccountId: { in: expIds }, JournalEntry: { date: { gte: startOfMo, lte: endOfMo } } },
         _sum: { debitAmount: true, creditAmount: true }
       })
     ]);
