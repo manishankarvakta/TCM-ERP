@@ -882,6 +882,8 @@ async function findControlAccount(accountName: string, tx?: Prisma.TransactionCl
 /**
  * Internal helper to complete a sale (stock & accounting)
  * Must be called within a transaction if tx is provided
+ * 
+ * REFACTORED: Uses operation-based accounting settings (accounting.operationAccounts)
  */
 async function performSaleCompletion(saleId: string, tx: Prisma.TransactionClient) {
   const session = await auth();
@@ -970,17 +972,21 @@ async function performSaleCompletion(saleId: string, tx: Prisma.TransactionClien
     }
   }
 
-  // 2. Find control accounts
-  const arAccountId = await findControlAccount("Accounts Receivable", tx);
-  const salesRevenueAccountId = await findControlAccount("Sales Revenue", tx);
-  const cogsAccountId = await findControlAccount("Cost of Goods Sold", tx);
-  const fgInventoryAccountId = await findControlAccount("Finished Goods Inventory", tx);
-  const retailInventoryAccountId = await findControlAccount("Retail Inventory", tx);
+  // 2. Get sales and production accounts from operation settings
+  const { getSalesAccounts, getProductionAccounts } = await import("@/lib/accounting-settings");
 
-  if (!arAccountId || !salesRevenueAccountId) {
-    throw new Error(
-      "Required control accounts not found. Please ensure Accounts Receivable and Sales Revenue accounts exist."
-    );
+  let salesAccounts;
+  let productionAccounts;
+
+  try {
+    // Get required accounts for sales and production (for inventory)
+    [salesAccounts, productionAccounts] = await Promise.all([
+      getSalesAccounts(),
+      getProductionAccounts(),
+    ]);
+  } catch (error) {
+    // If any required account is missing, throw a clear error message
+    throw new Error(error instanceof Error ? error.message : "Failed to retrieve accounting settings for sale");
   }
 
   // 3. Calculate COGS (for FINISHED_GOOD and RETAIL items)
@@ -994,12 +1000,15 @@ async function performSaleCompletion(saleId: string, tx: Prisma.TransactionClien
 
     let inventoryAccountId: string | null = null;
     if (saleItem.item.itemType === ItemType.FINISHED_GOOD) {
-      inventoryAccountId = fgInventoryAccountId;
+      inventoryAccountId = productionAccounts.finishedGoodsInventoryId;
     } else if (saleItem.item.itemType === ItemType.RETAIL) {
-      inventoryAccountId = retailInventoryAccountId;
+      // For retail items, we need a retail inventory account
+      // Since it's not in the simplified structure, we'll use the same as FG for now
+      // This should be added to the settings structure if needed
+      inventoryAccountId = productionAccounts.finishedGoodsInventoryId;
     }
 
-    if (inventoryAccountId && cogsAccountId) {
+    if (inventoryAccountId) {
       if (!cogsByAccount[inventoryAccountId]) {
         cogsByAccount[inventoryAccountId] = { amount: 0, description: "COGS for " };
       }
@@ -1032,7 +1041,7 @@ async function performSaleCompletion(saleId: string, tx: Prisma.TransactionClien
     debitAmount: Number(sale.grandTotal),
     creditAmount: 0,
     description: `Sale ${sale.saleNumber} - ${sale.client.name}`,
-    chartOfAccountId: arAccountId,
+    chartOfAccountId: salesAccounts.receivableAccountId,
     clientId: sale.clientId,
   });
 
@@ -1042,14 +1051,14 @@ async function performSaleCompletion(saleId: string, tx: Prisma.TransactionClien
     debitAmount: 0,
     creditAmount: Number(sale.grandTotal),
     description: `Sales Revenue for ${sale.saleNumber}`,
-    chartOfAccountId: salesRevenueAccountId,
+    chartOfAccountId: salesAccounts.revenueAccountId,
   });
 
   // Add COGS lines
   for (const [invAccountId, data] of Object.entries(cogsByAccount)) {
     voucherLines.push({
       lineNumber: lineNumber++,
-      chartOfAccountId: cogsAccountId!,
+      chartOfAccountId: salesAccounts.cogsAccountId,
       debitAmount: data.amount,
       creditAmount: 0,
       description: `${data.description} (${sale.saleNumber})`,

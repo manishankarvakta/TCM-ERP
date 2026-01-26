@@ -8,7 +8,7 @@ import { notifyItemCreated, notifyItemUpdated } from "@/lib/notification";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma, StockTransactionType, Prisma as PrismaClient, VoucherType } from "@prisma/client";
 import { createVoucher, postVoucher } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
-import { findControlAccount } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/accounting-helpers";
+
 
 /**
  * Update stock when Purchase is received
@@ -362,15 +362,24 @@ export async function adjustStock(input: {
     if (isHighRisk) {
       // For high risk, we create a DRAFT voucher and do NOT update stock yet
       try {
-        let inventoryAccountName = "Raw Material Inventory";
-        if (item.itemType === "FINISHED_GOOD") inventoryAccountName = "Finished Goods Inventory";
-        if (item.itemType === "RETAIL") inventoryAccountName = "Retail Inventory";
+        // Get inventory and adjustment accounts from operation settings
+        const { getAccountingOperationSettings } = await import("@/lib/accounting-settings");
+        const settings = await getAccountingOperationSettings();
 
-        const inventoryAccountId = await findControlAccount(inventoryAccountName);
-        const adjustmentRevenueId = await findControlAccount("Inventory Adjustment Revenue");
-        const adjustmentExpenseId = await findControlAccount("Inventory Adjustment Expense");
+        // Determine inventory account based on item type
+        let inventoryAccountId: string | null = null;
+        if (item.itemType === "RAW_MATERIAL") {
+          inventoryAccountId = settings.production.rawMaterialInventoryId;
+        } else if (item.itemType === "FINISHED_GOOD") {
+          inventoryAccountId = settings.production.finishedGoodsInventoryId;
+        } else if (item.itemType === "RETAIL") {
+          inventoryAccountId = settings.purchase.inventoryAccountId;
+        }
 
-        if (inventoryAccountId && (input.quantity > 0 ? adjustmentRevenueId : adjustmentExpenseId)) {
+        const adjustmentGainId = settings.inventoryAdjustment.gainAccountId;
+        const adjustmentLossId = settings.inventoryAdjustment.lossAccountId;
+
+        if (inventoryAccountId && (input.quantity > 0 ? adjustmentGainId : adjustmentLossId)) {
           const isPositive = input.quantity > 0;
           
           const voucherLines = [
@@ -386,7 +395,7 @@ export async function adjustStock(input: {
               debitAmount: isPositive ? 0 : adjustmentValue,
               creditAmount: isPositive ? adjustmentValue : 0,
               description: `Inventory ${isPositive ? 'Gain' : 'Shrinkage'} (Pending Approval) - ${item.name}`,
-              chartOfAccountId: isPositive ? adjustmentRevenueId! : adjustmentExpenseId!,
+              chartOfAccountId: isPositive ? adjustmentGainId : adjustmentLossId,
             },
           ];
 
@@ -526,16 +535,24 @@ export async function adjustStock(input: {
     // --- ACCOUNTING INTEGRATION ---
     if (adjustmentValue > 0) {
       try {
-        // Determine Inventory account based on item type
-        let inventoryAccountName = "Raw Material Inventory";
-        if (item.itemType === "FINISHED_GOOD") inventoryAccountName = "Finished Goods Inventory";
-        if (item.itemType === "RETAIL") inventoryAccountName = "Retail Inventory";
+        // Get inventory and adjustment accounts from operation settings
+        const { getAccountingOperationSettings } = await import("@/lib/accounting-settings");
+        const settings = await getAccountingOperationSettings();
 
-        const inventoryAccountId = await findControlAccount(inventoryAccountName);
-        const adjustmentRevenueId = await findControlAccount("Inventory Adjustment Revenue");
-        const adjustmentExpenseId = await findControlAccount("Inventory Adjustment Expense");
+        // Determine inventory account based on item type
+        let inventoryAccountId: string | null = null;
+        if (item.itemType === "RAW_MATERIAL") {
+          inventoryAccountId = settings.production.rawMaterialInventoryId;
+        } else if (item.itemType === "FINISHED_GOOD") {
+          inventoryAccountId = settings.production.finishedGoodsInventoryId;
+        } else if (item.itemType === "RETAIL") {
+          inventoryAccountId = settings.purchase.inventoryAccountId;
+        }
 
-        if (inventoryAccountId && (input.quantity > 0 ? adjustmentRevenueId : adjustmentExpenseId)) {
+        const adjustmentGainId = settings.inventoryAdjustment.gainAccountId;
+        const adjustmentLossId = settings.inventoryAdjustment.lossAccountId;
+
+        if (inventoryAccountId && (input.quantity > 0 ? adjustmentGainId : adjustmentLossId)) {
           const isPositive = input.quantity > 0;
           
           const voucherLines = [
@@ -551,7 +568,7 @@ export async function adjustStock(input: {
               debitAmount: isPositive ? 0 : adjustmentValue,
               creditAmount: isPositive ? adjustmentValue : 0,
               description: `Inventory ${isPositive ? 'Gain' : 'Shrinkage'} - ${item.name}`,
-              chartOfAccountId: isPositive ? adjustmentRevenueId! : adjustmentExpenseId!,
+              chartOfAccountId: isPositive ? adjustmentGainId : adjustmentLossId,
             },
           ];
 

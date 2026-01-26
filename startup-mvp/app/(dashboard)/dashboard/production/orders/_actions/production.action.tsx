@@ -8,7 +8,7 @@ import { notifyItemCreated, notifyItemUpdated } from "@/lib/notification";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma, ProductionOrderStatus, StockTransactionType, Prisma as PrismaClient, VoucherType } from "@prisma/client";
 import { createVoucher, postVoucher } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
-import { findControlAccount } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/accounting-helpers";
+
 
 /**
  * Generate unique Production Order code
@@ -972,30 +972,35 @@ export async function startProductionOrder(id: string) {
     }
 
     if (totalRawMaterialCost > 0) {
-      const rawMaterialInventoryId = await findControlAccount("Raw Material Inventory");
-      const wipAccountId = await findControlAccount("Work In Progress (WIP)");
+      // Get production accounts from operation settings
+      const { getProductionAccounts } = await import("@/lib/accounting-settings");
+      
+      let productionAccounts;
+      try {
+        productionAccounts = await getProductionAccounts();
+      } catch (error) {
+        // Fail fast if production accounts are not configured
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to retrieve production accounting settings",
+        };
+      }
 
-      if (!rawMaterialInventoryId || !wipAccountId) {
-        console.error("Missing control accounts for production start:", { 
-          rawMaterialInventoryId, 
-          wipAccountId 
-        });
-        // We log the error but don't fail the status change, as stock is still tracked
-      } else {
+      if (productionAccounts) {
         const voucherLines = [
           {
             lineNumber: 1,
             debitAmount: totalRawMaterialCost,
             creditAmount: 0,
             description: `Work In Progress - ${order.code}`,
-            chartOfAccountId: wipAccountId,
+            chartOfAccountId: productionAccounts.wipAccountId,
           },
           {
             lineNumber: 2,
             debitAmount: 0,
             creditAmount: totalRawMaterialCost,
             description: `Raw Material Issue - ${order.code}`,
-            chartOfAccountId: rawMaterialInventoryId,
+            chartOfAccountId: productionAccounts.rawMaterialInventoryId,
           },
         ];
 
@@ -1269,10 +1274,18 @@ export async function completeProductionOrder(id: string) {
       }
 
       if (totalRawMaterialCost > 0) {
-        const wipAccountId = await findControlAccount("Work In Progress (WIP)");
-        const finishedGoodsInventoryId = await findControlAccount("Finished Goods Inventory");
+        // Get production accounts from operation settings
+        const { getProductionAccounts } = await import("@/lib/accounting-settings");
+        
+        let productionAccounts;
+        try {
+          productionAccounts = await getProductionAccounts();
+        } catch (error) {
+          // Fail fast if production accounts are not configured
+          throw new Error(error instanceof Error ? error.message : "Failed to retrieve production accounting settings");
+        }
 
-        if (wipAccountId && finishedGoodsInventoryId) {
+        if (productionAccounts) {
           const voucherResult = await createVoucher({
             date: new Date(),
             type: VoucherType.JOURNAL,
@@ -1285,14 +1298,14 @@ export async function completeProductionOrder(id: string) {
                 debitAmount: totalRawMaterialCost,
                 creditAmount: 0,
                 description: `Finished Goods Inventory - ${order.code}`,
-                chartOfAccountId: finishedGoodsInventoryId,
+                chartOfAccountId: productionAccounts.finishedGoodsInventoryId,
               },
               {
                 lineNumber: 2,
                 debitAmount: 0,
                 creditAmount: totalRawMaterialCost,
                 description: `WIP Completion - ${order.code}`,
-                chartOfAccountId: wipAccountId,
+                chartOfAccountId: productionAccounts.wipAccountId,
               },
             ],
           });
@@ -1426,29 +1439,33 @@ export async function cancelProductionOrder(id: string) {
       }
 
       if (totalRawMaterialCost > 0) {
-        const rawMaterialInventoryId = await findControlAccount("Raw Material Inventory");
-        const wipAccountId = await findControlAccount("Work In Progress (WIP)");
+        // Get production accounts from operation settings
+        const { getProductionAccounts } = await import("@/lib/accounting-settings");
+        
+        let productionAccounts;
+        try {
+          productionAccounts = await getProductionAccounts();
+        } catch (error) {
+          console.error("Failed to retrieve production accounting settings for reversal:", error);
+          // Log error but don't fail cancellation
+          productionAccounts = null;
+        }
 
-        if (!rawMaterialInventoryId || !wipAccountId) {
-          console.error("Missing control accounts for production cancellation reversal:", {
-            rawMaterialInventoryId,
-            wipAccountId
-          });
-        } else {
+        if (productionAccounts) {
           const voucherLines = [
             {
               lineNumber: 1,
               debitAmount: 0,
               creditAmount: totalRawMaterialCost,
               description: `WIP Reversal (Cancelled) - ${order.code}`,
-              chartOfAccountId: wipAccountId,
+              chartOfAccountId: productionAccounts.wipAccountId,
             },
             {
               lineNumber: 2,
               debitAmount: totalRawMaterialCost,
               creditAmount: 0,
               description: `Raw Material Return (Cancelled) - ${order.code}`,
-              chartOfAccountId: rawMaterialInventoryId,
+              chartOfAccountId: productionAccounts.rawMaterialInventoryId,
             },
           ];
 

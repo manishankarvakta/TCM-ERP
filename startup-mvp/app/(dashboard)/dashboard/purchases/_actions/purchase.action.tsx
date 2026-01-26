@@ -367,6 +367,8 @@ export async function getPurchaseById(purchaseId: string) {
 /**
  * Create accounting voucher for purchase receipt
  * Creates item-type based accounting entries: Debit Inventory, Credit Accounts Payable
+ * 
+ * REFACTORED: Uses operation-based accounting settings (accounting.operationAccounts)
  */
 async function createPurchaseAccountingVoucher(
   purchaseId: string,
@@ -414,16 +416,23 @@ async function createPurchaseAccountingVoucher(
       return { success: true, voucherId: purchase.voucherId };
     }
 
-    // Find control accounts
-    const apAccountId = await findControlAccount("Accounts Payable");
-    const rawMaterialInventoryId = await findControlAccount("Raw Material Inventory");
-    const finishedGoodsInventoryId = await findControlAccount("Finished Goods Inventory");
-    const retailInventoryId = await findControlAccount("Retail Inventory");
+    // Get purchase accounts from operation settings
+    const { getPurchaseAccounts, getProductionAccounts } = await import("@/lib/accounting-settings");
 
-    if (!apAccountId) {
+    let purchaseAccounts;
+    let productionAccounts;
+
+    try {
+      // Get required accounts for purchase and production (for inventory)
+      [purchaseAccounts, productionAccounts] = await Promise.all([
+        getPurchaseAccounts(),
+        getProductionAccounts(),
+      ]);
+    } catch (error) {
+      // If any required account is missing, return a clear error message
       return {
         success: false,
-        error: "Accounts Payable control account not found. Please ensure it exists in Chart of Accounts.",
+        error: error instanceof Error ? error.message : "Failed to retrieve accounting settings for purchase",
       };
     }
 
@@ -465,82 +474,55 @@ async function createPurchaseAccountingVoucher(
     let lineNumber = 1;
     let totalInventoryDebit = 0;
 
-    // Debit: Inventory accounts based on item type
-    if (itemsByType.RAW_MATERIAL.length > 0 && rawMaterialInventoryId) {
-      const totalRawMaterialCost = itemsByType.RAW_MATERIAL.reduce(
-        (sum, item) => sum + item.totalCost,
-        0
-      );
-      if (totalRawMaterialCost > 0) {
-        voucherLines.push({
-          lineNumber: lineNumber++,
-          debitAmount: totalRawMaterialCost,
-          creditAmount: 0,
-          description: `Raw Material Inventory - ${purchase.purchaseNumber}`,
-          chartOfAccountId: rawMaterialInventoryId,
-        });
-        totalInventoryDebit += totalRawMaterialCost;
-      }
+    // Calculate total cost for all items
+    const totalRawMaterialCost = itemsByType.RAW_MATERIAL.reduce((sum, item) => sum + item.totalCost, 0);
+    const totalFGCost = itemsByType.FINISHED_GOOD.reduce((sum, item) => sum + item.totalCost, 0);
+    const totalRetailCost = itemsByType.RETAIL.reduce((sum, item) => sum + item.totalCost, 0);
+    const totalItemsCost = totalRawMaterialCost + totalFGCost + totalRetailCost;
+
+    // Debit: Inventory account (single account for all inventory types in purchase)
+    // Use production.rawMaterialInventoryId for raw materials
+    // Use purchaseAccounts.inventoryAccountId for finished goods and retail
+    if (totalRawMaterialCost > 0) {
+      voucherLines.push({
+        lineNumber: lineNumber++,
+        debitAmount: totalRawMaterialCost,
+        creditAmount: 0,
+        description: `Raw Material Inventory - ${purchase.purchaseNumber}`,
+        chartOfAccountId: productionAccounts.rawMaterialInventoryId,
+      });
+      totalInventoryDebit += totalRawMaterialCost;
     }
 
-    if (itemsByType.FINISHED_GOOD.length > 0 && finishedGoodsInventoryId) {
-      const totalFGCost = itemsByType.FINISHED_GOOD.reduce((sum, item) => sum + item.totalCost, 0);
-      if (totalFGCost > 0) {
-        voucherLines.push({
-          lineNumber: lineNumber++,
-          debitAmount: totalFGCost,
-          creditAmount: 0,
-          description: `Finished Goods Inventory - ${purchase.purchaseNumber}`,
-          chartOfAccountId: finishedGoodsInventoryId,
-        });
-        totalInventoryDebit += totalFGCost;
-      }
+    if (totalFGCost > 0) {
+      voucherLines.push({
+        lineNumber: lineNumber++,
+        debitAmount: totalFGCost,
+        creditAmount: 0,
+        description: `Finished Goods Inventory - ${purchase.purchaseNumber}`,
+        chartOfAccountId: productionAccounts.finishedGoodsInventoryId,
+      });
+      totalInventoryDebit += totalFGCost;
     }
 
-    if (itemsByType.RETAIL.length > 0 && retailInventoryId) {
-      const totalRetailCost = itemsByType.RETAIL.reduce((sum, item) => sum + item.totalCost, 0);
-      if (totalRetailCost > 0) {
-        voucherLines.push({
-          lineNumber: lineNumber++,
-          debitAmount: totalRetailCost,
-          creditAmount: 0,
-          description: `Retail Inventory - ${purchase.purchaseNumber}`,
-          chartOfAccountId: retailInventoryId,
-        });
-        totalInventoryDebit += totalRetailCost;
-      }
+    if (totalRetailCost > 0) {
+      voucherLines.push({
+        lineNumber: lineNumber++,
+        debitAmount: totalRetailCost,
+        creditAmount: 0,
+        description: `Retail Inventory - ${purchase.purchaseNumber}`,
+        chartOfAccountId: purchaseAccounts.inventoryAccountId,
+      });
+      totalInventoryDebit += totalRetailCost;
     }
 
-    // Handle Tax and Discount
+    // Handle Tax and Discount (optional - skip if not configured)
     const discount = Number(purchase.discount || 0);
     const tax = Number(purchase.tax || 0);
     const grandTotal = Number(purchase.grandTotal);
 
-    if (tax > 0) {
-      const taxAccountId = await findControlAccount("Tax Payable"); // Or a specific Purchase Tax account if available
-      if (taxAccountId) {
-        voucherLines.push({
-          lineNumber: lineNumber++,
-          debitAmount: tax,
-          creditAmount: 0,
-          description: `Purchase Tax - ${purchase.purchaseNumber}`,
-          chartOfAccountId: taxAccountId,
-        });
-      }
-    }
-
-    if (discount > 0) {
-      const discountAccountId = await findControlAccount("Other Income"); // Or "Purchase Discount" if available
-      if (discountAccountId) {
-        voucherLines.push({
-          lineNumber: lineNumber++,
-          debitAmount: 0,
-          creditAmount: discount,
-          description: `Purchase Discount - ${purchase.purchaseNumber}`,
-          chartOfAccountId: discountAccountId,
-        });
-      }
-    }
+    // Note: Tax and discount accounts are optional and not included in the simplified structure
+    // They can be added later if needed
 
     // Credit: Accounts Payable
     if (grandTotal > 0) {
@@ -549,7 +531,7 @@ async function createPurchaseAccountingVoucher(
         debitAmount: 0,
         creditAmount: grandTotal,
         description: `Accounts Payable - ${purchase.purchaseNumber} - ${purchase.supplier.name || purchase.supplier.email}`,
-        chartOfAccountId: apAccountId,
+        chartOfAccountId: purchaseAccounts.payableAccountId,
         supplierId: purchase.supplierId,
       });
     }

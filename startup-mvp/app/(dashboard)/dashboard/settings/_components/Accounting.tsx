@@ -2,14 +2,14 @@
 
 import OperationAccountMappingForm from "../accounts/_components/operation-account-mapping-form";
 
-// Account preferences with operation mapping
-export default function Preferences() {
+// Accounting defaults and operation account mapping
+export default function Accounting() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Preferences</h1>
+        <h1 className="text-2xl font-semibold">Accounting Defaults</h1>
         <p className="text-sm text-muted-foreground">
-          Manage your preferences
+          Configure default accounts for automated accounting entries in business operations
         </p>
       </div>
       

@@ -49,7 +49,7 @@ import CoverLetter from "./_components/coverLetter/CoverLetter";
 import TOS from "./_components/Tos";
 import Inventory from "../admin/settings/_components/Inventory";
 import Production from "../admin/settings/_components/Production";
-import Accounting from "../admin/settings/_components/Accounting";
+import Accounting from "./_components/Accounting";
 
 
 type SettingsSection = "profile" | 
@@ -374,7 +374,7 @@ export default function SettingsPageClient({ accessiblePages }: SettingsPageClie
                       </button>
                       {hasChildren && isExpanded && item.children && (
                         <div className="ml-7 mt-1 space-y-1">
-                          {item.children.map((child: { id: SettingsSection; label: string; icon: React.ComponentType<{ className?: string }>; active: boolean }) => (
+                          {item.children.map((child: { id: SettingsSection; label: string; icon: React.ComponentType<{ className?: string }>; active?: boolean }) => (
                             <button
                               key={child.id}
                               onClick={() => handleSectionChange(child.id)}

@@ -17,23 +17,38 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
   const adminPassword = "admin123";
   const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
 
-  const admin = await prisma.user.upsert({
+  // Check if admin user exists
+  let admin = await prisma.user.findUnique({
     where: { email: adminEmail },
-    update: {
-      name: "Admin",
-      password: adminPasswordHash,
-      role: "admin",
-      status: "active",
-    },
-    create: {
-      name: "Admin",
-      email: adminEmail,
-      password: adminPasswordHash,
-      role: "admin",
-      status: "active",
-    },
     select: { id: true, email: true },
   });
+
+  if (!admin) {
+    // Create admin user if doesn't exist
+    admin = await prisma.user.create({
+      data: {
+        name: "Admin",
+        email: adminEmail,
+        password: adminPasswordHash,
+        role: "admin",
+        status: "active",
+      },
+      select: { id: true, email: true },
+    });
+  } else {
+    // Update existing admin user
+    admin = await prisma.user.update({
+      where: { id: admin.id },
+      data: {
+        name: "Admin",
+        password: adminPasswordHash,
+        role: "admin",
+        status: "active",
+      },
+      select: { id: true, email: true },
+    });
+  }
+
 
   await prisma.organization.upsert({
     where: { id: "default-org" },

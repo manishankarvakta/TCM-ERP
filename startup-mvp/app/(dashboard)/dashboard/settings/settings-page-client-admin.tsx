@@ -19,6 +19,7 @@ import {
   LucideUserCog,
   LucideDatabaseBackup,
   Lock,
+  Calculator,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -26,29 +27,30 @@ import { Label } from "@/components/ui/label";
 import { MdWhatsapp } from "react-icons/md";
 import { HiEnvelope } from "react-icons/hi2";
 import { TbCreditCardPay, TbReceiptTax, TbShieldCheck } from "react-icons/tb";
-import Profile from "../../admin/settings/_components/Profile";
-import Organization from "../../admin/settings/_components/organization/Organization";
-import Experience from "../../admin/settings/_components/Experience";
-import Emails from "../../admin/settings/_components/Emails";
-import Calendars from "../../admin/settings/_components/Calendars";
-import WhatsApp from "../../admin/settings/_components/WhatsApp";
-import Telegram from "../../admin/settings/_components/Telegram";
-import SMS from "../../admin/settings/_components/SMS";
-import Tex from "../../admin/settings/_components/Tex";
-import PaymentMethods from "../../admin/settings/_components/PaymentMethods";
-import Preferences from "../../admin/settings/_components/Preferences";
-import General from "../../admin/settings/_components/General";
-import Members from "../../admin/settings/_components/Members";
-import Security from "../../admin/settings/_components/Security";
-import APIs from "../../admin/settings/_components/APIs";
-import Webhooks from "../../admin/settings/_components/Webhooks";
+import Profile from "./_components/Profile";
+import Organization from "./_components/organization/Organization";
+import Experience from "./_components/Experience";
+import Emails from "./_components/Emails";
+import Calendars from "./_components/Calendars";
+import WhatsApp from "./_components/WhatsApp";
+import Telegram from "./_components/Telegram";
+import SMS from "./_components/SMS";
+import Tex from "./_components/Tex";
+import PaymentMethods from "./_components/PaymentMethods";
+import Preferences from "./_components/Preferences";
+import General from "./_components/General";
+import Members from "./_components/Members";
+import Security from "./_components/Security";
+import APIs from "./_components/APIs";
+import Webhooks from "./_components/Webhooks";
 
-import Backup from "../../admin/settings/_components/Backup";
+import Backup from "./_components/Backup";
 import PermissionsSettings from "./_components/PermissionsSettings";
 
 import { SlEnvolopeLetter } from "react-icons/sl";
-import CoverLetter from "../../admin/settings/_components/coverLetter/CoverLetter";
-import TOS from "../../admin/settings/_components/Tos";
+import CoverLetter from "./_components/coverLetter/CoverLetter";
+import TOS from "./_components/Tos";
+import Accounting from "./_components/Accounting";
 
 
 type SettingsSection = "profile" | 
@@ -75,7 +77,8 @@ type SettingsSection = "profile" |
                        "paymentMethods" | 
                        "coverLetter" | 
                        "tos" | 
-                       "preferences";
+                       "preferences" |
+                       "accounting";
 
 export default function SettingsPageClient() {
   const router = useRouter();
@@ -146,6 +149,7 @@ export default function SettingsPageClient() {
         { id: "tex" as SettingsSection, label: "Tex", icon: TbReceiptTax, active: activeSection === "tex" },
         { id: "paymentMethods" as SettingsSection, label: "Payment Methods", icon: TbCreditCardPay, active: activeSection === "paymentMethods" },
         { id: "preferences" as SettingsSection, label: "Preferences", icon: LucideUserCog, active: activeSection === "preferences" },
+        { id: "accounting" as SettingsSection, label: "Accounting Defaults", icon: Calculator, active: activeSection === "accounting" },
       ],
     },
     {
@@ -197,6 +201,8 @@ export default function SettingsPageClient() {
         return <PaymentMethods />;
       case "preferences":
         return <Preferences />;
+      case "accounting":
+        return <Accounting />;
       case "coverLetter":
         return <CoverLetter />;
       case "tos":

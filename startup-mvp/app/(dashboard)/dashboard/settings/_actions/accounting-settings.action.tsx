@@ -1,0 +1,178 @@
+"use server";
+
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { logItemCreated, logItemUpdated } from "@/lib/user-log";
+import { revalidateBothPaths } from "@/lib/route-utils-server";
+import { type Prisma } from "@prisma/client";
+import { z } from "zod";
+import type { AccountingOperationSettings } from "@/types/accounting-settings";
+import { ACCOUNTING_OPERATIONS_KEY } from "@/types/accounting-settings";
+
+/**
+ * Validation schema for accounting operation settings
+ */
+const accountingOperationSettingsSchema = z.object({
+  purchase: z.object({
+    inventoryAccountId: z.string(),
+    payableAccountId: z.string(),
+  }),
+  sales: z.object({
+    revenueAccountId: z.string(),
+    receivableAccountId: z.string(),
+    cogsAccountId: z.string(),
+  }),
+  production: z.object({
+    rawMaterialInventoryId: z.string(),
+    wipAccountId: z.string(),
+    finishedGoodsInventoryId: z.string(),
+  }),
+  inventoryAdjustment: z.object({
+    gainAccountId: z.string(),
+    lossAccountId: z.string(),
+  }),
+  payment: z.object({
+    cashAccountId: z.string(),
+    payableAccountId: z.string(),
+  }),
+  receipt: z.object({
+    cashAccountId: z.string(),
+    receivableAccountId: z.string(),
+  }),
+  contra: z.object({
+    fromAccountId: z.string(),
+    toAccountId: z.string(),
+  }),
+});
+
+/**
+ * Get accounting operation settings for current user or global
+ */
+export async function getAccountingOperationSettingsAction() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", settings: null };
+    }
+
+    const { getAccountingOperationSettings } = await import("@/lib/accounting-settings");
+    const settings = await getAccountingOperationSettings();
+
+    return {
+      success: true,
+      settings,
+    };
+  } catch (error) {
+    console.error("getAccountingOperationSettingsAction error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch accounting settings",
+      settings: null,
+    };
+  }
+}
+
+/**
+ * Update accounting operation settings
+ */
+export async function updateAccountingOperationSettings(
+  settings: AccountingOperationSettings,
+  isGlobal: boolean = false
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    // Validate settings structure
+    const validated = accountingOperationSettingsSchema.parse(settings);
+
+    // Run strict validation on account types and existence
+    const { validateOperationAccountSettings } = await import("@/lib/accounting-settings-validation");
+    
+    try {
+      await validateOperationAccountSettings(validated);
+    } catch (error) {
+      // Return validation errors to user
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Validation failed",
+      };
+    }
+
+    const userId = isGlobal ? null : session.user.id;
+
+    // Check if setting already exists
+    const existingSetting = await prisma.settings.findFirst({
+      where: {
+        code: ACCOUNTING_OPERATIONS_KEY,
+        userId: userId,
+        isActive: true,
+      },
+    });
+
+    let result;
+    const isUpdate = !!existingSetting;
+
+    if (existingSetting) {
+      // Update existing setting
+      result = await prisma.settings.update({
+        where: { id: existingSetting.id },
+        data: {
+          settings: validated as Prisma.InputJsonValue,
+          isGlobal: isGlobal,
+        },
+      });
+
+      await logItemUpdated(
+        session.user.id,
+        "AccountingOperationSettings",
+        result.id,
+        ["settings"],
+        "Accounting Operation Settings"
+      );
+    } else {
+      // Create new setting
+      result = await prisma.settings.create({
+        data: {
+          code: ACCOUNTING_OPERATIONS_KEY,
+          category: "accounting",
+          title: "Accounting Operation Settings",
+          settings: validated as Prisma.InputJsonValue,
+          isGlobal: isGlobal,
+          userId: userId,
+          createdBy: session.user.id,
+        },
+      });
+
+      await logItemCreated(
+        session.user.id,
+        "AccountingOperationSettings",
+        result.id,
+        "Accounting Operation Settings"
+      );
+    }
+
+    // Revalidate paths
+    revalidateBothPaths("settings");
+
+    return {
+      success: true,
+      isUpdate,
+      settingId: result.id,
+    };
+  } catch (error) {
+    console.error("updateAccountingOperationSettings error:", error);
+    if (error instanceof z.ZodError) {
+      return {
+        success: false,
+        error: error.issues.map((e) => e.message).join(", "),
+      };
+    }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to save accounting settings",
+    };
+  }
+}
