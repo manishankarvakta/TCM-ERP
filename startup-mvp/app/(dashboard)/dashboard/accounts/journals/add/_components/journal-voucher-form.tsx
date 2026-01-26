@@ -8,7 +8,7 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -31,8 +31,6 @@ import { getAccountsForJournal } from "../../_actions/journal.action";
 import { createVoucher, postVoucher } from "../../../vouchers/_actions/voucher.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType } from "@prisma/client";
-import VoucherFormHeader from "../../../_components/VoucherFormHeader";
-import { matchesShortcut, getKeyboardShortcuts } from "../../../_lib/voucher-form-helpers";
 
 // Voucher line schema
 const voucherLineSchema = z.object({
@@ -87,32 +85,6 @@ export default function JournalVoucherForm() {
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [accountSearch, setAccountSearch] = useState("");
-
-  // Keyboard shortcuts handler
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const shortcuts = getKeyboardShortcuts();
-      const submitShortcut = shortcuts.find(s => s.key === "Enter" && s.ctrl);
-      const cancelShortcut = shortcuts.find(s => s.key === "Escape");
-      const addLineShortcut = shortcuts.find(s => s.key === "N" && s.ctrl);
-
-      if (submitShortcut && matchesShortcut(e, submitShortcut)) {
-        e.preventDefault();
-        if (!loading) {
-          document.getElementById("journal-form-submit")?.click();
-        }
-      } else if (cancelShortcut && matchesShortcut(e, cancelShortcut)) {
-        e.preventDefault();
-        router.back();
-      } else if (addLineShortcut && matchesShortcut(e, addLineShortcut)) {
-        e.preventDefault();
-        addLine();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [loading, router]);
 
   // Fetch accounts on mount
   useEffect(() => {
@@ -284,13 +256,17 @@ export default function JournalVoucherForm() {
   }
 
   return (
-    <Card className="border-none shadow-none">
-      <CardContent className="p-0">
-        <VoucherFormHeader
-          voucherType="JOURNAL"
-          title="Journal Voucher"
-          description="Create general journal entries for adjustments, corrections, and non-cash transactions."
-        />
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          Journal Voucher
+          <Badge variant="outline" className="font-normal">General Entry</Badge>
+        </CardTitle>
+        <CardDescription>
+          Create general journal entries for adjustments, corrections, and non-cash transactions.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-6">
             {/* Restriction Notice */}
@@ -599,7 +575,6 @@ export default function JournalVoucherForm() {
             {/* Actions */}
             <div className="flex items-center gap-3 pt-4">
               <Button
-                id="journal-form-submit"
                 type="submit"
                 disabled={loading || !isBalanced || fields.length < 2}
               >

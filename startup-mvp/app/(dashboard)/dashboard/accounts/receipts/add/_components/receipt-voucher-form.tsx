@@ -8,7 +8,7 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -23,9 +23,6 @@ import { getCashBankAccounts } from "../../../cash-bank/_actions/cash-bank.actio
 import { createVoucher, postVoucher } from "../../../vouchers/_actions/voucher.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType } from "@prisma/client";
-import VoucherFormHeader from "../../../_components/VoucherFormHeader";
-import AmountInput from "../../../_components/AmountInput";
-import { matchesShortcut, getKeyboardShortcuts } from "../../../_lib/voucher-form-helpers";
 
 // Form validation schema
 const receiptVoucherSchema = z.object({
@@ -66,28 +63,6 @@ export default function ReceiptVoucherForm() {
   const [cashBankAccounts, setCashBankAccounts] = useState<CashBankAccountOption[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [selectedClient, setSelectedClient] = useState<ClientOption | null>(null);
-
-  // Keyboard shortcuts handler
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const shortcuts = getKeyboardShortcuts();
-      const submitShortcut = shortcuts.find(s => s.key === "Enter" && s.ctrl);
-      const cancelShortcut = shortcuts.find(s => s.key === "Escape");
-
-      if (submitShortcut && matchesShortcut(e, submitShortcut)) {
-        e.preventDefault();
-        if (!loading) {
-          handleSubmit(onSubmit)();
-        }
-      } else if (cancelShortcut && matchesShortcut(e, cancelShortcut)) {
-        e.preventDefault();
-        router.back();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [loading, router]);
 
   // Fetch clients and cash/bank accounts on mount
   useEffect(() => {
@@ -246,13 +221,14 @@ export default function ReceiptVoucherForm() {
   }
 
   return (
-    <Card className="border-none shadow-none">
-      <CardContent className="p-0">
-        <VoucherFormHeader
-          voucherType="RECEIPT"
-          title="Create Receipt Voucher"
-          description="Record a receipt from a client. This will debit your Cash/Bank account and credit the client's AR account."
-        />
+    <Card>
+      <CardHeader>
+        <CardTitle>Create Receipt Voucher</CardTitle>
+        <CardDescription>
+          Record a receipt from a client. This will debit your Cash/Bank account and credit the client&apos;s AR account.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-6">
             {error && (
@@ -367,23 +343,32 @@ export default function ReceiptVoucherForm() {
               )}
             </div>
 
-            {/* Amount with enhanced input */}
-            <Controller
-              name="amount"
-              control={control}
-              render={({ field }) => (
-                <AmountInput
-                  id="amount"
-                  value={field.value || 0}
-                  onChange={field.onChange}
-                  label="Receipt Amount"
-                  required
-                  disabled={loading}
-                  showWords={true}
-                  showWarnings={true}
-                />
+            {/* Amount */}
+            <div className="space-y-2">
+              <Label htmlFor="amount">Amount *</Label>
+              <Controller
+                name="amount"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder="0.00"
+                    value={field.value || ""}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0;
+                      field.onChange(value);
+                    }}
+                    disabled={loading}
+                  />
+                )}
+              />
+              {errors.amount && (
+                <p className="text-sm text-destructive">{errors.amount.message}</p>
               )}
-            />
+            </div>
 
             {/* Date */}
             <div className="space-y-2">
