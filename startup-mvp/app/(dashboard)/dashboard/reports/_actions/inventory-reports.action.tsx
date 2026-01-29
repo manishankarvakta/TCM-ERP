@@ -45,7 +45,7 @@ export async function getStockSummary(filters: {
       ...(filters.warehouseId ? { warehouseId: filters.warehouseId } : {}),
     };
 
-    const stocks = await prisma.stock.findMany({
+    const stocks = await prisma.Stock.findMany({
       where,
       include: {
         item: {
