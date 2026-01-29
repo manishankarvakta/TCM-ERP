@@ -65,19 +65,19 @@ type SettingsSection = "profile" |
                        "organization"| 
                        "apis" | 
                        "webhooks" | 
-                       "tex" | 
+                       "tax" | 
                        "lab" | 
                        "releases" | 
                        "whatsapp" | 
                        "telegram" | 
                        "sms" | 
-                       "paymentMethods" | 
+                       "payment-methods" | 
                        "coverLetter" | 
                        "tos" | 
                        "preferences" |
                        "inventory" |
                        "production" |
-                       "accounting";
+                       "accounts-default";
 
 interface SettingsMenuItem {
   id: SettingsSection;
@@ -166,7 +166,13 @@ export default function SettingsPageClient({ accessiblePages }: SettingsPageClie
           });
         } else {
           // Handle items without children
-          const permissionKey = `settings.${item.id}`;
+          let permissionKey = `settings.${item.id}`;
+          
+          // Special handling for nested permissions under accounts
+          if (item.id === "accounts-default" || item.id === "tax" || item.id === "payment-methods") {
+            permissionKey = `settings.accounts.${item.id === "accounts-default" ? "default" : item.id}`;
+          }
+          
           const hasAccess = accessiblePages[permissionKey];
           
           if (hasAccess === true) {
@@ -211,10 +217,10 @@ export default function SettingsPageClient({ accessiblePages }: SettingsPageClie
     {
       category: "Accounts",
       items: [
-        { id: "tex" as SettingsSection, label: "Tex", icon: TbReceiptTax, active: activeSection === "tex" },
-        { id: "paymentMethods" as SettingsSection, label: "Payment Methods", icon: TbCreditCardPay, active: activeSection === "paymentMethods" },
+        { id: "accounts-default" as SettingsSection, label: "Accounts Default", icon: Calculator, active: activeSection === "accounts-default" },
+        { id: "tax" as SettingsSection, label: "Tax", icon: TbReceiptTax, active: activeSection === "tax" },
+        { id: "payment-methods" as SettingsSection, label: "Payment Methods", icon: TbCreditCardPay, active: activeSection === "payment-methods" },
         { id: "preferences" as SettingsSection, label: "Preferences", icon: LucideUserCog, active: activeSection === "preferences" },
-        { id: "accounting" as SettingsSection, label: "Accounting Defaults", icon: Calculator, active: activeSection === "accounting" },
       ],
     },
     {
@@ -274,9 +280,9 @@ export default function SettingsPageClient({ accessiblePages }: SettingsPageClie
         return <Telegram />;
       case "sms":
         return <SMS />;
-      case "tex":
+      case "tax":
         return <Tex />;
-      case "paymentMethods":
+      case "payment-methods":
         return <PaymentMethods />;
       case "preferences":
         return <Preferences />;
@@ -298,7 +304,7 @@ export default function SettingsPageClient({ accessiblePages }: SettingsPageClie
         return <Inventory />;
       case "production":
         return <Production />;
-      case "accounting":
+      case "accounts-default":
         return <Accounting />;
       default:
         return (

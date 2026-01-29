@@ -166,8 +166,9 @@ export default function PermissionMatrix({
       "settings.permissions",
     ],
     "Accounts": [
-      "settings.tex",
-      "settings.paymentMethods",
+      "settings.accounts.default",
+      "settings.accounts.tax",
+      "settings.accounts.payment-methods",
       "settings.preferences",
     ],
     "Quotations": [

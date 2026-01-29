@@ -90,17 +90,6 @@ export async function validateOperationAccountSettings(
     throw new AccountNotConfiguredError("Purchase Inventory");
   }
 
-  if (settings.purchase.payableAccountId) {
-    validationRules.push({
-      accountId: settings.purchase.payableAccountId,
-      fieldName: "Purchase Accounts Payable",
-      expectedType: AccountType.LIABILITY,
-      required: true,
-    });
-  } else {
-    throw new AccountNotConfiguredError("Purchase Accounts Payable");
-  }
-
   // Sales validation rules
   if (settings.sales.revenueAccountId) {
     validationRules.push({
@@ -111,17 +100,6 @@ export async function validateOperationAccountSettings(
     });
   } else {
     throw new AccountNotConfiguredError("Sales Revenue");
-  }
-
-  if (settings.sales.receivableAccountId) {
-    validationRules.push({
-      accountId: settings.sales.receivableAccountId,
-      fieldName: "Sales Accounts Receivable",
-      expectedType: AccountType.ASSET,
-      required: true,
-    });
-  } else {
-    throw new AccountNotConfiguredError("Sales Accounts Receivable");
   }
 
   if (settings.sales.cogsAccountId) {
@@ -135,57 +113,127 @@ export async function validateOperationAccountSettings(
     throw new AccountNotConfiguredError("Sales Cost of Goods Sold");
   }
 
+  if (settings.sales.finishedGoodsInventoryAccountId) {
+    validationRules.push({
+      accountId: settings.sales.finishedGoodsInventoryAccountId,
+      fieldName: "Sales Finished Goods Inventory",
+      expectedType: AccountType.ASSET,
+      required: true,
+    });
+  } else {
+    throw new AccountNotConfiguredError("Sales Finished Goods Inventory");
+  }
+
   // Production validation rules
-  if (settings.production.rawMaterialInventoryId) {
+  if (settings.production.consumptionWipAccountId) {
     validationRules.push({
-      accountId: settings.production.rawMaterialInventoryId,
-      fieldName: "Raw Material Inventory",
+      accountId: settings.production.consumptionWipAccountId,
+      fieldName: "Production Consumption WIP",
       expectedType: AccountType.ASSET,
       required: true,
     });
   } else {
-    throw new AccountNotConfiguredError("Raw Material Inventory");
+    throw new AccountNotConfiguredError("Production Consumption WIP");
   }
 
-  if (settings.production.wipAccountId) {
+  if (settings.production.consumptionRawMaterialInventoryId) {
     validationRules.push({
-      accountId: settings.production.wipAccountId,
-      fieldName: "Work in Progress (WIP)",
+      accountId: settings.production.consumptionRawMaterialInventoryId,
+      fieldName: "Production Raw Material Inventory",
       expectedType: AccountType.ASSET,
       required: true,
     });
   } else {
-    throw new AccountNotConfiguredError("Work in Progress (WIP)");
+    throw new AccountNotConfiguredError("Production Raw Material Inventory");
   }
 
-  if (settings.production.finishedGoodsInventoryId) {
+  if (settings.production.completionFinishedGoodsInventoryId) {
     validationRules.push({
-      accountId: settings.production.finishedGoodsInventoryId,
-      fieldName: "Finished Goods Inventory",
+      accountId: settings.production.completionFinishedGoodsInventoryId,
+      fieldName: "Production Finished Goods Inventory",
       expectedType: AccountType.ASSET,
       required: true,
     });
   } else {
-    throw new AccountNotConfiguredError("Finished Goods Inventory");
+    throw new AccountNotConfiguredError("Production Finished Goods Inventory");
   }
 
-  // Inventory Adjustment validation rules (optional)
-  if (settings.inventoryAdjustment.gainAccountId) {
+  if (settings.production.completionWipAccountId) {
     validationRules.push({
-      accountId: settings.inventoryAdjustment.gainAccountId,
-      fieldName: "Inventory Gain",
+      accountId: settings.production.completionWipAccountId,
+      fieldName: "Production Completion WIP",
+      expectedType: AccountType.ASSET,
+      required: true,
+    });
+  } else {
+    throw new AccountNotConfiguredError("Production Completion WIP");
+  }
+
+  // Inventory Adjustment validation rules
+  if (settings.inventoryAdjustment.positiveFgInventoryId) {
+    validationRules.push({
+      accountId: settings.inventoryAdjustment.positiveFgInventoryId,
+      fieldName: "Pos. Adj. Finished Goods",
+      expectedType: AccountType.ASSET,
+      required: true,
+    });
+  } else {
+    throw new AccountNotConfiguredError("Positive Adjustment Finished Goods Inventory");
+  }
+
+  if (settings.inventoryAdjustment.positiveRmInventoryId) {
+    validationRules.push({
+      accountId: settings.inventoryAdjustment.positiveRmInventoryId,
+      fieldName: "Pos. Adj. Raw material",
+      expectedType: AccountType.ASSET,
+      required: true,
+    });
+  } else {
+    throw new AccountNotConfiguredError("Positive Adjustment Raw Material Inventory");
+  }
+
+  if (settings.inventoryAdjustment.positiveAdjustmentGainId) {
+    validationRules.push({
+      accountId: settings.inventoryAdjustment.positiveAdjustmentGainId,
+      fieldName: "Positive Adjustment Gain",
       expectedType: AccountType.REVENUE,
-      required: false,
+      required: true,
     });
+  } else {
+    throw new AccountNotConfiguredError("Positive Adjustment Gain");
   }
 
-  if (settings.inventoryAdjustment.lossAccountId) {
+  if (settings.inventoryAdjustment.negativeFgInventoryId) {
     validationRules.push({
-      accountId: settings.inventoryAdjustment.lossAccountId,
-      fieldName: "Inventory Loss",
-      expectedType: AccountType.EXPENSE,
-      required: false,
+      accountId: settings.inventoryAdjustment.negativeFgInventoryId,
+      fieldName: "Neg. Adj. Finished Goods",
+      expectedType: AccountType.ASSET,
+      required: true,
     });
+  } else {
+    throw new AccountNotConfiguredError("Negative Adjustment Finished Goods Inventory");
+  }
+
+  if (settings.inventoryAdjustment.negativeRmInventoryId) {
+    validationRules.push({
+      accountId: settings.inventoryAdjustment.negativeRmInventoryId,
+      fieldName: "Neg. Adj. Raw material",
+      expectedType: AccountType.ASSET,
+      required: true,
+    });
+  } else {
+    throw new AccountNotConfiguredError("Negative Adjustment Raw Material Inventory");
+  }
+
+  if (settings.inventoryAdjustment.negativeAdjustmentExpenseId) {
+    validationRules.push({
+      accountId: settings.inventoryAdjustment.negativeAdjustmentExpenseId,
+      fieldName: "Negative Adjustment Expense",
+      expectedType: AccountType.EXPENSE,
+      required: true,
+    });
+  } else {
+    throw new AccountNotConfiguredError("Negative Adjustment Expense");
   }
 
   // Payment validation rules
@@ -200,17 +248,6 @@ export async function validateOperationAccountSettings(
     throw new AccountNotConfiguredError("Payment Cash");
   }
 
-  if (settings.payment.payableAccountId) {
-    validationRules.push({
-      accountId: settings.payment.payableAccountId,
-      fieldName: "Payment Accounts Payable",
-      expectedType: AccountType.LIABILITY,
-      required: true,
-    });
-  } else {
-    throw new AccountNotConfiguredError("Payment Accounts Payable");
-  }
-
   // Receipt validation rules
   if (settings.receipt.cashAccountId) {
     validationRules.push({
@@ -221,36 +258,6 @@ export async function validateOperationAccountSettings(
     });
   } else {
     throw new AccountNotConfiguredError("Receipt Cash");
-  }
-
-  if (settings.receipt.receivableAccountId) {
-    validationRules.push({
-      accountId: settings.receipt.receivableAccountId,
-      fieldName: "Receipt Accounts Receivable",
-      expectedType: AccountType.ASSET,
-      required: true,
-    });
-  } else {
-    throw new AccountNotConfiguredError("Receipt Accounts Receivable");
-  }
-
-  // Contra validation rules (optional)
-  if (settings.contra.fromAccountId) {
-    validationRules.push({
-      accountId: settings.contra.fromAccountId,
-      fieldName: "Contra From Account",
-      expectedType: AccountType.ASSET, // Typically cash/bank
-      required: false,
-    });
-  }
-
-  if (settings.contra.toAccountId) {
-    validationRules.push({
-      accountId: settings.contra.toAccountId,
-      fieldName: "Contra To Account",
-      expectedType: AccountType.ASSET, // Typically cash/bank
-      required: false,
-    });
   }
 
   // Fetch all accounts to validate

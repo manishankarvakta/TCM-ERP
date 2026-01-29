@@ -15,33 +15,39 @@ import { ACCOUNTING_OPERATIONS_KEY } from "@/types/accounting-settings";
 const accountingOperationSettingsSchema = z.object({
   purchase: z.object({
     inventoryAccountId: z.string(),
-    payableAccountId: z.string(),
+    payableAccountId: z.string().optional().default(""),
   }),
   sales: z.object({
     revenueAccountId: z.string(),
-    receivableAccountId: z.string(),
+    receivableAccountId: z.string().optional().default(""),
     cogsAccountId: z.string(),
+    finishedGoodsInventoryAccountId: z.string(),
   }),
   production: z.object({
-    rawMaterialInventoryId: z.string(),
-    wipAccountId: z.string(),
-    finishedGoodsInventoryId: z.string(),
+    consumptionWipAccountId: z.string(),
+    consumptionRawMaterialInventoryId: z.string(),
+    completionFinishedGoodsInventoryId: z.string(),
+    completionWipAccountId: z.string(),
   }),
   inventoryAdjustment: z.object({
-    gainAccountId: z.string(),
-    lossAccountId: z.string(),
+    positiveFgInventoryId: z.string(),
+    positiveRmInventoryId: z.string(),
+    positiveAdjustmentGainId: z.string(),
+    negativeFgInventoryId: z.string(),
+    negativeRmInventoryId: z.string(),
+    negativeAdjustmentExpenseId: z.string(),
   }),
   payment: z.object({
     cashAccountId: z.string(),
-    payableAccountId: z.string(),
+    payableAccountId: z.string().optional().default(""),
   }),
   receipt: z.object({
     cashAccountId: z.string(),
-    receivableAccountId: z.string(),
+    receivableAccountId: z.string().optional().default(""),
   }),
   contra: z.object({
-    fromAccountId: z.string(),
-    toAccountId: z.string(),
+    fromAccountId: z.string().optional().default(""),
+    toAccountId: z.string().optional().default(""),
   }),
 });
 

@@ -8,34 +8,49 @@
  * Purchase operation account mappings
  */
 export interface PurchaseAccounts {
-  inventoryAccountId: string;
-  payableAccountId: string;
+  inventoryAccountId: string; // DR (Inventory Account)
+  payableAccountId: string;   // CR (Accounts Payable - Informational)
 }
 
 /**
  * Sales operation account mappings
  */
 export interface SalesAccounts {
-  revenueAccountId: string;
-  receivableAccountId: string;
-  cogsAccountId: string;
+  // Revenue Entry
+  revenueAccountId: string;    // CR (Sales Revenue)
+  receivableAccountId: string; // DR (Accounts Receivable - Informational)
+  
+  // COGS Entry
+  cogsAccountId: string;             // DR (Cost of Goods Sold)
+  finishedGoodsInventoryAccountId: string; // CR (Finished Goods Inventory)
 }
 
 /**
  * Production operation account mappings
  */
 export interface ProductionAccounts {
-  rawMaterialInventoryId: string;
-  wipAccountId: string;
-  finishedGoodsInventoryId: string;
+  // Raw Material Consumption
+  consumptionWipAccountId: string;           // DR (Work In Progress)
+  consumptionRawMaterialInventoryId: string; // CR (Raw Material Inventory)
+  
+  // Production Completion
+  completionFinishedGoodsInventoryId: string; // DR (Finished Goods Inventory)
+  completionWipAccountId: string;             // CR (Work In Progress)
 }
 
 /**
  * Inventory adjustment account mappings
  */
 export interface InventoryAdjustmentAccounts {
-  gainAccountId: string;
-  lossAccountId: string;
+  // Positive Adjustment
+  positiveFgInventoryId: string;  // DR (Finished Goods)
+  positiveRmInventoryId: string;  // DR (Raw Material)
+  positiveAdjustmentGainId: string; // CR (Adjustment Gain)
+  
+  // Negative Adjustment
+  negativeFgInventoryId: string;   // CR (Finished Goods)
+  negativeRmInventoryId: string;   // CR (Raw Material)
+  negativeAdjustmentExpenseId: string; // DR (Adjustment Expense)
 }
 
 /**

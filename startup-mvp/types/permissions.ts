@@ -12,7 +12,9 @@ export type Module =
   | "notifications"
   | "reports"
   | "inventory"
-  | "production";
+  | "analytics"
+  | "production"
+  | "settings";
 
 // Basic operations
 export type BasicOperation = "create" | "read" | "update" | "delete" | "export" | "import";
@@ -29,7 +31,10 @@ export type CustomOperation =
   | "view"
   | "edit"
   | "manage"
-  | "approve";
+  | "adjust"
+  | "start"
+  | "complete"
+  | "cancel";
 
 // Standard operations for pages (as per requirements)
 export type StandardOperation = "create" | "view" | "edit" | "move-to-trash" | "delete-permanently";
@@ -188,7 +193,7 @@ export const MODULES: Record<Module, ModuleMetadata> = {
   analytics: {
     id: "analytics",
     label: "Analytics",
-    description: "Analytics and reports",
+    description: "Analytics and reporting",
   },
   reports: {
     id: "reports",
@@ -222,6 +227,18 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     subModules: [
       { id: "boms", label: "Bill of Materials", path: "/dashboard/production/boms", module: "production", permissionKey: "production.boms" },
       { id: "orders", label: "Production Orders", path: "/dashboard/production/orders", module: "production", permissionKey: "production.orders" },
+    ],
+  },
+  settings: {
+    id: "settings",
+    label: "Settings",
+    description: "Application settings and preferences",
+    subModules: [
+      { id: "accounts", label: "Accounts", path: "/dashboard/settings/accounts", module: "settings", permissionKey: "settings.accounts" },
+      { id: "accounts-default", label: "Accounts Default", path: "/dashboard/settings/accounts?section=default", module: "settings", permissionKey: "settings.accounts.default" },
+      { id: "tax", label: "Tax", path: "/dashboard/settings/accounts?section=tax", module: "settings", permissionKey: "settings.accounts.tax" },
+      { id: "payment-methods", label: "Payment Methods", path: "/dashboard/settings/accounts?section=payment-methods", module: "settings", permissionKey: "settings.accounts.payment-methods" },
+      { id: "preferences", label: "Preferences", path: "/dashboard/settings?section=preferences", module: "settings", permissionKey: "settings.preferences" },
     ],
   },
 };
@@ -336,6 +353,30 @@ export const OPERATIONS: Record<Operation, OperationMetadata> = {
     id: "delete-permanently",
     label: "Delete Permanently",
     description: "Permanently delete records",
+    category: "custom",
+  },
+  adjust: {
+    id: "adjust",
+    label: "Adjust",
+    description: "Adjust records (e.g. stock)",
+    category: "custom",
+  },
+  start: {
+    id: "start",
+    label: "Start",
+    description: "Start a process (e.g. production)",
+    category: "custom",
+  },
+  complete: {
+    id: "complete",
+    label: "Complete",
+    description: "Complete a process",
+    category: "custom",
+  },
+  cancel: {
+    id: "cancel",
+    label: "Cancel",
+    description: "Cancel a process",
     category: "custom",
   },
 };
@@ -762,20 +803,26 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
       },
       // Accounts category
       {
-        permissionKey: "settings.tex",
-        path: "/admin/settings?section=tex",
-        label: "Tex",
+        permissionKey: "settings.accounts.default",
+        path: "/dashboard/settings/accounts",
+        label: "Accounts Default",
         operations: ["view", "edit"],
       },
       {
-        permissionKey: "settings.paymentMethods",
-        path: "/admin/settings?section=paymentMethods",
+        permissionKey: "settings.accounts.tax",
+        path: "/dashboard/settings/accounts?section=tax",
+        label: "Tax",
+        operations: ["view", "edit"],
+      },
+      {
+        permissionKey: "settings.accounts.payment-methods",
+        path: "/dashboard/settings/accounts?section=payment-methods",
         label: "Payment Methods",
         operations: ["view", "edit", "create", "delete-permanently"],
       },
       {
         permissionKey: "settings.preferences",
-        path: "/admin/settings?section=preferences",
+        path: "/dashboard/settings?section=preferences",
         label: "Preferences",
         operations: ["view", "edit"],
       },
@@ -898,21 +945,20 @@ export function calculatePermissionOverrides(
     ...Object.keys(currentPermissions),
   ]);
 
-  for (const key of allKeys) {
+  Array.from(allKeys).forEach((key) => {
     const templateOps = templatePermissions[key] || [];
     const currentOps = currentPermissions[key] || [];
 
     // Normalize arrays for comparison (sort and remove duplicates)
-    const templateOpsSorted = [...new Set(templateOps)].sort().join(",");
-    const currentOpsSorted = [...new Set(currentOps)].sort().join(",");
+    const templateOpsSorted = Array.from(new Set(templateOps)).sort().join(",");
+    const currentOpsSorted = Array.from(new Set(currentOps)).sort().join(",");
 
     // If current differs from template, include as override
     if (templateOpsSorted !== currentOpsSorted) {
       overrides[key] = currentOps;
     }
     // If they match, don't include (will delete existing override if any)
-  }
+  });
 
   return overrides;
 }
-

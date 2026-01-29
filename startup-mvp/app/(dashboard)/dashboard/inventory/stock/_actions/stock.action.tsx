@@ -366,36 +366,53 @@ export async function adjustStock(input: {
         const { getAccountingOperationSettings } = await import("@/lib/accounting-settings");
         const settings = await getAccountingOperationSettings();
 
-        // Determine inventory account based on item type
+        // Determine accounts based on adjustment direction and item type
+        const isPositive = input.quantity > 0;
         let inventoryAccountId: string | null = null;
-        if (item.itemType === "RAW_MATERIAL") {
-          inventoryAccountId = settings.production.rawMaterialInventoryId;
-        } else if (item.itemType === "FINISHED_GOOD") {
-          inventoryAccountId = settings.production.finishedGoodsInventoryId;
-        } else if (item.itemType === "RETAIL") {
-          inventoryAccountId = settings.purchase.inventoryAccountId;
+        let adjustmentAccountId: string | null = null;
+
+        if (isPositive) {
+          adjustmentAccountId = settings.inventoryAdjustment.positiveAdjustmentGainId;
+          if (item.itemType === "RAW_MATERIAL") {
+            inventoryAccountId = settings.inventoryAdjustment.positiveRmInventoryId;
+          } else {
+            inventoryAccountId = settings.inventoryAdjustment.positiveFgInventoryId;
+          }
+        } else {
+          adjustmentAccountId = settings.inventoryAdjustment.negativeAdjustmentExpenseId;
+          if (item.itemType === "RAW_MATERIAL") {
+            inventoryAccountId = settings.inventoryAdjustment.negativeRmInventoryId;
+          } else {
+            inventoryAccountId = settings.inventoryAdjustment.negativeFgInventoryId;
+          }
         }
 
-        const adjustmentGainId = settings.inventoryAdjustment.gainAccountId;
-        const adjustmentLossId = settings.inventoryAdjustment.lossAccountId;
+        // Fallback for inventory account if not set in adjustment settings
+        if (!inventoryAccountId) {
+          if (item.itemType === "RAW_MATERIAL") {
+            inventoryAccountId = settings.production.consumptionRawMaterialInventoryId;
+          } else if (item.itemType === "FINISHED_GOOD") {
+            inventoryAccountId = settings.production.completionFinishedGoodsInventoryId;
+          } else {
+            inventoryAccountId = settings.purchase.inventoryAccountId;
+          }
+        }
 
-        if (inventoryAccountId && (input.quantity > 0 ? adjustmentGainId : adjustmentLossId)) {
-          const isPositive = input.quantity > 0;
-          
+        if (inventoryAccountId && adjustmentAccountId) {
           const voucherLines = [
             {
               lineNumber: 1,
               debitAmount: isPositive ? adjustmentValue : 0,
               creditAmount: isPositive ? 0 : adjustmentValue,
-              description: `High-Risk Stock Adjustment - ${item.name} (${input.quantity > 0 ? '+' : ''}${input.quantity})`,
+              description: `High-Risk Stock Adjustment - ${item.name} (${isPositive ? '+' : ''}${input.quantity})`,
               chartOfAccountId: inventoryAccountId,
             },
             {
               lineNumber: 2,
               debitAmount: isPositive ? 0 : adjustmentValue,
               creditAmount: isPositive ? adjustmentValue : 0,
-              description: `Inventory ${isPositive ? 'Gain' : 'Shrinkage'} (Pending Approval) - ${item.name}`,
-              chartOfAccountId: isPositive ? adjustmentGainId : adjustmentLossId,
+              description: `Inventory ${isPositive ? 'Gain' : 'Adjustment Expense'} (Pending Approval) - ${item.name}`,
+              chartOfAccountId: adjustmentAccountId,
             },
           ];
 
@@ -539,36 +556,53 @@ export async function adjustStock(input: {
         const { getAccountingOperationSettings } = await import("@/lib/accounting-settings");
         const settings = await getAccountingOperationSettings();
 
-        // Determine inventory account based on item type
+        // Determine accounts based on adjustment direction and item type
+        const isPositive = input.quantity > 0;
         let inventoryAccountId: string | null = null;
-        if (item.itemType === "RAW_MATERIAL") {
-          inventoryAccountId = settings.production.rawMaterialInventoryId;
-        } else if (item.itemType === "FINISHED_GOOD") {
-          inventoryAccountId = settings.production.finishedGoodsInventoryId;
-        } else if (item.itemType === "RETAIL") {
-          inventoryAccountId = settings.purchase.inventoryAccountId;
+        let adjustmentAccountId: string | null = null;
+
+        if (isPositive) {
+          adjustmentAccountId = settings.inventoryAdjustment.positiveAdjustmentGainId;
+          if (item.itemType === "RAW_MATERIAL") {
+            inventoryAccountId = settings.inventoryAdjustment.positiveRmInventoryId;
+          } else {
+            inventoryAccountId = settings.inventoryAdjustment.positiveFgInventoryId;
+          }
+        } else {
+          adjustmentAccountId = settings.inventoryAdjustment.negativeAdjustmentExpenseId;
+          if (item.itemType === "RAW_MATERIAL") {
+            inventoryAccountId = settings.inventoryAdjustment.negativeRmInventoryId;
+          } else {
+            inventoryAccountId = settings.inventoryAdjustment.negativeFgInventoryId;
+          }
         }
 
-        const adjustmentGainId = settings.inventoryAdjustment.gainAccountId;
-        const adjustmentLossId = settings.inventoryAdjustment.lossAccountId;
+        // Fallback for inventory account if not set in adjustment settings
+        if (!inventoryAccountId) {
+          if (item.itemType === "RAW_MATERIAL") {
+            inventoryAccountId = settings.production.consumptionRawMaterialInventoryId;
+          } else if (item.itemType === "FINISHED_GOOD") {
+            inventoryAccountId = settings.production.completionFinishedGoodsInventoryId;
+          } else {
+            inventoryAccountId = settings.purchase.inventoryAccountId;
+          }
+        }
 
-        if (inventoryAccountId && (input.quantity > 0 ? adjustmentGainId : adjustmentLossId)) {
-          const isPositive = input.quantity > 0;
-          
+        if (inventoryAccountId && adjustmentAccountId) {
           const voucherLines = [
             {
               lineNumber: 1,
               debitAmount: isPositive ? adjustmentValue : 0,
               creditAmount: isPositive ? 0 : adjustmentValue,
-              description: `Stock Adjustment - ${item.name} (${input.quantity > 0 ? '+' : ''}${input.quantity})`,
+              description: `Stock Adjustment - ${item.name} (${isPositive ? '+' : ''}${input.quantity})`,
               chartOfAccountId: inventoryAccountId,
             },
             {
               lineNumber: 2,
               debitAmount: isPositive ? 0 : adjustmentValue,
               creditAmount: isPositive ? adjustmentValue : 0,
-              description: `Inventory ${isPositive ? 'Gain' : 'Shrinkage'} - ${item.name}`,
-              chartOfAccountId: isPositive ? adjustmentGainId : adjustmentLossId,
+              description: `Inventory ${isPositive ? 'Gain' : 'Adjustment Expense'} - ${item.name}`,
+              chartOfAccountId: adjustmentAccountId,
             },
           ];
 

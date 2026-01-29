@@ -23,33 +23,33 @@ import { AccountType } from "@prisma/client";
 const operationSettingsSchema = z.object({
   // Purchase
   purchaseInventoryAccountId: z.string().min(1, "Required"),
-  purchasePayableAccountId: z.string().min(1, "Required"),
   
   // Sales
   salesRevenueAccountId: z.string().min(1, "Required"),
-  salesReceivableAccountId: z.string().min(1, "Required"),
   salesCogsAccountId: z.string().min(1, "Required"),
+  salesFinishedGoodsInventoryAccountId: z.string().min(1, "Required"),
   
   // Production
-  productionRawMaterialInventoryId: z.string().min(1, "Required"),
-  productionWipAccountId: z.string().min(1, "Required"),
-  productionFinishedGoodsInventoryId: z.string().min(1, "Required"),
+  productionConsumptionWipAccountId: z.string().min(1, "Required"),
+  productionConsumptionRawMaterialInventoryId: z.string().min(1, "Required"),
+  productionCompletionFinishedGoodsInventoryId: z.string().min(1, "Required"),
+  productionCompletionWipAccountId: z.string().min(1, "Required"),
   
-  // Payment
+  // Inventory Adjustment Positive
+  inventoryAdjustmentPositiveFgId: z.string().min(1, "Required"),
+  inventoryAdjustmentPositiveRmId: z.string().min(1, "Required"),
+  inventoryAdjustmentPositiveGainId: z.string().min(1, "Required"),
+  
+  // Inventory Adjustment Negative
+  inventoryAdjustmentNegativeFgId: z.string().min(1, "Required"),
+  inventoryAdjustmentNegativeRmId: z.string().min(1, "Required"),
+  inventoryAdjustmentNegativeExpenseId: z.string().min(1, "Required"),
+
+  // Payment/Receipt (kept for compatibility)
   paymentCashAccountId: z.string().min(1, "Required"),
-  paymentPayableAccountId: z.string().min(1, "Required"),
-  
-  // Receipt
   receiptCashAccountId: z.string().min(1, "Required"),
-  receiptReceivableAccountId: z.string().min(1, "Required"),
-  
-  // Contra
   contraFromAccountId: z.string().optional(),
   contraToAccountId: z.string().optional(),
-  
-  // Inventory Adjustment
-  inventoryAdjustmentGainAccountId: z.string().optional(),
-  inventoryAdjustmentLossAccountId: z.string().optional(),
 });
 
 type FormData = z.infer<typeof operationSettingsSchema>;
@@ -102,21 +102,23 @@ export default function OperationAccountMappingForm() {
           const s = settingsResult.settings;
           reset({
             purchaseInventoryAccountId: s.purchase.inventoryAccountId,
-            purchasePayableAccountId: s.purchase.payableAccountId,
             salesRevenueAccountId: s.sales.revenueAccountId,
-            salesReceivableAccountId: s.sales.receivableAccountId,
             salesCogsAccountId: s.sales.cogsAccountId,
-            productionRawMaterialInventoryId: s.production.rawMaterialInventoryId,
-            productionWipAccountId: s.production.wipAccountId,
-            productionFinishedGoodsInventoryId: s.production.finishedGoodsInventoryId,
+            salesFinishedGoodsInventoryAccountId: s.sales.finishedGoodsInventoryAccountId,
+            productionConsumptionWipAccountId: s.production.consumptionWipAccountId,
+            productionConsumptionRawMaterialInventoryId: s.production.consumptionRawMaterialInventoryId,
+            productionCompletionFinishedGoodsInventoryId: s.production.completionFinishedGoodsInventoryId,
+            productionCompletionWipAccountId: s.production.completionWipAccountId,
+            inventoryAdjustmentPositiveFgId: s.inventoryAdjustment.positiveFgInventoryId,
+            inventoryAdjustmentPositiveRmId: s.inventoryAdjustment.positiveRmInventoryId,
+            inventoryAdjustmentPositiveGainId: s.inventoryAdjustment.positiveAdjustmentGainId,
+            inventoryAdjustmentNegativeFgId: s.inventoryAdjustment.negativeFgInventoryId,
+            inventoryAdjustmentNegativeRmId: s.inventoryAdjustment.negativeRmInventoryId,
+            inventoryAdjustmentNegativeExpenseId: s.inventoryAdjustment.negativeAdjustmentExpenseId,
             paymentCashAccountId: s.payment.cashAccountId,
-            paymentPayableAccountId: s.payment.payableAccountId,
             receiptCashAccountId: s.receipt.cashAccountId,
-            receiptReceivableAccountId: s.receipt.receivableAccountId,
             contraFromAccountId: s.contra.fromAccountId,
             contraToAccountId: s.contra.toAccountId,
-            inventoryAdjustmentGainAccountId: s.inventoryAdjustment.gainAccountId,
-            inventoryAdjustmentLossAccountId: s.inventoryAdjustment.lossAccountId,
           });
         }
       } catch (err) {
@@ -139,33 +141,39 @@ export default function OperationAccountMappingForm() {
       const settings: AccountingOperationSettings = {
         purchase: {
           inventoryAccountId: data.purchaseInventoryAccountId,
-          payableAccountId: data.purchasePayableAccountId,
+          payableAccountId: "", // Dynamic from Vendor
         },
         sales: {
           revenueAccountId: data.salesRevenueAccountId,
-          receivableAccountId: data.salesReceivableAccountId,
+          receivableAccountId: "", // Dynamic from Customer
           cogsAccountId: data.salesCogsAccountId,
+          finishedGoodsInventoryAccountId: data.salesFinishedGoodsInventoryAccountId,
         },
         production: {
-          rawMaterialInventoryId: data.productionRawMaterialInventoryId,
-          wipAccountId: data.productionWipAccountId,
-          finishedGoodsInventoryId: data.productionFinishedGoodsInventoryId,
+          consumptionWipAccountId: data.productionConsumptionWipAccountId,
+          consumptionRawMaterialInventoryId: data.productionConsumptionRawMaterialInventoryId,
+          completionFinishedGoodsInventoryId: data.productionCompletionFinishedGoodsInventoryId,
+          completionWipAccountId: data.productionCompletionWipAccountId,
+        },
+        inventoryAdjustment: {
+          positiveFgInventoryId: data.inventoryAdjustmentPositiveFgId,
+          positiveRmInventoryId: data.inventoryAdjustmentPositiveRmId,
+          positiveAdjustmentGainId: data.inventoryAdjustmentPositiveGainId,
+          negativeFgInventoryId: data.inventoryAdjustmentNegativeFgId,
+          negativeRmInventoryId: data.inventoryAdjustmentNegativeRmId,
+          negativeAdjustmentExpenseId: data.inventoryAdjustmentNegativeExpenseId,
         },
         payment: {
           cashAccountId: data.paymentCashAccountId,
-          payableAccountId: data.paymentPayableAccountId,
+          payableAccountId: "", // Dynamic
         },
         receipt: {
           cashAccountId: data.receiptCashAccountId,
-          receivableAccountId: data.receiptReceivableAccountId,
+          receivableAccountId: "", // Dynamic
         },
         contra: {
           fromAccountId: data.contraFromAccountId || "",
           toAccountId: data.contraToAccountId || "",
-        },
-        inventoryAdjustment: {
-          gainAccountId: data.inventoryAdjustmentGainAccountId || "",
-          lossAccountId: data.inventoryAdjustmentLossAccountId || "",
         },
       };
 
@@ -184,282 +192,235 @@ export default function OperationAccountMappingForm() {
     }
   };
 
-  const filterAccountsByType = (types: AccountType[]) => {
-    return accounts.filter((acc) => types.includes(acc.type));
-  };
+  const DynamicLabel = ({ label, value }: { label: string; value: string }) => (
+    <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 py-2 border-b border-dashed border-muted-foreground/20">
+      <span className="text-sm font-medium">{label}</span>
+      <span className="md:col-span-2 text-sm text-muted-foreground italic flex items-center gap-2">
+        <FiInfo className="h-3 w-3" /> {value}
+      </span>
+    </div>
+  );
 
   const AccountSelector = ({
     name,
     label,
     types,
     required = true,
-    description,
   }: {
     name: keyof FormData;
     label: string;
     types: AccountType[];
     required?: boolean;
-    description?: string;
   }) => {
-    const filteredAccounts = filterAccountsByType(types);
+    const filteredAccounts = accounts.filter((acc) => types.includes(acc.type));
     const fieldError = errors[name];
 
     return (
-      <div className="space-y-2">
-        <Label htmlFor={name}>
+      <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4">
+        <Label htmlFor={name} className="font-medium text-sm">
           {label} {required && <span className="text-destructive">*</span>}
         </Label>
-        {description && (
-          <p className="text-xs text-muted-foreground">{description}</p>
-        )}
-        <Controller
-          name={name}
-          control={control}
-          render={({ field }) => (
-            <Select
-              value={field.value as string}
-              onValueChange={field.onChange}
-              disabled={loading || loadingAccounts}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={`Select ${types.join(" or ")} account`} />
-              </SelectTrigger>
-              <SelectContent className="max-h-[300px]">
-                {filteredAccounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.code} - {account.name} ({account.type})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <div className="md:col-span-2 space-y-1">
+          <Controller
+            name={name}
+            control={control}
+            render={({ field }) => (
+              <Select
+                value={field.value as string}
+                onValueChange={field.onChange}
+                disabled={loadingAccounts}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select account..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {filteredAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.code} - {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {fieldError && (
+            <p className="text-xs text-destructive">{fieldError.message}</p>
           )}
-        />
-        {fieldError && (
-          <p className="text-sm text-destructive">{fieldError.message}</p>
-        )}
+        </div>
       </div>
     );
   };
 
   return (
     <div className="space-y-6">
-      {/* Info Notice */}
       <div className="flex items-start gap-2 rounded-lg bg-blue-50 p-4 text-sm text-blue-800 border border-blue-200">
         <FiInfo className="mt-0.5 h-4 w-4 flex-shrink-0" />
         <div>
-          <p className="font-medium">Important</p>
-          <p className="mt-1">
-            These mappings affect <strong>future transactions only</strong>. Historical vouchers and posted transactions remain unchanged.
-          </p>
+          <p className="font-medium">Information</p>
+          <p className="mt-1">Define the default chart of accounts for automated bookkeeping. Star marked (*) fields are configurable.</p>
         </div>
       </div>
 
-      {error && (
-        <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive border border-destructive/20">
-          <FiAlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {success && (
-        <div className="flex items-start gap-2 rounded-lg bg-green-50 p-3 text-sm text-green-800 border border-green-200">
-          <FiSave className="mt-0.5 h-4 w-4 flex-shrink-0" />
-          <span>{success}</span>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Purchase Operations */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Purchase Operations</CardTitle>
-            <CardDescription>
-              Account mappings for purchase receipts and inventory
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 pb-10">
+        {/* Purchase */}
+        <section className="space-y-4">
+          <h3 className="text-lg font-semibold flex items-center gap-2 border-b pb-2">
+            <span className="bg-primary text-primary-foreground h-6 w-6 rounded-full flex items-center justify-center text-xs">1</span>
+            Purchase Operations
+          </h3>
+          <div className="space-y-3 bg-muted/30 p-4 rounded-lg">
             <AccountSelector
               name="purchaseInventoryAccountId"
-              label="Inventory Account"
+              label="DR - Inventory Account"
               types={[AccountType.ASSET]}
-              description="Debited when goods are received"
             />
-            <AccountSelector
-              name="purchasePayableAccountId"
-              label="Accounts Payable"
-              types={[AccountType.LIABILITY]}
-              description="Credited when goods are received"
-            />
-          </CardContent>
-        </Card>
+            <DynamicLabel label="CR - Account Payable" value="Dynamic selected from Supplier Account" />
+          </div>
+        </section>
 
-        {/* Sales Operations */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Sales Operations</CardTitle>
-            <CardDescription>
-              Account mappings for sales and revenue recognition
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <AccountSelector
-              name="salesRevenueAccountId"
-              label="Sales Revenue"
-              types={[AccountType.REVENUE]}
-              description="Credited when sale is confirmed"
-            />
-            <AccountSelector
-              name="salesReceivableAccountId"
-              label="Accounts Receivable"
-              types={[AccountType.ASSET]}
-              description="Debited when sale is confirmed"
-            />
-            <AccountSelector
-              name="salesCogsAccountId"
-              label="Cost of Goods Sold"
-              types={[AccountType.EXPENSE]}
-              description="Debited for inventory cost"
-            />
-          </CardContent>
-        </Card>
+        {/* Sales */}
+        <section className="space-y-4">
+          <h3 className="text-lg font-semibold flex items-center gap-2 border-b pb-2">
+            <span className="bg-primary text-primary-foreground h-6 w-6 rounded-full flex items-center justify-center text-xs">2</span>
+            Sales Operations
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3 bg-muted/30 p-4 rounded-lg h-full">
+              <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-2">Revenue Entry</p>
+              <AccountSelector
+                name="salesRevenueAccountId"
+                label="CR - Sales Revenue"
+                types={[AccountType.REVENUE]}
+              />
+              <DynamicLabel label="DR - Account Receivable" value="Dynamic selected from Client Account" />
+            </div>
 
-        {/* Production Operations */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Production Operations</CardTitle>
-            <CardDescription>
-              Account mappings for manufacturing and production
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <AccountSelector
-              name="productionRawMaterialInventoryId"
-              label="Raw Material Inventory"
-              types={[AccountType.ASSET]}
-              description="Credited when production starts"
-            />
-            <AccountSelector
-              name="productionWipAccountId"
-              label="Work in Progress (WIP)"
-              types={[AccountType.ASSET]}
-              description="Debited when production starts, credited when completed"
-            />
-            <AccountSelector
-              name="productionFinishedGoodsInventoryId"
-              label="Finished Goods Inventory"
-              types={[AccountType.ASSET]}
-              description="Debited when production completes"
-            />
-          </CardContent>
-        </Card>
+            <div className="space-y-3 bg-muted/30 p-4 rounded-lg h-full">
+              <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-2">COGS Entry</p>
+              <AccountSelector
+                name="salesCogsAccountId"
+                label="DR - Cost of Goods Sold"
+                types={[AccountType.EXPENSE]}
+              />
+              <AccountSelector
+                name="salesFinishedGoodsInventoryAccountId"
+                label="CR - Finished Goods Inventory"
+                types={[AccountType.ASSET]}
+              />
+            </div>
+          </div>
+        </section>
 
-        {/* Payment Operations */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Payment Operations</CardTitle>
-            <CardDescription>
-              Account mappings for supplier payments
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <AccountSelector
-              name="paymentCashAccountId"
-              label="Cash/Bank Account"
-              types={[AccountType.ASSET]}
-              description="Credited when payment is made"
-            />
-            <AccountSelector
-              name="paymentPayableAccountId"
-              label="Accounts Payable"
-              types={[AccountType.LIABILITY]}
-              description="Debited when payment is made"
-            />
-          </CardContent>
-        </Card>
+        {/* Production */}
+        <section className="space-y-4">
+          <h3 className="text-lg font-semibold flex items-center gap-2 border-b pb-2">
+            <span className="bg-primary text-primary-foreground h-6 w-6 rounded-full flex items-center justify-center text-xs">3</span>
+            Production Operations
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3 bg-muted/30 p-4 rounded-lg h-full">
+              <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-2">Raw Material Consumption</p>
+              <AccountSelector
+                name="productionConsumptionWipAccountId"
+                label="DR - Work In Progress (WIP)"
+                types={[AccountType.ASSET]}
+              />
+              <AccountSelector
+                name="productionConsumptionRawMaterialInventoryId"
+                label="CR - Raw Material Inventory"
+                types={[AccountType.ASSET]}
+              />
+            </div>
 
-        {/* Receipt Operations */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Receipt Operations</CardTitle>
-            <CardDescription>
-              Account mappings for customer receipts
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <AccountSelector
-              name="receiptCashAccountId"
-              label="Cash/Bank Account"
-              types={[AccountType.ASSET]}
-              description="Debited when receipt is received"
-            />
-            <AccountSelector
-              name="receiptReceivableAccountId"
-              label="Accounts Receivable"
-              types={[AccountType.ASSET]}
-              description="Credited when receipt is received"
-            />
-          </CardContent>
-        </Card>
-
-        {/* Contra Operations */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Contra Operations (Optional)</CardTitle>
-            <CardDescription>
-              Account mappings for transfers between cash/bank accounts
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <AccountSelector
-              name="contraFromAccountId"
-              label="From Account"
-              types={[AccountType.ASSET]}
-              required={false}
-              description="Credited when transfer occurs"
-            />
-            <AccountSelector
-              name="contraToAccountId"
-              label="To Account"
-              types={[AccountType.ASSET]}
-              required={false}
-              description="Debited when transfer occurs"
-            />
-          </CardContent>
-        </Card>
+            <div className="space-y-3 bg-muted/30 p-4 rounded-lg h-full">
+              <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-2">Production Completion</p>
+              <AccountSelector
+                name="productionCompletionFinishedGoodsInventoryId"
+                label="DR - Finished Goods Inventory"
+                types={[AccountType.ASSET]}
+              />
+              <AccountSelector
+                name="productionCompletionWipAccountId"
+                label="CR - Work In Progress (WIP)"
+                types={[AccountType.ASSET]}
+              />
+            </div>
+          </div>
+        </section>
 
         {/* Inventory Adjustment */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Inventory Adjustments (Optional)</CardTitle>
-            <CardDescription>
-              Account mappings for inventory gains and losses
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <AccountSelector
-              name="inventoryAdjustmentGainAccountId"
-              label="Inventory Gain Account"
-              types={[AccountType.REVENUE]}
-              required={false}
-              description="Credited for positive adjustments"
-            />
-            <AccountSelector
-              name="inventoryAdjustmentLossAccountId"
-              label="Inventory Loss Account"
-              types={[AccountType.EXPENSE]}
-              required={false}
-              description="Debited for negative adjustments"
-            />
-          </CardContent>
-        </Card>
+        <section className="space-y-4">
+          <h3 className="text-lg font-semibold flex items-center gap-2 border-b pb-2">
+            <span className="bg-primary text-primary-foreground h-6 w-6 rounded-full flex items-center justify-center text-xs">4</span>
+            Inventory Adjustments
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3 bg-muted/30 p-4 rounded-lg h-full">
+              <p className="text-sm font-bold text-green-600 uppercase tracking-wider mb-2">Positive Adjustment</p>
+              <div className="space-y-4">
+                <AccountSelector
+                  name="inventoryAdjustmentPositiveFgId"
+                  label="DR - Finished Goods"
+                  types={[AccountType.ASSET]}
+                />
+                <AccountSelector
+                  name="inventoryAdjustmentPositiveRmId"
+                  label="DR - Raw material"
+                  types={[AccountType.ASSET]}
+                />
+                <AccountSelector
+                  name="inventoryAdjustmentPositiveGainId"
+                  label="CR - Adjustment Gain"
+                  types={[AccountType.REVENUE, AccountType.EQUITY]}
+                />
+              </div>
+            </div>
 
-        <div className="flex items-center gap-3 pt-4">
-          <Button type="submit" disabled={loading || loadingAccounts}>
-            <FiSave className="mr-2 h-4 w-4" />
-            {loading ? "Saving..." : "Save Account Mappings"}
+            <div className="space-y-3 bg-muted/30 p-4 rounded-lg h-full">
+              <p className="text-sm font-bold text-destructive uppercase tracking-wider mb-2">Negative Adjustment</p>
+              <div className="space-y-4">
+                <AccountSelector
+                  name="inventoryAdjustmentNegativeFgId"
+                  label="CR - Finished Goods"
+                  types={[AccountType.ASSET]}
+                />
+                <AccountSelector
+                  name="inventoryAdjustmentNegativeRmId"
+                  label="CR - Raw material"
+                  types={[AccountType.ASSET]}
+                />
+                <AccountSelector
+                  name="inventoryAdjustmentNegativeExpenseId"
+                  label="DR - Adjustment Expense"
+                  types={[AccountType.EXPENSE]}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="pt-6 border-t flex justify-end">
+          <Button type="submit" size="lg" className="w-full md:w-auto" disabled={loading}>
+            <FiSave className="mr-2" /> Save Accounting Mappings
           </Button>
         </div>
       </form>
+
+      {success && (
+        <div className="fixed top-20 right-4 z-50 animate-in slide-in-from-right">
+          <div className="bg-green-600 text-white px-6 py-3 rounded-lg shadow-2xl flex items-center gap-2">
+            <FiSave /> {success}
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="fixed top-20 right-4 z-50 animate-in slide-in-from-right">
+          <div className="bg-destructive text-white px-6 py-3 rounded-lg shadow-2xl flex items-center gap-2">
+            <FiAlertCircle /> {error}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

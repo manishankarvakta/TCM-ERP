@@ -42,15 +42,21 @@ export async function getAccountingOperationSettings(): Promise<AccountingOperat
         revenueAccountId: "",
         receivableAccountId: "",
         cogsAccountId: "",
+        finishedGoodsInventoryAccountId: "",
       },
       production: {
-        rawMaterialInventoryId: "",
-        wipAccountId: "",
-        finishedGoodsInventoryId: "",
+        consumptionWipAccountId: "",
+        consumptionRawMaterialInventoryId: "",
+        completionFinishedGoodsInventoryId: "",
+        completionWipAccountId: "",
       },
       inventoryAdjustment: {
-        gainAccountId: "",
-        lossAccountId: "",
+        positiveFgInventoryId: "",
+        positiveRmInventoryId: "",
+        positiveAdjustmentGainId: "",
+        negativeFgInventoryId: "",
+        negativeRmInventoryId: "",
+        negativeAdjustmentExpenseId: "",
       },
       payment: {
         cashAccountId: "",
@@ -122,15 +128,21 @@ export async function getAccountingOperationSettings(): Promise<AccountingOperat
         revenueAccountId: "",
         receivableAccountId: "",
         cogsAccountId: "",
+        finishedGoodsInventoryAccountId: "",
       },
       production: {
-        rawMaterialInventoryId: "",
-        wipAccountId: "",
-        finishedGoodsInventoryId: "",
+        consumptionWipAccountId: "",
+        consumptionRawMaterialInventoryId: "",
+        completionFinishedGoodsInventoryId: "",
+        completionWipAccountId: "",
       },
       inventoryAdjustment: {
-        gainAccountId: "",
-        lossAccountId: "",
+        positiveFgInventoryId: "",
+        positiveRmInventoryId: "",
+        positiveAdjustmentGainId: "",
+        negativeFgInventoryId: "",
+        negativeRmInventoryId: "",
+        negativeAdjustmentExpenseId: "",
       },
       payment: {
         cashAccountId: "",
@@ -164,15 +176,21 @@ function mergeWithDefaults(
       revenueAccountId: partial.sales?.revenueAccountId || defaults.sales.revenueAccountId,
       receivableAccountId: partial.sales?.receivableAccountId || defaults.sales.receivableAccountId,
       cogsAccountId: partial.sales?.cogsAccountId || defaults.sales.cogsAccountId,
+      finishedGoodsInventoryAccountId: partial.sales?.finishedGoodsInventoryAccountId || defaults.sales.finishedGoodsInventoryAccountId,
     },
     production: {
-      rawMaterialInventoryId: partial.production?.rawMaterialInventoryId || defaults.production.rawMaterialInventoryId,
-      wipAccountId: partial.production?.wipAccountId || defaults.production.wipAccountId,
-      finishedGoodsInventoryId: partial.production?.finishedGoodsInventoryId || defaults.production.finishedGoodsInventoryId,
+      consumptionWipAccountId: partial.production?.consumptionWipAccountId || defaults.production.consumptionWipAccountId,
+      consumptionRawMaterialInventoryId: partial.production?.consumptionRawMaterialInventoryId || defaults.production.consumptionRawMaterialInventoryId,
+      completionFinishedGoodsInventoryId: partial.production?.completionFinishedGoodsInventoryId || defaults.production.completionFinishedGoodsInventoryId,
+      completionWipAccountId: partial.production?.completionWipAccountId || defaults.production.completionWipAccountId,
     },
     inventoryAdjustment: {
-      gainAccountId: partial.inventoryAdjustment?.gainAccountId || defaults.inventoryAdjustment.gainAccountId,
-      lossAccountId: partial.inventoryAdjustment?.lossAccountId || defaults.inventoryAdjustment.lossAccountId,
+      positiveFgInventoryId: partial.inventoryAdjustment?.positiveFgInventoryId || defaults.inventoryAdjustment.positiveFgInventoryId,
+      positiveRmInventoryId: partial.inventoryAdjustment?.positiveRmInventoryId || defaults.inventoryAdjustment.positiveRmInventoryId,
+      positiveAdjustmentGainId: partial.inventoryAdjustment?.positiveAdjustmentGainId || defaults.inventoryAdjustment.positiveAdjustmentGainId,
+      negativeFgInventoryId: partial.inventoryAdjustment?.negativeFgInventoryId || defaults.inventoryAdjustment.negativeFgInventoryId,
+      negativeRmInventoryId: partial.inventoryAdjustment?.negativeRmInventoryId || defaults.inventoryAdjustment.negativeRmInventoryId,
+      negativeAdjustmentExpenseId: partial.inventoryAdjustment?.negativeAdjustmentExpenseId || defaults.inventoryAdjustment.negativeAdjustmentExpenseId,
     },
     payment: {
       cashAccountId: partial.payment?.cashAccountId || defaults.payment.cashAccountId,
@@ -283,7 +301,7 @@ export async function getPurchaseAccounts(): Promise<PurchaseAccounts> {
 export async function getSalesAccounts(): Promise<SalesAccounts> {
   const settings = await getAccountingOperationSettings();
   
-  if (!settings.sales.revenueAccountId || !settings.sales.receivableAccountId || !settings.sales.cogsAccountId) {
+  if (!settings.sales.revenueAccountId || !settings.sales.receivableAccountId || !settings.sales.cogsAccountId || !settings.sales.finishedGoodsInventoryAccountId) {
     throw new AccountingSettingsNotConfiguredError("Sales");
   }
 
@@ -291,7 +309,12 @@ export async function getSalesAccounts(): Promise<SalesAccounts> {
   const accounts = await prisma.chartOfAccount.findMany({
     where: {
       id: {
-        in: [settings.sales.revenueAccountId, settings.sales.receivableAccountId, settings.sales.cogsAccountId],
+        in: [
+          settings.sales.revenueAccountId, 
+          settings.sales.receivableAccountId, 
+          settings.sales.cogsAccountId,
+          settings.sales.finishedGoodsInventoryAccountId
+        ],
       },
       status: "active",
     },
@@ -349,6 +372,21 @@ export async function getSalesAccounts(): Promise<SalesAccounts> {
     );
   }
 
+  // Validate Finish Goods Inventory account
+  const fgAccount = accountMap.get(settings.sales.finishedGoodsInventoryAccountId);
+  if (!fgAccount) {
+    throw new InvalidAccountError(settings.sales.finishedGoodsInventoryAccountId, "sales.finishedGoodsInventoryAccountId");
+  }
+  if (fgAccount.type !== "ASSET") {
+    const { AccountTypeValidationError } = await import("@/lib/accounting-settings-validation");
+    throw new AccountTypeValidationError(
+      fgAccount.name,
+      "ASSET" as any,
+      fgAccount.type as any,
+      "Sales Finished Goods Inventory"
+    );
+  }
+
   return settings.sales;
 }
 
@@ -359,7 +397,12 @@ export async function getSalesAccounts(): Promise<SalesAccounts> {
 export async function getProductionAccounts(): Promise<ProductionAccounts> {
   const settings = await getAccountingOperationSettings();
   
-  if (!settings.production.rawMaterialInventoryId || !settings.production.wipAccountId || !settings.production.finishedGoodsInventoryId) {
+  if (
+    !settings.production.consumptionWipAccountId || 
+    !settings.production.consumptionRawMaterialInventoryId || 
+    !settings.production.completionFinishedGoodsInventoryId || 
+    !settings.production.completionWipAccountId
+  ) {
     throw new AccountingSettingsNotConfiguredError("Production");
   }
 
@@ -368,9 +411,10 @@ export async function getProductionAccounts(): Promise<ProductionAccounts> {
     where: {
       id: {
         in: [
-          settings.production.rawMaterialInventoryId,
-          settings.production.wipAccountId,
-          settings.production.finishedGoodsInventoryId,
+          settings.production.consumptionWipAccountId,
+          settings.production.consumptionRawMaterialInventoryId,
+          settings.production.completionFinishedGoodsInventoryId,
+          settings.production.completionWipAccountId,
         ],
       },
       status: "active",
@@ -384,49 +428,28 @@ export async function getProductionAccounts(): Promise<ProductionAccounts> {
 
   const accountMap = new Map(accounts.map(acc => [acc.id, acc]));
 
-  // Validate raw material inventory account
-  const rmAccount = accountMap.get(settings.production.rawMaterialInventoryId);
+  // Validate RM inventory account
+  const rmAccount = accountMap.get(settings.production.consumptionRawMaterialInventoryId);
   if (!rmAccount) {
-    throw new InvalidAccountError(settings.production.rawMaterialInventoryId, "production.rawMaterialInventoryId");
+    throw new InvalidAccountError(settings.production.consumptionRawMaterialInventoryId, "production.consumptionRawMaterialInventoryId");
   }
-  if (rmAccount.type !== "ASSET") {
-    const { AccountTypeValidationError } = await import("@/lib/accounting-settings-validation");
-    throw new AccountTypeValidationError(
-      rmAccount.name,
-      "ASSET" as any,
-      rmAccount.type as any,
-      "Raw Material Inventory"
-    );
+  
+  // Validate WIP account (Consumption)
+  const wipConsAccount = accountMap.get(settings.production.consumptionWipAccountId);
+  if (!wipConsAccount) {
+    throw new InvalidAccountError(settings.production.consumptionWipAccountId, "production.consumptionWipAccountId");
   }
-
-  // Validate WIP account
-  const wipAccount = accountMap.get(settings.production.wipAccountId);
-  if (!wipAccount) {
-    throw new InvalidAccountError(settings.production.wipAccountId, "production.wipAccountId");
-  }
-  if (wipAccount.type !== "ASSET") {
-    const { AccountTypeValidationError } = await import("@/lib/accounting-settings-validation");
-    throw new AccountTypeValidationError(
-      wipAccount.name,
-      "ASSET" as any,
-      wipAccount.type as any,
-      "Work in Progress (WIP)"
-    );
-  }
-
-  // Validate finished goods inventory account
-  const fgAccount = accountMap.get(settings.production.finishedGoodsInventoryId);
+  
+  // Validate FG inventory account
+  const fgAccount = accountMap.get(settings.production.completionFinishedGoodsInventoryId);
   if (!fgAccount) {
-    throw new InvalidAccountError(settings.production.finishedGoodsInventoryId, "production.finishedGoodsInventoryId");
+    throw new InvalidAccountError(settings.production.completionFinishedGoodsInventoryId, "production.completionFinishedGoodsInventoryId");
   }
-  if (fgAccount.type !== "ASSET") {
-    const { AccountTypeValidationError } = await import("@/lib/accounting-settings-validation");
-    throw new AccountTypeValidationError(
-      fgAccount.name,
-      "ASSET" as any,
-      fgAccount.type as any,
-      "Finished Goods Inventory"
-    );
+  
+  // Validate WIP account (Completion)
+  const wipComplAccount = accountMap.get(settings.production.completionWipAccountId);
+  if (!wipComplAccount) {
+    throw new InvalidAccountError(settings.production.completionWipAccountId, "production.completionWipAccountId");
   }
 
   return settings.production;
