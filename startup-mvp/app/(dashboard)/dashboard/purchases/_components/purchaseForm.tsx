@@ -21,6 +21,7 @@ import { FiAlertCircle, FiPlus, FiTrash2, FiSearch } from "react-icons/fi";
 import { createPurchase, updatePurchase } from "../_actions/purchase.action";
 import { PurchaseStatus } from "@prisma/client";
 import { format } from "date-fns";
+import MediaSelector from "@/components/MediaSelector";
 
 const purchaseItemSchema = z.object({
   itemId: z.string().optional().nullable(),
@@ -244,130 +245,146 @@ export default function PurchaseForm({
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="supplierId">Supplier *</Label>
-                <Controller
-                  name="supplierId"
-                  control={control}
-                  render={({ field }) => (
+            {/* Row 1: Form Fields (5) and File Upload (1) */}
+            <div className="grid grid-cols-1 lg:grid-cols-6 gap-12">
+              {/* Left Column: Main Form Fields (5/6) */}
+              <div className="lg:col-span-5 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="supplierId">Supplier *</Label>
+                    <Controller
+                      name="supplierId"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          disabled={loading}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select supplier" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[300px]">
+                            <div className="p-2">
+                              <div className="relative">
+                                <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
+                                <Input
+                                  placeholder="Search Supplier..."
+                                  value={supplierSearch}
+                                  onChange={(e) => {
+                                    setSupplierSearch(e.target.value);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    e.stopPropagation();
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                    }
+                                  }}
+                                  className="pl-8 h-8 text-xs"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </div>
+                            </div>
+                            <div className="max-h-[200px] overflow-y-auto">
+                              {filteredSuppliers.map((s) => (
+                                <SelectItem key={s.id} value={s.id} className="text-left">
+                                  {s.supplierCode || "N/A"} - {s.name || s.email}
+                                  {s.company && (
+                                    <span className="block text-xs text-muted-foreground">
+                                      {s.company}
+                                    </span>
+                                  )}
+                                </SelectItem>
+                              ))}
+                            </div>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    {errors.supplierId && (
+                      <p className="text-sm text-destructive">{errors.supplierId.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="date">Date *</Label>
+                    <Controller
+                      name="date"
+                      control={control}
+                      render={({ field }) => {
+                        // Convert Date object to yyyy-MM-dd string for input
+                        const dateValue = field.value instanceof Date 
+                          ? format(field.value, "yyyy-MM-dd")
+                          : field.value 
+                          ? format(new Date(field.value), "yyyy-MM-dd")
+                          : format(defaultDate, "yyyy-MM-dd");
+                        
+                        return (
+                          <Input
+                            id="date"
+                            type="date"
+                            value={dateValue}
+                            onChange={(e) => {
+                              // Convert string back to Date object
+                              const dateValue = e.target.value ? new Date(e.target.value) : new Date();
+                              field.onChange(dateValue);
+                            }}
+                            disabled={loading}
+                          />
+                        );
+                      }}
+                    />
+                    {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status *</Label>
                     <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
+                      defaultValue={initialData?.status || "DRAFT"}
+                      onValueChange={(value) => setValue("status", value as PurchaseStatus)}
                       disabled={loading}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select supplier" />
+                        <SelectValue placeholder="Select status" />
                       </SelectTrigger>
-                      <SelectContent className="max-h-[300px]">
-                        <div className="p-2">
-                          <div className="relative">
-                            <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
-                            <Input
-                              placeholder="Search Supplier..."
-                              value={supplierSearch}
-                              onChange={(e) => {
-                                setSupplierSearch(e.target.value);
-                              }}
-                              onKeyDown={(e) => {
-                                e.stopPropagation();
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                }
-                              }}
-                              className="pl-8 h-8 text-xs"
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </div>
-                        </div>
-                        <div className="max-h-[200px] overflow-y-auto">
-                          {filteredSuppliers.map((s) => (
-                            <SelectItem key={s.id} value={s.id} className="text-left">
-                              {s.supplierCode || "N/A"} - {s.name || s.email}
-                              {s.company && (
-                                <span className="block text-xs text-muted-foreground">
-                                  {s.company}
-                                </span>
-                              )}
-                            </SelectItem>
-                          ))}
-                        </div>
+                      <SelectContent>
+                        {STATUS_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
-                  )}
+                    {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea id="notes" rows={3} {...register("notes")} disabled={loading} />
+                  {errors.notes && <p className="text-sm text-destructive">{errors.notes.message}</p>}
+                </div>
+              </div>
+
+              {/* Right Column: File Upload (1/6) */}
+              <div className="lg:col-span-1 space-y-2">
+                <Label>Attachment</Label>
+                <MediaSelector
+                  label=""
+                  value={watch("attachmentUrl") || ""}
+                  onChange={(url) => setValue("attachmentUrl", url || "")}
+                  allowedTypes={["application/pdf", "image/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]}
+                  previewStyle="square"
+                  width={200}
+                  height={120}
                 />
-                {errors.supplierId && (
-                  <p className="text-sm text-destructive">{errors.supplierId.message}</p>
+                {errors.attachmentUrl && (
+                  <p className="text-sm text-destructive">{errors.attachmentUrl.message}</p>
                 )}
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="date">Date *</Label>
-                <Controller
-                  name="date"
-                  control={control}
-                  render={({ field }) => {
-                    // Convert Date object to yyyy-MM-dd string for input
-                    const dateValue = field.value instanceof Date 
-                      ? format(field.value, "yyyy-MM-dd")
-                      : field.value 
-                      ? format(new Date(field.value), "yyyy-MM-dd")
-                      : format(defaultDate, "yyyy-MM-dd");
-                    
-                    return (
-                      <Input
-                        id="date"
-                        type="date"
-                        value={dateValue}
-                        onChange={(e) => {
-                          // Convert string back to Date object
-                          const dateValue = e.target.value ? new Date(e.target.value) : new Date();
-                          field.onChange(dateValue);
-                        }}
-                        disabled={loading}
-                      />
-                    );
-                  }}
-                />
-                {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="status">Status *</Label>
-                <Select
-                  defaultValue={initialData?.status || "DRAFT"}
-                  onValueChange={(value) => setValue("status", value as PurchaseStatus)}
-                  disabled={loading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUS_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
-              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea id="notes" rows={3} {...register("notes")} disabled={loading} />
-              {errors.notes && <p className="text-sm text-destructive">{errors.notes.message}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="attachmentUrl">Attachment URL</Label>
-              <Input id="attachmentUrl" type="url" {...register("attachmentUrl")} disabled={loading} />
-              {errors.attachmentUrl && (
-                <p className="text-sm text-destructive">{errors.attachmentUrl.message}</p>
-              )}
-            </div>
-
+            {/* Row 2: Items Table and Calculations */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold">Items</h3>
