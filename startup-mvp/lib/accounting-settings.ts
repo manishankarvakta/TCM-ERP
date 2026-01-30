@@ -112,8 +112,11 @@ export async function getAccountingOperationSettings(): Promise<AccountingOperat
     });
 
     if (globalSetting && globalSetting.settings) {
+      // console.log("getAccountOpSettings: Found global settings", globalSetting.settings);
       return mergeWithDefaults(globalSetting.settings as Partial<AccountingOperationSettings>, defaultSettings);
     }
+
+    // console.log("getAccountOpSettings: No settings found, returning defaults");
 
     return defaultSettings;
   } catch (error) {
@@ -240,15 +243,23 @@ async function validateAccountExists(
 export async function getPurchaseAccounts(): Promise<PurchaseAccounts> {
   const settings = await getAccountingOperationSettings();
   
-  if (!settings.purchase.inventoryAccountId || !settings.purchase.payableAccountId) {
-    throw new AccountingSettingsNotConfiguredError("Purchase");
+  // We require Inventory Account ID, but Payable Account ID is optional (can use Supplier Ledger)
+  if (!settings.purchase.inventoryAccountId) {
+    console.log("getPurchaseAccounts: Missing inventory account", settings.purchase);
+    throw new AccountingSettingsNotConfiguredError("Purchase Inventory");
+  }
+
+  // Identify accounts to validate
+  const accountIdsToValidate = [settings.purchase.inventoryAccountId];
+  if (settings.purchase.payableAccountId) {
+    accountIdsToValidate.push(settings.purchase.payableAccountId);
   }
 
   // Validate accounts exist and have correct types
   const accounts = await prisma.chartOfAccount.findMany({
     where: {
       id: {
-        in: [settings.purchase.inventoryAccountId, settings.purchase.payableAccountId],
+        in: accountIdsToValidate,
       },
       status: "active",
     },
@@ -276,19 +287,21 @@ export async function getPurchaseAccounts(): Promise<PurchaseAccounts> {
     );
   }
 
-  // Validate payable account
-  const payableAccount = accountMap.get(settings.purchase.payableAccountId);
-  if (!payableAccount) {
-    throw new InvalidAccountError(settings.purchase.payableAccountId, "purchase.payableAccountId");
-  }
-  if (payableAccount.type !== "LIABILITY") {
-    const { AccountTypeValidationError } = await import("@/lib/accounting-settings-validation");
-    throw new AccountTypeValidationError(
-      payableAccount.name,
-      "LIABILITY" as any,
-      payableAccount.type as any,
-      "Purchase Accounts Payable"
-    );
+  // Validate payable account ONLY if it was set
+  if (settings.purchase.payableAccountId) {
+    const payableAccount = accountMap.get(settings.purchase.payableAccountId);
+    if (!payableAccount) {
+      throw new InvalidAccountError(settings.purchase.payableAccountId, "purchase.payableAccountId");
+    }
+    if (payableAccount.type !== "LIABILITY") {
+      const { AccountTypeValidationError } = await import("@/lib/accounting-settings-validation");
+      throw new AccountTypeValidationError(
+        payableAccount.name,
+        "LIABILITY" as any,
+        payableAccount.type as any,
+        "Purchase Accounts Payable"
+      );
+    }
   }
 
   return settings.purchase;

@@ -1,11 +1,12 @@
 import React from "react";
 import PurchaseForm from "../_components/purchaseForm";
-import { getItemsForPurchase, getSuppliersForPurchase } from "../_actions/purchase.action";
+import { getItemsForPurchase, getSuppliersForPurchase, getWarehousesForPurchase } from "../_actions/purchase.action";
 
 export default async function AddPurchasePage() {
-  const [suppliersResult, itemsResult] = await Promise.all([
+  const [suppliersResult, itemsResult, warehousesResult] = await Promise.all([
     getSuppliersForPurchase(),
     getItemsForPurchase(),
+    getWarehousesForPurchase(),
   ]);
 
   return (
@@ -13,6 +14,7 @@ export default async function AddPurchasePage() {
       <PurchaseForm
         mode="create"
         suppliers={suppliersResult.suppliers || []}
+        warehouses={warehousesResult.warehouses || []}
         items={itemsResult.items || []}
       />
     </div>

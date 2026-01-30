@@ -302,6 +302,7 @@ export async function getPurchaseById(purchaseId: string) {
             phone: true,
           },
         },
+        warehouseId: true,
         warehouse: {
           select: {
             id: true,
@@ -382,6 +383,81 @@ export async function getPurchaseById(purchaseId: string) {
 }
 
 /**
+ * Validate that required accounting accounts are configured
+ * before creating/updating a purchase to RECEIVED status
+ */
+async function validatePurchaseAccounts(
+  supplierId: string,
+  tx?: Prisma.TransactionClient
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const client = tx || prisma;
+    
+    // Get purchase accounts from settings
+    const { getPurchaseAccounts } = await import("@/lib/accounting-settings");
+
+    
+    let purchaseAccounts;
+    
+    try {
+      purchaseAccounts = await getPurchaseAccounts();
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error 
+          ? error.message 
+          : "Required accounting settings are not configured. Please configure Purchase accounts in Settings.",
+      };
+    }
+
+    // Check inventory account (required for all purchases)
+    if (!purchaseAccounts.inventoryAccountId) {
+      return {
+        success: false,
+        error: "Purchase Inventory Account is not configured. Please set up the default inventory account in Purchase Settings before creating purchases.",
+      };
+    }
+
+    // Check payable account
+    // Either supplier must have chartOfAccountId OR default payable account must be set
+    const supplier = await client.supplier.findUnique({
+      where: { id: supplierId },
+      select: { 
+        id: true, 
+        name: true, 
+        email: true, 
+        chartOfAccountId: true 
+      },
+    });
+
+    if (!supplier) {
+      return {
+        success: false,
+        error: "Supplier not found",
+      };
+    }
+
+    const hasSupplierAccount = !!supplier.chartOfAccountId;
+    const hasDefaultPayableAccount = !!purchaseAccounts.payableAccountId;
+
+    if (!hasSupplierAccount && !hasDefaultPayableAccount) {
+      return {
+        success: false,
+        error: `Cannot create purchase: Supplier "${supplier.name || supplier.email}" has no account ledger assigned, and no default Accounts Payable account is configured in Purchase Settings. Please assign an account ledger to the supplier or configure the default Accounts Payable account.`,
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("validatePurchaseAccounts error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to validate purchase accounts",
+    };
+  }
+}
+
+/**
  * Create accounting voucher for purchase receipt
  * Creates item-type based accounting entries: Debit Inventory, Credit Accounts Payable
  * 
@@ -406,6 +482,7 @@ async function createPurchaseAccountingVoucher(
             id: true,
             name: true,
             email: true,
+            chartOfAccountId: true,
           },
         },
         items: {
@@ -440,16 +517,12 @@ async function createPurchaseAccountingVoucher(
     let productionAccounts;
 
     try {
-      // Get required accounts for purchase and production (for inventory)
-      [purchaseAccounts, productionAccounts] = await Promise.all([
-        getPurchaseAccounts(),
-        getProductionAccounts(),
-      ]);
+      // Always get purchase accounts
+      purchaseAccounts = await getPurchaseAccounts();
     } catch (error) {
-      // If any required account is missing, return a clear error message
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to retrieve accounting settings for purchase",
+        error: error instanceof Error ? error.message : "Failed to retrieve purchase accounting settings",
       };
     }
 
@@ -478,6 +551,21 @@ async function createPurchaseAccountingVoucher(
       });
     }
 
+    // Check if we need production accounts (for RM or FG)
+    const hasRawMaterials = itemsByType.RAW_MATERIAL.length > 0;
+    const hasFinishedGoods = itemsByType.FINISHED_GOOD.length > 0;
+
+    if (hasRawMaterials || hasFinishedGoods) {
+      try {
+        productionAccounts = await getProductionAccounts();
+      } catch (error) {
+        return {
+          success: false,
+          error: "Production accounting settings are not configured, but this purchase contains Raw Materials or Finished Goods. Please configure Production accounts in Settings.",
+        };
+      }
+    }
+
     // Create voucher lines
     const voucherLines: Array<{
       lineNumber: number;
@@ -500,24 +588,24 @@ async function createPurchaseAccountingVoucher(
     // Debit: Inventory account (single account for all inventory types in purchase)
     // Use production.rawMaterialInventoryId for raw materials
     // Use purchaseAccounts.inventoryAccountId for finished goods and retail
-    if (totalRawMaterialCost > 0) {
+    if (totalRawMaterialCost > 0 && productionAccounts) {
       voucherLines.push({
         lineNumber: lineNumber++,
         debitAmount: totalRawMaterialCost,
         creditAmount: 0,
         description: `Raw Material Inventory - ${purchase.purchaseNumber}`,
-        chartOfAccountId: productionAccounts.rawMaterialInventoryId,
+        chartOfAccountId: productionAccounts.consumptionRawMaterialInventoryId,
       });
       totalInventoryDebit += totalRawMaterialCost;
     }
 
-    if (totalFGCost > 0) {
+    if (totalFGCost > 0 && productionAccounts) {
       voucherLines.push({
         lineNumber: lineNumber++,
         debitAmount: totalFGCost,
         creditAmount: 0,
         description: `Finished Goods Inventory - ${purchase.purchaseNumber}`,
-        chartOfAccountId: productionAccounts.finishedGoodsInventoryId,
+        chartOfAccountId: productionAccounts.completionFinishedGoodsInventoryId,
       });
       totalInventoryDebit += totalFGCost;
     }
@@ -542,13 +630,23 @@ async function createPurchaseAccountingVoucher(
     // They can be added later if needed
 
     // Credit: Accounts Payable
-    if (grandTotal > 0) {
+    // Credit: Accounts Payable
+    if (totalInventoryDebit > 0) {
+      const payableAccountId = purchase.supplier.chartOfAccountId || purchaseAccounts.payableAccountId;
+
+      if (!payableAccountId) {
+        return {
+          success: false,
+          error: `Cannot create voucher: No Accounts Payable ledger found for supplier "${purchase.supplier.name || purchase.supplier.email}" and no default Accounts Payable account is configured in Purchase Settings.`,
+        };
+      }
+
       voucherLines.push({
         lineNumber: lineNumber++,
         debitAmount: 0,
-        creditAmount: grandTotal,
+        creditAmount: totalInventoryDebit, // Balance against total debits
         description: `Accounts Payable - ${purchase.purchaseNumber} - ${purchase.supplier.name || purchase.supplier.email}`,
-        chartOfAccountId: purchaseAccounts.payableAccountId,
+        chartOfAccountId: payableAccountId,
         supplierId: purchase.supplierId,
       });
     }
@@ -614,6 +712,18 @@ export async function createPurchase(input: z.infer<typeof purchaseSchema>) {
 
     const validated = purchaseSchema.parse(input);
 
+    // Validate accounts if creating as RECEIVED
+    if (validated.status === "RECEIVED") {
+      const accountValidation = await validatePurchaseAccounts(validated.supplierId);
+      if (!accountValidation.success) {
+        return {
+          success: false,
+          error: accountValidation.error,
+          purchase: null,
+        };
+      }
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       let purchaseNumber = await generatePurchaseNumber(tx);
       let purchaseNumberExists = await tx.purchase.findUnique({
@@ -651,6 +761,7 @@ export async function createPurchase(input: z.infer<typeof purchaseSchema>) {
         data: {
           purchaseNumber,
           supplierId: validated.supplierId,
+          warehouseId: validated.warehouseId || null,
           date: validated.date,
           status: validated.status,
           notes: validated.notes || null,
@@ -726,11 +837,40 @@ export async function updatePurchase(input: z.infer<typeof updatePurchaseSchema>
 
     const existingPurchase = await prisma.purchase.findUnique({
       where: { id: validated.id },
-      select: { id: true, purchaseNumber: true },
+      select: { 
+        id: true, 
+        purchaseNumber: true,
+        status: true,  // Get current status
+      },
     });
 
     if (!existingPurchase) {
       return { success: false, error: "Purchase not found", purchase: null };
+    }
+
+    // Prevent editing RECEIVED purchases
+    if (existingPurchase.status === "RECEIVED") {
+      return { 
+        success: false, 
+        error: "Cannot edit a RECEIVED purchase. RECEIVED purchases are locked for audit compliance.", 
+        purchase: null 
+      };
+    }
+
+    // Detect status transition
+    // Note: We already checked earlier that existingPurchase.status !== "RECEIVED"
+    const isTransitioningToReceived = validated.status === "RECEIVED";
+
+    // Validate accounts if transitioning to RECEIVED
+    if (isTransitioningToReceived) {
+      const accountValidation = await validatePurchaseAccounts(validated.supplierId);
+      if (!accountValidation.success) {
+        return {
+          success: false,
+          error: accountValidation.error,
+          purchase: null,
+        };
+      }
     }
 
     const subTotal = validated.items.reduce((sum, item) => sum + item.amount, 0);
@@ -743,10 +883,11 @@ export async function updatePurchase(input: z.infer<typeof updatePurchaseSchema>
         where: { purchaseId: validated.id },
       });
 
-      return tx.purchase.update({
+      const purchase = await tx.purchase.update({
         where: { id: validated.id },
         data: {
           supplierId: validated.supplierId,
+          warehouseId: validated.warehouseId || null,
           date: validated.date,
           status: validated.status,
           notes: validated.notes || null,
@@ -775,8 +916,8 @@ export async function updatePurchase(input: z.infer<typeof updatePurchaseSchema>
         },
       });
 
-      // Update stock and create accounting voucher if purchase is received
-      if (validated.status === "RECEIVED") {
+      // Update stock and create accounting voucher ONLY when transitioning TO RECEIVED
+      if (isTransitioningToReceived) {
         const stockResult = await updateStockOnPurchase(purchase.id, undefined, tx);
         if (!stockResult.success) throw new Error(stockResult.error || "Failed to update stock");
 
@@ -821,11 +962,24 @@ export async function deletePurchase(purchaseId: string) {
 
     const purchase = await prisma.purchase.findUnique({
       where: { id: purchaseId },
-      select: { id: true, purchaseNumber: true, isTrash: true },
+      select: { 
+        id: true, 
+        purchaseNumber: true, 
+        isTrash: true,
+        status: true,  // Get status
+      },
     });
 
     if (!purchase) {
       return { success: false, error: "Purchase not found" };
+    }
+
+    // Prevent deleting RECEIVED purchases
+    if (purchase.status === "RECEIVED") {
+      return { 
+        success: false, 
+        error: "Cannot delete a RECEIVED purchase. RECEIVED purchases are locked because stock and accounting entries have been created." 
+      };
     }
 
     await prisma.purchase.update({
@@ -952,6 +1106,38 @@ export async function deletePurchasesPermanently(purchaseIds: string[]) {
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to delete purchases",
+    };
+  }
+}
+
+export async function getWarehousesForPurchase() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", warehouses: [] };
+    }
+
+    const warehouses = await prisma.warehouse.findMany({
+      where: {
+        status: "active",
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+      },
+      orderBy: {
+        name: "asc", 
+      },
+    });
+
+    return { success: true, warehouses };
+  } catch (error) {
+    console.error("getWarehousesForPurchase error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch warehouses",
+      warehouses: [],
     };
   }
 }

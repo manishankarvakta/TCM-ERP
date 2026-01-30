@@ -45,6 +45,7 @@ const purchaseItemSchema = z.object({
 
 const purchaseFormSchema = z.object({
   supplierId: z.string().min(1, "Supplier is required"),
+  warehouseId: z.string().optional(),
   date: z.coerce.date(),
   status: z.nativeEnum(PurchaseStatus),
   notes: z.string().optional().nullable(),
@@ -65,6 +66,11 @@ interface PurchaseFormProps {
     company: string | null;
     supplierCode: string | null;
   }>;
+  warehouses: Array<{
+    id: string;
+    name: string;
+    code: string;
+  }>;
   items: Array<{
     id: string;
     code: string;
@@ -76,6 +82,7 @@ interface PurchaseFormProps {
   initialData?: {
     id: string;
     supplier: { id: string };
+    warehouseId?: string | null;
     purchaseNumber: string;
     date: Date;
     status: PurchaseStatus;
@@ -104,6 +111,7 @@ const STATUS_OPTIONS: { value: PurchaseStatus; label: string }[] = [
 export default function PurchaseForm({
   mode,
   suppliers,
+  warehouses,
   items,
   initialData,
 }: PurchaseFormProps) {
@@ -170,6 +178,7 @@ export default function PurchaseForm({
     defaultValues: initialData
       ? {
           supplierId: initialData.supplier.id,
+          warehouseId: initialData.warehouseId || (warehouses.length > 0 ? warehouses[0].id : ""),
           date: defaultDate,
           status: initialData.status,
           notes: initialData.notes || "",
@@ -180,6 +189,7 @@ export default function PurchaseForm({
         }
       : {
           supplierId: "",
+          warehouseId: warehouses.length > 0 ? warehouses[0].id : "",
           date: defaultDate,
           status: "DRAFT",
           notes: "",
@@ -311,7 +321,7 @@ export default function PurchaseForm({
             <div className="grid grid-cols-1 lg:grid-cols-6 gap-6">
               {/* Left Column: Main Form Fields (5/6) */}
               <div className="lg:col-span-5 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="supplierId">Supplier *</Label>
                     <Controller
@@ -366,6 +376,32 @@ export default function PurchaseForm({
                     {errors.supplierId && (
                       <p className="text-sm text-destructive">{errors.supplierId.message}</p>
                     )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="warehouseId">Warehouse</Label>
+                    <Controller
+                      name="warehouseId"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value || ""}
+                          onValueChange={field.onChange}
+                          disabled={loading}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select warehouse" />
+                          </SelectTrigger>
+                          <SelectContent>
+                             {warehouses.map((w) => (
+                               <SelectItem key={w.id} value={w.id}>
+                                 {w.name} ({w.code})
+                               </SelectItem>
+                             ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
                   </div>
 
                   <div className="space-y-2">

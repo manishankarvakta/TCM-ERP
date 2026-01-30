@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 import { notFound } from "next/navigation";
 import type { PurchaseStatus } from "@prisma/client";
+import PurchaseStatusActions from "../../_components/purchase-status-actions";
 
 interface PurchaseDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -85,7 +86,10 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
               Back
             </Link>
           </Button>
-          {purchase.status === "DRAFT" && (
+          <PurchaseStatusActions purchaseId={purchase.id} status={purchase.status} />
+          {purchase.status === "DRAFT" 
+          // || purchase.status === "APPROVED" 
+          && (
             <Button asChild>
               <Link href={`/dashboard/purchases/${purchase.id}/edit`}>
                 <FiEdit className="mr-2 h-4 w-4" />

@@ -363,53 +363,57 @@ export default function PurchasesListClient({
                     <TableCell className="text-right font-medium">
                       {purchase.grandTotal.toFixed(2)}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {!isTrash && (
-                          <>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {!isTrash && (
+                            <>
+                              {purchase.status !== "RECEIVED" && (
+                                <ProtectedAction
+                                  permissionKey="purchases.purchases"
+                                  action="edit"
+                                  href={`/dashboard/purchases/${purchase.id}/edit`}
+                                  userId={providedUserId || undefined}
+                                  hasAccess={permissions?.edit}
+                                />
+                              )}
+                              <ProtectedAction
+                                permissionKey="purchases.purchases"
+                                action="view"
+                                href={`/dashboard/purchases/${purchase.id}/view`}
+                                userId={providedUserId || undefined}
+                                hasAccess={permissions?.view}
+                              />
+                            </>
+                          )}
+                          {isTrash && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setRestorePurchaseId(purchase.id);
+                                handleRestore();
+                              }}
+                              disabled={isPending}
+                            >
+                              <FiRotateCw className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {purchase.status !== "RECEIVED" && (
                             <ProtectedAction
                               permissionKey="purchases.purchases"
-                              action="edit"
-                              href={`/dashboard/purchases/${purchase.id}/edit`}
+                              action={isTrash ? "delete-permanently" : "move-to-trash"}
+                              onClick={() => setDeletePurchaseId(purchase.id)}
                               userId={providedUserId || undefined}
-                              hasAccess={permissions?.edit}
+                              hasAccess={isTrash ? permissions?.deletePermanently : permissions?.moveToTrash}
+                              buttonProps={{
+                                disabled: isPending,
+                                className: "text-destructive hover:text-destructive",
+                                title: isTrash ? "Delete permanently" : "Move to trash",
+                              }}
                             />
-                            <ProtectedAction
-                              permissionKey="purchases.purchases"
-                              action="view"
-                              href={`/dashboard/purchases/${purchase.id}/view`}
-                              userId={providedUserId || undefined}
-                              hasAccess={permissions?.view}
-                            />
-                          </>
-                        )}
-                        {isTrash && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setRestorePurchaseId(purchase.id);
-                              handleRestore();
-                            }}
-                            disabled={isPending}
-                          >
-                            <FiRotateCw className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <ProtectedAction
-                          permissionKey="purchases.purchases"
-                          action={isTrash ? "delete-permanently" : "move-to-trash"}
-                          onClick={() => setDeletePurchaseId(purchase.id)}
-                          userId={providedUserId || undefined}
-                          hasAccess={isTrash ? permissions?.deletePermanently : permissions?.moveToTrash}
-                          buttonProps={{
-                            disabled: isPending,
-                            className: "text-destructive hover:text-destructive",
-                            title: isTrash ? "Delete permanently" : "Move to trash",
-                          }}
-                        />
-                      </div>
-                    </TableCell>
+                          )}
+                        </div>
+                      </TableCell>
                   </TableRow>
                 );
               })

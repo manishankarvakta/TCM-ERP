@@ -638,10 +638,13 @@ export async function createVoucher(input: {
     }
 
     // Validate all chart of accounts exist and check for control accounts
-    const accountIds = input.lines.map((line) => line.chartOfAccountId);
+    // Filter out undefined/null IDs to prevent Prisma error, and deduplicate for correct count check
+    const rawAccountIds = input.lines.map((line) => line.chartOfAccountId).filter(id => !!id);
+    const uniqueAccountIds = [...new Set(rawAccountIds)];
+
     const accounts = await client.chartOfAccount.findMany({
       where: {
-        id: { in: accountIds },
+        id: { in: uniqueAccountIds },
         status: "active",
       },
       select: { 
@@ -655,7 +658,7 @@ export async function createVoucher(input: {
       },
     });
 
-    if (accounts.length !== accountIds.length) {
+    if (accounts.length !== uniqueAccountIds.length) {
       return {
         success: false,
         error: "One or more chart of accounts are invalid or inactive",
