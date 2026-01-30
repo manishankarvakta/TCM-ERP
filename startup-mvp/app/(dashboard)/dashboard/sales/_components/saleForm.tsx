@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import React,{ useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FiAlertCircle, FiPlus, FiTrash2, FiUserPlus } from "react-icons/fi";
+import { FiAlertCircle, FiPlus, FiTrash2, FiUserPlus, FiSearch } from "react-icons/fi";
 import { createSale, updateSale } from "../_actions/sale.action";
 import { createClient } from "@/app/(dashboard)/dashboard/clients/_actions/client.action";
 import { SaleStatus } from "@prisma/client";
@@ -36,12 +36,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@/lib/store";
 import {
-  setSaleItem,
+  setSaleMetadata,
   setSaleItemQuantity,
   setSaleItemUnitPrice,
-  setSaleItemDescription,
-  addSaleItem,
-  removeSaleItem,
   setSaleDiscount,
   setSaleTax,
   toggleSaleAutoTax,
@@ -84,6 +81,12 @@ interface SaleFormProps {
     code: string;
     description: string;
     unitPrice: number;
+    unit: string;
+    itemType: string;
+    stocks: Array<{
+      warehouseId: string;
+      quantity: number;
+    }>;
   }>;
   warehouses: Array<{
     id: string;
@@ -191,7 +194,7 @@ export default function SaleForm({
         }
       : {
           clientId: "",
-          warehouseId: "",
+          warehouseId: warehouses.length > 0 ? warehouses[0].id : "",
           date: defaultDate,
           status: "DRAFT",
           notes: "",
@@ -207,42 +210,148 @@ export default function SaleForm({
     name: "items",
   });
 
-  // Use useWatch for better reactivity
-  const watchedItems = useWatch({ control, name: "items" }) || [];
-  const watchedDiscount = useWatch({ control, name: "discount" }) || 0;
-  const watchedTax = useWatch({ control, name: "tax" }) || 0;
+  const watchedItems = watch("items");
+  const watchedWarehouseId = watch("warehouseId");
+  const watchedDiscount = watch("discount") || 0;
+  const watchedTax = watch("tax") || 0;
 
-  // Recalculate subtotal whenever items change
-  const subTotal = useMemo(() => {
-    if (!watchedItems || watchedItems.length === 0) return 0;
-    return watchedItems.reduce((sum, item) => {
-      const amount = Number(item?.amount) || 0;
-      return sum + amount;
-    }, 0);
+  // Initialize Redux state on mount
+  useEffect(() => {
+    // Initialize Redux with form data
+    const items = getValues("items");
+    dispatch(initializeSale({
+      clientId: getValues("clientId"),
+      warehouseId: getValues("warehouseId"),
+      date: defaultDate.toISOString(),
+      status: getValues("status"),
+      notes: getValues("notes") || "",
+      items: items.map(item => ({
+        itemId: item.itemId || "",
+        description: item.description || "",
+        quantity: Number(item.quantity) || 1,
+        unitPrice: Number(item.unitPrice) || 0,
+        amount: Number(item.amount) || 0,
+      })),
+      discount: Number(watchedDiscount) || 0,
+      tax: Number(watchedTax) || 0,
+      autoTaxEnabled: false, // Default to false unless logic enables it?
+    }));
+
+    return () => {
+      dispatch(resetSale());
+    };
+  }, []); // Run once on mount
+
+  // Sync form changes to Redux for instant calculations
+  
+  // 1. Sync metadata
+  const watchedMetadata = watch(["clientId", "warehouseId", "status", "notes", "date"]);
+  useEffect(() => {
+    dispatch(setSaleMetadata({
+        clientId: watchedMetadata[0],
+        warehouseId: watchedMetadata[1],
+        status: watchedMetadata[2],
+        notes: watchedMetadata[3] || "",
+        date: watchedMetadata[4] ? new Date(watchedMetadata[4]).toISOString() : undefined
+    }));
+  }, [watchedMetadata, dispatch]);
+
+  // 2. Sync Items (Quantity/Price) - Complete sync including array length
+  useEffect(() => {
+    // Get current Redux items count
+    const reduxItemsCount = salesState.items.length;
+    const formItemsCount = watchedItems.length;
+    
+    // If array lengths don't match, we need to sync the entire items array
+    if (reduxItemsCount !== formItemsCount) {
+      // Reinitialize with current form state to sync items array
+      dispatch(initializeSale({
+        clientId: getValues("clientId"),
+        warehouseId: getValues("warehouseId"),
+        date: getValues("date") ? new Date(getValues("date")).toISOString() : defaultDate.toISOString(),
+        status: getValues("status"),
+        notes: getValues("notes") || "",
+        items: watchedItems.map(item => ({
+          itemId: item.itemId || "",
+          description: item.description || "",
+          quantity: Number(item.quantity) || 1,
+          unitPrice: Number(item.unitPrice) || 0,
+          amount: Number(item.amount) || 0,
+        })),
+        discount: Number(watchedDiscount) || 0,
+        tax: Number(watchedTax) || 0,
+        autoTaxEnabled: salesState.autoTaxEnabled,
+      }));
+    } else {
+      // If lengths match, just update quantity and unitPrice for each item
+      watchedItems.forEach((item, index) => {
+        const quantity = Number(item.quantity);
+        const unitPrice = Number(item.unitPrice);
+        
+        if (!isNaN(quantity) && salesState.items[index]?.quantity !== quantity) {
+          dispatch(setSaleItemQuantity({ index, quantity }));
+        }
+        if (!isNaN(unitPrice) && salesState.items[index]?.unitPrice !== unitPrice) {
+          dispatch(setSaleItemUnitPrice({ index, unitPrice }));
+        }
+      });
+    }
+  }, [watchedItems.length, watchedItems.map(i => `${i.quantity}:${i.unitPrice}`).join('|'), dispatch, salesState.items.length, salesState.autoTaxEnabled, getValues, defaultDate, watchedDiscount, watchedTax]);
+
+  // 3. Sync Discount
+  useEffect(() => {
+    dispatch(setSaleDiscount(Number(watchedDiscount) || 0));
+  }, [watchedDiscount, dispatch]);
+
+  // 4. Sync Tax
+  useEffect(() => {
+    // Only sync tax from Form to Redux if NOT auto-tax enabled?
+    // Actually, if user types in tax input, it updates form state -> watches triggers this -> updates Redux.
+    // If Redux updates tax (via auto-calc), we need to update Form state (handled below).
+    // To avoid loop:
+    // User Input -> Form State -> Redux State (here) -> Form State (feedback loop)
+    // We break loop by checking if values differ significantly?
+    // Or just trust that if Redux matches Form, no re-render happens.
+    if (!salesState.autoTaxEnabled) {
+         dispatch(setSaleTax(Number(watchedTax) || 0));
+    }
+  }, [watchedTax, dispatch, salesState.autoTaxEnabled]);
+
+  // Recalculate amounts locally and update RHF to ensure submission has correct values
+  // Also sync calc results back to form fields (like amount)
+  const itemsCalcKey = useMemo(() => {
+    return watchedItems.map((item, idx) => `${idx}:${item.quantity}:${item.unitPrice}`).join('|');
   }, [watchedItems]);
 
-  const grandTotal = useMemo(() => {
-    const discount = Number(watchedDiscount) || 0;
-    const tax = Number(watchedTax) || 0;
-    return subTotal - discount + tax;
-  }, [subTotal, watchedDiscount, watchedTax]);
-
-  // Auto-calculate tax when subtotal changes and auto tax is enabled
   useEffect(() => {
-    if (autoTaxEnabled) {
-      const calculatedTax = subTotal * 0.15;
-      setValue("tax", calculatedTax);
-    }
-  }, [subTotal, autoTaxEnabled, setValue]);
+    const items = getValues("items");
+    items.forEach((item, index) => {
+      const quantity = Number(item.quantity) || 0;
+      const unitPrice = Number(item.unitPrice) || 0;
+      const currentAmount = Number(item.amount) || 0;
+      const calculatedAmount = Number.isFinite(quantity * unitPrice) ? quantity * unitPrice : 0;
+      
+      if (Math.abs(calculatedAmount - currentAmount) > 0.001) {
+        setValue(`items.${index}.amount`, calculatedAmount, { shouldValidate: false });
+      }
+    });
+  }, [itemsCalcKey, getValues, setValue]);
 
-  const updateAmount = (index: number) => {
-    const quantity = Number(getValues(`items.${index}.quantity`) || 0);
-    const unitPrice = Number(getValues(`items.${index}.unitPrice`) || 0);
-    const amount = Number.isFinite(quantity * unitPrice) ? quantity * unitPrice : 0;
-    setValue(`items.${index}.amount`, amount, { shouldValidate: true, shouldDirty: true });
-    // Force form to update watched values
-    trigger(`items.${index}.amount`);
-  };
+  // Sync Redux Tax back to Form (if Auto Tax is enabled)
+  useEffect(() => {
+    if (salesState.autoTaxEnabled) {
+        // Redux calculated a new tax, update the form field
+        const currentFormTax = Number(getValues("tax"));
+        if (Math.abs(salesState.tax - currentFormTax) > 0.001) {
+            setValue("tax", salesState.tax, { shouldValidate: true });
+        }
+    }
+  }, [salesState.tax, salesState.autoTaxEnabled, getValues, setValue]);
+
+
+  // Use Redux state for calculated totals (instant updates)
+  const subTotal = salesState.subTotal;
+  const grandTotal = salesState.grandTotal;
 
   const onSubmit = async (data: SaleFormData) => {
     setError("");
@@ -309,7 +418,7 @@ export default function SaleForm({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="space-y-2">
               <Label htmlFor="clientId">Client *</Label>
               <div className="flex gap-2">
@@ -451,15 +560,23 @@ export default function SaleForm({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() =>
+              onClick={() => {
                 append({
                   itemId: "",
                   description: "",
                   quantity: 1,
                   unitPrice: 0,
                   amount: 0,
-                })
-              }
+                });
+                // Focus the new row's select trigger after a brief delay
+                setTimeout(() => {
+                  const newIndex = fields.length;
+                  const trigger = document.querySelector(`[data-item-select-index="${newIndex}"]`) as HTMLElement;
+                  if (trigger) {
+                    trigger.click();
+                  }
+                }, 100);
+              }}
             >
               <FiPlus className="mr-2 h-4 w-4" />
               Add Item
@@ -472,6 +589,7 @@ export default function SaleForm({
                 <tr>
                   <th className="text-left px-3 py-2">Item</th>
                   <th className="text-left px-3 py-2">Description</th>
+                  <th className="text-right px-3 py-2">Stock</th>
                   <th className="text-right px-3 py-2">Qty</th>
                   <th className="text-right px-3 py-2">Unit Price</th>
                   <th className="text-right px-3 py-2">Amount</th>
@@ -479,113 +597,221 @@ export default function SaleForm({
                 </tr>
               </thead>
               <tbody>
-                {fields.map((field, index) => (
-                  <tr key={field.id} className="border-t">
-                    <td className="px-3 py-2 align-top min-w-[180px]">
-                      <Select
-                        defaultValue={getValues(`items.${index}.itemId`) || ""}
-                        onValueChange={(value) => {
-                          setValue(`items.${index}.itemId`, value);
-                          const selectedItem = items.find((item) => item.id === value);
-                          if (selectedItem) {
-                            setValue(`items.${index}.description`, selectedItem.description);
-                            setValue(`items.${index}.unitPrice`, selectedItem.unitPrice);
-                            updateAmount(index);
-                          }
-                        }}
-                        disabled={loading}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select item" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {items.map((item) => (
-                            <SelectItem key={item.id} value={item.id}>
-                              {item.code} - {item.description}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {errors.items?.[index]?.itemId && (
-                        <p className="text-xs text-destructive mt-1">
-                          {errors.items[index]?.itemId?.message}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 align-top">
-                      <Input
-                        {...register(`items.${index}.description`)}
-                        disabled={loading}
-                      />
-                      {errors.items?.[index]?.description && (
-                        <p className="text-xs text-destructive mt-1">
-                          {errors.items[index]?.description?.message}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 align-top text-right">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        className="text-right"
-                        {...register(`items.${index}.quantity`, {
-                          valueAsNumber: true,
-                          onChange: () => updateAmount(index),
-                        })}
-                        disabled={loading}
-                      />
-                      {errors.items?.[index]?.quantity && (
-                        <p className="text-xs text-destructive mt-1">
-                          {errors.items[index]?.quantity?.message}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 align-top text-right">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        className="text-right"
-                        {...register(`items.${index}.unitPrice`, {
-                          valueAsNumber: true,
-                          onChange: () => updateAmount(index),
-                        })}
-                        disabled={loading}
-                      />
-                      {errors.items?.[index]?.unitPrice && (
-                        <p className="text-xs text-destructive mt-1">
-                          {errors.items[index]?.unitPrice?.message}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 align-top text-right">
-                      <Controller
-                        name={`items.${index}.amount`}
-                        control={control}
-                        render={({ field }) => (
+                {fields.map((field, index) => {
+                  const currentItem = watchedItems[index] || {};
+                  const selectedItem = items.find((item) => item.id === currentItem.itemId);
+                  
+                  // Calculate stock for the selected item and current warehouse
+                  const stock = selectedItem?.stocks?.find(s => s.warehouseId === watchedWarehouseId);
+                  const selectedItemStock = stock?.quantity ?? 0;
+
+                  return (
+                    <tr key={field.id} className="border-t">
+                      <td className="px-3 py-2 align-top min-w-[280px]">
+                        <Controller
+                          name={`items.${index}.itemId`}
+                          control={control}
+                          render={({ field: itemField }) => {
+                            const [open, setOpen] = useState(false);
+                            const [itemSearch, setItemSearch] = useState("");
+                            const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+                            // Filter items based on availability and search
+                            const filteredItems = items
+                                .filter((i) => 
+                                    (i.id === currentItem.itemId || !watchedItems.some((row, rIdx) => rIdx !== index && row.itemId === i.id)) &&
+                                    (i.code.toLowerCase().includes(itemSearch.toLowerCase()) || i.description.toLowerCase().includes(itemSearch.toLowerCase()))
+                                );
+
+                            return (
+                                <Select
+                                  value={itemField.value || ""}
+                                  // Control open state to handle search focus and cleanup
+                                  open={open}
+                                  onOpenChange={(isOpen) => {
+                                      setOpen(isOpen);
+                                      if (isOpen) {
+                                          setTimeout(() => searchInputRef.current?.focus(), 0);
+                                      } else {
+                                          // Delay clearing search slightly or just clear it
+                                          setItemSearch(""); 
+                                      }
+                                  }}
+                                  onValueChange={(value) => {
+                                    itemField.onChange(value || "");
+                                    const item = items.find((i) => i.id === value);
+                                    if (item) {
+                                      setValue(`items.${index}.description`, item.description);
+                                      setValue(`items.${index}.unitPrice`, item.unitPrice);
+                                      // Calculate amount immediately
+                                      const qty = Number(getValues(`items.${index}.quantity`)) || 1;
+                                      setValue(`items.${index}.amount`, qty * item.unitPrice);
+                                    } else {
+                                        setValue(`items.${index}.description`, "");
+                                        setValue(`items.${index}.unitPrice`, 0);
+                                        setValue(`items.${index}.amount`, 0);
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="text-left w-full" data-item-select-index={index}>
+                                    <SelectValue placeholder="Select item">
+                                        {(() => {
+                                            const selected = items.find(i => i.id === currentItem.itemId);
+                                            return selected ? `${selected.code} - ${selected.description}` : "Select item";
+                                        })()}
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent className="max-h-[300px]">
+                                    <div className="p-2 sticky top-0 bg-popover z-10">
+                                      <div className="relative">
+                                        <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
+                                        <Input
+                                          ref={searchInputRef}
+                                          placeholder="Search items..."
+                                          value={itemSearch}
+                                          onChange={(e) => setItemSearch(e.target.value)}
+                                          onKeyDown={(e) => {
+                                            if (['ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(e.key)) {
+                                                return; // Let duplicate select handle navigation
+                                            }
+                                            e.stopPropagation(); // Stop enter from submitting form if just searching
+                                          }}
+                                          className="pl-8 h-8 text-xs"
+                                          // Prevent click propagation to keep dropdown open
+                                          onClick={(e) => e.stopPropagation()} 
+                                        />
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="max-h-[200px] overflow-y-auto">
+                                        {filteredItems.length > 0 ? (
+                                            filteredItems.map((item) => {
+                                              // Find stock for selected warehouse
+                                              const stock = item.stocks?.find(
+                                                (s) => s.warehouseId === watchedWarehouseId
+                                              );
+                                              const stockQty = stock?.quantity ?? 0;
+
+                                              return (
+                                                  <SelectItem key={item.id} value={item.id} className="text-left">
+                                                      <div className="flex justify-between items-center w-full gap-4">
+                                                          <span>{item.code} - {item.description}</span>
+                                                          <span className="text-xs text-muted-foreground whitespace-nowrap">Stock: {stockQty}</span>
+                                                      </div>
+                                                  </SelectItem>
+                                              );
+                                            })
+                                        ) : (
+                                            <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                                                {itemSearch ? "No items found" : "All items selected"}
+                                            </div>
+                                        )}
+                                    </div>
+                                  </SelectContent>
+                                </Select>
+                            );
+                          }}
+                        />
+                        {errors.items?.[index]?.itemId && (
+                          <p className="text-xs text-destructive mt-1">
+                            {errors.items[index]?.itemId?.message}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        <Input
+                          {...register(`items.${index}.description`)}
+                          disabled={loading}
+                        />
+                        {errors.items?.[index]?.description && (
+                          <p className="text-xs text-destructive mt-1">
+                            {errors.items[index]?.description?.message}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 align-top text-right">
+                        <div className={`text-sm font-medium ${selectedItemStock <= 0 ? 'text-destructive' : ''}`}>
+                          {selectedItemStock}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 align-top text-right">
+                        <div className="flex items-center justify-end gap-1">
                           <Input
                             type="number"
                             step="0.01"
-                            className="text-right"
-                            {...field}
-                            value={field.value || 0}
-                            disabled
+                            className="text-right w-24 text-center"
+                            {...register(`items.${index}.quantity`, { 
+                              valueAsNumber: true,
+                              onChange: (e) => {
+                                const qty = Number(e.target.value) || 0;
+                                const price = Number(getValues(`items.${index}.unitPrice`)) || 0;
+                                setValue(`items.${index}.amount`, qty * price);
+                              }
+                            })}
+                            disabled={loading}
                           />
+                          {selectedItem && (
+                            <div className="text-xs text-muted-foreground w-12 text-left">
+                              {selectedItem.unit || "unit"}
+                            </div>
+                          )}
+                        </div>
+                        {errors.items?.[index]?.quantity && (
+                          <p className="text-xs text-destructive mt-1">
+                            {errors.items[index]?.quantity?.message}
+                          </p>
                         )}
-                      />
-                    </td>
-                    <td className="px-3 py-2 align-top text-right">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => remove(index)}
-                        disabled={loading || fields.length === 1}
-                      >
-                        <FiTrash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-3 py-2 align-top text-right">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="text-right"
+                          {...register(`items.${index}.unitPrice`, { 
+                            valueAsNumber: true,
+                            onChange: (e) => {
+                              const price = Number(e.target.value) || 0;
+                              const qty = Number(getValues(`items.${index}.quantity`)) || 0;
+                              setValue(`items.${index}.amount`, qty * price);
+                            }
+                          })}
+                          disabled={loading}
+                        />
+                        {errors.items?.[index]?.unitPrice && (
+                          <p className="text-xs text-destructive mt-1">
+                            {errors.items[index]?.unitPrice?.message}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 align-top text-right">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="text-right"
+                          value={currentItem.amount || 0}
+                          disabled
+                          readOnly
+                        />
+                        {/* Hidden input to keep amount in form state */}
+                        <input type="hidden" {...register(`items.${index}.amount`, { valueAsNumber: true })} />
+                      </td>
+                      <td className="px-3 py-2 align-top text-right">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            remove(index);
+                            // Redux sync will happen automatically via useEffect
+                          }}
+                          disabled={loading || fields.length === 1}
+                        >
+                          <FiTrash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -621,40 +847,34 @@ export default function SaleForm({
                   {...register("tax", { 
                     valueAsNumber: true,
                     onChange: (e) => {
-                      // If user manually changes tax, disable auto tax
-                      const value = Number(e.target.value) || 0;
-                      setValue("tax", value);
-                      if (autoTaxEnabled && value !== subTotal * 0.15) {
-                        setAutoTaxEnabled(false);
+                      // If user manually changes tax, disable auto tax via effect logic or explicit dispatch if needed
+                      // But our effect `!salesState.autoTaxEnabled` handles sync. 
+                      // If we want to force disable auto tax on manual type:
+                      if (salesState.autoTaxEnabled) {
+                        dispatch(toggleSaleAutoTax(false));
                       }
                     }
                   })}
-                  disabled={loading || autoTaxEnabled}
-                  placeholder={autoTaxEnabled ? "Auto: 15% of subtotal" : "Enter tax amount"}
+                  disabled={loading || salesState.autoTaxEnabled}
+                  placeholder={salesState.autoTaxEnabled ? "Auto: 15% of subtotal" : "Enter tax amount"}
                 />
                 <Button
                   type="button"
-                  variant={autoTaxEnabled ? "default" : "outline"}
+                  variant={salesState.autoTaxEnabled ? "default" : "outline"}
                   size="sm"
                   onClick={() => {
-                    if (autoTaxEnabled) {
-                      // Disable auto tax and reset to 0
-                      setAutoTaxEnabled(false);
-                      setValue("tax", 0);
-                    } else {
-                      // Enable auto tax and calculate
-                      setAutoTaxEnabled(true);
-                      const calculatedTax = subTotal * 0.15;
-                      setValue("tax", calculatedTax);
-                    }
+                     // Toggle auto tax
+                     dispatch(toggleSaleAutoTax(!salesState.autoTaxEnabled));
+                     // If enabling, tax update is handled by reducer
+                     // If disabling, tax stays as is until edited
                   }}
                   disabled={loading}
                 >
-                  {autoTaxEnabled ? "Auto 15% ✓" : "Auto 15%"}
+                  {salesState.autoTaxEnabled ? "Auto 15% ✓" : "Auto 15%"}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                {autoTaxEnabled 
+                {salesState.autoTaxEnabled 
                   ? "Auto tax enabled: 15% VAT calculated automatically from subtotal."
                   : "Tax is calculated as 15% VAT on subtotal. Click 'Auto 15%' to enable automatic calculation."}
               </p>

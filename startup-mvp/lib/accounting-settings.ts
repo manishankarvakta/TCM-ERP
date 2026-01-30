@@ -314,20 +314,33 @@ export async function getPurchaseAccounts(): Promise<PurchaseAccounts> {
 export async function getSalesAccounts(): Promise<SalesAccounts> {
   const settings = await getAccountingOperationSettings();
   
-  if (!settings.sales.revenueAccountId || !settings.sales.receivableAccountId || !settings.sales.cogsAccountId || !settings.sales.finishedGoodsInventoryAccountId) {
-    throw new AccountingSettingsNotConfiguredError("Sales");
+  // Only require revenue account (minimum for sales)
+  // receivableAccountId is optional - uses client's chartOfAccountId
+  // COGS and FG Inventory are optional (only needed when processing COGS)
+  if (!settings.sales.revenueAccountId) {
+    throw new AccountMappingMissingError("revenueAccountId", "Sales");
+  }
+
+  // Identify accounts to validate (only validate accounts that are configured)
+  const accountIdsToValidate = [settings.sales.revenueAccountId];
+  
+  if (settings.sales.receivableAccountId) {
+    accountIdsToValidate.push(settings.sales.receivableAccountId);
+  }
+  
+  if (settings.sales.cogsAccountId) {
+    accountIdsToValidate.push(settings.sales.cogsAccountId);
+  }
+  
+  if (settings.sales.finishedGoodsInventoryAccountId) {
+    accountIdsToValidate.push(settings.sales.finishedGoodsInventoryAccountId);
   }
 
   // Validate accounts exist and have correct types
   const accounts = await prisma.chartOfAccount.findMany({
     where: {
       id: {
-        in: [
-          settings.sales.revenueAccountId, 
-          settings.sales.receivableAccountId, 
-          settings.sales.cogsAccountId,
-          settings.sales.finishedGoodsInventoryAccountId
-        ],
+        in: accountIdsToValidate,
       },
       status: "active",
     },
@@ -340,7 +353,7 @@ export async function getSalesAccounts(): Promise<SalesAccounts> {
 
   const accountMap = new Map(accounts.map(acc => [acc.id, acc]));
 
-  // Validate revenue account
+  // Validate revenue account (required)
   const revenueAccount = accountMap.get(settings.sales.revenueAccountId);
   if (!revenueAccount) {
     throw new InvalidAccountError(settings.sales.revenueAccountId, "sales.revenueAccountId");
@@ -355,49 +368,55 @@ export async function getSalesAccounts(): Promise<SalesAccounts> {
     );
   }
 
-  // Validate receivable account
-  const receivableAccount = accountMap.get(settings.sales.receivableAccountId);
-  if (!receivableAccount) {
-    throw new InvalidAccountError(settings.sales.receivableAccountId, "sales.receivableAccountId");
-  }
-  if (receivableAccount.type !== "ASSET") {
-    const { AccountTypeValidationError } = await import("@/lib/accounting-settings-validation");
-    throw new AccountTypeValidationError(
-      receivableAccount.name,
-      "ASSET" as any,
-      receivableAccount.type as any,
-      "Sales Accounts Receivable"
-    );
-  }
-
-  // Validate COGS account
-  const cogsAccount = accountMap.get(settings.sales.cogsAccountId);
-  if (!cogsAccount) {
-    throw new InvalidAccountError(settings.sales.cogsAccountId, "sales.cogsAccountId");
-  }
-  if (cogsAccount.type !== "EXPENSE") {
-    const { AccountTypeValidationError } = await import("@/lib/accounting-settings-validation");
-    throw new AccountTypeValidationError(
-      cogsAccount.name,
-      "EXPENSE" as any,
-      cogsAccount.type as any,
-      "Sales Cost of Goods Sold"
-    );
+  // Validate receivable account (optional - only if configured)
+  if (settings.sales.receivableAccountId) {
+    const receivableAccount = accountMap.get(settings.sales.receivableAccountId);
+    if (!receivableAccount) {
+      throw new InvalidAccountError(settings.sales.receivableAccountId, "sales.receivableAccountId");
+    }
+    if (receivableAccount.type !== "ASSET") {
+      const { AccountTypeValidationError } = await import("@/lib/accounting-settings-validation");
+      throw new AccountTypeValidationError(
+        receivableAccount.name,
+        "ASSET" as any,
+        receivableAccount.type as any,
+        "Sales Accounts Receivable"
+      );
+    }
   }
 
-  // Validate Finish Goods Inventory account
-  const fgAccount = accountMap.get(settings.sales.finishedGoodsInventoryAccountId);
-  if (!fgAccount) {
-    throw new InvalidAccountError(settings.sales.finishedGoodsInventoryAccountId, "sales.finishedGoodsInventoryAccountId");
+  // Validate COGS account (optional - only if configured)
+  if (settings.sales.cogsAccountId) {
+    const cogsAccount = accountMap.get(settings.sales.cogsAccountId);
+    if (!cogsAccount) {
+      throw new InvalidAccountError(settings.sales.cogsAccountId, "sales.cogsAccountId");
+    }
+    if (cogsAccount.type !== "EXPENSE") {
+      const { AccountTypeValidationError } = await import("@/lib/accounting-settings-validation");
+      throw new AccountTypeValidationError(
+        cogsAccount.name,
+        "EXPENSE" as any,
+        cogsAccount.type as any,
+        "Sales Cost of Goods Sold"
+      );
+    }
   }
-  if (fgAccount.type !== "ASSET") {
-    const { AccountTypeValidationError } = await import("@/lib/accounting-settings-validation");
-    throw new AccountTypeValidationError(
-      fgAccount.name,
-      "ASSET" as any,
-      fgAccount.type as any,
-      "Sales Finished Goods Inventory"
-    );
+
+  // Validate Finished Goods Inventory account (optional - only if configured)
+  if (settings.sales.finishedGoodsInventoryAccountId) {
+    const fgAccount = accountMap.get(settings.sales.finishedGoodsInventoryAccountId);
+    if (!fgAccount) {
+      throw new InvalidAccountError(settings.sales.finishedGoodsInventoryAccountId, "sales.finishedGoodsInventoryAccountId");
+    }
+    if (fgAccount.type !== "ASSET") {
+      const { AccountTypeValidationError } = await import("@/lib/accounting-settings-validation");
+      throw new AccountTypeValidationError(
+        fgAccount.name,
+        "ASSET" as any,
+        fgAccount.type as any,
+        "Sales Finished Goods Inventory"
+      );
+    }
   }
 
   return settings.sales;

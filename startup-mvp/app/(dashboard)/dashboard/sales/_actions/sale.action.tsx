@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
+import { logItemCreated, logItemUpdated, logItemDeleted, createUserLog, LogAction } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { SaleStatus, Prisma, ItemType } from "@prisma/client";
 import * as z from "zod";
@@ -184,8 +184,19 @@ export async function getItemsForSale() {
         id: true,
         code: true,
         name: true,
+        unit: {
+            select: {
+                symbol: true
+            }
+        },
         salesPrice: true,
         itemType: true,
+        stocks: {
+          select: {
+            warehouseId: true,
+            quantity: true,
+          },
+        },
       },
       orderBy: {
         name: "asc",
@@ -198,8 +209,13 @@ export async function getItemsForSale() {
         id: item.id,
         code: item.code,
         description: item.name,
+        unit: item.unit?.symbol || "unit",
         unitPrice: item.salesPrice ? Number(item.salesPrice) : 0,
         itemType: item.itemType,
+        stocks: item.stocks.map(s => ({
+            warehouseId: s.warehouseId,
+            quantity: Number(s.quantity)
+        })),
       })),
     };
   } catch (error) {
@@ -208,6 +224,311 @@ export async function getItemsForSale() {
       success: false,
       error: error instanceof Error ? error.message : "Failed to fetch items",
       items: [],
+    };
+  }
+}
+
+/**
+ * Validate that required accounting accounts are configured
+ * before creating/updating a sale to COMPLETED status
+ */
+async function validateSaleAccounts(
+  clientId: string,
+  tx?: Prisma.TransactionClient
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const client = tx || prisma;
+    
+    // Get sales and production accounts via dynamic import to avoid circular dep issues if any
+    const { getSalesAccounts, getProductionAccounts } = await import("@/lib/accounting-settings");
+
+    let salesAccounts;
+    // let productionAccounts; // Reserved for COGS if strict checking needed
+
+    try {
+      salesAccounts = await getSalesAccounts();
+      // productionAccounts = await getProductionAccounts();
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error 
+          ? error.message 
+          : "Required accounting settings are not configured. Please configure Sales accounts in Settings.",
+      };
+    }
+
+    // Check Revenue Account (Sales Income)
+    if (!salesAccounts.revenueAccountId) {
+      return {
+        success: false,
+        error: "Sales Revenue Account is not configured. Please set up the default revenue account in Sales Settings.",
+      };
+    }
+
+    // Check Receivable Account
+    // Either Client must have chartOfAccountId OR default receivable account must be set
+    const clientData = await client.client.findUnique({
+      where: { id: clientId },
+      select: { 
+        id: true, 
+        name: true, 
+        email: true, 
+        chartOfAccountId: true 
+      },
+    });
+
+    if (!clientData) {
+      return {
+        success: false,
+        error: "Client not found",
+      };
+    }
+
+    const hasClientAccount = !!clientData.chartOfAccountId;
+    const hasDefaultReceivableAccount = !!salesAccounts.receivableAccountId;
+
+    if (!hasClientAccount && !hasDefaultReceivableAccount) {
+      return {
+        success: false,
+        error: `Cannot complete sale: Client "${clientData.name || clientData.email}" has no account ledger assigned, and no default Accounts Receivable account is configured in Sales Settings.`,
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("validateSaleAccounts error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to validate sale accounts",
+    };
+  }
+}
+
+/**
+ * Create accounting voucher for Sale
+ * Debit: Accounts Receivable (Client or Default)
+ * Credit: Sales Revenue
+ * Debit: COGS (if configured)
+ * Credit: Inventory (if configured)
+ */
+async function createSaleAccountingVoucher(
+  saleId: string,
+  tx?: Prisma.TransactionClient
+): Promise<{ success: boolean; error?: string; voucherId?: string }> {
+  try {
+    const session = await auth();
+    const userId = session?.user?.id || "system";
+
+    const client = tx || prisma;
+
+    // Get sale with items and item details
+    const sale = await client.sale.findUnique({
+      where: { id: saleId },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            chartOfAccountId: true,
+          },
+        },
+        items: {
+          include: {
+            item: {
+              select: {
+                id: true,
+                itemType: true,
+                costPrice: true,
+                salesPrice: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!sale) {
+      return { success: false, error: "Sale not found" };
+    }
+
+    // Check if voucher already exists
+    if (sale.voucherId) {
+      return { success: true, voucherId: sale.voucherId };
+    }
+
+    // Get accounts
+    const { getSalesAccounts, getProductionAccounts } = await import("@/lib/accounting-settings");
+
+    let salesAccounts;
+    let productionAccounts;
+
+    try {
+      salesAccounts = await getSalesAccounts();
+      productionAccounts = await getProductionAccounts();
+    } catch (error) {
+      console.warn("Could not load all accounting settings", error);
+    }
+
+    if (!salesAccounts?.revenueAccountId) {
+       return { success: false, error: "Sales Revenue Account not configured." };
+    }
+
+    // Calculate Totals and COGS
+    let totalSaleAmount = 0;
+    const cogsByAccount: Record<string, { amount: number; description: string }> = {};
+
+    for (const item of sale.items) {
+      const quantity = Number(item.quantity);
+      const unitPrice = Number(item.unitPrice); // Sale Price
+      const itemSaleAmount = quantity * unitPrice;
+      totalSaleAmount += itemSaleAmount;
+
+      if (item.item && item.item.costPrice) {
+        const costPrice = Number(item.item.costPrice);
+        const itemCOGS = quantity * costPrice;
+        
+        if (itemCOGS > 0) {
+           let inventoryAccountId: string | null = null;
+           // Prefer Sales settings for inventory if available (e.g. general FG or retail)
+           // If detailed granular tracking specific to production types is needed, check item type
+           
+           if (item.item.itemType === ItemType.FINISHED_GOOD) {
+             inventoryAccountId = productionAccounts?.completionFinishedGoodsInventoryId || salesAccounts.finishedGoodsInventoryAccountId;
+           } else if (item.item.itemType === ItemType.RETAIL) {
+             // For retail, reuse FG or specific retail if we add it later
+             inventoryAccountId = salesAccounts.finishedGoodsInventoryAccountId || productionAccounts?.completionFinishedGoodsInventoryId;
+           }
+
+           // Fallback
+           if (!inventoryAccountId) {
+              inventoryAccountId = salesAccounts.finishedGoodsInventoryAccountId;
+           }
+
+           if (inventoryAccountId) {
+              if (!cogsByAccount[inventoryAccountId]) {
+                cogsByAccount[inventoryAccountId] = { amount: 0, description: "COGS for " };
+              }
+              cogsByAccount[inventoryAccountId].amount += itemCOGS;
+              
+              if (!cogsByAccount[inventoryAccountId].description.includes(item.item.name)) {
+                 if (cogsByAccount[inventoryAccountId].description.length < 100) {
+                   cogsByAccount[inventoryAccountId].description += (cogsByAccount[inventoryAccountId].description === "COGS for " ? "" : ", ") + item.item.name;
+                 } else if (!cogsByAccount[inventoryAccountId].description.endsWith("...")) {
+                   cogsByAccount[inventoryAccountId].description += "...";
+                 }
+              }
+           }
+        }
+      }
+    }
+
+    const voucherLines: Array<{
+      lineNumber: number;
+      debitAmount: number;
+      creditAmount: number;
+      description?: string;
+      chartOfAccountId: string;
+      clientId?: string;
+    }> = [];
+
+    let lineNumber = 1;
+
+    // 1. Debit: Accounts Receivable
+    const receivableAccountId = sale.client.chartOfAccountId || salesAccounts.receivableAccountId;
+    if (!receivableAccountId) {
+         return { success: false, error: "No Accounts Receivable ledger found for client and no default configured." };
+    }
+
+    voucherLines.push({
+      lineNumber: lineNumber++,
+      debitAmount: totalSaleAmount,
+      creditAmount: 0,
+      description: `Accounts Receivable - ${sale.saleNumber} - ${sale.client.name}`,
+      chartOfAccountId: receivableAccountId,
+      clientId: sale.clientId,
+    });
+
+    // 2. Credit: Sales Revenue
+    voucherLines.push({
+      lineNumber: lineNumber++,
+      debitAmount: 0,
+      creditAmount: totalSaleAmount,
+      description: `Sales Revenue - ${sale.saleNumber}`,
+      chartOfAccountId: salesAccounts.revenueAccountId,
+    });
+
+    // 3. COGS & Inventory
+    if (salesAccounts.cogsAccountId) {
+      for (const [invAccountId, data] of Object.entries(cogsByAccount)) {
+        // Debit COGS
+        voucherLines.push({
+          lineNumber: lineNumber++,
+          chartOfAccountId: salesAccounts.cogsAccountId,
+          debitAmount: data.amount,
+          creditAmount: 0,
+          description: `${data.description} (${sale.saleNumber})`,
+        });
+
+        // Credit Inventory
+        voucherLines.push({
+          lineNumber: lineNumber++,
+          chartOfAccountId: invAccountId,
+          debitAmount: 0,
+          creditAmount: data.amount,
+          description: `Inventory reduction for ${sale.saleNumber}`,
+        });
+      }
+    }
+
+    if (voucherLines.length === 0) {
+      return { success: false, error: "No valid voucher lines generated." };
+    }
+
+    const voucherResult = await createVoucher({
+      date: sale.date,
+      type: VoucherType.SALES,
+      reference: sale.saleNumber,
+      description: `Sale ${sale.saleNumber} - ${sale.client.name}`,
+      clientId: sale.clientId,
+      isSystemAction: true,
+      lines: voucherLines,
+    }, tx);
+
+    if (!voucherResult.success || !voucherResult.voucher) {
+      return {
+        success: false,
+        error: voucherResult.error || "Failed to create accounting voucher",
+      };
+    }
+
+    const postResult = await postVoucher(voucherResult.voucher.id, tx, true);
+    if (!postResult.success) {
+      return {
+        success: false,
+        error: postResult.error || "Failed to post accounting voucher",
+      };
+    }
+
+    await client.sale.update({
+      where: { id: saleId },
+      data: { voucherId: voucherResult.voucher.id },
+    });
+    
+    await createUserLog({
+      userId,
+      action: LogAction.ITEM_CREATED,
+      details: `Created and posted sales accounting voucher for ${sale.saleNumber}`,
+    });
+
+    return { success: true, voucherId: voucherResult.voucher.id };
+
+  } catch (error) {
+    console.error("createSaleAccountingVoucher error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to create sale accounting voucher",
     };
   }
 }
@@ -418,8 +739,21 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
     if (!session?.user) {
       return { success: false, error: "Unauthorized", sale: null };
     }
+    const userId = session.user.id;
 
     const validated = saleSchema.parse(input);
+
+    // Validate accounts if creating as COMPLETED
+    if (validated.status === "COMPLETED") {
+       const accountValidation = await validateSaleAccounts(validated.clientId);
+       if (!accountValidation.success) {
+         return {
+           success: false,
+           error: accountValidation.error,
+           sale: null,
+         };
+       }
+    }
 
     const result = await prisma.$transaction(async (tx) => {
       let saleNumber = await generateSaleNumber(tx);
@@ -473,7 +807,7 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
           discount: discount ? new Prisma.Decimal(discount) : null,
           tax: tax ? new Prisma.Decimal(tax) : null,
           grandTotal: new Prisma.Decimal(grandTotal),
-          createdBy: session.user.id,
+          createdBy: userId,
           items: {
             create: validated.items.map((item) => ({
               itemId: item.itemId,
@@ -490,12 +824,19 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
           grandTotal: true,
           createdAt: true,
           status: true,
+          voucherId: true,
         },
       });
 
       // Automatically complete sale if status is COMPLETED
+      // Automatically complete sale if status is COMPLETED
       if (sale.status === SaleStatus.COMPLETED) {
-        await performSaleCompletion(sale.id, tx);
+        const stockItems = validated.items.map(i => ({ itemId: i.itemId, quantity: i.quantity }));
+        const stockResult = await updateStockOnSale(sale.id, validated.warehouseId, stockItems, tx);
+        if (!stockResult.success) throw new Error(stockResult.error || "Failed to update stock");
+        
+        const voucherResult = await createSaleAccountingVoucher(sale.id, tx);
+        if (!voucherResult.success) throw new Error(voucherResult.error || "Failed to create accounting voucher");
         
         // Re-fetch sale to get updated fields (completedAt, voucherId)
         return tx.sale.findUnique({
@@ -550,6 +891,7 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
     if (!session?.user) {
       return { success: false, error: "Unauthorized", sale: null };
     }
+    const userId = session.user.id;
 
     const validated = updateSaleSchema.parse(input);
 
@@ -576,12 +918,26 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
     const tax = validated.tax ?? 0;
     const grandTotal = subTotal - discount + tax;
 
+    // Validate accounts if transitioning to COMPLETED (Only DRAFT can be edited, so this implies DRAFT -> COMPLETED)
+    const isTransitioningToCompleted = validated.status === "COMPLETED";
+
+    if (isTransitioningToCompleted) {
+         const accountValidation = await validateSaleAccounts(validated.clientId);
+         if (!accountValidation.success) {
+            return {
+                success: false,
+                error: accountValidation.error,
+                sale: null,
+            };
+         }
+    }
+
     const sale = await prisma.$transaction(async (tx) => {
       await tx.saleItem.deleteMany({
         where: { saleId: validated.id },
       });
 
-      return tx.sale.update({
+      const updatedSale = await tx.sale.update({
         where: { id: validated.id },
         data: {
           clientId: validated.clientId,
@@ -594,7 +950,7 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
           discount: discount ? new Prisma.Decimal(discount) : null,
           tax: tax ? new Prisma.Decimal(tax) : null,
           grandTotal: new Prisma.Decimal(grandTotal),
-          updatedBy: session.user.id,
+          updatedBy: userId,
           items: {
             create: validated.items.map((item) => ({
               itemId: item.itemId,
@@ -611,27 +967,21 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
           grandTotal: true,
           updatedAt: true,
           status: true,
+          voucherId: true,
         },
-      }).then(async (sale) => {
-        // Automatically complete sale if status is changed to COMPLETED
-        if (sale.status === SaleStatus.COMPLETED) {
-          await performSaleCompletion(sale.id, tx);
-          
-          // Re-fetch sale to get updated fields
-          return tx.sale.findUnique({
-            where: { id: sale.id },
-            select: {
-              id: true,
-              saleNumber: true,
-              grandTotal: true,
-              updatedAt: true,
-              completedAt: true,
-              voucherId: true,
-            }
-          });
-        }
-        return sale;
       });
+
+      // Update stock and create voucher if transitioning to COMPLETED
+      if (isTransitioningToCompleted) {
+         const stockItems = validated.items.map(i => ({ itemId: i.itemId, quantity: i.quantity }));
+         const stockResult = await updateStockOnSale(updatedSale.id, validated.warehouseId, stockItems, tx);
+         if (!stockResult.success) throw new Error(stockResult.error || "Failed to update stock");
+         
+         const voucherResult = await createSaleAccountingVoucher(updatedSale.id, tx);
+         if (!voucherResult.success) throw new Error(voucherResult.error || "Failed to create accounting voucher");
+      }
+
+      return updatedSale;
     });
 
     await logItemUpdated(
@@ -972,135 +1322,16 @@ async function performSaleCompletion(saleId: string, tx: Prisma.TransactionClien
     }
   }
 
-  // 2. Get sales and production accounts from operation settings
-  const { getSalesAccounts, getProductionAccounts } = await import("@/lib/accounting-settings");
+  // 2. Create Accounting Voucher
+  const voucherResult = await createSaleAccountingVoucher(saleId, tx);
+  if (!voucherResult.success) throw new Error(voucherResult.error || "Failed to create accounting voucher");
 
-  let salesAccounts;
-  let productionAccounts;
-
-  try {
-    // Get required accounts for sales and production (for inventory)
-    [salesAccounts, productionAccounts] = await Promise.all([
-      getSalesAccounts(),
-      getProductionAccounts(),
-    ]);
-  } catch (error) {
-    // If any required account is missing, throw a clear error message
-    throw new Error(error instanceof Error ? error.message : "Failed to retrieve accounting settings for sale");
-  }
-
-  // 3. Calculate COGS (for FINISHED_GOOD and RETAIL items)
-  const cogsByAccount: Record<string, { amount: number; description: string }> = {};
-
-  for (const saleItem of sale.items) {
-    if (!saleItem.item.costPrice) continue;
-
-    const itemCOGS = Number(saleItem.quantity) * Number(saleItem.item.costPrice);
-    if (itemCOGS <= 0) continue;
-
-    let inventoryAccountId: string | null = null;
-    if (saleItem.item.itemType === ItemType.FINISHED_GOOD) {
-      inventoryAccountId = productionAccounts.finishedGoodsInventoryId;
-    } else if (saleItem.item.itemType === ItemType.RETAIL) {
-      // For retail items, we need a retail inventory account
-      // Since it's not in the simplified structure, we'll use the same as FG for now
-      // This should be added to the settings structure if needed
-      inventoryAccountId = productionAccounts.finishedGoodsInventoryId;
-    }
-
-    if (inventoryAccountId) {
-      if (!cogsByAccount[inventoryAccountId]) {
-        cogsByAccount[inventoryAccountId] = { amount: 0, description: "COGS for " };
-      }
-      cogsByAccount[inventoryAccountId].amount += itemCOGS;
-      if (!cogsByAccount[inventoryAccountId].description.includes(saleItem.item.name)) {
-        if (cogsByAccount[inventoryAccountId].description.length < 100) {
-          cogsByAccount[inventoryAccountId].description += (cogsByAccount[inventoryAccountId].description === "COGS for " ? "" : ", ") + saleItem.item.name;
-        } else if (!cogsByAccount[inventoryAccountId].description.endsWith("...")) {
-          cogsByAccount[inventoryAccountId].description += "...";
-        }
-      }
-    }
-  }
-
-  // 4. Create accounting voucher
-  const voucherLines: Array<{
-    lineNumber: number;
-    debitAmount: number;
-    creditAmount: number;
-    description?: string;
-    chartOfAccountId: string;
-    clientId?: string;
-  }> = [];
-
-  let lineNumber = 1;
-
-  // Debit: Accounts Receivable
-  voucherLines.push({
-    lineNumber: lineNumber++,
-    debitAmount: Number(sale.grandTotal),
-    creditAmount: 0,
-    description: `Sale ${sale.saleNumber} - ${sale.client.name}`,
-    chartOfAccountId: salesAccounts.receivableAccountId,
-    clientId: sale.clientId,
-  });
-
-  // Credit: Sales Revenue
-  voucherLines.push({
-    lineNumber: lineNumber++,
-    debitAmount: 0,
-    creditAmount: Number(sale.grandTotal),
-    description: `Sales Revenue for ${sale.saleNumber}`,
-    chartOfAccountId: salesAccounts.revenueAccountId,
-  });
-
-  // Add COGS lines
-  for (const [invAccountId, data] of Object.entries(cogsByAccount)) {
-    voucherLines.push({
-      lineNumber: lineNumber++,
-      chartOfAccountId: salesAccounts.cogsAccountId,
-      debitAmount: data.amount,
-      creditAmount: 0,
-      description: `${data.description} (${sale.saleNumber})`,
-    });
-
-    voucherLines.push({
-      lineNumber: lineNumber++,
-      chartOfAccountId: invAccountId,
-      debitAmount: 0,
-      creditAmount: data.amount,
-      description: `Inventory reduction for ${sale.saleNumber}`,
-    });
-  }
-
-  // Create voucher
-  const voucherResult = await createVoucher({
-    date: sale.date,
-    type: VoucherType.SALES,
-    reference: sale.saleNumber,
-    description: `Sale ${sale.saleNumber} - ${sale.client.name}`,
-    clientId: sale.clientId,
-    isSystemAction: true,
-    lines: voucherLines,
-  }, tx);
-
-  if (!voucherResult.success || !voucherResult.voucher) {
-    throw new Error(voucherResult.error || "Failed to create accounting voucher");
-  }
-
-  // 5. Post voucher
-  const postResult = await postVoucher(voucherResult.voucher.id, tx, true);
-  if (!postResult.success) {
-    throw new Error(postResult.error || "Failed to post accounting voucher");
-  }
-
-  // 6. Update sale status and link voucher
+  // 3. Update sale status and link voucher
   const updatedSale = await tx.sale.update({
     where: { id: saleId },
     data: {
       status: SaleStatus.COMPLETED,
       completedAt: new Date(),
-      voucherId: voucherResult.voucher.id,
       updatedBy: session.user.id,
     },
     select: {

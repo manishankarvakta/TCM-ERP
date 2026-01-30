@@ -673,7 +673,7 @@ export default function PurchaseForm({
                             <Input
                               type="number"
                               step="0.01"
-                              className="text-right w-40"
+                              className="text-center w-40"
                               {...register(`items.${index}.quantity`, {
                                 valueAsNumber: true,
                               })}
