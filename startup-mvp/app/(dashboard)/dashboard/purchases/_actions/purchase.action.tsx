@@ -150,6 +150,16 @@ export async function getItemsForPurchase() {
         code: true,
         name: true,
         costPrice: true,
+        stocks: {
+          select: {
+            quantity: true,
+          },
+        },
+        unit: {
+          select: {
+            symbol: true,
+          },
+        },
       },
       orderBy: {
         name: "asc",
@@ -158,12 +168,19 @@ export async function getItemsForPurchase() {
 
     return {
       success: true,
-      items: items.map((item) => ({
-        id: item.id,
-        code: item.code,
-        description: item.name,
-        unitPrice: item.costPrice ? Number(item.costPrice) : 0,
-      })),
+      items: items.map((item) => {
+        // Calculate total stock from all warehouse balances
+        const totalStock = item.stocks.reduce((sum: number, stock: {quantity: any}) => sum + Number(stock.quantity), 0);
+        
+        return {
+          id: item.id,
+          code: item.code,
+          description: item.name,
+          unitPrice: item.costPrice ? Number(item.costPrice) : 0,
+          stock: totalStock,
+          unit: item.unit.symbol,
+        };
+      }),
     };
   } catch (error) {
     console.error("getItemsForPurchase error:", error);

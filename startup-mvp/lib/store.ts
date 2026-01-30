@@ -4,6 +4,7 @@ import authReducer from "@/lib/features/auth/authSlice";
 import notificationReducer from "@/lib/features/notification/notificationSlice";
 import quotationReducer from "@/lib/redux/slices/quotationSlice";
 import uiReducer from "@/lib/redux/slices/uiSlice";
+import purchaseReducer from "@/lib/redux/slices/purchaseSlice"; // Added import
 
 export const makeStore = () => {
   const store = configureStore({
@@ -12,6 +13,7 @@ export const makeStore = () => {
       notification: notificationReducer,
       quotation: quotationReducer,
       ui: uiReducer,
+      purchase: purchaseReducer, // Added purchase reducer
     },
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware({

@@ -1,10 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFieldArray, useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "@/lib/store";
+import {
+  setItem as setReduxItem,
+  setQuantity as setReduxQuantity,
+  setDiscount as setReduxDiscount,
+  setTax as setReduxTax,
+  addItem as addReduxItem,
+  removeItem as removeReduxItem,
+  initializePurchase,
+  resetPurchase,
+} from "@/lib/redux/slices/purchaseSlice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -58,6 +70,8 @@ interface PurchaseFormProps {
     code: string;
     description: string;
     unitPrice: number;
+    stock: number;
+    unit: string;
   }>;
   initialData?: {
     id: string;
@@ -181,24 +195,72 @@ export default function PurchaseForm({
     name: "items",
   });
 
+  // Redux integration for better calculation performance
+  const dispatch = useDispatch<AppDispatch>();
+  const reduxPurchase = useSelector((state: RootState) => state.purchase);
+
   const watchedItems = watch("items");
   const watchedDiscount = watch("discount") || 0;
   const watchedTax = watch("tax") || 0;
 
-  const subTotal = useMemo(() => {
-    return watchedItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  // Initialize Redux state on mount with form's initial items
+  React.useEffect(() => {
+    const items = getValues("items");
+    dispatch(initializePurchase({
+      items: items.map(item => ({
+        itemId: item.itemId || "",
+        description: item.description || "",
+        quantity: Number(item.quantity) || 1,
+        unitPrice: Number(item.unitPrice) || 0,
+        amount: Number(item.amount) || 0,
+      })),
+      discount: Number(watchedDiscount) || 0,
+      tax: Number(watchedTax) || 0,
+    }));
+  }, []); // Run once on mount
+
+  // Sync form changes to Redux for instant calculations
+  React.useEffect(() => {
+    watchedItems.forEach((item, index) => {
+      // Dispatch to Redux for calculation
+      if (item.quantity !== undefined && item.unitPrice !== undefined) {
+        dispatch(setReduxQuantity({ index, quantity: Number(item.quantity) || 0 }));
+      }
+    });
+  }, [watchedItems.map(i => `${i.quantity}:${i.unitPrice}`).join('|')]);
+
+  React.useEffect(() => {
+    dispatch(setReduxDiscount(Number(watchedDiscount) || 0));
+  }, [watchedDiscount, dispatch]);
+
+  React.useEffect(() => {
+    dispatch(setReduxTax(Number(watchedTax) || 0));
+  }, [watchedTax, dispatch]);
+
+  // Create a stable dependency key for items that only changes when quantity or unitPrice changes
+  const itemsCalcKey = useMemo(() => {
+    return watchedItems.map((item, idx) => `${idx}:${item.quantity}:${item.unitPrice}`).join('|');
   }, [watchedItems]);
 
-  const grandTotal = useMemo(() => {
-    return subTotal - Number(watchedDiscount || 0) + Number(watchedTax || 0);
-  }, [subTotal, watchedDiscount, watchedTax]);
+  // Recalculate amounts whenever quantity or unitPrice changes
+  React.useEffect(() => {
+    const items = getValues("items");
+    items.forEach((item, index) => {
+      const quantity = Number(item.quantity) || 0;
+      const unitPrice = Number(item.unitPrice) || 0;
+      const currentAmount = Number(item.amount) || 0;
+      const calculatedAmount = Number.isFinite(quantity * unitPrice) ? quantity * unitPrice : 0;
+      
+      // Only update if amount changed to avoid infinite loops
+      if (Math.abs(calculatedAmount - currentAmount) > 0.001) {
+        setValue(`items.${index}.amount`, calculatedAmount, { shouldValidate: false });
+      }
+    });
+  }, [itemsCalcKey, getValues, setValue]);
 
-  const updateAmount = (index: number) => {
-    const quantity = Number(getValues(`items.${index}.quantity`) || 0);
-    const unitPrice = Number(getValues(`items.${index}.unitPrice`) || 0);
-    const amount = Number.isFinite(quantity * unitPrice) ? quantity * unitPrice : 0;
-    setValue(`items.${index}.amount`, amount);
-  };
+  // Use Redux state for calculated totals (instant updates)
+  const subTotal = reduxPurchase.subTotal;
+  const grandTotal = reduxPurchase.grandTotal;
 
   const onSubmit = async (data: PurchaseFormData) => {
     try {
@@ -246,7 +308,7 @@ export default function PurchaseForm({
             )}
 
             {/* Row 1: Form Fields (5) and File Upload (1) */}
-            <div className="grid grid-cols-1 lg:grid-cols-6 gap-12">
+            <div className="grid grid-cols-1 lg:grid-cols-6 gap-6">
               {/* Left Column: Main Form Fields (5/6) */}
               <div className="lg:col-span-5 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -375,7 +437,7 @@ export default function PurchaseForm({
                   onChange={(url) => setValue("attachmentUrl", url || "")}
                   allowedTypes={["application/pdf", "image/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]}
                   previewStyle="square"
-                  width={200}
+                  width={180}
                   height={120}
                 />
                 {errors.attachmentUrl && (
@@ -392,15 +454,25 @@ export default function PurchaseForm({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() =>
+                  onClick={() => {
+                    const newIndex = fields.length;
                     append({
                       itemId: "",
                       description: "",
                       quantity: 1,
                       unitPrice: 0,
                       amount: 0,
-                    })
-                  }
+                    });
+                    // Sync with Redux
+                    dispatch(addReduxItem());
+                    // Auto-focus the new item's select dropdown after render
+                    setTimeout(() => {
+                      const newSelectTrigger = document.querySelector(`[data-item-select-index="${newIndex}"]`);
+                      if (newSelectTrigger instanceof HTMLElement) {
+                        newSelectTrigger.click();
+                      }
+                    }, 100);
+                  }}
                 >
                   <FiPlus className="mr-2 h-4 w-4" />
                   Add Item
@@ -413,6 +485,7 @@ export default function PurchaseForm({
                     <tr>
                       <th className="text-left px-3 py-2">Item</th>
                       <th className="text-left px-3 py-2">Description</th>
+                      <th className="text-right px-3 py-2">Stock</th>
                       <th className="text-right px-3 py-2">Qty</th>
                       <th className="text-right px-3 py-2">Unit Price</th>
                       <th className="text-right px-3 py-2">Amount</th>
@@ -420,60 +493,122 @@ export default function PurchaseForm({
                     </tr>
                   </thead>
                   <tbody>
-                    {fields.map((field, index) => (
-                      <tr key={field.id} className="border-t">
+                    {fields.map((field, index) => {
+                      // Get list of already selected item IDs (excluding current row)
+                      const selectedItemIds = watch("items")
+                        .map((item, idx) => idx !== index ? item.itemId : null)
+                        .filter((id): id is string => !!id);
+                      
+                      // Filter out already selected items
+                      const availableItems = filteredItemsForSelect.filter(
+                        item => !selectedItemIds.includes(item.id)
+                      );
+                      
+                      // Get selected item details for display
+                      const selectedItem = items.find(item => item.id === watch(`items.${index}.itemId`));
+                      
+                      return (
+                        <tr key={field.id} className="border-t">
                         <td className="px-3 py-2 align-top min-w-[220px]">
                           <Controller
                             name={`items.${index}.itemId`}
                             control={control}
-                            render={({ field: itemField }) => (
-                              <Select
-                                value={itemField.value || ""}
-                                onValueChange={(value) => {
-                                  itemField.onChange(value || "");
-                                  const selectedItem = items.find((item) => item.id === value);
-                                  if (selectedItem) {
-                                    setValue(`items.${index}.description`, selectedItem.description);
-                                    setValue(`items.${index}.unitPrice`, selectedItem.unitPrice);
-                                    updateAmount(index);
-                                  }
-                                }}
-                                disabled={loading}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select item" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-[300px]">
-                                  <div className="p-2">
-                                    <div className="relative">
-                                      <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
-                                      <Input
-                                        placeholder="Search items..."
-                                        value={itemSearch}
-                                        onChange={(e) => {
-                                          setItemSearch(e.target.value);
-                                        }}
-                                        onKeyDown={(e) => {
-                                          e.stopPropagation();
-                                          if (e.key === "Enter") {
-                                            e.preventDefault();
-                                          }
-                                        }}
-                                        className="pl-8 h-8 text-xs"
-                                        onClick={(e) => e.stopPropagation()}
-                                      />
+                            render={({ field: itemField }) => {
+                              const searchInputRef = React.useRef<HTMLInputElement>(null);
+                              
+                              return (
+                                <Select
+                                  value={itemField.value || ""}
+                                  onValueChange={(value) => {
+                                    itemField.onChange(value || "");
+                                    const selectedItem = items.find((item) => item.id === value);
+                                    if (selectedItem) {
+                                      setValue(`items.${index}.description`, selectedItem.description);
+                                      setValue(`items.${index}.unitPrice`, selectedItem.unitPrice);
+                                      
+                                      // Calculate amount immediately with the new unit price
+                                      const currentQuantity = Number(getValues(`items.${index}.quantity`) || 0);
+                                      const amount = Number.isFinite(currentQuantity * selectedItem.unitPrice) 
+                                        ? currentQuantity * selectedItem.unitPrice 
+                                        : 0;
+                                      setValue(`items.${index}.amount`, amount);
+                                      
+                                      // Dispatch to Redux for instant calculation
+                                      dispatch(setReduxItem({
+                                        index,
+                                        itemId: value,
+                                        description: selectedItem.description,
+                                        unitPrice: selectedItem.unitPrice,
+                                      }));
+                                      
+                                      // Clear search after selection
+                                      setItemSearch("");
+                                    }
+                                  }}
+                                  onOpenChange={(open) => {
+                                    if (open) {
+                                      // Auto-focus search when dropdown opens
+                                      setTimeout(() => {
+                                        searchInputRef.current?.focus();
+                                      }, 0);
+                                    } else {
+                                      // Clear search when dropdown closes to prevent empty display
+                                      setItemSearch("");
+                                    }
+                                  }}
+                                  disabled={loading}
+                                >
+                                  <SelectTrigger className="text-left" data-item-select-index={index}>
+                                    <SelectValue placeholder="Select item">
+                                      {selectedItem ? `${selectedItem.code} - ${selectedItem.description}` : null}
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent className="max-h-[300px]">
+                                    <div className="p-2">
+                                      <div className="relative">
+                                        <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
+                                        <Input
+                                          ref={searchInputRef}
+                                          placeholder="Search items..."
+                                          value={itemSearch}
+                                          onChange={(e) => {
+                                            setItemSearch(e.target.value);
+                                          }}
+                                          onKeyDown={(e) => {
+                                            // Allow navigation keys (ArrowUp, ArrowDown, Enter, Escape) to bubble up to Select
+                                            if (['ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(e.key)) {
+                                              // Don't stop propagation - let Select handle it
+                                              return;
+                                            }
+                                            // For all other keys (typing), stop propagation
+                                            e.stopPropagation();
+                                          }}
+                                          className="pl-8 h-8 text-xs"
+                                          onClick={(e) => e.stopPropagation()}
+                                          onMouseDown={(e) => e.stopPropagation()}
+                                        />
+                                      </div>
                                     </div>
-                                  </div>
-                                  <div className="max-h-[200px] overflow-y-auto">
-                                    {filteredItemsForSelect.map((item) => (
-                                      <SelectItem key={item.id} value={item.id} className="text-left">
-                                        {item.code} - {item.description}
-                                      </SelectItem>
-                                    ))}
-                                  </div>
-                                </SelectContent>
-                              </Select>
-                            )}
+                                    <div className="max-h-[200px] overflow-y-auto">
+                                      {availableItems.length > 0 ? (
+                                        availableItems.map((item) => (
+                                          <SelectItem key={item.id} value={item.id} className="text-left">
+                                            <div className="flex justify-between items-center w-full gap-2">
+                                              <span>{item.code} - {item.description}</span>
+                                              <span className="text-xs text-muted-foreground ml-auto">Stock: {item.stock}</span>
+                                            </div>
+                                          </SelectItem>
+                                        ))
+                                      ) : (
+                                        <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                                          {itemSearch ? "No items found" : "All items already selected"}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </SelectContent>
+                                </Select>
+                              );
+                            }}
                           />
                         </td>
                         <td className="px-3 py-2 align-top">
@@ -487,17 +622,29 @@ export default function PurchaseForm({
                             </p>
                           )}
                         </td>
+                        <td className="px-3 py-2 align-top text-right flex items-center gap-1">
+                          <div className="text-sm font-medium">
+                            {selectedItem?.stock ?? 0}
+                          </div> 
+                          {selectedItem && (
+                              <span className="text-sm text-muted-foreground">
+                                {selectedItem.unit}
+                              </span>
+                            )}
+                        </td>
                         <td className="px-3 py-2 align-top text-right">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            className="text-right"
-                            {...register(`items.${index}.quantity`, {
-                              valueAsNumber: true,
-                              onChange: () => updateAmount(index),
-                            })}
-                            disabled={loading}
-                          />
+                          <div className="flex items-center justify-end gap-1">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              className="text-right w-40"
+                              {...register(`items.${index}.quantity`, {
+                                valueAsNumber: true,
+                              })}
+                              disabled={loading}
+                            />
+                           
+                          </div>
                           {errors.items?.[index]?.quantity && (
                             <p className="text-xs text-destructive mt-1">
                               {errors.items[index]?.quantity?.message}
@@ -511,9 +658,8 @@ export default function PurchaseForm({
                             className="text-right"
                             {...register(`items.${index}.unitPrice`, {
                               valueAsNumber: true,
-                              onChange: () => updateAmount(index),
                             })}
-                            disabled={loading}
+                            disabled
                           />
                           {errors.items?.[index]?.unitPrice && (
                             <p className="text-xs text-destructive mt-1">
@@ -535,14 +681,19 @@ export default function PurchaseForm({
                             type="button"
                             variant="ghost"
                             size="icon"
-                            onClick={() => remove(index)}
+                            onClick={() => {
+                              remove(index);
+                              // Sync with Redux
+                              dispatch(removeReduxItem(index));
+                            }}
                             disabled={loading || fields.length === 1}
                           >
                             <FiTrash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
