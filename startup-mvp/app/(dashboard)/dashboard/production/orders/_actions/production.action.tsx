@@ -993,14 +993,14 @@ export async function startProductionOrder(id: string) {
             debitAmount: totalRawMaterialCost,
             creditAmount: 0,
             description: `Work In Progress - ${order.code}`,
-            chartOfAccountId: productionAccounts.wipAccountId,
+            chartOfAccountId: productionAccounts.consumptionWipAccountId,
           },
           {
             lineNumber: 2,
             debitAmount: 0,
             creditAmount: totalRawMaterialCost,
             description: `Raw Material Issue - ${order.code}`,
-            chartOfAccountId: productionAccounts.rawMaterialInventoryId,
+            chartOfAccountId: productionAccounts.consumptionRawMaterialInventoryId,
           },
         ];
 
@@ -1298,14 +1298,14 @@ export async function completeProductionOrder(id: string) {
                 debitAmount: totalRawMaterialCost,
                 creditAmount: 0,
                 description: `Finished Goods Inventory - ${order.code}`,
-                chartOfAccountId: productionAccounts.finishedGoodsInventoryId,
+                chartOfAccountId: productionAccounts.completionFinishedGoodsInventoryId,
               },
               {
                 lineNumber: 2,
                 debitAmount: 0,
                 creditAmount: totalRawMaterialCost,
                 description: `WIP Completion - ${order.code}`,
-                chartOfAccountId: productionAccounts.wipAccountId,
+                chartOfAccountId: productionAccounts.completionWipAccountId,
               },
             ],
           });
@@ -1458,14 +1458,14 @@ export async function cancelProductionOrder(id: string) {
               debitAmount: 0,
               creditAmount: totalRawMaterialCost,
               description: `WIP Reversal (Cancelled) - ${order.code}`,
-              chartOfAccountId: productionAccounts.wipAccountId,
+              chartOfAccountId: productionAccounts.consumptionWipAccountId,
             },
             {
               lineNumber: 2,
               debitAmount: totalRawMaterialCost,
               creditAmount: 0,
               description: `Raw Material Return (Cancelled) - ${order.code}`,
-              chartOfAccountId: productionAccounts.rawMaterialInventoryId,
+              chartOfAccountId: productionAccounts.consumptionRawMaterialInventoryId,
             },
           ];
 

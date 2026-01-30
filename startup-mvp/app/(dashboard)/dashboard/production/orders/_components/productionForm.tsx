@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -27,8 +27,19 @@ import {
 } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FiAlertCircle, FiLoader } from "react-icons/fi";
-import { createProductionOrder, updateProductionOrder, calculateRawMaterialsNeeded, validateStockAvailability } from "../_actions/production.action";
+import { createProductionOrder, updateProductionOrder, validateStockAvailability } from "../_actions/production.action";
+import { getBOMById } from "../../boms/_actions/bom.action";
 import { useToast } from "@/hooks/use-toast";
+
+// Redux imports
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "@/lib/store";
+import {
+  setProductionData,
+  setSelectedBOM,
+  initializeProduction,
+  resetProduction
+} from "@/lib/redux/slices/productionSlice";
 
 const productionFormSchema = z.object({
   bomId: z.string().min(1, "BOM is required"),
@@ -80,16 +91,12 @@ export default function ProductionForm({
   const { toast } = useToast();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [calculating, setCalculating] = useState(false);
-  const [materials, setMaterials] = useState<Array<{
-    itemId: string;
-    itemName: string;
-    itemCode: string;
-    unitSymbol: string;
-    quantityRequired: number;
-    quantityNeeded: number;
-    costPrice: number;
-  }>>([]);
+  const [fetchingBOM, setFetchingBOM] = useState(false);
+  
+  // Redux hooks
+  const dispatch = useDispatch<AppDispatch>();
+  const productionState = useSelector((state: RootState) => state.production);
+  
   const [stockValidation, setStockValidation] = useState<Array<{
     itemId: string;
     itemName: string;
@@ -98,9 +105,6 @@ export default function ProductionForm({
     available: number;
     isAvailable: boolean;
   }>>([]);
-  const [selectedBOM, setSelectedBOM] = useState<BOM | null>(
-    initialData ? boms.find((b) => b.id === initialData.bomId) || null : null
-  );
 
   const {
     register,
@@ -108,6 +112,7 @@ export default function ProductionForm({
     handleSubmit,
     formState: { errors },
     watch,
+    setValue,
   } = useForm<ProductionFormData>({
     resolver: zodResolver(productionFormSchema),
     defaultValues: initialData
@@ -128,55 +133,136 @@ export default function ProductionForm({
   const watchedBOMId = watch("bomId");
   const watchedQuantity = watch("quantity");
   const watchedWarehouseId = watch("warehouseId");
+  const watchedNotes = watch("notes");
 
-  // Calculate raw materials when BOM or quantity changes
+  // Initialize Redux state on mount
   useEffect(() => {
-    if (watchedBOMId && watchedQuantity > 0) {
-      setCalculating(true);
-      calculateRawMaterialsNeeded(watchedBOMId, watchedQuantity)
-        .then((result) => {
-          if (result.success) {
-            setMaterials(result.materials);
-            setSelectedBOM(boms.find((b) => b.id === watchedBOMId) || null);
+    const init = async () => {
+      dispatch(resetProduction()); // Clear previous state first
+
+      if (initialData) {
+        setFetchingBOM(true);
+        try {
+          // Fetch full BOM details for the initial BOM
+          const bomResult = await getBOMById(initialData.bomId);
+          if (bomResult.success && bomResult.bom) {
+            dispatch(initializeProduction({
+              bomId: initialData.bomId,
+              warehouseId: initialData.warehouseId,
+              quantity: initialData.quantity,
+              notes: initialData.notes || "",
+              selectedBOM: {
+                id: bomResult.bom.id,
+                quantityPerUnit: bomResult.bom.quantityPerUnit,
+                items: bomResult.bom.items.map(item => ({
+                  itemId: item.item.id,
+                  itemName: item.item.name,
+                  itemCode: item.item.code,
+                  unitSymbol: item.item.unit.symbol,
+                  quantityRequired: item.quantityRequired,
+                  costPrice: item.item.costPrice
+                }))
+              }
+            }));
+          }
+        } catch (error) {
+          console.error("Failed to initialize production data:", error);
+        } finally {
+          setFetchingBOM(false);
+        }
+      }
+    };
+    init();
+    
+    // Cleanup on unmount
+    return () => {
+      dispatch(resetProduction());
+    };
+  }, [dispatch, initialData]);
+
+  // Handle BOM Selection Change
+  useEffect(() => {
+    const handleBOMChange = async () => {
+      // Only fetch if BOM ID changed and it's not the initial load (which is handled above)
+      // and not null/empty
+      if (watchedBOMId && watchedBOMId !== productionState.bomId) {
+        setFetchingBOM(true);
+        try {
+          const bomResult = await getBOMById(watchedBOMId);
+          
+          if (bomResult.success && bomResult.bom) {
+             dispatch(setSelectedBOM({
+                id: bomResult.bom.id,
+                quantityPerUnit: bomResult.bom.quantityPerUnit,
+                items: bomResult.bom.items.map(item => ({
+                  itemId: item.item.id,
+                  itemName: item.item.name,
+                  itemCode: item.item.code,
+                  unitSymbol: item.item.unit.symbol,
+                  quantityRequired: item.quantityRequired,
+                  costPrice: item.item.costPrice
+                }))
+             }));
+             
+             // Also update the bomId in state
+             dispatch(setProductionData({ bomId: watchedBOMId }));
           } else {
-            setMaterials([]);
-            setError(result.error || "Failed to calculate materials");
+             setError("Failed to fetch BOM details");
+             dispatch(setSelectedBOM(null));
           }
-          setCalculating(false);
-        })
-        .catch((err) => {
-          console.error("Error calculating materials:", err);
-          setMaterials([]);
-          setCalculating(false);
-        });
-    } else {
-      setMaterials([]);
-      setSelectedBOM(null);
-    }
-  }, [watchedBOMId, watchedQuantity, boms]);
+        } catch (err) {
+          console.error("Error fetching BOM:", err);
+          setError("Error fetching BOM details");
+        } finally {
+          setFetchingBOM(false);
+        }
+      } else if (!watchedBOMId) {
+        dispatch(setSelectedBOM(null));
+        dispatch(setProductionData({ bomId: null }));
+      }
+    };
 
-  // Validate stock when materials or warehouse changes
+    handleBOMChange();
+  }, [watchedBOMId, dispatch, productionState.bomId]);
+
+  // Sync Form Data Changes to Redux (for quantity calculation)
   useEffect(() => {
-    if (materials.length > 0 && watchedWarehouseId) {
-      validateStockAvailability(
-        materials.map((m) => ({
-          itemId: m.itemId,
-          quantityNeeded: m.quantityNeeded,
-        })),
-        watchedWarehouseId
-      )
-        .then((result) => {
-          if (result.success) {
-            setStockValidation(result.results);
-          }
-        })
-        .catch((err) => {
-          console.error("Error validating stock:", err);
-        });
-    } else {
-      setStockValidation([]);
-    }
-  }, [materials, watchedWarehouseId]);
+    dispatch(setProductionData({
+      quantity: Number(watchedQuantity) || 0,
+      warehouseId: watchedWarehouseId || null,
+      notes: watchedNotes || ""
+    }));
+  }, [watchedQuantity, watchedWarehouseId, watchedNotes, dispatch]);
+
+
+  // Validate stock when materials or warehouse changes (Side Effect)
+  useEffect(() => {
+    // Check validation availability
+    // Debounce this slightly to avoid excessive calls during rapid typing
+    const timer = setTimeout(() => {
+      if (productionState.materials.length > 0 && watchedWarehouseId) {
+        validateStockAvailability(
+          productionState.materials.map((m) => ({
+            itemId: m.itemId,
+            quantityNeeded: m.quantityNeeded,
+          })),
+          watchedWarehouseId
+        )
+          .then((result) => {
+            if (result.success) {
+              setStockValidation(result.results);
+            }
+          })
+          .catch((err) => {
+            console.error("Error validating stock:", err);
+          });
+      } else {
+        setStockValidation([]);
+      }
+    }, 500); // 500ms debounce for stock validation (network call)
+
+    return () => clearTimeout(timer);
+  }, [productionState.materials, watchedWarehouseId]);
 
   const onSubmit = async (data: ProductionFormData) => {
     setError("");
@@ -225,8 +311,8 @@ export default function ProductionForm({
     }
   };
 
-  const totalCost = materials.reduce((sum, m) => sum + m.quantityNeeded * m.costPrice, 0);
   const hasStockWarnings = stockValidation.some((v) => !v.isAvailable);
+  const selectedBOMSummary = boms.find((b) => b.id === watchedBOMId);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -247,8 +333,8 @@ export default function ProductionForm({
           </AlertDescription>
         </Alert>
       )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* BOM Selection */}
         <div className="space-y-2">
           <Label htmlFor="bomId">Bill of Materials *</Label>
@@ -260,9 +346,9 @@ export default function ProductionForm({
                 value={field.value}
                 onValueChange={(value) => {
                   field.onChange(value);
-                  setSelectedBOM(boms.find((b) => b.id === value) || null);
+                  // Redux dispatch handled in useEffect
                 }}
-                disabled={mode === "edit"}
+                disabled={mode === "edit" || loading}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select BOM" />
@@ -280,9 +366,9 @@ export default function ProductionForm({
           {errors.bomId && (
             <p className="text-sm text-destructive">{errors.bomId.message}</p>
           )}
-          {selectedBOM && (
+          {selectedBOMSummary && (
             <p className="text-xs text-muted-foreground">
-              Produces {selectedBOM.quantityPerUnit} {selectedBOM.unitSymbol} per unit
+              Produces {selectedBOMSummary.quantityPerUnit} {selectedBOMSummary.unitSymbol} per unit
             </p>
           )}
         </div>
@@ -294,7 +380,7 @@ export default function ProductionForm({
             name="warehouseId"
             control={control}
             render={({ field }) => (
-              <Select value={field.value} onValueChange={field.onChange}>
+              <Select value={field.value} onValueChange={field.onChange} disabled={loading}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select warehouse" />
                 </SelectTrigger>
@@ -322,19 +408,20 @@ export default function ProductionForm({
             step="0.01"
             min="0.01"
             {...register("quantity")}
+            disabled={loading}
           />
           {errors.quantity && (
             <p className="text-sm text-destructive">{errors.quantity.message}</p>
           )}
-          {selectedBOM && watchedQuantity > 0 && (
+          {selectedBOMSummary && watchedQuantity > 0 && (
             <p className="text-xs text-muted-foreground">
               Will produce:{" "}
-              {(selectedBOM.quantityPerUnit * watchedQuantity).toFixed(2)}{" "}
-              {selectedBOM.unitSymbol} of {selectedBOM.itemName}
+              {(selectedBOMSummary.quantityPerUnit * watchedQuantity).toFixed(2)}{" "}
+              {selectedBOMSummary.unitSymbol} of {selectedBOMSummary.itemName}
             </p>
           )}
         </div>
-
+      </div>
         {/* Notes */}
         <div className="space-y-2">
           <Label htmlFor="notes">Notes</Label>
@@ -343,6 +430,7 @@ export default function ProductionForm({
             {...register("notes")}
             placeholder="Optional notes about this production order"
             rows={3}
+            disabled={loading}
           />
         </div>
       </div>
@@ -357,14 +445,16 @@ export default function ProductionForm({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {calculating ? (
+            {fetchingBOM ? (
               <div className="flex items-center justify-center py-8">
                 <FiLoader className="h-6 w-6 animate-spin text-muted-foreground" />
-                <span className="ml-2 text-sm text-muted-foreground">Calculating...</span>
+                <span className="ml-2 text-sm text-muted-foreground">Loading BOM details...</span>
               </div>
-            ) : materials.length === 0 ? (
+            ) : productionState.materials.length === 0 ? (
+               // If no materials are found or BOM not fully loaded yet (but not fetching)
+               // This can happen briefly if BOM details action failed or returned empty items
               <p className="text-sm text-muted-foreground text-center py-4">
-                Select a BOM and quantity to see required materials
+                {selectedBOMSummary ? "No raw materials configured for this BOM." : "Select a BOM to see required materials"}
               </p>
             ) : (
               <div className="space-y-4">
@@ -380,7 +470,7 @@ export default function ProductionForm({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {materials.map((material) => {
+                      {productionState.materials.map((material) => {
                         const validation = stockValidation.find(
                           (v) => v.itemId === material.itemId
                         );
@@ -433,7 +523,7 @@ export default function ProductionForm({
                   <div className="text-sm">
                     <span className="text-muted-foreground">Estimated Raw Material Cost: </span>
                     <span className="font-semibold">
-                      ৳{totalCost.toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ৳{productionState.totalCost.toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>
@@ -453,7 +543,7 @@ export default function ProductionForm({
         >
           Cancel
         </Button>
-        <Button type="submit" disabled={loading || calculating}>
+        <Button type="submit" disabled={loading || fetchingBOM}>
           {loading ? (
             <>
               <FiLoader className="mr-2 h-4 w-4 animate-spin" />

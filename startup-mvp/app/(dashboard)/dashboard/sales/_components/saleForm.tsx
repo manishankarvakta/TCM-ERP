@@ -32,6 +32,23 @@ import { SaleStatus } from "@prisma/client";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
+// Redux imports
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "@/lib/store";
+import {
+  setSaleItem,
+  setSaleItemQuantity,
+  setSaleItemUnitPrice,
+  setSaleItemDescription,
+  addSaleItem,
+  removeSaleItem,
+  setSaleDiscount,
+  setSaleTax,
+  toggleSaleAutoTax,
+  resetSale,
+  initializeSale,
+} from "@/lib/redux/slices/salesSlice";
+
 const saleItemSchema = z.object({
   itemId: z.string().min(1, "Item is required"),
   description: z.string().min(1, "Description is required"),
@@ -106,7 +123,8 @@ export default function SaleForm({
   const { toast } = useToast();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [autoTaxEnabled, setAutoTaxEnabled] = useState(false);
+  // autoTaxEnabled is now managed by Redux, but we might keep local for UI toggle if needed? 
+  // No, let's rely on Redux for calculations.
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
   const [creatingClient, setCreatingClient] = useState(false);
   const [clients, setClients] = useState(initialClients);
@@ -121,6 +139,10 @@ export default function SaleForm({
     zip: "",
     country: "Bangladesh",
   });
+  
+  // Redux hooks
+  const dispatch = useDispatch<AppDispatch>();
+  const salesState = useSelector((state: RootState) => state.sales);
 
   const defaultItems =
     initialData?.items.map((item) => ({
