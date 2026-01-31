@@ -15,6 +15,7 @@ import { FiArrowLeft } from "react-icons/fi";
 import { format } from "date-fns";
 import { notFound } from "next/navigation";
 import PageGuard from "@/components/permissions/page-guard";
+import VoucherPrintAction from "../_components/print/voucher-print-action";
 
 interface VoucherDetailPageProps {
   params: Promise<{
@@ -63,8 +64,58 @@ export default async function VoucherDetailPage({ params }: VoucherDetailPagePro
   }
 
   const voucher = result.voucher;
-  const totalDebit = voucher.voucherLines.reduce((sum, line) => sum + line.debitAmount, 0);
-  const totalCredit = voucher.voucherLines.reduce((sum, line) => sum + line.creditAmount, 0);
+  
+  // Serialize voucher for client component (convert Decimals to numbers/strings)
+  const serializedVoucher = {
+    ...voucher,
+    lines: voucher.voucherLines.map((line: any) => ({
+      lineNumber: line.lineNumber,
+      description: line.description,
+      debitAmount: Number(line.debitAmount),
+      creditAmount: Number(line.creditAmount),
+      account: {
+        name: line.chartOfAccount.name,
+        code: line.chartOfAccount.code
+      }
+    })),
+    // Ensure dates are strings if needed, though Date objects are usually fine if serializable, 
+    // but safer to pass as strings or keep as Date if next handles it. 
+    // For react-to-print component, we need specific structure matching VoucherPrintTemplateProps
+    client: voucher.journalEntries?.[0]?.journalEntryLines?.find((l: any) => l.clientId)?.client ? {
+        name: voucher.journalEntries[0]?.journalEntryLines.find((l: any) => l.clientId)?.client?.name || null,
+        email: voucher.journalEntries[0]?.journalEntryLines.find((l: any) => l.clientId)?.client?.email || ""
+    } : null,
+    supplier: voucher.supplierId ? { // Assuming we can fetch supplier details or it's already in the voucher object if fetched
+        name: null, // Basic voucher might not have supplier details loaded directly here without include
+        email: ""
+    } : null 
+  };
+   
+  // Refine the serialization to match exactly what VoucherPrintTemplate needs
+  // We need to map the voucherLines to the structure expected by the print template
+  const printVoucherData = {
+    voucherNumber: voucher.voucherNumber,
+    date: voucher.date,
+    type: voucher.type,
+    description: voucher.description,
+    reference: voucher.reference,
+    status: voucher.status,
+    client: null, // You might need to fetch client/supplier details if not present
+    supplier: null, // or extract from lines if possible
+    lines: voucher.voucherLines.map((line: any) => ({
+        lineNumber: line.lineNumber,
+        description: line.description,
+        debitAmount: Number(line.debitAmount),
+        creditAmount: Number(line.creditAmount),
+        account: {
+            name: line.chartOfAccount.name,
+            code: line.chartOfAccount.code
+        }
+    }))
+  };
+
+  const totalDebit = voucher.voucherLines.reduce((sum: number, line: any) => sum + line.debitAmount, 0);
+  const totalCredit = voucher.voucherLines.reduce((sum: number, line: any) => sum + line.creditAmount, 0);
 
   return (
     <PageGuard permissionKey="accounts.vouchers">
@@ -76,6 +127,7 @@ export default async function VoucherDetailPage({ params }: VoucherDetailPagePro
               Back to Vouchers
             </Link>
           </Button>
+          <VoucherPrintAction voucher={printVoucherData} />
         </div>
 
         <Card>
