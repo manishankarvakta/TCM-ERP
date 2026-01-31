@@ -1,0 +1,383 @@
+"use client";
+
+import React, { useEffect, useState, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
+import { Plus, Trash2, Search } from "lucide-react";
+import { createAdjustment } from "../../_actions/adjustment.action";
+import { getStock, getWarehouseStocks } from "../../../stock/_actions/stock.action";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+
+// Schema
+const adjustmentSchema = z.object({
+  warehouseId: z.string().min(1, "Warehouse is required"),
+  date: z.string().refine((val) => !isNaN(Date.parse(val)), "Invalid date"),
+  notes: z.string().optional(),
+  items: z.array(z.object({
+    itemId: z.string().min(1, "Item is required"),
+    quantity: z.number().refine(val => val !== 0, "Quantity cannot be zero"),
+    unitRate: z.number().min(0, "Rate must be positive"),
+    // UI only fields
+    description: z.string().optional(),
+    amount: z.number().optional()
+  })).min(1, "At least one item is required"),
+});
+
+type AdjustmentFormValues = z.infer<typeof adjustmentSchema>;
+
+interface AdjustmentFormProps {
+  warehouses: any[];
+  items: any[]; 
+}
+
+export default function AdjustmentForm({ warehouses, items }: AdjustmentFormProps) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [stockMap, setStockMap] = useState<Record<string, number>>({});
+  const [itemSearch, setItemSearch] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const form = useForm<AdjustmentFormValues>({
+    resolver: zodResolver(adjustmentSchema),
+    defaultValues: {
+      warehouseId: "",
+      date: new Date().toISOString().split("T")[0],
+      notes: "",
+      items: [{ itemId: "", quantity: 0, unitRate: 0, description: "", amount: 0 }],
+    },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "items",
+  });
+
+  const watchedItems = useWatch({
+    control: form.control,
+    name: "items",
+  });
+
+  const warehouseId = useWatch({
+    control: form.control,
+    name: "warehouseId",
+  });
+
+  // Filter items based on search
+  const filteredItems = useMemo(() => {
+    if (!itemSearch) return items;
+    const searchLower = itemSearch.toLowerCase();
+    return items.filter(
+      (item) =>
+        item.name.toLowerCase().includes(searchLower) ||
+        item.code.toLowerCase().includes(searchLower)
+    );
+  }, [items, itemSearch]);
+
+  // Calculate amounts
+  useEffect(() => {
+    const subscription = form.watch((value, { name, type }) => {
+      if (name?.includes('quantity') || name?.includes('unitRate')) {
+         const index = parseInt(name.split('.')[1]);
+         if (!isNaN(index)) {
+            const qty = value.items?.[index]?.quantity || 0;
+            const rate = value.items?.[index]?.unitRate || 0;
+            const amount = Math.abs(Number(qty) * Number(rate));
+            form.setValue(`items.${index}.amount`, Number(amount.toFixed(2)));
+         }
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
+  // Fetch ALL stocks for warehouse when warehouse changes
+  useEffect(() => {
+     if (!warehouseId) return;
+     
+     const fetchAllStocks = async () => {
+        const res = await getWarehouseStocks(warehouseId);
+        if (res.success && res.stocks) {
+           const map: Record<string, number> = {};
+           res.stocks.forEach(s => {
+             map[s.itemId] = s.quantity;
+           });
+           setStockMap(map);
+        }
+     };
+     
+     fetchAllStocks();
+  }, [warehouseId]); 
+
+  const onSubmit = async (data: AdjustmentFormValues) => {
+    setIsSubmitting(true);
+    try {
+      const result = await createAdjustment({
+         warehouseId: data.warehouseId,
+         date: new Date(data.date),
+         notes: data.notes,
+         items: data.items.map(i => ({
+             itemId: i.itemId,
+             quantity: i.quantity,
+             unitRate: i.unitRate
+         })),
+      });
+
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Draft adjustment created",
+        }); 
+        router.push("/dashboard/inventory/adjustments");
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to create adjustment",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleItemSelect = async (index: number, itemId: string) => {
+    form.setValue(`items.${index}.itemId`, itemId);
+    const selectedItem = items.find(i => i.id === itemId);
+    if (selectedItem) {
+       form.setValue(`items.${index}.unitRate`, Number(selectedItem.costPrice || 0));
+       form.setValue(`items.${index}.description`, selectedItem.description || selectedItem.name || "");
+       
+       const qty = form.getValues(`items.${index}.quantity`) || 0;
+       const rate = Number(selectedItem.costPrice || 0);
+       form.setValue(`items.${index}.amount`, Number(Math.abs(qty * rate).toFixed(2)));
+
+       const currentWarehouseId = form.getValues("warehouseId");
+       if (currentWarehouseId) {
+          // Update single stock immediately if needed, though we bulk fetched already
+          // But to be super accurate we might want to refresh this specific item just in case
+          const res = await getStock(itemId, currentWarehouseId);
+          if (res.success && res.stock) {
+             setStockMap(prev => ({ ...prev, [itemId]: Number(res.stock.quantity) }));
+          } else {
+             setStockMap(prev => ({ ...prev, [itemId]: 0 }));
+          }
+       }
+       // Clear search
+       setItemSearch("");
+    }
+  };
+
+  return (
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <Card>
+        <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Warehouse</Label>
+            <Select 
+              onValueChange={(val) => form.setValue("warehouseId", val)} 
+              defaultValue={form.getValues("warehouseId")}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select Warehouse" />
+              </SelectTrigger>
+              <SelectContent>
+                {warehouses.map(w => (
+                  <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {form.formState.errors.warehouseId && <p className="text-sm text-red-500">{form.formState.errors.warehouseId.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Date</Label>
+            <Input type="date" {...form.register("date")} />
+          </div>
+
+          <div className="col-span-1 md:col-span-2 space-y-2">
+            <Label>Notes</Label>
+            <Textarea {...form.register("notes")} placeholder="Reason for adjustment..." />
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">Items</h3>
+            <Button type="button" variant="outline" size="sm" onClick={() => append({ itemId: "", quantity: 0, unitRate: 0, description: "", amount: 0 })}>
+              <Plus className="mr-2 h-4 w-4" /> Add Item
+            </Button>
+        </div>
+
+        <Card>
+            <div className="p-0">
+               <Table>
+                 <TableHeader>
+                   <TableRow className="bg-muted/50">
+                     <TableHead className="w-[20%]">Item</TableHead>
+                     <TableHead className="w-[20%]">Description</TableHead>
+                     <TableHead className="w-[10%]">Stock</TableHead>
+                     <TableHead className="w-[15%]">Qty</TableHead>
+                     <TableHead className="w-[15%]">Cost Price</TableHead>
+                     <TableHead className="w-[15%]">Amount</TableHead>
+                     <TableHead className="w-[50px]"></TableHead>
+                   </TableRow>
+                 </TableHeader>
+                 <TableBody>
+                   {fields.map((field, index) => {
+                     const selectedItem = items.find(i => i.id === form.getValues(`items.${index}.itemId`));
+                     
+                     return (
+                     <TableRow key={field.id}>
+                       <TableCell>
+                         <Select
+                           onValueChange={(val) => handleItemSelect(index, val)}
+                           defaultValue={form.getValues(`items.${index}.itemId`)}
+                           onOpenChange={(open) => {
+                              if (open) {
+                                setTimeout(() => {
+                                  searchInputRef.current?.focus();
+                                }, 0);
+                              } else {
+                                setItemSearch("");
+                              }
+                           }}
+                         >
+                            <SelectTrigger>
+                               <SelectValue placeholder="Select item">
+                                  {selectedItem ? `${selectedItem.name} (${selectedItem.code})` : "Select item"}
+                               </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                               <div className="p-2 sticky top-0 bg-popover z-10">
+                                  <div className="relative">
+                                    <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4 z-10 pointer-events-none" />
+                                    <Input 
+                                      ref={searchInputRef}
+                                      placeholder="Search items..."
+                                      value={itemSearch}
+                                      onChange={(e) => setItemSearch(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (['ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(e.key)) {
+                                          return;
+                                        }
+                                        e.stopPropagation();
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                      className="pl-8 h-8 text-xs"
+                                    />
+                                  </div>
+                               </div>
+                               <div className="max-h-[200px] overflow-y-auto">
+                                 {filteredItems.length > 0 ? (
+                                    filteredItems.map((item) => (
+                                      <SelectItem key={item.id} value={item.id} className="text-left w-full">
+                                          <div className="flex justify-between items-center w-full gap-4">
+                                            <span>{item.name} ({item.code})</span>
+                                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                                Stock: {stockMap[item.id] || 0}
+                                            </span>
+                                          </div>
+                                      </SelectItem>
+                                    ))
+                                 ) : (
+                                    <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                                      No items found
+                                    </div>
+                                 )}
+                               </div>
+                            </SelectContent>
+                         </Select>
+                         {form.formState.errors.items?.[index]?.itemId && 
+                           <p className="text-xs text-red-500">{form.formState.errors.items[index]?.itemId?.message}</p>
+                         }
+                       </TableCell>
+                       <TableCell>
+                          <Input 
+                             readOnly
+                             className="bg-muted"
+                             {...form.register(`items.${index}.description`)}
+                          />
+                       </TableCell>
+                       <TableCell>
+                          <div className="text-sm font-medium">
+                             {stockMap[form.getValues(`items.${index}.itemId`)] || 0}
+                          </div>
+                       </TableCell>
+                       <TableCell>
+                         <Input 
+                           type="number" 
+                           step="0.01" 
+                           className="text-center"
+                           {...form.register(`items.${index}.quantity`, { valueAsNumber: true })} 
+                         />
+                         <p className="text-[10px] text-muted-foreground mt-1">Neg for loss</p>
+                       </TableCell>
+                       <TableCell>
+                          <Input 
+                            readOnly
+                            type="number" 
+                            step="0.01" 
+                            min="0"
+                             className="text-right bg-muted"
+                            {...form.register(`items.${index}.unitRate`, { valueAsNumber: true })} 
+                          />
+                       </TableCell>
+                       <TableCell>
+                          <Input 
+                              readOnly
+                              className="bg-muted text-right"
+                              value={form.watch(`items.${index}.amount`) || 0}
+                          />
+                       </TableCell>
+                       <TableCell>
+                         <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)}>
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                         </Button>
+                       </TableCell>
+                     </TableRow>
+                   )})}
+                 </TableBody>
+               </Table>
+            </div>
+        </Card>
+      </div>
+
+      <div className="flex justify-end gap-2">
+         <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+         <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Creating..." : "Create Draft"}
+         </Button>
+      </div>
+    </form>
+  );
+}

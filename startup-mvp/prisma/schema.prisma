@@ -111,6 +111,8 @@ model User {
   createdProductionOrders          ProductionOrder[]   @relation("ProductionOrderCreator")
   createdSales                     Sale[]              @relation("SaleCreatedBy")
   updatedSales                     Sale[]              @relation("SaleUpdatedBy")
+  InventoryAdjustmentCreated       InventoryAdjustment[] @relation("InventoryAdjustment_createdBy")
+  InventoryAdjustmentUpdated       InventoryAdjustment[] @relation("InventoryAdjustment_updatedBy")
 
   @@index([status])
   @@index([designationTemplateId])
@@ -324,6 +326,7 @@ model Item {
   productionOrders  ProductionOrder[] @relation("ProductionOrderFG")
   purchaseItems     PurchaseItem[]
   saleItems         SaleItem[]
+  InventoryAdjustmentItem InventoryAdjustmentItem[]
 
   @@index([code])
   @@index([name])
@@ -356,6 +359,7 @@ model Warehouse {
   productionOrders ProductionOrder[]
   purchases        Purchase[]
   sales            Sale[]
+  InventoryAdjustment InventoryAdjustment[]
 
   @@index([code])
   @@index([name])
@@ -848,6 +852,7 @@ model Voucher {
   purchases                     Purchase[]
   sales                         Sale[]
   productionOrders              ProductionOrder[]
+  inventoryAdjustment           InventoryAdjustment?
   isLocked                      Boolean           @default(false)
 
   @@index([clientId])
@@ -913,4 +918,53 @@ model AccountingPeriod {
 
   @@index([startDate, endDate])
   @@index([isLocked])
+}
+
+enum InventoryAdjustmentStatus {
+  DRAFT
+  COMPLETED
+  CANCELLED
+}
+
+model InventoryAdjustment {
+  id              String                    @id @default(cuid())
+  adjustmentNumber String                    @unique
+  warehouseId     String
+  date            DateTime                  @default(now())
+  status          InventoryAdjustmentStatus @default(DRAFT)
+  notes           String?
+  voucherId       String?                   @unique
+  createdBy       String
+  updatedBy       String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  warehouse       Warehouse                 @relation(fields: [warehouseId], references: [id])
+  voucher         Voucher?                  @relation(fields: [voucherId], references: [id])
+  createdByUser   User                      @relation("InventoryAdjustment_createdBy", fields: [createdBy], references: [id])
+  updatedByUser   User?                     @relation("InventoryAdjustment_updatedBy", fields: [updatedBy], references: [id])
+  items           InventoryAdjustmentItem[]
+
+  @@index([warehouseId])
+  @@index([voucherId])
+  @@index([createdBy])
+  @@index([date])
+  @@index([status])
+}
+
+model InventoryAdjustmentItem {
+  id                    String              @id @default(cuid())
+  inventoryAdjustmentId String
+  itemId                String
+  quantity              Decimal             @db.Decimal(12, 2) // Positive for Gain, Negative for Loss
+  unitRate              Decimal             @default(0) @db.Decimal(12, 2) // Current Cost Price
+  amount                Decimal             @default(0) @db.Decimal(12, 2) // quantity * unitRate (Absolute value for display/accounting logic)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  inventoryAdjustment   InventoryAdjustment @relation(fields: [inventoryAdjustmentId], references: [id], onDelete: Cascade)
+  item                  Item                @relation(fields: [itemId], references: [id])
+
+  @@index([inventoryAdjustmentId])
+  @@index([itemId])
 }

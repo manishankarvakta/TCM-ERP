@@ -218,6 +218,7 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     description: "Stock and inventory management",
     subModules: [
       { id: "stock", label: "Stock", path: "/dashboard/inventory/stock", module: "inventory", permissionKey: "inventory.stock" },
+      { id: "adjustments", label: "Adjustments", path: "/dashboard/inventory/adjustments", module: "inventory", permissionKey: "inventory.adjustments" },
     ],
   },
   production: {
@@ -695,6 +696,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         path: "/dashboard/inventory/stock/ledger",
         label: "Stock Ledger",
         operations: ["view"],
+      },
+      {
+        permissionKey: "inventory.adjustments",
+        path: "/dashboard/inventory/adjustments",
+        label: "Adjustments",
+        operations: ["create", "view", "approve"],
       },
     ],
   },

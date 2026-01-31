@@ -785,6 +785,42 @@ export async function getStock(itemId: string, warehouseId: string) {
 }
 
 /**
+ * Get all stocks for a specific warehouse
+ */
+export async function getWarehouseStocks(warehouseId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", stocks: [] };
+    }
+
+    const stocks = await prisma.stock.findMany({
+      where: {
+        warehouseId,
+      },
+      select: {
+        itemId: true,
+        quantity: true,
+      },
+    });
+
+    return {
+      success: true,
+      stocks: stocks.map(s => ({ itemId: s.itemId, quantity: Number(s.quantity) })),
+      debug: { warehouseId, count: stocks.length }
+    };
+  } catch (error) {
+    console.error("getWarehouseStocks error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch stocks",
+      stocks: [],
+      debug: { warehouseId, error: String(error) }
+    };
+  }
+}
+
+/**
  * Get paginated list of stocks with filters
  */
 export async function getStocks(
@@ -1211,6 +1247,8 @@ export async function getActiveItems() {
         id: true,
         name: true,
         code: true,
+        description: true,
+        costPrice: true,
         trackInventory: true,
       },
       orderBy: {
@@ -1220,7 +1258,10 @@ export async function getActiveItems() {
 
     return {
       success: true,
-      items,
+      items: items.map(item => ({
+        ...item,
+        costPrice: Number(item.costPrice)
+      })),
     };
   } catch (error) {
     console.error("getActiveItems error:", error);

@@ -14,6 +14,7 @@ import { getPurchaseById } from "@/app/(dashboard)/dashboard/purchases/_actions/
 import { getCategoryById } from "@/app/(dashboard)/dashboard/master/categories/_actions/category.action";
 import { getUnitById } from "@/app/(dashboard)/dashboard/master/units/_actions/unit.action";
 import { getVoucherById } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
+import { getAdjustment } from "@/app/(dashboard)/dashboard/inventory/adjustments/_actions/adjustment.action";
 
 // Map route paths to display names
 const routeMap: Record<string, string> = {
@@ -106,7 +107,31 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [categoryName, setCategoryName] = useState<string | null>(null);
   const [unitSymbol, setUnitSymbol] = useState<string | null>(null);
   const [voucherNumber, setVoucherNumber] = useState<string | null>(null);
+  const [adjustmentNumber, setAdjustmentNumber] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
+
+  // Check if we're on an inventory adjustment detail page
+  const isAdjustmentDetailMatch = pathname.match(/^\/dashboard\/inventory\/adjustments\/([^\/]+)$/);
+  const adjustmentId = isAdjustmentDetailMatch?.[1] || null;
+
+  // Fetch adjustment number
+  useEffect(() => {
+    if (!adjustmentId) return;
+
+    let cancelled = false;
+    async function fetchAdjustment() {
+       try {
+          const result = await getAdjustment(adjustmentId!);
+          if (!cancelled && result.success && result.adjustment) {
+             setAdjustmentNumber(result.adjustment.adjustmentNumber);
+          }
+       } catch (error) {
+          if (!cancelled) console.error(error);
+       }
+    }
+    fetchAdjustment();
+    return () => { cancelled = true; };
+  }, [adjustmentId]);
 
   // Check if we're on a unit detail or edit page
   const isUnitDetailMatch = pathname.match(/^\/dashboard\/master\/units\/([^\/]+)$/);
@@ -633,6 +658,24 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
       // Show loading state or default while fetching
       currentLabel = "Voucher Details";
     }
+  }
+
+  // Check if we're on an inventory adjustment detail page
+  // Variables declared at top of component
+
+  if (isAdjustmentDetailMatch) {
+     const adjustmentsItem = items.find(item => item.path === "/dashboard/inventory/adjustments");
+     if (adjustmentsItem) {
+        parentItem = adjustmentsItem;
+     } else {
+        parentItem = { path: "/dashboard/inventory/adjustments", label: "Adjustments" };
+     }
+
+     if (adjustmentNumber) {
+        currentLabel = adjustmentNumber;
+     } else {
+        currentLabel = "Adjustment Details";
+     }
   }
 
   // Legacy item route handling (for old routes)

@@ -31,6 +31,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle, FiPlus, FiTrash2, FiSearch } from "react-icons/fi";
 import { createPurchase, updatePurchase } from "../_actions/purchase.action";
+import { getWarehouseStocks } from "../../inventory/stock/_actions/stock.action";
 import { PurchaseStatus } from "@prisma/client";
 import { format } from "date-fns";
 import MediaSelector from "@/components/MediaSelector";
@@ -120,6 +121,7 @@ export default function PurchaseForm({
   const [loading, setLoading] = useState(false);
   const [supplierSearch, setSupplierSearch] = useState("");
   const [itemSearch, setItemSearch] = useState("");
+  const [stockMap, setStockMap] = useState<Record<string, number>>({});
 
   const filteredSuppliers = useMemo(() => {
     if (!supplierSearch) return suppliers;
@@ -246,6 +248,26 @@ export default function PurchaseForm({
   React.useEffect(() => {
     dispatch(setReduxTax(Number(watchedTax) || 0));
   }, [watchedTax, dispatch]);
+
+  const watchedWarehouseId = watch("warehouseId");
+
+  // Fetch ALL stocks for warehouse when warehouse changes
+  useEffect(() => {
+     if (!watchedWarehouseId) return;
+     
+     const fetchAllStocks = async () => {
+        const res = await getWarehouseStocks(watchedWarehouseId);
+        if (res.success && res.stocks) {
+           const map: Record<string, number> = {};
+           res.stocks.forEach(s => {
+             map[s.itemId] = s.quantity;
+           });
+           setStockMap(map);
+        }
+     };
+     
+     fetchAllStocks();
+  }, [watchedWarehouseId]);
 
   // Create a stable dependency key for items that only changes when quantity or unitPrice changes
   const itemsCalcKey = useMemo(() => {
@@ -631,7 +653,7 @@ export default function PurchaseForm({
                                           <SelectItem key={item.id} value={item.id} className="text-left">
                                             <div className="flex justify-between items-center w-full gap-2">
                                               <span>{item.code} - {item.description}</span>
-                                              <span className="text-xs text-muted-foreground ml-auto">Stock: {item.stock}</span>
+                                              <span className="text-xs text-muted-foreground ml-auto">Stock: {stockMap[item.id] ?? 0}</span>
                                             </div>
                                           </SelectItem>
                                         ))
@@ -660,7 +682,7 @@ export default function PurchaseForm({
                         </td>
                         <td className="px-3 py-2 align-top text-right flex items-center gap-1">
                           <div className="text-sm font-medium">
-                            {selectedItem?.stock ?? 0}
+                            {selectedItem ? (stockMap[selectedItem.id] ?? 0) : 0}
                           </div> 
                           {selectedItem && (
                               <span className="text-sm text-muted-foreground">

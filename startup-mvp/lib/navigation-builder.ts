@@ -128,6 +128,12 @@ export const MENU_TEMPLATE: MenuItemData[] = [
         icon: "FiFileText", 
         module: "inventory" 
       },
+      { 
+        href: "/dashboard/inventory/adjustments", 
+        label: "Adjustments", 
+        icon: "FiClipboard", 
+        module: "inventory" 
+      },
     ],
   },
   {
