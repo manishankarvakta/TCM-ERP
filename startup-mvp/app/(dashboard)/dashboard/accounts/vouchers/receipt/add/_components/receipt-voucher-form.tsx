@@ -19,8 +19,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle, FiCheck, FiLoader } from "react-icons/fi";
 import { getClientsForReceipt } from "../../_actions/receipt.action";
-import { getCashBankAccounts } from "../../../cash-bank/_actions/cash-bank.action";
-import { createVoucher, postVoucher } from "../../../vouchers/_actions/voucher.action";
+import { getCashBankAccounts } from "../../../../cash-bank/_actions/cash-bank.action";
+import { createVoucher, postVoucher } from "../../../../vouchers/_actions/voucher.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType } from "@prisma/client";
 

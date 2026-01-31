@@ -26,12 +26,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FiAlertCircle, FiPlus, FiTrash2, FiSearch, FiAlertTriangle, FiInfo } from "react-icons/fi";
-import { createVoucher } from "../../../_actions/voucher.action";
-import { getChartOfAccounts } from "../../../../chart-of-accounts/_actions/chart-of-accounts.action";
+import { FiAlertCircle, FiPlus, FiTrash2, FiSearch, FiAlertTriangle, FiInfo, FiLoader } from "react-icons/fi";
+import { getAccountsForJournal } from "../../_actions/journal.action";
+import { createVoucher, postVoucher } from "../../../../vouchers/_actions/voucher.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType } from "@prisma/client";
 
+// Voucher line schema
 const voucherLineSchema = z.object({
   chartOfAccountId: z.string().min(1, "Account is required"),
   debitAmount: z.number().min(0, "Amount must be >= 0").default(0),
@@ -44,13 +45,15 @@ const voucherLineSchema = z.object({
     return (hasDebit && !hasCredit) || (!hasDebit && hasCredit);
   },
   {
-    message: "Each line must have either debit OR credit",
+    message: "Each line must have either debit OR credit, not both",
     path: ["debitAmount"],
   }
 );
 
+// Journal voucher schema with balance validation
 const journalVoucherSchema = z.object({
   date: z.string().min(1, "Date is required"),
+  reference: z.string().optional(),
   description: z.string().min(1, "Description is required for journal entries"),
   lines: z.array(voucherLineSchema).min(2, "At least 2 lines are required"),
 }).refine(
@@ -72,7 +75,6 @@ interface AccountOption {
   code: string;
   name: string;
   type: string;
-  isControl: boolean;
 }
 
 export default function JournalVoucherForm() {
@@ -80,28 +82,23 @@ export default function JournalVoucherForm() {
   const pathname = usePathname();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [allAccounts, setAllAccounts] = useState<AccountOption[]>([]);
+  const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [accountSearch, setAccountSearch] = useState("");
 
-  // Fetch accounts (excluding control accounts for display)
+  // Fetch accounts on mount
   useEffect(() => {
     const fetchAccounts = async () => {
       try {
-        const result = await getChartOfAccounts(1, 1000, "", "active");
+        const result = await getAccountsForJournal();
         if (result.success) {
-          setAllAccounts(
-            result.accounts.map((a) => ({
-              id: a.id,
-              code: a.code,
-              name: a.name,
-              type: a.type,
-              isControl: a.isControl || false,
-            }))
-          );
+          setAccounts(result.accounts);
+        } else {
+          setError(result.error || "Failed to load accounts");
         }
       } catch (err) {
         console.error("Failed to fetch accounts:", err);
+        setError("Failed to load accounts. Please refresh the page.");
       } finally {
         setLoadingAccounts(false);
       }
@@ -110,21 +107,16 @@ export default function JournalVoucherForm() {
     fetchAccounts();
   }, []);
 
-  // Filter out control accounts (user cannot select them)
-  const availableAccounts = useMemo(() => {
-    return allAccounts.filter((acc) => !acc.isControl);
-  }, [allAccounts]);
-
   // Filter accounts based on search
   const filteredAccounts = useMemo(() => {
-    if (!accountSearch) return availableAccounts;
+    if (!accountSearch) return accounts;
     const searchLower = accountSearch.toLowerCase();
-    return availableAccounts.filter(
+    return accounts.filter(
       (account) =>
         account.code.toLowerCase().includes(searchLower) ||
         account.name.toLowerCase().includes(searchLower)
     );
-  }, [availableAccounts, accountSearch]);
+  }, [accounts, accountSearch]);
 
   // Group accounts by type for better display
   const groupedAccounts = useMemo(() => {
@@ -149,10 +141,12 @@ export default function JournalVoucherForm() {
     formState: { errors },
     control,
     watch,
+    setValue,
   } = useForm<JournalVoucherFormData>({
     resolver: zodResolver(journalVoucherSchema),
     defaultValues: {
       date: new Date().toISOString().split("T")[0],
+      reference: "",
       description: "",
       lines: [
         { chartOfAccountId: "", debitAmount: 0, creditAmount: 0, description: "" },
@@ -202,19 +196,29 @@ export default function JournalVoucherForm() {
         chartOfAccountId: line.chartOfAccountId,
       }));
 
-      const result = await createVoucher({
+      // Create the voucher
+      const createResult = await createVoucher({
         date: data.date,
         type: VoucherType.JOURNAL,
+        reference: data.reference || undefined,
         description: data.description,
         lines,
       });
 
-      if (!result.success) {
-        throw new Error(result.error || "Failed to create journal voucher");
+      if (!createResult.success) {
+        throw new Error(createResult.error || "Failed to create journal voucher");
       }
 
+      // Auto-post the voucher
+      const postResult = await postVoucher(createResult.voucher!.id);
+
+      if (!postResult.success) {
+        throw new Error(postResult.error || "Voucher created but failed to post. Please post it manually.");
+      }
+
+      // Redirect to vouchers list
       const basePath = getBasePathFromPathname(pathname);
-      router.push(`${basePath}/accounts/vouchers`);
+      router.push(`${basePath}/accounts/vouchers?tab=posted`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");
     } finally {
@@ -222,7 +226,7 @@ export default function JournalVoucherForm() {
     }
   };
 
-  // Get account type badge color
+  // Get account type badge variant
   const getTypeBadgeVariant = (type: string) => {
     switch (type) {
       case "ASSET":
@@ -239,6 +243,17 @@ export default function JournalVoucherForm() {
         return "outline";
     }
   };
+
+  if (loadingAccounts) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-12">
+          <FiLoader className="h-6 w-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">Loading accounts...</span>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -258,10 +273,10 @@ export default function JournalVoucherForm() {
             <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950 p-3 text-sm text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
               <FiAlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
               <div>
-                <p className="font-medium">Control Account Restrictions Apply</p>
+                <p className="font-medium">Restricted Account Types</p>
                 <p className="text-xs mt-1">
-                  Journal entries cannot be made directly to control accounts (AR, AP, Inventory, Sales Revenue, COGS). 
-                  Use the appropriate modules instead: Sales for AR, Purchases for AP, Stock Adjustments for Inventory.
+                  Journal entries cannot be made to control accounts (AR, AP, Inventory, Sales Revenue, COGS) or Cash/Bank accounts.
+                  Use the appropriate modules: Sales for AR, Purchases for AP, Stock for Inventory, Payment/Receipt for Cash/Bank.
                 </p>
               </div>
             </div>
@@ -288,17 +303,30 @@ export default function JournalVoucherForm() {
             )}
 
             {/* Basic Voucher Info */}
-            <div className="space-y-2">
-              <Label htmlFor="date">Voucher Date *</Label>
-              <Input
-                id="date"
-                type="date"
-                {...register("date")}
-                disabled={loading}
-              />
-              {errors.date && (
-                <p className="text-sm text-destructive">{errors.date.message}</p>
-              )}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="date">Voucher Date *</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  {...register("date")}
+                  disabled={loading}
+                />
+                {errors.date && (
+                  <p className="text-sm text-destructive">{errors.date.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="reference">Reference (Optional)</Label>
+                <Input
+                  id="reference"
+                  type="text"
+                  placeholder="e.g., ADJ-001"
+                  {...register("reference")}
+                  disabled={loading}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -308,7 +336,7 @@ export default function JournalVoucherForm() {
                 placeholder="e.g., Monthly depreciation entry, Accrued salaries for December..."
                 {...register("description")}
                 disabled={loading}
-                rows={3}
+                rows={2}
               />
               {errors.description && (
                 <p className="text-sm text-destructive">{errors.description.message}</p>
@@ -327,7 +355,7 @@ export default function JournalVoucherForm() {
                   variant="outline"
                   size="sm"
                   onClick={addLine}
-                  disabled={loading || loadingAccounts}
+                  disabled={loading}
                 >
                   <FiPlus className="mr-2 h-4 w-4" />
                   Add Line
@@ -346,7 +374,7 @@ export default function JournalVoucherForm() {
                       <TableHead>Account</TableHead>
                       <TableHead className="w-32">Debit (DR)</TableHead>
                       <TableHead className="w-32">Credit (CR)</TableHead>
-                      <TableHead>Description</TableHead>
+                      <TableHead>Line Note</TableHead>
                       <TableHead className="w-16"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -354,8 +382,8 @@ export default function JournalVoucherForm() {
                     {fields.map((field, index) => {
                       const lineError = errors.lines?.[index];
                       const selectedAccountId = watchedLines[index]?.chartOfAccountId;
-                      const selectedAccount = availableAccounts.find(acc => acc.id === selectedAccountId);
-                      
+                      const selectedAccount = accounts.find(acc => acc.id === selectedAccountId);
+
                       return (
                         <TableRow key={field.id}>
                           <TableCell className="font-medium">{index + 1}</TableCell>
@@ -368,7 +396,7 @@ export default function JournalVoucherForm() {
                                   <Select
                                     value={field.value}
                                     onValueChange={field.onChange}
-                                    disabled={loading || loadingAccounts}
+                                    disabled={loading}
                                   >
                                     <SelectTrigger className="min-w-[250px]">
                                       <SelectValue placeholder="Select account" />
@@ -391,16 +419,16 @@ export default function JournalVoucherForm() {
                                         </div>
                                       </div>
                                       <div className="max-h-[300px] overflow-y-auto">
-                                        {Object.entries(groupedAccounts).map(([type, accounts]) => {
-                                          if (accounts.length === 0) return null;
+                                        {Object.entries(groupedAccounts).map(([type, accs]) => {
+                                          if (accs.length === 0) return null;
                                           return (
                                             <div key={type}>
                                               <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/50 sticky top-0">
                                                 {type}
                                               </div>
-                                              {accounts.map((account) => (
-                                                <SelectItem 
-                                                  key={account.id} 
+                                              {accs.map((account) => (
+                                                <SelectItem
+                                                  key={account.id}
                                                   value={account.id}
                                                   className="text-left"
                                                 >
@@ -417,8 +445,8 @@ export default function JournalVoucherForm() {
                                 )}
                               />
                               {selectedAccount && (
-                                <Badge 
-                                  variant={getTypeBadgeVariant(selectedAccount.type)} 
+                                <Badge
+                                  variant={getTypeBadgeVariant(selectedAccount.type)}
                                   className="text-[10px] px-1.5 py-0"
                                 >
                                   {selectedAccount.type}
@@ -446,7 +474,7 @@ export default function JournalVoucherForm() {
                                     const value = parseFloat(e.target.value) || 0;
                                     field.onChange(value);
                                     if (value > 0) {
-                                      control.setValue(`lines.${index}.creditAmount`, 0);
+                                      setValue(`lines.${index}.creditAmount`, 0);
                                     }
                                   }}
                                   disabled={loading}
@@ -474,7 +502,7 @@ export default function JournalVoucherForm() {
                                     const value = parseFloat(e.target.value) || 0;
                                     field.onChange(value);
                                     if (value > 0) {
-                                      control.setValue(`lines.${index}.debitAmount`, 0);
+                                      setValue(`lines.${index}.debitAmount`, 0);
                                     }
                                   }}
                                   disabled={loading}
@@ -489,7 +517,7 @@ export default function JournalVoucherForm() {
                               render={({ field }) => (
                                 <Input
                                   type="text"
-                                  placeholder="Line note"
+                                  placeholder="Optional note"
                                   {...field}
                                   disabled={loading}
                                 />
@@ -520,33 +548,44 @@ export default function JournalVoucherForm() {
               <div className="flex justify-end gap-6 pt-4 border-t">
                 <div className="text-right">
                   <p className="text-sm text-muted-foreground">Total Debit</p>
-                  <p className="text-lg font-semibold">{totalDebit.toFixed(2)}</p>
+                  <p className="text-lg font-semibold font-mono">৳{totalDebit.toFixed(2)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-muted-foreground">Total Credit</p>
-                  <p className="text-lg font-semibold">{totalCredit.toFixed(2)}</p>
+                  <p className="text-lg font-semibold font-mono">৳{totalCredit.toFixed(2)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-muted-foreground">Difference</p>
-                  <p className={`text-lg font-semibold ${isBalanced ? "text-green-600" : "text-destructive"}`}>
-                    {difference.toFixed(2)}
+                  <p className={`text-lg font-semibold font-mono ${isBalanced ? "text-green-600" : "text-destructive"}`}>
+                    ৳{difference.toFixed(2)}
                   </p>
                 </div>
               </div>
 
               {!isBalanced && (
-                <div className="flex items-start gap-2 rounded-lg bg-yellow-50 p-3 text-sm text-yellow-800 border border-yellow-200">
+                <div className="flex items-start gap-2 rounded-lg bg-yellow-50 dark:bg-yellow-950 p-3 text-sm text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800">
                   <FiAlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
                   <span>
-                    Double-entry balance mismatch: Debits ({totalDebit.toFixed(2)}) must equal Credits ({totalCredit.toFixed(2)})
+                    Double-entry balance mismatch: Debits (৳{totalDebit.toFixed(2)}) must equal Credits (৳{totalCredit.toFixed(2)})
                   </span>
                 </div>
               )}
             </div>
 
+            {/* Actions */}
             <div className="flex items-center gap-3 pt-4">
-              <Button type="submit" disabled={loading || !isBalanced || fields.length < 2 || loadingAccounts}>
-                {loading ? "Creating..." : "Create Journal Voucher"}
+              <Button
+                type="submit"
+                disabled={loading || !isBalanced || fields.length < 2}
+              >
+                {loading ? (
+                  <>
+                    <FiLoader className="mr-2 h-4 w-4 animate-spin" />
+                    Creating & Posting...
+                  </>
+                ) : (
+                  "Create & Post Journal"
+                )}
               </Button>
               <Button
                 type="button"

@@ -1,14 +1,12 @@
 import PageGuard from "@/components/permissions/page-guard";
-import ReceiptPaymentForm from "../../add/_components/receipt-payment-form";
-import { VoucherType } from "@prisma/client";
+import PaymentVoucherForm from "./_components/payment-voucher-form";
 
-export default function AddPaymentVoucherPage() {
+export default function AddPaymentPage() {
   return (
     <PageGuard permissionKey="accounts.vouchers">
       <div className="space-y-6">
-        <ReceiptPaymentForm voucherType={VoucherType.PAYMENT} />
+        <PaymentVoucherForm />
       </div>
     </PageGuard>
   );
 }
-

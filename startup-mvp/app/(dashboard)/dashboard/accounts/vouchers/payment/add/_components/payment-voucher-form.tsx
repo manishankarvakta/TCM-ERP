@@ -19,8 +19,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle, FiCheck, FiLoader } from "react-icons/fi";
 import { getSuppliersForPayment } from "../../_actions/payment.action";
-import { getCashBankAccounts } from "../../../cash-bank/_actions/cash-bank.action";
-import { createVoucher, postVoucher } from "../../../vouchers/_actions/voucher.action";
+import { getCashBankAccounts } from "../../../../cash-bank/_actions/cash-bank.action";
+import { createVoucher, postVoucher } from "../../../_actions/voucher.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType } from "@prisma/client";
 
@@ -239,162 +239,167 @@ export default function PaymentVoucherForm() {
               </div>
             )}
 
-            {/* Supplier Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="supplierId">Supplier *</Label>
-              <Controller
-                name="supplierId"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    disabled={loading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a supplier" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {suppliers.length === 0 ? (
-                        <SelectItem value="none" disabled>
-                          No suppliers available
-                        </SelectItem>
-                      ) : (
-                        suppliers.map((supplier) => (
-                          <SelectItem key={supplier.id} value={supplier.id}>
-                            {supplier.name || supplier.email}
-                            {supplier.company && ` (${supplier.company})`}
-                            {supplier.supplierCode && ` - ${supplier.supplierCode}`}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Supplier Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="supplierId">Supplier *</Label>
+                <Controller
+                  name="supplierId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={loading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a supplier" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {suppliers.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            No suppliers available
                           </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.supplierId && (
-                <p className="text-sm text-destructive">{errors.supplierId.message}</p>
-              )}
-              {selectedSupplier && (
-                <div className="text-xs text-muted-foreground mt-1">
-                  {selectedSupplier.chartOfAccountId ? (
-                    <span className="flex items-center gap-1 text-green-600">
-                      <FiCheck className="h-3 w-3" />
-                      AP Account: {selectedSupplier.chartOfAccountName}
-                    </span>
-                  ) : (
-                    <span className="text-destructive">
-                      Warning: This supplier does not have an AP account
-                    </span>
+                        ) : (
+                          suppliers.map((supplier) => (
+                            <SelectItem key={supplier.id} value={supplier.id}>
+                              {supplier.name || supplier.email}
+                              {supplier.company && ` (${supplier.company})`}
+                              {supplier.supplierCode && ` - ${supplier.supplierCode}`}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
                   )}
-                </div>
-              )}
-            </div>
-
-            {/* Payment Account Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="paymentAccountId">Payment Account (Cash/Bank) *</Label>
-              <Controller
-                name="paymentAccountId"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    disabled={loading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select payment account" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {cashBankAccounts.length === 0 ? (
-                        <SelectItem value="none" disabled>
-                          No Cash/Bank accounts available
-                        </SelectItem>
-                      ) : (
-                        <>
-                          <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b">
-                            CASH ACCOUNTS
-                          </div>
-                          {cashBankAccounts
-                            .filter((acc) => acc.type === "CASH")
-                            .map((account) => (
-                              <SelectItem key={account.chartOfAccountId} value={account.chartOfAccountId}>
-                                {account.code} - {account.name}
-                              </SelectItem>
-                            ))}
-                          <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b border-t mt-1">
-                            BANK ACCOUNTS
-                          </div>
-                          {cashBankAccounts
-                            .filter((acc) => acc.type === "BANK")
-                            .map((account) => (
-                              <SelectItem key={account.chartOfAccountId} value={account.chartOfAccountId}>
-                                {account.code} - {account.name}
-                              </SelectItem>
-                            ))}
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
+                />
+                {errors.supplierId && (
+                  <p className="text-sm text-destructive">{errors.supplierId.message}</p>
                 )}
-              />
-              {errors.paymentAccountId && (
-                <p className="text-sm text-destructive">{errors.paymentAccountId.message}</p>
-              )}
-            </div>
-
-            {/* Amount */}
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount *</Label>
-              <Controller
-                name="amount"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    placeholder="0.00"
-                    value={field.value || ""}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value) || 0;
-                      field.onChange(value);
-                    }}
-                    disabled={loading}
-                  />
+                {selectedSupplier && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {selectedSupplier.chartOfAccountId ? (
+                      <span className="flex items-center gap-1 text-green-600">
+                        <FiCheck className="h-3 w-3" />
+                        AP Account: {selectedSupplier.chartOfAccountName}
+                      </span>
+                    ) : (
+                      <span className="text-destructive">
+                        Warning: This supplier does not have an AP account
+                      </span>
+                    )}
+                  </div>
                 )}
-              />
-              {errors.amount && (
-                <p className="text-sm text-destructive">{errors.amount.message}</p>
-              )}
+              </div>
+
+              {/* Payment Account Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="paymentAccountId">Payment Account (Cash/Bank) *</Label>
+                <Controller
+                  name="paymentAccountId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={loading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select payment account" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cashBankAccounts.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            No Cash/Bank accounts available
+                          </SelectItem>
+                        ) : (
+                          <>
+                            <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b">
+                              CASH ACCOUNTS
+                            </div>
+                            {cashBankAccounts
+                              .filter((acc) => acc.type === "CASH")
+                              .map((account) => (
+                                <SelectItem key={account.chartOfAccountId} value={account.chartOfAccountId}>
+                                  {account.code} - {account.name}
+                                </SelectItem>
+                              ))}
+                            <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b border-t mt-1">
+                              BANK ACCOUNTS
+                            </div>
+                            {cashBankAccounts
+                              .filter((acc) => acc.type === "BANK")
+                              .map((account) => (
+                                <SelectItem key={account.chartOfAccountId} value={account.chartOfAccountId}>
+                                  {account.code} - {account.name}
+                                </SelectItem>
+                              ))}
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.paymentAccountId && (
+                  <p className="text-sm text-destructive">{errors.paymentAccountId.message}</p>
+                )}
+              </div>
+
             </div>
 
-            {/* Date */}
-            <div className="space-y-2">
-              <Label htmlFor="date">Payment Date *</Label>
-              <Input
-                id="date"
-                type="date"
-                {...register("date")}
-                disabled={loading}
-              />
-              {errors.date && (
-                <p className="text-sm text-destructive">{errors.date.message}</p>
-              )}
-            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Amount */}
+              <div className="space-y-2">
+                <Label htmlFor="amount">Amount *</Label>
+                <Controller
+                  name="amount"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="amount"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      placeholder="0.00"
+                      value={field.value || ""}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0;
+                        field.onChange(value);
+                      }}
+                      disabled={loading}
+                    />
+                  )}
+                />
+                {errors.amount && (
+                  <p className="text-sm text-destructive">{errors.amount.message}</p>
+                )}
+              </div>
 
-            {/* Reference */}
-            <div className="space-y-2">
-              <Label htmlFor="reference">Reference (Optional)</Label>
-              <Input
-                id="reference"
-                type="text"
-                placeholder="e.g., Invoice number, Check number"
-                {...register("reference")}
-                disabled={loading}
-              />
+              {/* Date */}
+              <div className="space-y-2">
+                <Label htmlFor="date">Payment Date *</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  {...register("date")}
+                  disabled={loading}
+                />
+                {errors.date && (
+                  <p className="text-sm text-destructive">{errors.date.message}</p>
+                )}
+              </div>
+
+              {/* Reference */}
+              <div className="space-y-2">
+                <Label htmlFor="reference">Reference (Optional)</Label>
+                <Input
+                  id="reference"
+                  type="text"
+                  placeholder="e.g., Invoice number, Check number"
+                  {...register("reference")}
+                  disabled={loading}
+                />
+              </div>
             </div>
 
             {/* Description */}
@@ -427,7 +432,7 @@ export default function PaymentVoucherForm() {
             )}
 
             {/* Actions */}
-            <div className="flex items-center gap-3 pt-4">
+            <div className="flex justify-end items-center gap-3 pt-4">
               <Button
                 type="submit"
                 disabled={loading || !selectedSupplier?.chartOfAccountId}
