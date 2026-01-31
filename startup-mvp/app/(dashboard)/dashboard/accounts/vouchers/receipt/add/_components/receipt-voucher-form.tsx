@@ -237,163 +237,165 @@ export default function ReceiptVoucherForm() {
                 <span>{error}</span>
               </div>
             )}
-
-            {/* Client Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="clientId">Client *</Label>
-              <Controller
-                name="clientId"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    disabled={loading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a client" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clients.length === 0 ? (
-                        <SelectItem value="none" disabled>
-                          No clients available
-                        </SelectItem>
-                      ) : (
-                        clients.map((client) => (
-                          <SelectItem key={client.id} value={client.id}>
-                            {client.name || client.email}
-                            {client.company && ` (${client.company})`}
-                            {client.clientCode && ` - ${client.clientCode}`}
+            <div className="grid grid-cols-2 gap-6">
+              {/* Client Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="clientId">Client *</Label>
+                <Controller
+                  name="clientId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={loading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a client" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clients.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            No clients available
                           </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.clientId && (
-                <p className="text-sm text-destructive">{errors.clientId.message}</p>
-              )}
-              {selectedClient && (
-                <div className="text-xs text-muted-foreground mt-1">
-                  {selectedClient.chartOfAccountId ? (
-                    <span className="flex items-center gap-1 text-green-600">
-                      <FiCheck className="h-3 w-3" />
-                      AR Account: {selectedClient.chartOfAccountName}
-                    </span>
-                  ) : (
-                    <span className="text-destructive">
-                      Warning: This client does not have an AR account
-                    </span>
+                        ) : (
+                          clients.map((client) => (
+                            <SelectItem key={client.id} value={client.id}>
+                              {client.name || client.email}
+                              {client.company && ` (${client.company})`}
+                              {client.clientCode && ` - ${client.clientCode}`}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
                   )}
-                </div>
-              )}
-            </div>
-
-            {/* Receive Account Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="receiveAccountId">Receive Account (Cash/Bank) *</Label>
-              <Controller
-                name="receiveAccountId"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    disabled={loading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select receive account" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {cashBankAccounts.length === 0 ? (
-                        <SelectItem value="none" disabled>
-                          No Cash/Bank accounts available
-                        </SelectItem>
-                      ) : (
-                        <>
-                          <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b">
-                            CASH ACCOUNTS
-                          </div>
-                          {cashBankAccounts
-                            .filter((acc) => acc.type === "CASH")
-                            .map((account) => (
-                              <SelectItem key={account.chartOfAccountId} value={account.chartOfAccountId}>
-                                {account.code} - {account.name}
-                              </SelectItem>
-                            ))}
-                          <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b border-t mt-1">
-                            BANK ACCOUNTS
-                          </div>
-                          {cashBankAccounts
-                            .filter((acc) => acc.type === "BANK")
-                            .map((account) => (
-                              <SelectItem key={account.chartOfAccountId} value={account.chartOfAccountId}>
-                                {account.code} - {account.name}
-                              </SelectItem>
-                            ))}
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
+                />
+                {errors.clientId && (
+                  <p className="text-sm text-destructive">{errors.clientId.message}</p>
                 )}
-              />
-              {errors.receiveAccountId && (
-                <p className="text-sm text-destructive">{errors.receiveAccountId.message}</p>
-              )}
-            </div>
-
-            {/* Amount */}
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount *</Label>
-              <Controller
-                name="amount"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    placeholder="0.00"
-                    value={field.value || ""}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value) || 0;
-                      field.onChange(value);
-                    }}
-                    disabled={loading}
-                  />
+                {selectedClient && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {selectedClient.chartOfAccountId ? (
+                      <span className="flex items-center gap-1 text-green-600">
+                        <FiCheck className="h-3 w-3" />
+                        AR Account: {selectedClient.chartOfAccountName}
+                      </span>
+                    ) : (
+                      <span className="text-destructive">
+                        Warning: This client does not have an AR account
+                      </span>
+                    )}
+                  </div>
                 )}
-              />
-              {errors.amount && (
-                <p className="text-sm text-destructive">{errors.amount.message}</p>
-              )}
-            </div>
+              </div>
 
-            {/* Date */}
-            <div className="space-y-2">
-              <Label htmlFor="date">Receipt Date *</Label>
-              <Input
-                id="date"
-                type="date"
-                {...register("date")}
-                disabled={loading}
-              />
-              {errors.date && (
-                <p className="text-sm text-destructive">{errors.date.message}</p>
-              )}
+              {/* Receive Account Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="receiveAccountId">Receive Account (Cash/Bank) *</Label>
+                <Controller
+                  name="receiveAccountId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={loading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select receive account" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cashBankAccounts.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            No Cash/Bank accounts available
+                          </SelectItem>
+                        ) : (
+                          <>
+                            <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b">
+                              CASH ACCOUNTS
+                            </div>
+                            {cashBankAccounts
+                              .filter((acc) => acc.type === "CASH")
+                              .map((account) => (
+                                <SelectItem key={account.chartOfAccountId} value={account.chartOfAccountId}>
+                                  {account.code} - {account.name}
+                                </SelectItem>
+                              ))}
+                            <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b border-t mt-1">
+                              BANK ACCOUNTS
+                            </div>
+                            {cashBankAccounts
+                              .filter((acc) => acc.type === "BANK")
+                              .map((account) => (
+                                <SelectItem key={account.chartOfAccountId} value={account.chartOfAccountId}>
+                                  {account.code} - {account.name}
+                                </SelectItem>
+                              ))}
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.receiveAccountId && (
+                  <p className="text-sm text-destructive">{errors.receiveAccountId.message}</p>
+                )}
+              </div>
             </div>
+            <div className="grid grid-cols-3 gap-6">
+              {/* Amount */}
+              <div className="space-y-2">
+                <Label htmlFor="amount">Amount *</Label>
+                <Controller
+                  name="amount"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="amount"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      placeholder="0.00"
+                      value={field.value || ""}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0;
+                        field.onChange(value);
+                      }}
+                      disabled={loading}
+                    />
+                  )}
+                />
+                {errors.amount && (
+                  <p className="text-sm text-destructive">{errors.amount.message}</p>
+                )}
+              </div>
 
-            {/* Reference */}
-            <div className="space-y-2">
-              <Label htmlFor="reference">Reference (Optional)</Label>
-              <Input
-                id="reference"
-                type="text"
-                placeholder="e.g., Invoice number, Receipt number"
-                {...register("reference")}
-                disabled={loading}
-              />
+              {/* Date */}
+              <div className="space-y-2">
+                <Label htmlFor="date">Receipt Date *</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  {...register("date")}
+                  disabled={loading}
+                />
+                {errors.date && (
+                  <p className="text-sm text-destructive">{errors.date.message}</p>
+                )}
+              </div>
+
+              {/* Reference */}
+              <div className="space-y-2">
+                <Label htmlFor="reference">Reference (Optional)</Label>
+                <Input
+                  id="reference"
+                  type="text"
+                  placeholder="e.g., Invoice number, Receipt number"
+                  {...register("reference")}
+                  disabled={loading}
+                />
+              </div>
             </div>
 
             {/* Description */}

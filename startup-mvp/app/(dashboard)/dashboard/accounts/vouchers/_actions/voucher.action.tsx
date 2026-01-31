@@ -1,5 +1,6 @@
 "use server";
 
+import { determineAccountType } from "@/lib/payment-account-config";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
@@ -649,11 +650,12 @@ export async function createVoucher(input: {
       },
       select: { 
         id: true,
+        code: true,
         name: true,
         type: true,
         isControl: true,
         CashBankAccount: {
-          select: { id: true }
+          select: { id: true, type: true }
         }
       },
     });
@@ -708,19 +710,29 @@ export async function createVoucher(input: {
       // Build account lookup map
       const accountMap = new Map(accounts.map(a => [a.id, a]));
 
-      // PAYMENT: CR must be Cash/Bank, DR must not be Revenue
+      // PAYMENT: CR must be Cash/Bank/Digital Wallet, DR must not be Revenue
       if (input.type === "PAYMENT") {
         for (const line of input.lines) {
           const account = accountMap.get(line.chartOfAccountId);
           if (!account) continue;
 
-          // Credit side must be Cash/Bank
-          if (Number(line.creditAmount) > 0 && !account.CashBankAccount) {
-            return {
-              success: false,
-              error: "Payment voucher credit lines must be Cash or Bank accounts only.",
-              voucher: null,
-            };
+          // Credit side must be Cash/Bank/Digital Wallet
+          if (Number(line.creditAmount) > 0) {
+            const accountType = determineAccountType({
+              code: account.code,
+              name: account.name,
+              CashBankAccount: account.CashBankAccount 
+                ? { type: account.CashBankAccount.type as "CASH" | "BANK" }
+                : null
+            });
+
+            if (!accountType) {
+              return {
+                success: false,
+                error: "Payment voucher credit lines must be Cash, Bank, or Digital Wallet accounts only.",
+                voucher: null,
+              };
+            }
           }
 
           // Debit side: block Revenue accounts
@@ -736,19 +748,29 @@ export async function createVoucher(input: {
         }
       }
 
-      // RECEIPT: DR must be Cash/Bank, CR must not be Expense
+      // RECEIPT: DR must be Cash/Bank/Digital Wallet, CR must not be Expense
       if (input.type === "RECEIPT") {
         for (const line of input.lines) {
           const account = accountMap.get(line.chartOfAccountId);
           if (!account) continue;
 
-          // Debit side must be Cash/Bank
-          if (Number(line.debitAmount) > 0 && !account.CashBankAccount) {
-            return {
-              success: false,
-              error: "Receipt voucher debit lines must be Cash or Bank accounts only.",
-              voucher: null,
-            };
+          // Debit side must be Cash/Bank/Digital Wallet
+          if (Number(line.debitAmount) > 0) {
+            const accountType = determineAccountType({
+              code: account.code,
+              name: account.name,
+              CashBankAccount: account.CashBankAccount 
+                ? { type: account.CashBankAccount.type as "CASH" | "BANK" }
+                : null
+            });
+
+            if (!accountType) {
+              return {
+                success: false,
+                error: "Receipt voucher debit lines must be Cash, Bank, or Digital Wallet accounts only.",
+                voucher: null,
+              };
+            }
           }
 
           // Credit side: block Expense accounts
@@ -764,21 +786,30 @@ export async function createVoucher(input: {
         }
       }
 
-      // JOURNAL: Block Cash/Bank accounts (use CONTRA, PAYMENT, RECEIPT instead)
+      // JOURNAL: Block Cash/Bank/Digital Wallet accounts (use CONTRA, PAYMENT, RECEIPT instead)
       if (input.type === "JOURNAL") {
         for (const line of input.lines) {
           const account = accountMap.get(line.chartOfAccountId);
-          if (account?.CashBankAccount) {
+          // Check if it's a payment account using strict config
+          const accountType = account ? determineAccountType({
+             code: account.code,
+             name: account.name,
+             CashBankAccount: account.CashBankAccount 
+                ? { type: account.CashBankAccount.type as "CASH" | "BANK" }
+                : null
+          }) : null;
+
+          if (accountType) {
             return {
               success: false,
-              error: "Journal entries cannot involve Cash or Bank accounts. Use Contra, Payment, or Receipt vouchers instead.",
+              error: "Journal entries cannot involve Cash, Bank, or Digital Wallet accounts. Use Contra, Payment, or Receipt vouchers instead.",
               voucher: null,
             };
           }
         }
       }
 
-      // CONTRA: Validate From ≠ To (accounts must be different)
+      // CONTRA: Validate accounts allowed + From ≠ To
       if (input.type === "CONTRA") {
         const accountIdsUsed = input.lines.map(l => l.chartOfAccountId);
         const uniqueAccountIds = new Set(accountIdsUsed);
