@@ -25,7 +25,7 @@ export default function AdjustmentDetails({ adjustment }: AdjustmentDetailsProps
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex  items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-4 w-4" />
@@ -39,13 +39,13 @@ export default function AdjustmentDetails({ adjustment }: AdjustmentDetailsProps
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-1">
         <Card>
           <CardHeader>
             <CardTitle>General Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Date</p>
                 <p>{format(new Date(adjustment.date), "dd MMMM yyyy")}</p>
