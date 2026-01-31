@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,7 +26,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FiAlertCircle, FiPlus, FiTrash2, FiSearch, FiAlertTriangle, FiInfo, FiLoader } from "react-icons/fi";
+import { 
+  FiAlertCircle, 
+  FiPlus, 
+  FiTrash2, 
+  FiSearch, 
+  FiAlertTriangle, 
+  FiInfo, 
+  FiLoader,
+  FiCopy,
+  FiZap 
+} from "react-icons/fi";
 import { getAccountsForJournal } from "../../_actions/journal.action";
 import { createVoucher, postVoucher } from "../../../../vouchers/_actions/voucher.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
@@ -45,7 +55,7 @@ const voucherLineSchema = z.object({
     return (hasDebit && !hasCredit) || (!hasDebit && hasCredit);
   },
   {
-    message: "Each line must have either debit OR credit, not both",
+    message: "Line must be Debit OR Credit",
     path: ["debitAmount"],
   }
 );
@@ -63,7 +73,7 @@ const journalVoucherSchema = z.object({
     return Math.abs(totalDebit - totalCredit) <= 0.01;
   },
   {
-    message: "Double-entry balance mismatch: Total debits must equal total credits",
+    message: "Total debits must equal total credits",
     path: ["lines"],
   }
 );
@@ -85,7 +95,7 @@ export default function JournalVoucherForm() {
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [accountSearch, setAccountSearch] = useState("");
-
+  
   // Fetch accounts on mount
   useEffect(() => {
     const fetchAccounts = async () => {
@@ -155,7 +165,7 @@ export default function JournalVoucherForm() {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, insert } = useFieldArray({
     control,
     name: "lines",
   });
@@ -165,8 +175,8 @@ export default function JournalVoucherForm() {
   // Calculate totals
   const totalDebit = watchedLines.reduce((sum, line) => sum + (line.debitAmount || 0), 0);
   const totalCredit = watchedLines.reduce((sum, line) => sum + (line.creditAmount || 0), 0);
-  const difference = Math.abs(totalDebit - totalCredit);
-  const isBalanced = difference <= 0.01;
+  const difference = totalDebit - totalCredit;
+  const isBalanced = Math.abs(difference) <= 0.01;
 
   const addLine = () => {
     append({
@@ -180,6 +190,43 @@ export default function JournalVoucherForm() {
   const removeLine = (index: number) => {
     if (fields.length > 2) {
       remove(index);
+    }
+  };
+
+  const cloneLine = (index: number) => {
+    const lineToClone = watchedLines[index];
+    insert(index + 1, { ...lineToClone });
+  };
+
+  const autoBalance = () => {
+    if (isBalanced) return;
+
+    if (difference > 0) {
+      // Debits > Credits, add Credit line
+      append({
+        chartOfAccountId: "",
+        debitAmount: 0,
+        creditAmount: difference,
+        description: "Balancing entry",
+      });
+    } else {
+      // Credits > Debits, add Debit line
+      append({
+        chartOfAccountId: "",
+        debitAmount: Math.abs(difference),
+        creditAmount: 0,
+        description: "Balancing entry",
+      });
+    }
+  };
+
+  const handleLineKeyDown = (e: React.KeyboardEvent, index: number) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      // If valid number entered
+      if (index === fields.length - 1) {
+        addLine();
+      }
     }
   };
 
@@ -226,24 +273,6 @@ export default function JournalVoucherForm() {
     }
   };
 
-  // Get account type badge variant
-  const getTypeBadgeVariant = (type: string) => {
-    switch (type) {
-      case "ASSET":
-        return "default";
-      case "LIABILITY":
-        return "secondary";
-      case "EQUITY":
-        return "outline";
-      case "REVENUE":
-        return "default";
-      case "EXPENSE":
-        return "destructive";
-      default:
-        return "outline";
-    }
-  };
-
   if (loadingAccounts) {
     return (
       <Card>
@@ -256,349 +285,378 @@ export default function JournalVoucherForm() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          Journal Voucher
-          <Badge variant="outline" className="font-normal">General Entry</Badge>
-        </CardTitle>
-        <CardDescription>
-          Create general journal entries for adjustments, corrections, and non-cash transactions.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="space-y-6">
-            {/* Restriction Notice */}
-            <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950 p-3 text-sm text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
-              <FiAlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-              <div>
-                <p className="font-medium">Restricted Account Types</p>
-                <p className="text-xs mt-1">
-                  Journal entries cannot be made to control accounts (AR, AP, Inventory, Sales Revenue, COGS) or Cash/Bank accounts.
-                  Use the appropriate modules: Sales for AR, Purchases for AP, Stock for Inventory, Payment/Receipt for Cash/Bank.
-                </p>
-              </div>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                Journal Voucher
+                <Badge variant="outline" className="font-normal">General Entry</Badge>
+              </CardTitle>
+              <CardDescription>
+                Create general journal entries for adjustments, corrections, and non-cash transactions.
+              </CardDescription>
             </div>
-
-            {/* Info Box */}
-            <div className="flex items-start gap-2 rounded-lg bg-blue-50 dark:bg-blue-950 p-3 text-sm text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800">
-              <FiInfo className="mt-0.5 h-4 w-4 flex-shrink-0" />
-              <div>
-                <p className="font-medium">Common Journal Entry Uses:</p>
-                <ul className="mt-1 list-disc list-inside text-xs space-y-1">
-                  <li>Depreciation entries (DR Depreciation Expense, CR Accumulated Depreciation)</li>
-                  <li>Accrual entries (DR/CR Accrued Expenses/Income)</li>
-                  <li>Correction entries for non-control accounts</li>
-                  <li>Prepaid expense amortization</li>
-                </ul>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <div className="space-y-6">
+              {/* Context Alerts */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950 p-3 text-sm text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
+                  <FiAlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-xs uppercase tracking-wide">Restriction</p>
+                    <p className="text-xs mt-1">
+                      No entries to Control Accounts (AR/AP/Inventory) or Cash/Bank. Use specialized vouchers instead.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 rounded-lg bg-blue-50 dark:bg-blue-950 p-3 text-sm text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800">
+                  <FiInfo className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-xs uppercase tracking-wide">Usage Pro-tip</p>
+                    <p className="text-xs mt-1">
+                      Press <b>Enter</b> on the last amount field to add a new line. Use <b>Auto-Balance</b> to fix differences.
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {error && (
-              <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive border border-destructive/20">
-                <FiAlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                <span>{error}</span>
+              {error && (
+                <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive border border-destructive/20">
+                  <FiAlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {/* Header Fields */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="date">Voucher Date *</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    {...register("date")}
+                    disabled={loading}
+                  />
+                  {errors.date && (
+                    <p className="text-sm text-destructive">{errors.date.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="reference">Reference (Optional)</Label>
+                  <Input
+                    id="reference"
+                    type="text"
+                    placeholder="e.g., ADJ-2024-001"
+                    {...register("reference")}
+                    disabled={loading}
+                  />
+                </div>
               </div>
-            )}
 
-            {/* Basic Voucher Info */}
-            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="date">Voucher Date *</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  {...register("date")}
+                <Label htmlFor="description">Description *</Label>
+                <Textarea
+                  id="description"
+                  placeholder="e.g., Monthly depreciation for Office Equipment"
+                  {...register("description")}
                   disabled={loading}
+                  rows={2}
                 />
-                {errors.date && (
-                  <p className="text-sm text-destructive">{errors.date.message}</p>
+                {errors.description && (
+                  <p className="text-sm text-destructive">{errors.description.message}</p>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="reference">Reference (Optional)</Label>
-                <Input
-                  id="reference"
-                  type="text"
-                  placeholder="e.g., ADJ-001"
-                  {...register("reference")}
-                  disabled={loading}
-                />
-              </div>
-            </div>
+              {/* Journal Grid */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base">Entries</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addLine}
+                    disabled={loading}
+                  >
+                    <FiPlus className="mr-2 h-4 w-4" />
+                    Add Line
+                  </Button>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Description *</Label>
-              <Textarea
-                id="description"
-                placeholder="e.g., Monthly depreciation entry, Accrued salaries for December..."
-                {...register("description")}
-                disabled={loading}
-                rows={2}
-              />
-              {errors.description && (
-                <p className="text-sm text-destructive">{errors.description.message}</p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                A clear description is required for audit purposes.
-              </p>
-            </div>
+                {errors.lines && typeof errors.lines.message === "string" && (
+                  <p className="text-sm text-destructive">{errors.lines.message}</p>
+                )}
 
-            {/* Voucher Lines */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Journal Entries *</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addLine}
-                  disabled={loading}
-                >
-                  <FiPlus className="mr-2 h-4 w-4" />
-                  Add Line
-                </Button>
-              </div>
+                <div className="border rounded-lg overflow-hidden bg-card">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="w-[5%] text-center">#</TableHead>
+                        <TableHead className="w-[35%]">Account</TableHead>
+                        <TableHead className="w-[15%] text-right">Debit</TableHead>
+                        <TableHead className="w-[15%] text-right">Credit</TableHead>
+                        <TableHead className="w-[20%]">Note</TableHead>
+                        <TableHead className="w-[10%]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {fields.map((field, index) => {
+                        const lineError = errors.lines?.[index];
+                        const selectedAccountId = watchedLines[index]?.chartOfAccountId;
+                        const selectedAccount = accounts.find(acc => acc.id === selectedAccountId);
 
-              {errors.lines && typeof errors.lines.message === "string" && (
-                <p className="text-sm text-destructive">{errors.lines.message}</p>
-              )}
-
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">#</TableHead>
-                      <TableHead>Account</TableHead>
-                      <TableHead className="w-32">Debit (DR)</TableHead>
-                      <TableHead className="w-32">Credit (CR)</TableHead>
-                      <TableHead>Line Note</TableHead>
-                      <TableHead className="w-16"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {fields.map((field, index) => {
-                      const lineError = errors.lines?.[index];
-                      const selectedAccountId = watchedLines[index]?.chartOfAccountId;
-                      const selectedAccount = accounts.find(acc => acc.id === selectedAccountId);
-
-                      return (
-                        <TableRow key={field.id}>
-                          <TableCell className="font-medium">{index + 1}</TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <Controller
-                                name={`lines.${index}.chartOfAccountId`}
-                                control={control}
-                                render={({ field }) => (
-                                  <Select
-                                    value={field.value}
-                                    onValueChange={field.onChange}
-                                    disabled={loading}
-                                  >
-                                    <SelectTrigger className="min-w-[250px]">
-                                      <SelectValue placeholder="Select account" />
-                                    </SelectTrigger>
-                                    <SelectContent className="max-h-[400px]">
-                                      <div className="p-2">
-                                        <div className="relative">
-                                          <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
-                                          <Input
-                                            placeholder="Search accounts..."
-                                            value={accountSearch}
-                                            onChange={(e) => setAccountSearch(e.target.value)}
-                                            onKeyDown={(e) => {
-                                              e.stopPropagation();
-                                              if (e.key === "Enter") e.preventDefault();
-                                            }}
-                                            className="pl-8 h-8 text-xs"
-                                            onClick={(e) => e.stopPropagation()}
-                                          />
+                        return (
+                          <TableRow key={field.id} className="group hover:bg-muted/30 transition-colors">
+                            <TableCell className="text-center font-medium text-muted-foreground">{index + 1}</TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <Controller
+                                  name={`lines.${index}.chartOfAccountId`}
+                                  control={control}
+                                  render={({ field }) => (
+                                    <Select
+                                      value={field.value}
+                                      onValueChange={field.onChange}
+                                      disabled={loading}
+                                    >
+                                      <SelectTrigger className="w-full border-muted-foreground/20 focus:ring-1 focus:ring-ring">
+                                        <SelectValue placeholder="Select account" />
+                                      </SelectTrigger>
+                                      <SelectContent className="max-h-[400px]">
+                                        <div className="p-2 sticky top-0 bg-popover z-10 border-b">
+                                          <div className="relative">
+                                            <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground w-3.5 h-3.5" />
+                                            <Input
+                                              placeholder="Filter accounts..."
+                                              value={accountSearch}
+                                              onChange={(e) => setAccountSearch(e.target.value)}
+                                              onKeyDown={(e) => e.stopPropagation()}
+                                              className="pl-8 h-8 text-xs bg-muted/50"
+                                            />
+                                          </div>
                                         </div>
-                                      </div>
-                                      <div className="max-h-[300px] overflow-y-auto">
+                                        <div className="pt-1">
                                         {Object.entries(groupedAccounts).map(([type, accs]) => {
                                           if (accs.length === 0) return null;
                                           return (
                                             <div key={type}>
-                                              <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/50 sticky top-0">
+                                              <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground bg-muted/30 uppercase tracking-wider">
                                                 {type}
                                               </div>
                                               {accs.map((account) => (
                                                 <SelectItem
                                                   key={account.id}
                                                   value={account.id}
-                                                  className="text-left"
+                                                  className="text-left cursor-pointer py-2 focus:bg-accent"
                                                 >
-                                                  <span className="font-mono text-xs">{account.code}</span>
-                                                  <span className="ml-2">{account.name}</span>
+                                                  <div className="flex items-center justify-between w-full gap-2">
+                                                    <div className="flex flex-col">
+                                                      <span className="font-medium text-sm">{account.name}</span>
+                                                      <span className="font-mono text-xs text-muted-foreground">{account.code}</span>
+                                                    </div>
+                                                    <Badge variant="outline" className="text-[10px] h-5 opacity-50">
+                                                      {account.type.substring(0,3)}
+                                                    </Badge>
+                                                  </div>
                                                 </SelectItem>
                                               ))}
                                             </div>
                                           );
                                         })}
-                                      </div>
-                                    </SelectContent>
-                                  </Select>
+                                        </div>
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                />
+                                {selectedAccount && (
+                                  <div className="flex items-center gap-2 px-1">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${
+                                      selectedAccount.type === 'ASSET' || selectedAccount.type === 'EXPENSE' ? 'bg-blue-500' : 'bg-green-500'
+                                    }`} />
+                                    <span className="text-[10px] text-muted-foreground font-medium">{selectedAccount.code}</span>
+                                  </div>
+                                )}
+                              </div>
+                              {lineError?.chartOfAccountId && (
+                                <p className="text-[10px] text-destructive mt-1 font-medium bg-destructive/5 inline-block px-1 rounded">
+                                  {lineError.chartOfAccountId.message}
+                                </p>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Controller
+                                name={`lines.${index}.debitAmount`}
+                                control={control}
+                                render={({ field }) => (
+                                  <div className="relative">
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      placeholder="0.00"
+                                      className="text-right font-mono focus:bg-background bg-muted/20"
+                                      value={field.value || ""}
+                                      onChange={(e) => {
+                                        const value = parseFloat(e.target.value) || 0;
+                                        field.onChange(value);
+                                        if (value > 0) setValue(`lines.${index}.creditAmount`, 0);
+                                      }}
+                                      onFocus={(e) => e.target.select()}
+                                      disabled={loading}
+                                    />
+                                  </div>
                                 )}
                               />
-                              {selectedAccount && (
-                                <Badge
-                                  variant={getTypeBadgeVariant(selectedAccount.type)}
-                                  className="text-[10px] px-1.5 py-0"
-                                >
-                                  {selectedAccount.type}
-                                </Badge>
+                               {lineError?.debitAmount && (
+                                <p className="text-[10px] text-destructive text-right mt-1">Check line</p>
                               )}
-                            </div>
-                            {lineError?.chartOfAccountId && (
-                              <p className="text-xs text-destructive mt-1">
-                                {lineError.chartOfAccountId.message}
-                              </p>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Controller
-                              name={`lines.${index}.debitAmount`}
-                              control={control}
-                              render={({ field }) => (
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  placeholder="0.00"
-                                  value={field.value || ""}
-                                  onChange={(e) => {
-                                    const value = parseFloat(e.target.value) || 0;
-                                    field.onChange(value);
-                                    if (value > 0) {
-                                      setValue(`lines.${index}.creditAmount`, 0);
-                                    }
-                                  }}
-                                  disabled={loading}
-                                />
-                              )}
-                            />
-                            {lineError?.debitAmount && (
-                              <p className="text-xs text-destructive mt-1">
-                                {lineError.debitAmount.message}
-                              </p>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Controller
-                              name={`lines.${index}.creditAmount`}
-                              control={control}
-                              render={({ field }) => (
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  placeholder="0.00"
-                                  value={field.value || ""}
-                                  onChange={(e) => {
-                                    const value = parseFloat(e.target.value) || 0;
-                                    field.onChange(value);
-                                    if (value > 0) {
-                                      setValue(`lines.${index}.debitAmount`, 0);
-                                    }
-                                  }}
-                                  disabled={loading}
-                                />
-                              )}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Controller
-                              name={`lines.${index}.description`}
-                              control={control}
-                              render={({ field }) => (
-                                <Input
-                                  type="text"
-                                  placeholder="Optional note"
-                                  {...field}
-                                  disabled={loading}
-                                />
-                              )}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {fields.length > 2 && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => removeLine(index)}
+                            </TableCell>
+                            <TableCell>
+                              <Controller
+                                name={`lines.${index}.creditAmount`}
+                                control={control}
+                                render={({ field }) => (
+                                  <div className="relative">
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      placeholder="0.00"
+                                      className="text-right font-mono focus:bg-background bg-muted/20"
+                                      value={field.value || ""}
+                                      onChange={(e) => {
+                                        const value = parseFloat(e.target.value) || 0;
+                                        field.onChange(value);
+                                        if (value > 0) setValue(`lines.${index}.debitAmount`, 0);
+                                      }}
+                                      onKeyDown={(e) => handleLineKeyDown(e, index)}
+                                      onFocus={(e) => e.target.select()}
+                                      disabled={loading}
+                                    />
+                                  </div>
+                                )}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                {...register(`lines.${index}.description`)}
+                                placeholder="Note..."
+                                className="text-xs"
                                 disabled={loading}
-                              >
-                                <FiTrash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    if(index === fields.length - 1) addLine();
+                                  }
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center justify-end gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => cloneLine(index)}
+                                  disabled={loading}
+                                  title="Clone Line"
+                                >
+                                  <FiCopy className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => removeLine(index)}
+                                  disabled={loading || fields.length <= 2}
+                                  title="Remove Line"
+                                >
+                                  <FiTrash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
-
-              {/* Totals */}
-              <div className="flex justify-end gap-6 pt-4 border-t">
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Total Debit</p>
-                  <p className="text-lg font-semibold font-mono">৳{totalDebit.toFixed(2)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Total Credit</p>
-                  <p className="text-lg font-semibold font-mono">৳{totalCredit.toFixed(2)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Difference</p>
-                  <p className={`text-lg font-semibold font-mono ${isBalanced ? "text-green-600" : "text-destructive"}`}>
-                    ৳{difference.toFixed(2)}
-                  </p>
-                </div>
-              </div>
-
-              {!isBalanced && (
-                <div className="flex items-start gap-2 rounded-lg bg-yellow-50 dark:bg-yellow-950 p-3 text-sm text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800">
-                  <FiAlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                  <span>
-                    Double-entry balance mismatch: Debits (৳{totalDebit.toFixed(2)}) must equal Credits (৳{totalCredit.toFixed(2)})
-                  </span>
-                </div>
-              )}
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-3 pt-4">
-              <Button
-                type="submit"
-                disabled={loading || !isBalanced || fields.length < 2}
-              >
-                {loading ? (
-                  <>
-                    <FiLoader className="mr-2 h-4 w-4 animate-spin" />
-                    Creating & Posting...
-                  </>
-                ) : (
-                  "Create & Post Journal"
-                )}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.back()}
-                disabled={loading}
-              >
-                Cancel
-              </Button>
+            {/* Sticky Footer for Totals & Actions */}
+            <div className="p-6 bg-background/95 backdrop-blur border-t z-10  mt-8">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                {/* Totals Section */}
+                <div className="flex items-center gap-6 text-sm">
+                  <div className="text-center md:text-left">
+                    <p className="text-muted-foreground text-xs uppercase tracking-wider">Total Debit</p>
+                    <p className="font-mono font-bold text-lg">৳{totalDebit.toFixed(2)}</p>
+                  </div>
+                  <div className="text-center md:text-left">
+                    <p className="text-muted-foreground text-xs uppercase tracking-wider">Total Credit</p>
+                    <p className="font-mono font-bold text-lg">৳{totalCredit.toFixed(2)}</p>
+                  </div>
+                  <div className="pl-6 border-l">
+                    <p className="text-muted-foreground text-xs uppercase tracking-wider">Difference</p>
+                     <div className="flex items-center gap-2">
+                        <p className={`font-mono font-bold text-lg ${isBalanced ? "text-green-600" : "text-destructive"}`}>
+                          ৳{Math.abs(difference).toFixed(2)}
+                        </p>
+                        {!isBalanced && (
+                          <Button 
+                            type="button" 
+                            variant="secondary" 
+                            size="sm" 
+                            onClick={autoBalance}
+                            className="h-6 text-[10px] gap-1 bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-200"
+                            title="Add balancing line"
+                          >
+                            <FiZap className="w-3 h-3" /> Auto-Balance
+                          </Button>
+                        )}
+                     </div>
+                  </div>
+                </div>
+
+                {/* Main Actions */}
+                <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+                   <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => router.back()}
+                    disabled={loading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="min-w-[150px]"
+                    disabled={loading || !isBalanced || fields.length < 2 || totalDebit === 0}
+                  >
+                    {loading ? (
+                      <>
+                        <FiLoader className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      "Create Journal Voucher"
+                    )}
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

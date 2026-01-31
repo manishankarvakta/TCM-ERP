@@ -28,7 +28,7 @@ export async function getAccountsForJournal(): Promise<{
     }
 
     // Get IDs of accounts linked to CashBank
-    const cashBankAccounts = await prisma.cashBank.findMany({
+    const cashBankAccounts = await prisma.cashBankAccount.findMany({
       select: {
         chartOfAccountId: true,
       },
