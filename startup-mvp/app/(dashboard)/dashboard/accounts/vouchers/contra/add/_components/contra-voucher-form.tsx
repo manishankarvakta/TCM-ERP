@@ -264,73 +264,76 @@ export default function ContraVoucherForm() {
               </div>
             )}
 
-            {/* From Account Selection */}
-            {renderAccountSelect(
-              "fromAccountId",
-              "From Account (Source)",
-              "Select source account",
-              watchedToAccountId
-            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* From Account Selection */}
+              {renderAccountSelect(
+                "fromAccountId",
+                "From Account (Source)",
+                "Select source account",
+                watchedToAccountId
+              )}
 
-            {/* To Account Selection */}
-            {renderAccountSelect(
-              "toAccountId",
-              "To Account (Destination)",
-              "Select destination account",
-              watchedFromAccountId
-            )}
-
-            {/* Amount */}
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount *</Label>
-              <Controller
-                name="amount"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    placeholder="0.00"
-                    value={field.value || ""}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value) || 0;
-                      field.onChange(value);
-                    }}
-                    disabled={loading}
-                  />
+              {/* To Account Selection */}
+              {renderAccountSelect(
+                "toAccountId",
+                "To Account (Destination)",
+                "Select destination account",
+                watchedFromAccountId
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Amount */}
+              <div className="space-y-2">
+                <Label htmlFor="amount">Amount *</Label>
+                <Controller
+                  name="amount"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="amount"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      placeholder="0.00"
+                      value={field.value || ""}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0;
+                        field.onChange(value);
+                      }}
+                      disabled={loading}
+                    />
+                  )}
+                />
+                {errors.amount && (
+                  <p className="text-sm text-destructive">{errors.amount.message}</p>
                 )}
-              />
-              {errors.amount && (
-                <p className="text-sm text-destructive">{errors.amount.message}</p>
-              )}
-            </div>
+              </div>
 
-            {/* Date */}
-            <div className="space-y-2">
-              <Label htmlFor="date">Transfer Date *</Label>
-              <Input
-                id="date"
-                type="date"
-                {...register("date")}
-                disabled={loading}
-              />
-              {errors.date && (
-                <p className="text-sm text-destructive">{errors.date.message}</p>
-              )}
-            </div>
+              {/* Date */}
+              <div className="space-y-2">
+                <Label htmlFor="date">Transfer Date *</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  {...register("date")}
+                  disabled={loading}
+                />
+                {errors.date && (
+                  <p className="text-sm text-destructive">{errors.date.message}</p>
+                )}
+              </div>
 
-            {/* Reference */}
-            <div className="space-y-2">
-              <Label htmlFor="reference">Reference (Optional)</Label>
-              <Input
-                id="reference"
-                type="text"
-                placeholder="e.g., Transfer slip number"
-                {...register("reference")}
-                disabled={loading}
-              />
+              {/* Reference */}
+              <div className="space-y-2">
+                <Label htmlFor="reference">Reference (Optional)</Label>
+                <Input
+                  id="reference"
+                  type="text"
+                  placeholder="e.g., Transfer slip number"
+                  {...register("reference")}
+                  disabled={loading}
+                />
+              </div>
             </div>
 
             {/* Description */}
