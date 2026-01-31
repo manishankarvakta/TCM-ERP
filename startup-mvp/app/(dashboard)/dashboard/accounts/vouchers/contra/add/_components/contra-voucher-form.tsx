@@ -17,11 +17,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { FiAlertCircle, FiArrowRight, FiLoader } from "react-icons/fi";
-import { getCashBankAccounts } from "../../../../cash-bank/_actions/cash-bank.action";
+import { FiAlertCircle, FiArrowRight, FiLoader, FiDollarSign } from "react-icons/fi";
+import { getContraAccounts, getAccountBalance } from "../../_actions/contra.action";
 import { createVoucher, postVoucher } from "../../../../vouchers/_actions/voucher.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType } from "@prisma/client";
+import { PaymentAccountType } from "@/lib/payment-account-config";
 
 // Form validation schema with refinement for From ≠ To
 const contraVoucherSchema = z.object({
@@ -38,12 +39,12 @@ const contraVoucherSchema = z.object({
 
 type ContraVoucherFormData = z.infer<typeof contraVoucherSchema>;
 
-interface CashBankAccountOption {
+interface ContraAccountOption {
   id: string;
-  chartOfAccountId: string;
   code: string;
   name: string;
-  type: "CASH" | "BANK";
+  description?: string | null;
+  type?: PaymentAccountType;
 }
 
 export default function ContraVoucherForm() {
@@ -51,33 +52,27 @@ export default function ContraVoucherForm() {
   const pathname = usePathname();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [cashBankAccounts, setCashBankAccounts] = useState<CashBankAccountOption[]>([]);
+  const [contraAccounts, setContraAccounts] = useState<{
+    cash: ContraAccountOption[];
+    bank: ContraAccountOption[];
+    digitalWallet: ContraAccountOption[];
+  }>({ cash: [], bank: [], digitalWallet: [] });
   const [loadingData, setLoadingData] = useState(true);
+  
+  // Balance states
+  const [fromAccountBalance, setFromAccountBalance] = useState<number | null>(null);
+  const [toAccountBalance, setToAccountBalance] = useState<number | null>(null);
+  const [loadingFromBalance, setLoadingFromBalance] = useState(false);
+  const [loadingToBalance, setLoadingToBalance] = useState(false);
 
-  // Fetch cash/bank accounts on mount
+  // Fetch contra accounts on mount
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const cashBankResult = await getCashBankAccounts();
-
-        if (cashBankResult.success && cashBankResult.accounts) {
-          const allAccounts: CashBankAccountOption[] = [
-            ...cashBankResult.accounts.cash.map((cb) => ({
-              id: cb.id,
-              chartOfAccountId: cb.chartOfAccount.id,
-              code: cb.chartOfAccount.code,
-              name: cb.chartOfAccount.name,
-              type: "CASH" as const,
-            })),
-            ...cashBankResult.accounts.bank.map((cb) => ({
-              id: cb.id,
-              chartOfAccountId: cb.chartOfAccount.id,
-              code: cb.chartOfAccount.code,
-              name: cb.chartOfAccount.name,
-              type: "BANK" as const,
-            })),
-          ];
-          setCashBankAccounts(allAccounts);
+        const result = await getContraAccounts();
+        if (result.success && result.accounts) {
+          // @ts-ignore
+          setContraAccounts(result.accounts);
         }
       } catch (err) {
         console.error("Failed to fetch data:", err);
@@ -112,17 +107,71 @@ export default function ContraVoucherForm() {
   const watchedToAccountId = watch("toAccountId");
   const watchedAmount = watch("amount");
 
-  const fromAccount = cashBankAccounts.find((a) => a.chartOfAccountId === watchedFromAccountId);
-  const toAccount = cashBankAccounts.find((a) => a.chartOfAccountId === watchedToAccountId);
+  // Helper to find account details
+  const getAccountDetails = (id: string) => {
+    const allAccounts = [
+      ...contraAccounts.cash,
+      ...contraAccounts.bank,
+      ...contraAccounts.digitalWallet,
+    ];
+    return allAccounts.find(a => a.id === id);
+  };
+
+  const fromAccount = getAccountDetails(watchedFromAccountId);
+  const toAccount = getAccountDetails(watchedToAccountId);
+
+  // Fetch balance when From account changes
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (watchedFromAccountId) {
+        setLoadingFromBalance(true);
+        try {
+          const result = await getAccountBalance(watchedFromAccountId);
+          if (result.success) {
+            setFromAccountBalance(result.balance);
+          }
+        } catch (error) {
+          console.error("Error fetching balance", error);
+        } finally {
+          setLoadingFromBalance(false);
+        }
+      } else {
+        setFromAccountBalance(null);
+      }
+    };
+    fetchBalance();
+  }, [watchedFromAccountId]);
+
+  // Fetch balance when To account changes
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (watchedToAccountId) {
+        setLoadingToBalance(true);
+        try {
+          const result = await getAccountBalance(watchedToAccountId);
+          if (result.success) {
+            setToAccountBalance(result.balance);
+          }
+        } catch (error) {
+          console.error("Error fetching balance", error);
+        } finally {
+          setLoadingToBalance(false);
+        }
+      } else {
+        setToAccountBalance(null);
+      }
+    };
+    fetchBalance();
+  }, [watchedToAccountId]);
+
 
   const onSubmit = async (data: ContraVoucherFormData) => {
     try {
       setLoading(true);
       setError("");
 
-      // Get the accounts
-      const fromAcc = cashBankAccounts.find((a) => a.chartOfAccountId === data.fromAccountId);
-      const toAcc = cashBankAccounts.find((a) => a.chartOfAccountId === data.toAccountId);
+      const fromAcc = getAccountDetails(data.fromAccountId);
+      const toAcc = getAccountDetails(data.toAccountId);
 
       if (!fromAcc || !toAcc) {
         throw new Error("Invalid account selection");
@@ -135,14 +184,14 @@ export default function ContraVoucherForm() {
           debitAmount: data.amount,
           creditAmount: 0,
           description: `Transfer to ${toAcc.name}`,
-          chartOfAccountId: toAcc.chartOfAccountId,
+          chartOfAccountId: toAcc.id,
         },
         {
           lineNumber: 2,
           debitAmount: 0,
           creditAmount: data.amount,
           description: `Transfer from ${fromAcc.name}`,
-          chartOfAccountId: fromAcc.chartOfAccountId,
+          chartOfAccountId: fromAcc.id,
         },
       ];
 
@@ -191,7 +240,9 @@ export default function ContraVoucherForm() {
     name: "fromAccountId" | "toAccountId",
     label: string,
     placeholder: string,
-    excludeAccountId?: string
+    excludeAccountId?: string,
+    balance?: number | null,
+    loadingBalance?: boolean
   ) => (
     <div className="space-y-2">
       <Label htmlFor={name}>{label} *</Label>
@@ -208,50 +259,99 @@ export default function ContraVoucherForm() {
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>
             <SelectContent>
-              {cashBankAccounts.length === 0 ? (
+              {contraAccounts.cash.length === 0 && 
+               contraAccounts.bank.length === 0 && 
+               contraAccounts.digitalWallet.length === 0 ? (
                 <SelectItem value="none" disabled>
-                  No Cash/Bank accounts available
+                  No accounts available
                 </SelectItem>
               ) : (
                 <>
-                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b">
-                    CASH ACCOUNTS
-                  </div>
-                  {cashBankAccounts
-                    .filter((acc) => acc.type === "CASH" && acc.chartOfAccountId !== excludeAccountId)
-                    .map((account) => (
-                      <SelectItem key={account.chartOfAccountId} value={account.chartOfAccountId}>
-                        {account.code} - {account.name}
-                      </SelectItem>
-                    ))}
-                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b border-t mt-1">
-                    BANK ACCOUNTS
-                  </div>
-                  {cashBankAccounts
-                    .filter((acc) => acc.type === "BANK" && acc.chartOfAccountId !== excludeAccountId)
-                    .map((account) => (
-                      <SelectItem key={account.chartOfAccountId} value={account.chartOfAccountId}>
-                        {account.code} - {account.name}
-                      </SelectItem>
-                    ))}
+                  {contraAccounts.cash.length > 0 && (
+                    <>
+                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b">
+                        CASH ACCOUNTS
+                      </div>
+                      {contraAccounts.cash
+                        .filter((acc) => acc.id !== excludeAccountId)
+                        .map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.code} - {account.name}
+                          </SelectItem>
+                        ))}
+                    </>
+                  )}
+                  {contraAccounts.bank.length > 0 && (
+                    <>
+                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b border-t mt-1">
+                        BANK ACCOUNTS
+                      </div>
+                      {contraAccounts.bank
+                        .filter((acc) => acc.id !== excludeAccountId)
+                        .map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.code} - {account.name}
+                          </SelectItem>
+                        ))}
+                    </>
+                  )}
+                  {contraAccounts.digitalWallet.length > 0 && (
+                     <>
+                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b border-t mt-1">
+                        DIGITAL WALLETS
+                      </div>
+                      {contraAccounts.digitalWallet
+                        .filter((acc) => acc.id !== excludeAccountId)
+                        .map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.code} - {account.name}
+                          </SelectItem>
+                        ))}
+                    </>
+                  )}
                 </>
               )}
             </SelectContent>
           </Select>
         )}
       />
+      
+      {/* Balance Display */}
+      {fieldBalanceDisplay(balance, loadingBalance)}
+
       {errors[name] && (
         <p className="text-sm text-destructive">{errors[name]?.message}</p>
       )}
     </div>
   );
 
+  const fieldBalanceDisplay = (balance: number | null | undefined, isLoading: boolean | undefined) => {
+    if (isLoading) {
+      return (
+        <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+          <FiLoader className="h-3 w-3 animate-spin" /> Fetching balance...
+        </div>
+      );
+    }
+    if (balance !== null && balance !== undefined) {
+      return (
+        <div className="text-xs font-medium mt-1 flex items-center gap-1">
+          <span className="text-muted-foreground">Current Balance:</span>
+          <span className={balance < 0 ? "text-red-500" : "text-green-600"}>
+            ৳{balance.toFixed(2)}
+          </span>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Create Contra Voucher</CardTitle>
         <CardDescription>
-          Transfer funds between Cash and Bank accounts. This will debit the destination account and credit the source account.
+          Transfer funds between Cash, Bank, and Digital Wallet accounts. This will debit the destination account and credit the source account.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -264,13 +364,15 @@ export default function ContraVoucherForm() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* From Account Selection */}
               {renderAccountSelect(
                 "fromAccountId",
                 "From Account (Source)",
                 "Select source account",
-                watchedToAccountId
+                watchedToAccountId,
+                fromAccountBalance,
+                loadingFromBalance
               )}
 
               {/* To Account Selection */}
@@ -278,32 +380,29 @@ export default function ContraVoucherForm() {
                 "toAccountId",
                 "To Account (Destination)",
                 "Select destination account",
-                watchedFromAccountId
+                watchedFromAccountId,
+                toAccountBalance,
+                loadingToBalance
               )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Amount */}
               <div className="space-y-2">
                 <Label htmlFor="amount">Amount *</Label>
-                <Controller
-                  name="amount"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      id="amount"
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      placeholder="0.00"
-                      value={field.value || ""}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0;
-                        field.onChange(value);
-                      }}
-                      disabled={loading}
-                    />
-                  )}
-                />
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-muted-foreground">৳</span>
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder="0.00"
+                    className="pl-8"
+                    value={watch("amount") || ""}
+                    {...register("amount", { valueAsNumber: true })}
+                    disabled={loading}
+                  />
+                </div>
                 {errors.amount && (
                   <p className="text-sm text-destructive">{errors.amount.message}</p>
                 )}
@@ -356,13 +455,16 @@ export default function ContraVoucherForm() {
                   <div className="text-center">
                     <div className="text-xs text-muted-foreground mb-1">FROM</div>
                     <div className="font-medium">{fromAccount.name}</div>
-                    <div className="text-xs text-muted-foreground">{fromAccount.type}</div>
+                    <div className="text-xs text-muted-foreground px-2 py-0.5 rounded-full bg-red-100 text-red-700 inline-block mt-1">Sent</div>
                   </div>
-                  <FiArrowRight className="h-5 w-5 text-muted-foreground" />
+                  <div className="flex flex-col items-center">
+                    <div className="text-sm font-bold text-blue-600 mb-1">৳{watchedAmount.toFixed(2)}</div>
+                    <FiArrowRight className="h-5 w-5 text-muted-foreground" />
+                  </div>
                   <div className="text-center">
                     <div className="text-xs text-muted-foreground mb-1">TO</div>
                     <div className="font-medium">{toAccount.name}</div>
-                    <div className="text-xs text-muted-foreground">{toAccount.type}</div>
+                    <div className="text-xs text-muted-foreground px-2 py-0.5 rounded-full bg-green-100 text-green-700 inline-block mt-1">Received</div>
                   </div>
                 </div>
                 <div className="text-sm space-y-1 border-t pt-3">
@@ -379,7 +481,7 @@ export default function ContraVoucherForm() {
             )}
 
             {/* Actions */}
-            <div className="flex items-center gap-3 pt-4">
+            <div className="flex items-center justify-end gap-3 pt-4">
               <Button
                 type="submit"
                 disabled={loading || !fromAccount || !toAccount || watchedFromAccountId === watchedToAccountId}
