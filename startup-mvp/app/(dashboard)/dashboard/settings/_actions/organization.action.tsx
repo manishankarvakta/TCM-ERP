@@ -264,7 +264,7 @@ export async function createOrganization(input: {
       type: NotificationType.SUCCESS,
     });
 
-    // Revalidate settings page for both admin and dashboard
+    // Revalidate organizations page
     revalidateBothPaths("settings");
 
     return {
@@ -411,7 +411,7 @@ export async function updateOrganization(input: {
       changes,
     });
 
-    // Revalidate settings page for both admin and dashboard
+    // Revalidate organizations page
     revalidateBothPaths("settings");
 
     return {
@@ -486,7 +486,7 @@ export async function deleteOrganization(organizationId: string) {
       type: NotificationType.WARNING,
     });
 
-    // Revalidate settings page for both admin and dashboard
+    // Revalidate organizations page
     revalidateBothPaths("settings");
 
     return {
@@ -565,7 +565,7 @@ export async function bulkUpdateOrganizationStatus(
       type: status === "active" ? NotificationType.SUCCESS : status === "trash" ? NotificationType.WARNING : NotificationType.INFO,
     });
 
-    // Revalidate settings page for both admin and dashboard
+    // Revalidate organizations page
     revalidateBothPaths("settings");
 
     return {
@@ -645,7 +645,7 @@ export async function deleteOrganizationsPermanently(organizationIds: string[]) 
       type: NotificationType.ERROR,
     });
 
-    // Revalidate settings page for both admin and dashboard
+    // Revalidate organizations page
     revalidateBothPaths("settings");
     
     return {
