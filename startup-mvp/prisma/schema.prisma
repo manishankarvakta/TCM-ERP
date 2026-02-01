@@ -22,6 +22,7 @@ enum VoucherType {
   CONTRA
   SALES
   PURCHASE
+  ADJUSTMENT
 }
 
 enum CashBankAccountType {
@@ -732,6 +733,7 @@ model ChartOfAccount {
   parentId                                                 String?
   description                                              String?
   status                                                   String             @default("active")
+  isControl                                                Boolean            @default(false)
   createdBy                                                String
   createdAt                                                DateTime           @default(now())
   updatedAt                                                DateTime           @updatedAt

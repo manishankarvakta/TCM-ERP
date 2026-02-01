@@ -638,7 +638,6 @@ export async function createVoucher(input: {
     // ---------------------------------------------------------
     
     // 1. Block System Voucher Types
-    // These must be created via their respective modules (Sales/Purchase)
     const SYSTEM_TYPES = ["SALES", "PURCHASE"];
     if (SYSTEM_TYPES.includes(input.type)) {
       return {
@@ -648,26 +647,16 @@ export async function createVoucher(input: {
       };
     }
 
-    // 2. Guard Control Accounts
-    // Prevent manual direct posting to Control Accounts to avoid Ledger-Inventory mismatch
-    const RESTRICTED_ACCOUNTS = ["Inventory Asset", "Accounts Receivable", "Accounts Payable"];
-    
-    // Fetch account names to check against restricted list
-    const usedAccounts = await prisma.chartOfAccount.findMany({
-      where: { id: { in: accountIds } },
-      select: { id: true, name: true }
-    });
-
-    const restrictedMatches = usedAccounts.filter(acc => RESTRICTED_ACCOUNTS.includes(acc.name));
-    
-    if (restrictedMatches.length > 0) {
-      const names = restrictedMatches.map(a => a.name).join(", ");
-      return {
-        success: false,
-        error: `Manual vouchers cannot use Control Accounts (${names}). System handles these automatically.`,
-        voucher: null,
-      };
+    // 2. Account Restrictions
+    const restrictionCheck = await validateAccountRestrictions(accountIds);
+    if (!restrictionCheck.valid) {
+        return {
+            success: false,
+            error: restrictionCheck.error,
+            voucher: null
+        };
     }
+
     // ---------------------------------------------------------
 
     // Generate voucher number
@@ -1329,5 +1318,43 @@ export async function getEmployeesForVoucher() {
       employees: [],
     };
   }
+}
+
+/**
+ * Validate account restrictions for manual journals
+ */
+export async function validateAccountRestrictions(accountIds: string[]): Promise<{ valid: boolean; error?: string }> {
+    // Fetch account details to check flags
+    const usedAccounts = await prisma.chartOfAccount.findMany({
+      where: { id: { in: accountIds } },
+      select: { 
+        id: true, 
+        name: true, 
+        isControl: true,
+        CashBankAccount: { select: { id: true } }
+      }
+    });
+
+    // Check for Control Accounts
+    const controlAccounts = usedAccounts.filter(acc => acc.isControl);
+    if (controlAccounts.length > 0) {
+      const names = controlAccounts.map(a => a.name).join(", ");
+      return {
+        valid: false,
+        error: `Manual vouchers cannot use Control Accounts (${names}). System handles these automatically.`,
+      };
+    }
+
+    // Check for Cash/Bank Accounts
+    const cashBankAccounts = usedAccounts.filter(acc => acc.CashBankAccount !== null);
+    if (cashBankAccounts.length > 0) {
+       const names = cashBankAccounts.map(a => a.name).join(", ");
+       return {
+         valid: false,
+         error: `Manual vouchers cannot use Bank/Cash Accounts (${names}). Please use Receipt or Payment modules.`,
+       };
+    }
+
+    return { valid: true };
 }
 
