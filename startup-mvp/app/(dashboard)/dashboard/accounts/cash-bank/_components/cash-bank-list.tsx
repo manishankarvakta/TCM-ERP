@@ -25,11 +25,62 @@ interface CashBankAccount {
 interface CashBankListProps {
   cashAccounts: CashBankAccount[];
   bankAccounts: CashBankAccount[];
+  walletAccounts: CashBankAccount[];
+}
+
+function AccountTable({ accounts, emptyMessage }: { accounts: CashBankAccount[], emptyMessage: string }) {
+  return (
+    <div className="border rounded-lg">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Account Name</TableHead>
+            <TableHead>Linked COA</TableHead>
+            <TableHead>Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {accounts.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                {emptyMessage}
+              </TableCell>
+            </TableRow>
+          ) : (
+            accounts.map((account) => (
+              <TableRow key={account.id}>
+                <TableCell className="font-medium">
+                  {account.chartOfAccount.name}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {account.chartOfAccount.code} - {account.chartOfAccount.name}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant={
+                      account.status === "active"
+                        ? "default"
+                        : account.status === "inactive"
+                        ? "secondary"
+                        : "outline"
+                    }
+                  >
+                    {account.status}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
 }
 
 export default function CashBankList({
   cashAccounts,
   bankAccounts,
+  walletAccounts,
 }: CashBankListProps) {
   return (
     <div className="space-y-6">
@@ -39,50 +90,7 @@ export default function CashBankList({
           <CardTitle>Cash Accounts</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Account Name</TableHead>
-                  <TableHead>Linked COA</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {cashAccounts.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
-                      No cash accounts found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  cashAccounts.map((account) => (
-                    <TableRow key={account.id}>
-                      <TableCell className="font-medium">
-                        {account.chartOfAccount.name}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {account.chartOfAccount.code} - {account.chartOfAccount.name}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            account.status === "active"
-                              ? "default"
-                              : account.status === "inactive"
-                              ? "secondary"
-                              : "outline"
-                          }
-                        >
-                          {account.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          <AccountTable accounts={cashAccounts} emptyMessage="No cash accounts found" />
         </CardContent>
       </Card>
 
@@ -92,53 +100,19 @@ export default function CashBankList({
           <CardTitle>Bank Accounts</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Account Name</TableHead>
-                  <TableHead>Linked COA</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {bankAccounts.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
-                      No bank accounts found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  bankAccounts.map((account) => (
-                    <TableRow key={account.id}>
-                      <TableCell className="font-medium">
-                        {account.chartOfAccount.name}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {account.chartOfAccount.code} - {account.chartOfAccount.name}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            account.status === "active"
-                              ? "default"
-                              : account.status === "inactive"
-                              ? "secondary"
-                              : "outline"
-                          }
-                        >
-                          {account.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+           <AccountTable accounts={bankAccounts} emptyMessage="No bank accounts found" />
+        </CardContent>
+      </Card>
+
+      {/* Digital Wallets Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Digital Wallets</CardTitle>
+        </CardHeader>
+        <CardContent>
+           <AccountTable accounts={walletAccounts} emptyMessage="No digital wallets found" />
         </CardContent>
       </Card>
     </div>
   );
 }
-

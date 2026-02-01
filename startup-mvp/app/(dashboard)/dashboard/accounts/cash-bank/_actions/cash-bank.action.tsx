@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
-import { CashBankAccountType } from "@prisma/client";
+import { CashBankAccountType, AccountType } from "@prisma/client";
 
 interface CashBankAccount {
   id: string;
@@ -21,6 +21,7 @@ interface CashBankAccountsResult {
   accounts?: {
     cash: CashBankAccount[];
     bank: CashBankAccount[];
+    wallets: CashBankAccount[];
   };
   error?: string;
 }
@@ -39,6 +40,7 @@ export async function getCashBankAccounts(): Promise<CashBankAccountsResult> {
         accounts: {
           cash: [],
           bank: [],
+          wallets: [],
         },
       };
     }
@@ -54,6 +56,7 @@ export async function getCashBankAccounts(): Promise<CashBankAccountsResult> {
         accounts: {
           cash: [],
           bank: [],
+          wallets: [],
         },
       };
     }
@@ -83,23 +86,88 @@ export async function getCashBankAccounts(): Promise<CashBankAccountsResult> {
       ],
     });
 
+    // Get IDs of COAs that are already linked
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const linkedCoaIds = accounts.map((a) => (a as any).ChartOfAccount.id);
+
+    // Fetch unlinked ChartOfAccounts that look like Cash/Bank (Name match & ASSET type)
+    const unlinkedAccounts = await prisma.chartOfAccount.findMany({
+      where: {
+        id: { notIn: linkedCoaIds },
+        type: AccountType.ASSET, // Must be Assets
+        status: { not: "trash" },
+        OR: [
+          { name: { contains: "Cash", mode: "insensitive" } },
+          { name: { contains: "Bank", mode: "insensitive" } },
+          { name: { contains: "Bkash", mode: "insensitive" } },
+          { name: { contains: "Nagad", mode: "insensitive" } },
+          { name: { contains: "Rocket", mode: "insensitive" } },
+          { name: { contains: "Upay", mode: "insensitive" } },
+          { name: { contains: "Wallet", mode: "insensitive" } },
+        ],
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        status: true,
+      },
+    });
+
     // Group accounts by type
     const cash: CashBankAccount[] = [];
     const bank: CashBankAccount[] = [];
+    const wallets: CashBankAccount[] = [];
 
+    const isWalletName = (name: string) => {
+      const n = name.toLowerCase();
+      return n.includes("bkash") || n.includes("nagad") || n.includes("rocket") || n.includes("upay") || n.includes("wallet");
+    };
+
+    // Add explicitly linked accounts
     accounts.forEach((account) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const coa = (account as any).ChartOfAccount;
+      
       const accountData: CashBankAccount = {
         id: account.id,
-        type: account.type,
+        type: account.type, // Keep original DB type
         status: account.status,
-        chartOfAccount: (account as any).ChartOfAccount,
+        chartOfAccount: coa,
       };
 
-      if (account.type === CashBankAccountType.CASH) {
+      // If it looks like a wallet, put it in wallets regardless of DB type
+      if (isWalletName(coa.name)) {
+        wallets.push(accountData);
+      } else if (account.type === CashBankAccountType.CASH) {
         cash.push(accountData);
       } else if (account.type === CashBankAccountType.BANK) {
         bank.push(accountData);
+      }
+    });
+
+    // Add inferred unlinked accounts
+    unlinkedAccounts.forEach((coa) => {
+      const isBank = coa.name.toLowerCase().includes("bank");
+      const isWallet = isWalletName(coa.name);
+      
+      const accountData: CashBankAccount = {
+        id: `inferred-${coa.id}`, // Virtual ID
+        type: isBank ? CashBankAccountType.BANK : CashBankAccountType.CASH, // Default mapping
+        status: coa.status,
+        chartOfAccount: {
+          id: coa.id,
+          code: coa.code,
+          name: coa.name,
+        },
+      };
+
+      if (isWallet) {
+        wallets.push(accountData);
+      } else if (isBank) {
+        bank.push(accountData);
+      } else {
+        cash.push(accountData);
       }
     });
 
@@ -108,6 +176,7 @@ export async function getCashBankAccounts(): Promise<CashBankAccountsResult> {
       accounts: {
         cash,
         bank,
+        wallets,
       },
     };
   } catch (error) {
@@ -118,8 +187,8 @@ export async function getCashBankAccounts(): Promise<CashBankAccountsResult> {
       accounts: {
         cash: [],
         bank: [],
+        wallets: [],
       },
     };
   }
 }
-

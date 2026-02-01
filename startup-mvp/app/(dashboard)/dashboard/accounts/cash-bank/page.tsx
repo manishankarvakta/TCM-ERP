@@ -46,9 +46,9 @@ export default async function CashBankPage() {
         <CashBankList
           cashAccounts={result.accounts?.cash || []}
           bankAccounts={result.accounts?.bank || []}
+          walletAccounts={result.accounts?.wallets || []}
         />
       </div>
     </PageGuard>
   );
 }
-
