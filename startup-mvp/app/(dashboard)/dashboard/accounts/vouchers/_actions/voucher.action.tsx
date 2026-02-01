@@ -6,6 +6,7 @@ import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { Prisma } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
 import { createUserLog, LogAction } from "@/lib/user-log";
+import { randomUUID } from "crypto";
 
 /**
  * Generate unique voucher number
@@ -436,7 +437,7 @@ export async function getVoucherById(voucherId: string) {
             supplierId: true,
             userId: true,
             organizationId: true,
-            chartOfAccount: {
+            ChartOfAccount: {
               select: {
                 id: true,
                 code: true,
@@ -444,28 +445,28 @@ export async function getVoucherById(voucherId: string) {
                 type: true,
               },
             },
-            client: {
+            Client: {
               select: {
                 id: true,
                 name: true,
                 email: true,
               },
             },
-            supplier: {
+            Supplier: {
               select: {
                 id: true,
                 name: true,
                 email: true,
               },
             },
-            user: {
+            User: {
               select: {
                 id: true,
                 name: true,
                 email: true,
               },
             },
-            organization: {
+            Organization: {
               select: {
                 id: true,
                 name: true,
@@ -476,7 +477,7 @@ export async function getVoucherById(voucherId: string) {
             lineNumber: "asc",
           },
         },
-        journalEntries: {
+        JournalEntry: {
           select: {
             id: true,
             entryNumber: true,
@@ -486,7 +487,7 @@ export async function getVoucherById(voucherId: string) {
             postedBy: true,
             postedAt: true,
             createdAt: true,
-            journalEntryLines: {
+            JournalEntryLine: {
               select: {
                 id: true,
                 lineNumber: true,
@@ -494,7 +495,7 @@ export async function getVoucherById(voucherId: string) {
                 creditAmount: true,
                 description: true,
                 chartOfAccountId: true,
-                chartOfAccount: {
+                ChartOfAccount: {
                   select: {
                     id: true,
                     code: true,
@@ -632,12 +633,51 @@ export async function createVoucher(input: {
       };
     }
 
+    // ---------------------------------------------------------
+    // SECURITY & INTEGRITY CHECKS
+    // ---------------------------------------------------------
+    
+    // 1. Block System Voucher Types
+    // These must be created via their respective modules (Sales/Purchase)
+    const SYSTEM_TYPES = ["SALES", "PURCHASE"];
+    if (SYSTEM_TYPES.includes(input.type)) {
+      return {
+        success: false,
+        error: `Cannot manually create ${input.type} vouchers. Please use the Sales or Purchase modules.`,
+        voucher: null,
+      };
+    }
+
+    // 2. Guard Control Accounts
+    // Prevent manual direct posting to Control Accounts to avoid Ledger-Inventory mismatch
+    const RESTRICTED_ACCOUNTS = ["Inventory Asset", "Accounts Receivable", "Accounts Payable"];
+    
+    // Fetch account names to check against restricted list
+    const usedAccounts = await prisma.chartOfAccount.findMany({
+      where: { id: { in: accountIds } },
+      select: { id: true, name: true }
+    });
+
+    const restrictedMatches = usedAccounts.filter(acc => RESTRICTED_ACCOUNTS.includes(acc.name));
+    
+    if (restrictedMatches.length > 0) {
+      const names = restrictedMatches.map(a => a.name).join(", ");
+      return {
+        success: false,
+        error: `Manual vouchers cannot use Control Accounts (${names}). System handles these automatically.`,
+        voucher: null,
+      };
+    }
+    // ---------------------------------------------------------
+
     // Generate voucher number
     const voucherNumber = await generateVoucherNumber();
 
     // Create voucher with lines
     const voucher = await prisma.voucher.create({
       data: {
+        id: randomUUID(),
+        updatedAt: new Date(),
         voucherNumber,
         date: input.date ? (typeof input.date === "string" ? new Date(input.date) : input.date) : new Date(),
         type: input.type as any,
@@ -649,8 +689,10 @@ export async function createVoucher(input: {
         supplierId: input.supplierId || null,
         userId: input.userId || null,
         organizationId: input.organizationId || null,
-        voucherLines: {
+        VoucherLine: {
           create: input.lines.map((line) => ({
+            id: randomUUID(),
+            updatedAt: new Date(),
             lineNumber: line.lineNumber,
             debitAmount: new Prisma.Decimal(line.debitAmount || 0),
             creditAmount: new Prisma.Decimal(line.creditAmount || 0),
@@ -660,7 +702,7 @@ export async function createVoucher(input: {
             supplierId: line.supplierId || null,
             userId: line.userId || null,
             organizationId: line.organizationId || null,
-          })),
+          })) as Prisma.VoucherLineUncheckedCreateWithoutVoucherInput[],
         },
       },
       include: {
@@ -686,21 +728,21 @@ export async function createVoucher(input: {
             lineNumber: "asc",
           },
         },
-        client: {
+        Client: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        supplier: {
+        Supplier: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        organization: {
+        Organization: {
           select: {
             id: true,
             name: true,
@@ -851,6 +893,7 @@ export async function postVoucher(voucherId: string) {
       // Create JournalEntry
       const journalEntry = await tx.journalEntry.create({
         data: {
+          id: randomUUID(),
           entryNumber,
           date: voucher.date,
           voucherId: voucher.id,
@@ -859,9 +902,10 @@ export async function postVoucher(voucherId: string) {
           createdBy: voucher.createdBy,
           postedBy: session.user.id,
           postedAt: new Date(),
-          journalEntryLines: {
+          JournalEntryLine: {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            create: ((voucher as any).VoucherLine || []).map((line: any) => ({
+            create: (((voucher as any).VoucherLine || []).map((line: any) => ({
+              id: randomUUID(),
               lineNumber: line.lineNumber,
               debitAmount: line.debitAmount,
               creditAmount: line.creditAmount,
@@ -871,13 +915,13 @@ export async function postVoucher(voucherId: string) {
               supplierId: line.supplierId || null,
               userId: line.userId || null,
               organizationId: line.organizationId || null,
-            })),
+            }))) as Prisma.JournalEntryLineUncheckedCreateWithoutJournalEntryInput[],
           },
         },
         include: {
-          journalEntryLines: {
+          JournalEntryLine: {
             include: {
-              chartOfAccount: {
+              ChartOfAccount: {
                 select: {
                   id: true,
                   code: true,
@@ -931,7 +975,7 @@ export async function postVoucher(voucherId: string) {
               lineNumber: "asc",
             },
           },
-          journalEntries: {
+          JournalEntry: {
             select: {
               id: true,
               entryNumber: true,
@@ -977,7 +1021,7 @@ export async function postVoucher(voucherId: string) {
 
     const serializedJournalEntry = {
       ...result.journalEntry,
-      journalEntryLines: result.journalEntry.journalEntryLines.map((line) => ({
+      journalEntryLines: (result.journalEntry as any).JournalEntryLine.map((line: any) => ({
         ...line,
         debitAmount: Number(line.debitAmount),
         creditAmount: Number(line.creditAmount),

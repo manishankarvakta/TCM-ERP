@@ -3,129 +3,12 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma, VoucherType } from "@prisma/client";
 
-/**
- * Helper function to find control account by name
- */
-async function findControlAccount(accountName: string): Promise<string | null> {
-  const account = await prisma.chartOfAccount.findFirst({
-    where: {
-      name: {
-        contains: accountName,
-        mode: "insensitive",
-      },
-      status: "active",
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  return account?.id || null;
-}
-
-/**
- * Generate unique voucher number
- * Format: VCH-YYYY-XXXX (e.g., VCH-2025-0001)
- */
-async function generateVoucherNumber(): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `VCH-${year}-`;
-  
-  const lastVoucher = await prisma.voucher.findFirst({
-    where: {
-      voucherNumber: {
-        startsWith: prefix,
-      },
-    },
-    orderBy: {
-      voucherNumber: "desc",
-    },
-  });
-
-  let nextNumber = 1;
-  if (lastVoucher) {
-    const lastNumber = parseInt(lastVoucher.voucherNumber.split("-").pop() || "0");
-    nextNumber = lastNumber + 1;
-  }
-
-  return `${prefix}${nextNumber.toString().padStart(4, "0")}`;
-}
-
-/**
- * Generate unique journal entry number
- * Format: JE-YYYY-XXXX (e.g., JE-2025-0001)
- */
-async function generateJournalEntryNumber(): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `JE-${year}-`;
-  
-  const lastEntry = await prisma.journalEntry.findFirst({
-    where: {
-      entryNumber: {
-        startsWith: prefix,
-      },
-    },
-    orderBy: {
-      entryNumber: "desc",
-    },
-  });
-
-  let nextNumber = 1;
-  if (lastEntry) {
-    const lastNumber = parseInt(lastEntry.entryNumber.split("-").pop() || "0");
-    nextNumber = lastNumber + 1;
-  }
-
-  return `${prefix}${nextNumber.toString().padStart(4, "0")}`;
-}
-
-/**
- * Validate voucher lines for double-entry accounting
- */
-function validateVoucherLines(lines: Array<{ debitAmount: number; creditAmount: number }>): {
-  valid: boolean;
-  error?: string;
-} {
-  if (lines.length < 2) {
-    return {
-      valid: false,
-      error: "Voucher must have at least 2 lines",
-    };
-  }
-
-  const totalDebit = lines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0);
-  const totalCredit = lines.reduce((sum, line) => sum + Number(line.creditAmount || 0), 0);
-
-  const difference = Math.abs(totalDebit - totalCredit);
-  if (difference > 0.01) {
-    return {
-      valid: false,
-      error: `Double-entry balance mismatch: Debit total (${totalDebit.toFixed(2)}) must equal Credit total (${totalCredit.toFixed(2)})`,
-    };
-  }
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const hasDebit = Number(line.debitAmount || 0) > 0;
-    const hasCredit = Number(line.creditAmount || 0) > 0;
-
-    if (hasDebit && hasCredit) {
-      return {
-        valid: false,
-        error: `Line ${i + 1}: Cannot have both debit and credit amounts`,
-      };
-    }
-
-    if (!hasDebit && !hasCredit) {
-      return {
-        valid: false,
-        error: `Line ${i + 1}: Must have either debit or credit amount`,
-      };
-    }
-  }
-
-  return { valid: true };
-}
+import { 
+  findControlAccount, 
+  generateVoucherNumber, 
+  generateJournalEntryNumber, 
+  validateVoucherLines 
+} from "./accounting-helpers";
 
 /**
  * Create and auto-post a SALES voucher for an accepted quotation
@@ -191,23 +74,62 @@ export async function createSalesVoucherForQuotation(
 
     // Find Accounts Receivable account
     const arAccountId = await findControlAccount("Accounts Receivable");
-    if (!arAccountId) {
-      return {
-        success: false,
-        voucherId: null,
-        error: "Accounts Receivable control account not found. Please ensure it exists in Chart of Accounts.",
-      };
-    }
+    if (!arAccountId) return { success: false, error: "Accounts Receivable control account not found." };
 
     // Find Sales account
     const salesAccountId = await findControlAccount("Sales");
-    if (!salesAccountId) {
-      return {
-        success: false,
-        voucherId: null,
-        error: "Sales account not found. Please ensure it exists in Chart of Accounts.",
-      };
-    }
+    if (!salesAccountId) return { success: false, error: "Sales account not found." };
+
+    // Find Inventory & COGS accounts
+    const inventoryAccountId = await findControlAccount("Inventory Asset");
+    const cogsAccountId = await findControlAccount("Cost of Goods Sold");
+    
+    // Fetch Quotation Items to calculate COGS
+    const quotation = await prisma.quotation.findUnique({
+      where: { id: quotationId },
+      include: {
+        section: {
+          include: {
+            items: { include: { item: true } },
+            groups: {
+              include: {
+                items: { include: { item: true } }
+              }
+            },
+            categoryGroups: {
+              include: {
+                 items: { include: { item: true } }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!quotation) return { success: false, error: "Quotation not found" };
+
+    // Calculate COGS and Gather Items
+    let totalCOGS = 0;
+    const inventoryItems: Array<{ itemId: string; quantity: number }> = [];
+
+    // Helper to process items
+    const processItems = (items: any[]) => {
+      for (const qItem of items) {
+        if (qItem.item) {
+           const qty = Number(qItem.quantity);
+           const cost = Number(qItem.item.costPrice || 0); // Assuming costPrice exists on Item
+           totalCOGS += qty * cost;
+           inventoryItems.push({ itemId: qItem.item.id, quantity: qty });
+        }
+      }
+    };
+
+    // Flatten structure
+    quotation.section.forEach(sec => {
+      processItems(sec.items);
+      sec.groups.forEach(grp => processItems(grp.items));
+      sec.categoryGroups.forEach(cat => processItems(cat.items));
+    });
 
     // Create voucher lines
     const voucherLines = [
@@ -228,6 +150,26 @@ export async function createSalesVoucherForQuotation(
         clientId: clientId,
       },
     ];
+
+    // Add COGS Lines if applicable (and if accounts exist)
+    if (totalCOGS > 0 && inventoryAccountId && cogsAccountId) {
+      voucherLines.push({
+        lineNumber: 3,
+        debitAmount: totalCOGS,
+        creditAmount: 0,
+        description: `Cost of Goods Sold: ${quotationNumber}`,
+        chartOfAccountId: cogsAccountId,
+        clientId: null,
+      });
+      voucherLines.push({
+        lineNumber: 4,
+        debitAmount: 0,
+        creditAmount: totalCOGS,
+        description: `Inventory Consumption: ${quotationNumber}`,
+        chartOfAccountId: inventoryAccountId,
+        clientId: null,
+      });
+    }
 
     // Validate voucher lines
     const validation = validateVoucherLines(voucherLines);
@@ -255,7 +197,7 @@ export async function createSalesVoucherForQuotation(
           status: "draft",
           createdBy: userId,
           clientId: clientId,
-          voucherLines: {
+          VoucherLine: {
             create: voucherLines.map((line) => ({
               lineNumber: line.lineNumber,
               debitAmount: new Prisma.Decimal(line.debitAmount),
@@ -283,7 +225,7 @@ export async function createSalesVoucherForQuotation(
           createdBy: userId,
           postedBy: userId,
           postedAt: new Date(),
-          journalEntryLines: {
+          JournalEntryLine: {
             create: voucherLines.map((line) => ({
               lineNumber: line.lineNumber,
               debitAmount: new Prisma.Decimal(line.debitAmount),
@@ -305,6 +247,23 @@ export async function createSalesVoucherForQuotation(
           postedAt: new Date(),
         },
       });
+
+      // Process Inventory Movements (Reduce Stock)
+      // Import helper dynamically or at top? Assuming available
+      const { processInventoryMovement } = await import("./inventory-accounting"); 
+      const { InventoryTransactionType } = await import("@prisma/client");
+
+      for (const item of inventoryItems) {
+        await processInventoryMovement({
+          tx,
+          itemId: item.itemId,
+          quantity: -1 * item.quantity, // Negative for OUT
+          type: InventoryTransactionType.SALE, // Ensure Enum is imported
+          reference: voucher.id,
+          note: `Sale: ${quotationNumber}`,
+          userId
+        });
+      }
 
       return { voucherId: voucher.id, journalEntryId: journalEntry.id };
     });
@@ -335,7 +294,7 @@ async function postExistingVoucher(
     const voucher = await prisma.voucher.findUnique({
       where: { id: voucherId },
       include: {
-        voucherLines: {
+        VoucherLine: {
           orderBy: {
             lineNumber: "asc",
           },
@@ -383,7 +342,7 @@ async function postExistingVoucher(
 
     // Validate voucher lines
     const validation = validateVoucherLines(
-      voucher.voucherLines.map((line) => ({
+      voucher.VoucherLine.map((line) => ({
         debitAmount: Number(line.debitAmount),
         creditAmount: Number(line.creditAmount),
       }))
@@ -413,8 +372,8 @@ async function postExistingVoucher(
           createdBy: voucher.createdBy,
           postedBy: userId,
           postedAt: new Date(),
-          journalEntryLines: {
-            create: voucher.voucherLines.map((line) => ({
+          JournalEntryLine: {
+            create: voucher.VoucherLine.map((line) => ({
               lineNumber: line.lineNumber,
               debitAmount: line.debitAmount,
               creditAmount: line.creditAmount,

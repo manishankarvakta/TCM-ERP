@@ -37,6 +37,14 @@ enum PurchaseStatus {
   CANCELLED
 }
 
+enum InventoryTransactionType {
+  PURCHASE
+  SALE
+  ADJUSTMENT
+  RETURN
+  INITIAL
+}
+
 model User {
   id                               String              @id @default(cuid())
   name                             String?
@@ -83,6 +91,7 @@ model User {
   createdWorkOrders                WorkOrder[]         @relation("WorkOrderCreator")
   createdPurchases                 Purchase[]          @relation("PurchaseCreatedBy")
   updatedPurchases                 Purchase[]          @relation("PurchaseUpdatedBy")
+  createdInventoryTransactions     InventoryTransaction[] @relation("InvTxCreator")
 
   @@index([status])
   @@index([designationTemplateId])
@@ -285,6 +294,9 @@ model Item {
   categories     ItemCategory[]
   quotationItems QuotationItem[]
   purchaseItems  PurchaseItem[]
+  inventoryTransactions InventoryTransaction[]
+  quantity       Decimal         @default(0) @db.Decimal(10, 2)
+  minStock       Decimal         @default(0) @db.Decimal(10, 2)
 
   @@index([code])
   @@index([unitId])
@@ -722,7 +734,7 @@ model ChartOfAccount {
   status                                                   String             @default("active")
   createdBy                                                String
   createdAt                                                DateTime           @default(now())
-  updatedAt                                                DateTime
+  updatedAt                                                DateTime           @updatedAt
   CashBankAccount                                          CashBankAccount?
   User                                                     User               @relation(fields: [createdBy], references: [id], onDelete: Cascade)
   ChartOfAccount                                           ChartOfAccount?    @relation("ChartOfAccountToChartOfAccount", fields: [parentId], references: [id])
@@ -742,7 +754,7 @@ model ChartOfAccount {
 }
 
 model JournalEntry {
-  id               String             @id
+  id               String             @id @default(cuid())
   entryNumber      String             @unique
   date             DateTime           @default(now())
   voucherId        String
@@ -762,7 +774,7 @@ model JournalEntry {
 }
 
 model JournalEntryLine {
-  id               String         @id
+  id               String         @id @default(cuid())
   lineNumber       Int
   debitAmount      Decimal        @default(0) @db.Decimal(12, 2)
   creditAmount     Decimal        @default(0) @db.Decimal(12, 2)
@@ -790,7 +802,7 @@ model JournalEntryLine {
 }
 
 model Voucher {
-  id                            String         @id
+  id                            String         @id @default(cuid())
   voucherNumber                 String         @unique
   date                          DateTime       @default(now())
   type                          VoucherType
@@ -801,7 +813,7 @@ model Voucher {
   postedById                    String?
   postedAt                      DateTime?
   createdAt                     DateTime       @default(now())
-  updatedAt                     DateTime
+  updatedAt                     DateTime       @updatedAt
   clientId                      String?
   supplierId                    String?
   userId                        String?
@@ -827,8 +839,25 @@ model Voucher {
   @@index([voucherNumber])
 }
 
+model InventoryTransaction {
+  id          String                   @id @default(cuid())
+  itemId      String
+  quantity    Decimal                  @db.Decimal(10, 2)
+  type        InventoryTransactionType
+  reference   String?
+  note        String?
+  createdAt   DateTime                 @default(now())
+  createdBy   String
+  item        Item                     @relation(fields: [itemId], references: [id])
+  creator     User                     @relation("InvTxCreator", fields: [createdBy], references: [id])
+
+  @@index([itemId])
+  @@index([createdAt])
+  @@index([type])
+}
+
 model VoucherLine {
-  id               String         @id
+  id               String         @id @default(cuid())
   lineNumber       Int
   debitAmount      Decimal        @default(0) @db.Decimal(12, 2)
   creditAmount     Decimal        @default(0) @db.Decimal(12, 2)
@@ -836,7 +865,7 @@ model VoucherLine {
   voucherId        String
   chartOfAccountId String
   createdAt        DateTime       @default(now())
-  updatedAt        DateTime
+  updatedAt        DateTime       @updatedAt
   clientId         String?
   supplierId       String?
   userId           String?
