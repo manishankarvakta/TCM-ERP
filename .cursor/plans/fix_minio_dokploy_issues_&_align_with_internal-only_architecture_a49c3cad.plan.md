@@ -85,7 +85,7 @@ Align the MinIO configuration in Dokploy with the new internal-only architecture
 - Refactor `getDownloadUrl` so it no longer produces a presigned MinIO URL.
 - Instead, have it build a URL using `NEXT_PUBLIC_APP_URL` and the existing API route, e.g. `const url = \\`${appUrl}/api/files/${key}?download=1\\``.
 - Adjust logging/comments to reflect that downloads are served via the app.
-- In [`startup-mvp/components/files/FilePreviewDialog.tsx`](startup-mvp/components/files/FilePreviewDialog.tsx) and `[startup-mvp/app/(dashboard)/dashboard/files/page.tsx](startup-mvp/app/\\\\\\\\(dashboard)/dashboard/files/page.tsx)`:
+- In [`startup-mvp/components/files/FilePreviewDialog.tsx`](startup-mvp/components/files/FilePreviewDialog.tsx) and `[startup-mvp/app/(dashboard)/dashboard/files/page.tsx](startup-mvp/app/\\\\\\\\\(dashboard)/dashboard/files/page.tsx)`:
 - Continue to use `getPublicUrl` for previews (already returns `/api/files/...`).
 - For explicit downloads, rely on the updated `getDownloadUrl` (which will now also return an app-domain `/api/files/...` URL), so the anchor tag or window open uses the main domain rather than MinIO.
 - In [`startup-mvp/lib/minio.ts`](startup-mvp/lib/minio.ts):
