@@ -3,7 +3,7 @@ import { getOrderFinancialSummary } from "@/app/actions/orders";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { FiArrowLeft, FiPrinter } from "react-icons/fi";
+import { FiArrowLeft, FiPrinter, FiUser, FiCalendar, FiFileText, FiBox, FiMapPin } from "react-icons/fi";
 import { formatDate, formatCurrency } from "@/lib/utils/formatters";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -131,124 +131,216 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
   };
 
   return (
-    <div className="min-h-screen space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard/quotations/orders">
-              <Button variant="outline" size="sm">
-                <FiArrowLeft className="mr-2 h-4 w-4" />
-                Back
-              </Button>
-            </Link>
-            <div>
-                <h1 className="text-2xl font-bold flex items-center gap-3">
-                    {order.orderNumber}
-                    {getStatusBadge(order.status)}
-                </h1>
-                <p className="text-sm text-muted-foreground mr-1">
-                    Created on {formatDate(order.createdAt)} 
-                    {order.quotation && (
-                        <> • Ref: <Link href={`/dashboard/quotations/${order.quotation.id}`} className="text-primary hover:underline">{order.quotation.quotationNumber}</Link></>
-                    )}
-                </p>
+    <div className="space-y-6">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold tracking-tight">{order.orderNumber}</h1>
+              {getStatusBadge(order.status)}
             </div>
+            <p className="text-muted-foreground flex items-center gap-2 text-sm">
+               <FiCalendar className="h-4 w-4" />
+               Created on {formatDate(order.createdAt)}
+               {order.quotation && (
+                   <>
+                     <span className="text-gray-300">|</span>
+                     <FiFileText className="h-4 w-4" />
+                     Ref: <Link href={`/dashboard/quotations/${order.quotation.id}`} className="text-primary hover:underline font-medium">{order.quotation.quotationNumber}</Link>
+                   </>
+               )}
+            </p>
           </div>
-          {/* Actions */}
-          <Button variant="outline" disabled title="Coming soon">
-            <FiPrinter className="mr-2 h-4 w-4" />
-            Print Order
-          </Button>
+          <div className="flex gap-2">
+             <Link href="/dashboard/quotations/orders">
+               <Button variant="outline">
+                 <FiArrowLeft className="mr-2 h-4 w-4" />
+                 Back to Orders
+               </Button>
+             </Link>
+             <Button variant="outline" disabled title="Coming soon">
+                 <FiPrinter className="mr-2 h-4 w-4" />
+                 Print Order
+             </Button>
+          </div>
         </div>
 
-        {/* Client & Financial Info Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Client Card */}
+        {/* At a Glance Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card>
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">Client Details</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm space-y-2">
-                    <div className="font-semibold">{order.client?.company || order.client?.name}</div>
-                    {order.client?.company && <div>{order.client.name}</div>}
-                    <div>{order.client?.email}</div>
-                    <div>{order.client?.phone}</div>
-                    <div className="text-muted-foreground whitespace-pre-wrap">{order.client?.address}</div>
+                <CardContent className="p-4 flex flex-col justify-between h-full">
+                    <p className="text-sm font-medium text-muted-foreground">Total Amount</p>
+                    <div className="text-2xl font-bold mt-1 text-primary">{formatCurrency(Number(order.totalValue))}</div>
                 </CardContent>
             </Card>
-
-            {/* Financial Summary Card (Spans 2 cols) */}
-            <div className="md:col-span-2">
-                <FinancialSummaryCard summary={summary} />
-            </div>
+            <Card>
+                <CardContent className="p-4 flex flex-col justify-between h-full">
+                    <p className="text-sm font-medium text-muted-foreground">Total Items</p>
+                    <div className="text-2xl font-bold mt-1">{order.items.length}</div>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardContent className="p-4 flex flex-col justify-between h-full">
+                    <p className="text-sm font-medium text-muted-foreground">Fulfillment Status</p>
+                     <div className="text-2xl font-bold mt-1 flex items-center gap-2">
+                        {order.status === 'COMPLETED' ? (
+                             <span className="text-green-600">Fulfilled</span>
+                        ) : order.status === 'DELIVERED' ? (
+                             <span className="text-indigo-600">Delivered</span>
+                        ) : (
+                             <span>In Progress</span>
+                        )}
+                     </div>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardContent className="p-4 flex flex-col justify-between h-full hover:bg-muted/50 transition-colors cursor-pointer group">
+                     <Link href={`/dashboard/contacts/clients/${order.client.id}`}>
+                        <div className="flex justify-between items-start">
+                             <p className="text-sm font-medium text-muted-foreground">Client</p>
+                             <FiUser className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                        </div>
+                        <div className="text-lg font-bold mt-1 truncate" title={order.client.company || order.client.name || ""}>
+                            {order.client.company || order.client.name}
+                        </div>
+                     </Link>
+                </CardContent>
+            </Card>
         </div>
 
-        {/* Order Items */}
-        <Card>
-            <CardHeader>
-                <CardTitle>Order Items</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead className="text-muted-foreground border-b">
-                            <tr>
-                                <th className="text-left py-3 font-medium">Description</th>
-                                <th className="text-left py-3 font-medium w-32">SKU</th>
-                                <th className="text-right py-3 font-medium w-24">Ordered</th>
-                                <th className="text-right py-3 font-medium w-24">Delivered</th>
-                                <th className="text-right py-3 font-medium w-24">Invoiced</th>
-                                <th className="text-right py-3 font-medium w-32">Unit Price</th>
-                                <th className="text-right py-3 font-medium w-32">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                            {order.items.map((item) => {
-                                const deliveredQty = item.deliveries.reduce((sum, d) => sum + Number(d.quantity), 0);
-                                const invoicedQty = item.invoiceItems.reduce((sum, i) => sum + Number(i.quantity), 0);
-                                const isFulfilled = deliveredQty >= Number(item.quantity);
-
-                                return (
-                                    <tr key={item.id} className="hover:bg-muted/30">
-                                        <td className="py-3 pr-4">{item.description}</td>
-                                        <td className="py-3 text-muted-foreground">{item.sku || '-'}</td>
-                                        <td className="py-3 text-right font-medium">{Number(item.quantity)}</td>
-                                        <td className={`py-3 text-right ${isFulfilled ? 'text-green-600' : 'text-blue-600'}`}>
-                                            {deliveredQty}
-                                        </td>
-                                        <td className="py-3 text-right text-indigo-600">{invoicedQty}</td>
-                                        <td className="py-3 text-right text-muted-foreground">{formatCurrency(Number(item.unitPrice))}</td>
-                                        <td className="py-3 text-right font-medium">{formatCurrency(Number(item.quantity) * Number(item.unitPrice))}</td>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Left Column: Line Items & Tabs */}
+            <div className="md:col-span-2 space-y-6">
+                <Card className="overflow-hidden">
+                    <CardHeader className="bg-muted/30 pb-4 border-b">
+                        <div className="flex items-center gap-2">
+                            <FiBox className="h-5 w-5 text-muted-foreground" />
+                            <CardTitle>Order Items</CardTitle>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                         <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted/30 text-muted-foreground">
+                                    <tr>
+                                        <th className="text-left py-3 px-4 font-medium">Description</th>
+                                        <th className="text-right py-3 px-4 font-medium w-24">Ordered</th>
+                                        <th className="text-right py-3 px-4 font-medium w-24">Dlvd</th>
+                                        <th className="text-right py-3 px-4 font-medium w-24">Inv</th>
+                                        <th className="text-right py-3 px-4 font-medium w-32">Unit Price</th>
+                                        <th className="text-right py-3 px-4 font-medium w-32">Total</th>
                                     </tr>
-                                );
-                            })}
-                        </tbody>
-                        <tfoot>
-                            <tr>
-                                <td colSpan={6} className="py-4 text-right font-semibold">Grand Total</td>
-                                <td className="py-4 text-right font-bold text-lg">{formatCurrency(Number(order.totalValue))}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </CardContent>
-        </Card>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {order.items.map((item) => {
+                                        const deliveredQty = item.deliveries.reduce((sum, d) => sum + Number(d.quantity), 0);
+                                        const invoicedQty = item.invoiceItems.reduce((sum, i) => sum + Number(i.quantity), 0);
+                                        const isFulfilled = deliveredQty >= Number(item.quantity);
 
-        {/* Action Tabs */}
-        <Tabs defaultValue="delivery-schedule" className="w-full">
-            <TabsList>
-                <TabsTrigger value="delivery-schedule">Delivery Schedule</TabsTrigger>
-                <TabsTrigger value="invoices">Invoices</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="delivery-schedule" className="mt-4">
-                <DeliveryScheduleTab order={serializedOrder} canEdit={canEditOrders} />
-            </TabsContent>
+                                        return (
+                                            <tr key={item.id} className="hover:bg-muted/30 transition-colors">
+                                                <td className="py-3 px-4">
+                                                    <div className="font-medium">{item.description}</div>
+                                                </td>
+                                                <td className="py-3 px-4 text-right font-medium">{Number(item.quantity)}</td>
+                                                <td className={`py-3 px-4 text-right ${isFulfilled ? 'text-green-600 font-medium' : 'text-muted-foreground'}`}>
+                                                    {deliveredQty}
+                                                </td>
+                                                <td className="py-3 px-4 text-right text-indigo-600">{invoicedQty}</td>
+                                                <td className="py-3 px-4 text-right text-muted-foreground">{formatCurrency(Number(item.unitPrice))}</td>
+                                                <td className="py-3 px-4 text-right font-medium">{formatCurrency(Number(item.quantity) * Number(item.unitPrice))}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                                <tfoot className="bg-muted/10 border-t">
+                                    <tr>
+                                        <td colSpan={5} className="py-4 px-4 text-right font-semibold text-muted-foreground">Grand Total</td>
+                                        <td className="py-4 px-4 text-right font-bold text-lg text-primary">{formatCurrency(Number(order.totalValue))}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </CardContent>
+                </Card>
 
-            <TabsContent value="invoices" className="mt-4">
-                <InvoicesTab order={serializedOrder} canCreate={canCreateInvoices} />
-            </TabsContent>
-        </Tabs>
+                {/* Delivery & Invoices Tabs */}
+                <Tabs defaultValue="delivery-schedule" className="w-full">
+                    <div className="flex items-center justify-between mb-2">
+                        <TabsList>
+                            <TabsTrigger value="delivery-schedule">Delivery Schedule</TabsTrigger>
+                            <TabsTrigger value="invoices">Invoices</TabsTrigger>
+                        </TabsList>
+                    </div>
+                    
+                    <TabsContent value="delivery-schedule" className="mt-0">
+                         <Card>
+                            <CardHeader className="py-4 px-6 border-b bg-muted/30">
+                                <CardTitle className="text-base font-medium">Delivery History</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                <DeliveryScheduleTab order={serializedOrder} canEdit={canEditOrders} />
+                            </CardContent>
+                         </Card>
+                    </TabsContent>
+
+                    <TabsContent value="invoices" className="mt-0">
+                         <Card>
+                             <CardHeader className="py-4 px-6 border-b bg-muted/30">
+                                <CardTitle className="text-base font-medium">Associated Invoices</CardTitle>
+                             </CardHeader>
+                             <CardContent className="p-0">
+                                 <InvoicesTab order={serializedOrder} canCreate={canCreateInvoices} />
+                             </CardContent>
+                         </Card>
+                    </TabsContent>
+                </Tabs>
+            </div>
+
+            {/* Right Sidebar */}
+             <div className="md:col-span-1 space-y-6">
+                {/* Client Details Card */}
+                <Card>
+                    <CardHeader className="bg-muted/30 py-3 border-b">
+                         <h3 className="font-semibold text-sm flex items-center gap-2">
+                             <FiUser className="h-4 w-4" />
+                             Client Information
+                         </h3>
+                    </CardHeader>
+                    <CardContent className="p-4 space-y-4">
+                        <div>
+                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Bill To</p>
+                             <div className="font-semibold text-base">{order.client?.company || order.client?.name}</div>
+                             {order.client?.company && <div className="text-sm text-muted-foreground">{order.client.name}</div>}
+                        </div>
+                        <Separator />
+                        <div className="space-y-2 text-sm">
+                            {order.client?.email && (
+                                <div className="flex items-center gap-2">
+                                     <span className="text-muted-foreground w-4 text-center">@</span>
+                                     <a href={`mailto:${order.client.email}`} className="hover:underline text-primary">{order.client.email}</a>
+                                </div>
+                            )}
+                             {order.client?.phone && (
+                                <div className="flex items-center gap-2">
+                                     <span className="text-muted-foreground w-4 text-center">#</span>
+                                     <span>{order.client.phone}</span>
+                                </div>
+                            )}
+                             {order.client?.address && (
+                                <div className="flex items-start gap-2 mt-2">
+                                    <FiMapPin className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                                    <span className="whitespace-pre-wrap text-muted-foreground">{order.client.address}</span>
+                                </div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Financial Summary */}
+                <FinancialSummaryCard summary={summary} />
+             </div>
+        </div>
     </div>
   );
 }

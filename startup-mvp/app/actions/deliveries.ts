@@ -191,3 +191,19 @@ export async function getDeliveries(
     return { success: false, error: "Failed to fetch deliveries" };
   }
 }
+
+export async function getDelivery(id: string) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+    const delivery = await prisma.deliveryLedger.findUnique({
+      where: { id },
+      select: { id: true, date: true }
+    });
+
+    return { success: true, delivery };
+  } catch (error) {
+    return { success: false, error: "Failed to fetch delivery" };
+  }
+}

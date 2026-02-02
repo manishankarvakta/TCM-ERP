@@ -512,4 +512,20 @@ export async function getInvoices(
   }
 }
 
+export async function getInvoice(id: string) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      select: { id: true, invoiceNumber: true }
+    });
+
+    return { success: true, invoice };
+  } catch (error) {
+    return { success: false, error: "Failed to fetch invoice" };
+  }
+}
+
 

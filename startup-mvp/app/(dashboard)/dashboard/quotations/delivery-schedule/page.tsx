@@ -1,36 +1,65 @@
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { FiShoppingCart } from "react-icons/fi";
+import React from "react";
+import { getDeliveries } from "@/app/actions/deliveries";
+import DeliveryListClient from "./_components/delivery-list-client";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 
-export default function DeliverySchedulePage() {
+interface DeliverySchedulePageProps {
+  searchParams: Promise<{
+    page?: string;
+    search?: string;
+  }>;
+}
+
+export default async function DeliverySchedulePage({ searchParams }: DeliverySchedulePageProps) {
+  const params = await searchParams;
+  const page = parseInt(params.page || "1", 10);
+  const search = params.search || "";
+
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  const canView = userId ? await hasPermission(userId, "quotations.orders", "view") : false;
+
+  if (!canView) {
+      return <div className="p-8 text-center text-destructive">Access Denied</div>;
+  }
+
+  const result = await getDeliveries(page, 20, search);
+
+  if (!result.success) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-semibold">Delivery Schedule</h1>
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+          <p className="text-sm text-destructive">
+            {result.error || "Error loading deliveries"}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Delivery Schedule</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Delivery Schedule</h1>
+          <p className="text-sm text-muted-foreground">Manage and track all deliveries</p>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Delivery Management</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center justify-center py-12 space-y-4">
-          <div className="bg-muted p-4 rounded-full">
-            <FiShoppingCart className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <h3 className="text-lg font-medium">Coming Soon</h3>
-          <p className="text-center text-muted-foreground max-w-md">
-            The global delivery schedule view is under development. 
-            Currently, you can manage delivery schedules directly from individual Orders.
-          </p>
-          <Button asChild>
-            <Link href="/dashboard/quotations/orders">
-              Go to Orders
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
+      <DeliveryListClient
+        initialDeliveries={result.deliveries || []}
+        initialPagination={result.pagination || {
+          page: 1,
+          limit: 20,
+          total: 0,
+          totalPages: 0,
+        }}
+        initialSearch={search}
+      />
     </div>
   );
 }

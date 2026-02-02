@@ -539,6 +539,7 @@ export async function getVoucherById(voucherId: string) {
         ...entry,
         journalEntryLines: (entry.JournalEntryLine || []).map((line: any) => ({
           ...line,
+          chartOfAccount: line.ChartOfAccount,
           debitAmount: Number(line.debitAmount),
           creditAmount: Number(line.creditAmount),
         })),

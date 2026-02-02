@@ -149,7 +149,7 @@ export default function DeliveryListClient({
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0">
-                      <Link href={`/dashboard/quotations/orders/${delivery.order.id}`}>
+                      <Link href={`/dashboard/quotations/delivery-schedule/${delivery.id}`}>
                         <FiEye className="h-4 w-4" />
                       </Link>
                     </Button>

@@ -373,3 +373,19 @@ export async function getOrders(
     };
   }
 }
+
+export async function getOrder(id: string) {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id },
+      select: { id: true, orderNumber: true }
+    });
+
+    if (!order) return { success: false, error: "Order not found" };
+
+    return { success: true, order };
+  } catch (error) {
+    console.error("Error fetching order:", error);
+    return { success: false, error: "Failed to fetch order" };
+  }
+}
