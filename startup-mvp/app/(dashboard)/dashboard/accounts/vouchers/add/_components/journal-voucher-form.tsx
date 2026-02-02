@@ -25,7 +25,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FiAlertCircle, FiPlus, FiTrash2, FiSearch } from "react-icons/fi";
+import { FiAlertCircle, FiPlus, FiTrash2, FiSearch, FiFileText } from "react-icons/fi";
+import { VoucherAccountingPreview } from "../../_components/voucher-accounting-preview";
 import { createVoucher } from "../../_actions/voucher.action";
 import { getChartOfAccounts } from "../../../chart-of-accounts/_actions/chart-of-accounts.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
@@ -40,17 +41,17 @@ const voucherLineSchema = z.object({
   (data) => {
     const hasDebit = data.debitAmount > 0;
     const hasCredit = data.creditAmount > 0;
-    return (hasDebit && !hasCredit) || (!hasDebit && hasCredit);
+    return (hasDebit && !hasCredit) || (!hasDebit && hasCredit) || (!hasDebit && !hasCredit);
   },
   {
-    message: "Each line must have either debit OR credit (not both, not neither)",
+    message: "Each line must have either debit OR credit",
     path: ["debitAmount"],
   }
 );
 
 const voucherFormSchema = z.object({
   date: z.string().min(1, "Date is required"),
-  description: z.string().optional().or(z.literal("")),
+  description: z.string().min(5, "Reason for adjustment must be at least 5 characters long"),
   lines: z.array(voucherLineSchema).min(2, "At least 2 lines are required"),
 }).refine(
   (data) => {
@@ -74,7 +75,7 @@ interface AccountOption {
   type: string;
 }
 
-export default function VoucherCreateForm() {
+export default function JournalVoucherForm() {
   const router = useRouter();
   const pathname = usePathname();
   const [error, setError] = useState<string>("");
@@ -114,6 +115,7 @@ export default function VoucherCreateForm() {
     formState: { errors },
     control,
     watch,
+    setValue,
   } = useForm<VoucherFormData>({
     resolver: zodResolver(voucherFormSchema),
     defaultValues: {
@@ -181,7 +183,7 @@ export default function VoucherCreateForm() {
 
       const result = await createVoucher({
         date: data.date,
-        type: VoucherType.JOURNAL, // Default to JOURNAL, not shown in UI
+        type: VoucherType.JOURNAL,
         description: data.description || undefined,
         lines,
       });
@@ -200,14 +202,30 @@ export default function VoucherCreateForm() {
   };
 
   return (
-    <Card>
+    <Card className="border-t-4 border-t-purple-500 shadow-md">
       <CardHeader>
-        <CardTitle>Create New Voucher</CardTitle>
+        <div className="flex items-center gap-2 mb-1">
+            <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
+                <FiFileText className="w-5 h-5" />
+            </div>
+            <CardTitle>Create Journal Voucher</CardTitle>
+        </div>
         <CardDescription>
-          Enter voucher details and add accounting entries. Ensure debits equal credits (double-entry).
+          Record general accounting entries for adjustments, non-cash transactions, or corrections.
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <div className="mb-6 p-4 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-3">
+          <div className="text-amber-600 mt-0.5">
+            <FiAlertCircle className="w-5 h-5 font-bold" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-amber-900 leading-none mb-1">Warning: Adjustment Voucher Use Only</p>
+            <p className="text-xs text-amber-700 leading-relaxed font-medium">
+              Journal vouchers are for adjustments only. They cannot be used for sales, receipts, payments, or inventory.
+            </p>
+          </div>
+        </div>
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-6">
             {error && (
@@ -218,71 +236,67 @@ export default function VoucherCreateForm() {
             )}
 
             {/* Basic Voucher Info */}
-            <div className="space-y-2">
-              <Label htmlFor="date">Voucher Date *</Label>
-              <Input
-                id="date"
-                type="date"
-                {...register("date")}
-                disabled={loading}
-              />
-              {errors.date && (
-                <p className="text-sm text-destructive">{errors.date.message}</p>
-              )}
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                <Label htmlFor="date">Date</Label>
+                <Input
+                    id="date"
+                    type="date"
+                    {...register("date")}
+                    disabled={loading}
+                />
+                {errors.date && (
+                    <p className="text-sm text-destructive">{errors.date.message}</p>
+                )}
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Voucher description..."
-                {...register("description")}
-                disabled={loading}
-                rows={3}
-              />
-              {errors.description && (
-                <p className="text-sm text-destructive">{errors.description.message}</p>
-              )}
+                <div className="space-y-2 col-span-2">
+                <Label htmlFor="description">Reason for Adjustment</Label>
+                <Input
+                    id="description"
+                    placeholder="Provide a clear reason for this adjustment..."
+                    {...register("description")}
+                    disabled={loading}
+                    className={errors.description ? "border-destructive" : ""}
+                />
+                {errors.description && (
+                    <p className="text-[10px] text-destructive">{errors.description.message}</p>
+                )}
+                </div>
             </div>
 
             {/* Voucher Lines */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Voucher Lines *</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addLine}
-                  disabled={loading || loadingAccounts}
-                >
-                  <FiPlus className="mr-2 h-4 w-4" />
-                  Add Line
-                </Button>
+              <div className="flex flex-col gap-1">
+                <Label className="text-base font-semibold">Accounting Entries</Label>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                   Use journal entries for corrections, accruals, or depreciation only. 
+                   Business transactions must use their respective modules.
+                </p>
               </div>
 
               {errors.lines && typeof errors.lines.message === "string" && (
                 <p className="text-sm text-destructive">{errors.lines.message}</p>
               )}
 
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="bg-muted/50">
                     <TableRow>
-                      <TableHead className="w-12">#</TableHead>
-                      <TableHead>Account</TableHead>
-                      <TableHead className="w-32">Debit</TableHead>
-                      <TableHead className="w-32">Credit</TableHead>
+                      <TableHead className="w-10 text-center">#</TableHead>
+                      <TableHead className="w-[35%]">Account</TableHead>
+                      <TableHead className="w-[20%] text-right text-purple-700 font-semibold">Debit</TableHead>
+                      <TableHead className="w-[20%] text-right text-purple-700 font-semibold">Credit</TableHead>
                       <TableHead>Description</TableHead>
-                      <TableHead className="w-16"></TableHead>
+                      <TableHead className="w-12"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {fields.map((field, index) => {
                       const lineError = errors.lines?.[index];
                       return (
-                        <TableRow key={field.id}>
-                          <TableCell className="font-medium">{index + 1}</TableCell>
+                        <TableRow key={field.id} className="hover:bg-muted/30">
+                          <TableCell className="text-center text-muted-foreground font-medium">{index + 1}</TableCell>
                           <TableCell>
                             <Controller
                               name={`lines.${index}.chartOfAccountId`}
@@ -293,34 +307,29 @@ export default function VoucherCreateForm() {
                                   onValueChange={field.onChange}
                                   disabled={loading || loadingAccounts}
                                 >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select account" />
+                                  <SelectTrigger className="h-9 border-transparent hover:border-input focus:border-input bg-transparent hover:bg-background">
+                                    <SelectValue placeholder="Select account..." />
                                   </SelectTrigger>
                                   <SelectContent className="max-h-[300px]">
-                                    <div className="p-2">
+                                    <div className="p-2 border-b mb-1 sticky top-0 bg-popover z-10 pb-2">
                                       <div className="relative">
-                                        <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
+                                        <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
                                         <Input
-                                          placeholder="Search accounts..."
+                                          placeholder="Search..."
                                           value={accountSearch}
                                           onChange={(e) => {
                                             setAccountSearch(e.target.value);
                                           }}
-                                          onKeyDown={(e) => {
-                                            e.stopPropagation();
-                                            if (e.key === "Enter") {
-                                              e.preventDefault();
-                                            }
-                                          }}
+                                          onKeyDown={(e) => e.stopPropagation()}
                                           className="pl-8 h-8 text-xs"
-                                          onClick={(e) => e.stopPropagation()}
                                         />
                                       </div>
                                     </div>
                                     <div className="max-h-[200px] overflow-y-auto">
                                       {filteredAccounts.map((account) => (
                                         <SelectItem key={account.id} value={account.id} className="text-left">
-                                          {account.code} - {account.name}
+                                          <span className="font-medium">{account.name}</span> 
+                                          <span className="ml-2 text-muted-foreground text-xs">({account.code})</span>
                                         </SelectItem>
                                       ))}
                                     </div>
@@ -329,7 +338,7 @@ export default function VoucherCreateForm() {
                               )}
                             />
                             {lineError?.chartOfAccountId && (
-                              <p className="text-xs text-destructive mt-1">
+                              <p className="text-[10px] text-destructive px-3">
                                 {lineError.chartOfAccountId.message}
                               </p>
                             )}
@@ -344,24 +353,19 @@ export default function VoucherCreateForm() {
                                   step="0.01"
                                   min="0"
                                   placeholder="0.00"
+                                  className="text-right h-9 border-transparent hover:border-input focus:border-input bg-transparent hover:bg-background focus:bg-background"
                                   value={field.value || ""}
                                   onChange={(e) => {
                                     const value = parseFloat(e.target.value) || 0;
                                     field.onChange(value);
-                                    // Clear credit when debit is entered
                                     if (value > 0) {
-                                      control.setValue(`lines.${index}.creditAmount`, 0);
+                                      setValue(`lines.${index}.creditAmount`, 0);
                                     }
                                   }}
                                   disabled={loading}
                                 />
                               )}
                             />
-                            {lineError?.debitAmount && (
-                              <p className="text-xs text-destructive mt-1">
-                                {lineError.debitAmount.message}
-                              </p>
-                            )}
                           </TableCell>
                           <TableCell>
                             <Controller
@@ -373,24 +377,19 @@ export default function VoucherCreateForm() {
                                   step="0.01"
                                   min="0"
                                   placeholder="0.00"
+                                  className="text-right h-9 border-transparent hover:border-input focus:border-input bg-transparent hover:bg-background focus:bg-background"
                                   value={field.value || ""}
                                   onChange={(e) => {
                                     const value = parseFloat(e.target.value) || 0;
                                     field.onChange(value);
-                                    // Clear debit when credit is entered
                                     if (value > 0) {
-                                      control.setValue(`lines.${index}.debitAmount`, 0);
+                                      setValue(`lines.${index}.debitAmount`, 0);
                                     }
                                   }}
                                   disabled={loading}
                                 />
                               )}
                             />
-                            {lineError?.creditAmount && (
-                              <p className="text-xs text-destructive mt-1">
-                                {lineError.creditAmount.message}
-                              </p>
-                            )}
                           </TableCell>
                           <TableCell>
                             <Controller
@@ -399,7 +398,8 @@ export default function VoucherCreateForm() {
                               render={({ field }) => (
                                 <Input
                                   type="text"
-                                  placeholder="Line description"
+                                  placeholder="Note..."
+                                  className="h-9 border-transparent hover:border-input focus:border-input bg-transparent hover:bg-background focus:bg-background"
                                   {...field}
                                   disabled={loading}
                                 />
@@ -414,8 +414,9 @@ export default function VoucherCreateForm() {
                                 size="icon"
                                 onClick={() => removeLine(index)}
                                 disabled={loading}
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
                               >
-                                <FiTrash2 className="h-4 w-4 text-destructive" />
+                                <FiTrash2 className="h-4 w-4" />
                               </Button>
                             )}
                           </TableCell>
@@ -424,40 +425,61 @@ export default function VoucherCreateForm() {
                     })}
                   </TableBody>
                 </Table>
+                
+                <div className="bg-muted/20 p-2 border-t flex justify-center">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={addLine}
+                        disabled={loading || loadingAccounts}
+                        className="text-primary hover:bg-primary/10"
+                    >
+                        <FiPlus className="mr-2 h-4 w-4" />
+                        Add Line Entry
+                    </Button>
+                </div>
               </div>
 
               {/* Totals */}
-              <div className="flex justify-end gap-6 pt-4 border-t">
+              <div className="flex justify-end gap-8 pt-4 border-t">
                 <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Total Debit</p>
-                  <p className="text-lg font-semibold">{totalDebit.toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Debit</p>
+                  <p className="text-xl font-semibold text-foreground">{totalDebit.toFixed(2)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Total Credit</p>
-                  <p className="text-lg font-semibold">{totalCredit.toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Credit</p>
+                  <p className="text-xl font-semibold text-foreground">{totalCredit.toFixed(2)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Difference</p>
-                  <p className={`text-lg font-semibold ${isBalanced ? "text-green-600" : "text-destructive"}`}>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Balance</p>
+                  <p className={`text-xl font-semibold ${isBalanced ? "text-green-600" : "text-destructive"}`}>
                     {difference.toFixed(2)}
                   </p>
                 </div>
               </div>
 
               {!isBalanced && (
-                <div className="flex items-start gap-2 rounded-lg bg-yellow-50 p-3 text-sm text-yellow-800 border border-yellow-200">
+                <div className="flex items-start justify-end gap-2 text-sm text-destructive font-medium animate-pulse">
                   <FiAlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
                   <span>
-                    Double-entry balance mismatch: Debits ({totalDebit.toFixed(2)}) must equal Credits ({totalCredit.toFixed(2)})
+                    Entries are not balanced. Difference: {difference.toFixed(2)}
                   </span>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center gap-3 pt-4">
-              <Button type="submit" disabled={loading || !isBalanced || fields.length < 2}>
-                {loading ? "Creating..." : "Create Voucher"}
-              </Button>
+            {/* ACCOUNTING IMPACT SECTION */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <VoucherAccountingPreview 
+                    type={VoucherType.JOURNAL}
+                    title="Adjustment / Correction"
+                    impact="Balance Adjustments (Manual Debit/Credit)"
+                    helper="Directly modifies ledger balances. Use with caution for non-transactional items."
+                />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-6">
               <Button
                 type="button"
                 variant="outline"
@@ -466,6 +488,9 @@ export default function VoucherCreateForm() {
               >
                 Cancel
               </Button>
+              <Button type="submit" disabled={loading || !isBalanced || fields.length < 2 || totalDebit === 0} className="min-w-[140px] bg-purple-600 hover:bg-purple-700 text-white">
+                {loading ? "Saving..." : "Save Journal Entry"}
+              </Button>
             </div>
           </div>
         </form>
@@ -473,4 +498,3 @@ export default function VoucherCreateForm() {
     </Card>
   );
 }
-

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -50,9 +50,7 @@ const voucherLineSchema = z.object({
 
 const voucherFormSchema = z.object({
   date: z.string().min(1, "Date is required"),
-  type: z.nativeEnum(VoucherType, {
-    errorMap: () => ({ message: "Voucher type is required" }),
-  }),
+  type: z.nativeEnum(VoucherType),
   reference: z.string().optional().or(z.literal("")),
   description: z.string().optional().or(z.literal("")),
   lines: z.array(voucherLineSchema).min(2, "At least 2 lines are required"),
@@ -85,11 +83,22 @@ interface AccountOption {
 export default function VoucherForm({ mode }: VoucherFormProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const typeParam = searchParams.get("type");
+  
+  // Validate if type param is a valid VoucherType
+  const initialType = (typeParam && Object.values(VoucherType).includes(typeParam as VoucherType))
+    ? (typeParam as VoucherType)
+    : VoucherType.JOURNAL;
+    
+  const isTypeLocked = !!typeParam && Object.values(VoucherType).includes(typeParam as VoucherType);
+
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [accountSearch, setAccountSearch] = useState("");
+  const [receiptMode, setReceiptMode] = useState<"invoice" | "advance">("invoice");
 
   // Fetch active accounts for selection
   useEffect(() => {
@@ -119,6 +128,7 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
   const {
     register,
     handleSubmit,
+    setValue, // Destructure setValue here
     formState: { errors },
     control,
     watch,
@@ -126,7 +136,7 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
     resolver: zodResolver(voucherFormSchema),
     defaultValues: {
       date: new Date().toISOString().split("T")[0],
-      type: VoucherType.JOURNAL,
+      type: initialType,
       reference: "",
       description: "",
       lines: [
@@ -167,7 +177,7 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
       debitAmount: 0,
       creditAmount: 0,
       description: "",
-    });
+      });
   };
 
   const removeLine = (index: number) => {
@@ -263,7 +273,7 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
                       <Select
                         value={field.value}
                         onValueChange={(value) => field.onChange(value as VoucherType)}
-                        disabled={loading}
+                        disabled={loading || isTypeLocked}
                       >
                         <SelectTrigger id="type">
                           <SelectValue placeholder="Select voucher type" />
@@ -283,6 +293,119 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
                   )}
                 </div>
               </div>
+
+              {watchedType === VoucherType.PAYMENT && (
+                <div className="rounded-md bg-blue-50 p-4 border border-blue-200">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <FiAlertCircle className="h-5 w-5 text-blue-400" aria-hidden="true" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-blue-800">Payment Voucher Guidance</h3>
+                      <div className="mt-2 text-sm text-blue-700">
+                        <p>
+                          Use this voucher to record payments to suppliers, expenses, or payroll.
+                        </p>
+                        <p className="mt-1 font-semibold">
+                          • Credit side: Must select a Cash or Bank account (Visually labeled as required).
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {watchedType === VoucherType.RECEIPT && (
+                <div className="space-y-4 rounded-md bg-green-50 p-4 border border-green-200">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <FiAlertCircle className="h-5 w-5 text-green-400" aria-hidden="true" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-green-800">Receipt Voucher Guidance</h3>
+                      <p className="mt-2 text-sm text-green-700">
+                        Use this voucher to record money received from customers or advances.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="pl-8">
+                     <div className="flex items-center gap-2 bg-white/50 p-1 rounded-lg w-fit border border-green-100 mb-3">
+                        <button
+                          type="button"
+                          onClick={() => setReceiptMode("invoice")}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                            receiptMode === "invoice" 
+                              ? "bg-green-100 text-green-800 shadow-sm" 
+                              : "text-gray-600 hover:bg-green-50"
+                          }`}
+                        >
+                          Against Invoice
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReceiptMode("advance")}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                            receiptMode === "advance" 
+                              ? "bg-green-100 text-green-800 shadow-sm" 
+                              : "text-gray-600 hover:bg-green-50"
+                          }`}
+                        >
+                          Advance from Customer
+                        </button>
+                     </div>
+
+                    {receiptMode === "invoice" ? (
+                      <p className="text-sm text-green-700">
+                        <span className="font-semibold">• Action:</span> Credit <strong>Accounts Receivable</strong>.
+                        <br/>
+                        <span className="text-xs opacity-80">(Debit Cash/Bank)</span>
+                      </p>
+                    ) : (
+                      <p className="text-sm text-green-700">
+                         <span className="font-semibold">• Action:</span> Credit <strong>Customer Advance</strong> (Liability).
+                         <br/>
+                        <span className="text-xs opacity-80">(Debit Cash/Bank)</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {watchedType === VoucherType.JOURNAL && (
+                <div className="rounded-md bg-amber-50 p-4 border border-amber-200">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <FiAlertCircle className="h-5 w-5 text-amber-500" aria-hidden="true" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-amber-800">Journal Voucher Warning</h3>
+                      <div className="mt-2 text-sm text-amber-700">
+                        <p>Journal vouchers are for adjustments only.</p>
+                        <p className="mt-1">
+                          They cannot be used for sales, receipts, payments, or inventory.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {watchedType === VoucherType.CONTRA && (
+                <div className="rounded-md bg-purple-50 p-4 border border-purple-200">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <FiAlertCircle className="h-5 w-5 text-purple-400" aria-hidden="true" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-purple-800">Contra Voucher Guidance</h3>
+                      <p className="mt-2 text-sm text-purple-700">
+                        Transfers between Cash and Bank accounts only.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="reference">Reference (Optional)</Label>
@@ -316,16 +439,18 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <Label>Voucher Lines *</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addLine}
-                    disabled={loading || loadingAccounts}
-                  >
-                    <FiPlus className="mr-2 h-4 w-4" />
-                    Add Line
-                  </Button>
+                  {watchedType !== VoucherType.CONTRA && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addLine}
+                      disabled={loading || loadingAccounts}
+                    >
+                      <FiPlus className="mr-2 h-4 w-4" />
+                      Add Line
+                    </Button>
+                  )}
                 </div>
 
                 {errors.lines && typeof errors.lines.message === "string" && (
@@ -341,7 +466,7 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
                         <TableHead className="w-32">Debit</TableHead>
                         <TableHead className="w-32">Credit</TableHead>
                         <TableHead>Description</TableHead>
-                        <TableHead className="w-16"></TableHead>
+                        {watchedType !== VoucherType.CONTRA && <TableHead className="w-16"></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -349,8 +474,16 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
                         const lineError = errors.lines?.[index];
                         return (
                           <TableRow key={field.id}>
-                            <TableCell className="font-medium">{index + 1}</TableCell>
-                            <TableCell>
+                            <TableCell className="font-medium align-top pt-4">
+                              {index + 1}
+                              {watchedType === VoucherType.CONTRA && (
+                                <div className="mt-1">
+                                  {index === 0 && <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider bg-purple-50 px-1 py-0.5 rounded border border-purple-100">From</span>}
+                                  {index === 1 && <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider bg-purple-50 px-1 py-0.5 rounded border border-purple-100">To</span>}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="align-top">
                               <Controller
                                 name={`lines.${index}.chartOfAccountId`}
                                 control={control}
@@ -401,7 +534,7 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
                                 </p>
                               )}
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="align-top">
                               <Controller
                                 name={`lines.${index}.debitAmount`}
                                 control={control}
@@ -417,7 +550,7 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
                                       field.onChange(value);
                                       // Clear credit when debit is entered
                                       if (value > 0) {
-                                        control.setValue(`lines.${index}.creditAmount`, 0);
+                                        setValue(`lines.${index}.creditAmount`, 0);
                                       }
                                     }}
                                     disabled={loading}
@@ -430,7 +563,7 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
                                 </p>
                               )}
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="align-top">
                               <Controller
                                 name={`lines.${index}.creditAmount`}
                                 control={control}
@@ -446,7 +579,7 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
                                       field.onChange(value);
                                       // Clear debit when credit is entered
                                       if (value > 0) {
-                                        control.setValue(`lines.${index}.debitAmount`, 0);
+                                        setValue(`lines.${index}.debitAmount`, 0);
                                       }
                                     }}
                                     disabled={loading}
@@ -459,7 +592,7 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
                                 </p>
                               )}
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="align-top">
                               <Controller
                                 name={`lines.${index}.description`}
                                 control={control}
@@ -473,19 +606,21 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
                                 )}
                               />
                             </TableCell>
-                            <TableCell>
-                              {fields.length > 2 && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => removeLine(index)}
-                                  disabled={loading}
-                                >
-                                  <FiTrash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              )}
-                            </TableCell>
+                            {watchedType !== VoucherType.CONTRA && (
+                              <TableCell className="align-top">
+                                {fields.length > 2 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeLine(index)}
+                                    disabled={loading}
+                                  >
+                                    <FiTrash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                )}
+                              </TableCell>
+                            )}
                           </TableRow>
                         );
                       })}
