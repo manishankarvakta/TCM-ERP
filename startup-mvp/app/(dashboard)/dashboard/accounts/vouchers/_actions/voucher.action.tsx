@@ -584,9 +584,13 @@ export async function createVoucher(input: {
   }>;
 }) {
   try {
-    const session = await auth();
+    let effectiveUserId = input.userId;
+    if (!effectiveUserId) {
+        const session = await auth();
+        effectiveUserId = session?.user?.id;
+    }
 
-    if (!session?.user) {
+    if (!effectiveUserId) {
       return {
         success: false,
         error: "Unauthorized",
@@ -595,7 +599,7 @@ export async function createVoucher(input: {
     }
 
     // Check permission
-    const canCreate = await hasPermission(session.user.id, "accounts.vouchers", "create");
+    const canCreate = await hasPermission(effectiveUserId, "accounts.vouchers", "create");
 
     if (!canCreate) {
       return {
@@ -648,7 +652,7 @@ export async function createVoucher(input: {
     }
 
     // 2. Account Restrictions
-    const restrictionCheck = await validateAccountRestrictions(accountIds);
+    const restrictionCheck = await validateAccountRestrictions(input.type, input.lines);
     if (!restrictionCheck.valid) {
         return {
             success: false,
@@ -673,7 +677,7 @@ export async function createVoucher(input: {
         reference: input.reference || null,
         description: input.description || null,
         status: "draft",
-        createdBy: session.user.id,
+        createdBy: effectiveUserId,
         clientId: input.clientId || null,
         supplierId: input.supplierId || null,
         userId: input.userId || null,
@@ -742,7 +746,7 @@ export async function createVoucher(input: {
 
     // Log action
     await createUserLog({
-      userId: session.user.id,
+      userId: effectiveUserId,
       action: LogAction.ITEM_CREATED,
       details: `Created voucher: ${voucherNumber}`,
     });
@@ -1321,38 +1325,108 @@ export async function getEmployeesForVoucher() {
 }
 
 /**
- * Validate account restrictions for manual journals
+ * Validate account restrictions for vouchers based on type and direction
  */
-export async function validateAccountRestrictions(accountIds: string[]): Promise<{ valid: boolean; error?: string }> {
-    // Fetch account details to check flags
+export async function validateAccountRestrictions(
+  voucherType: string,
+  lines: Array<{ 
+    chartOfAccountId: string; 
+    clientId?: string | null;
+    debitAmount: number;
+    creditAmount: number;
+  }>
+): Promise<{ valid: boolean; error?: string }> {
+    const accountIds = lines.map(line => line.chartOfAccountId);
+    
+    // Fetch account details to check flags and types
     const usedAccounts = await prisma.chartOfAccount.findMany({
       where: { id: { in: accountIds } },
       select: { 
         id: true, 
         name: true, 
+        type: true,
         isControl: true,
         CashBankAccount: { select: { id: true } }
       }
     });
 
-    // Check for Control Accounts
-    const controlAccounts = usedAccounts.filter(acc => acc.isControl);
-    if (controlAccounts.length > 0) {
-      const names = controlAccounts.map(a => a.name).join(", ");
-      return {
-        valid: false,
-        error: `Manual vouchers cannot use Control Accounts (${names}). System handles these automatically.`,
-      };
+    const accountMap = new Map(usedAccounts.map(acc => [acc.id, acc]));
+
+    // 1. Basic Type-specific Rules (Directional)
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const account = accountMap.get(line.chartOfAccountId);
+        if (!account) continue;
+
+        const isCredit = Number(line.creditAmount) > 0;
+
+        // Rule: JOURNAL cannot touch AR, Customer Advance, Revenue, Inventory
+        if (voucherType === "JOURNAL") {
+            const blockedNames = ["Accounts Receivable", "Customer Advance", "Inventory"];
+            const isBlockedControl = account.isControl && blockedNames.some(name => account.name.includes(name));
+            const isRevenue = account.type === "REVENUE";
+            
+            if (isBlockedControl || isRevenue) {
+                return {
+                    valid: false,
+                    error: `Line ${i + 1}: JOURNAL vouchers cannot touch ${account.name} accounts. please use their respective modules.`,
+                };
+            }
+        }
+
+        // Rule: SALES vouchers cannot credit Cash directly
+        if (voucherType === "SALES" && isCredit && account.CashBankAccount) {
+            return {
+                valid: false,
+                error: `Line ${i + 1}: SALES vouchers cannot credit Cash/Bank accounts directly.`,
+            };
+        }
+
+        // Rule: RECEIPT vouchers cannot credit Revenue
+        if (voucherType === "RECEIPT" && isCredit && account.type === "REVENUE") {
+            return {
+                valid: false,
+                error: `Line ${i + 1}: RECEIPT vouchers cannot credit Revenue accounts directly. please use Sales module.`,
+            };
+        }
     }
 
-    // Check for Cash/Bank Accounts
-    const cashBankAccounts = usedAccounts.filter(acc => acc.CashBankAccount !== null);
-    if (cashBankAccounts.length > 0) {
-       const names = cashBankAccounts.map(a => a.name).join(", ");
-       return {
-         valid: false,
-         error: `Manual vouchers cannot use Bank/Cash Accounts (${names}). Please use Receipt or Payment modules.`,
-       };
+    // 2. Control Account & Legacy Restrictions
+    const customerAdvanceAccount = usedAccounts.find(acc => acc.name === "Customer Advance");
+    if (customerAdvanceAccount) {
+        // Enforce sub-ledger (clientId)
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].chartOfAccountId === customerAdvanceAccount.id && !lines[i].clientId) {
+                return {
+                    valid: false,
+                    error: `Line ${i + 1}: "Customer Advance" account requires a Client selection for sub-ledger tracking.`,
+                };
+            }
+        }
+    }
+
+    // JOURNAL specifically cannot use other Control Accounts 
+    // Manual vouchers (usually JOURNAL) already blocked in createVoucher for SALES/PURCHASE
+    if (voucherType === "JOURNAL") {
+        const otherControlAccounts = usedAccounts.filter(acc => acc.isControl);
+        if (otherControlAccounts.length > 0) {
+            // Already handled by the "touch" rule above for specific names, 
+            // but this is a catch-all for any isControl account in a manual journal.
+            const names = otherControlAccounts.map(a => a.name).join(", ");
+            return {
+                valid: false,
+                error: `Manual JOURNAL vouchers cannot use Control Accounts (${names}).`,
+            };
+        }
+
+        const cashBankAccounts = usedAccounts.filter(acc => acc.CashBankAccount !== null);
+        if (cashBankAccounts.length > 0) {
+            const names = cashBankAccounts.map(a => a.name).join(", ");
+            return {
+                valid: false,
+                error: `Manual JOURNAL vouchers cannot use Bank/Cash Accounts (${names}).`,
+            };
+        }
     }
 
     return { valid: true };

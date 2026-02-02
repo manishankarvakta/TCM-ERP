@@ -107,7 +107,13 @@ export async function hasPermission(
   operation: Operation
 ): Promise<boolean> {
   try {
-    const permissions = await getUserPermissionsEnhanced(userId);
+    let permissions;
+    try {
+        permissions = await getUserPermissionsEnhanced(userId);
+    } catch (e) {
+        // Fallback to uncached version if unstable_cache fails (e.g. in CLI/tests)
+        permissions = await getUserPermissions(userId);
+    }
     const pagePermission = permissions[permissionKey] as PagePermission | undefined;
     
     if (pagePermission) {

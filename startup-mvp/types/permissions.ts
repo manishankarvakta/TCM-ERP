@@ -419,14 +419,8 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
       },
       {
         permissionKey: "quotations.orders",
-        path: "/dashboard/quotations/orders",
+        path: "/dashboard/orders",
         label: "Orders",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "work-orders.work-orders",
-        path: "/dashboard/work-orders",
-        label: "Work Orders",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
     ],
@@ -434,30 +428,6 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
   {
     id: "purchases",
     label: "Purchases",
-    pages: [
-      {
-        permissionKey: "purchases.purchases",
-        path: "/dashboard/purchases",
-        label: "Purchases",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-    ],
-  },
-  {
-    id: "work-orders",
-    label: "Work Orders",
-    pages: [
-      {
-        permissionKey: "work-orders.work-orders",
-        path: "/dashboard/work-orders",
-        label: "Work Orders",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-    ],
-  },
-  {
-    id: "accounts",
-    label: "Accounts",
     pages: [
       {
         permissionKey: "accounts.chart-of-accounts",

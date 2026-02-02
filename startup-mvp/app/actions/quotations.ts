@@ -1138,6 +1138,7 @@ export async function updateQuotation(id: string, data: any) {
     }
 
     // Integration: Create SALES voucher when quotation status changes to ACCEPTED
+    // Transitional step: Creating Order record while keeping legacy sales voucher and inventory logic
     if (data.status === 'ACCEPTED' && existingQuotation.status !== 'ACCEPTED') {
       try {
         const { createSalesVoucherForQuotation } = await import('./quotation-accounting-integration');
@@ -1156,6 +1157,15 @@ export async function updateQuotation(id: string, data: any) {
           console.error(`Failed to create sales voucher for quotation ${quotation.quotationNumber}:`, voucherResult.error);
           // Don't fail the quotation update if voucher creation fails
           // Log error but continue
+        }
+
+        // Create Order from accepted quotation
+        const { createOrderFromQuotation } = await import('./orders');
+        const orderResult = await createOrderFromQuotation(quotation.id);
+        if (orderResult.success) {
+          console.log(`Order created for quotation ${quotation.quotationNumber}: ${orderResult.orderId}`);
+        } else {
+          console.error(`Failed to create order for quotation ${quotation.quotationNumber}:`, orderResult.error);
         }
       } catch (error) {
         console.error('Error creating sales voucher for quotation:', error);
@@ -1612,12 +1622,23 @@ export async function updateQuotationStatus(
         status: finalStatus,
         updatedById: session.user.id,
       },
-      include: {
-        client: {
-          select: { id: true, name: true },
-        },
-      },
     });
+
+    // Integration: Create Order when quotation is ACCEPTED
+    // Transitional step: Parallel run of new Order model with legacy systems
+    if (finalStatus === 'ACCEPTED' && quotation.status !== 'ACCEPTED') {
+      try {
+        const { createOrderFromQuotation } = await import('./orders');
+        const orderResult = await createOrderFromQuotation(id);
+        if (orderResult.success) {
+          console.log(`Order created for quotation ${quotation.quotationNumber}: ${orderResult.orderId}`);
+        } else {
+          console.error(`Failed to create order for quotation ${quotation.quotationNumber}:`, orderResult.error);
+        }
+      } catch (error) {
+        console.error('Error in order integration:', error);
+      }
+    }
 
     revalidateBothPaths('quotations', 'page');
     revalidateBothPaths(`quotations/${id}`, 'page');
