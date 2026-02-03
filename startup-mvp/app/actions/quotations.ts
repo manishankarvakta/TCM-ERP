@@ -131,13 +131,11 @@ export async function getQuotations(
             image: true,
           },
         },
-        workOrders: {
+        order: {
           select: {
             id: true,
-            isTrash: true,
-          },
-          where: {
-            isTrash: false, // Only count non-trashed work orders
+            orderNumber: true,
+            status: true,
           },
         },
       },
@@ -213,6 +211,13 @@ export async function getQuotation(id: string) {
             address: true,
             company: true,
             image: true,
+          },
+        },
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
           },
         },
         organization: {
@@ -1599,13 +1604,14 @@ export async function updateQuotationStatus(
 
     // Validate status transition
     const validTransitions: Record<string, string[]> = {
-      'DRAFT': ['SENT'],
-      'REVIEW': ['REVISED', 'SENT'], // Approve action: REVIEW -> REVISED, or send directly
-      'SENT': ['ACCEPTED', 'REJECTED'],
-      'ACCEPTED': ['SENT', 'REVISED'],
-      'REJECTED': ['SENT', 'REVISED'],
-      'REVISED': ['SENT'],
-      'EXPIRED': [], // Cannot transition from expired
+      'DRAFT': ['REVIEW', 'SENT', 'APPROVED', 'CANCELLED'],
+      'REVIEW': ['APPROVED', 'SENT', 'CANCELLED'],
+      'APPROVED': ['SENT', 'ACCEPTED', 'CANCELLED'], // Approved internally, can be sent or directly accepted
+      'SENT': ['ACCEPTED', 'REJECTED', 'CANCELLED'],
+      'ACCEPTED': ['CANCELLED'], // Can cancel an order?
+      'REJECTED': ['CANCELLED', 'DRAFT'],
+      'CANCELLED': ['DRAFT'], // Restart
+      'EXPIRED': ['DRAFT', 'CANCELLED'],
     };
 
     const allowedStatuses = validTransitions[quotation.status] || [];

@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { FiEdit, FiSend, FiCheck, FiCheckCircle } from 'react-icons/fi';
+import { FiEdit, FiSend, FiCheck, FiCheckCircle, FiX } from 'react-icons/fi';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
@@ -43,39 +43,31 @@ export default function QuotationActionButtons({ quotationId, status, basePath =
 
   return (
     <div className="flex gap-2">
-      <Link href={`${basePath}/${quotationId}/edit`}>
-        <Button variant="outline">
-          <FiEdit className="w-4 h-4 mr-2" />
-          Edit
-        </Button>
-      </Link>
+      {/* Edit button - visible for statuses that allow editing */}
+      {['DRAFT', 'REVIEW', 'APPROVED', 'SENT'].includes(status) && (
+        <Link href={`${basePath}/${quotationId}/edit`}>
+          <Button variant="outline">
+            <FiEdit className="w-4 h-4 mr-2" />
+            Edit
+          </Button>
+        </Link>
+      )}
 
-      {/* Approve button - visible when status is REVIEW and user has approve permission */}
-      {status === 'REVIEW' && canApprove && (
+      {/* Approve button - visible when status is DRAFT or REVIEW */}
+      {(status === 'DRAFT' || status === 'REVIEW') && canApprove && (
         <Button
           variant="default"
-          onClick={() => handleStatusChange(QuotationStatus.REVISED)}
+          onClick={() => handleStatusChange(QuotationStatus.APPROVED)}
           disabled={isPending}
+          className="bg-green-600 hover:bg-green-700 text-white"
         >
           <FiCheck className="w-4 h-4 mr-2" />
           Approve
         </Button>
       )}
 
-      {/* Accept button - visible when status is SENT */}
-      {status === 'SENT' && (
-        <Button
-          variant="default"
-          onClick={() => handleStatusChange('ACCEPTED')}
-          disabled={isPending}
-        >
-          <FiCheckCircle className="w-4 h-4 mr-2" />
-          Accept
-        </Button>
-      )}
-
-      {/* Send button - visible when status is ACCEPTED, REJECTED, or REVISED */}
-      {(status === 'ACCEPTED' || status === 'REJECTED' || status === 'REVISED') && (
+      {/* Send button - visible when status is APPROVED */}
+      {status === 'APPROVED' && (
         <Button
           variant="default"
           onClick={() => handleStatusChange('SENT')}
@@ -84,6 +76,30 @@ export default function QuotationActionButtons({ quotationId, status, basePath =
           <FiSend className="w-4 h-4 mr-2" />
           Send
         </Button>
+      )}
+
+      {/* Accept and Reject buttons - visible when status is SENT */}
+      {status === 'SENT' && (
+        <div className="flex gap-2">
+          <Button
+            variant="default"
+            onClick={() => handleStatusChange('ACCEPTED')}
+            disabled={isPending}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            <FiCheckCircle className="w-4 h-4 mr-1" />
+            Accepted
+          </Button>
+
+          <Button
+            variant="destructive"
+            onClick={() => handleStatusChange('REJECTED')}
+            disabled={isPending}
+          >
+            <FiX className="w-4 h-4 mr-1" />
+            Rejected
+          </Button>
+        </div>
       )}
     </div>
   );

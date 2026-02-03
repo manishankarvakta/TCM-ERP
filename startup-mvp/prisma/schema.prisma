@@ -903,7 +903,8 @@ enum QuotationStatus {
   ACCEPTED
   REJECTED
   EXPIRED
-  REVISED
+  CANCELLED
+  APPROVED
 }
 
 enum WorkOrderStatus {
