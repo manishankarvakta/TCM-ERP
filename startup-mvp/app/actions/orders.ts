@@ -44,6 +44,8 @@ export async function createOrderFromQuotation(quotationId: string) {
         id: true,
         clientId: true,
         grandTotal: true,
+        total: true, // Fetch total (subtotal)
+        discount: true, // Fetch discount
         status: true,
       },
     });
@@ -65,6 +67,14 @@ export async function createOrderFromQuotation(quotationId: string) {
       return { success: true, orderId: existingOrder.id, message: 'Order already exists' };
     }
 
+    // Calculate robust total
+    let orderTotalValue = Number(quotation.grandTotal || 0);
+    if (orderTotalValue === 0 && quotation.total) {
+       const subTotal = Number(quotation.total);
+       const discount = Number(quotation.discount || 0);
+       orderTotalValue = Math.max(0, subTotal - discount);
+    }
+
     // 3. Generate order number
     const orderNumber = await generateOrderNumber();
 
@@ -76,7 +86,7 @@ export async function createOrderFromQuotation(quotationId: string) {
           orderNumber,
           quotationId,
           clientId: quotation.clientId,
-          totalValue: quotation.grandTotal || 0,
+          totalValue: orderTotalValue,
           status: OrderStatus.PENDING,
         },
       });

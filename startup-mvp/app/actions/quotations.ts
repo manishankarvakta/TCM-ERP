@@ -631,6 +631,8 @@ export async function createQuotation(data: any) {
         coverLetter: coverLetterContent || null,
         tos: tosContent || null,
         total: total > 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
+        discount: data.discount ? new Prisma.Decimal(data.discount) : new Prisma.Decimal(0),
+        grandTotal: total > 0 ? new Prisma.Decimal(Math.max(0, total - (data.discount ? Number(data.discount) : 0))) : new Prisma.Decimal(0),
         status: 'DRAFT', // Always DRAFT on create
         expiredDate: data.expiredDate ? new Date(data.expiredDate) : null as any,
         clientId: clientId,
@@ -1003,7 +1005,7 @@ export async function updateQuotation(id: string, data: any) {
         tos: tosContent !== undefined ? (tosContent || null) : existingQuotation.tos,
         total: total >= 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
         discount: data.discount !== undefined ? (data.discount ? new Prisma.Decimal(data.discount) : new Prisma.Decimal(0)) : (existingQuotation.discount || new Prisma.Decimal(0)),
-        grandTotal: total >= 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
+        grandTotal: total >= 0 ? new Prisma.Decimal(Math.max(0, total - (data.discount ? Number(data.discount) : (data.discount === undefined && existingQuotation.discount ? Number(existingQuotation.discount) : 0)))) : new Prisma.Decimal(0),
         // Always set status to REVIEW when updating a quotation
         status: 'REVIEW' as QuotationStatus,
         expiredDate: data.expiredDate !== undefined 
