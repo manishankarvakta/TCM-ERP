@@ -29,28 +29,34 @@ import { FiAlertCircle, FiPlus, FiTrash2, FiSearch, FiCreditCard } from "react-i
 import { VoucherAccountingPreview } from "../../_components/voucher-accounting-preview";
 import { createVoucher } from "../../_actions/voucher.action";
 import { getChartOfAccounts } from "../../../chart-of-accounts/_actions/chart-of-accounts.action";
+import { getSuppliers } from "../../../../suppliers/_actions/supplier.action";
+import { getEmployees } from "../../../../employees/_actions/employee.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType } from "@prisma/client";
 
 // Reusing schemas / logic from standard form as requested ("Do NOT change voucher lines logic")
-// Reusing schemas / logic from standard form as requested ("Do NOT change voucher lines logic")
 const voucherLineSchema = z.object({
   chartOfAccountId: z.string().min(1, "Account is required"),
-  debitAmount: z.number().optional().default(0), // Allow undefined/null from empty inputs
+  debitAmount: z.number().optional().default(0), 
   creditAmount: z.number().optional().default(0),
   description: z.string().optional(),
+  clientId: z.string().optional().nullable(),
+  supplierId: z.string().optional().nullable(),
+  userId: z.string().optional().nullable(),
 });
 
 const voucherFormSchema = z.object({
   date: z.string().min(1, "Date is required"),
   reference: z.string().optional().or(z.literal("")),
   description: z.string().optional().or(z.literal("")),
-  // Just standard lines, no fancy abstraction
+  clientId: z.string().optional().nullable(),
+  supplierId: z.string().optional().nullable(),
+  userId: z.string().optional().nullable(),
   lines: z.array(voucherLineSchema).min(2, "At least 2 lines are required"),
 }).refine(
   (data) => {
-    const totalDebit = data.lines.reduce((sum, line) => sum + line.debitAmount, 0);
-    const totalCredit = data.lines.reduce((sum, line) => sum + line.creditAmount, 0);
+    const totalDebit = data.lines.reduce((sum, line) => sum + (line.debitAmount || 0), 0);
+    const totalCredit = data.lines.reduce((sum, line) => sum + (line.creditAmount || 0), 0);
     const difference = Math.abs(totalDebit - totalCredit);
     return difference <= 0.01;
   },
@@ -75,7 +81,9 @@ export default function PaymentVoucherForm() {
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
-  const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [suppliers, setSuppliers] = useState<{id: string, name: string}[]>([]);
+  const [employees, setEmployees] = useState<{id: string, name: string, userId: string | null}[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
   const [accountSearch, setAccountSearch] = useState("");
   
   // UI Context State
@@ -144,6 +152,9 @@ export default function PaymentVoucherForm() {
         { chartOfAccountId: "", debitAmount: 0, creditAmount: 0, description: "" },
         { chartOfAccountId: "", debitAmount: 0, creditAmount: 0, description: "" },
       ],
+      clientId: null,
+      supplierId: null,
+      userId: null,
     },
   });
 
@@ -155,27 +166,42 @@ export default function PaymentVoucherForm() {
   const watchedLines = watch("lines");
   
   useEffect(() => {
-    const fetchAccounts = async () => {
+    const fetchData = async () => {
       try {
-        setLoadingAccounts(true);
-        const result = await getChartOfAccounts(1, 1000, "", "active");
-        if (result.success) {
-          setAccounts(
-            result.accounts.map((a) => ({
-              id: a.id,
-              code: a.code,
-              name: a.name,
-              type: a.type,
-            }))
-          );
+        setLoadingData(true);
+        const [accountsRes, suppliersRes, employeesRes] = await Promise.all([
+          getChartOfAccounts(1, 1000, "", "active"),
+          getSuppliers(1, 100),
+          getEmployees(1, 100)
+        ]);
+        
+        if (accountsRes.success && accountsRes.accounts) {
+          setAccounts(accountsRes.accounts.map(a => ({
+            id: a.id,
+            code: a.code,
+            name: a.name,
+            type: a.type
+          })));
+        }
+
+        if (suppliersRes.success && suppliersRes.suppliers) {
+          setSuppliers(suppliersRes.suppliers.map((s: any) => ({ id: s.id, name: s.name || s.email })));
+        }
+
+        if (employeesRes.success && employeesRes.employees) {
+          setEmployees(employeesRes.employees.map((e: any) => ({ 
+            id: e.id, 
+            name: e.name, 
+            userId: e.userId 
+          })));
         }
       } catch (err) {
-        console.error("Failed to fetch accounts:", err);
+        console.error("Error fetching data:", err);
       } finally {
-        setLoadingAccounts(false);
+        setLoadingData(false);
       }
     };
-    fetchAccounts();
+    fetchData();
   }, []);
 
   const filteredAccounts = useMemo(() => {
@@ -204,6 +230,9 @@ export default function PaymentVoucherForm() {
         creditAmount: line.creditAmount || 0,
         description: line.description || undefined,
         chartOfAccountId: line.chartOfAccountId,
+        clientId: line.clientId ?? undefined,
+        supplierId: line.supplierId ?? undefined,
+        userId: line.userId ?? undefined,
       }));
 
       // Prepend context to description if available, for better audit trail
@@ -212,12 +241,15 @@ export default function PaymentVoucherForm() {
         : `[${contextLabels.title}]`;
 
       const result = await createVoucher({
-        date: data.date,
-        type: VoucherType.PAYMENT,
-        reference: data.reference,
-        description: finalDescription,
-        lines,
-      });
+      date: data.date,
+      type: VoucherType.PAYMENT,
+      reference: data.reference,
+      description: finalDescription,
+      clientId: data.clientId ?? undefined,
+      supplierId: data.supplierId ?? undefined,
+      userId: data.userId ?? undefined,
+      lines,
+    });
 
       if (!result.success) throw new Error(result.error);
       
@@ -275,11 +307,53 @@ export default function PaymentVoucherForm() {
                     <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Payee & Reference</CardTitle>
                  </CardHeader>
                  <CardContent className="space-y-4">
-                     <div className="space-y-2">
-                         <Label>{contextLabels.payeeLabel}</Label>
-                         <Input placeholder="Name or ID..." />
-                         {/* Note: This is UI only for now, can be mapped if needed later */}
-                     </div>
+                    <div className="space-y-2">
+                      <Label>{contextLabels.payeeLabel}</Label>
+                      {paymentContext === "SUPPLIER" ? (
+                        <Controller
+                          name="supplierId"
+                          control={control}
+                          render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value || ""}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select Supplier" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {suppliers.map(s => (
+                                  <SelectItem key={s.id} value={s.id}>{s.name || ""}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                      ) : paymentContext === "PAYROLL" ? (
+                        <Controller
+                          name="userId"
+                          control={control}
+                          render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value || ""}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select Employee" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {employees.map(e => (
+                                  <SelectItem key={e.id} value={e.userId || e.id}>{e.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                      ) : (
+                        <Input 
+                          placeholder={contextLabels.payeeLabel} 
+                          value={watch("description")?.split("] ").pop() || ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setValue("description", val);
+                          }}
+                        />
+                      )}
+                    </div>
                     <div className="space-y-2">
                         <Label>Reference No.</Label>
                         <Input placeholder="Check # / Trans ID" {...register("reference")} />
@@ -333,7 +407,11 @@ export default function PaymentVoucherForm() {
                                 <TableHead className="w-10">#</TableHead>
                                 <TableHead>
                                     Account
-                                    <p className="text-[10px] font-normal text-muted-foreground">Cash or Bank account will be credited.</p>
+                                    {loadingData ? (
+                                        <p className="text-[10px] font-normal text-muted-foreground">Loading accounts...</p>
+                                    ) : (
+                                        <p className="text-[10px] font-normal text-muted-foreground">Cash or Bank account will be credited.</p>
+                                    )}
                                 </TableHead>
                                 <TableHead className="w-32 text-right">
                                     Debit
@@ -354,7 +432,7 @@ export default function PaymentVoucherForm() {
                                             name={`lines.${index}.chartOfAccountId`}
                                             control={control}
                                             render={({ field }) => (
-                                                <Select value={field.value} onValueChange={field.onChange} disabled={loadingAccounts}>
+                                                <Select value={field.value} onValueChange={field.onChange} disabled={loadingData}>
                                                     <SelectTrigger className="h-8">
                                                         <SelectValue placeholder="Select Account" />
                                                     </SelectTrigger>

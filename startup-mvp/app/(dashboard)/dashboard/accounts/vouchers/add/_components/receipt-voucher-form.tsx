@@ -29,6 +29,7 @@ import { FiAlertCircle, FiPlus, FiTrash2, FiSearch, FiDollarSign } from "react-i
 import { VoucherAccountingPreview } from "../../_components/voucher-accounting-preview";
 import { createVoucher } from "../../_actions/voucher.action";
 import { getChartOfAccounts } from "../../../chart-of-accounts/_actions/chart-of-accounts.action";
+import { getClients } from "../../../../clients/_actions/client.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType } from "@prisma/client";
 
@@ -37,17 +38,23 @@ const voucherLineSchema = z.object({
   debitAmount: z.number().optional().default(0),
   creditAmount: z.number().optional().default(0),
   description: z.string().optional(),
+  clientId: z.string().optional().nullable(),
+  supplierId: z.string().optional().nullable(),
+  userId: z.string().optional().nullable(),
 });
 
 const voucherFormSchema = z.object({
   date: z.string().min(1, "Date is required"),
   reference: z.string().optional().or(z.literal("")),
   description: z.string().optional().or(z.literal("")),
+  clientId: z.string().optional().nullable(),
+  supplierId: z.string().optional().nullable(),
+  userId: z.string().optional().nullable(),
   lines: z.array(voucherLineSchema).min(2, "At least 2 lines are required"),
 }).refine(
   (data) => {
-    const totalDebit = data.lines.reduce((sum, line) => sum + line.debitAmount, 0);
-    const totalCredit = data.lines.reduce((sum, line) => sum + line.creditAmount, 0);
+    const totalDebit = data.lines.reduce((sum, line) => sum + (line.debitAmount || 0), 0);
+    const totalCredit = data.lines.reduce((sum, line) => sum + (line.creditAmount || 0), 0);
     const difference = Math.abs(totalDebit - totalCredit);
     return difference <= 0.01;
   },
@@ -72,7 +79,8 @@ export default function ReceiptVoucherForm() {
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
-  const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [clients, setClients] = useState<{id: string, name: string}[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
   const [accountSearch, setAccountSearch] = useState("");
   
   // UI Context State
@@ -131,6 +139,9 @@ export default function ReceiptVoucherForm() {
         { chartOfAccountId: "", debitAmount: 0, creditAmount: 0, description: "" },
         { chartOfAccountId: "", debitAmount: 0, creditAmount: 0, description: "" },
       ],
+      clientId: null,
+      supplierId: null,
+      userId: null,
     },
   });
 
@@ -142,27 +153,33 @@ export default function ReceiptVoucherForm() {
   const watchedLines = watch("lines");
   
   useEffect(() => {
-    const fetchAccounts = async () => {
+    const fetchData = async () => {
       try {
-        setLoadingAccounts(true);
-        const result = await getChartOfAccounts(1, 1000, "", "active");
-        if (result.success) {
-          setAccounts(
-            result.accounts.map((a) => ({
-              id: a.id,
-              code: a.code,
-              name: a.name,
-              type: a.type,
-            }))
-          );
+        setLoadingData(true);
+        const [accountsRes, clientsRes] = await Promise.all([
+          getChartOfAccounts(1, 1000, "", "active"),
+          getClients(1, 100)
+        ]);
+        
+        if (accountsRes.success && accountsRes.accounts) {
+          setAccounts(accountsRes.accounts.map(a => ({
+            id: a.id,
+            code: a.code,
+            name: a.name,
+            type: a.type
+          })));
+        }
+
+        if (clientsRes.success && clientsRes.clients) {
+          setClients(clientsRes.clients.map((c: any) => ({ id: c.id, name: c.name || c.email })));
         }
       } catch (err) {
-        console.error("Failed to fetch accounts:", err);
+        console.error("Error fetching data:", err);
       } finally {
-        setLoadingAccounts(false);
+        setLoadingData(false);
       }
     };
-    fetchAccounts();
+    fetchData();
   }, []);
 
   const filteredAccounts = useMemo(() => {
@@ -191,6 +208,9 @@ export default function ReceiptVoucherForm() {
         creditAmount: line.creditAmount || 0,
         description: line.description || undefined,
         chartOfAccountId: line.chartOfAccountId,
+        clientId: line.clientId ?? undefined,
+        supplierId: line.supplierId ?? undefined,
+        userId: line.userId ?? undefined,
       }));
 
       const finalDescription = data.description 
@@ -202,6 +222,9 @@ export default function ReceiptVoucherForm() {
         type: VoucherType.RECEIPT,
         reference: data.reference,
         description: finalDescription,
+        clientId: data.clientId ?? undefined,
+        supplierId: data.supplierId ?? undefined,
+        userId: data.userId ?? undefined,
         lines,
       });
 
@@ -260,9 +283,39 @@ export default function ReceiptVoucherForm() {
                  </CardHeader>
                  <CardContent className="space-y-4">
                      <div className="space-y-2">
-                         <Label>{contextLabels.actorLabel}</Label>
-                         <Input placeholder="Client name or ID..." />
-                     </div>
+                      <Label>{contextLabels.actorLabel}</Label>
+                      {receiptContext !== "OTHER" ? (
+                        <Controller
+                          name="clientId"
+                          control={control}
+                          render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value || ""}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select Customer" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {clients.map(c => (
+                                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                      ) : (
+                        <Input 
+                          placeholder={contextLabels.actorLabel} 
+                          value={watch("description")?.split("] ").pop() || ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            // Preserve the context prefix if it exists
+                            const currentDescription = watch("description");
+                            const prefixMatch = currentDescription?.match(/^\[.*?\]\s*/);
+                            const newDescription = prefixMatch ? `${prefixMatch[0]}${val}` : val;
+                            setValue("description", newDescription);
+                          }}
+                        />
+                      )}
+                    </div>
                     <div className="space-y-2">
                         <Label>Reference No.</Label>
                         <Input placeholder="Receipt # / Ref" {...register("reference")} />
@@ -337,7 +390,7 @@ export default function ReceiptVoucherForm() {
                                             name={`lines.${index}.chartOfAccountId`}
                                             control={control}
                                             render={({ field }) => (
-                                                <Select value={field.value} onValueChange={field.onChange} disabled={loadingAccounts}>
+                                                <Select value={field.value} onValueChange={field.onChange} disabled={loadingData}>
                                                     <SelectTrigger className="h-8">
                                                         <SelectValue placeholder="Select Account" />
                                                     </SelectTrigger>

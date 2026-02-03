@@ -36,7 +36,7 @@ export default async function AddVoucherPage({ searchParams }: AddVoucherPagePro
         {type === VoucherType.JOURNAL && <JournalVoucherForm />}
         
         {/* Fallback for system types or unknown types */}
-        {![VoucherType.PAYMENT, VoucherType.RECEIPT, VoucherType.CONTRA, VoucherType.JOURNAL].includes(type) && (
+        {!( [VoucherType.PAYMENT, VoucherType.RECEIPT, VoucherType.CONTRA, VoucherType.JOURNAL] as VoucherType[]).includes(type) && (
             <div className="p-12 text-center border rounded-lg bg-gray-50">
                 <h3 className="text-lg font-medium">Restricted Voucher Type</h3>
                 <p className="text-muted-foreground mt-2">

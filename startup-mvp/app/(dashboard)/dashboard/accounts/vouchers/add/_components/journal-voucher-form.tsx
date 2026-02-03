@@ -29,6 +29,9 @@ import { FiAlertCircle, FiPlus, FiTrash2, FiSearch, FiFileText } from "react-ico
 import { VoucherAccountingPreview } from "../../_components/voucher-accounting-preview";
 import { createVoucher } from "../../_actions/voucher.action";
 import { getChartOfAccounts } from "../../../chart-of-accounts/_actions/chart-of-accounts.action";
+import { getClients } from "../../../../clients/_actions/client.action";
+import { getSuppliers } from "../../../../suppliers/_actions/supplier.action";
+import { getEmployees } from "../../../../employees/_actions/employee.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType } from "@prisma/client";
 
@@ -37,10 +40,13 @@ const voucherLineSchema = z.object({
   debitAmount: z.number().min(0, "Debit amount must be >= 0").default(0),
   creditAmount: z.number().min(0, "Credit amount must be >= 0").default(0),
   description: z.string().optional(),
+  clientId: z.string().optional().nullable(),
+  supplierId: z.string().optional().nullable(),
+  userId: z.string().optional().nullable(),
 }).refine(
   (data) => {
-    const hasDebit = data.debitAmount > 0;
-    const hasCredit = data.creditAmount > 0;
+    const hasDebit = (data.debitAmount || 0) > 0;
+    const hasCredit = (data.creditAmount || 0) > 0;
     return (hasDebit && !hasCredit) || (!hasDebit && hasCredit) || (!hasDebit && !hasCredit);
   },
   {
@@ -52,6 +58,9 @@ const voucherLineSchema = z.object({
 const voucherFormSchema = z.object({
   date: z.string().min(1, "Date is required"),
   description: z.string().min(5, "Reason for adjustment must be at least 5 characters long"),
+  clientId: z.string().optional().nullable(),
+  supplierId: z.string().optional().nullable(),
+  userId: z.string().optional().nullable(),
   lines: z.array(voucherLineSchema).min(2, "At least 2 lines are required"),
 }).refine(
   (data) => {
@@ -81,32 +90,50 @@ export default function JournalVoucherForm() {
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
-  const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [clients, setClients] = useState<{id: string, name: string}[]>([]);
+  const [suppliers, setSuppliers] = useState<{id: string, name: string}[]>([]);
+  const [employees, setEmployees] = useState<{id: string, name: string}[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
   const [accountSearch, setAccountSearch] = useState("");
 
-  // Fetch active accounts for selection
   useEffect(() => {
-    const fetchAccounts = async () => {
+    const fetchData = async () => {
       try {
-        const result = await getChartOfAccounts(1, 1000, "", "active");
-        if (result.success) {
-          setAccounts(
-            result.accounts.map((a) => ({
-              id: a.id,
-              code: a.code,
-              name: a.name,
-              type: a.type,
-            }))
-          );
+        setLoadingData(true);
+        const [accountsRes, clientsRes, suppliersRes, employeesRes] = await Promise.all([
+          getChartOfAccounts(1, 1000, "", "active"),
+          getClients(1, 100),
+          getSuppliers(1, 100),
+          getEmployees(1, 100)
+        ]);
+        
+        if (accountsRes.success && accountsRes.accounts) {
+          setAccounts(accountsRes.accounts.map(a => ({
+            id: a.id,
+            code: a.code,
+            name: a.name,
+            type: a.type
+          })));
+        }
+
+        if (clientsRes.success && clientsRes.clients) {
+          setClients(clientsRes.clients.map((c: any) => ({ id: c.id, name: c.name || c.email })));
+        }
+
+        if (suppliersRes.success && suppliersRes.suppliers) {
+          setSuppliers(suppliersRes.suppliers.map((s: any) => ({ id: s.id, name: s.name || s.email })));
+        }
+
+        if (employeesRes.success && employeesRes.employees) {
+          setEmployees(employeesRes.employees.map((e: any) => ({ id: e.id, name: e.name })));
         }
       } catch (err) {
-        console.error("Failed to fetch accounts:", err);
+        console.error("Error fetching data:", err);
       } finally {
-        setLoadingAccounts(false);
+        setLoadingData(false);
       }
     };
-
-    fetchAccounts();
+    fetchData();
   }, []);
 
   const {
@@ -117,7 +144,7 @@ export default function JournalVoucherForm() {
     watch,
     setValue,
   } = useForm<VoucherFormData>({
-    resolver: zodResolver(voucherFormSchema),
+    resolver: zodResolver(voucherFormSchema) as any,
     defaultValues: {
       date: new Date().toISOString().split("T")[0],
       description: "",
@@ -125,6 +152,9 @@ export default function JournalVoucherForm() {
         { chartOfAccountId: "", debitAmount: 0, creditAmount: 0, description: "" },
         { chartOfAccountId: "", debitAmount: 0, creditAmount: 0, description: "" },
       ],
+      clientId: null,
+      supplierId: null,
+      userId: null,
     },
   });
 
@@ -179,12 +209,18 @@ export default function JournalVoucherForm() {
         creditAmount: line.creditAmount || 0,
         description: line.description || undefined,
         chartOfAccountId: line.chartOfAccountId,
+        clientId: line.clientId ?? undefined,
+        supplierId: line.supplierId ?? undefined,
+        userId: line.userId ?? undefined,
       }));
 
       const result = await createVoucher({
         date: data.date,
         type: VoucherType.JOURNAL,
         description: data.description || undefined,
+        clientId: data.clientId ?? undefined,
+        supplierId: data.supplierId ?? undefined,
+        userId: data.userId ?? undefined,
         lines,
       });
 
@@ -305,7 +341,7 @@ export default function JournalVoucherForm() {
                                 <Select
                                   value={field.value}
                                   onValueChange={field.onChange}
-                                  disabled={loading || loadingAccounts}
+                                  disabled={loading || loadingData}
                                 >
                                   <SelectTrigger className="h-9 border-transparent hover:border-input focus:border-input bg-transparent hover:bg-background">
                                     <SelectValue placeholder="Select account..." />
@@ -432,7 +468,7 @@ export default function JournalVoucherForm() {
                         variant="ghost"
                         size="sm"
                         onClick={addLine}
-                        disabled={loading || loadingAccounts}
+                        disabled={loading || loadingData}
                         className="text-primary hover:bg-primary/10"
                     >
                         <FiPlus className="mr-2 h-4 w-4" />

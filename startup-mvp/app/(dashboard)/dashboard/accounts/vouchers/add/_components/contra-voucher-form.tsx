@@ -37,12 +37,18 @@ const voucherLineSchema = z.object({
   debitAmount: z.number().optional().default(0),
   creditAmount: z.number().optional().default(0),
   description: z.string().optional(),
+  clientId: z.string().optional().nullable(),
+  supplierId: z.string().optional().nullable(),
+  userId: z.string().optional().nullable(),
 });
 
 const contraFormSchema = z.object({
   date: z.string().min(1, "Date is required"),
   reference: z.string().optional().or(z.literal("")),
   description: z.string().optional().or(z.literal("")),
+  clientId: z.string().optional().nullable(),
+  supplierId: z.string().optional().nullable(),
+  userId: z.string().optional().nullable(),
   lines: z.array(voucherLineSchema).length(2, "Exactly 2 lines are required for a transfer"),
 }).refine(
   (data) => {
@@ -75,12 +81,12 @@ export default function ContraVoucherForm() {
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [cashBankAccounts, setCashBankAccounts] = useState<CashBankAccountOption[]>([]);
-  const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
     const fetchAccounts = async () => {
       try {
-        setLoadingAccounts(true);
+        setLoadingData(true);
         const result = await getCashBankAccounts();
         if (result.success && result.accounts) {
           const options: CashBankAccountOption[] = [
@@ -104,7 +110,7 @@ export default function ContraVoucherForm() {
       } catch (err) {
         console.error("Failed to fetch accounts:", err);
       } finally {
-        setLoadingAccounts(false);
+        setLoadingData(false);
       }
     };
     fetchAccounts();
@@ -124,9 +130,12 @@ export default function ContraVoucherForm() {
       reference: "",
       description: "",
       lines: [
-        { chartOfAccountId: "", debitAmount: 0, creditAmount: 0, description: "Transfer Out" },
-        { chartOfAccountId: "", debitAmount: 0, creditAmount: 0, description: "Transfer In" },
+        { chartOfAccountId: "", debitAmount: 0, creditAmount: 0, description: "" },
+        { chartOfAccountId: "", debitAmount: 0, creditAmount: 0, description: "" },
       ],
+      clientId: null,
+      supplierId: null,
+      userId: null,
     },
   });
 
@@ -151,9 +160,18 @@ export default function ContraVoucherForm() {
         type: VoucherType.CONTRA,
         reference: data.reference,
         description: data.description || "Internal Transfer",
+        clientId: data.clientId ?? undefined,
+        supplierId: data.supplierId ?? undefined,
+        userId: data.userId ?? undefined,
         lines: data.lines.map((l, i) => ({
-          ...l,
           lineNumber: i + 1,
+          chartOfAccountId: l.chartOfAccountId,
+          debitAmount: l.debitAmount || 0,
+          creditAmount: l.creditAmount || 0,
+          description: l.description,
+          clientId: l.clientId ?? undefined,
+          supplierId: l.supplierId ?? undefined,
+          userId: l.userId ?? undefined,
         })),
       });
 
@@ -232,7 +250,7 @@ export default function ContraVoucherForm() {
                           name={`lines.${index}.chartOfAccountId`}
                           control={control}
                           render={({ field }) => (
-                            <Select value={field.value} onValueChange={field.onChange} disabled={loadingAccounts}>
+                            <Select value={field.value} onValueChange={field.onChange} disabled={loadingData}>
                               <SelectTrigger className="h-9">
                                 <SelectValue placeholder="Select Account" />
                               </SelectTrigger>
