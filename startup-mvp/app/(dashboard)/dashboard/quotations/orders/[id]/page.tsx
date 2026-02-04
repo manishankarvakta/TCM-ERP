@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DeliveryScheduleTab from "./_components/delivery-schedule-tab";
 import InvoicesTab from "./_components/invoices-tab";
+import { serializeData } from "@/lib/utils/serialization";
 
 interface OrderDetailPageProps {
   params: Promise<{
@@ -94,41 +95,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
     }
   };
 
-  // Serialize Decimal objects to plain numbers for Client Components
-  const serializedOrder = {
-    ...order,
-    totalValue: Number(order.totalValue),
-    items: order.items.map(item => ({
-        ...item,
-        quantity: Number(item.quantity),
-        unitPrice: Number(item.unitPrice),
-        amount: Number(item.amount),
-        deliveries: item.deliveries.map(d => ({
-            ...d,
-            quantity: Number(d.quantity)
-        })),
-        invoiceItems: item.invoiceItems.map(i => ({
-            ...i,
-            quantity: Number(i.quantity),
-            unitPrice: Number(i.unitPrice),
-            amount: Number(i.amount)
-        }))
-    })),
-    deliveries: order.deliveries.map(d => ({
-        ...d,
-        quantity: Number(d.quantity),
-        orderItem: {
-            ...d.orderItem,
-            quantity: Number(d.orderItem.quantity),
-            unitPrice: Number(d.orderItem.unitPrice),
-            amount: Number(d.orderItem.amount)
-        }
-    })),
-    invoices: order.invoices.map(i => ({
-        ...i,
-        totalAmount: Number(i.totalAmount)
-    }))
-  };
+  const serializedOrder = serializeData(order);
 
   return (
     <div className="space-y-6">

@@ -8,6 +8,8 @@ import InvoicesListClient from "./_components/invoices-list-client";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 
+import { serializeData } from "@/lib/utils/serialization";
+
 interface InvoicesPageProps {
   searchParams: Promise<{
     page?: string;
@@ -46,6 +48,9 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
     );
   }
 
+  // Serialize Decimal objects for Client Components
+  const serializedInvoices = serializeData(result.invoices || []);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -62,7 +67,7 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
       </div>
 
       <InvoicesListClient
-        initialInvoices={result.invoices || []}
+        initialInvoices={serializedInvoices}
         initialPagination={result.pagination || {
           page: 1,
           limit: 20,

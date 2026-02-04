@@ -44,7 +44,7 @@ export default function QuotationActionButtons({ quotationId, status, basePath =
   return (
     <div className="flex gap-2">
       {/* Edit button - visible for statuses that allow editing */}
-      {['DRAFT', 'REVIEW', 'APPROVED', 'SENT'].includes(status) && (
+      {[QuotationStatus.DRAFT, QuotationStatus.REVIEW, QuotationStatus.APPROVED, QuotationStatus.SENT].includes(status) && (
         <Link href={`${basePath}/${quotationId}/edit`}>
           <Button variant="outline">
             <FiEdit className="w-4 h-4 mr-2" />
@@ -70,7 +70,7 @@ export default function QuotationActionButtons({ quotationId, status, basePath =
       {status === 'APPROVED' && (
         <Button
           variant="default"
-          onClick={() => handleStatusChange('SENT')}
+          onClick={() => handleStatusChange(QuotationStatus.SENT)}
           disabled={isPending}
         >
           <FiSend className="w-4 h-4 mr-2" />
@@ -79,11 +79,11 @@ export default function QuotationActionButtons({ quotationId, status, basePath =
       )}
 
       {/* Accept and Reject buttons - visible when status is SENT */}
-      {status === 'SENT' && (
+      {status === QuotationStatus.SENT && (
         <div className="flex gap-2">
           <Button
             variant="default"
-            onClick={() => handleStatusChange('ACCEPTED')}
+            onClick={() => handleStatusChange(QuotationStatus.ACCEPTED)}
             disabled={isPending}
             className="bg-green-600 hover:bg-green-700 text-white"
           >
@@ -93,7 +93,7 @@ export default function QuotationActionButtons({ quotationId, status, basePath =
 
           <Button
             variant="destructive"
-            onClick={() => handleStatusChange('REJECTED')}
+            onClick={() => handleStatusChange(QuotationStatus.REJECTED)}
             disabled={isPending}
           >
             <FiX className="w-4 h-4 mr-1" />

@@ -91,7 +91,7 @@ export async function getSuppliers(
             email: true,
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -174,7 +174,7 @@ export async function getSupplierById(supplierId: string) {
             email: true,
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -410,6 +410,7 @@ export async function createSupplier(input: {
 
       const chartOfAccount = await tx.chartOfAccount.create({
         data: {
+          id: crypto.randomUUID(),
           code: accountCode,
           name: accountName,
           type: AccountType.LIABILITY,
@@ -419,6 +420,9 @@ export async function createSupplier(input: {
           createdBy: session.user.id,
         },
       });
+
+      // Generate unique supplier code
+      let supplierCode = await generateSupplierCode(tx);
 
       // Create supplier with chartOfAccountId reference
       const supplier = await tx.supplier.create({
@@ -441,6 +445,7 @@ export async function createSupplier(input: {
         select: {
           id: true,
           name: true,
+          supplierCode: true,
           email: true,
           phone: true,
           address: true,
@@ -566,6 +571,26 @@ export async function updateSupplier(input: {
       updateData.status = input.status;
     }
 
+    // Backfill supplier code if missing
+    if (!existingSupplier.supplierCode) {
+      const supplierCode = await (async () => {
+        const lastSupplier = await prisma.supplier.findFirst({
+          orderBy: { createdAt: "desc" },
+          select: { supplierCode: true },
+        });
+
+        let nextNumber = 1000001;
+        if (lastSupplier?.supplierCode) {
+          const lastNumber = parseInt(lastSupplier.supplierCode.replace("SUP", ""), 10);
+          if (!isNaN(lastNumber)) {
+            nextNumber = lastNumber + 1;
+          }
+        }
+        return `SUP${nextNumber}`;
+      })();
+      updateData.supplierCode = supplierCode;
+    }
+
     // Update supplier
     const supplier = await prisma.supplier.update({
       where: { id: input.id },
@@ -573,6 +598,7 @@ export async function updateSupplier(input: {
       select: {
         id: true,
         name: true,
+        supplierCode: true,
         email: true,
         phone: true,
         address: true,
@@ -585,7 +611,7 @@ export async function updateSupplier(input: {
         status: true,
         createdAt: true,
         updatedAt: true,
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
           },
@@ -594,12 +620,12 @@ export async function updateSupplier(input: {
     });
 
     // Handle rename: Update COA name if supplier name changed and COA exists
-    if (input.name !== undefined && input.name !== existingSupplier.name && supplier.chartOfAccount?.id) {
+    if (input.name !== undefined && input.name !== existingSupplier.name && supplier.ChartOfAccount?.id) {
       const supplierName = input.name || input.email;
       const accountName = `AP - ${supplierName}`;
       
       await prisma.chartOfAccount.update({
-        where: { id: supplier.chartOfAccount.id },
+        where: { id: supplier.ChartOfAccount.id },
         data: {
           name: accountName,
           description: `Accounts Payable account for supplier: ${supplierName}`,

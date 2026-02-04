@@ -332,6 +332,7 @@ export async function createChartOfAccount(input: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const account = await prisma.chartOfAccount.create({
       data: {
+        id: crypto.randomUUID(),
         code: input.code,
         name: input.name,
         type: input.type,
