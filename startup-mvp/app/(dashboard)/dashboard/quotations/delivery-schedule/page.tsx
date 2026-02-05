@@ -1,14 +1,15 @@
-
 import React from "react";
-import { getDeliveries } from "@/app/actions/deliveries";
-import DeliveryListClient from "./_components/delivery-list-client";
-import { auth } from "@/lib/auth";
-import { hasPermission } from "@/lib/permissions";
+import { getDeliverySchedules } from "@/app/actions/delivery-schedules";
+import ScheduleListClient from "./_components/schedule-list-client";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { FiPlus } from "react-icons/fi";
 
 interface DeliverySchedulePageProps {
   searchParams: Promise<{
     page?: string;
     search?: string;
+    status?: string;
   }>;
 }
 
@@ -16,25 +17,17 @@ export default async function DeliverySchedulePage({ searchParams }: DeliverySch
   const params = await searchParams;
   const page = parseInt(params.page || "1", 10);
   const search = params.search || "";
+  const status = params.status || "all";
 
-  const session = await auth();
-  const userId = session?.user?.id;
-
-  const canView = userId ? await hasPermission(userId, "quotations.orders", "view") : false;
-
-  if (!canView) {
-      return <div className="p-8 text-center text-destructive">Access Denied</div>;
-  }
-
-  const result = await getDeliveries(page, 20, search);
+  const result = await getDeliverySchedules(page, 15, search, status);
 
   if (!result.success) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">Delivery Schedule</h1>
+      <div className="space-y-6 max-w-7xl mx-auto p-6">
+        <h1 className="text-2xl font-bold">Delivery Schedules</h1>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
           <p className="text-sm text-destructive">
-            {result.error || "Error loading deliveries"}
+            {result.error || "Error loading schedules"}
           </p>
         </div>
       </div>
@@ -42,23 +35,26 @@ export default async function DeliverySchedulePage({ searchParams }: DeliverySch
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto p-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Delivery Schedule</h1>
-          <p className="text-sm text-muted-foreground">Manage and track all deliveries</p>
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">Delivery Schedules</h1>
+          <p className="text-sm text-muted-foreground">
+             View and manage planned fulfillment events.
+          </p>
         </div>
       </div>
 
-      <DeliveryListClient
-        initialDeliveries={result.deliveries || []}
+      <ScheduleListClient
+        initialSchedules={(result.schedules as any) || []}
         initialPagination={result.pagination || {
           page: 1,
-          limit: 20,
+          limit: 15,
           total: 0,
           totalPages: 0,
         }}
         initialSearch={search}
+        initialStatus={status}
       />
     </div>
   );

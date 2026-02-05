@@ -854,21 +854,22 @@ model VoucherLine {
 }
 
 model Order {
-  id          String           @id @default(cuid())
-  orderNumber String           @unique
-  quotationId String           @unique
-  clientId    String
-  totalValue  Decimal          @db.Decimal(12, 2)
-  status      OrderStatus      @default(PENDING)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  Delivery    Delivery[]
-  deliveries  DeliveryLedger[]
-  invoices    Invoice[]
-  client      Client           @relation(fields: [clientId], references: [id])
-  quotation   Quotation        @relation(fields: [quotationId], references: [id])
-  items       OrderItem[]
-  vouchers    Voucher[]
+  id                String           @id @default(cuid())
+  orderNumber       String           @unique
+  quotationId       String           @unique
+  clientId          String
+  totalValue        Decimal          @db.Decimal(12, 2)
+  status            OrderStatus      @default(PENDING)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  Delivery          Delivery[]
+  deliveries        DeliveryLedger[]
+  invoices          Invoice[]
+  client            Client           @relation(fields: [clientId], references: [id])
+  quotation         Quotation        @relation(fields: [quotationId], references: [id])
+  items             OrderItem[]
+  vouchers          Voucher[]
+  deliverySchedules DeliverySchedule[]
 
   @@index([clientId])
   @@index([status])
@@ -888,6 +889,7 @@ model OrderItem {
   updatedAt       DateTime         @updatedAt
   deliveries      DeliveryLedger[]
   invoiceItems    InvoiceItem[]
+  scheduleItems   DeliveryScheduleItem[]
   order           Order            @relation(fields: [orderId], references: [id])
   quotationItem   QuotationItem    @relation(fields: [quotationItemId], references: [id])
 
@@ -1050,4 +1052,33 @@ enum OrderStatus {
   DELIVERED
   CANCELLED
   COMPLETED
+}
+
+model DeliverySchedule {
+  id            String                 @id @default(cuid())
+  orderId       String
+  scheduledDate DateTime
+  status        String                 @default("scheduled")
+  description   String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  order         Order                  @relation(fields: [orderId], references: [id])
+  items         DeliveryScheduleItem[]
+
+  @@index([orderId])
+}
+
+model DeliveryScheduleItem {
+  id              String           @id @default(cuid())
+  scheduleId      String
+  orderItemId     String
+  description     String
+  unitPrice       Decimal          @db.Decimal(10, 2)
+  quantity        Decimal          @db.Decimal(10, 2)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  schedule        DeliverySchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  orderItem       OrderItem        @relation(fields: [orderItemId], references: [id])
+
+  @@index([scheduleId])
 }

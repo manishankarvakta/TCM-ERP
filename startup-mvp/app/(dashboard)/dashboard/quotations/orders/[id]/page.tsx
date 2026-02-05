@@ -1,3 +1,4 @@
+// Refresh trigger - prisma synchronization
 import { prisma } from "@/lib/prisma";
 import { getOrderFinancialSummary } from "@/app/actions/orders";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,6 +75,14 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
         },
         invoices: {
             orderBy: { date: 'desc' }
+        },
+        deliverySchedules: {
+            orderBy: { scheduledDate: 'desc' },
+            include: {
+                _count: {
+                    select: { items: true }
+                }
+            }
         }
     }
   });
@@ -95,7 +104,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
     }
   };
 
-  const serializedOrder = serializeData(order);
+  const serializedOrder = serializeData(order as any);
 
   return (
     <div className="space-y-6">

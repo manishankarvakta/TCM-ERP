@@ -215,7 +215,7 @@ export async function postBulkDelivery(input: {
   date?: Date;
   description?: string;
   reduceInventory?: boolean;
-}) {
+}, tx?: Prisma.TransactionClient) {
   try {
     const session = await auth();
     const effectiveUserId = session?.user?.id;
@@ -227,15 +227,14 @@ export async function postBulkDelivery(input: {
       return { success: false, error: "No items selected for delivery" };
     }
 
-    // Process in a transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const logic = async (itx: Prisma.TransactionClient) => {
       const results = [];
 
       for (const itemInput of items) {
         const { orderItemId, quantity } = itemInput;
 
         // 1. Fetch OrderItem and existing ledger entries
-        const orderItem = await tx.orderItem.findUnique({
+        const orderItem = await itx.orderItem.findUnique({
           where: { id: orderItemId },
           include: {
             deliveries: true,
@@ -254,7 +253,7 @@ export async function postBulkDelivery(input: {
         }
 
         // 2. Post to Ledger
-        const entry = await tx.deliveryLedger.create({
+        const entry = await itx.deliveryLedger.create({
           data: {
             orderId,
             orderItemId,
@@ -272,7 +271,7 @@ export async function postBulkDelivery(input: {
            const { InventoryTransactionType } = await import("@prisma/client");
         
            await processInventoryMovement({
-             tx,
+             tx: itx,
              itemId: orderItem.itemId,
              quantity: -1 * Number(quantity), // OUT
              type: InventoryTransactionType.SALE,
@@ -284,13 +283,20 @@ export async function postBulkDelivery(input: {
         results.push(entry);
       }
       return results;
-    });
+    };
+
+    // Process in a transaction (either the provided one or a new one)
+    const result = tx ? await logic(tx) : await prisma.$transaction(logic);
 
     // 4. Update Order Status
     const { updateOrderStatus } = await import("./orders");
-    await updateOrderStatus(orderId);
+    await updateOrderStatus(orderId, tx); // Ensure updateOrderStatus supports tx if we use it
 
-    return { success: true, count: result.length };
+    return { 
+      success: true, 
+      count: result.length, 
+      deliveries: result 
+    };
   } catch (error) {
     console.error("postBulkDelivery error:", error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to post deliveries" };

@@ -9,11 +9,12 @@ import { generateVoucherNumber, generateJournalEntryNumber, findControlAccount }
  * Generate unique invoice number
  * Format: INV-YYYY-XXXX
  */
-async function generateInvoiceNumber(): Promise<string> {
+async function generateInvoiceNumber(tx?: Prisma.TransactionClient): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `INV-${year}-`;
   
-  const lastInvoice = await prisma.invoice.findFirst({
+  const client = tx || prisma;
+  const lastInvoice = await client.invoice.findFirst({
     where: {
       invoiceNumber: {
         startsWith: prefix,
@@ -46,7 +47,7 @@ export async function createInvoice(input: {
   }[];
   date?: Date;
   userId?: string; // Optional override for tests
-}) {
+}, tx?: Prisma.TransactionClient) {
   try {
     let effectiveUserId = input.userId;
     if (!effectiveUserId) {
@@ -56,10 +57,11 @@ export async function createInvoice(input: {
     if (!effectiveUserId) return { success: false, error: "Unauthorized" };
 
     const { orderId, items, date = new Date() } = input;
+    const client = tx || prisma;
 
     // 1. Validate quantity vs delivered balance
     for (const item of items) {
-        const orderItem = await prisma.orderItem.findUnique({
+        const orderItem = await client.orderItem.findUnique({
             where: { id: item.orderItemId },
             include: { deliveries: true, invoiceItems: true }
         });
@@ -78,10 +80,10 @@ export async function createInvoice(input: {
         }
     }
 
-    const invoiceNumber = await generateInvoiceNumber();
+    const invoiceNumber = await generateInvoiceNumber(tx);
     const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
 
-    const invoice = await prisma.invoice.create({
+    const invoice = await client.invoice.create({
       data: {
         invoiceNumber,
         orderId,

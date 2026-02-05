@@ -1,7 +1,7 @@
-'use server';
+"use server";
 
 import { prisma } from '@/lib/prisma';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
 
 /**
  * Generate unique order number
@@ -145,9 +145,10 @@ export async function createOrderFromQuotation(quotationId: string) {
  * 2. Sum(invoicedQty) == orderedQty (across all items)
  * 3. AR balance for order is cleared (<= 0)
  */
-export async function updateOrderStatus(orderId: string) {
+export async function updateOrderStatus(orderId: string, tx?: Prisma.TransactionClient) {
   try {
-    const order = await prisma.order.findUnique({
+    const client = tx || prisma;
+    const order = await client.order.findUnique({
       where: { id: orderId },
       include: {
         items: {
@@ -207,7 +208,7 @@ export async function updateOrderStatus(orderId: string) {
 
     // 4. Update if changed
     if (newStatus !== order.status) {
-        await prisma.order.update({
+        await client.order.update({
             where: { id: orderId },
             data: { status: newStatus }
         });
