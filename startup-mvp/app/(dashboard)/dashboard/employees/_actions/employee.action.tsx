@@ -531,6 +531,7 @@ export async function createEmployee(input: {
 
       const salaryPayableCOA = await tx.chartOfAccount.create({
         data: {
+          id: crypto.randomUUID(),
           code: salaryPayableCode,
           name: salaryPayableAccountName,
           type: AccountType.LIABILITY,
@@ -597,6 +598,7 @@ export async function createEmployee(input: {
             
             advanceCOA = await tx.chartOfAccount.create({
               data: {
+                id: crypto.randomUUID(),
                 code: advanceCode,
                 name: advanceAccountName,
                 type: AccountType.ASSET,
@@ -728,6 +730,8 @@ export async function updateEmployee(input: {
         employeeCode: true,
         userId: true,
         status: true,
+        email: true,
+        phone: true,
         salaryPayableAccountId: true,
         advanceAccountId: true,
       },
@@ -870,6 +874,7 @@ export async function updateEmployee(input: {
         const salaryPayableAccountName = `Salary Payable - ${employeeName}`;
         const salaryPayableCOA = await tx.chartOfAccount.create({
           data: {
+            id: crypto.randomUUID(),
             code: salaryPayableCode,
             name: salaryPayableAccountName,
             type: AccountType.LIABILITY,
@@ -928,6 +933,7 @@ export async function updateEmployee(input: {
               
               const advanceCOA = await tx.chartOfAccount.create({
                 data: {
+                  id: crypto.randomUUID(),
                   code: advanceCode,
                   name: advanceAccountName,
                   type: AccountType.ASSET,
@@ -945,7 +951,7 @@ export async function updateEmployee(input: {
       }
 
       // Build update data
-      const updateData: Prisma.EmployeeUpdateInput = {
+      const updateData: any = {
         name: input.name !== undefined ? input.name : undefined,
         employeeCode: input.employeeCode !== undefined ? (input.employeeCode || null) : undefined,
         email: input.email !== undefined ? (input.email || null) : undefined,
@@ -974,6 +980,8 @@ export async function updateEmployee(input: {
           id: true,
           name: true,
           employeeCode: true,
+          email: true,
+          phone: true,
           userId: true,
           user: {
             select: {

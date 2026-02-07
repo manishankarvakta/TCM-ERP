@@ -131,13 +131,11 @@ export async function getQuotations(
             image: true,
           },
         },
-        workOrders: {
+        order: {
           select: {
             id: true,
-            isTrash: true,
-          },
-          where: {
-            isTrash: false, // Only count non-trashed work orders
+            orderNumber: true,
+            status: true,
           },
         },
       },
@@ -213,6 +211,13 @@ export async function getQuotation(id: string) {
             address: true,
             company: true,
             image: true,
+          },
+        },
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
           },
         },
         organization: {
@@ -626,6 +631,8 @@ export async function createQuotation(data: any) {
         coverLetter: coverLetterContent || null,
         tos: tosContent || null,
         total: total > 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
+        discount: data.discount ? new Prisma.Decimal(data.discount) : new Prisma.Decimal(0),
+        grandTotal: total > 0 ? new Prisma.Decimal(Math.max(0, total - (data.discount ? Number(data.discount) : 0))) : new Prisma.Decimal(0),
         status: 'DRAFT', // Always DRAFT on create
         expiredDate: data.expiredDate ? new Date(data.expiredDate) : null as any,
         clientId: clientId,
@@ -998,7 +1005,7 @@ export async function updateQuotation(id: string, data: any) {
         tos: tosContent !== undefined ? (tosContent || null) : existingQuotation.tos,
         total: total >= 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
         discount: data.discount !== undefined ? (data.discount ? new Prisma.Decimal(data.discount) : new Prisma.Decimal(0)) : (existingQuotation.discount || new Prisma.Decimal(0)),
-        grandTotal: total >= 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
+        grandTotal: total >= 0 ? new Prisma.Decimal(Math.max(0, total - (data.discount ? Number(data.discount) : (data.discount === undefined && existingQuotation.discount ? Number(existingQuotation.discount) : 0)))) : new Prisma.Decimal(0),
         // Always set status to REVIEW when updating a quotation
         status: 'REVIEW' as QuotationStatus,
         expiredDate: data.expiredDate !== undefined 
@@ -1138,24 +1145,35 @@ export async function updateQuotation(id: string, data: any) {
     }
 
     // Integration: Create SALES voucher when quotation status changes to ACCEPTED
+    // Transitional step: Creating Order record while keeping legacy sales voucher and inventory logic
     if (data.status === 'ACCEPTED' && existingQuotation.status !== 'ACCEPTED') {
       try {
-        const { createSalesVoucherForQuotation } = await import('./quotation-accounting-integration');
-        const voucherResult = await createSalesVoucherForQuotation(
-          quotation.id,
-          quotation.quotationNumber,
-          quotation.clientId,
-          Number(quotation.grandTotal || quotation.total || 0),
-          session.user.id,
-          quotation.date
-        );
+        // DISABLED: Legacy auto-revenue recognition removed in favor of Advanced Billing Flow (Revenue on Invoice)
+        // const { createSalesVoucherForQuotation } = await import('./quotation-accounting-integration');
+        // const voucherResult = await createSalesVoucherForQuotation(
+        //   quotation.id,
+        //   quotation.quotationNumber,
+        //   quotation.clientId,
+        //   Number(quotation.grandTotal || quotation.total || 0),
+        //   session.user.id,
+        //   quotation.date
+        // );
 
-        if (voucherResult.success) {
-          console.log(`Sales voucher created and posted for quotation ${quotation.quotationNumber}: ${voucherResult.voucherId}`);
+        // if (voucherResult.success) {
+        //   console.log(`Sales voucher created and posted for quotation ${quotation.quotationNumber}: ${voucherResult.voucherId}`);
+        // } else {
+        //   console.error(`Failed to create sales voucher for quotation ${quotation.quotationNumber}:`, voucherResult.error);
+        //   // Don't fail the quotation update if voucher creation fails
+        //   // Log error but continue
+        // }
+
+        // Create Order from accepted quotation
+        const { createOrderFromQuotation } = await import('./orders');
+        const orderResult = await createOrderFromQuotation(quotation.id);
+        if (orderResult.success) {
+          console.log(`Order created for quotation ${quotation.quotationNumber}: ${orderResult.orderId}`);
         } else {
-          console.error(`Failed to create sales voucher for quotation ${quotation.quotationNumber}:`, voucherResult.error);
-          // Don't fail the quotation update if voucher creation fails
-          // Log error but continue
+          console.error(`Failed to create order for quotation ${quotation.quotationNumber}:`, orderResult.error);
         }
       } catch (error) {
         console.error('Error creating sales voucher for quotation:', error);
@@ -1589,13 +1607,14 @@ export async function updateQuotationStatus(
 
     // Validate status transition
     const validTransitions: Record<string, string[]> = {
-      'DRAFT': ['SENT'],
-      'REVIEW': ['REVISED', 'SENT'], // Approve action: REVIEW -> REVISED, or send directly
-      'SENT': ['ACCEPTED', 'REJECTED'],
-      'ACCEPTED': ['SENT', 'REVISED'],
-      'REJECTED': ['SENT', 'REVISED'],
-      'REVISED': ['SENT'],
-      'EXPIRED': [], // Cannot transition from expired
+      'DRAFT': ['REVIEW', 'SENT', 'APPROVED', 'CANCELLED'],
+      'REVIEW': ['APPROVED', 'SENT', 'CANCELLED'],
+      'APPROVED': ['SENT', 'ACCEPTED', 'CANCELLED'], // Approved internally, can be sent or directly accepted
+      'SENT': ['ACCEPTED', 'REJECTED', 'CANCELLED'],
+      'ACCEPTED': ['CANCELLED'], // Can cancel an order?
+      'REJECTED': ['CANCELLED', 'DRAFT'],
+      'CANCELLED': ['DRAFT'], // Restart
+      'EXPIRED': ['DRAFT', 'CANCELLED'],
     };
 
     const allowedStatuses = validTransitions[quotation.status] || [];
@@ -1612,12 +1631,23 @@ export async function updateQuotationStatus(
         status: finalStatus,
         updatedById: session.user.id,
       },
-      include: {
-        client: {
-          select: { id: true, name: true },
-        },
-      },
     });
+
+    // Integration: Create Order when quotation is ACCEPTED
+    // Transitional step: Parallel run of new Order model with legacy systems
+    if (finalStatus === 'ACCEPTED' && quotation.status !== 'ACCEPTED') {
+      try {
+        const { createOrderFromQuotation } = await import('./orders');
+        const orderResult = await createOrderFromQuotation(id);
+        if (orderResult.success) {
+          console.log(`Order created for quotation ${quotation.quotationNumber}: ${orderResult.orderId}`);
+        } else {
+          console.error(`Failed to create order for quotation ${quotation.quotationNumber}:`, orderResult.error);
+        }
+      } catch (error) {
+        console.error('Error in order integration:', error);
+      }
+    }
 
     revalidateBothPaths('quotations', 'page');
     revalidateBothPaths(`quotations/${id}`, 'page');

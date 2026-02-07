@@ -163,6 +163,7 @@ export const MODULES: Record<Module, ModuleMetadata> = {
       { id: "cash-bank", label: "Cash & Bank", path: "/dashboard/accounts/cash-bank", module: "accounts", permissionKey: "accounts.cash-bank" },
       { id: "accounts-receivable", label: "Accounts Receivable", path: "/dashboard/accounts/accounts-receivable", module: "accounts", permissionKey: "accounts.accounts-receivable" },
       { id: "accounts-payable", label: "Accounts Payable", path: "/dashboard/accounts/accounts-payable", module: "accounts", permissionKey: "accounts.accounts-payable" },
+      { id: "project-ledger", label: "Project Ledger", path: "/dashboard/accounts/project-ledger", module: "accounts", permissionKey: "accounts.project-ledger" },
     ],
   },
   peoples: {
@@ -419,14 +420,8 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
       },
       {
         permissionKey: "quotations.orders",
-        path: "/dashboard/quotations/orders",
+        path: "/dashboard/orders",
         label: "Orders",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
-        permissionKey: "work-orders.work-orders",
-        path: "/dashboard/work-orders",
-        label: "Work Orders",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
     ],
@@ -439,18 +434,6 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "purchases.purchases",
         path: "/dashboard/purchases",
         label: "Purchases",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-    ],
-  },
-  {
-    id: "work-orders",
-    label: "Work Orders",
-    pages: [
-      {
-        permissionKey: "work-orders.work-orders",
-        path: "/dashboard/work-orders",
-        label: "Work Orders",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
     ],
@@ -511,6 +494,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "accounts.accounts-payable",
         path: "/dashboard/accounts/accounts-payable",
         label: "Accounts Payable",
+        operations: ["view", "export"],
+      },
+      {
+        permissionKey: "accounts.project-ledger",
+        path: "/dashboard/accounts/project-ledger",
+        label: "Project Ledger",
         operations: ["view", "export"],
       },
     ],

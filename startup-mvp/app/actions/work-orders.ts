@@ -363,6 +363,14 @@ export async function createWorkOrder(data: {
       data: { status: QuotationStatus.ACCEPTED },
     });
 
+    // Create Order from accepted quotation (Transitional step)
+    try {
+      const { createOrderFromQuotation } = await import('./orders');
+      await createOrderFromQuotation(data.quotationId);
+    } catch (error) {
+      console.error('Failed to create order for quotation from work order:', error);
+    }
+
     revalidateBothPaths('work-orders', 'page');
     revalidateBothPaths('quotations', 'page');
     revalidateBothPaths(`quotations/${data.quotationId}`, 'page');

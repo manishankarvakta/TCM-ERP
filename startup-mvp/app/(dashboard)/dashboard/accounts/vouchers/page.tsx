@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import VouchersListClient from "./_components/vouchers-list";
+import VoucherQuickActions from "./_components/voucher-quick-actions";
 import PageGuard from "@/components/permissions/page-guard";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
@@ -75,6 +76,8 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
             </Button>
           )}
         </div>
+
+        {canCreate && <VoucherQuickActions />}
 
         <Tabs defaultValue={tab} className="w-full">
           <TabsList>

@@ -72,6 +72,7 @@ export async function getClients(
       select: {
         id: true,
         name: true,
+        clientCode: true,
         email: true,
         phone: true,
         address: true,
@@ -165,7 +166,7 @@ export async function getClientById(clientId: string) {
             email: true,
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -436,6 +437,7 @@ export async function createClient(input: {
 
       const chartOfAccount = await tx.chartOfAccount.create({
         data: {
+          id: crypto.randomUUID(),
           code: accountCode,
           name: accountName,
           type: AccountType.ASSET,
@@ -562,6 +564,7 @@ export async function updateClient(input: {
         company: true,
         image: true,
         status: true,
+        clientCode: true,
         chartOfAccountId: true,
       },
     });
@@ -690,6 +693,7 @@ export async function updateClient(input: {
         const accountName = `AR - ${clientName}`;
         const chartOfAccount = await tx.chartOfAccount.create({
           data: {
+            id: crypto.randomUUID(),
             code: accountCode,
             name: accountName,
             type: AccountType.ASSET,

@@ -15,6 +15,8 @@ import { FiArrowLeft } from "react-icons/fi";
 import { format } from "date-fns";
 import { notFound } from "next/navigation";
 import PageGuard from "@/components/permissions/page-guard";
+import PrintableVoucher from "../_components/printable-voucher";
+import VoucherPrintButton from "../_components/voucher-print-button";
 
 interface VoucherDetailPageProps {
   params: Promise<{
@@ -63,12 +65,12 @@ export default async function VoucherDetailPage({ params }: VoucherDetailPagePro
   }
 
   const voucher = result.voucher;
-  const totalDebit = voucher.voucherLines.reduce((sum, line) => sum + line.debitAmount, 0);
-  const totalCredit = voucher.voucherLines.reduce((sum, line) => sum + line.creditAmount, 0);
+  const totalDebit = voucher.voucherLines.reduce((sum: number, line: any) => sum + line.debitAmount, 0);
+  const totalCredit = voucher.voucherLines.reduce((sum: number, line: any) => sum + line.creditAmount, 0);
 
   return (
     <PageGuard permissionKey="accounts.vouchers">
-      <div className="space-y-6">
+      <div className="space-y-6 print:hidden">
         <div className="flex items-center justify-between">
           <Button variant="outline" size="sm" asChild>
             <Link href="/dashboard/accounts/vouchers">
@@ -76,6 +78,7 @@ export default async function VoucherDetailPage({ params }: VoucherDetailPagePro
               Back to Vouchers
             </Link>
           </Button>
+          <VoucherPrintButton />
         </div>
 
         <Card>
@@ -140,16 +143,16 @@ export default async function VoucherDetailPage({ params }: VoucherDetailPagePro
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {voucher.voucherLines.map((line) => (
+                  {voucher.voucherLines.map((line: any) => (
                     <TableRow key={line.id}>
                       <TableCell className="font-medium">{line.lineNumber}</TableCell>
                       <TableCell>
                         <div>
                           <div className="font-medium">
-                            {line.chartOfAccount.code} - {line.chartOfAccount.name}
+                            {line.chartOfAccount?.code || "?"} - {line.chartOfAccount?.name || "Unknown Account"}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {line.chartOfAccount.type}
+                            {line.chartOfAccount?.type || "-"}
                           </div>
                         </div>
                       </TableCell>
@@ -185,7 +188,7 @@ export default async function VoucherDetailPage({ params }: VoucherDetailPagePro
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {voucher.journalEntries.map((entry) => (
+                {voucher.journalEntries.map((entry: any) => (
                   <div key={entry.id} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-4">
                       <div>
@@ -213,11 +216,11 @@ export default async function VoucherDetailPage({ params }: VoucherDetailPagePro
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {entry.journalEntryLines.map((line) => (
+                          {entry.journalEntryLines.map((line: any) => (
                             <TableRow key={line.id}>
                               <TableCell className="font-medium">{line.lineNumber}</TableCell>
                               <TableCell>
-                                {line.chartOfAccount.code} - {line.chartOfAccount.name}
+                                {line.chartOfAccount?.code || "?"} - {line.chartOfAccount?.name || "Unknown Account"}
                               </TableCell>
                               <TableCell className="text-right">
                                 {line.debitAmount > 0 ? line.debitAmount.toFixed(2) : "-"}
@@ -240,6 +243,8 @@ export default async function VoucherDetailPage({ params }: VoucherDetailPagePro
           </Card>
         )}
       </div>
+
+      <PrintableVoucher voucher={voucher} />
     </PageGuard>
   );
 }

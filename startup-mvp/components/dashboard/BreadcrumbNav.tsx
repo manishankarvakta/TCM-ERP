@@ -9,6 +9,11 @@ import { getQuotation } from "@/app/actions/quotations";
 import { getGroupById } from "@/app/(dashboard)/dashboard/items/groups/_actions/group.action";
 import { getItemById } from "@/app/(dashboard)/dashboard/items/_actions/item.action";
 import { getWorkOrder } from "@/app/actions/work-orders";
+import { getDelivery } from "@/app/actions/deliveries";
+import { getOrder } from "@/app/actions/orders";
+import { getInvoice } from "@/app/actions/invoices";
+import { getVoucherById } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
+
 
 // Map route paths to display names
 const routeMap: Record<string, string> = {
@@ -50,7 +55,7 @@ const getSegmentDisplayName = (segment: string, path: string): string => {
     .join(" ");
 };
 
-  // Get breadcrumb items from pathname
+// Get breadcrumb items from pathname
 const getBreadcrumbItems = (pathname: string): Array<{ path: string; label: string }> => {
   const segments = pathname.split("/").filter(Boolean);
   const items: Array<{ path: string; label: string }> = [];
@@ -65,7 +70,9 @@ const getBreadcrumbItems = (pathname: string): Array<{ path: string; label: stri
     currentPath += "/" + segment;
     
     // Check if this is a quotation ID segment - if so, use "Quotations" as label
-    const isQuotationIdSegment = i === 2 && segments[0] === "dashboard" && segments[1] === "quotations" && segment !== "quotations" && !segment.includes("edit");
+    const isQuotationIdSegment = i === 2 && segments[0] === "dashboard" && segments[1] === "quotations" && 
+      !["quotations", "delivery-schedule", "invoices", "orders"].includes(segment) && 
+      !segment.includes("edit");
     
     let label: string;
     if (isQuotationIdSegment) {
@@ -92,10 +99,18 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [groupCode, setGroupCode] = useState<string | null>(null);
   const [itemLabel, setItemLabel] = useState<string | null>(null);
   const [workOrderCode, setWorkOrderCode] = useState<string | null>(null);
+  const [deliveryLabel, setDeliveryLabel] = useState<string | null>(null);
+  const [invoiceLabel, setInvoiceLabel] = useState<string | null>(null);
+  const [orderLabel, setOrderLabel] = useState<string | null>(null);
+  const [voucherLabel, setVoucherLabel] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
 
   // Fetch quotation number if we're on a quotation detail or edit page
   useEffect(() => {
+    // Exclude static routes from matching as quotation ID
+    const isReserved = ["delivery-schedule", "invoices", "orders"].some(path => pathname.startsWith(`/dashboard/quotations/${path}`));
+    if (isReserved) return;
+
     const quotationMatch = pathname.match(/^\/dashboard\/quotations\/([^\/]+)(?:\/edit)?$/);
     if (!quotationMatch) {
       return;
@@ -204,6 +219,86 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     };
   }, [pathname]);
 
+  // Fetch delivery label
+  useEffect(() => {
+    const match = pathname.match(/^\/dashboard\/quotations\/delivery-schedule\/([^\/]+)$/);
+    if (!match) return;
+    
+    const id = match[1];
+    let cancelled = false;
+    
+    getDelivery(id)
+      .then((result) => {
+        if (!cancelled && result.success && result.delivery) {
+          // Format as Challan ID (last 8 chars)
+          setDeliveryLabel(result.delivery.id.slice(-8).toUpperCase());
+        }
+      })
+      .catch(() => {});
+    
+    return () => { cancelled = true; setDeliveryLabel(null); };
+  }, [pathname]);
+
+  // Fetch invoice label
+  useEffect(() => {
+    const match = pathname.match(/^\/dashboard\/quotations\/invoices\/([^\/]+)$/);
+    if (!match) return;
+    
+    const id = match[1];
+    let cancelled = false;
+    
+    getInvoice(id)
+        .then((result) => {
+            if (!cancelled && result.success && result.invoice) {
+                setInvoiceLabel(result.invoice.invoiceNumber);
+            }
+        })
+        .catch(() => {});
+
+    return () => { cancelled = true; setInvoiceLabel(null); };
+  }, [pathname]);
+
+  // Fetch order label
+  useEffect(() => {
+    const match = pathname.match(/^\/dashboard\/quotations\/orders\/([^\/]+)$/);
+    if (!match) return;
+    
+    const id = match[1];
+    let cancelled = false;
+    
+    getOrder(id)
+        .then((result) => {
+            if (!cancelled && result.success && result.order) {
+                setOrderLabel(result.order.orderNumber);
+            }
+        })
+        .catch(() => {});
+
+    return () => { cancelled = true; setOrderLabel(null); };
+  }, [pathname]);
+
+  // Fetch voucher label
+  useEffect(() => {
+    const match = pathname.match(/^\/dashboard\/accounts\/vouchers\/([^\/]+)$/);
+    if (!match) return;
+    
+    // Ignore static sub-paths if any exist (e.g. /add, but that shouldn't match the regex anyway if strictly ID)
+    const id = match[1];
+    if (id === "add" || id === "settings") return;
+
+    let cancelled = false;
+    
+    getVoucherById(id)
+        .then((result) => {
+            if (!cancelled && result.success && result.voucher) {
+                setVoucherLabel(result.voucher.voucherNumber);
+            }
+        })
+        .catch(() => {});
+
+    return () => { cancelled = true; setVoucherLabel(null); };
+  }, [pathname]);
+
   // If we're at the root dashboard, show just "Dashboard"
   if (pathname === "/dashboard" || items.length === 1) {
     return (
@@ -230,11 +325,15 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   // Determine the display label for the current item
   let currentLabel = currentItem.label;
   
-  // If we're on a quotation detail or edit page, use quotation number
-  const isQuotationDetail = pathname.match(/^\/dashboard\/quotations\/([^\/]+)$/);
-  const isQuotationEdit = pathname.match(/^\/dashboard\/quotations\/([^\/]+)\/edit$/);
+  // Handlers for specific routes
+  const isReservedPath = ["delivery-schedule", "invoices", "orders"].some(path => pathname.startsWith(`/dashboard/quotations/${path}`));
   
-  // For quotation routes, replace the ID segment with "Quotations" as parent
+  const isQuotationDetail = !isReservedPath && pathname.match(/^\/dashboard\/quotations\/([^\/]+)$/);
+  const isQuotationEdit = !isReservedPath && pathname.match(/^\/dashboard\/quotations\/([^\/]+)\/edit$/);
+  
+  const isDeliveryDetail = pathname.match(/^\/dashboard\/quotations\/delivery-schedule\/([^\/]+)$/);
+  const isInvoiceDetail = pathname.match(/^\/dashboard\/quotations\/invoices\/([^\/]+)$/);
+
   if (isQuotationDetail || isQuotationEdit) {
     // Find the "Quotations" item (should be before the ID)
     const quotationsItem = items.find(item => item.path === "/dashboard/quotations");
@@ -252,6 +351,31 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
       // Show loading state or default while fetching
       currentLabel = isQuotationEdit ? "Edit Quotation" : "Quotation Details";
     }
+  }
+
+  else if (isDeliveryDetail) {
+     const deliveryListItem = items.find(item => item.path === "/dashboard/quotations/delivery-schedule");
+     parentItem = deliveryListItem || { path: "/dashboard/quotations/delivery-schedule", label: "Delivery Schedule" };
+     currentLabel = deliveryLabel ? deliveryLabel : "Delivery Details";
+  }
+
+  else if (isInvoiceDetail) {
+     const invoiceListItem = items.find(item => item.path === "/dashboard/quotations/invoices");
+     parentItem = invoiceListItem || { path: "/dashboard/quotations/invoices", label: "Invoices" };
+     currentLabel = invoiceLabel ? invoiceLabel : "Invoice Details";
+  }
+
+  else if (isInvoiceDetail) {
+     const invoiceListItem = items.find(item => item.path === "/dashboard/quotations/invoices");
+     parentItem = invoiceListItem || { path: "/dashboard/quotations/invoices", label: "Invoices" };
+     currentLabel = invoiceLabel ? invoiceLabel : "Invoice Details";
+  }
+  
+  const isOrderDetail = pathname.match(/^\/dashboard\/quotations\/orders\/([^\/]+)$/);
+  if (isOrderDetail) {
+     const orderListItem = items.find(item => item.path === "/dashboard/quotations/orders");
+     parentItem = orderListItem || { path: "/dashboard/quotations/orders", label: "Orders" };
+     currentLabel = orderLabel ? orderLabel : "Order Details";
   }
 
   // If we're on a group detail or edit page, use group code
@@ -315,6 +439,17 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     }
   }
 
+  // Handle Voucher Details
+  const isVoucherDetail = pathname.match(/^\/dashboard\/accounts\/vouchers\/([^\/]+)$/);
+  if (isVoucherDetail) {
+     const id = isVoucherDetail[1];
+     if (id !== "add") {
+        const voucherListItem = items.find(item => item.path === "/dashboard/accounts/vouchers");
+        parentItem = voucherListItem || { path: "/dashboard/accounts/vouchers", label: "Vouchers" };
+        currentLabel = voucherLabel ? voucherLabel : "Voucher Details";
+     }
+  }
+
   return (
     <div className={className}>
       <div className="flex items-center gap-2">
@@ -347,4 +482,3 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     </div>
   );
 }
-
