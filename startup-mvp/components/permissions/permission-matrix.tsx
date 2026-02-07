@@ -165,14 +165,14 @@ export default function PermissionMatrix({
       "settings.backup",
       "settings.permissions",
     ],
+    "Quotations": [
+      "settings.coverLetter",
+      "settings.tos",
+    ],
     "Accounts": [
       "settings.tex",
       "settings.paymentMethods",
       "settings.preferences",
-    ],
-    "Quotations": [
-      "settings.coverLetter",
-      "settings.tos",
     ],
     "Notifications": [
       "settings.general",

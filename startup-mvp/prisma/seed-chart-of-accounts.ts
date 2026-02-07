@@ -309,6 +309,14 @@ async function main() {
       description: "Taxes owed to authorities",
       isPostable: true,
     },
+    {
+      code: "2150",
+      name: "Customer Advance",
+      type: "LIABILITY" as AccountType,
+      parentCode: "2100",
+      description: "Advances received from customers",
+      isPostable: true,
+    },
     // ============================================
     // EQUITY
     // ============================================
@@ -520,6 +528,7 @@ async function main() {
         status: "active",
         parentId: null, // Will be set later if needed
         createdBy: creator.id,
+        id: crypto.randomUUID(),
       },
     });
 

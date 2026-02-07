@@ -213,12 +213,17 @@ export async function postBulkDelivery(input: {
   orderId: string;
   items: Array<{ orderItemId: string; quantity: number }>;
   date?: Date;
+
   description?: string;
   reduceInventory?: boolean;
+  userId?: string;
 }, tx?: Prisma.TransactionClient) {
   try {
-    const session = await auth();
-    const effectiveUserId = session?.user?.id;
+    let effectiveUserId = input.userId;
+    if (!effectiveUserId) {
+        const session = await auth();
+        effectiveUserId = session?.user?.id;
+    }
     if (!effectiveUserId) return { success: false, error: "Unauthorized" };
 
     const { orderId, items, date = new Date(), description, reduceInventory = false } = input;

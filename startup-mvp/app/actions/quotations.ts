@@ -1148,23 +1148,24 @@ export async function updateQuotation(id: string, data: any) {
     // Transitional step: Creating Order record while keeping legacy sales voucher and inventory logic
     if (data.status === 'ACCEPTED' && existingQuotation.status !== 'ACCEPTED') {
       try {
-        const { createSalesVoucherForQuotation } = await import('./quotation-accounting-integration');
-        const voucherResult = await createSalesVoucherForQuotation(
-          quotation.id,
-          quotation.quotationNumber,
-          quotation.clientId,
-          Number(quotation.grandTotal || quotation.total || 0),
-          session.user.id,
-          quotation.date
-        );
+        // DISABLED: Legacy auto-revenue recognition removed in favor of Advanced Billing Flow (Revenue on Invoice)
+        // const { createSalesVoucherForQuotation } = await import('./quotation-accounting-integration');
+        // const voucherResult = await createSalesVoucherForQuotation(
+        //   quotation.id,
+        //   quotation.quotationNumber,
+        //   quotation.clientId,
+        //   Number(quotation.grandTotal || quotation.total || 0),
+        //   session.user.id,
+        //   quotation.date
+        // );
 
-        if (voucherResult.success) {
-          console.log(`Sales voucher created and posted for quotation ${quotation.quotationNumber}: ${voucherResult.voucherId}`);
-        } else {
-          console.error(`Failed to create sales voucher for quotation ${quotation.quotationNumber}:`, voucherResult.error);
-          // Don't fail the quotation update if voucher creation fails
-          // Log error but continue
-        }
+        // if (voucherResult.success) {
+        //   console.log(`Sales voucher created and posted for quotation ${quotation.quotationNumber}: ${voucherResult.voucherId}`);
+        // } else {
+        //   console.error(`Failed to create sales voucher for quotation ${quotation.quotationNumber}:`, voucherResult.error);
+        //   // Don't fail the quotation update if voucher creation fails
+        //   // Log error but continue
+        // }
 
         // Create Order from accepted quotation
         const { createOrderFromQuotation } = await import('./orders');

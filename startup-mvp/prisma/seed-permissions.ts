@@ -63,6 +63,7 @@ async function seedPermissions() {
         "accounts.cash-bank",
         "accounts.accounts-receivable",
         "accounts.accounts-payable",
+        "accounts.project-ledger",
       ],
       ["view"]
     ),
@@ -105,6 +106,7 @@ async function seedPermissions() {
         "accounts.cash-bank",
         "accounts.accounts-receivable",
         "accounts.accounts-payable",
+        "accounts.project-ledger",
       ],
       allStandardOps
     ),
@@ -160,6 +162,7 @@ async function seedPermissions() {
         "accounts.cash-bank",
         "accounts.accounts-receivable",
         "accounts.accounts-payable",
+        "accounts.project-ledger",
       ],
       allStandardOps
     ),
@@ -230,6 +233,7 @@ async function seedPermissions() {
         "accounts.cash-bank",
         "accounts.accounts-receivable",
         "accounts.accounts-payable",
+        "accounts.project-ledger",
       ],
       ["view", "export"]
     ),
@@ -275,6 +279,7 @@ async function seedPermissions() {
         "accounts.cash-bank",
         "accounts.accounts-receivable",
         "accounts.accounts-payable",
+        "accounts.project-ledger",
       ],
       allStandardOps
     ),
@@ -331,6 +336,7 @@ async function seedPermissions() {
         "accounts.cash-bank",
         "accounts.accounts-receivable",
         "accounts.accounts-payable",
+        "accounts.project-ledger",
       ],
       ["view"]
     ),
@@ -382,6 +388,7 @@ async function seedPermissions() {
         "accounts.cash-bank",
         "accounts.accounts-receivable",
         "accounts.accounts-payable",
+        "accounts.project-ledger",
       ],
       ["view"]
     ),
@@ -433,6 +440,7 @@ async function seedPermissions() {
         "accounts.cash-bank",
         "accounts.accounts-receivable",
         "accounts.accounts-payable",
+        "accounts.project-ledger",
       ],
       ["view"]
     ),

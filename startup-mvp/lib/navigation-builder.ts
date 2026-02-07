@@ -79,6 +79,7 @@ export const MENU_TEMPLATE: MenuItemData[] = [
         label: "Ledgers",
         items: [
           { href: "/dashboard/accounts/ledgers", label: "Account Ledger", icon: "FiBook", module: "accounts" },
+          { href: "/dashboard/accounts/project-ledger", label: "Project Ledger", icon: "FiBriefcase", module: "accounts" },
         ],
       },
       {
