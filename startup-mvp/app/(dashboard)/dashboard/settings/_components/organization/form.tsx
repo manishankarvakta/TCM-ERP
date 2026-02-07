@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -21,7 +21,6 @@ import { FiAlertCircle } from "react-icons/fi";
 import { createOrganization, updateOrganization } from "../../_actions/organization.action";
 import { useToast } from "@/hooks/use-toast";
 import MediaSelector from "@/components/MediaSelector";
-import { getBasePathFromPathname } from "@/lib/route-utils-client";
 
 const organizationFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -53,7 +52,6 @@ interface OrganizationFormProps {
 
 export default function OrganizationForm({ mode, initialData }: OrganizationFormProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -132,8 +130,7 @@ export default function OrganizationForm({ mode, initialData }: OrganizationForm
           title: "Success",
           description: `Organization ${mode === "create" ? "created" : "updated"} successfully`,
         });
-        const basePath = getBasePathFromPathname(pathname);
-        router.push(`${basePath}/settings?section=organization`);
+        router.push("/dashboard/settings?section=organization");
         router.refresh();
       } else {
         setError(result.error || `Failed to ${mode === "create" ? "create" : "update"} organization`);
@@ -306,10 +303,7 @@ export default function OrganizationForm({ mode, initialData }: OrganizationForm
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  const basePath = getBasePathFromPathname(pathname);
-                  router.push(`${basePath}/settings?section=organization`);
-                }}
+                onClick={() => router.push("/dashboard/settings?section=organization")}
                 disabled={loading}
               >
                 Cancel

@@ -67,11 +67,7 @@ export default function LoginForm() {
         if (sessionResponse.ok) {
           const session = await sessionResponse.json();
           const userRole = session?.user?.role?.toLowerCase();
-          if (userRole === "admin") {
-            router.push("/admin");
-          } else {
-            router.push("/dashboard");
-          }
+          router.push("/dashboard");
         } else {
           router.push("/dashboard");
         }

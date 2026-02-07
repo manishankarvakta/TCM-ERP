@@ -6,6 +6,7 @@ import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { Prisma } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
 import { createUserLog, LogAction } from "@/lib/user-log";
+import { randomUUID } from "crypto";
 
 /**
  * Generate unique voucher number
@@ -436,7 +437,7 @@ export async function getVoucherById(voucherId: string) {
             supplierId: true,
             userId: true,
             organizationId: true,
-            chartOfAccount: {
+            ChartOfAccount: {
               select: {
                 id: true,
                 code: true,
@@ -444,28 +445,28 @@ export async function getVoucherById(voucherId: string) {
                 type: true,
               },
             },
-            client: {
+            Client: {
               select: {
                 id: true,
                 name: true,
                 email: true,
               },
             },
-            supplier: {
+            Supplier: {
               select: {
                 id: true,
                 name: true,
                 email: true,
               },
             },
-            user: {
+            User: {
               select: {
                 id: true,
                 name: true,
                 email: true,
               },
             },
-            organization: {
+            Organization: {
               select: {
                 id: true,
                 name: true,
@@ -476,7 +477,7 @@ export async function getVoucherById(voucherId: string) {
             lineNumber: "asc",
           },
         },
-        journalEntries: {
+        JournalEntry: {
           select: {
             id: true,
             entryNumber: true,
@@ -486,7 +487,7 @@ export async function getVoucherById(voucherId: string) {
             postedBy: true,
             postedAt: true,
             createdAt: true,
-            journalEntryLines: {
+            JournalEntryLine: {
               select: {
                 id: true,
                 lineNumber: true,
@@ -494,7 +495,7 @@ export async function getVoucherById(voucherId: string) {
                 creditAmount: true,
                 description: true,
                 chartOfAccountId: true,
-                chartOfAccount: {
+                ChartOfAccount: {
                   select: {
                     id: true,
                     code: true,
@@ -538,6 +539,7 @@ export async function getVoucherById(voucherId: string) {
         ...entry,
         journalEntryLines: (entry.JournalEntryLine || []).map((line: any) => ({
           ...line,
+          chartOfAccount: line.ChartOfAccount,
           debitAmount: Number(line.debitAmount),
           creditAmount: Number(line.creditAmount),
         })),
@@ -583,9 +585,13 @@ export async function createVoucher(input: {
   }>;
 }) {
   try {
-    const session = await auth();
+    let effectiveUserId = input.userId;
+    if (!effectiveUserId) {
+        const session = await auth();
+        effectiveUserId = session?.user?.id;
+    }
 
-    if (!session?.user) {
+    if (!effectiveUserId) {
       return {
         success: false,
         error: "Unauthorized",
@@ -594,7 +600,7 @@ export async function createVoucher(input: {
     }
 
     // Check permission
-    const canCreate = await hasPermission(session.user.id, "accounts.vouchers", "create");
+    const canCreate = await hasPermission(effectiveUserId, "accounts.vouchers", "create");
 
     if (!canCreate) {
       return {
@@ -632,25 +638,55 @@ export async function createVoucher(input: {
       };
     }
 
+    // ---------------------------------------------------------
+    // SECURITY & INTEGRITY CHECKS
+    // ---------------------------------------------------------
+    
+    // 1. Block System Voucher Types
+    const SYSTEM_TYPES = ["SALES", "PURCHASE"];
+    if (SYSTEM_TYPES.includes(input.type)) {
+      return {
+        success: false,
+        error: `Cannot manually create ${input.type} vouchers. Please use the Sales or Purchase modules.`,
+        voucher: null,
+      };
+    }
+
+    // 2. Account Restrictions
+    const restrictionCheck = await validateAccountRestrictions(input.type, input.lines);
+    if (!restrictionCheck.valid) {
+        return {
+            success: false,
+            error: restrictionCheck.error,
+            voucher: null
+        };
+    }
+
+    // ---------------------------------------------------------
+
     // Generate voucher number
     const voucherNumber = await generateVoucherNumber();
 
     // Create voucher with lines
     const voucher = await prisma.voucher.create({
       data: {
+        id: randomUUID(),
+        updatedAt: new Date(),
         voucherNumber,
         date: input.date ? (typeof input.date === "string" ? new Date(input.date) : input.date) : new Date(),
         type: input.type as any,
         reference: input.reference || null,
         description: input.description || null,
         status: "draft",
-        createdBy: session.user.id,
+        createdBy: effectiveUserId,
         clientId: input.clientId || null,
         supplierId: input.supplierId || null,
         userId: input.userId || null,
         organizationId: input.organizationId || null,
-        voucherLines: {
+        VoucherLine: {
           create: input.lines.map((line) => ({
+            id: randomUUID(),
+            updatedAt: new Date(),
             lineNumber: line.lineNumber,
             debitAmount: new Prisma.Decimal(line.debitAmount || 0),
             creditAmount: new Prisma.Decimal(line.creditAmount || 0),
@@ -660,7 +696,7 @@ export async function createVoucher(input: {
             supplierId: line.supplierId || null,
             userId: line.userId || null,
             organizationId: line.organizationId || null,
-          })),
+          })) as Prisma.VoucherLineUncheckedCreateWithoutVoucherInput[],
         },
       },
       include: {
@@ -686,21 +722,21 @@ export async function createVoucher(input: {
             lineNumber: "asc",
           },
         },
-        client: {
+        Client: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        supplier: {
+        Supplier: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        organization: {
+        Organization: {
           select: {
             id: true,
             name: true,
@@ -711,7 +747,7 @@ export async function createVoucher(input: {
 
     // Log action
     await createUserLog({
-      userId: session.user.id,
+      userId: effectiveUserId,
       action: LogAction.ITEM_CREATED,
       details: `Created voucher: ${voucherNumber}`,
     });
@@ -851,6 +887,7 @@ export async function postVoucher(voucherId: string) {
       // Create JournalEntry
       const journalEntry = await tx.journalEntry.create({
         data: {
+          id: randomUUID(),
           entryNumber,
           date: voucher.date,
           voucherId: voucher.id,
@@ -859,9 +896,10 @@ export async function postVoucher(voucherId: string) {
           createdBy: voucher.createdBy,
           postedBy: session.user.id,
           postedAt: new Date(),
-          journalEntryLines: {
+          JournalEntryLine: {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            create: ((voucher as any).VoucherLine || []).map((line: any) => ({
+            create: (((voucher as any).VoucherLine || []).map((line: any) => ({
+              id: randomUUID(),
               lineNumber: line.lineNumber,
               debitAmount: line.debitAmount,
               creditAmount: line.creditAmount,
@@ -871,13 +909,13 @@ export async function postVoucher(voucherId: string) {
               supplierId: line.supplierId || null,
               userId: line.userId || null,
               organizationId: line.organizationId || null,
-            })),
+            }))) as Prisma.JournalEntryLineUncheckedCreateWithoutJournalEntryInput[],
           },
         },
         include: {
-          journalEntryLines: {
+          JournalEntryLine: {
             include: {
-              chartOfAccount: {
+              ChartOfAccount: {
                 select: {
                   id: true,
                   code: true,
@@ -931,7 +969,7 @@ export async function postVoucher(voucherId: string) {
               lineNumber: "asc",
             },
           },
-          journalEntries: {
+          JournalEntry: {
             select: {
               id: true,
               entryNumber: true,
@@ -977,7 +1015,7 @@ export async function postVoucher(voucherId: string) {
 
     const serializedJournalEntry = {
       ...result.journalEntry,
-      journalEntryLines: result.journalEntry.journalEntryLines.map((line) => ({
+      journalEntryLines: (result.journalEntry as any).JournalEntryLine.map((line: any) => ({
         ...line,
         debitAmount: Number(line.debitAmount),
         creditAmount: Number(line.creditAmount),
@@ -1285,5 +1323,113 @@ export async function getEmployeesForVoucher() {
       employees: [],
     };
   }
+}
+
+/**
+ * Validate account restrictions for vouchers based on type and direction
+ */
+export async function validateAccountRestrictions(
+  voucherType: string,
+  lines: Array<{ 
+    chartOfAccountId: string; 
+    clientId?: string | null;
+    debitAmount: number;
+    creditAmount: number;
+  }>
+): Promise<{ valid: boolean; error?: string }> {
+    const accountIds = lines.map(line => line.chartOfAccountId);
+    
+    // Fetch account details to check flags and types
+    const usedAccounts = await prisma.chartOfAccount.findMany({
+      where: { id: { in: accountIds } },
+      select: { 
+        id: true, 
+        name: true, 
+        type: true,
+        isControl: true,
+        CashBankAccount: { select: { id: true } }
+      }
+    });
+
+    const accountMap = new Map(usedAccounts.map(acc => [acc.id, acc]));
+
+    // 1. Basic Type-specific Rules (Directional)
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const account = accountMap.get(line.chartOfAccountId);
+        if (!account) continue;
+
+        const isCredit = Number(line.creditAmount) > 0;
+
+        // Rule: JOURNAL cannot touch AR, Customer Advance, Revenue, Inventory
+        if (voucherType === "JOURNAL") {
+            const blockedNames = ["Accounts Receivable", "Customer Advance", "Inventory"];
+            const isBlockedControl = account.isControl && blockedNames.some(name => account.name.includes(name));
+            const isRevenue = account.type === "REVENUE";
+            
+            if (isBlockedControl || isRevenue) {
+                return {
+                    valid: false,
+                    error: `Line ${i + 1}: JOURNAL vouchers cannot touch ${account.name} accounts. please use their respective modules.`,
+                };
+            }
+        }
+
+        // Rule: SALES vouchers cannot credit Cash directly
+        if (voucherType === "SALES" && isCredit && account.CashBankAccount) {
+            return {
+                valid: false,
+                error: `Line ${i + 1}: SALES vouchers cannot credit Cash/Bank accounts directly.`,
+            };
+        }
+
+        // Rule: RECEIPT vouchers cannot credit Revenue
+        if (voucherType === "RECEIPT" && isCredit && account.type === "REVENUE") {
+            return {
+                valid: false,
+                error: `Line ${i + 1}: RECEIPT vouchers cannot credit Revenue accounts directly. please use Sales module.`,
+            };
+        }
+    }
+
+    // 2. Control Account & Legacy Restrictions
+    const customerAdvanceAccount = usedAccounts.find(acc => acc.name === "Customer Advance");
+    if (customerAdvanceAccount) {
+        // Enforce sub-ledger (clientId)
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].chartOfAccountId === customerAdvanceAccount.id && !lines[i].clientId) {
+                return {
+                    valid: false,
+                    error: `Line ${i + 1}: "Customer Advance" account requires a Client selection for sub-ledger tracking.`,
+                };
+            }
+        }
+    }
+
+    // JOURNAL specifically cannot use other Control Accounts 
+    // Manual vouchers (usually JOURNAL) already blocked in createVoucher for SALES/PURCHASE
+    if (voucherType === "JOURNAL") {
+        const otherControlAccounts = usedAccounts.filter(acc => acc.isControl);
+        if (otherControlAccounts.length > 0) {
+            // Already handled by the "touch" rule above for specific names, 
+            // but this is a catch-all for any isControl account in a manual journal.
+            const names = otherControlAccounts.map(a => a.name).join(", ");
+            return {
+                valid: false,
+                error: `Manual JOURNAL vouchers cannot use Control Accounts (${names}).`,
+            };
+        }
+
+        const cashBankAccounts = usedAccounts.filter(acc => acc.CashBankAccount !== null);
+        if (cashBankAccounts.length > 0) {
+            const names = cashBankAccounts.map(a => a.name).join(", ");
+            return {
+                valid: false,
+                error: `Manual JOURNAL vouchers cannot use Bank/Cash Accounts (${names}).`,
+            };
+        }
+    }
+
+    return { valid: true };
 }
 

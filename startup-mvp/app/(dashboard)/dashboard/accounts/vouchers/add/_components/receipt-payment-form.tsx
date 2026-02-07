@@ -25,46 +25,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FiAlertCircle, FiPlus, FiTrash2, FiSearch } from "react-icons/fi";
+import { FiAlertCircle, FiPlus, FiTrash2, FiSearch, FiDollarSign } from "react-icons/fi";
 import { createVoucher } from "../../_actions/voucher.action";
 import { getChartOfAccounts } from "../../../chart-of-accounts/_actions/chart-of-accounts.action";
 import { getCashBankAccounts } from "../../../cash-bank/_actions/cash-bank.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType, AccountType } from "@prisma/client";
 
-const voucherLineSchema = z.object({
+// Schema for counter lines only (the dynamic list)
+const counterLineSchema = z.object({
   chartOfAccountId: z.string().min(1, "Account is required"),
-  debitAmount: z.number().min(0, "Debit amount must be >= 0").default(0),
-  creditAmount: z.number().min(0, "Credit amount must be >= 0").default(0),
+  amount: z.number().min(0.01, "Amount must be greater than 0"),
   description: z.string().optional(),
-}).refine(
-  (data) => {
-    const hasDebit = data.debitAmount > 0;
-    const hasCredit = data.creditAmount > 0;
-    return (hasDebit && !hasCredit) || (!hasDebit && hasCredit);
-  },
-  {
-    message: "Each line must have either debit OR credit (not both, not neither)",
-    path: ["debitAmount"],
-  }
-);
+});
 
+// Master schema
 const voucherFormSchema = z.object({
   date: z.string().min(1, "Date is required"),
   description: z.string().optional().or(z.literal("")),
-  lines: z.array(voucherLineSchema).min(2, "At least 2 lines are required"),
-}).refine(
-  (data) => {
-    const totalDebit = data.lines.reduce((sum, line) => sum + line.debitAmount, 0);
-    const totalCredit = data.lines.reduce((sum, line) => sum + line.creditAmount, 0);
-    const difference = Math.abs(totalDebit - totalCredit);
-    return difference <= 0.01; // Allow small floating point differences
-  },
-  {
-    message: "Double-entry balance mismatch: Total debits must equal total credits",
-    path: ["lines"],
-  }
-);
+  mainAccountId: z.string().min(1, "Main account is required"), // Cash/Bank account
+  counterLines: z.array(counterLineSchema).min(1, "At least 1 line is required"),
+});
 
 type VoucherFormData = z.infer<typeof voucherFormSchema>;
 
@@ -98,12 +79,12 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
   const [accountSearch, setAccountSearch] = useState("");
 
   const isReceipt = voucherType === VoucherType.RECEIPT;
+  const themeColor = isReceipt ? "green" : "red";
 
-  // Fetch accounts for selection
+  // Fetch accounts
   useEffect(() => {
     const fetchAccounts = async () => {
       try {
-        // Fetch all active accounts
         const [accountsResult, cashBankResult] = await Promise.all([
           getChartOfAccounts(1, 1000, "", "active"),
           getCashBankAccounts(),
@@ -149,130 +130,93 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
     fetchAccounts();
   }, []);
 
-  // Filter counter accounts based on voucher type
-  const getCounterAccounts = (): AccountOption[] => {
-    if (isReceipt) {
-      // Receipt: AR (ASSET with "receivable" in name/code), Income (REVENUE)
-      return allAccounts.filter(
-        (acc) => {
-          const nameLower = acc.name.toLowerCase();
-          const codeLower = acc.code.toLowerCase();
-          return (
-            (acc.type === AccountType.ASSET && (nameLower.includes("receivable") || nameLower.includes("ar") || codeLower.includes("ar"))) ||
-            acc.type === AccountType.REVENUE
-          );
-        }
+  // Filter counter accounts based on voucher type logic
+  const counterAccounts = useMemo(() => {
+     if (isReceipt) {
+      // For Receipt: Show Income, Assets (Receivables), Liabilities (Customer Advances)
+      // Broadly filtering for relevant types to be helpful but not overly restrictive
+      return allAccounts.filter(acc => 
+        acc.type === AccountType.REVENUE || 
+        acc.type === AccountType.ASSET || 
+        acc.type === AccountType.LIABILITY ||
+        acc.type === AccountType.EQUITY
       );
     } else {
-      // Payment: AP (LIABILITY with "payable" in name/code), Expense (EXPENSE)
-      return allAccounts.filter(
-        (acc) => {
-          const nameLower = acc.name.toLowerCase();
-          const codeLower = acc.code.toLowerCase();
-          return (
-            (acc.type === AccountType.LIABILITY && (nameLower.includes("payable") || nameLower.includes("ap") || codeLower.includes("ap"))) ||
-            acc.type === AccountType.EXPENSE
-          );
-        }
+      // For Payment: Show Expenses, Liabilities (Payables), Assets (Prepayments/Assets purchase)
+      return allAccounts.filter(acc => 
+        acc.type === AccountType.EXPENSE || 
+        acc.type === AccountType.LIABILITY || 
+        acc.type === AccountType.ASSET ||
+        acc.type === AccountType.EQUITY
       );
     }
-  };
-
-  const counterAccounts = getCounterAccounts();
+  }, [allAccounts, isReceipt]);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
     control,
-    watch,
     setValue,
+    watch,
   } = useForm<VoucherFormData>({
     resolver: zodResolver(voucherFormSchema),
     defaultValues: {
       date: new Date().toISOString().split("T")[0],
       description: "",
-      lines: [
-        { chartOfAccountId: "", debitAmount: 0, creditAmount: 0, description: "" },
-        { chartOfAccountId: "", debitAmount: 0, creditAmount: 0, description: "" },
+      mainAccountId: "",
+      counterLines: [
+        { chartOfAccountId: "", amount: 0, description: "" },
       ],
     },
   });
 
   const { fields, append, remove } = useFieldArray({
     control,
-    name: "lines",
+    name: "counterLines",
   });
 
-  const watchedLines = watch("lines");
-  const firstLineAccountId = watch("lines.0.chartOfAccountId");
-
-  // Auto-suggest first Cash/Bank account when available
+  const watchedCounterLines = watch("counterLines");
+  
+  // Auto-select first cash/bank account if available
   useEffect(() => {
-    if (cashBankAccounts.length > 0 && !loadingAccounts && !firstLineAccountId) {
-      const firstCashBank = cashBankAccounts[0];
-      setValue("lines.0.chartOfAccountId", firstCashBank.chartOfAccountId, { shouldValidate: false });
+    if (cashBankAccounts.length > 0 && !watch("mainAccountId")) {
+      setValue("mainAccountId", cashBankAccounts[0].chartOfAccountId);
     }
-  }, [cashBankAccounts, setValue, loadingAccounts, firstLineAccountId]);
+  }, [cashBankAccounts, setValue, watch]);
 
-  // Calculate totals
-  const totalDebit = watchedLines.reduce((sum, line) => sum + (line.debitAmount || 0), 0);
-  const totalCredit = watchedLines.reduce((sum, line) => sum + (line.creditAmount || 0), 0);
-  const difference = Math.abs(totalDebit - totalCredit);
-  const isBalanced = difference <= 0.01;
-
-  const addLine = () => {
-    append({
-      chartOfAccountId: "",
-      debitAmount: 0,
-      creditAmount: 0,
-      description: "",
-    });
-  };
-
-  const removeLine = (index: number) => {
-    if (fields.length > 2) {
-      remove(index);
-    }
-  };
-
-  // Auto-balance: When amount is entered in first line, auto-fill second line
-  const handleAmountChange = (index: number, amount: number, isDebit: boolean) => {
-    if (index === 0 && fields.length >= 2 && amount > 0) {
-      // First line is Cash/Bank account
-      if (isReceipt) {
-        // Receipt: Cash/Bank DEBIT, Counter CREDIT
-        if (isDebit) {
-          setValue("lines.0.debitAmount", amount);
-          setValue("lines.0.creditAmount", 0);
-          setValue("lines.1.debitAmount", 0);
-          setValue("lines.1.creditAmount", amount);
-        }
-      } else {
-        // Payment: Cash/Bank CREDIT, Counter DEBIT
-        if (!isDebit) {
-          setValue("lines.0.debitAmount", 0);
-          setValue("lines.0.creditAmount", amount);
-          setValue("lines.1.debitAmount", amount);
-          setValue("lines.1.creditAmount", 0);
-        }
-      }
-    }
-  };
+  // Calculate total
+  const totalAmount = watchedCounterLines.reduce((sum, line) => sum + (line.amount || 0), 0);
 
   const onSubmit = async (data: VoucherFormData) => {
     try {
       setLoading(true);
       setError("");
 
-      // Prepare lines with line numbers
-      const lines = data.lines.map((line, index) => ({
-        lineNumber: index + 1,
-        debitAmount: line.debitAmount || 0,
-        creditAmount: line.creditAmount || 0,
-        description: line.description || undefined,
+      // Transform into standard voucher lines
+      // Line 1: Main Account (Cash/Bank)
+      //    - Receipt: DEBIT total
+      //    - Payment: CREDIT total
+      const mainLine = {
+        lineNumber: 1,
+        chartOfAccountId: data.mainAccountId,
+        debitAmount: isReceipt ? totalAmount : 0,
+        creditAmount: isReceipt ? 0 : totalAmount,
+        description: isReceipt ? "Total Receipt" : "Total Payment",
+      };
+
+      // Subsequent Lines: Counter Accounts
+      //    - Receipt: CREDIT each line amount
+      //    - Payment: DEBIT each line amount
+      const otherLines = data.counterLines.map((line, index) => ({
+        lineNumber: index + 2,
         chartOfAccountId: line.chartOfAccountId,
+        debitAmount: isReceipt ? 0 : line.amount,
+        creditAmount: isReceipt ? line.amount : 0,
+        description: line.description || undefined,
       }));
+
+      const lines = [mainLine, ...otherLines];
 
       const result = await createVoucher({
         date: data.date,
@@ -294,52 +238,39 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
     }
   };
 
-  const getAccountOptions = (lineIndex: number): AccountOption[] => {
-    if (lineIndex === 0) {
-      // First line: Cash/Bank accounts only
-      const cashBankAccountIds = cashBankAccounts.map((cb) => cb.chartOfAccountId);
-      return allAccounts.filter((acc) => cashBankAccountIds.includes(acc.id));
-    } else {
-      // Other lines: Counter accounts
-      return counterAccounts;
-    }
-  };
+  const filteredCounterAccounts = useMemo(() => {
+      if (!accountSearch) return counterAccounts;
+      const searchLower = accountSearch.toLowerCase();
+      return counterAccounts.filter(
+        (account) =>
+          account.code.toLowerCase().includes(searchLower) ||
+          account.name.toLowerCase().includes(searchLower)
+      );
+  }, [counterAccounts, accountSearch]);
 
-  // Filter accounts based on search term for a specific line
-  const getFilteredAccountOptions = (lineIndex: number): AccountOption[] => {
-    const accountOptions = getAccountOptions(lineIndex);
-    if (!accountSearch) return accountOptions;
-    const searchLower = accountSearch.toLowerCase();
-    return accountOptions.filter(
-      (account) =>
-        account.code.toLowerCase().includes(searchLower) ||
-        account.name.toLowerCase().includes(searchLower)
-    );
-  };
 
   return (
-    <Card>
+    <Card className={`border-t-4 ${isReceipt ? "border-t-green-500" : "border-t-red-500"} shadow-md`}>
       <CardHeader>
-        <CardTitle>Create {isReceipt ? "Receipt" : "Payment"} Voucher</CardTitle>
+        <CardTitle>{isReceipt ? "Received Money (Receipt)" : "Payment Out (Payment)"}</CardTitle>
         <CardDescription>
           {isReceipt
-            ? "Record money received. Cash/Bank account (Debit) vs Counter account (Credit)."
-            : "Record money paid. Cash/Bank account (Credit) vs Counter account (Debit)."}
+            ? "Record money received into a Cash/Bank account."
+            : "Record money paid from a Cash/Bank account."}
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="space-y-6">
-            {error && (
-              <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive border border-destructive/20">
-                <FiAlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {error && (
+            <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive border border-destructive/20">
+              <FiAlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
 
-            {/* Basic Voucher Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="date">Voucher Date *</Label>
+              <Label htmlFor="date">Date</Label>
               <Input
                 id="date"
                 type="date"
@@ -352,248 +283,181 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Voucher description..."
-                {...register("description")}
-                disabled={loading}
-                rows={3}
+              <Label htmlFor="mainAccountId">
+                {isReceipt ? "Deposit To (Debit)" : "Pay From (Credit)"}
+              </Label>
+              <Controller
+                name="mainAccountId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={loading || loadingAccounts}
+                  >
+                    <SelectTrigger className="bg-muted/30 font-medium">
+                      <SelectValue placeholder="Select Cash/Bank Account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cashBankAccounts.map((account) => (
+                        <SelectItem key={account.chartOfAccountId} value={account.chartOfAccountId}>
+                          {account.name} <span className="text-muted-foreground text-xs">({account.code})</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               />
-              {errors.description && (
-                <p className="text-sm text-destructive">{errors.description.message}</p>
+              {errors.mainAccountId && (
+                <p className="text-sm text-destructive">{errors.mainAccountId.message}</p>
               )}
             </div>
+          </div>
 
-            {/* Voucher Lines */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Voucher Lines *</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addLine}
-                  disabled={loading || loadingAccounts}
-                >
-                  <FiPlus className="mr-2 h-4 w-4" />
-                  Add Line
-                </Button>
-              </div>
+          <div className="space-y-3">
+             <div className="flex items-center justify-between border-b pb-2">
+                <Label className="text-base font-semibold">
+                    {isReceipt ? "Received From / Revenue Sources" : "Paid To / Expenses"}
+                </Label>
+                <div className="text-sm font-medium">
+                    Total: <span className={`${isReceipt ? "text-green-600" : "text-red-600"} font-bold`}>{totalAmount.toFixed(2)}</span>
+                </div>
+             </div>
+             
+             {errors.counterLines && (
+                  <p className="text-sm text-destructive">{errors.counterLines.message}</p>
+             )}
 
-              {errors.lines && typeof errors.lines.message === "string" && (
-                <p className="text-sm text-destructive">{errors.lines.message}</p>
-              )}
+             <div className="space-y-3">
+                {fields.map((field, index) => (
+                    <div key={field.id} className="flex flex-col md:flex-row gap-3 items-start md:items-center bg-gray-50/50 p-3 rounded-lg border border-gray-100 group hover:border-gray-200 transition-colors">
+                         <div className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500 shrink-0">
+                             {index + 1}
+                         </div>
+                         
+                         <div className="flex-1 w-full md:w-auto space-y-1">
+                             <div className="flex flex-col space-y-1">
+                                <Label className="sr-only">Account</Label>
+                                <Controller
+                                    name={`counterLines.${index}.chartOfAccountId`}
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Select
+                                            value={field.value}
+                                            onValueChange={field.onChange}
+                                            disabled={loading}
+                                        >
+                                            <SelectTrigger className="h-9">
+                                                <SelectValue placeholder="Select Account" />
+                                            </SelectTrigger>
+                                            <SelectContent className="max-h-[300px]">
+                                                 <div className="p-2 sticky top-0 bg-popover z-10 pb-2 border-b mb-1">
+                                                    <div className="relative">
+                                                        <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
+                                                        <Input
+                                                          placeholder="Search accounts..."
+                                                          value={accountSearch}
+                                                          onChange={(e) => setAccountSearch(e.target.value)}
+                                                          className="pl-8 h-8 text-xs"
+                                                          onKeyDown={(e) => e.stopPropagation()}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                {filteredCounterAccounts.map((acc) => (
+                                                    <SelectItem key={acc.id} value={acc.id}>
+                                                        {acc.name} <span className="text-muted-foreground text-xs">({acc.code})</span>
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                                {errors.counterLines?.[index]?.chartOfAccountId && (
+                                    <p className="text-[10px] text-destructive">{errors.counterLines[index]?.chartOfAccountId?.message}</p>
+                                )}
+                             </div>
+                         </div>
 
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">#</TableHead>
-                      <TableHead>Account</TableHead>
-                      <TableHead className="w-32">Debit</TableHead>
-                      <TableHead className="w-32">Credit</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="w-16"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {fields.map((field, index) => {
-                      const lineError = errors.lines?.[index];
-                      const filteredAccountOptions = getFilteredAccountOptions(index);
-                      const isCashBankLine = index === 0;
-                      
-                      return (
-                        <TableRow key={field.id}>
-                          <TableCell className="font-medium">{index + 1}</TableCell>
-                          <TableCell>
-                            <Controller
-                              name={`lines.${index}.chartOfAccountId`}
-                              control={control}
-                              render={({ field }) => (
-                                <Select
-                                  value={field.value}
-                                  onValueChange={field.onChange}
-                                  disabled={loading || loadingAccounts}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder={isCashBankLine ? "Select Cash/Bank account" : "Select counter account"} />
-                                  </SelectTrigger>
-                                  <SelectContent className="max-h-[300px]">
-                                    <div className="p-2">
-                                      <div className="relative">
-                                        <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
-                                        <Input
-                                          placeholder="Search accounts..."
-                                          value={accountSearch}
-                                          onChange={(e) => {
-                                            setAccountSearch(e.target.value);
-                                          }}
-                                          onKeyDown={(e) => {
-                                            e.stopPropagation();
-                                            if (e.key === "Enter") {
-                                              e.preventDefault();
-                                            }
-                                          }}
-                                          className="pl-8 h-8 text-xs"
-                                          onClick={(e) => e.stopPropagation()}
-                                        />
-                                      </div>
-                                    </div>
-                                    <div className="max-h-[200px] overflow-y-auto">
-                                      {filteredAccountOptions.map((account) => (
-                                        <SelectItem key={account.id} value={account.id} className="text-left">
-                                          {account.code} - {account.name}
-                                        </SelectItem>
-                                      ))}
-                                    </div>
-                                  </SelectContent>
-                                </Select>
-                              )}
-                            />
-                            {lineError?.chartOfAccountId && (
-                              <p className="text-xs text-destructive mt-1">
-                                {lineError.chartOfAccountId.message}
-                              </p>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Controller
-                              name={`lines.${index}.debitAmount`}
-                              control={control}
-                              render={({ field }) => (
+                         <div className="w-full md:w-32">
+                             <Label className="sr-only">Amount</Label>
+                             <div className="relative">
+                                <FiDollarSign className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground w-3.5 h-3.5" />
                                 <Input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  placeholder="0.00"
-                                  value={field.value || ""}
-                                  onChange={(e) => {
-                                    const value = parseFloat(e.target.value) || 0;
-                                    field.onChange(value);
-                                    if (value > 0) {
-                                      control.setValue(`lines.${index}.creditAmount`, 0);
-                                      handleAmountChange(index, value, true);
-                                    }
-                                  }}
-                                  disabled={loading}
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="0.00"
+                                    className="pl-7 h-9 text-right font-medium"
+                                    {...register(`counterLines.${index}.amount`, { valueAsNumber: true })}
                                 />
-                              )}
-                            />
-                            {lineError?.debitAmount && (
-                              <p className="text-xs text-destructive mt-1">
-                                {lineError.debitAmount.message}
-                              </p>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Controller
-                              name={`lines.${index}.creditAmount`}
-                              control={control}
-                              render={({ field }) => (
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  placeholder="0.00"
-                                  value={field.value || ""}
-                                  onChange={(e) => {
-                                    const value = parseFloat(e.target.value) || 0;
-                                    field.onChange(value);
-                                    if (value > 0) {
-                                      control.setValue(`lines.${index}.debitAmount`, 0);
-                                      handleAmountChange(index, value, false);
-                                    }
-                                  }}
-                                  disabled={loading}
-                                />
-                              )}
-                            />
-                            {lineError?.creditAmount && (
-                              <p className="text-xs text-destructive mt-1">
-                                {lineError.creditAmount.message}
-                              </p>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Controller
-                              name={`lines.${index}.description`}
-                              control={control}
-                              render={({ field }) => (
-                                <Input
-                                  type="text"
-                                  placeholder="Line description"
-                                  {...field}
-                                  disabled={loading}
-                                />
-                              )}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {fields.length > 2 && (
-                              <Button
+                             </div>
+                              {errors.counterLines?.[index]?.amount && (
+                                    <p className="text-[10px] text-destructive mt-0.5 text-right">{errors.counterLines[index]?.amount?.message}</p>
+                                )}
+                         </div>
+
+                         <div className="w-full md:w-1/3">
+                             <Label className="sr-only">Description</Label>
+                             <Input 
+                                placeholder="Description (optional)" 
+                                className="h-9 text-sm"
+                                {...register(`counterLines.${index}.description`)}
+                             />
+                         </div>
+
+                         {fields.length > 1 && (
+                             <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => removeLine(index)}
-                                disabled={loading}
-                              >
-                                <FiTrash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+                                onClick={() => remove(index)}
+                                className="text-muted-foreground hover:text-destructive shrink-0 h-8 w-8"
+                             >
+                                <FiTrash2 className="w-4 h-4" />
+                             </Button>
+                         )}
+                    </div>
+                ))}
+             </div>
 
-              {/* Totals */}
-              <div className="flex justify-end gap-6 pt-4 border-t">
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Total Debit</p>
-                  <p className="text-lg font-semibold">{totalDebit.toFixed(2)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Total Credit</p>
-                  <p className="text-lg font-semibold">{totalCredit.toFixed(2)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Difference</p>
-                  <p className={`text-lg font-semibold ${isBalanced ? "text-green-600" : "text-destructive"}`}>
-                    {difference.toFixed(2)}
-                  </p>
-                </div>
-              </div>
-
-              {!isBalanced && (
-                <div className="flex items-start gap-2 rounded-lg bg-yellow-50 p-3 text-sm text-yellow-800 border border-yellow-200">
-                  <FiAlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                  <span>
-                    Double-entry balance mismatch: Debits ({totalDebit.toFixed(2)}) must equal Credits ({totalCredit.toFixed(2)})
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3 pt-4">
-              <Button type="submit" disabled={loading || !isBalanced || fields.length < 2}>
-                {loading ? "Creating..." : `Create ${isReceipt ? "Receipt" : "Payment"} Voucher`}
-              </Button>
-              <Button
+             <Button
                 type="button"
                 variant="outline"
-                onClick={() => router.back()}
+                size="sm"
+                onClick={() => append({ chartOfAccountId: "", amount: 0, description: "" })}
+                className="mt-2 text-xs"
+             >
+                <FiPlus className="mr-1.5 w-3.5 h-3.5" />
+                Add Another Line
+             </Button>
+          </div>
+
+          <div className="space-y-2">
+              <Label htmlFor="description">Main Description (Optional)</Label>
+              <Textarea
+                id="description"
+                placeholder="Overall voucher description... (e.g. Monthly Rent Payment)"
+                {...register("description")}
                 disabled={loading}
-              >
-                Cancel
-              </Button>
-            </div>
+                rows={2}
+              />
+          </div>
+
+          <div className="flex items-center gap-3 pt-4 border-t">
+            <Button type="submit" disabled={loading} className={`min-w-[150px] ${isReceipt ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"} text-white`}>
+              {loading ? "Processing..." : `Create ${isReceipt ? "Receipt" : "Payment"}`}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
           </div>
         </form>
       </CardContent>
     </Card>
   );
 }
-

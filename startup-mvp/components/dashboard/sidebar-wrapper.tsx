@@ -199,9 +199,27 @@ export default async function DashboardSidebarWrapper() {
     }
   }
 
+  // Force allow "settings" for Admin users
+  // This ensures Settings appears even if DB permissions are missing for it
+  if (session.user.role?.toLowerCase() === "admin") {
+    accessiblePages.set("settings", true);
+  }
+
   // Filter menu items based on permissions
   const filteredMainMenu = filterMenuByPermissions(MENU_TEMPLATE, accessiblePages);
-  const filteredBottomMenu = filterMenuByPermissions(BOTTOM_MENU_TEMPLATE, accessiblePages);
+  
+
+
+  /* 
+   * Filter bottom menu items
+   * "Settings" should ONLY be visible to admins
+   */
+  let filteredBottomMenu = filterMenuByPermissions(BOTTOM_MENU_TEMPLATE, accessiblePages);
+  
+  // If user is NOT admin, filter out "Settings"
+  if (session.user.role?.toLowerCase() !== "admin") {
+    filteredBottomMenu = filteredBottomMenu.filter(item => item.label !== "Settings");
+  }
 
   return (
     <DashboardSidebar

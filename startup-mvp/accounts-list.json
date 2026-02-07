@@ -1,0 +1,128 @@
+[
+  {
+    "code": "1010",
+    "name": "Cash",
+    "type": "ASSET",
+    "status": "active"
+  },
+  {
+    "code": "1020",
+    "name": "Bank",
+    "type": "ASSET",
+    "status": "active"
+  },
+  {
+    "code": "1050",
+    "name": "Undeposited Funds",
+    "type": "ASSET",
+    "status": "active"
+  },
+  {
+    "code": "1100",
+    "name": "Accounts Receivable",
+    "type": "ASSET",
+    "status": "active"
+  },
+  {
+    "code": "1200",
+    "name": "Inventory Asset",
+    "type": "ASSET",
+    "status": "active"
+  },
+  {
+    "code": "1250",
+    "name": "Work In Progress",
+    "type": "ASSET",
+    "status": "active"
+  },
+  {
+    "code": "2100",
+    "name": "Accounts Payable",
+    "type": "LIABILITY",
+    "status": "active"
+  },
+  {
+    "code": "2103",
+    "name": "Customer Advance",
+    "type": "LIABILITY",
+    "status": "active"
+  },
+  {
+    "code": "2200",
+    "name": "Sales Tax Payable",
+    "type": "LIABILITY",
+    "status": "active"
+  },
+  {
+    "code": "4000",
+    "name": "Sales",
+    "type": "REVENUE",
+    "status": "active"
+  },
+  {
+    "code": "5000",
+    "name": "Cost of Goods Sold",
+    "type": "EXPENSE",
+    "status": "active"
+  },
+  {
+    "code": "5100",
+    "name": "Inventory Adjustment Gain/Loss",
+    "type": "EXPENSE",
+    "status": "active"
+  },
+  {
+    "code": "5200",
+    "name": "Production Variance",
+    "type": "EXPENSE",
+    "status": "active"
+  },
+  {
+    "code": "AP-2026-0001",
+    "name": "AP - Manishankar Vakta",
+    "type": "LIABILITY",
+    "status": "active"
+  },
+  {
+    "code": "AP-SUP-1769974163947",
+    "name": "AP - Trace Supplier 1769974163947",
+    "type": "LIABILITY",
+    "status": "active"
+  },
+  {
+    "code": "AR-2026-0001",
+    "name": "AR - Zabed",
+    "type": "ASSET",
+    "status": "active"
+  },
+  {
+    "code": "AR-2026-0002",
+    "name": "AR - Manishankar Vakta",
+    "type": "ASSET",
+    "status": "active"
+  },
+  {
+    "code": "AR-2026-0003",
+    "name": "AR - Manishankar Vakta",
+    "type": "ASSET",
+    "status": "active"
+  },
+  {
+    "code": "AR-CLI-1769974452195",
+    "name": "AR - Trace Client 1769974452195",
+    "type": "ASSET",
+    "status": "active"
+  },
+  {
+    "code": "BANK-1769974163957",
+    "name": "Trace Bank 1769974163957",
+    "type": "ASSET",
+    "status": "active"
+  },
+  {
+    "code": "BANK-REC-1769974452208",
+    "name": "Trace Receipt Bank 1769974452208",
+    "type": "ASSET",
+    "status": "active"
+  }
+]

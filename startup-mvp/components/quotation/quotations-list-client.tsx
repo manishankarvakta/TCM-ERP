@@ -209,7 +209,7 @@ export default function QuotationsListClient({
         result = await bulkUpdateQuotationStatus(quotationIds, "DRAFT");
       } else if (action === "delete-permanently") {
         result = await deleteQuotationsPermanently(quotationIds);
-      } else if (["DRAFT", "SENT", "ACCEPTED", "REJECTED", "EXPIRED", "REVISED"].includes(action)) {
+      } else if (["DRAFT", "SENT", "ACCEPTED", "REJECTED", "EXPIRED", "APPROVED", "CANCELLED"].includes(action)) {
         result = await bulkUpdateQuotationStatus(quotationIds, action);
       } else {
         return;
@@ -264,8 +264,10 @@ export default function QuotationsListClient({
       return <Badge variant="destructive">Rejected</Badge>;
     } else if (statusLower === "expired") {
       return <Badge variant="outline">Expired</Badge>;
-    } else if (statusLower === "revised") {
-      return <Badge className="bg-blue-600 hover:bg-blue-700">Revised</Badge>;
+    } else if (statusLower === "approved") {
+      return <Badge className="bg-emerald-500 hover:bg-emerald-600">Approved</Badge>;
+    } else if (statusLower === "cancelled") {
+      return <Badge variant="destructive" className="bg-gray-500 hover:bg-gray-600">Cancelled</Badge>;
     }
     return <Badge variant="secondary">{status}</Badge>;
   };
@@ -340,6 +342,16 @@ export default function QuotationsListClient({
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => {
+                      setBulkAction("APPROVED");
+                      handleBulkAction("APPROVED");
+                    }}
+                    disabled={selectedQuotations.size === 0}
+                  >
+                    <FiCheck className="mr-2 h-4 w-4" />
+                    Mark as Approved
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
                       setBulkAction("SENT");
                       handleBulkAction("SENT");
                     }}
@@ -348,13 +360,23 @@ export default function QuotationsListClient({
                     <FiCheck className="mr-2 h-4 w-4" />
                     Mark as Sent
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setBulkAction("CANCELLED");
+                      handleBulkAction("CANCELLED");
+                    }}
+                    disabled={selectedQuotations.size === 0}
+                  >
+                    <FiX className="mr-2 h-4 w-4" />
+                    Mark as Cancelled
+                  </DropdownMenuItem>
                 </>
               ) : (
                 <>
                   <DropdownMenuItem
                     onClick={() => {
                       setBulkAction("restore");
-                      handleBulkAction("restore");
+                      handleRestore();
                     }}
                     disabled={selectedQuotations.size === 0}
                   >
@@ -467,11 +489,13 @@ export default function QuotationsListClient({
                                 <FiEye className="h-4 w-4" />
                               </Link>
                             </Button>
-                            <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0">
-                              <Link href={`${basePath}/quotations/${quotation.id}/edit`}>
-                                <FiEdit className="h-4 w-4" />
-                              </Link>
-                            </Button>
+                            {quotation.status !== 'ACCEPTED' && (
+                              <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0">
+                                <Link href={`${basePath}/quotations/${quotation.id}/edit`}>
+                                  <FiEdit className="h-4 w-4" />
+                                </Link>
+                              </Button>
+                            )}
                           </>
                         )}
                         {isTrash && (
@@ -486,16 +510,18 @@ export default function QuotationsListClient({
                             <FiRotateCw className="h-4 w-4" />
                           </Button>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDeleteQuotationId(quotation.id)}
-                          className="text-destructive hover:text-destructive h-8 w-8 p-0"
-                          title={isTrash ? "Delete permanently" : "Move to trash"}
-                          disabled={isPending}
-                        >
-                          <FiTrash2 className="h-4 w-4" />
-                        </Button>
+                        {(isTrash || quotation.status !== 'ACCEPTED') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteQuotationId(quotation.id)}
+                            className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                            title={isTrash ? "Delete permanently" : "Move to trash"}
+                            disabled={isPending}
+                          >
+                            <FiTrash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

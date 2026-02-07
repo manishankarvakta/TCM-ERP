@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma, AccountType } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 
 /**
  * Get paginated list of suppliers with search
@@ -91,7 +92,7 @@ export async function getSuppliers(
             email: true,
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -155,6 +156,7 @@ export async function getSupplierById(supplierId: string) {
       select: {
         id: true,
         name: true,
+        supplierCode: true,
         email: true,
         phone: true,
         address: true,
@@ -173,7 +175,7 @@ export async function getSupplierById(supplierId: string) {
             email: true,
           },
         },
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -444,6 +446,7 @@ export async function createSupplier(input: {
 
       const chartOfAccount = await tx.chartOfAccount.create({
         data: {
+          id: crypto.randomUUID(),
           code: accountCode,
           name: accountName,
           type: AccountType.LIABILITY,
@@ -474,8 +477,9 @@ export async function createSupplier(input: {
         },
         select: {
           id: true,
-          name: true,
-          email: true,
+        name: true,
+        supplierCode: true,
+        email: true,
           phone: true,
           address: true,
           city: true,
@@ -699,6 +703,7 @@ export async function updateSupplier(input: {
         const accountName = `AP - ${supplierName}`;
         const chartOfAccount = await tx.chartOfAccount.create({
           data: {
+            id: crypto.randomUUID(),
             code: accountCode,
             name: accountName,
             type: AccountType.LIABILITY,
@@ -737,7 +742,7 @@ export async function updateSupplier(input: {
 
       // Add chartOfAccountId if it was created
       if (chartOfAccountId && chartOfAccountId !== existingSupplier.chartOfAccountId) {
-        updateData.chartOfAccountId = chartOfAccountId;
+        (updateData as any).ChartOfAccount = { connect: { id: chartOfAccountId } };
       }
 
       // Update supplier
@@ -747,6 +752,7 @@ export async function updateSupplier(input: {
         select: {
           id: true,
           name: true,
+          supplierCode: true,
           email: true,
           phone: true,
           address: true,

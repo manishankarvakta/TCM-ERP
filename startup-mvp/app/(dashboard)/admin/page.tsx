@@ -28,7 +28,7 @@ export default async function AdminDashboardPage() {
   // Check if user is admin
   const userRole = session.user.role?.toLowerCase();
   if (userRole !== "admin") {
-    redirect("/admin");
+    redirect("/dashboard");
   }
 
   // Fetch all dashboard data in parallel

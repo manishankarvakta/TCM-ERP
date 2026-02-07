@@ -123,27 +123,27 @@ export async function getAccountsReceivable(asOfDate?: Date | string, includeAgi
         chartOfAccountId: {
           in: customerAccountIds,
         },
-        journalEntry: {
+        JournalEntry: {
           date: {
             lte: endOfDay,
           },
         },
       },
       include: {
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
             name: true,
           },
         },
-        journalEntry: {
+        JournalEntry: {
           select: {
             id: true,
             date: true,
             entryNumber: true,
             description: true,
-            voucher: {
+            Voucher: {
               select: {
                 id: true,
                 voucherNumber: true,
@@ -155,7 +155,7 @@ export async function getAccountsReceivable(asOfDate?: Date | string, includeAgi
         },
       },
       orderBy: {
-        journalEntry: {
+        JournalEntry: {
           date: "asc",
         },
       },
@@ -261,15 +261,15 @@ export async function getAccountsReceivable(asOfDate?: Date | string, includeAgi
       const clientData = clientMap.get(clientId)!;
       clientData.entries.push({
         id: entry.id,
-        date: entry.journalEntry.date,
-        entryNumber: entry.journalEntry.entryNumber,
-        description: entry.journalEntry.description,
+        date: entry.JournalEntry.date,
+        entryNumber: entry.JournalEntry.entryNumber,
+        description: entry.JournalEntry.description,
         debitAmount,
         creditAmount,
         balance,
-        voucherNumber: entry.journalEntry.voucher?.voucherNumber || null,
-        voucherType: entry.journalEntry.voucher?.type || null,
-        reference: entry.journalEntry.voucher?.reference || null,
+        voucherNumber: entry.JournalEntry.Voucher?.voucherNumber || null,
+        voucherType: entry.JournalEntry.Voucher?.type || null,
+        reference: entry.JournalEntry.Voucher?.reference || null,
       });
 
       clientData.totalDebit += debitAmount;
@@ -278,7 +278,7 @@ export async function getAccountsReceivable(asOfDate?: Date | string, includeAgi
 
       // Calculate aging if requested
       if (includeAging && balance > 0) {
-        const bucket = calculateAgingBucket(entry.journalEntry.date, reportDate);
+        const bucket = calculateAgingBucket(entry.JournalEntry.date, reportDate);
         clientData.aging![bucket] = (clientData.aging![bucket] || 0) + balance;
       }
     }
@@ -397,27 +397,27 @@ export async function getAccountsPayable(asOfDate?: Date | string, includeAging:
         chartOfAccountId: {
           in: supplierAccountIds,
         },
-        journalEntry: {
+        JournalEntry: {
           date: {
             lte: endOfDay,
           },
         },
       },
       include: {
-        chartOfAccount: {
+        ChartOfAccount: {
           select: {
             id: true,
             code: true,
             name: true,
           },
         },
-        journalEntry: {
+        JournalEntry: {
           select: {
             id: true,
             date: true,
             entryNumber: true,
             description: true,
-            voucher: {
+            Voucher: {
               select: {
                 id: true,
                 voucherNumber: true,
@@ -429,7 +429,7 @@ export async function getAccountsPayable(asOfDate?: Date | string, includeAging:
         },
       },
       orderBy: {
-        journalEntry: {
+        JournalEntry: {
           date: "asc",
         },
       },
@@ -536,15 +536,15 @@ export async function getAccountsPayable(asOfDate?: Date | string, includeAging:
       const supplierData = supplierMap.get(supplierId)!;
       supplierData.entries.push({
         id: entry.id,
-        date: entry.journalEntry.date,
-        entryNumber: entry.journalEntry.entryNumber,
-        description: entry.journalEntry.description,
+        date: entry.JournalEntry.date,
+        entryNumber: entry.JournalEntry.entryNumber,
+        description: entry.JournalEntry.description,
         debitAmount,
         creditAmount,
         balance,
-        voucherNumber: entry.journalEntry.voucher?.voucherNumber || null,
-        voucherType: entry.journalEntry.voucher?.type || null,
-        reference: entry.journalEntry.voucher?.reference || null,
+        voucherNumber: entry.JournalEntry.voucher?.voucherNumber || null,
+        voucherType: entry.JournalEntry.voucher?.type || null,
+        reference: entry.JournalEntry.voucher?.reference || null,
       });
 
       supplierData.totalDebit += debitAmount;
@@ -553,7 +553,7 @@ export async function getAccountsPayable(asOfDate?: Date | string, includeAging:
 
       // Calculate aging if requested
       if (includeAging && balance > 0) {
-        const bucket = calculateAgingBucket(entry.journalEntry.date, reportDate);
+        const bucket = calculateAgingBucket(entry.JournalEntry.date, reportDate);
         supplierData.aging![bucket] = (supplierData.aging![bucket] || 0) + balance;
       }
     }

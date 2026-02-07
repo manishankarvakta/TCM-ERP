@@ -58,7 +58,7 @@ interface Supplier {
     name: string | null;
     email: string;
   };
-  chartOfAccount: {
+  ChartOfAccount: {
     id: string;
     code: string;
     name: string;

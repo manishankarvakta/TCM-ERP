@@ -232,6 +232,7 @@ export default function VouchersListClient({
                           permissionKey="accounts.vouchers" 
                           action="view"
                           href={`/dashboard/accounts/vouchers/${voucher.id}`}
+                          hasAccess={permissions?.view}
                         >
                           <FiEye className="h-4 w-4" />
                         </ProtectedAction>
@@ -241,6 +242,7 @@ export default function VouchersListClient({
                             action="edit"
                             onClick={() => handlePostVoucher(voucher.id)}
                             buttonProps={{ disabled: isPending }}
+                            hasAccess={permissions?.edit}
                           >
                             <FiCheck className="h-4 w-4" />
                           </ProtectedAction>
