@@ -16,7 +16,7 @@ import { Metadata } from "next";
 // import Header from "@/components/common/header";
 import LoginForm from "@/components/forms/login-form";
 import Logo from "@/components/layout/logo";
-import PoweredByChip from "@/components/common/powered-by-chip";
+// import PoweredByChip from "@/components/common/powered-by-chip";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -61,7 +61,7 @@ export default function HomePage() {
           <p>© 2025 All rights reserved.</p>
           <div className="flex items-center gap-2">
             <span>Powered by</span>
-            <PoweredByChip href="https://techsoulbd.com" logoWidth={80} logoHeight={40} />
+            <Link href="https://techsoulbd.com">Techsoul</Link>
           </div>
         </div>
       </div>

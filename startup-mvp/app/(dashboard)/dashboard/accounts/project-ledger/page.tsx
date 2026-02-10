@@ -6,6 +6,8 @@ export const metadata = {
   description: "View project-wise financial status for clients",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function ProjectLedgerPage() {
   // Fetch clients for the dropdown
   const clients = await prisma.client.findMany({

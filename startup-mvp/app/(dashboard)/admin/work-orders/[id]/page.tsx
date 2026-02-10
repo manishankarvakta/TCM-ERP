@@ -7,7 +7,7 @@ import { formatDate, formatCurrency } from '@/lib/utils/formatters';
 import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { WorkOrderStatus } from '@prisma/client';
-import WorkOrderStatusButton from '@/app/(dashboard)/dashboard/work-orders/[id]/_components/WorkOrderStatusButton';
+// import WorkOrderStatusButton from '@/app/(dashboard)/dashboard/work-orders/[id]/_components/WorkOrderStatusButton';
 
 interface WorkOrderDetailPageProps {
   params: Promise<{
