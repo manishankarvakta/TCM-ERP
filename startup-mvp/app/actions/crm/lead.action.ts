@@ -7,13 +7,47 @@ import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma, LeadStatus, OpportunityStage } from "@prisma/client";
 
 /**
+ * Generate unique lead number
+ * Format: LEAD-YYYY-XXXX (e.g., LEAD-2025-0001)
+ */
+export async function generateLeadNumber(): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `LEAD-${year}-`;
+  
+  const lastLead = await prisma.lead.findFirst({
+    where: {
+      leadNumber: {
+        startsWith: prefix,
+      },
+    },
+    orderBy: {
+      leadNumber: 'desc',
+    },
+  });
+
+  let nextNumber = 1;
+  if (lastLead && lastLead.leadNumber) {
+    const lastNumber = parseInt(lastLead.leadNumber.split('-').pop() || '0');
+    if (!isNaN(lastNumber)) {
+      nextNumber = lastNumber + 1;
+    }
+  }
+
+  return `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+}
+
+/**
  * Get paginated list of leads
  */
 export async function getLeads(
   page: number = 1,
   limit: number = 10,
   search: string = "",
-  status: LeadStatus | "all" = "all"
+  status: string = "all", // Changed to string for flexibility
+  sortBy: string = "createdAt",
+  sortOrder: "asc" | "desc" = "desc",
+  dateFrom?: string, // Changed to string
+  dateTo?: string    // Changed to string
 ) {
   try {
     const session = await auth();
@@ -36,8 +70,35 @@ export async function getLeads(
       ];
     }
 
-    if (status !== "all") {
-      where.status = status;
+    if (status && status !== "all") {
+      where.status = status as LeadStatus;
+    }
+
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) {
+        const start = new Date(dateFrom);
+        if (!isNaN(start.getTime())) {
+            start.setHours(0, 0, 0, 0);
+            where.createdAt.gte = start;
+        }
+      }
+      if (dateTo) {
+        const end = new Date(dateTo);
+        if (!isNaN(end.getTime())) {
+            end.setHours(23, 59, 59, 999);
+            where.createdAt.lte = end;
+        }
+      }
+    }
+
+    console.log("Final Prisma where clause:", JSON.stringify(where, null, 2));
+
+    const orderBy: any = {};
+    if (sortBy === "status") {
+      orderBy.status = sortOrder;
+    } else {
+      orderBy.createdAt = sortOrder;
     }
 
     const [total, leads] = await Promise.all([
@@ -46,13 +107,28 @@ export async function getLeads(
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy,
+        include: {
+          User: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+        },
       }),
     ]);
 
+    // Format leads to include owner name more conveniently
+    const formattedLeads = leads.map(lead => ({
+      ...lead,
+      owner: lead.User,
+    }));
+
     return {
       success: true,
-      leads,
+      leads: formattedLeads,
       pagination: {
         page,
         limit,
@@ -137,9 +213,12 @@ export async function createLead(input: {
     const { notes, ownerId: providedOwnerId, ...leadData } = input;
     const ownerId = providedOwnerId || session.user.id;
 
+    const leadNumber = await generateLeadNumber();
+
     const lead = await prisma.lead.create({
       data: {
         ...leadData,
+        leadNumber,
         ownerId,
       },
     });
@@ -407,5 +486,40 @@ export async function getLeadOwners() {
   } catch (error) {
     console.error("getLeadOwners error:", error);
     return { success: false, error: "Failed to fetch lead owners", owners: [] };
+  }
+}
+
+/**
+ * One-time utility to backfill lead numbers for existing leads
+ */
+export async function backfillLeadNumbers() {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const { checkPermission } = await import("@/lib/permissions");
+    if (!(await checkPermission(session.user.id, "crm.leads", "create"))) {
+      return { success: false, error: "Permission Denied" };
+    }
+
+    const leadsToBackfill = await prisma.lead.findMany({
+      where: { leadNumber: null },
+      orderBy: { createdAt: "asc" }
+    });
+
+    console.log(`Backfilling ${leadsToBackfill.length} leads...`);
+
+    for (const lead of leadsToBackfill) {
+      const leadNumber = await generateLeadNumber();
+      await prisma.lead.update({
+        where: { id: lead.id },
+        data: { leadNumber }
+      });
+    }
+
+    return { success: true, count: leadsToBackfill.length };
+  } catch (error) {
+    console.error("backfillLeadNumbers error:", error);
+    return { success: false, error: "Failed to backfill lead numbers" };
   }
 }

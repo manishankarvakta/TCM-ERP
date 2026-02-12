@@ -29,7 +29,7 @@ export default async function AdminLeadsPage({ searchParams }: LeadsPageProps) {
 
   return (
     <PageGuard permissionKey="crm.leads">
-      <div className="p-6">
+      <div className="">
         <LeadManager
           initialLeads={leadsResult.leads || []}
           initialPagination={leadsResult.pagination || { page: 1, limit: 10, total: 0, totalPages: 0 }}

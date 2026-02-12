@@ -471,16 +471,17 @@ model JournalEntryLine {
 }
 
 model Lead {
-  id        String     @id @default(cuid())
-  name      String
-  email     String     @unique
-  phone     String?
-  company   String?
-  source    String?
-  status    LeadStatus @default(NEW)
-  ownerId   String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id         String     @id @default(cuid())
+  leadNumber String?    @unique
+  name       String
+  email      String     @unique
+  phone      String?
+  company    String?
+  source     String?
+  status     LeadStatus @default(NEW)
+  ownerId    String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
   Activity  Activity[]
   User      User       @relation(fields: [ownerId], references: [id])
 

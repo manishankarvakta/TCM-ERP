@@ -48,6 +48,7 @@ import Link from "next/link";
 
 interface Lead {
   id: string;
+  leadNumber: string | null;
   name: string;
   email: string;
   phone: string | null;
@@ -114,6 +115,7 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh }: Lea
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-[120px]">Lead #</TableHead>
             <TableHead>Name</TableHead>
             <TableHead>Contact Info</TableHead>
             <TableHead>Company</TableHead>
@@ -126,13 +128,16 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh }: Lea
         <TableBody>
           {leads.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="h-24 text-center">
+              <TableCell colSpan={8} className="h-24 text-center">
                 No leads found.
               </TableCell>
             </TableRow>
           ) : (
             leads.map((lead) => (
               <TableRow key={lead.id}>
+                <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">
+                  {lead.leadNumber || "-"}
+                </TableCell>
                 <TableCell className="font-medium">
                   <Link href={`/dashboard/crm/leads/${lead.id}`} className="hover:underline text-primary">
                     {lead.name}
