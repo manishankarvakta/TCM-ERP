@@ -27,26 +27,58 @@ export interface SubMenuGroup {
 export const MENU_TEMPLATE: MenuItemData[] = [
   { href: "/dashboard", label: "Dashboard", icon: "FiHome", module: "dashboard" },
   {
-    label: "Items",
+    label: "Service Catalog",
     icon: "FiArchive",
     module: "items",
     subMenu: [
       { href: "/dashboard/items/groups", label: "Groups", icon: "FiLayers", module: "items" },
-      { href: "/dashboard/items", label: "All Items", icon: "FiPackage", module: "items" },
+      { href: "/dashboard/items", label: "All Services", icon: "FiPackage", module: "items" },
       { href: "/dashboard/items/category", label: "Categories", icon: "MdOutlineCategory", module: "items" },
       { href: "/dashboard/items/units", label: "Units", icon: "FiLayers", module: "items" },
     ],
   },
   {
-    label: "Quotations",
-    icon: "FiFileText",
+    label: "CRM",
+    icon: "FiUsers",
+    module: "crm",
+    subMenu: [
+      { href: "/dashboard/crm/leads", label: "Leads", icon: "FiTarget", module: "crm" },
+      { href: "/dashboard/crm/contacts", label: "Contacts", icon: "FiUser", module: "crm" },
+      { href: "/dashboard/crm/opportunities", label: "Opportunities", icon: "FiTrendingUp", module: "crm" },
+      { href: "/dashboard/crm/clients", label: "Clients", icon: "FiUsers", module: "peoples" }, // Module is peoples but shown in CRM
+      { href: "/dashboard/crm/activities", label: "Activities", icon: "FiActivity", module: "crm" },
+    ],
+  },
+  {
+    label: "Projects",
+    icon: "FiBriefcase",
+    module: "projects",
+    subMenu: [
+      { href: "/dashboard/projects", label: "Projects", icon: "FiBriefcase", module: "projects" },
+      { href: "/dashboard/projects/issues", label: "Issues", icon: "FiAlertCircle", module: "projects" },
+    ],
+  },
+  {
+    label: "Sales",
+    icon: "FiDollarSign",
     module: "quotations",
     subMenu: [
-      { href: "/dashboard/quotations", label: "Quotations", icon: "FiFileText", module: "quotations" },
       { href: "/dashboard/quotations/orders", label: "Orders", icon: "FiShoppingCart", module: "quotations" },
-      { href: "/dashboard/quotations/delivery-schedule", label: "Delivery Schedule", icon: "FiTruck", module: "quotations" },
+      { href: "/dashboard/quotations", label: "Quotations", icon: "FiFileText", module: "quotations" },
       { href: "/dashboard/quotations/invoices", label: "Invoices", icon: "FiDollarSign", module: "quotations" },
+      { href: "/dashboard/quotations/delivery-schedule", label: "Delivery Schedule", icon: "FiTruck", module: "quotations" },
       { href: "/dashboard/work-orders", label: "Work Orders", icon: "FiBriefcase", module: "work-orders" },
+    ],
+  },
+  {
+    label: "Peoples",
+    icon: "FiUsers",
+    module: "peoples",
+    subMenu: [
+      { href: "/dashboard/users", label: "Users", icon: "FiUser", module: "peoples" },
+      { href: "/dashboard/crm/contacts", label: "Contacts", icon: "FiUser", module: "peoples" },
+      { href: "/dashboard/suppliers", label: "Suppliers", icon: "FiUser", module: "peoples" },
+      { href: "/dashboard/employees", label: "Employees", icon: "FiUser", module: "peoples" },
     ],
   },
   {
@@ -105,20 +137,14 @@ export const MENU_TEMPLATE: MenuItemData[] = [
     ],
   },
   {
-    label: "Peoples",
-    icon: "FiUsers",
-    module: "peoples",
+    label: "System",
+    icon: "FiSettings",
+    module: "system",
     subMenu: [
-      { href: "/dashboard/users", label: "Users", icon: "FiUser", module: "peoples" },
-      { href: "/dashboard/clients", label: "Clients", icon: "FiUser", module: "peoples" },
-      { href: "/dashboard/suppliers", label: "Suppliers", icon: "FiUser", module: "peoples" },
-      { href: "/dashboard/employees", label: "Employees", icon: "FiUser", module: "peoples" },
+      { href: "/dashboard/files", label: "Files", icon: "FiFolder", module: "files" },
+      { href: "/dashboard/notifications", label: "Notifications", icon: "FiBell", module: "notifications" },
     ],
   },
-  { href: "/dashboard/files", label: "Files", icon: "FiFolder", module: "files" },
-  { href: "/dashboard/notifications", label: "Notifications", icon: "FiBell", module: "notifications" },
-  { href: "/dashboard/analytics", label: "Analytics", icon: "FiBarChart", module: "analytics" },
-  { href: "/dashboard/reports", label: "Reports", icon: "FiFileText", module: "reports" },
 ];
 
 export const BOTTOM_MENU_TEMPLATE: MenuItemData[] = [
@@ -190,7 +216,7 @@ export function getPermissionKeyFromPath(path: string): string | null {
       const moduleName = pathParts[0];
       
       // Check if it's a direct module page
-      if (["files", "notifications", "analytics", "reports", "profile", "settings"].includes(moduleName)) {
+      if (["files", "notifications", "profile", "settings"].includes(moduleName)) {
         return moduleName;
       }
       
@@ -381,4 +407,3 @@ export function buildFilteredMenu(
     bottomMenu: filteredBottomMenu,
   };
 }
-

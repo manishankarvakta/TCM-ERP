@@ -201,10 +201,10 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
       <Card>
         <CardHeader>
           <CardTitle>
-            {mode === "create" ? "Add New Item" : "Edit Item"}
+            {mode === "create" ? "Add New Service" : "Edit Service"}
           </CardTitle>
           <CardDescription>
-            {mode === "create" ? "Enter item details to create a new item" : "Update item information"}
+            {mode === "create" ? "Enter service details to create a new service" : "Update service information"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -223,7 +223,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                 <Input
                   id="code"
                   type="text"
-                  placeholder="ITEM-001"
+                  placeholder="SVC-001"
                   {...register("code")}
                   disabled={loading}
                 />
@@ -233,11 +233,11 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">Service Name</Label>
                 <Input
                   id="description"
                   type="text"
-                  placeholder="Item description"
+                  placeholder="Service description"
                   {...register("description")}
                   disabled={loading}
                 />
@@ -414,7 +414,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
 
               <div className="flex items-center gap-3 pt-4">
                 <Button type="submit" disabled={loading || loadingUnits}>
-                  {loading ? "Saving..." : mode === "create" ? "Create Item" : "Update Item"}
+                  {loading ? "Saving..." : mode === "create" ? "Create Service" : "Update Service"}
                 </Button>
                 <Button
                   type="button"
@@ -431,7 +431,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
               <div className="lg:col-span-1 flex justify-center items-start">
                 <div className="space-y-2 text-center w-full">
                   <div className="flex justify-center items-center mb-4">
-                    <Label className="text-center">Item Photo</Label>
+                    <Label className="text-center">Service Photo</Label>
                   </div>
                   <MediaSelector
                     value={watch("image") || ""}

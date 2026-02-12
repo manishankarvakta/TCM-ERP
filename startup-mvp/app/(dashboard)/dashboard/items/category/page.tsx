@@ -41,7 +41,7 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold">Categories</h1>
-            <p className="text-sm text-muted-foreground">Manage categories in your system</p>
+            <p className="text-sm text-muted-foreground">Manage service categories in your system</p>
           </div>
         </div>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -58,13 +58,13 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Categories</h1>
-          <p className="text-sm text-muted-foreground">Manage categories in your system</p>
+          <p className="text-sm text-muted-foreground">Manage service categories in your system</p>
         </div>
         {tab !== "trash" && (
           <Button asChild>
             <Link href="/dashboard/items/category/add">
               <FiPlus className="mr-2 h-4 w-4" />
-              Add Category
+              Add Service Category
             </Link>
           </Button>
         )}

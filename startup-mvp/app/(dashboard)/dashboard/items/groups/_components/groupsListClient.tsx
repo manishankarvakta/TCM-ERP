@@ -395,7 +395,7 @@ export default function GroupsListClient({
                 />
               </TableHead>
               <TableHead>Code</TableHead>
-              <TableHead>Items Count</TableHead>
+              <TableHead>Services Count</TableHead>
               <TableHead>Created By</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created At</TableHead>

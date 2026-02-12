@@ -29,6 +29,8 @@ import { createClient } from '@/app/(dashboard)/dashboard/clients/_actions/clien
 import { FiPlus, FiSearch } from 'react-icons/fi';
 import { useToast } from '@/hooks/use-toast';
 
+import OpportunitySelect from './OpportunitySelect';
+
 interface QuotationBasicInfoCardProps {
   quotationNumber: string;
   date: string;
@@ -43,6 +45,7 @@ interface QuotationBasicInfoCardProps {
   vatIncluded?: boolean;
   projectLocation?: string;
   expiredDate?: string;
+  opportunityId?: string | null;
   onQuotationNumberChange: (value: string) => void;
   onDateChange: (value: string) => void;
   onSubjectChange: (value: string) => void;
@@ -54,6 +57,7 @@ interface QuotationBasicInfoCardProps {
   onVatIncludedChange: (value: boolean) => void;
   onProjectLocationChange: (value: string) => void;
   onExpiredDateChange: (value: string) => void;
+  onOpportunityChange: (value: string | null) => void;
 }
 
 // Cover letter interface
@@ -77,6 +81,7 @@ export function QuotationBasicInfoCard({
   vatIncluded = false,
   projectLocation = '',
   expiredDate = '',
+  opportunityId,
   onQuotationNumberChange,
   onDateChange,
   onSubjectChange,
@@ -88,6 +93,7 @@ export function QuotationBasicInfoCard({
   onVatIncludedChange,
   onProjectLocationChange,
   onExpiredDateChange,
+  onOpportunityChange,
 }: QuotationBasicInfoCardProps) {
   const { toast } = useToast();
   const [organizations, setOrganizations] = useState<Array<{ id: string; name: string | null }>>([]);
@@ -268,6 +274,13 @@ export function QuotationBasicInfoCard({
         <CardTitle className="text-sm font-semibold">Quotation Details</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        <div>
+          <Label className="text-xs">Linked Opportunity</Label>
+          <OpportunitySelect 
+            value={opportunityId || undefined} 
+            onValueChange={onOpportunityChange} 
+          />
+        </div>
         <div>
           <Label htmlFor="organization" className="text-xs">Organization</Label>
           <Select

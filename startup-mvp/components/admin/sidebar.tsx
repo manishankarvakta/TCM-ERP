@@ -26,13 +26,16 @@ import {
   FiDollarSign,
   FiShoppingCart,
   FiBook,
-  FiActivity,
-  FiTrendingUp,
   FiCreditCard,
   FiArrowDownRight,
   FiArrowUpRight,
   FiFile,
   FiBriefcase,
+  FiTruck,
+  FiTarget,
+  FiAlertCircle,
+  FiTrendingUp,
+  FiActivity,
 } from "react-icons/fi";
 import Logo from "@/components/layout/logo";
 import { SlCalculator } from "react-icons/sl";
@@ -69,25 +72,55 @@ interface DashboardSidebarProps {
 const menuItems: MenuItem[] = [
   { href: "/admin", label: "Dashboard", icon: FiHome, module: "dashboard" },
   {
-    label: "Items",
+    label: "Service Catalog",
     icon: FiArchive,
     module: "items",
     subMenu: [
       { href: "/admin/items/groups", label: "Groups", icon: FiLayers, module: "items" },
-      { href: "/admin/items", label: "All Items", icon: FiPackage, module: "items" },
+      { href: "/admin/items", label: "All Services", icon: FiPackage, module: "items" },
       { href: "/admin/items/category", label: "Categories", icon: MdOutlineCategory, module: "items" },
       { href: "/admin/items/units", label: "Units", icon: FiLayers, module: "items" },
     ],
   },
   {
-    label: "Quotations",
-    icon: FiFileText,
+    label: "CRM",
+    icon: FiUsers,
+    module: "crm",
+    subMenu: [
+      { href: "/admin/crm/leads", label: "Leads", icon: FiTarget, module: "crm" },
+      { href: "/admin/crm/opportunities", label: "Opportunities", icon: FiTrendingUp, module: "crm" },
+      { href: "/admin/clients", label: "Clients", icon: FiUsers, module: "peoples" },
+      { href: "/admin/crm/activities", label: "Activities", icon: FiActivity, module: "crm" },
+    ],
+  },
+  {
+    label: "Projects",
+    icon: FiBriefcase,
+    module: "projects",
+    subMenu: [
+      { href: "/admin/projects", label: "Projects", icon: FiBriefcase, module: "projects" },
+      { href: "/admin/projects/issues", label: "Issues", icon: FiAlertCircle, module: "projects" },
+    ],
+  },
+  {
+    label: "Sales",
+    icon: FiDollarSign,
     module: "quotations",
     subMenu: [
+      { href: "/admin/quotations/orders", label: "Orders", icon: FiShoppingCart, module: "quotations" },
       { href: "/admin/quotations", label: "Quotations", icon: FiFileText, module: "quotations" },
       { href: "/admin/quotations/invoices", label: "Invoices", icon: FiDollarSign, module: "quotations" },
-      { href: "/admin/quotations/orders", label: "Orders", icon: FiShoppingCart, module: "quotations" },
-      { href: "/admin/work-orders", label: "Work Orders", icon: FiBriefcase, module: "work-orders" },
+    ],
+  },
+  {
+    label: "Peoples",
+    icon: FiUsers,
+    module: "peoples",
+    subMenu: [
+      { href: "/admin/users", label: "Users", icon: FiUser, module: "peoples" },
+      { href: "/admin/contacts", label: "Contacts", icon: FiUser, module: "peoples" },
+      { href: "/admin/suppliers", label: "Suppliers", icon: FiUser, module: "peoples" },
+      { href: "/admin/employees", label: "Employees", icon: FiUser, module: "peoples" },
     ],
   },
   { href: "/admin/purchases", label: "Purchases", icon: FiShoppingCart, module: "purchases" },
@@ -138,21 +171,14 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
-    label: "Peoples",
-    icon: FiUsers,
-    module: "peoples",
+    label: "System",
+    icon: FiSettings,
+    module: "system" as any, 
     subMenu: [
-      { href: "/admin/users", label: "Users", icon: FiUser, module: "peoples" },
-      { href: "/admin/clients", label: "Clients", icon: FiUser, module: "peoples" },
-      { href: "/admin/suppliers", label: "Suppliers", icon: FiUser, module: "peoples" },
-      { href: "/admin/employees", label: "Employees", icon: FiUser, module: "peoples" },
-    ],
+        { href: "/admin/files", label: "Files", icon: FiFolder, module: "files" },
+        { href: "/admin/notifications", label: "Notifications", icon: FiBell, module: "notifications" },
+    ]
   },
-  
-  { href: "/admin/files", label: "Files", icon: FiFolder, module: "files" },
-  { href: "/admin/notifications", label: "Notifications", icon: FiBell, module: "notifications" },
-  { href: "/admin/analytics", label: "Analytics", icon: FiBarChart, module: "analytics" },
-  { href: "/admin/reports", label: "Reports", icon: FiFileText, module: "reports" },
 ];
 
 const bottomMenuItems = [
@@ -171,8 +197,8 @@ function getNavigationIdForMenuItem(item: MenuItem): string | null {
     "peoples": "peoples",
     "/admin/files": "files",
     "/admin/notifications": "notifications",
-    "/admin/analytics": "analytics",
-    "/admin/reports": "reports",
+    // "/admin/analytics": "analytics",
+    // "/admin/reports": "reports",
   };
   
   if (item.href) {
@@ -219,7 +245,7 @@ function getPermissionKeyFromPath(path: string): string | null {
     } else if (pathParts.length === 1) {
       const moduleName = pathParts[0];
       // Check if it's a direct module page
-      if (["files", "notifications", "analytics", "reports", "profile", "settings"].includes(moduleName)) {
+      if (["files", "notifications", "profile", "settings"].includes(moduleName)) {
         return moduleName;
       }
       // For items, quotations, accounts, peoples - find the main page

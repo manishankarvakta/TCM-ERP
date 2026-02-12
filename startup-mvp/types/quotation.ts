@@ -76,6 +76,7 @@ export interface MaterialLibrary {
 
 export interface PWDItemFormData {
   id?: string;
+  pwdScheduleId?: string; // Added to fix type error
   itemNumber: string;
   code: string;
   description: string;
@@ -87,6 +88,7 @@ export interface PWDItemFormData {
   rateRajRange: number | string;
   selectedRate?: number | string;
   quantity: number;
+  amount?: number; // Added to fix type error
   category?: string;
 }
 

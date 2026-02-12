@@ -50,6 +50,7 @@ export function SectionForm({
       id: `pwd-${Date.now()}`,
       pwdScheduleId: pwdItem.id,
       itemNumber: pwdItem.itemNumber,
+      code: pwdItem.code || "PWD-ITEM", // Added fallback code
       description: pwdItem.description,
       unit: pwdItem.unit,
       rateDhakaMym: Number(pwdItem.rateDhakaMym) || 0,
@@ -80,27 +81,29 @@ export function SectionForm({
           ) * 1
         : (Number(pwdItem.rateDhakaMym) || 0) * 1,
     };
-    handleUpdate('pwdItems', [...section.pwdItems, newItem]);
+    handleUpdate('pwdItems', [...(section.pwdItems || []), newItem]);
     setPwdModalOpen(false);
   };
 
   const handleUpdatePWDItem = (index: number, item: PWDItemFormData) => {
-    const updated = [...section.pwdItems];
+    const updated = [...(section.pwdItems || [])];
     updated[index] = item;
     handleUpdate('pwdItems', updated);
   };
 
   const handleRemovePWDItem = (index: number) => {
-    const updated = section.pwdItems.filter((_, i) => i !== index);
+    const updated = (section.pwdItems || []).filter((_, i) => i !== index);
     handleUpdate('pwdItems', updated);
   };
 
   const handleUpdatePWDQuantity = (index: number, quantity: number) => {
-    const item = section.pwdItems[index];
+    const item = (section.pwdItems || [])[index];
+    if (!item) return;
+
     const updatedItem: PWDItemFormData = {
       ...item,
       quantity,
-      amount: (item.selectedRate || 0) * quantity,
+      amount: Number(item.selectedRate || 0) * quantity,
     };
     handleUpdatePWDItem(index, updatedItem);
   };
@@ -109,17 +112,17 @@ export function SectionForm({
     let total = 0;
     
     // Sum PWD items
-    section.pwdItems.forEach((item) => {
+    (section.pwdItems || []).forEach((item) => {
       total += (item.amount || 0);
     });
     
     // Sum interior units
-    section.interiorUnits.forEach((unit) => {
+    (section.interiorUnits || []).forEach((unit) => {
       total += (unit.amount || 0);
     });
     
     // Sum materials
-    section.materials.forEach((material) => {
+    (section.materials || []).forEach((material) => {
       total += (material.amount || 0);
     });
     
@@ -200,13 +203,13 @@ export function SectionForm({
                 </Button>
               </div>
 
-              {section.pwdItems.length === 0 ? (
+              {(section.pwdItems || []).length === 0 ? (
                 <div className="text-center py-8 text-sm text-muted-foreground border rounded-lg">
                   No PWD items added. Click "Add PWD Item" to browse the schedule.
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {section.pwdItems.map((item, index) => (
+                  {(section.pwdItems || []).map((item, index) => (
                     <PWDItemCard
                       key={item.id || index}
                       item={item}
@@ -224,15 +227,15 @@ export function SectionForm({
           {(section.sectionType === 'INTERIOR' || section.sectionType === 'GENERAL') && (
             <TabsContent value="units" className="space-y-4">
               <InteriorUnitForm
-                units={section.interiorUnits}
-                onAdd={(unit) => handleUpdate('interiorUnits', [...section.interiorUnits, unit])}
+                units={section.interiorUnits || []}
+                onAdd={(unit) => handleUpdate('interiorUnits', [...(section.interiorUnits || []), unit])}
                 onUpdate={(index, unit) => {
-                  const updated = [...section.interiorUnits];
+                  const updated = [...(section.interiorUnits || [])];
                   updated[index] = unit;
                   handleUpdate('interiorUnits', updated);
                 }}
                 onRemove={(index) => {
-                  const updated = section.interiorUnits.filter((_, i) => i !== index);
+                  const updated = (section.interiorUnits || []).filter((_, i) => i !== index);
                   handleUpdate('interiorUnits', updated);
                 }}
               />
@@ -243,15 +246,15 @@ export function SectionForm({
           {(section.sectionType === 'INTERIOR' || section.sectionType === 'GENERAL') && (
             <TabsContent value="materials" className="space-y-4">
               <MaterialForm
-                materials={section.materials}
-                onAdd={(material) => handleUpdate('materials', [...section.materials, material])}
+                materials={section.materials || []}
+                onAdd={(material) => handleUpdate('materials', [...(section.materials || []), material])}
                 onUpdate={(index, material) => {
-                  const updated = [...section.materials];
+                  const updated = [...(section.materials || [])];
                   updated[index] = material;
                   handleUpdate('materials', updated);
                 }}
                 onRemove={(index) => {
-                  const updated = section.materials.filter((_, i) => i !== index);
+                  const updated = (section.materials || []).filter((_, i) => i !== index);
                   handleUpdate('materials', updated);
                 }}
               />

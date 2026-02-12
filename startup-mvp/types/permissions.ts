@@ -3,15 +3,16 @@
 // Module names
 export type Module =
   | "dashboard"
+  | "crm"
   | "items"
+  | "projects"
   | "quotations"
   | "purchases"
   | "accounts"
   | "peoples"
   | "files"
   | "notifications"
-  | "analytics"
-  | "reports";
+  | "work-orders";
 
 // Basic operations
 export type BasicOperation = "create" | "read" | "update" | "delete" | "export" | "import";
@@ -120,15 +121,36 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     label: "Dashboard",
     description: "Main dashboard overview",
   },
+  crm: {
+    id: "crm",
+    label: "CRM",
+    description: "Customer Relationship Management",
+    subModules: [
+      { id: "leads", label: "Leads", path: "/dashboard/crm/leads", module: "crm", permissionKey: "crm.leads" },
+      { id: "contacts", label: "Contacts", path: "/dashboard/crm/contacts", module: "crm", permissionKey: "crm.contacts" },
+      { id: "opportunities", label: "Opportunities", path: "/dashboard/crm/opportunities", module: "crm", permissionKey: "crm.opportunities" },
+      { id: "clients", label: "Clients", path: "/dashboard/crm/clients", module: "peoples", permissionKey: "peoples.clients" }, // Linked to Peoples permissions
+      { id: "activities", label: "Activities", path: "/dashboard/crm/activities", module: "crm", permissionKey: "crm.activities" },
+    ],
+  },
   items: {
     id: "items",
-    label: "Items",
+    label: "Service Catalog",
     description: "Manage items, categories, units, and groups",
     subModules: [
-      { id: "items", label: "Items", path: "/dashboard/items", module: "items", permissionKey: "items.items" },
+      { id: "items", label: "All Services", path: "/dashboard/items", module: "items", permissionKey: "items.items" },
       { id: "groups", label: "Groups", path: "/dashboard/items/groups", module: "items", permissionKey: "items.groups" },
       { id: "category", label: "Categories", path: "/dashboard/items/category", module: "items", permissionKey: "items.category" },
       { id: "units", label: "Units", path: "/dashboard/items/units", module: "items", permissionKey: "items.units" },
+    ],
+  },
+  projects: {
+    id: "projects",
+    label: "Projects",
+    description: "Manage projects and issues",
+    subModules: [
+      { id: "projects", label: "Projects", path: "/dashboard/projects", module: "projects", permissionKey: "projects.projects" },
+      { id: "issues", label: "Issues", path: "/dashboard/projects/issues", module: "projects", permissionKey: "projects.issues" },
     ],
   },
   quotations: {
@@ -172,6 +194,7 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     description: "Manage users, clients, and suppliers",
     subModules: [
       { id: "users", label: "Users", path: "/dashboard/users", module: "peoples", permissionKey: "peoples.users" },
+      { id: "contacts", label: "Contacts", path: "/dashboard/contacts", module: "peoples", permissionKey: "peoples.contacts" },
       { id: "clients", label: "Clients", path: "/dashboard/clients", module: "peoples", permissionKey: "peoples.clients" },
       { id: "suppliers", label: "Suppliers", path: "/dashboard/suppliers", module: "peoples", permissionKey: "peoples.suppliers" },
       { id: "employees", label: "Employees", path: "/dashboard/employees", module: "peoples", permissionKey: "peoples.employees" },
@@ -187,16 +210,21 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     label: "Notifications",
     description: "System notifications",
   },
-  analytics: {
-    id: "analytics",
-    label: "Analytics",
-    description: "Analytics and reports",
+  "work-orders": {
+    id: "work-orders",
+    label: "Work Orders",
+    description: "Manage work orders",
   },
-  reports: {
-    id: "reports",
-    label: "Reports",
-    description: "Generate and view reports",
-  },
+  // analytics: {
+  //   id: "analytics",
+  //   label: "Analytics",
+  //   description: "Analytics and reports (Deprecated)",
+  // },
+  // reports: {
+  //   id: "reports",
+  //   label: "Reports",
+  //   description: "Generate and view reports (Deprecated)",
+  // },
 };
 
 // Default operations configuration
@@ -373,13 +401,67 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
     ],
   },
   {
+    id: "crm",
+    label: "CRM",
+    pages: [
+      {
+        permissionKey: "crm.leads",
+        path: "/dashboard/crm/leads",
+        label: "Leads",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "crm.opportunities",
+        path: "/dashboard/crm/opportunities",
+        label: "Opportunities",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "crm.contacts",
+        path: "/dashboard/crm/contacts",
+        label: "Contacts",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "peoples.clients", // Using existing permission key
+        path: "/dashboard/crm/clients",
+        label: "Clients",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "crm.activities",
+        path: "/dashboard/crm/activities",
+        label: "Activities",
+        operations: ["create", "view", "edit", "delete-permanently"],
+      },
+    ],
+  },
+  {
+    id: "projects",
+    label: "Projects",
+    pages: [
+      {
+        permissionKey: "projects.projects",
+        path: "/dashboard/projects",
+        label: "Projects",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "projects.issues",
+        path: "/dashboard/projects/issues",
+        label: "Issues",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+    ],
+  },
+  {
     id: "items",
-    label: "Items",
+    label: "Service Catalog",
     pages: [
       {
         permissionKey: "items.items",
         path: "/dashboard/items",
-        label: "Items",
+        label: "All Services",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
       {
@@ -420,9 +502,15 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
       },
       {
         permissionKey: "quotations.orders",
-        path: "/dashboard/orders",
+        path: "/dashboard/quotations/orders",
         label: "Orders",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "quotations.delivery-schedule",
+        path: "/dashboard/quotations/delivery-schedule",
+        label: "Delivery Schedule",
+        operations: ["view", "edit"],
       },
     ],
   },
@@ -515,6 +603,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
       {
+        permissionKey: "peoples.contacts",
+        path: "/dashboard/crm/contacts",
+        label: "Contacts",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
         permissionKey: "peoples.clients",
         path: "/dashboard/clients",
         label: "Clients",
@@ -558,27 +652,39 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
       },
     ],
   },
+  // {
+  //   id: "analytics",
+  //   label: "Analytics",
+  //   pages: [
+  //     {
+  //       permissionKey: "analytics",
+  //       path: "/dashboard/analytics",
+  //       label: "Analytics",
+  //       operations: ["view", "export"],
+  //     },
+  //   ],
+  // },
+  // {
+  //   id: "reports",
+  //   label: "Reports",
+  //   pages: [
+  //     {
+  //       permissionKey: "reports",
+  //       path: "/dashboard/reports",
+  //       label: "Reports",
+  //       operations: ["view", "export"],
+  //     },
+  //   ],
+  // },
   {
-    id: "analytics",
-    label: "Analytics",
+    id: "work-orders",
+    label: "Work Orders",
     pages: [
       {
-        permissionKey: "analytics",
-        path: "/dashboard/analytics",
-        label: "Analytics",
-        operations: ["view", "export"],
-      },
-    ],
-  },
-  {
-    id: "reports",
-    label: "Reports",
-    pages: [
-      {
-        permissionKey: "reports",
-        path: "/dashboard/reports",
-        label: "Reports",
-        operations: ["view", "export"],
+        permissionKey: "work-orders",
+        path: "/dashboard/work-orders",
+        label: "Work Orders",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
     ],
   },

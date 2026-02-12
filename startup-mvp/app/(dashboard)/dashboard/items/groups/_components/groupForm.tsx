@@ -585,7 +585,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
           {/* Items Section */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label>Items *</Label>
+              <Label>Services *</Label>
               <Button
                 type="button"
                 variant="outline"
@@ -594,7 +594,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
                 disabled={loading}
               >
                 <FiPlus className="mr-2 h-4 w-4" />
-                Add Item
+                Add Service
               </Button>
             </div>
 
@@ -715,7 +715,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
                               size="sm"
                               onClick={() => duplicateItem(index)}
                               disabled={loading}
-                              title="Duplicate item"
+                              title="Duplicate service"
                             >
                               <FiCopy className="h-4 w-4" />
                             </Button>
@@ -725,7 +725,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
                               size="sm"
                               onClick={() => removeItem(index)}
                               disabled={loading}
-                              title="Remove item"
+                              title="Remove service"
                             >
                               <FiTrash2 className="h-4 w-4 text-destructive" />
                             </Button>
@@ -740,7 +740,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
 
             {items.length === 0 && (
               <div className="text-center py-8 text-muted-foreground border rounded-lg">
-                No items added. Click &quot;Add Item&quot; to add items to this group.
+                No services added. Click &quot;Add Service&quot; to add services to this group.
               </div>
             )}
 

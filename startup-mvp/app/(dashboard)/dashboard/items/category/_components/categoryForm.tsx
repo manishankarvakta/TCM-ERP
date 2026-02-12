@@ -112,10 +112,10 @@ export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
       <Card>
         <CardHeader>
           <CardTitle>
-            {mode === "create" ? "Add New Category" : "Edit Category"}
+            {mode === "create" ? "Add New Service Category" : "Edit Service Category"}
           </CardTitle>
           <CardDescription>
-            {mode === "create" ? "Enter category details to create a new category" : "Update category information"}
+            {mode === "create" ? "Enter service category details to create a new category" : "Update service category information"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -129,7 +129,7 @@ export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="name">Category Name</Label>
+                <Label htmlFor="name">Service Category Name</Label>
                 <Input
                   id="name"
                   type="text"
@@ -184,7 +184,7 @@ export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
 
               <div className="flex items-center gap-3 pt-4">
                 <Button type="submit" disabled={loading}>
-                  {loading ? "Saving..." : mode === "create" ? "Create Category" : "Update Category"}
+                  {loading ? "Saving..." : mode === "create" ? "Create Service Category" : "Update Service Category"}
                 </Button>
                 <Button
                   type="button"

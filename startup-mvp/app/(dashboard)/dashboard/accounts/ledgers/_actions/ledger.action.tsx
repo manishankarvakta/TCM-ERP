@@ -984,30 +984,35 @@ export async function getEmployeeLedger(
       const entryBalance = credit - debit;
       runningBalance += entryBalance;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const entry = (line as any).JournalEntry;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const coa = (line as any).ChartOfAccount;
+
       return {
         id: line.id,
         lineNumber: line.lineNumber,
-        date: line.journalEntry.date,
-        entryNumber: line.journalEntry.entryNumber,
-        description: line.description || line.journalEntry.description,
+        date: entry.date,
+        entryNumber: entry.entryNumber,
+        description: line.description || entry.description,
         debitAmount: debit,
         creditAmount: credit,
         runningBalance: runningBalance,
-        voucher: line.journalEntry.voucher
+        voucher: entry.Voucher
           ? {
-              id: line.journalEntry.voucher.id,
-              voucherNumber: line.journalEntry.voucher.voucherNumber,
-              type: line.journalEntry.voucher.type,
-              reference: line.journalEntry.voucher.reference,
-              description: line.journalEntry.voucher.description,
-              status: line.journalEntry.voucher.status,
+              id: entry.Voucher.id,
+              voucherNumber: entry.Voucher.voucherNumber,
+              type: entry.Voucher.type,
+              reference: entry.Voucher.reference,
+              description: entry.Voucher.description,
+              status: entry.Voucher.status,
             }
           : null,
         chartOfAccount: {
-          id: line.chartOfAccount.id,
-          code: line.chartOfAccount.code,
-          name: line.chartOfAccount.name,
-          type: line.chartOfAccount.type,
+          id: coa.id,
+          code: coa.code,
+          name: coa.name,
+          type: coa.type,
         },
         createdAt: line.createdAt,
       };
@@ -1255,30 +1260,35 @@ export async function getEmployeeAdvanceLedger(
       const entryBalance = debit - credit;
       runningBalance += entryBalance;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const entry = (line as any).JournalEntry;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const coa = (line as any).ChartOfAccount;
+
       return {
         id: line.id,
         lineNumber: line.lineNumber,
-        date: line.journalEntry.date,
-        entryNumber: line.journalEntry.entryNumber,
-        description: line.description || line.journalEntry.description,
+        date: entry.date,
+        entryNumber: entry.entryNumber,
+        description: line.description || entry.description,
         debitAmount: debit,
         creditAmount: credit,
         runningBalance: runningBalance,
-        voucher: line.journalEntry.voucher
+        voucher: entry.Voucher
           ? {
-              id: line.journalEntry.voucher.id,
-              voucherNumber: line.journalEntry.voucher.voucherNumber,
-              type: line.journalEntry.voucher.type,
-              reference: line.journalEntry.voucher.reference,
-              description: line.journalEntry.voucher.description,
-              status: line.journalEntry.voucher.status,
+              id: entry.Voucher.id,
+              voucherNumber: entry.Voucher.voucherNumber,
+              type: entry.Voucher.type,
+              reference: entry.Voucher.reference,
+              description: entry.Voucher.description,
+              status: entry.Voucher.status,
             }
           : null,
         chartOfAccount: {
-          id: line.chartOfAccount.id,
-          code: line.chartOfAccount.code,
-          name: line.chartOfAccount.name,
-          type: line.chartOfAccount.type,
+          id: coa.id,
+          code: coa.code,
+          name: coa.name,
+          type: coa.type,
         },
         createdAt: line.createdAt,
       };

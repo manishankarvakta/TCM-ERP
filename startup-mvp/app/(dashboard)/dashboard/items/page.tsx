@@ -48,8 +48,8 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Items</h1>
-            <p className="text-sm text-muted-foreground">Manage items in your system</p>
+            <h1 className="text-2xl font-semibold">Service Catalog</h1>
+            <p className="text-sm text-muted-foreground">Manage services in your system</p>
           </div>
         </div>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -66,14 +66,14 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Items</h1>
-            <p className="text-sm text-muted-foreground">Manage items in your system</p>
+            <h1 className="text-2xl font-semibold">Service Catalog</h1>
+            <p className="text-sm text-muted-foreground">Manage services in your system</p>
           </div>
           {tab !== "trash" && (
             <Button asChild>
               <Link href="/dashboard/items/add">
                 <FiPlus className="mr-2 h-4 w-4" />
-                Add Item
+                Add Service
               </Link>
             </Button>
           )}
@@ -82,7 +82,7 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
         <Tabs defaultValue={tab} className="w-full">
           <TabsList>
             <TabsTrigger value="all" asChild>
-              <Link href={`/dashboard/items?tab=all&page=1${category !== "all" ? `&category=${category}` : ""}`}>All Items</Link>
+              <Link href={`/dashboard/items?tab=all&page=1${category !== "all" ? `&category=${category}` : ""}`}>All Services</Link>
             </TabsTrigger>
             <TabsTrigger value="active" asChild>
               <Link href={`/dashboard/items?tab=active&page=1${category !== "all" ? `&category=${category}` : ""}`}>Active</Link>

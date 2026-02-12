@@ -288,7 +288,7 @@ export default function ItemsListClient({
         <div className="relative flex-1 max-w-sm">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by code, description, or category..."
+            placeholder="Search by code, name, or category..."
             value={search}
             onChange={(e) => handleSearch(e.target.value)}
             className="pl-10"
@@ -401,7 +401,7 @@ export default function ItemsListClient({
               </TableHead>
               <TableHead>Image</TableHead>
               <TableHead className="whitespace-nowrap">Code</TableHead>
-              <TableHead className="w-[240px] sm:w-[320px] lg:w-[420px]">Description</TableHead>
+              <TableHead className="w-[240px] sm:w-[320px] lg:w-[420px]">Service Name</TableHead>
               <TableHead>Unit</TableHead>
               <TableHead>Unit Price</TableHead>
               <TableHead>Cost Price</TableHead>
@@ -415,7 +415,7 @@ export default function ItemsListClient({
             {initialItems.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
-                  {isTrash ? "No trashed items found" : "No items found"}
+                  {isTrash ? "No trashed services found" : "No services found"}
                 </TableCell>
               </TableRow>
             ) : (
@@ -612,9 +612,9 @@ export default function ItemsListClient({
       <AlertDialog open={!!restoreItemId} onOpenChange={() => setRestoreItemId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Restore Item</AlertDialogTitle>
+            <AlertDialogTitle>Restore Service</AlertDialogTitle>
             <AlertDialogDescription>
-              This will restore the item and make it active again. You can use it normally after restoration.
+              This will restore the service and make it active again. You can use it normally after restoration.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -624,7 +624,7 @@ export default function ItemsListClient({
               disabled={isPending}
               className="bg-green-600 text-white hover:bg-green-700"
             >
-              {isPending ? "Restoring..." : "Restore Item"}
+              {isPending ? "Restoring..." : "Restore Service"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -635,12 +635,12 @@ export default function ItemsListClient({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {isTrash ? "Delete Item Permanently" : "Move Item to Trash"}
+              {isTrash ? "Delete Service Permanently" : "Move Service to Trash"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {isTrash
-                ? "This action cannot be undone. This will permanently delete the item and all associated data."
-                : "This will move the item to trash. You can restore it later from the Trash tab."}
+                ? "This action cannot be undone. This will permanently delete the service and all associated data."
+                : "This will move the service to trash. You can restore it later from the Trash tab."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
