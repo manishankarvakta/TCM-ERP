@@ -83,13 +83,22 @@ export async function getLeadById(id: string) {
     const lead = await prisma.lead.findUnique({
       where: { id },
       include: {
-        owner: { select: { id: true, name: true, email: true, image: true } },
+        // @ts-ignore
+        User: { select: { id: true, name: true, email: true, image: true } },
       }
     });
 
     if (!lead) return { success: false, error: "Lead not found" };
 
-    return { success: true, lead };
+    return {
+      success: true,
+      lead: {
+        ...lead,
+        // @ts-ignore
+        owner: lead.User,
+        User: undefined,
+      },
+    };
   } catch (error) {
     console.error("getLeadById error:", error);
     return { success: false, error: "Failed to fetch lead" };

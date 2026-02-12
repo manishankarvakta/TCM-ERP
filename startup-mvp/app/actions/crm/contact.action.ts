@@ -22,13 +22,17 @@ export async function getContacts(clientId?: string) {
     const contacts = await prisma.contact.findMany({
       where: clientId ? { clientId } : {},
       include: {
-        client: { select: { name: true, company: true } }
+        // @ts-ignore
+        Client: { select: { name: true, company: true } }
       },
       orderBy: { firstName: "asc" },
     });
 
     const mappedContacts = contacts.map(c => ({
       ...c,
+      // @ts-ignore
+      client: c.Client,
+      Client: undefined,
       name: `${c.firstName} ${c.lastName}`,
     }));
 
@@ -58,13 +62,22 @@ export async function getContactById(id: string) {
     const contact = await prisma.contact.findUnique({
       where: { id },
       include: {
-        client: { select: { id: true, name: true, company: true } },
+        // @ts-ignore
+        Client: { select: { id: true, name: true, company: true } },
       },
     });
 
     if (!contact) return { success: false, error: "Contact not found" };
 
-    return { success: true, contact };
+    return {
+      success: true,
+      contact: {
+        ...contact,
+        // @ts-ignore
+        client: contact.Client,
+        Client: undefined,
+      },
+    };
   } catch (error) {
     console.error("getContactById error:", error);
     return { success: false, error: "Failed to fetch contact" };

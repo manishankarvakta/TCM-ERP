@@ -40,7 +40,7 @@ export default async function CRM_ContactsPage() {
   }
 
   return (
-    <div className="p-6 h-full flex flex-col">
+    <div className=" h-full flex flex-col">
       <ContactManager 
         initialContacts={contactsResult.contacts || []} 
         clients={clientsResult.clients || []}

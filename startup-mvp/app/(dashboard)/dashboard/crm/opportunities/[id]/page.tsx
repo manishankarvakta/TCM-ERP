@@ -11,7 +11,8 @@ import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-export default async function OpportunityDetailPage({ params }: { params: { id: string } }) {
+export default async function OpportunityDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await auth();
   if (!session?.user) return redirect("/login");
 
@@ -26,7 +27,7 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
       );
   }
 
-  const { id } = params;
+
 
   const [oppResult, activityResult] = await Promise.all([
     getOpportunityById(id),
@@ -47,7 +48,7 @@ export default async function OpportunityDetailPage({ params }: { params: { id: 
   const activities = activityResult.success ? activityResult.activities : [];
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 mx-auto">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
             <Link href="/dashboard/crm/opportunities">

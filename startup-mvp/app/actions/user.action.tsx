@@ -359,7 +359,7 @@ export async function getUsers(
           image: true,
         status: true,
           inchargeId: true,
-          incharge: {
+          User: {
             select: {
               id: true,
               name: true,
@@ -392,9 +392,16 @@ export async function getUsers(
 
     const totalPages = Math.ceil(total / limit);
 
+    const mappedUsers = users.map((user) => ({
+      ...user,
+      // @ts-ignore
+      incharge: user.User,
+      User: undefined,
+    }));
+
     return {
       success: true,
-      users,
+      users: mappedUsers,
       pagination: {
         page,
         limit,
@@ -582,7 +589,7 @@ export async function getUserById(userId: string) {
         role: true,
         image: true,
         inchargeId: true,
-        incharge: {
+        User: {
           select: {
             id: true,
             name: true,

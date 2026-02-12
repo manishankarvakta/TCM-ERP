@@ -17,7 +17,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { FiMoreVertical, FiEdit, FiTrash2, FiMail, FiPhone } from "react-icons/fi";
+import { FiMoreVertical, FiEdit, FiTrash2, FiMail, FiPhone, FiEye } from "react-icons/fi";
 import { deleteContact } from "@/app/actions/crm/contact.action";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -130,6 +130,12 @@ export default function ContactTable({ contacts, onEdit, onRefresh, hideClientCo
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <Link href={`/dashboard/crm/contacts/${contact.id}`} className="flex items-center cursor-pointer">
+                          <FiEye className="mr-2 h-4 w-4" />
+                          View Details
+                        </Link>
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onEdit(contact)}>
                         <FiEdit className="mr-2 h-4 w-4" />
                         Edit

@@ -241,7 +241,8 @@ export async function getUserNotifications(
         createdAt: true,
         readAt: true,
         createdBy: true,
-        creator: {
+        // @ts-ignore
+        User_Notification_createdByToUser: {
           select: {
             id: true,
             name: true,
@@ -252,9 +253,16 @@ export async function getUserNotifications(
       },
     });
 
+    const mappedNotifications = notifications.map((n) => ({
+      ...n,
+      // @ts-ignore
+      creator: n.User_Notification_createdByToUser,
+      User_Notification_createdByToUser: undefined,
+    }));
+
     return {
       success: true,
-      data: notifications,
+      data: mappedNotifications,
     };
   } catch (error) {
     console.error("getUserNotifications error:", error);

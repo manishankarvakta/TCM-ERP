@@ -26,7 +26,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
       );
   }
 
-  const { id } = params;
+  const { id } = await params;
 
   const [leadResult, activityResult] = await Promise.all([
     getLeadById(id),
@@ -55,7 +55,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-full mx-auto">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
             <Link href="/dashboard/crm/leads">

@@ -565,7 +565,7 @@ model Notification {
 }
 
 model Opportunity {
-  id                String           @id
+  id                String           @id @default(uuid())
   title             String
   clientId          String
   value             Decimal?         @db.Decimal(12, 2)
@@ -575,7 +575,7 @@ model Opportunity {
   expectedCloseDate DateTime?
   nextActivityAt    DateTime?
   createdAt         DateTime         @default(now())
-  updatedAt         DateTime
+  updatedAt         DateTime         @updatedAt
   Activity          Activity[]
   Client            Client           @relation(fields: [clientId], references: [id])
   Contact           Contact          @relation(fields: [contactId], references: [id])
@@ -927,7 +927,7 @@ model User {
   Supplier                                  Supplier[]
   Unit                                      Unit[]
   PermissionTemplate                        PermissionTemplate?    @relation(fields: [designationTemplateId], references: [id])
-  incharge                                  User?                  @relation("UserToUser", fields: [inchargeId], references: [id])
+  User                                      User?                  @relation("UserToUser", fields: [inchargeId], references: [id])
   other_User                                User[]                 @relation("UserToUser")
   UserLog                                   UserLog[]
   UserPermission                            UserPermission[]

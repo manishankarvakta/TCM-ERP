@@ -48,7 +48,7 @@ export default async function LeadsPage({
   }
 
   return (
-    <div className="p-6 h-full flex flex-col">
+    <div className="h-full flex flex-col">
       <LeadManager 
         initialLeads={leadsResult.leads || []} 
         initialPagination={leadsResult.pagination || { page: 1, limit: 100, total: 0, totalPages: 0 }} 

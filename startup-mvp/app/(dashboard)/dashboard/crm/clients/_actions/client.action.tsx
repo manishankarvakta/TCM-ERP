@@ -85,7 +85,9 @@ export async function getClients(
         image: true,
         status: true,
         createdBy: true,
-        createdByUser: {
+        createdBy: true,
+        // @ts-ignore
+        User: {
           select: {
             id: true,
             name: true,
@@ -110,9 +112,16 @@ export async function getClients(
 
     const totalPages = Math.ceil(total / limit);
 
+    const mappedClients = clients.map((client) => ({
+      ...client,
+      // @ts-ignore
+      createdByUser: client.User,
+      User: undefined,
+    }));
+
     return {
       success: true,
-      clients,
+      clients: mappedClients,
       pagination: {
         page,
         limit,
@@ -168,7 +177,9 @@ export async function getClientById(clientId: string) {
         image: true,
         status: true,
         createdBy: true,
-        createdByUser: {
+        createdBy: true,
+        // @ts-ignore
+        User: {
           select: {
             id: true,
             name: true,
@@ -198,7 +209,12 @@ export async function getClientById(clientId: string) {
 
     return {
       success: true,
-      client,
+      client: {
+        ...client,
+        // @ts-ignore
+        createdByUser: client.User,
+        User: undefined,
+      },
     };
   } catch (error) {
     console.error("getClientById error:", error);

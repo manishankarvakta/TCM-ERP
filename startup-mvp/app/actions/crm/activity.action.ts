@@ -43,18 +43,34 @@ export async function createActivity(input: {
         ownerId: session.user.id,
       },
       include: {
-        contact: true,
-        opportunity: true,
-        lead: true,
+        // @ts-ignore
+        Contact: true,
+        // @ts-ignore
+        Opportunity: true,
+        // @ts-ignore
+        Lead: true,
       }
     });
+
+    const mappedActivity = {
+      ...activity,
+      // @ts-ignore
+      contact: activity.Contact,
+      // @ts-ignore
+      opportunity: activity.Opportunity,
+      // @ts-ignore
+      lead: activity.Lead,
+      Contact: undefined,
+      Opportunity: undefined,
+      Lead: undefined,
+    };
 
     // Revalidate relevant paths
     revalidateBothPaths("crm/activities");
     if (input.opportunityId) revalidateBothPaths(`crm/opportunities/${input.opportunityId}`);
     if (input.leadId) revalidateBothPaths(`crm/leads/${input.leadId}`);
 
-    return { success: true, activity };
+    return { success: true, activity: mappedActivity };
   } catch (error) {
     console.error("createActivity error:", error);
     return { success: false, error: "Failed to create activity" };
@@ -163,7 +179,8 @@ export async function listActivitiesByContact(contactId: string) {
       where: { contactId },
       orderBy: { createdAt: "desc" },
       include: {
-        opportunity: true,
+        // @ts-ignore
+        Opportunity: true,
         owner: {
           select: {
             id: true,
@@ -174,7 +191,14 @@ export async function listActivitiesByContact(contactId: string) {
       }
     });
 
-    return { success: true, activities };
+    const mappedActivities = activities.map(a => ({
+      ...a,
+      // @ts-ignore
+      opportunity: a.Opportunity,
+      Opportunity: undefined,
+    }));
+
+    return { success: true, activities: mappedActivities };
   } catch (error) {
     console.error("listActivitiesByContact error:", error);
     return { success: false, error: "Failed to fetch activities", activities: [] };
@@ -234,7 +258,8 @@ export async function listActivitiesByOpportunity(opportunityId: string) {
       where: { opportunityId },
       orderBy: { createdAt: "desc" },
       include: {
-        contact: true,
+        // @ts-ignore
+        Contact: true,
         owner: {
           select: {
             id: true,
@@ -245,7 +270,14 @@ export async function listActivitiesByOpportunity(opportunityId: string) {
       }
     });
 
-    return { success: true, activities };
+    const mappedActivities = activities.map(a => ({
+      ...a,
+      // @ts-ignore
+      contact: a.Contact,
+      Contact: undefined,
+    }));
+
+    return { success: true, activities: mappedActivities };
   } catch (error) {
     console.error("listActivitiesByOpportunity error:", error);
     return { success: false, error: "Failed to fetch activities", activities: [] };
@@ -275,9 +307,12 @@ export async function getActivities(page: number = 1, limit: number = 20) {
         take: limit,
         orderBy: { createdAt: "desc" },
         include: {
-          contact: { select: { firstName: true, lastName: true, email: true } },
-          opportunity: { select: { title: true } },
-          lead: { select: { name: true } },
+          // @ts-ignore
+          Contact: { select: { firstName: true, lastName: true, email: true } },
+          // @ts-ignore
+          Opportunity: { select: { title: true } },
+          // @ts-ignore
+          Lead: { select: { name: true } },
           owner: {
             select: {
               id: true,
@@ -294,10 +329,20 @@ export async function getActivities(page: number = 1, limit: number = 20) {
       dueDate: a.dueDate ? a.dueDate.toISOString() : null,
       createdAt: a.createdAt.toISOString(),
       updatedAt: a.updatedAt.toISOString(),
-      contact: a.contact ? {
-        ...a.contact,
-        name: `${a.contact.firstName} ${a.contact.lastName}`.trim()
-      } : null
+      // @ts-ignore
+      contact: a.Contact ? {
+        // @ts-ignore
+        ...a.Contact,
+        // @ts-ignore
+        name: `${a.Contact.firstName} ${a.Contact.lastName}`.trim()
+      } : null,
+      // @ts-ignore
+      opportunity: a.Opportunity,
+      // @ts-ignore
+      lead: a.Lead,
+      Contact: undefined,
+      Opportunity: undefined,
+      Lead: undefined,
     }));
 
     return { 

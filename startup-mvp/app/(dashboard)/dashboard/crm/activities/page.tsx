@@ -19,7 +19,7 @@ export default async function ActivitiesPage() {
   }
 
   return (
-    <div className="p-6 h-full flex flex-col">
+    <div className="h-full flex flex-col">
       <ActivityManager />
     </div>
   );
