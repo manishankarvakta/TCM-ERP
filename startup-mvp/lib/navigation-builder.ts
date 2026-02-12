@@ -143,6 +143,9 @@ export const MENU_TEMPLATE: MenuItemData[] = [
     subMenu: [
       { href: "/dashboard/files", label: "Files", icon: "FiFolder", module: "files" },
       { href: "/dashboard/notifications", label: "Notifications", icon: "FiBell", module: "notifications" },
+      { href: "/dashboard/tasks", label: "Tasks", icon: "FiBriefcase", module: "tasks" },
+      { href: "/dashboard/notes", label: "Notes", icon: "FiFileText", module: "notes" },
+      { href: "/dashboard/docs", label: "Docs", icon: "FiFile", module: "docs" },
     ],
   },
 ];

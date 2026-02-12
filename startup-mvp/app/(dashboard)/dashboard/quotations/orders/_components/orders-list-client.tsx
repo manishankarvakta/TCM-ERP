@@ -71,7 +71,7 @@ export default function OrdersListClient({
   // If we're on the nested route, use it. Otherwise fallback to standard dashboard path.
   const basePath = pathname?.includes("/quotations/orders") 
     ? "/dashboard/quotations/orders" 
-    : (pathname?.startsWith("/admin") ? "/admin/orders" : "/dashboard/orders");
+    : (pathname?.startsWith("/dashboard") ? "/dashboard/orders" : "/dashboard/orders");
   
   const [search, setSearch] = useState(initialSearch);
 

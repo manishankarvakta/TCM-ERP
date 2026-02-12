@@ -1,152 +1,137 @@
+import React from "react";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import {
+  getDashboardStats,
+  getRecentQuotations,
+  getQuotationStatusBreakdown,
+  getRecentItems,
+  getSystemActivity,
+} from "@/app/actions/dashboard.action";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import UserDashboardStats from "@/components/dashboard/user-dashboard-stats";
-import RecentQuotationsTable from "@/components/dashboard/recent-quotations-table";
-import RecentActivity from "@/components/dashboard/recent-activity";
-import QuotationStatusChart from "@/components/dashboard/quotation-status-chart";
-import {
-  getUserDashboardStats,
-  getUserRecentQuotations,
-  getUserRecentItems,
-  getUserActivity,
-  getUserQuotationStatusBreakdown,
-} from "@/app/actions/dashboard.action";
-import { auth } from "@/lib/auth";
-import { hasPermission } from "@/lib/permissions";
 import Link from "next/link";
-import { FiPlus, FiFileText, FiPackage, FiUsers } from "react-icons/fi";
+import { FiPlus, FiFileText, FiPackage, FiUsers, FiShoppingCart } from "react-icons/fi";
+import AdminDashboardStats from "@/components/dashboard/admin-dashboard-stats";
+import RecentQuotationsTable from "@/components/dashboard/recent-quotations-table";
+import QuotationStatusChart from "@/components/dashboard/quotation-status-chart";
+import RecentActivity from "@/components/dashboard/recent-activity";
 
-export default async function DashboardPage() {
+export default async function AdminDashboardPage() {
   const session = await auth();
 
-  if (!session?.user?.id) {
-    return (
-      <div className="flex-1 space-y-6">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground text-center">
-              Please log in to view your dashboard.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+  // Check if user has valid session
+  if (!session?.user?.id || !session?.user?.email) {
+    redirect("/login");
   }
 
-  const userId = session.user.id;
+  // Check if user is admin
+  const userRole = session.user.role?.toLowerCase();
+  if (userRole !== "admin") {
+    redirect("/dashboard");
+  }
 
-  // Fetch all data in parallel
+  // Fetch all dashboard data in parallel
   const [
     statsResult,
-    quotationsResult,
-    itemsResult,
-    activityResult,
+    recentQuotationsResult,
     statusBreakdownResult,
+    recentItemsResult,
+    activityResult,
   ] = await Promise.all([
-    getUserDashboardStats(),
-    getUserRecentQuotations(10),
-    getUserRecentItems(5),
-    getUserActivity(10),
-    getUserQuotationStatusBreakdown(),
+    getDashboardStats(),
+    getRecentQuotations(10),
+    getQuotationStatusBreakdown(),
+    getRecentItems(5),
+    getSystemActivity(10),
   ]);
-
-  const stats = statsResult.success ? statsResult.stats : null;
-  const quotations = quotationsResult.success ? quotationsResult.quotations : [];
-  const items = itemsResult.success ? itemsResult.items : [];
-  const activities = activityResult.success ? activityResult.activities : [];
-  const statusBreakdown = statusBreakdownResult.success
-    ? statusBreakdownResult.breakdown
-    : [];
-
-  // Check permissions for quick actions
-  const canCreateQuotation = await hasPermission(
-    userId,
-    "quotations.quotations",
-    "create"
-  );
-  const canCreateItem = await hasPermission(userId, "items.items", "create");
-  const canCreateClient = await hasPermission(
-    userId,
-    "peoples.clients",
-    "create"
-  );
 
   return (
     <div className="flex-1 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Admin Dashboard</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Overview of your business data and statistics
+            Overview of your system data and statistics
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {canCreateQuotation && (
-            <Button asChild>
-              <Link href="/dashboard/quotations/new">
-                <FiPlus className="mr-2 h-4 w-4" />
-                New Quotation
-              </Link>
-            </Button>
-          )}
+          <Button asChild>
+            <Link href="/dashboard/quotations/new">
+              <FiPlus className="mr-2 h-4 w-4" />
+              New Quotation
+            </Link>
+          </Button>
         </div>
       </div>
 
       {/* Statistics Cards */}
-      <UserDashboardStats stats={stats} />
+      <AdminDashboardStats stats={statsResult.success ? statsResult.stats : null} />
 
       {/* Recent Quotations and Status Breakdown */}
-      {stats?.permissions.canAccessQuotations && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <Card className="col-span-4">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base font-semibold">Recent Quotations</CardTitle>
-                  <CardDescription className="text-sm">Latest quotations in your system</CardDescription>
-                </div>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/dashboard/quotations">View All</Link>
-                </Button>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <Card className="col-span-4">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold">Recent Quotations</CardTitle>
+                <CardDescription className="text-sm">Latest quotations in your system</CardDescription>
               </div>
-            </CardHeader>
-            <CardContent>
-              {quotations.length > 0 ? (
-                <RecentQuotationsTable quotations={quotations} />
-              ) : (
-                <div className="rounded-lg border p-8 text-center">
-                  <p className="text-sm text-muted-foreground">No quotations found</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/dashboard/quotations">View All</Link>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {recentQuotationsResult.success ? (
+              <RecentQuotationsTable quotations={recentQuotationsResult.quotations} />
+            ) : (
+              <div className="rounded-lg border p-8 text-center">
+                <p className="text-sm text-destructive">
+                  {recentQuotationsResult.error || "Failed to load recent quotations"}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-          {statusBreakdown.length > 0 && (
-            <Card className="col-span-3">
-              <QuotationStatusChart breakdown={statusBreakdown} />
-            </Card>
+        <Card className="col-span-3">
+          {statusBreakdownResult.success ? (
+            <QuotationStatusChart breakdown={statusBreakdownResult.breakdown} />
+          ) : (
+            <>
+              <CardHeader>
+                <CardTitle className="text-base font-semibold">Quotation Status</CardTitle>
+                <CardDescription className="text-sm">Distribution of quotations by status</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[200px] flex items-center justify-center text-sm text-destructive">
+                  {statusBreakdownResult.error || "Failed to load status breakdown"}
+                </div>
+              </CardContent>
+            </>
           )}
-        </div>
-      )}
+        </Card>
+      </div>
 
       {/* Recent Items and Activity */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        {stats?.permissions.canAccessItems && items.length > 0 && (
-          <Card className="col-span-3">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base font-semibold">Recent Items</CardTitle>
-                  <CardDescription className="text-sm">Latest items added to catalog</CardDescription>
-                </div>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/dashboard/items">View All</Link>
-                </Button>
+        <Card className="col-span-3">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold">Recent Items</CardTitle>
+                <CardDescription className="text-sm">Latest items added to catalog</CardDescription>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {items.map((item) => (
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/dashboard/items">View All</Link>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {recentItemsResult.success && recentItemsResult.items.length > 0 ? (
+              <div className="h-[400px] overflow-y-auto space-y-3 pr-2">
+                {recentItemsResult.items.map((item) => (
                   <div
                     key={item.id}
                     className="flex items-center justify-between p-3 rounded-lg border"
@@ -178,13 +163,27 @@ export default async function DashboardPage() {
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            ) : recentItemsResult.success ? (
+              <div className="h-[400px] flex items-center justify-center">
+                <div className="rounded-lg border p-8 text-center">
+                  <p className="text-sm text-muted-foreground">No items found</p>
+                </div>
+              </div>
+            ) : (
+              <div className="h-[400px] flex items-center justify-center">
+                <div className="rounded-lg border p-8 text-center">
+                  <p className="text-sm text-destructive">
+                    {recentItemsResult.error || "Failed to load recent items"}
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        <Card className={stats?.permissions.canAccessItems && items.length > 0 ? "col-span-4" : "col-span-full"}>
-          {activities.length > 0 ? (
-            <RecentActivity activities={activities} />
+        <Card className="col-span-4">
+          {activityResult.success ? (
+            <RecentActivity activities={activityResult.activities} />
           ) : (
             <>
               <CardHeader>
@@ -192,8 +191,8 @@ export default async function DashboardPage() {
                 <CardDescription className="text-sm">System activity and user actions</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
-                  No recent activity
+                <div className="h-[200px] flex items-center justify-center text-sm text-destructive">
+                  {activityResult.error || "Failed to load recent activity"}
                 </div>
               </CardContent>
             </>
@@ -202,59 +201,63 @@ export default async function DashboardPage() {
       </div>
 
       {/* Quick Actions */}
-      {(canCreateQuotation || canCreateItem || canCreateClient) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">Quick Actions</CardTitle>
-            <CardDescription className="text-sm">Quick links to create new entities</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-              {canCreateQuotation && (
-                <Button variant="outline" className="h-auto py-4 flex flex-col items-start" asChild>
-                  <Link href="/dashboard/quotations/new">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FiFileText className="h-5 w-5" />
-                      <span className="font-semibold">New Quotation</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground text-left">
-                      Create a new quotation for a client
-                    </span>
-                  </Link>
-                </Button>
-              )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">Quick Actions</CardTitle>
+          <CardDescription className="text-sm">Quick links to create new entities</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <Button variant="outline" className="h-auto py-4 flex flex-col items-start" asChild>
+              <Link href="/dashboard/quotations/new">
+                <div className="flex items-center gap-2 mb-2">
+                  <FiFileText className="h-5 w-5" />
+                  <span className="font-semibold">New Quotation</span>
+                </div>
+                <span className="text-xs text-muted-foreground text-left">
+                  Create a new quotation for a client
+                </span>
+              </Link>
+            </Button>
 
-              {canCreateItem && (
-                <Button variant="outline" className="h-auto py-4 flex flex-col items-start" asChild>
-                  <Link href="/dashboard/items/add">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FiPackage className="h-5 w-5" />
-                      <span className="font-semibold">Add Item</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground text-left">
-                      Add a new item to the catalog
-                    </span>
-                  </Link>
-                </Button>
-              )}
+            <Button variant="outline" className="h-auto py-4 flex flex-col items-start" asChild>
+              <Link href="/dashboard/items/add">
+                <div className="flex items-center gap-2 mb-2">
+                  <FiPackage className="h-5 w-5" />
+                  <span className="font-semibold">Add Item</span>
+                </div>
+                <span className="text-xs text-muted-foreground text-left">
+                  Add a new item to the catalog
+                </span>
+              </Link>
+            </Button>
 
-              {canCreateClient && (
-                <Button variant="outline" className="h-auto py-4 flex flex-col items-start" asChild>
-                  <Link href="/dashboard/clients/add">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FiUsers className="h-5 w-5" />
-                      <span className="font-semibold">Add Client</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground text-left">
-                      Add a new client to the system
-                    </span>
-                  </Link>
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            <Button variant="outline" className="h-auto py-4 flex flex-col items-start" asChild>
+              <Link href="/dashboard/clients/add">
+                <div className="flex items-center gap-2 mb-2">
+                  <FiUsers className="h-5 w-5" />
+                  <span className="font-semibold">Add Client</span>
+                </div>
+                <span className="text-xs text-muted-foreground text-left">
+                  Add a new client to the system
+                </span>
+              </Link>
+            </Button>
+
+            <Button variant="outline" className="h-auto py-4 flex flex-col items-start" asChild>
+              <Link href="/dashboard/suppliers/add">
+                <div className="flex items-center gap-2 mb-2">
+                  <FiShoppingCart className="h-5 w-5" />
+                  <span className="font-semibold">Add Supplier</span>
+                </div>
+                <span className="text-xs text-muted-foreground text-left">
+                  Add a new supplier to the system
+                </span>
+              </Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

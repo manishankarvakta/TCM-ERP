@@ -43,22 +43,16 @@ export async function createActivity(input: {
         ownerId: session.user.id,
       },
       include: {
-        // @ts-ignore
         Contact: true,
-        // @ts-ignore
         Opportunity: true,
-        // @ts-ignore
         Lead: true,
       }
     });
 
     const mappedActivity = {
       ...activity,
-      // @ts-ignore
       contact: activity.Contact,
-      // @ts-ignore
       opportunity: activity.Opportunity,
-      // @ts-ignore
       lead: activity.Lead,
       Contact: undefined,
       Opportunity: undefined,
@@ -181,7 +175,7 @@ export async function listActivitiesByContact(contactId: string) {
       include: {
         // @ts-ignore
         Opportunity: true,
-        owner: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -223,7 +217,7 @@ export async function listActivitiesByLead(leadId: string) {
       where: { leadId },
       orderBy: { createdAt: "desc" },
       include: {
-        owner: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -260,7 +254,7 @@ export async function listActivitiesByOpportunity(opportunityId: string) {
       include: {
         // @ts-ignore
         Contact: true,
-        owner: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -307,13 +301,10 @@ export async function getActivities(page: number = 1, limit: number = 20) {
         take: limit,
         orderBy: { createdAt: "desc" },
         include: {
-          // @ts-ignore
           Contact: { select: { firstName: true, lastName: true, email: true } },
-          // @ts-ignore
           Opportunity: { select: { title: true } },
-          // @ts-ignore
           Lead: { select: { name: true } },
-          owner: {
+          User: {
             select: {
               id: true,
               name: true,
@@ -329,16 +320,11 @@ export async function getActivities(page: number = 1, limit: number = 20) {
       dueDate: a.dueDate ? a.dueDate.toISOString() : null,
       createdAt: a.createdAt.toISOString(),
       updatedAt: a.updatedAt.toISOString(),
-      // @ts-ignore
       contact: a.Contact ? {
-        // @ts-ignore
         ...a.Contact,
-        // @ts-ignore
         name: `${a.Contact.firstName} ${a.Contact.lastName}`.trim()
       } : null,
-      // @ts-ignore
       opportunity: a.Opportunity,
-      // @ts-ignore
       lead: a.Lead,
       Contact: undefined,
       Opportunity: undefined,

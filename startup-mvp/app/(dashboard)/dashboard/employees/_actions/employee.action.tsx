@@ -1067,7 +1067,8 @@ export async function updateEmployee(input: {
     // Revalidate employees page
     revalidateBothPaths("employees");
     revalidatePath(`/dashboard/employees/${employee.id}`);
-    revalidatePath(`/admin/employees/${employee.id}`);
+    revalidatePath(`/dashboard/employees/${employee.id}`);
+    revalidatePath(`/dashboard/employees/details?id=${employee.id}`);
 
     return {
       success: true,

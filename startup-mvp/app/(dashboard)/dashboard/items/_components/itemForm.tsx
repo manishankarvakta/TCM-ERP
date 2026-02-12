@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -20,7 +20,6 @@ import { MultiSelect, type MultiSelectOption } from "@/components/ui/multi-selec
 import { FiAlertCircle, FiSearch } from "react-icons/fi";
 import { createItem, updateItem, getActiveUnits, getActiveCategories } from "../_actions/item.action";
 import MediaSelector from "@/components/MediaSelector";
-import { getBasePathFromPathname } from "@/lib/route-utils-client";
 
 const itemFormSchema = z.object({
   code: z.string().min(1, "Code is required"),
@@ -72,7 +71,6 @@ interface Category {
 
 export default function ItemForm({ mode, initialData }: ItemFormProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -167,8 +165,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           throw new Error(result.error || "Failed to create item");
         }
 
-        const basePath = getBasePathFromPathname(pathname);
-        router.push(`${basePath}/items`);
+        router.push("/dashboard/items");
       } else {
         const result = await updateItem({
           id: initialData!.id,
@@ -186,8 +183,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           throw new Error(result.error || "Failed to update item");
         }
 
-        const basePath = getBasePathFromPathname(pathname);
-        router.push(`${basePath}/items`);
+        router.push("/dashboard/items");
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");
@@ -201,10 +197,10 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
       <Card>
         <CardHeader>
           <CardTitle>
-            {mode === "create" ? "Add New Service" : "Edit Service"}
+            {mode === "create" ? "Add New Item" : "Edit Item"}
           </CardTitle>
           <CardDescription>
-            {mode === "create" ? "Enter service details to create a new service" : "Update service information"}
+            {mode === "create" ? "Enter item details to create a new item" : "Update item information"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -223,7 +219,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                 <Input
                   id="code"
                   type="text"
-                  placeholder="SVC-001"
+                  placeholder="ITEM-001"
                   {...register("code")}
                   disabled={loading}
                 />
@@ -233,11 +229,11 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Service Name</Label>
+                <Label htmlFor="description">Description</Label>
                 <Input
                   id="description"
                   type="text"
-                  placeholder="Service description"
+                  placeholder="Item description"
                   {...register("description")}
                   disabled={loading}
                 />
@@ -414,7 +410,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
 
               <div className="flex items-center gap-3 pt-4">
                 <Button type="submit" disabled={loading || loadingUnits}>
-                  {loading ? "Saving..." : mode === "create" ? "Create Service" : "Update Service"}
+                  {loading ? "Saving..." : mode === "create" ? "Create Item" : "Update Item"}
                 </Button>
                 <Button
                   type="button"
@@ -431,7 +427,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
               <div className="lg:col-span-1 flex justify-center items-start">
                 <div className="space-y-2 text-center w-full">
                   <div className="flex justify-center items-center mb-4">
-                    <Label className="text-center">Service Photo</Label>
+                    <Label className="text-center">Item Photo</Label>
                   </div>
                   <MediaSelector
                     value={watch("image") || ""}

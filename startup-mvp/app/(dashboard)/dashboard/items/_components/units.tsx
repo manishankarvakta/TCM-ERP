@@ -23,7 +23,6 @@ import {
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiEye, FiRotateCw, FiCheck, FiCircle, FiMoreVertical } from "react-icons/fi";
 import { deleteUnit, bulkUpdateUnitStatus, deleteUnitsPermanently } from "../_actions/unit.action";
-import ProtectedAction from "@/components/permissions/protected-action";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -55,13 +54,6 @@ interface UnitsListClientProps {
   initialPagination: Pagination;
   initialSearch: string;
   isTrash?: boolean;
-  userId?: string;
-  permissions?: {
-    view: boolean;
-    edit: boolean;
-    moveToTrash: boolean;
-    deletePermanently: boolean;
-  };
 }
 
 export default function UnitsListClient({
@@ -69,8 +61,6 @@ export default function UnitsListClient({
   initialPagination,
   initialSearch,
   isTrash = false,
-  userId: providedUserId,
-  permissions,
 }: UnitsListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -469,34 +459,26 @@ export default function UnitsListClient({
                           </>
                         ) : (
                           <>
-                            <ProtectedAction
-                              permissionKey="items.units"
-                              action="edit"
-                              href={`/dashboard/items/units/${unit.id}`}
-                              userId={providedUserId || undefined}
-                              hasAccess={permissions?.edit}
-                              buttonProps={{ title: "Edit" }}
-                            />
-                            <ProtectedAction
-                              permissionKey="items.units"
-                              action="view"
-                              href={`/dashboard/items/units/details?id=${unit.id}`}
-                              userId={providedUserId || undefined}
-                              hasAccess={permissions?.view}
-                              buttonProps={{ title: "View Details" }}
-                            />
-                            <ProtectedAction
-                              permissionKey="items.units"
-                              action="move-to-trash"
+                            <Button variant="ghost" size="sm" asChild title="Edit">
+                              <Link href={`/dashboard/items/units/${unit.id}`}>
+                                <FiEdit className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild title="View Details">
+                              <Link href={`/dashboard/items/units/details?id=${unit.id}`}>
+                                <FiEye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleDelete(unit.id)}
-                              userId={providedUserId || undefined}
-                              hasAccess={permissions?.moveToTrash}
-                              buttonProps={{
-                                disabled: isPending,
-                                title: "Move to Trash",
-                                className: "text-destructive hover:text-destructive",
-                              }}
-                            />
+                              disabled={isPending}
+                              title="Move to Trash"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <FiTrash2 className="h-4 w-4" />
+                            </Button>
                           </>
                         )}
                       </div>

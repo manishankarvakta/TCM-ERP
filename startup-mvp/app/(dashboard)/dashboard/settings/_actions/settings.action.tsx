@@ -22,26 +22,26 @@ export async function getSetting(code: string, category: string, userId?: string
       };
     }
 
-    const where: Prisma.SettingsWhereInput = {
+    const where: any = {
       code,
       category,
-      isActive: true,
+      is_active: true,
     };
 
     // If userId is provided, get user-specific setting, otherwise get global setting
     if (userId !== undefined) {
-      where.userId = userId;
+      where.user_id = userId;
     } else {
       // Try to get user-specific setting first, then global
       const userSetting = await prisma.settings.findFirst({
         where: {
           code,
           category,
-          userId: session.user.id,
-          isActive: true,
+          user_id: session.user.id,
+          is_active: true,
         },
         include: {
-          user: {
+          User_settings_user_idToUser: {
             select: {
               id: true,
               name: true,
@@ -49,7 +49,7 @@ export async function getSetting(code: string, category: string, userId?: string
               image: true,
             },
           },
-          creator: {
+          User_settings_created_byToUser: {
             select: {
               id: true,
               name: true,
@@ -59,26 +59,30 @@ export async function getSetting(code: string, category: string, userId?: string
           },
         },
         orderBy: {
-          createdAt: "desc",
+          created_at: "desc",
         },
       });
 
       if (userSetting) {
         return {
           success: true,
-          setting: userSetting,
+          setting: {
+            ...userSetting,
+            user: userSetting.User_settings_user_idToUser,
+            creator: userSetting.User_settings_created_byToUser,
+          },
         };
       }
 
       // Fallback to global setting
-      where.userId = null;
-      where.isGlobal = true;
+      where.user_id = null;
+      where.is_global = true;
     }
 
     const setting = await prisma.settings.findFirst({
       where,
       include: {
-        user: {
+        User_settings_user_idToUser: {
           select: {
             id: true,
             name: true,
@@ -86,7 +90,7 @@ export async function getSetting(code: string, category: string, userId?: string
             image: true,
           },
         },
-        creator: {
+        User_settings_created_byToUser: {
           select: {
             id: true,
             name: true,
@@ -96,13 +100,17 @@ export async function getSetting(code: string, category: string, userId?: string
         },
       },
       orderBy: {
-        createdAt: "desc",
+        created_at: "desc",
       },
     });
 
     return {
       success: true,
-      setting,
+      setting: setting ? {
+        ...setting,
+        user: setting.User_settings_user_idToUser,
+        creator: setting.User_settings_created_byToUser,
+      } : null,
     };
   } catch (error) {
     console.error("getSetting error:", error);
@@ -132,25 +140,25 @@ export async function getSettingsByCategory(
       };
     }
 
-    const where: Prisma.SettingsWhereInput = {
+    const where: any = {
       category,
-      isActive: true,
+      is_active: true,
     };
 
     if (userId !== undefined) {
-      where.userId = userId;
+      where.user_id = userId;
     } else {
       // Get both user-specific and global settings
       where.OR = [
-        { userId: session.user.id },
-        { isGlobal: true, userId: null },
+        { user_id: session.user.id },
+        { is_global: true, user_id: null },
       ];
     }
 
     const settings = await prisma.settings.findMany({
       where,
       include: {
-        user: {
+        User_settings_user_idToUser: {
           select: {
             id: true,
             name: true,
@@ -158,7 +166,7 @@ export async function getSettingsByCategory(
             image: true,
           },
         },
-        creator: {
+        User_settings_created_byToUser: {
           select: {
             id: true,
             name: true,
@@ -168,13 +176,17 @@ export async function getSettingsByCategory(
         },
       },
       orderBy: {
-        displayOrder: "asc",
+        display_order: "asc",
       },
     });
 
     return {
       success: true,
-      settings,
+      settings: settings.map(s => ({
+        ...s,
+        user: s.User_settings_user_idToUser,
+        creator: s.User_settings_created_byToUser,
+      })),
     };
   } catch (error) {
     console.error("getSettingsByCategory error:", error);
@@ -228,20 +240,20 @@ export async function upsertSetting(input: {
       displayOrder: input.displayOrder ?? 0,
     });
 
-    const userId = input.userId !== undefined ? input.userId : (validated.isGlobal ? null : session.user.id);
+    const userIdValue = input.userId !== undefined ? input.userId : (validated.isGlobal ? null : session.user.id);
 
     // Check if setting already exists
-    const whereClause: Prisma.SettingsWhereInput = {
+    const whereClause: any = {
       code: validated.code,
       category: validated.category,
-      isActive: true,
+      is_active: true,
     };
 
     if (validated.isGlobal) {
-      whereClause.userId = null;
-      whereClause.isGlobal = true;
+      whereClause.user_id = null;
+      whereClause.is_global = true;
     } else {
-      whereClause.userId = userId;
+      whereClause.user_id = userIdValue;
     }
 
     const existingSetting = await prisma.settings.findFirst({
@@ -256,19 +268,20 @@ export async function upsertSetting(input: {
       const changes: string[] = [];
       if (validated.title !== existingSetting.title) changes.push("title");
       if (JSON.stringify(validated.settings) !== JSON.stringify(existingSetting.settings)) changes.push("settings");
-      if (validated.isGlobal !== existingSetting.isGlobal) changes.push("isGlobal");
-      if (validated.displayOrder !== existingSetting.displayOrder) changes.push("displayOrder");
+      if (validated.isGlobal !== existingSetting.is_global) changes.push("is_global");
+      if (validated.displayOrder !== existingSetting.display_order) changes.push("display_order");
 
       setting = await prisma.settings.update({
         where: { id: existingSetting.id },
         data: {
           title: validated.title,
           settings: validated.settings as Prisma.InputJsonValue,
-          isGlobal: validated.isGlobal,
-          displayOrder: validated.displayOrder,
+          is_global: validated.isGlobal,
+          display_order: validated.displayOrder,
+          updated_at: new Date(),
         },
         include: {
-          user: {
+          User_settings_user_idToUser: {
             select: {
               id: true,
               name: true,
@@ -276,7 +289,7 @@ export async function upsertSetting(input: {
               image: true,
             },
           },
-          creator: {
+          User_settings_created_byToUser: {
             select: {
               id: true,
               name: true,
@@ -306,17 +319,18 @@ export async function upsertSetting(input: {
       // Create new setting
       setting = await prisma.settings.create({
         data: {
+          id: `set_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           code: validated.code,
           category: validated.category,
           title: validated.title,
           settings: validated.settings as Prisma.InputJsonValue,
-          isGlobal: validated.isGlobal,
-          displayOrder: validated.displayOrder,
-          userId,
-          createdBy: session.user.id,
+          is_global: validated.isGlobal,
+          display_order: validated.displayOrder,
+          user_id: userIdValue,
+          created_by: session.user.id,
         },
         include: {
-          user: {
+          User_settings_user_idToUser: {
             select: {
               id: true,
               name: true,
@@ -324,7 +338,7 @@ export async function upsertSetting(input: {
               image: true,
             },
           },
-          creator: {
+          User_settings_created_byToUser: {
             select: {
               id: true,
               name: true,
@@ -348,12 +362,18 @@ export async function upsertSetting(input: {
       );
     }
 
+    const mappedSetting = {
+      ...setting,
+      user: setting.User_settings_user_idToUser,
+      creator: setting.User_settings_created_byToUser,
+    };
+
     // Revalidate settings page
-    revalidateBothPaths("settings");
+    revalidateBothPaths("/dashboard/settings");
 
     return {
       success: true,
-      setting,
+      setting: mappedSetting,
       isUpdate,
     };
   } catch (error) {
@@ -401,7 +421,7 @@ export async function deleteSetting(settingId: string) {
     // Soft delete
     await prisma.settings.update({
       where: { id: settingId },
-      data: { isActive: false },
+      data: { is_active: false },
     });
 
     // Log deletion
@@ -417,7 +437,7 @@ export async function deleteSetting(settingId: string) {
     );
 
     // Revalidate settings page
-    revalidateBothPaths("settings");
+    revalidateBothPaths("/dashboard/settings");
 
     return {
       success: true,
@@ -462,7 +482,7 @@ export async function deleteSettingPermanently(settingId: string) {
     });
 
     // Revalidate settings page
-    revalidateBothPaths("settings");
+    revalidateBothPaths("/dashboard/settings");
 
     return {
       success: true,

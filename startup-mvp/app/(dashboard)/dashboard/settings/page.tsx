@@ -121,7 +121,7 @@ export default function SettingsPage() {
       category: "Settings",
       items: [
         // { id: "profile" as SettingsSection, label: "Profile", icon: User, active: activeSection === "profile" },
-        { id: "organization" as SettingsSection, label: "Organization", icon: Building2, active: activeSection === "experience" },
+        { id: "organization" as SettingsSection, label: "Organization", icon: Building2, active: activeSection === "organization" },
         { id: "experience" as SettingsSection, label: "Experience", icon: Fingerprint, active: activeSection === "experience" },
         {
           id: "accounts" as SettingsSection,

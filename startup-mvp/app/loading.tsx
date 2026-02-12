@@ -10,7 +10,7 @@ export default function Loading() {
             src="/site-icon.png"
             alt="Loading"
             fill
-            className="object-contain drop-shadow-sm"
+            className="object-contain drop-shadow-sm dark:invert"
             priority
           />
         </div>

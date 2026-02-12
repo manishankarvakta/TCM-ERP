@@ -265,7 +265,7 @@ export async function createOrganization(input: {
     });
 
     // Revalidate organizations page
-    revalidateBothPaths("settings");
+    revalidateBothPaths("/dashboard/settings");
 
     return {
       success: true,
@@ -412,7 +412,7 @@ export async function updateOrganization(input: {
     });
 
     // Revalidate organizations page
-    revalidateBothPaths("settings");
+    revalidateBothPaths("/dashboard/settings");
 
     return {
       success: true,
@@ -487,7 +487,7 @@ export async function deleteOrganization(organizationId: string) {
     });
 
     // Revalidate organizations page
-    revalidateBothPaths("settings");
+    revalidateBothPaths("/dashboard/settings");
 
     return {
       success: true,
@@ -566,7 +566,7 @@ export async function bulkUpdateOrganizationStatus(
     });
 
     // Revalidate organizations page
-    revalidateBothPaths("settings");
+    revalidateBothPaths("/dashboard/settings");
 
     return {
       success: true,
@@ -646,7 +646,7 @@ export async function deleteOrganizationsPermanently(organizationIds: string[]) 
     });
 
     // Revalidate organizations page
-    revalidateBothPaths("settings");
+    revalidateBothPaths("/dashboard/settings");
     
     return {
       success: true,

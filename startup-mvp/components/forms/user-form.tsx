@@ -134,7 +134,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           throw new Error(result.error || "Failed to create user");
         }
 
-        router.push("/admin/users");
+        router.push("/dashboard/users");
       } else {
         const result = await updateUser({
           id: initialData!.id,
@@ -150,7 +150,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           throw new Error(result.error || "Failed to update user");
         }
 
-        router.push("/admin/users");
+        router.push("/dashboard/users");
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");

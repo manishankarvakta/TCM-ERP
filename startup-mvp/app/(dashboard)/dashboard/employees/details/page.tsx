@@ -7,7 +7,6 @@ import Link from "next/link";
 import { FiArrowLeft, FiEdit } from "react-icons/fi";
 import { format } from "date-fns";
 import { notFound } from "next/navigation";
-import PageGuard from "@/components/permissions/page-guard";
 
 interface EmployeeDetailsPageProps {
   searchParams: Promise<{
@@ -33,8 +32,7 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
   const employeeStatus = employee.status || "active";
 
   return (
-    <PageGuard permissionKey="peoples.employees" requiredOperation="view">
-      <div className="space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <Button variant="ghost" asChild>
           <Link href="/dashboard/employees">
@@ -184,8 +182,7 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
           <p className="text-sm text-muted-foreground">Coming soon</p>
         </CardContent>
       </Card>
-      </div>
-    </PageGuard>
+    </div>
   );
 }
 

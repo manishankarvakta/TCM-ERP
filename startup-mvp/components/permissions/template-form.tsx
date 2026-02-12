@@ -103,7 +103,7 @@ export default function TemplateForm({ template, mode }: TemplateFormProps) {
               ? "Permission template has been successfully created."
               : "Permission template has been successfully updated.",
         });
-        router.push("/admin/settings/permissions/templates");
+        router.push("/dashboard/settings/permissions/templates");
         router.refresh();
       } else {
         toast({

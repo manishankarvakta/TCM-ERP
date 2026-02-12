@@ -1,26 +1,14 @@
-import ActivityManager from "./_components/ActivityManager";
-import { auth } from "@/lib/auth";
-import { checkPermission } from "@/lib/permissions";
-import { redirect } from "next/navigation";
+import PageGuard from "@/components/permissions/page-guard";
 
-export default async function ActivitiesPage() {
-  const session = await auth();
-  if (!session?.user) return redirect("/login");
-
-  const canView = await checkPermission(session.user.id, "crm.activities", "view");
-  if (!canView) {
-    return (
+export default function AdminActivitiesPage() {
+  return (
+    <PageGuard permissionKey="crm.activities">
       <div className="p-6">
-        <div className="rounded-md bg-destructive/15 p-4 text-destructive">
-          You do not have permission to view Activities.
+        <h1 className="text-2xl font-bold mb-4">Activities (Admin)</h1>
+        <div className="p-8 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground bg-muted/50">
+          <p>Activities Module - Coming Soon</p>
         </div>
       </div>
-    );
-  }
-
-  return (
-    <div className="h-full flex flex-col">
-      <ActivityManager />
-    </div>
+    </PageGuard>
   );
 }

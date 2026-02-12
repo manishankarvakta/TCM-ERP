@@ -70,16 +70,16 @@ interface DashboardSidebarProps {
 }
 
 const menuItems: MenuItem[] = [
-  { href: "/admin", label: "Dashboard", icon: FiHome, module: "dashboard" },
+  { href: "/dashboard", label: "Dashboard", icon: FiHome, module: "dashboard" },
   {
     label: "Service Catalog",
     icon: FiArchive,
     module: "items",
     subMenu: [
-      { href: "/admin/items/groups", label: "Groups", icon: FiLayers, module: "items" },
-      { href: "/admin/items", label: "All Services", icon: FiPackage, module: "items" },
-      { href: "/admin/items/category", label: "Categories", icon: MdOutlineCategory, module: "items" },
-      { href: "/admin/items/units", label: "Units", icon: FiLayers, module: "items" },
+      { href: "/dashboard/items/groups", label: "Groups", icon: FiLayers, module: "items" },
+      { href: "/dashboard/items", label: "All Services", icon: FiPackage, module: "items" },
+      { href: "/dashboard/items/category", label: "Categories", icon: MdOutlineCategory, module: "items" },
+      { href: "/dashboard/items/units", label: "Units", icon: FiLayers, module: "items" },
     ],
   },
   {
@@ -87,10 +87,10 @@ const menuItems: MenuItem[] = [
     icon: FiUsers,
     module: "crm",
     subMenu: [
-      { href: "/admin/crm/leads", label: "Leads", icon: FiTarget, module: "crm" },
-      { href: "/admin/crm/opportunities", label: "Opportunities", icon: FiTrendingUp, module: "crm" },
-      { href: "/admin/clients", label: "Clients", icon: FiUsers, module: "peoples" },
-      { href: "/admin/crm/activities", label: "Activities", icon: FiActivity, module: "crm" },
+      { href: "/dashboard/crm/leads", label: "Leads", icon: FiTarget, module: "crm" },
+      { href: "/dashboard/crm/opportunities", label: "Opportunities", icon: FiTrendingUp, module: "crm" },
+      { href: "/dashboard/clients", label: "Clients", icon: FiUsers, module: "peoples" },
+      { href: "/dashboard/crm/activities", label: "Activities", icon: FiActivity, module: "crm" },
     ],
   },
   {
@@ -98,8 +98,8 @@ const menuItems: MenuItem[] = [
     icon: FiBriefcase,
     module: "projects",
     subMenu: [
-      { href: "/admin/projects", label: "Projects", icon: FiBriefcase, module: "projects" },
-      { href: "/admin/projects/issues", label: "Issues", icon: FiAlertCircle, module: "projects" },
+      { href: "/dashboard/projects", label: "Projects", icon: FiBriefcase, module: "projects" },
+      { href: "/dashboard/projects/issues", label: "Issues", icon: FiAlertCircle, module: "projects" },
     ],
   },
   {
@@ -107,9 +107,9 @@ const menuItems: MenuItem[] = [
     icon: FiDollarSign,
     module: "quotations",
     subMenu: [
-      { href: "/admin/quotations/orders", label: "Orders", icon: FiShoppingCart, module: "quotations" },
-      { href: "/admin/quotations", label: "Quotations", icon: FiFileText, module: "quotations" },
-      { href: "/admin/quotations/invoices", label: "Invoices", icon: FiDollarSign, module: "quotations" },
+      { href: "/dashboard/quotations/orders", label: "Orders", icon: FiShoppingCart, module: "quotations" },
+      { href: "/dashboard/quotations", label: "Quotations", icon: FiFileText, module: "quotations" },
+      { href: "/dashboard/quotations/invoices", label: "Invoices", icon: FiDollarSign, module: "quotations" },
     ],
   },
   {
@@ -117,13 +117,13 @@ const menuItems: MenuItem[] = [
     icon: FiUsers,
     module: "peoples",
     subMenu: [
-      { href: "/admin/users", label: "Users", icon: FiUser, module: "peoples" },
-      { href: "/admin/contacts", label: "Contacts", icon: FiUser, module: "peoples" },
-      { href: "/admin/suppliers", label: "Suppliers", icon: FiUser, module: "peoples" },
-      { href: "/admin/employees", label: "Employees", icon: FiUser, module: "peoples" },
+      { href: "/dashboard/users", label: "Users", icon: FiUser, module: "peoples" },
+      { href: "/dashboard/contacts", label: "Contacts", icon: FiUser, module: "peoples" },
+      { href: "/dashboard/suppliers", label: "Suppliers", icon: FiUser, module: "peoples" },
+      { href: "/dashboard/employees", label: "Employees", icon: FiUser, module: "peoples" },
     ],
   },
-  { href: "/admin/purchases", label: "Purchases", icon: FiShoppingCart, module: "purchases" },
+  { href: "/dashboard/purchases", label: "Purchases", icon: FiShoppingCart, module: "purchases" },
   {
     label: "Accounts",
     icon: SlCalculator,
@@ -132,40 +132,40 @@ const menuItems: MenuItem[] = [
       {
         label: "Setup",
         items: [
-          { href: "/admin/accounts/chart-of-accounts", label: "Chart of Accounts", icon: FiBarChart, module: "accounts" },
-          { href: "/admin/accounts/cash-bank", label: "Cash & Bank", icon: FiCreditCard, module: "accounts" },
+          { href: "/dashboard/accounts/chart-of-accounts", label: "Chart of Accounts", icon: FiBarChart, module: "accounts" },
+          { href: "/dashboard/accounts/cash-bank", label: "Cash & Bank", icon: FiCreditCard, module: "accounts" },
         ],
       },
       {
         label: "Transactions",
         items: [
-          { href: "/admin/accounts/vouchers", label: "Vouchers", icon: FiFile, module: "accounts" },
+          { href: "/dashboard/accounts/vouchers", label: "Vouchers", icon: FiFile, module: "accounts" },
         ],
       },
       {
         label: "Ledgers",
         items: [
-          { href: "/admin/accounts/ledgers", label: "Account Ledger", icon: FiBook, module: "accounts" },
+          { href: "/dashboard/accounts/ledgers", label: "Account Ledger", icon: FiBook, module: "accounts" },
         ],
       },
       {
         label: "Reports",
         items: [
-          { href: "/admin/accounts/trial-balance", label: "Trial Balance", icon: FiActivity, module: "accounts" },
-          { href: "/admin/accounts/balance-sheet", label: "Balance Sheet", icon: FiFileText, module: "accounts" },
-          { href: "/admin/accounts/profit-loss", label: "Profit & Loss", icon: FiTrendingUp, module: "accounts" },
+          { href: "/dashboard/accounts/trial-balance", label: "Trial Balance", icon: FiActivity, module: "accounts" },
+          { href: "/dashboard/accounts/balance-sheet", label: "Balance Sheet", icon: FiFileText, module: "accounts" },
+          { href: "/dashboard/accounts/profit-loss", label: "Profit & Loss", icon: FiTrendingUp, module: "accounts" },
         ],
       },
       {
         label: "Receivables",
         items: [
-          { href: "/admin/accounts/accounts-receivable", label: "Accounts Receivable", icon: FiArrowDownRight, module: "accounts" },
+          { href: "/dashboard/accounts/accounts-receivable", label: "Accounts Receivable", icon: FiArrowDownRight, module: "accounts" },
         ],
       },
       {
         label: "Payables",
         items: [
-          { href: "/admin/accounts/accounts-payable", label: "Accounts Payable", icon: FiArrowUpRight, module: "accounts" },
+          { href: "/dashboard/accounts/accounts-payable", label: "Accounts Payable", icon: FiArrowUpRight, module: "accounts" },
         ],
       },
     ],
@@ -175,30 +175,30 @@ const menuItems: MenuItem[] = [
     icon: FiSettings,
     module: "system" as any, 
     subMenu: [
-        { href: "/admin/files", label: "Files", icon: FiFolder, module: "files" },
-        { href: "/admin/notifications", label: "Notifications", icon: FiBell, module: "notifications" },
+        { href: "/dashboard/files", label: "Files", icon: FiFolder, module: "files" },
+        { href: "/dashboard/notifications", label: "Notifications", icon: FiBell, module: "notifications" },
     ]
   },
 ];
 
 const bottomMenuItems = [
-  { href: "/admin/profile", label: "Profile", icon: FiUser },
-  { href: "/admin/settings", label: "Settings", icon: FiSettings },
+  { href: "/dashboard/profile", label: "Profile", icon: FiUser },
+  { href: "/dashboard/settings", label: "Settings", icon: FiSettings },
 ];
 
 // Map menu items to navigation IDs
 function getNavigationIdForMenuItem(item: MenuItem): string | null {
   // Map menu items to navigation structure IDs
   const navMap: Record<string, string> = {
-    "/admin": "dashboard",
+    "/dashboard": "dashboard",
     "items": "items",
     "quotations": "quotations",
     "accounts": "accounts",
     "peoples": "peoples",
-    "/admin/files": "files",
-    "/admin/notifications": "notifications",
-    // "/admin/analytics": "analytics",
-    // "/admin/reports": "reports",
+    "/dashboard/files": "files",
+    "/dashboard/notifications": "notifications",
+    // "/dashboard/analytics": "analytics",
+    // "/dashboard/reports": "reports",
   };
   
   if (item.href) {
@@ -224,7 +224,7 @@ function getPermissionKeyFromPath(path: string): string | null {
       if (pagePath === normalizedPath) {
         return page.permissionKey;
       }
-      // Check if path starts with page path (for nested routes like /admin/items/add)
+      // Check if path starts with page path (for nested routes like /dashboard/items/add)
       if (normalizedPath.startsWith(pagePath + "/")) {
         return page.permissionKey;
       }
@@ -232,9 +232,9 @@ function getPermissionKeyFromPath(path: string): string | null {
   }
   
   // Fallback: try to extract from path structure
-  // e.g., "/admin/items/groups" -> "items.groups"
-  if (normalizedPath.startsWith("/admin/")) {
-    const pathWithoutAdmin = normalizedPath.replace("/admin/", "");
+  // e.g., "/dashboard/items/groups" -> "items.groups"
+  if (normalizedPath.startsWith("/dashboard/")) {
+    const pathWithoutAdmin = normalizedPath.replace("/dashboard/", "");
     const pathParts = pathWithoutAdmin.split("/").filter(Boolean);
     
     if (pathParts.length >= 2) {
@@ -264,7 +264,7 @@ function getPermissionKeyFromPath(path: string): string | null {
         }
       }
     }
-  } else if (normalizedPath === "/admin" || normalizedPath === "/admin/") {
+  } else if (normalizedPath === "/dashboard" || normalizedPath === "/dashboard/") {
     return "dashboard";
   }
   
@@ -305,7 +305,7 @@ export default function DashboardSidebar({
     
     // Bottom menu: only show Profile (hide Settings)
     filteredBottomMenuItems = bottomMenuItems.filter(
-      (item) => item.href === "/admin/profile"
+      (item) => item.href === "/dashboard/profile"
     );
   } else {
     // User has permissions - use normal filtering
@@ -570,7 +570,7 @@ export default function DashboardSidebar({
                     {item.subMenu.map((subItem) => {
                       const SubIcon = subItem.icon;
                       // Only exact match for sub-menu items to avoid false positives
-                      // e.g., /admin/items should not be active when on /admin/items/units
+                      // e.g., /dashboard/items should not be active when on /dashboard/items/units
                       const isActive = pathname === subItem.href;
                       return (
                         <Link
@@ -660,7 +660,7 @@ export default function DashboardSidebar({
           // For exact match or check if pathname starts with href
           // Special handling for /admin to only match exactly
           const isActive = pathname === item.href || 
-            (item.href !== "/admin" && pathname?.startsWith(item.href + "/"));
+            (item.href !== "/dashboard" && pathname?.startsWith(item.href + "/"));
           return (
             <Link
               key={item.href}

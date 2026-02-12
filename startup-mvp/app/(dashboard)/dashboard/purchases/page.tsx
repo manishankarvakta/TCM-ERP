@@ -5,8 +5,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import PurchasesListClient from "./_components/purchases";
-import { auth } from "@/lib/auth";
-import { hasPermission } from "@/lib/permissions";
 
 interface PurchasesPageProps {
   searchParams: Promise<{
@@ -22,18 +20,8 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
   const search = params.search || "";
   const tab = params.tab || "all";
 
-  const session = await auth();
-  const userId = session?.user?.id;
-
   const status = tab === "trash" ? "trash" : "all";
-
-  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
-    getPurchases(page, 10, search, status),
-    userId ? hasPermission(userId, "purchases.purchases", "view") : false,
-    userId ? hasPermission(userId, "purchases.purchases", "edit") : false,
-    userId ? hasPermission(userId, "purchases.purchases", "move-to-trash") : false,
-    userId ? hasPermission(userId, "purchases.purchases", "delete-permanently") : false,
-  ]);
+  const result = await getPurchases(page, 10, search, status);
 
   if (!result.success) {
     return (
@@ -92,13 +80,6 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
             }
             initialSearch={search}
             isTrash={false}
-            userId={userId || undefined}
-            permissions={{
-              view: canView,
-              edit: canEdit,
-              moveToTrash: canMoveToTrash,
-              deletePermanently: canDeletePermanently,
-            }}
           />
         </TabsContent>
         <TabsContent value="trash" className="mt-4">
@@ -114,13 +95,6 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
             }
             initialSearch={search}
             isTrash={true}
-            userId={userId || undefined}
-            permissions={{
-              view: canView,
-              edit: canEdit,
-              moveToTrash: canMoveToTrash,
-              deletePermanently: canDeletePermanently,
-            }}
           />
         </TabsContent>
       </Tabs>

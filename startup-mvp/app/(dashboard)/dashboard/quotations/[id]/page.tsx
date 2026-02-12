@@ -6,7 +6,7 @@ import { FiArrowLeft } from 'react-icons/fi';
 import { formatDate, formatCurrency } from '@/lib/utils/formatters';
 import { notFound } from 'next/navigation';
 import DownloadPDFButton from './_components/DownloadPDFButton';
-import QuotationActionButtons from './_components/QuotationActionButtons';
+import QuotationActionButtons from '@/app/(dashboard)/dashboard/quotations/[id]/_components/QuotationActionButtons';
 import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/permissions';
 
@@ -47,7 +47,7 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
             </Button>
           </Link>
           <div className="flex gap-2">
-            <QuotationActionButtons quotationId={id} status={quotation.status} canApprove={canApprove} />
+            <QuotationActionButtons quotationId={id} status={quotation.status} basePath="/dashboard/quotations" canApprove={canApprove} />
             <DownloadPDFButton quotation={quotation as Record<string, unknown>} />
           </div>
         </div>

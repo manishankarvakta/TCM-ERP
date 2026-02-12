@@ -83,7 +83,6 @@ export async function getLeadById(id: string) {
     const lead = await prisma.lead.findUnique({
       where: { id },
       include: {
-        // @ts-ignore
         User: { select: { id: true, name: true, email: true, image: true } },
       }
     });
@@ -94,7 +93,6 @@ export async function getLeadById(id: string) {
       success: true,
       lead: {
         ...lead,
-        // @ts-ignore
         owner: lead.User,
         User: undefined,
       },
@@ -118,6 +116,7 @@ export async function createLead(input: {
   company?: string;
   source?: string;
   ownerId?: string;
+  notes?: string;
 }) {
   try {
     const session = await auth();
@@ -134,14 +133,29 @@ export async function createLead(input: {
       return { success: false, error: "Either Email or Phone is required for a Lead" };
     }
 
-    const ownerId = input.ownerId || session.user.id;
+    // Destructure to separate lead data from extra info like notes
+    const { notes, ownerId: providedOwnerId, ...leadData } = input;
+    const ownerId = providedOwnerId || session.user.id;
 
     const lead = await prisma.lead.create({
       data: {
-        ...input,
+        ...leadData,
         ownerId,
       },
     });
+
+    // If notes are provided, create an initial activity for this lead
+    if (notes) {
+      await prisma.activity.create({
+        data: {
+          type: "Note",
+          subject: "Initial Lead Note",
+          description: notes,
+          leadId: lead.id,
+          ownerId: session.user.id,
+        },
+      });
+    }
 
     await logItemCreated(session.user.id, "Lead", lead.id, lead.name, lead);
     revalidateBothPaths("crm/leads");

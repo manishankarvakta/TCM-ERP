@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -19,7 +19,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle } from "react-icons/fi";
 import { createCategory, updateCategory } from "../_actions/category.action";
-import { getBasePathFromPathname } from "@/lib/route-utils-client";
 
 const categoryFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -41,7 +40,6 @@ interface CategoryFormProps {
 
 export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
@@ -83,8 +81,7 @@ export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
           throw new Error(result.error || "Failed to create category");
         }
 
-        const basePath = getBasePathFromPathname(pathname);
-        router.push(`${basePath}/items/category`);
+        router.push("/dashboard/items/category");
       } else {
         const result = await updateCategory({
           id: initialData!.id,
@@ -97,8 +94,7 @@ export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
           throw new Error(result.error || "Failed to update category");
         }
 
-        const basePath = getBasePathFromPathname(pathname);
-        router.push(`${basePath}/items/category`);
+        router.push("/dashboard/items/category");
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");
@@ -112,10 +108,10 @@ export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
       <Card>
         <CardHeader>
           <CardTitle>
-            {mode === "create" ? "Add New Service Category" : "Edit Service Category"}
+            {mode === "create" ? "Add New Category" : "Edit Category"}
           </CardTitle>
           <CardDescription>
-            {mode === "create" ? "Enter service category details to create a new category" : "Update service category information"}
+            {mode === "create" ? "Enter category details to create a new category" : "Update category information"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -129,7 +125,7 @@ export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="name">Service Category Name</Label>
+                <Label htmlFor="name">Category Name</Label>
                 <Input
                   id="name"
                   type="text"
@@ -184,7 +180,7 @@ export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
 
               <div className="flex items-center gap-3 pt-4">
                 <Button type="submit" disabled={loading}>
-                  {loading ? "Saving..." : mode === "create" ? "Create Service Category" : "Update Service Category"}
+                  {loading ? "Saving..." : mode === "create" ? "Create Category" : "Update Category"}
                 </Button>
                 <Button
                   type="button"

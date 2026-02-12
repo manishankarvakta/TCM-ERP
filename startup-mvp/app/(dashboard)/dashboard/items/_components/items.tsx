@@ -30,7 +30,6 @@ import {
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw } from "react-icons/fi";
 import { deleteItem, bulkUpdateItemStatus, deleteItemsPermanently } from "../_actions/item.action";
-import ProtectedAction from "@/components/permissions/protected-action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -90,13 +89,6 @@ interface ItemsListClientProps {
   initialCategory?: string;
   categories?: Category[];
   isTrash?: boolean;
-  userId?: string;
-  permissions?: {
-    view: boolean;
-    edit: boolean;
-    moveToTrash: boolean;
-    deletePermanently: boolean;
-  };
 }
 
 export default function ItemsListClient({
@@ -106,8 +98,6 @@ export default function ItemsListClient({
   initialCategory = "all",
   categories = [],
   isTrash = false,
-  userId: providedUserId,
-  permissions,
 }: ItemsListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -288,7 +278,7 @@ export default function ItemsListClient({
         <div className="relative flex-1 max-w-sm">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by code, name, or category..."
+            placeholder="Search by code, description, or category..."
             value={search}
             onChange={(e) => handleSearch(e.target.value)}
             className="pl-10"
@@ -401,7 +391,7 @@ export default function ItemsListClient({
               </TableHead>
               <TableHead>Image</TableHead>
               <TableHead className="whitespace-nowrap">Code</TableHead>
-              <TableHead className="w-[240px] sm:w-[320px] lg:w-[420px]">Service Name</TableHead>
+              <TableHead className="w-[240px] sm:w-[320px] lg:w-[420px]">Description</TableHead>
               <TableHead>Unit</TableHead>
               <TableHead>Unit Price</TableHead>
               <TableHead>Cost Price</TableHead>
@@ -415,7 +405,7 @@ export default function ItemsListClient({
             {initialItems.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
-                  {isTrash ? "No trashed services found" : "No services found"}
+                  {isTrash ? "No trashed items found" : "No items found"}
                 </TableCell>
               </TableRow>
             ) : (
@@ -494,20 +484,16 @@ export default function ItemsListClient({
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
-                            <ProtectedAction
-                              permissionKey="items.items"
-                              action="view"
-                              href={`/dashboard/items/details?id=${item.id}`}
-                              userId={providedUserId || undefined}
-                              hasAccess={permissions?.view}
-                            />
-                            <ProtectedAction
-                              permissionKey="items.items"
-                              action="edit"
-                              href={`/dashboard/items/${item.id}`}
-                              userId={providedUserId || undefined}
-                              hasAccess={permissions?.edit}
-                            />
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/dashboard/items/details?id=${item.id}`}>
+                                <FiEye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/dashboard/items/${item.id}`}>
+                                <FiEdit className="h-4 w-4" />
+                              </Link>
+                            </Button>
                           </>
                         )}
                         {isTrash && (
@@ -522,18 +508,16 @@ export default function ItemsListClient({
                             <FiRotateCw className="h-4 w-4" />
                           </Button>
                         )}
-                        <ProtectedAction
-                          permissionKey="items.items"
-                          action={isTrash ? "delete-permanently" : "move-to-trash"}
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setDeleteItemId(item.id)}
-                          userId={providedUserId || undefined}
-                          hasAccess={isTrash ? permissions?.deletePermanently : permissions?.moveToTrash}
-                          buttonProps={{
-                            disabled: isPending,
-                            className: "text-destructive hover:text-destructive",
-                            title: isTrash ? "Delete permanently" : "Move to trash",
-                          }}
-                        />
+                          className="text-destructive hover:text-destructive"
+                          title={isTrash ? "Delete permanently" : "Move to trash"}
+                          disabled={isPending}
+                        >
+                          <FiTrash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -612,9 +596,9 @@ export default function ItemsListClient({
       <AlertDialog open={!!restoreItemId} onOpenChange={() => setRestoreItemId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Restore Service</AlertDialogTitle>
+            <AlertDialogTitle>Restore Item</AlertDialogTitle>
             <AlertDialogDescription>
-              This will restore the service and make it active again. You can use it normally after restoration.
+              This will restore the item and make it active again. You can use it normally after restoration.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -624,7 +608,7 @@ export default function ItemsListClient({
               disabled={isPending}
               className="bg-green-600 text-white hover:bg-green-700"
             >
-              {isPending ? "Restoring..." : "Restore Service"}
+              {isPending ? "Restoring..." : "Restore Item"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -635,12 +619,12 @@ export default function ItemsListClient({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {isTrash ? "Delete Service Permanently" : "Move Service to Trash"}
+              {isTrash ? "Delete Item Permanently" : "Move Item to Trash"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {isTrash
-                ? "This action cannot be undone. This will permanently delete the service and all associated data."
-                : "This will move the service to trash. You can restore it later from the Trash tab."}
+                ? "This action cannot be undone. This will permanently delete the item and all associated data."
+                : "This will move the item to trash. You can restore it later from the Trash tab."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

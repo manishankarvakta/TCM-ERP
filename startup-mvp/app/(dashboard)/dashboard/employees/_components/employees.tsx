@@ -410,7 +410,6 @@ export default function EmployeesListClient({
                               href={`/dashboard/employees/${employee.id}`}
                               userId={providedUserId || undefined}
                               hasAccess={permissions?.edit}
-                              buttonProps={{ title: "Edit Employee" }}
                             />
                             <ProtectedAction
                               permissionKey="peoples.employees"
@@ -418,7 +417,6 @@ export default function EmployeesListClient({
                               href={`/dashboard/employees/details?id=${employee.id}`}
                               userId={providedUserId || undefined}
                               hasAccess={permissions?.view}
-                              buttonProps={{ title: "View Details" }}
                             />
                           </>
                         )}

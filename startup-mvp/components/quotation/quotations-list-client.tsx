@@ -91,7 +91,7 @@ export default function QuotationsListClient({
   const pathname = usePathname();
   
   // Determine base path based on current route
-  const basePath = pathname?.startsWith("/admin") ? "/admin" : "/dashboard";
+  const basePath = pathname?.startsWith("/dashboard") ? "/dashboard" : "/dashboard";
   
   const [search, setSearch] = useState(initialSearch);
   const [deleteQuotationId, setDeleteQuotationId] = useState<string | null>(null);

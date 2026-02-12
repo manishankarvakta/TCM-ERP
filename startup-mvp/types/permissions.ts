@@ -12,6 +12,9 @@ export type Module =
   | "peoples"
   | "files"
   | "notifications"
+  | "tasks"
+  | "notes"
+  | "docs"
   | "work-orders";
 
 // Basic operations
@@ -209,6 +212,21 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     id: "notifications",
     label: "Notifications",
     description: "System notifications",
+  },
+  tasks: {
+    id: "tasks",
+    label: "Tasks",
+    description: "Manage system tasks",
+  },
+  notes: {
+    id: "notes",
+    label: "Notes",
+    description: "Manage system notes",
+  },
+  docs: {
+    id: "docs",
+    label: "Docs",
+    description: "Manage system documents",
   },
   "work-orders": {
     id: "work-orders",
@@ -676,6 +694,42 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
   //     },
   //   ],
   // },
+  {
+    id: "tasks",
+    label: "Tasks",
+    pages: [
+      {
+        permissionKey: "tasks",
+        path: "/dashboard/tasks",
+        label: "Tasks",
+        operations: ["create", "view", "edit", "delete-permanently"],
+      },
+    ],
+  },
+  {
+    id: "notes",
+    label: "Notes",
+    pages: [
+      {
+        permissionKey: "notes",
+        path: "/dashboard/notes",
+        label: "Notes",
+        operations: ["create", "view", "edit", "delete-permanently"],
+      },
+    ],
+  },
+  {
+    id: "docs",
+    label: "Docs",
+    pages: [
+      {
+        permissionKey: "docs",
+        path: "/dashboard/docs",
+        label: "Docs",
+        operations: ["create", "view", "edit", "delete-permanently"],
+      },
+    ],
+  },
   {
     id: "work-orders",
     label: "Work Orders",

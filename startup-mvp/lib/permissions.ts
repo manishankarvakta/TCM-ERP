@@ -51,9 +51,9 @@ export async function getUserPermissions(
         // Store the operations (empty array is valid - means no permissions for this key)
         mergedPermissions[permissionKey] = operations;
       }
-    } else if (user.designationTemplate?.permissions) {
+    } else if (user.PermissionTemplate?.permissions) {
       // If no UserPermission records, fall back to template permissions
-      const templatePerms = user.designationTemplate
+      const templatePerms = user.PermissionTemplate
         .permissions as PartialPermissions;
       mergedPermissions = { ...templatePerms };
     }

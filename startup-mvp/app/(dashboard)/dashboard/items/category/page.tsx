@@ -5,8 +5,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import CategoriesListClient from "./_components/categories";
-import { auth } from "@/lib/auth";
-import { hasPermission } from "@/lib/permissions";
 
 interface CategoriesPageProps {
   searchParams: Promise<{
@@ -22,17 +20,8 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
   const search = params.search || "";
   const tab = params.tab || "all";
 
-  const session = await auth();
-  const userId = session?.user?.id;
-
-  // Check permissions on server side for better performance
-  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
-    getCategories(page, 10, search, tab === "trash" ? "trash" : "all"),
-    userId ? hasPermission(userId, "items.category", "view") : false,
-    userId ? hasPermission(userId, "items.category", "edit") : false,
-    userId ? hasPermission(userId, "items.category", "move-to-trash") : false,
-    userId ? hasPermission(userId, "items.category", "delete-permanently") : false,
-  ]);
+  const status = tab === "trash" ? "trash" : "all";
+  const result = await getCategories(page, 10, search, status);
 
   // Handle errors
   if (!result.success) {
@@ -41,7 +30,7 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold">Categories</h1>
-            <p className="text-sm text-muted-foreground">Manage service categories in your system</p>
+            <p className="text-sm text-muted-foreground">Manage categories in your system</p>
           </div>
         </div>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -58,13 +47,13 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Categories</h1>
-          <p className="text-sm text-muted-foreground">Manage service categories in your system</p>
+          <p className="text-sm text-muted-foreground">Manage categories in your system</p>
         </div>
         {tab !== "trash" && (
           <Button asChild>
             <Link href="/dashboard/items/category/add">
               <FiPlus className="mr-2 h-4 w-4" />
-              Add Service Category
+              Add Category
             </Link>
           </Button>
         )}
@@ -90,13 +79,6 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
             }}
             initialSearch={search}
             isTrash={false}
-            userId={userId || undefined}
-            permissions={{
-              view: canView,
-              edit: canEdit,
-              moveToTrash: canMoveToTrash,
-              deletePermanently: canDeletePermanently,
-            }}
           />
         </TabsContent>
         <TabsContent value="trash" className="mt-4">
@@ -110,13 +92,6 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
             }}
             initialSearch={search}
             isTrash={true}
-            userId={userId || undefined}
-            permissions={{
-              view: canView,
-              edit: canEdit,
-              moveToTrash: canMoveToTrash,
-              deletePermanently: canDeletePermanently,
-            }}
           />
         </TabsContent>
       </Tabs>
