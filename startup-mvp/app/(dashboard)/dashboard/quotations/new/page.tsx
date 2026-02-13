@@ -1,3 +1,4 @@
+"use client";
 import { QuotationFormV3 } from '@/components/quotation/QuotationFormV3';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { useRouter, useSearchParams } from 'next/navigation';

@@ -62,6 +62,8 @@ function buildStorageKey(userId: string, path: string, filename: string): string
   return `${userId}/${normalizedFilename}`;
 }
 
+import { getSetting } from "@/app/(dashboard)/dashboard/settings/_actions/settings.action";
+
 /**
  * Upload file directly via server (no presigned URLs)
  * This allows MinIO to remain internal-only like PostgreSQL
@@ -76,6 +78,35 @@ export async function uploadFileServerSide(input: {
   try {
     const user = await getAuthenticatedUser();
     const { path, name, fileData, contentType, size } = input;
+
+    // Fetch system settings for validation
+    const systemSettings = await getSetting("system", "general");
+    
+    // Validate File Size
+    if (systemSettings.success && systemSettings.setting?.settings) {
+      const settings = systemSettings.setting.settings as Record<string, any>;
+      const maxFileSizeMB = Number(settings.fileSizeLimit) || 50; // Default 50MB
+      const maxFileSizeBytes = maxFileSizeMB * 1024 * 1024;
+      
+      if (size > maxFileSizeBytes) {
+        throw new Error(`File size exceeds the limit of ${maxFileSizeMB}MB`);
+      }
+
+      // Validate File Type
+      const supportedExtensions = (settings.supportedFileTypes as string || "")
+        .split(",")
+        .map((ext: string) => ext.trim().toLowerCase())
+        .filter(Boolean);
+
+      if (supportedExtensions.length > 0) {
+        const fileExtension = name.split(".").pop()?.toLowerCase();
+        // Check if extension exists and is in the allowed list
+        // We also check against contentType for extra safety if needed, but extension is standard for user-facing validation
+        if (!fileExtension || !supportedExtensions.includes(fileExtension)) {
+             throw new Error(`File type .${fileExtension} is not supported. Allowed: ${supportedExtensions.join(", ")}`);
+        }
+      }
+    }
 
     // Build storage key
     const storageKey = buildStorageKey(user.id, path, name);
@@ -304,6 +335,8 @@ export async function listFolder(input: {
     const prefix = normalizedPath ? `${user.id}/${normalizedPath}/` : `${user.id}/`;
 
     // Get files from database that match the path
+    console.log(`[listFolder] User: ${user.id}, Path: "${normalizedPath || "/"}"`);
+    
     const files = await prisma.file.findMany({
       where: {
         ownerId: user.id,
@@ -319,7 +352,7 @@ export async function listFolder(input: {
         isFolder: true,
         createdAt: true,
         updatedAt: true,
-        owner: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -335,8 +368,12 @@ export async function listFolder(input: {
     });
 
     // Normalize storageKey nulls to undefined for compatibility with UI types
+    console.log(`[listFolder] Found ${files.length} files. First file:`, files[0]?.name);
+    
     const sanitizedFiles = files.map((file) => ({
       ...file,
+      owner: file.User,
+      User: undefined,
       storageKey: file.storageKey || undefined,
     }));
 
@@ -976,9 +1013,9 @@ export async function getPublicUrl(input: {
       throw new Error("File not found");
     }
 
-    // Generate API proxy URL (goes through Next.js, which fetches from MinIO internally)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const url = `${appUrl}/api/files/${key}`;
+    // Generate API proxy URL 
+    // We return a relative URL to avoid port mismatch issues (e.g. localhost:3000 vs 3001)
+    const url = `/api/files/${key}`;
 
     // Log the action
     await createUserLog({

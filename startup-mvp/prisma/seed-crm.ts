@@ -2,11 +2,6 @@ import { PrismaClient, LeadStatus, OpportunityStage } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const USER_IDS = {
-  ADMIN: "cmj9sd9xq0000o1010acd1hsq",
-  ANIK: "cmjaf1zyl000so001apq1aznq",
-  RAKIB: "cmjb4b49o000ao001hm29q5o6",
-};
 
 async function main() {
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -14,7 +9,23 @@ async function main() {
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
   try {
+    // Fetch users dynamically to avoid FK errors
+    const adminUser = await prisma.user.findFirst({ where: { email: "admin@example.com" } });
+    const anikUser = await prisma.user.findFirst({ where: { email: "anik@techsoulbd.com" } });
+    const rakibUser = await prisma.user.findFirst({ where: { email: "rakib@techsoulbd.com" } });
+
+    if (!adminUser) {
+        throw new Error("Admin user (admin@example.com) not found. Please run seed-users.ts first.");
+    }
+
+    const USER_IDS = {
+      ADMIN: adminUser.id,
+      ANIK: anikUser?.id || adminUser.id,
+      RAKIB: rakibUser?.id || adminUser.id,
+    };
+
     // 1. Seed Clients
+
     console.log("\n🏢 Seeding Clients...");
     const clients = [
       {

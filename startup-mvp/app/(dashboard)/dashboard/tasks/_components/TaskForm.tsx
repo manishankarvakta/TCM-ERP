@@ -49,9 +49,11 @@ interface TaskFormProps {
   onSuccess: () => void;
   onCancel: () => void;
   initialData?: Task | null;
+  entityId?: string;
+  entityType?: "lead" | "opportunity" | "contact";
 }
 
-export function TaskForm({ onSuccess, onCancel, initialData }: TaskFormProps) {
+export function TaskForm({ onSuccess, onCancel, initialData, entityId, entityType }: TaskFormProps) {
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<TaskFormValues>({
@@ -67,13 +69,19 @@ export function TaskForm({ onSuccess, onCancel, initialData }: TaskFormProps) {
 
   const onSubmit = (values: TaskFormValues) => {
     startTransition(async () => {
-      const data = {
+      const data: any = {
         title: values.title,
         description: values.description,
         status: values.status,
         priority: values.priority,
         dueDate: values.dueDate ? new Date(values.dueDate) : undefined,
       };
+
+      if (entityId && entityType) {
+        if (entityType === "lead") data.leadId = entityId;
+        else if (entityType === "opportunity") data.opportunityId = entityId;
+        else if (entityType === "contact") data.contactId = entityId;
+      }
 
       const res = initialData 
         ? await updateTask(initialData.id, data)

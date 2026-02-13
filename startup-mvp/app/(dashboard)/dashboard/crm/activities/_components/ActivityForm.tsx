@@ -23,9 +23,12 @@ import { format } from "date-fns";
 
 const activitySchema = z.object({
   subject: z.string().min(1, "Subject is required"),
-  type: z.enum(["call", "meeting", "email", "note", "task"]),
+  type: z.enum(["call", "meeting", "email", "note", "task", "update"]),
   description: z.string().optional(),
   dueDate: z.string().optional(), // We'll handle date conversion
+  priority: z.string().optional(),
+  status: z.string().optional(),
+  assignedToId: z.string().optional().nullable(),
   contactId: z.string().optional().nullable(),
   leadId: z.string().optional().nullable(),
   opportunityId: z.string().optional().nullable(),
@@ -40,6 +43,7 @@ interface ActivityFormProps {
   contacts?: { id: string; name: string | null; email: string | null }[];
   leads?: { id: string; name: string }[];
   opportunities?: { id: string; title: string }[];
+  users?: { id: string; name: string | null; email: string }[];
 }
 
 export default function ActivityForm({ 
@@ -48,7 +52,8 @@ export default function ActivityForm({
   initialData,
   contacts = [],
   leads = [],
-  opportunities = [] 
+  opportunities = [],
+  users = []
 }: ActivityFormProps) {
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -77,6 +82,9 @@ export default function ActivityForm({
       type: initialData?.type || "call",
       description: initialData?.description || "",
       dueDate: formatDateForInput(initialData?.dueDate),
+      priority: initialData?.priority || "NORMAL",
+      status: initialData?.status || "TODO",
+      assignedToId: initialData?.assignedToId || null,
       contactId: initialData?.contactId || null,
       leadId: initialData?.leadId || null,
       opportunityId: initialData?.opportunityId || null,
@@ -93,6 +101,7 @@ export default function ActivityForm({
         contactId: data.contactId || undefined,
         leadId: data.leadId || undefined,
         opportunityId: data.opportunityId || undefined,
+        assignedToId: data.assignedToId || undefined,
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
       };
 
@@ -167,18 +176,54 @@ export default function ActivityForm({
                     <SelectItem value="email">Email</SelectItem>
                     <SelectItem value="note">Note</SelectItem>
                     <SelectItem value="task">Task</SelectItem>
+                    <SelectItem value="update">Update</SelectItem>
                 </SelectContent>
             </Select>
         </div>
 
         {/* Due Date */}
         <div className="space-y-2">
-            <Label htmlFor="dueDate">Due Date</Label>
+            <Label htmlFor="dueDate">Due Date / Time</Label>
             <Input 
                 id="dueDate" 
                 type="datetime-local" 
                 {...register("dueDate")} 
                 disabled={loading} 
+            />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        {/* Priority */}
+        <div className="space-y-2">
+            <Label>Priority</Label>
+            <Select 
+                onValueChange={(val: any) => setValue("priority", val)} 
+                defaultValue={watch("priority")}
+                disabled={loading}
+            >
+                <SelectTrigger>
+                    <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="LOW">Low</SelectItem>
+                    <SelectItem value="NORMAL">Normal</SelectItem>
+                    <SelectItem value="HIGH">High</SelectItem>
+                    <SelectItem value="URGENT">Urgent</SelectItem>
+                </SelectContent>
+            </Select>
+        </div>
+
+        {/* Assigned To */}
+        <div className="space-y-2">
+            <Label>Assigned To</Label>
+            <SearchableSelect
+                options={users.map(u => ({ label: u.name || u.email, value: u.id }))}
+                value={watch("assignedToId")}
+                onValueChange={(val) => setValue("assignedToId", val)}
+                placeholder="Assign to user..."
+                disabled={loading}
+                allowClear
             />
         </div>
       </div>

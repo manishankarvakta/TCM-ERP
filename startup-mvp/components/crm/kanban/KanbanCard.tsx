@@ -64,9 +64,16 @@ export function KanbanCard({ opportunity, isOverlay }: Props) {
             </Link>
           </div>
           
-          <div className="flex items-center text-xs text-muted-foreground">
-             <User className="h-3 w-3 mr-1" />
-             {opportunity.client?.name || "No Client"}
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+             <div className="flex items-center truncate max-w-[140px]">
+                <User className="h-3 w-3 mr-1 flex-shrink-0" />
+                <span className="truncate">{opportunity.client?.name || "No Client"}</span>
+             </div>
+             {opportunity.opportunityNumber && (
+                <span className="text-[10px] font-mono bg-muted px-1 rounded border ml-1 flex-shrink-0">
+                    {opportunity.opportunityNumber}
+                </span>
+             )}
           </div>
 
           <div className="flex justify-between items-center mt-2">

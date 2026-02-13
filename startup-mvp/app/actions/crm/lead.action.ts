@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
+import { createActivity } from "./activity.action";
 import { type Prisma, LeadStatus, OpportunityStage } from "@prisma/client";
 
 /**
@@ -223,6 +224,17 @@ export async function createLead(input: {
       },
     });
 
+    // Automatically log "Lead Created" activity
+    await prisma.activity.create({
+      data: {
+        type: "Update",
+        subject: "Lead Created",
+        description: `Lead was created by ${session.user.name || "a user"}.`,
+        leadId: lead.id,
+        ownerId: session.user.id,
+      },
+    });
+
     // If notes are provided, create an initial activity for this lead
     if (notes) {
       await prisma.activity.create({
@@ -263,6 +275,18 @@ export async function assignLeadOwner(leadId: string, ownerId: string) {
     const lead = await prisma.lead.update({
       where: { id: leadId },
       data: { ownerId },
+      include: { User: { select: { name: true } } }
+    });
+
+    // Automatically log "Owner Assigned" activity
+    await prisma.activity.create({
+      data: {
+        type: "Update",
+        subject: "Owner Assigned",
+        description: `Lead ownership assigned to ${lead.User.name || "Unknown User"}.`,
+        leadId,
+        ownerId: session.user.id,
+      },
     });
 
     await logItemUpdated(session.user.id, "Lead", leadId, ["ownerId"], lead.name, { ownerId });
@@ -272,6 +296,67 @@ export async function assignLeadOwner(leadId: string, ownerId: string) {
   } catch (error) {
     console.error("assignLeadOwner error:", error);
     return { success: false, error: "Failed to assign lead owner" };
+  }
+}
+
+/**
+ * Update lead information
+ */
+export async function updateLead(leadId: string, input: {
+  name?: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  source?: string;
+}) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    // Permission Check
+    const { checkPermission } = await import("@/lib/permissions");
+    if (!(await checkPermission(session.user.id, "crm.leads", "edit"))) {
+      return { success: false, error: "Permission Denied: crm.leads.edit" };
+    }
+
+    const oldLead = await prisma.lead.findUnique({
+      where: { id: leadId },
+    });
+
+    if (!oldLead) return { success: false, error: "Lead not found" };
+
+    const lead = await prisma.lead.update({
+      where: { id: leadId },
+      data: input,
+    });
+
+    // Track changes for activity log
+    const changes: string[] = [];
+    if (input.name && input.name !== oldLead.name) changes.push(`Name: ${oldLead.name} -> ${input.name}`);
+    if (input.email && input.email !== oldLead.email) changes.push(`Email: ${oldLead.email} -> ${input.email}`);
+    if (input.phone && input.phone !== oldLead.phone) changes.push(`Phone: ${oldLead.phone || "None"} -> ${input.phone}`);
+    if (input.company && input.company !== oldLead.company) changes.push(`Company: ${oldLead.company || "None"} -> ${input.company}`);
+    if (input.source && input.source !== oldLead.source) changes.push(`Source: ${oldLead.source || "None"} -> ${input.source}`);
+
+    if (changes.length > 0) {
+      await prisma.activity.create({
+        data: {
+          type: "Update",
+          subject: "Lead Updated",
+          description: `Lead details were updated:\n${changes.join('\n')}`,
+          leadId,
+          ownerId: session.user.id,
+        },
+      });
+
+      await logItemUpdated(session.user.id, "Lead", leadId, Object.keys(input), lead.name, input);
+    }
+
+    revalidateBothPaths("crm/leads");
+    return { success: true, lead };
+  } catch (error) {
+    console.error("updateLead error:", error);
+    return { success: false, error: "Failed to update lead" };
   }
 }
 
@@ -293,6 +378,17 @@ export async function updateLeadStatus(leadId: string, status: LeadStatus) {
     const lead = await prisma.lead.update({
       where: { id: leadId },
       data: { status },
+    });
+
+    // Automatically log "Status Updated" activity
+    await prisma.activity.create({
+      data: {
+        type: "Update",
+        subject: "Status Updated",
+        description: `Lead status changed to ${status}.`,
+        leadId,
+        ownerId: session.user.id,
+      },
     });
 
     await logItemUpdated(session.user.id, "Lead", leadId, ["status"], lead.name, { status });
@@ -434,6 +530,40 @@ export async function convertLeadToOpportunity(leadId: string, input: {
       });
 
       // 3. Create Opportunity linked to Client
+      // Generate Opportunity Number
+      const { generateOpportunityCode } = await import("./opportunity.action");
+      let opportunityNumber = await generateOpportunityCode(tx);
+      
+      // Ensure code doesn't exist
+      let codeExists = await tx.opportunity.findUnique({
+        where: { opportunityNumber },
+        select: { id: true }
+      });
+
+      // Retry logic
+      let attempts = 0;
+      while (codeExists && attempts < 5) {
+        const parts = opportunityNumber.split("-");
+        if (parts.length >= 3) {
+             const sequenceStr = parts[parts.length - 1];
+             const sequence = parseInt(sequenceStr, 10);
+             if(!isNaN(sequence)) {
+                  parts[parts.length - 1] = (sequence + 1).toString().padStart(4, "0");
+                  opportunityNumber = parts.join("-");
+             } else {
+                  opportunityNumber = `OPP-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
+             }
+        } else {
+             // Fallback if unexpected format
+             opportunityNumber = `OPP-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
+        }
+        codeExists = await tx.opportunity.findUnique({
+            where: { opportunityNumber },
+            select: { id: true }
+        });
+        attempts++;
+      }
+
       const opportunity = await tx.opportunity.create({
         data: {
           title: input.opportunityTitle,
@@ -443,6 +573,7 @@ export async function convertLeadToOpportunity(leadId: string, input: {
           contactId: contact.id,
           stage: OpportunityStage.DISCOVERY,
           ownerId: session.user.id,
+          opportunityNumber,
         }
       });
 
@@ -452,9 +583,32 @@ export async function convertLeadToOpportunity(leadId: string, input: {
         data: { status: LeadStatus.CONVERTED }
       });
 
-      return { opportunityId: opportunity.id };
+      // Automatically log "Converted to Opportunity" activity
+      await tx.activity.create({
+        data: {
+          type: "Update",
+          subject: "Converted to Opportunity",
+          description: `Lead was converted to Opportunity: ${input.opportunityTitle}.`,
+          leadId,
+          ownerId: session.user.id,
+        },
+      });
+
+      return { opportunityId: opportunity.id, contactId: contact.id };
+    });
+    
+    // Log activity for the new opportunity (outside transaction to avoid circular logic if activity creation fails, though ideally it should be robust)
+    const { createActivity } = await import("./activity.action"); // Assuming createActivity is in activity.action
+    await createActivity({
+        type: "created",
+        subject: "Opportunity created from Lead",
+        description: `Converted from Lead: ${lead.firstName} ${lead.lastName}`,
+        opportunityId: result.opportunityId,
+        contactId: result.contactId,
+        leadId: leadId
     });
 
+    console.log(`Transaction committed, Opportunity ID: ${result.opportunityId}`);
     await logItemUpdated(session.user.id, "Lead", leadId, ["status"], lead.name, { status: LeadStatus.CONVERTED });
     
     revalidateBothPaths("crm/leads");

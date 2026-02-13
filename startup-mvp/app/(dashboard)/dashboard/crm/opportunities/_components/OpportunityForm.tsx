@@ -20,10 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createOpportunity } from "@/app/actions/crm/opportunity.action";
+import { createOpportunity, updateOpportunity } from "@/app/actions/crm/opportunity.action";
 import { getContacts } from "@/app/actions/crm/contact.action";
 import { toast } from "sonner";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, useRef } from "react";
 import { Loader2 } from "lucide-react";
 
 const formSchema = z.object({
@@ -40,29 +40,35 @@ interface OpportunityFormProps {
   clients: { id: string; name: string }[];
   onSuccess: () => void;
   onCancel: () => void;
+  initialData?: any;
 }
 
 export default function OpportunityForm({
   clients,
   onSuccess,
   onCancel,
+  initialData
 }: OpportunityFormProps) {
   const [isPending, startTransition] = useTransition();
   const [contacts, setContacts] = useState<{ id: string; name: string }[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
+  const isEditing = !!initialData;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: "",
-      clientId: "",
-      contactId: "",
-      value: 0,
-      expectedCloseDate: new Date().toISOString().split('T')[0],
+      title: initialData?.title || "",
+      clientId: initialData?.clientId || "",
+      contactId: initialData?.contactId || "",
+      value: initialData?.value ? Number(initialData.value) : 0,
+      expectedCloseDate: initialData?.expectedCloseDate 
+        ? new Date(initialData.expectedCloseDate).toISOString().split('T')[0] 
+        : new Date().toISOString().split('T')[0],
     },
   });
 
   const selectedClientId = form.watch("clientId");
+  const previousClientIdRef = useRef(initialData?.clientId || "");
 
   useEffect(() => {
     async function fetchContacts() {
@@ -72,8 +78,12 @@ export default function OpportunityForm({
       }
       
       setLoadingContacts(true);
-      // Reset contact selection when client changes
-      form.setValue("contactId", "");
+      
+      // Only reset contact if client actually changed from previous value
+      if (selectedClientId !== previousClientIdRef.current) {
+         form.setValue("contactId", "");
+      }
+      previousClientIdRef.current = selectedClientId;
       
       try {
         const result = await getContacts(selectedClientId);
@@ -99,12 +109,22 @@ export default function OpportunityForm({
           ...values,
           expectedCloseDate: new Date(values.expectedCloseDate),
         };
-        const result = await createOpportunity(data);
+        
+        let result;
+        if (isEditing) {
+            result = await updateOpportunity(initialData.id, data);
+        } else {
+            result = await createOpportunity(data);
+        }
+
         if (result.success) {
-          toast.success("Opportunity created successfully");
+          const action = isEditing ? "updated" : "created";
+          console.log(`Opportunity ${action} successfully:`, result);
+          toast.success(`Opportunity ${action} successfully`);
           onSuccess();
         } else {
-          toast.error(result.error || "Failed to create opportunity");
+          console.error("Failed to save opportunity:", result.error);
+          toast.error(result.error || "Failed to save opportunity");
         }
       } catch (error) {
         toast.error("An error occurred");
@@ -164,7 +184,8 @@ export default function OpportunityForm({
                 <Select 
                   onValueChange={field.onChange} 
                   defaultValue={field.value}
-                  disabled={!selectedClientId || loadingContacts || contacts.length === 0}
+                  // Allow interaction if editing and contacts loaded, or if new and client selected
+                  disabled={(!selectedClientId && !isEditing) || loadingContacts || (contacts.length === 0 && !loadingContacts)}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -232,7 +253,7 @@ export default function OpportunityForm({
           </Button>
           <Button type="submit" disabled={isPending}>
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Create Opportunity
+            {isEditing ? "Update Opportunity" : "Create Opportunity"}
           </Button>
         </div>
       </form>

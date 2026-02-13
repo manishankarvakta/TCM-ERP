@@ -17,11 +17,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
-import { FiMoreVertical, FiEdit, FiFileText } from "react-icons/fi";
 import { OpportunityStage } from "@prisma/client";
+import Link from "next/link";
+import { FiMoreVertical, FiEdit, FiFileText, FiEye } from "react-icons/fi";
 
 interface Opportunity {
   id: string;
+  opportunityNumber?: string | null;
   title: string;
   value: any; // Prisma Decimal
   stage: OpportunityStage;
@@ -71,8 +73,15 @@ export default function OpportunityTable({ opportunities, onEdit, onRefresh }: O
           ) : (
             opportunities.map((opp) => (
               <TableRow key={opp.id}>
-                <TableCell className="font-medium">
-                  {opp.title}
+                <TableCell>
+                  <div className="flex flex-col">
+                    <Link href={`/dashboard/crm/opportunities/${opp.id}`} className="font-medium hover:underline text-primary">
+                      {opp.title}
+                    </Link>
+                    {opp.opportunityNumber && (
+                      <span className="text-xs text-muted-foreground">{opp.opportunityNumber}</span>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-col text-sm">
@@ -101,6 +110,12 @@ export default function OpportunityTable({ opportunities, onEdit, onRefresh }: O
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <Link href={`/dashboard/crm/opportunities/${opp.id}`} className="flex items-center w-full cursor-pointer">
+                          <FiEye className="mr-2 h-4 w-4" />
+                          View Details
+                        </Link>
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onEdit(opp)}>
                         <FiEdit className="mr-2 h-4 w-4" />
                         Edit

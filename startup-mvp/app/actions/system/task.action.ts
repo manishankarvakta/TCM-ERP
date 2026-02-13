@@ -13,6 +13,9 @@ export async function createTask(input: {
   status?: string;
   priority?: string;
   dueDate?: Date;
+  contactId?: string;
+  opportunityId?: string;
+  leadId?: string;
 }) {
   try {
     const session = await auth();
@@ -49,6 +52,9 @@ export async function updateTask(
     status?: string;
     priority?: string;
     dueDate?: Date | null;
+    contactId?: string;
+    opportunityId?: string;
+    leadId?: string;
   }
 ) {
   try {
@@ -101,7 +107,12 @@ export async function deleteTask(id: string) {
 /**
  * Get tasks (paginated)
  */
-export async function getTasks(page: number = 1, limit: number = 20) {
+export async function getTasks(
+  page: number = 1, 
+  limit: number = 20,
+  entityId?: string,
+  entityType?: "lead" | "opportunity" | "contact"
+) {
   try {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized", tasks: [] };
@@ -113,9 +124,17 @@ export async function getTasks(page: number = 1, limit: number = 20) {
 
     const skip = (page - 1) * limit;
 
+    const where: any = {};
+    if (entityId && entityType) {
+      if (entityType === "lead") where.leadId = entityId;
+      else if (entityType === "opportunity") where.opportunityId = entityId;
+      else if (entityType === "contact") where.contactId = entityId;
+    }
+
     const [total, tasks] = await Promise.all([
-      prisma.task.count(),
+      prisma.task.count({ where }),
       prisma.task.findMany({
+        where,
         skip,
         take: limit,
         orderBy: { createdAt: "desc" },

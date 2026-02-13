@@ -104,7 +104,9 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [invoiceLabel, setInvoiceLabel] = useState<string | null>(null);
   const [orderLabel, setOrderLabel] = useState<string | null>(null);
   const [voucherLabel, setVoucherLabel] = useState<string | null>(null);
+  const [percentage, setPercentage] = useState<number>(0); // Unused but keeping for consistency if needed? No, just add opportunityNumber
   const [leadNumber, setLeadNumber] = useState<string | null>(null);
+  const [opportunityNumber, setOpportunityNumber] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
 
   // Fetch quotation number if we're on a quotation detail or edit page
@@ -314,12 +316,36 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     getLeadById(id)
         .then((result) => {
             if (!cancelled && result.success && result.lead) {
-                setLeadNumber(result.lead.leadNumber);
+                const lead = result.lead as any;
+                setLeadNumber(lead.leadNumber);
             }
         })
         .catch(() => {});
 
     return () => { cancelled = true; setLeadNumber(null); };
+  }, [pathname]);
+
+  // Fetch opportunity number
+  useEffect(() => {
+    const match = pathname.match(/^\/dashboard\/crm\/opportunities\/([^\/]+)$/);
+    if (!match) return;
+    
+    const id = match[1];
+    if (id === "add") return;
+
+    let cancelled = false;
+    
+    import("@/app/actions/crm/opportunity.action").then(({ getOpportunityById }) => {
+        getOpportunityById(id)
+            .then((result) => {
+                if (!cancelled && result.success && result.opportunity) {
+                    setOpportunityNumber(result.opportunity.opportunityNumber || "Opportunity");
+                }
+            })
+            .catch(() => {});
+    });
+
+    return () => { cancelled = true; setOpportunityNumber(null); };
   }, [pathname]);
 
   // If we're at the root dashboard, show just "Dashboard"
@@ -480,6 +506,18 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
         const leadListItem = items.find(item => item.path === "/dashboard/crm/leads");
         parentItem = leadListItem || { path: "/dashboard/crm/leads", label: "Leads" };
         currentLabel = leadNumber ? leadNumber : "Lead Details";
+     }
+  }
+
+  // Handle Opportunity Details
+  const isOpportunityDetail = pathname.match(/^\/dashboard\/crm\/opportunities\/([^\/]+)$/);
+  if (isOpportunityDetail) {
+     const id = isOpportunityDetail[1];
+     if (id !== "add") {
+        const opportunityListItem = items.find(item => item.path === "/dashboard/crm/opportunities");
+        parentItem = opportunityListItem || { path: "/dashboard/crm/opportunities", label: "Opportunities" };
+        // Use opportunityNumber state if available, otherwise fallback
+        currentLabel = opportunityNumber ? opportunityNumber : "Opportunity Details";
      }
   }
 

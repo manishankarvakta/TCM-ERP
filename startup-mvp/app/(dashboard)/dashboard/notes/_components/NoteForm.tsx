@@ -28,9 +28,11 @@ interface NoteFormProps {
   onSuccess: () => void;
   onCancel: () => void;
   initialData?: any;
+  entityId?: string;
+  entityType?: "lead" | "opportunity" | "contact";
 }
 
-export function NoteForm({ onSuccess, onCancel, initialData }: NoteFormProps) {
+export function NoteForm({ onSuccess, onCancel, initialData, entityId, entityType }: NoteFormProps) {
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<z.infer<typeof noteSchema>>({
@@ -43,9 +45,17 @@ export function NoteForm({ onSuccess, onCancel, initialData }: NoteFormProps) {
 
   const onSubmit = (values: z.infer<typeof noteSchema>) => {
     startTransition(async () => {
+      const data: any = { ...values };
+
+      if (entityId && entityType) {
+        if (entityType === "lead") data.leadId = entityId;
+        else if (entityType === "opportunity") data.opportunityId = entityId;
+        else if (entityType === "contact") data.contactId = entityId;
+      }
+
       const res = initialData 
-        ? await updateNote(initialData.id, values)
-        : await createNote(values);
+        ? await updateNote(initialData.id, data)
+        : await createNote(data);
 
       if (res.success) {
         toast.success(initialData ? "Note updated" : "Note created");

@@ -67,6 +67,29 @@ interface FileGridProps {
   onBulkDelete?: (files: FileItem[]) => void;
 }
 
+// Helper component to handle image errors
+function FileImage({ file, url, getFileIcon }: { file: FileItem, url?: string, getFileIcon: (f: FileItem) => React.ReactNode }) {
+  const [error, setError] = useState(false);
+
+  if (!url || error) {
+    return (
+      <div className="h-full w-full flex items-center justify-center">
+        {getFileIcon(file)}
+      </div>
+    );
+  }
+
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
+      src={url}
+      alt={file.name}
+      className="h-full w-full object-cover"
+      onError={() => setError(true)}
+    />
+  );
+}
+
 export default function FileGrid({
   files,
   onFolderClick,
@@ -244,31 +267,11 @@ export default function FileGrid({
                     <div className="flex items-center justify-center mb-3 relative">
                       {!file.isFolder && file.mimeType.startsWith("image/") && file.storageKey ? (
                         <div className="relative h-20 w-20 rounded-lg overflow-hidden bg-muted border">
-                          {fileUrls.get(file.id) ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img
-                              src={fileUrls.get(file.id)!}
-                              alt={file.name}
-                              className="h-full w-full object-cover"
-                              onError={(e) => {
-                                // Fallback to icon if image fails to load
-                                const target = e.currentTarget;
-                                target.style.display = "none";
-                                const parent = target.parentElement;
-                                if (parent) {
-                                  const iconElement = getFileIcon(file);
-                                  if (iconElement && parent) {
-                                    parent.innerHTML = "";
-                                    parent.appendChild(iconElement as unknown as Node);
-                                  }
-                                }
-                              }}
-                            />
-                          ) : (
-                            <div className="h-full w-full flex items-center justify-center">
-                              {getFileIcon(file)}
-                            </div>
-                          )}
+                           <FileImage 
+                             file={file} 
+                             url={fileUrls.get(file.id)} 
+                             getFileIcon={getFileIcon}
+                           />
                         </div>
                       ) : (
                         getFileIcon(file)

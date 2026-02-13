@@ -10,6 +10,9 @@ import { revalidateBothPaths } from "@/lib/route-utils-server";
 export async function createNote(input: {
   title: string;
   content?: string;
+  contactId?: string;
+  opportunityId?: string;
+  leadId?: string;
 }) {
   try {
     const session = await auth();
@@ -43,6 +46,9 @@ export async function updateNote(
   input: {
     title?: string;
     content?: string;
+    contactId?: string;
+    opportunityId?: string;
+    leadId?: string;
   }
 ) {
   try {
@@ -95,7 +101,12 @@ export async function deleteNote(id: string) {
 /**
  * Get notes (paginated)
  */
-export async function getNotes(page: number = 1, limit: number = 20) {
+export async function getNotes(
+  page: number = 1, 
+  limit: number = 20,
+  entityId?: string,
+  entityType?: "lead" | "opportunity" | "contact"
+) {
   try {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized", notes: [] };
@@ -107,9 +118,17 @@ export async function getNotes(page: number = 1, limit: number = 20) {
 
     const skip = (page - 1) * limit;
 
+    const where: any = {};
+    if (entityId && entityType) {
+      if (entityType === "lead") where.leadId = entityId;
+      else if (entityType === "opportunity") where.opportunityId = entityId;
+      else if (entityType === "contact") where.contactId = entityId;
+    }
+
     const [total, notes] = await Promise.all([
-      prisma.note.count(),
+      prisma.note.count({ where }),
       prisma.note.findMany({
+        where,
         skip,
         take: limit,
         orderBy: { createdAt: "desc" },

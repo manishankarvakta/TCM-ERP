@@ -29,8 +29,7 @@ import { updateOpportunityStage, getOpportunities } from "@/app/actions/crm/oppo
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import OpportunityForm from "@/app/(dashboard)/dashboard/crm/opportunities/_components/OpportunityForm";
+import OpportunitySheet from "@/app/(dashboard)/dashboard/crm/opportunities/_components/OpportunitySheet";
 import { FiPlus } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 
@@ -160,7 +159,7 @@ export function OpportunityKanban({ initialOpportunities, initialPagination, cli
                 [stage]: { 
                     page: nextPage, 
                     loading: false, 
-                    hasMore: result.pagination.page < result.pagination.totalPages 
+                    hasMore: result.pagination ? result.pagination.page < result.pagination.totalPages : false
                 }
             }));
         } else {
@@ -261,13 +260,13 @@ export function OpportunityKanban({ initialOpportunities, initialPagination, cli
 
   return (
     <div className="flex flex-col h-full space-y-4">
-      <div className="flex justify-end">
+      {/* <div className="flex justify-end">
         {canCreate && (
             <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
                 <FiPlus /> New Opportunity
             </Button>
         )}
-      </div>
+      </div> */}
 
       {opportunities.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center p-8 border rounded-lg bg-muted/10 border-dashed">
@@ -322,21 +321,12 @@ export function OpportunityKanban({ initialOpportunities, initialPagination, cli
       
       {/* Global Pagination Removed in favor of per-column infinite scroll */}
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Create Opportunity</DialogTitle>
-            <DialogDescription>
-              Create a new deal in the pipeline.
-            </DialogDescription>
-          </DialogHeader>
-          <OpportunityForm 
-            clients={clients} 
-            onSuccess={handleCreateSuccess} 
-            onCancel={() => setIsDialogOpen(false)} 
-          />
-        </DialogContent>
-      </Dialog>
+      <OpportunitySheet 
+        isOpen={isDialogOpen} 
+        onOpenChange={setIsDialogOpen}
+        onSuccess={handleCreateSuccess}
+        clients={clients}
+      />
     </div>
   );
 }

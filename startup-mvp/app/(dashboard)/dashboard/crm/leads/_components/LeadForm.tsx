@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle } from "react-icons/fi";
-import { createLead } from "@/app/actions/crm/lead.action";
+import { createLead, updateLead } from "@/app/actions/crm/lead.action";
 import { type LeadStatus } from "@prisma/client";
 
 const leadSchema = z.object({
@@ -68,11 +68,24 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
       setLoading(true);
       setError("");
 
-      const { firstName, lastName, ...rest } = data;
-      const result = await createLead({
-        ...rest,
-        name: `${firstName} ${lastName}`.trim(),
-      });
+      const { firstName, lastName, notes, ...rest } = data;
+      const leadName = `${firstName} ${lastName}`.trim();
+
+      let result;
+      if (initialData?.id) {
+        // Update existing lead
+        result = await updateLead(initialData.id, {
+          ...rest,
+          name: leadName,
+        });
+      } else {
+        // Create new lead
+        result = await createLead({
+          ...rest,
+          notes,
+          name: leadName,
+        });
+      }
 
       if (!result.success) {
         throw new Error(result.error || "Failed to save lead");

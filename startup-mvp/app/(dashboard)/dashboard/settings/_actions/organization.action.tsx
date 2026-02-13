@@ -82,7 +82,7 @@ export async function getOrganizations(
         logo: true,
         status: true,
         createdBy: true,
-        creator: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -97,16 +97,24 @@ export async function getOrganizations(
       },
     });
 
+    // Map User to creator for frontend compatibility
+    const mappedOrganizations = organizations.map(org => ({
+      ...org,
+      creator: org.User,
+      User: undefined,
+    }));
+
     const totalPages = Math.ceil(total / limit);
 
     return {
       success: true,
-      organizations,
+      organizations: mappedOrganizations,
       pagination: {
         page,
         limit,
         total,
         totalPages,
+        totalPages: totalPages,
       },
     };
   } catch (error) {
@@ -153,7 +161,7 @@ export async function getOrganizationById(organizationId: string) {
         logo: true,
         status: true,
         createdBy: true,
-        creator: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -173,9 +181,16 @@ export async function getOrganizationById(organizationId: string) {
       };
     }
 
+    // Map User to creator
+    const mappedOrganization = {
+      ...organization,
+      creator: organization.User,
+      User: undefined,
+    };
+
     return {
       success: true,
-      organization,
+      organization: mappedOrganization,
     };
   } catch (error) {
     console.error("getOrganizationById error:", error);
@@ -659,4 +674,3 @@ export async function deleteOrganizationsPermanently(organizationIds: string[]) 
     };
   }
 }
-

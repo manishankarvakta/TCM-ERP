@@ -38,15 +38,25 @@ model Activity {
   ownerId       String
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+  assignedToId  String?
+  issueId       String?
+  priority      String       @default("NORMAL")
+  projectId     String?
+  status        String       @default("TODO")
+  AssignedTo    User?        @relation("ActivityAssignedTo", fields: [assignedToId], references: [id])
   Contact       Contact?     @relation(fields: [contactId], references: [id])
   Lead          Lead?        @relation(fields: [leadId], references: [id])
   Opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
   User          User         @relation(fields: [ownerId], references: [id])
+  File          File[]
 
   @@index([contactId])
   @@index([leadId])
   @@index([opportunityId])
   @@index([ownerId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([priority])
 }
 
 model CashBankAccount {
@@ -174,6 +184,8 @@ model Contact {
   Activity    Activity[]
   Client      Client        @relation(fields: [clientId], references: [id])
   Opportunity Opportunity[]
+  Note        Note[]
+  Task        Task[]
 
   @@index([clientId])
   @@index([email])
@@ -291,24 +303,27 @@ model Employee {
 }
 
 model File {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   ownerId    String
   name       String
   path       String
-  storageKey String   @unique
+  storageKey String    @unique
   size       Int
   mimeType   String
-  isFolder   Boolean  @default(false)
+  isFolder   Boolean   @default(false)
   etag       String?
   metadata   Json?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  User       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  activityId String?
+  Activity   Activity? @relation(fields: [activityId], references: [id])
+  User       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
   @@index([ownerId])
   @@index([path])
   @@index([storageKey])
+  @@index([activityId])
 }
 
 model InventoryTransaction {
@@ -482,8 +497,10 @@ model Lead {
   ownerId    String
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
-  Activity  Activity[]
-  User      User       @relation(fields: [ownerId], references: [id])
+  Activity   Activity[]
+  User       User       @relation(fields: [ownerId], references: [id])
+  Note       Note[]
+  Task       Task[]
 
   @@index([ownerId])
   @@index([status])
@@ -567,6 +584,7 @@ model Notification {
 
 model Opportunity {
   id                String           @id @default(cuid())
+  opportunityNumber String?          @unique
   title             String
   clientId          String
   value             Decimal?         @db.Decimal(12, 2)
@@ -581,12 +599,15 @@ model Opportunity {
   Client            Client           @relation(fields: [clientId], references: [id])
   Contact           Contact          @relation(fields: [contactId], references: [id])
   User              User             @relation(fields: [ownerId], references: [id])
+  Note              Note[]
+  Task              Task[]
   Quotation         Quotation[]
 
   @@index([clientId])
   @@index([contactId])
   @@index([ownerId])
   @@index([stage])
+  @@index([opportunityNumber])
 }
 
 model Order {
@@ -902,6 +923,7 @@ model User {
   createdAt                                 DateTime               @default(now())
   updatedAt                                 DateTime               @updatedAt
   Account                                   Account[]
+  AssignedActivities                        Activity[]             @relation("ActivityAssignedTo")
   Activity                                  Activity[]
   CashBankAccount                           CashBankAccount[]
   ChartOfAccount                            ChartOfAccount[]
@@ -909,12 +931,14 @@ model User {
   CoverLetter                               CoverLetter[]
   Delivery                                  Delivery[]
   DeliveryLedger                            DeliveryLedger[]
+  Doc                                       Doc[]
   Employee                                  Employee?
   File                                      File[]
   InventoryTransaction                      InventoryTransaction[]
   JournalEntryLine                          JournalEntryLine[]
   Lead                                      Lead[]
   ModuleGroup                               ModuleGroup[]
+  Note                                      Note[]
   Notification_Notification_createdByToUser Notification[]         @relation("Notification_createdByToUser")
   Notification_Notification_userIdToUser    Notification[]         @relation("Notification_userIdToUser")
   Opportunity                               Opportunity[]
@@ -926,6 +950,7 @@ model User {
   Section                                   Section[]
   Session                                   Session[]
   Supplier                                  Supplier[]
+  Task                                      Task[]
   Unit                                      Unit[]
   PermissionTemplate                        PermissionTemplate?    @relation(fields: [designationTemplateId], references: [id])
   User                                      User?                  @relation("UserToUser", fields: [inchargeId], references: [id])
@@ -937,9 +962,6 @@ model User {
   Voucher_Voucher_userIdToUser              Voucher[]              @relation("Voucher_userIdToUser")
   VoucherLine                               VoucherLine[]
   WorkOrder                                 WorkOrder[]
-  Task                                      Task[]
-  Note                                      Note[]
-  Doc                                       Doc[]
   settings_settings_created_byToUser        settings[]             @relation("settings_created_byToUser")
   settings_settings_user_idToUser           settings[]             @relation("settings_user_idToUser")
 
@@ -1077,38 +1099,56 @@ model WorkOrder {
 }
 
 model Task {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  status      String   @default("todo") // todo, in-progress, completed, cancelled
-  priority    String   @default("medium") // low, medium, high, urgent
-  dueDate     DateTime?
-  userId      String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  User        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String       @id @default(cuid())
+  title         String
+  description   String?
+  status        String       @default("todo")
+  priority      String       @default("medium")
+  dueDate       DateTime?
+  userId        String
+  contactId     String?
+  opportunityId String?
+  leadId        String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  Contact       Contact?     @relation(fields: [contactId], references: [id])
+  Lead          Lead?        @relation(fields: [leadId], references: [id])
+  Opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
+  User          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
   @@index([priority])
+  @@index([contactId])
+  @@index([leadId])
+  @@index([opportunityId])
 }
 
 model Note {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?  @db.Text
-  userId    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String       @id @default(cuid())
+  title         String
+  content       String?
+  userId        String
+  contactId     String?
+  opportunityId String?
+  leadId        String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  Contact       Contact?     @relation(fields: [contactId], references: [id])
+  Lead          Lead?        @relation(fields: [leadId], references: [id])
+  Opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
+  User          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([contactId])
+  @@index([leadId])
+  @@index([opportunityId])
 }
 
 model Doc {
   id        String   @id @default(cuid())
   title     String
-  content   String?  @db.Text
+  content   String?
   userId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

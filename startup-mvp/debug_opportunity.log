@@ -1,0 +1,80 @@
+2026-02-12T23:29:59.820Z Starting createOpportunity
+2026-02-12T23:29:59.842Z Input: {"title":"ERPDebug OpportunityDebug Opportunity 2","clientId":"cmljwai57000fckkbyt7sd2rm","contactId":"cmljwai5h000hckkbpzpxurpx","value":50050005000,"expectedCloseDate":"2025-12-31T00:00:00.000Z"}
+2026-02-12T23:29:59.845Z Validations passed
+2026-02-12T23:29:59.852Z Starting transaction
+2026-02-12T23:29:59.859Z Error: 
+Invalid `prisma.opportunity.findFirst()` invocation:
+
+{
+  where: {
+    opportunityNumber: {
+    ~~~~~~~~~~~~~~~~~
+      startsWith: "OPP"
+    },
+?   AND?: OpportunityWhereInput | OpportunityWhereInput[],
+?   OR?: OpportunityWhereInput[],
+?   NOT?: OpportunityWhereInput | OpportunityWhereInput[],
+?   id?: StringFilter | String,
+?   title?: StringFilter | String,
+?   clientId?: StringFilter | String,
+?   value?: DecimalNullableFilter | Decimal | Null,
+?   stage?: EnumOpportunityStageFilter | OpportunityStage,
+?   ownerId?: StringFilter | String,
+?   contactId?: StringFilter | String,
+?   expectedCloseDate?: DateTimeNullableFilter | DateTime | Null,
+?   nextActivityAt?: DateTimeNullableFilter | DateTime | Null,
+?   createdAt?: DateTimeFilter | DateTime,
+?   updatedAt?: DateTimeFilter | DateTime,
+?   Activity?: ActivityListRelationFilter,
+?   Client?: ClientScalarRelationFilter | ClientWhereInput,
+?   Contact?: ContactScalarRelationFilter | ContactWhereInput,
+?   User?: UserScalarRelationFilter | UserWhereInput,
+?   Note?: NoteListRelationFilter,
+?   Task?: TaskListRelationFilter,
+?   Quotation?: QuotationListRelationFilter
+  },
+  orderBy: {
+    opportunityNumber: "desc"
+  },
+  select: {
+    opportunityNumber: true
+  }
+}
+
+Unknown argument `opportunityNumber`. Available options are marked with ?.
+2026-02-13T07:24:01.989Z Starting createOpportunity
+2026-02-13T07:24:02.002Z Input: {"title":"Mobile App","clientId":"cmljwai57000fckkbyt7sd2rm","contactId":"cmljwai5h000hckkbpzpxurpx","value":20000,"expectedCloseDate":"2026-02-14T00:00:00.000Z"}
+2026-02-13T07:24:02.006Z Validations passed
+2026-02-13T07:24:02.011Z Starting transaction
+2026-02-13T07:24:02.022Z Generated number: OPP1000001
+2026-02-13T07:24:02.026Z Creating record with number: OPP1000001
+2026-02-13T07:24:02.042Z Transaction committed, ID: cmlkkafsa0005ckdknncr552y
+2026-02-13T07:24:02.045Z Logged item created
+2026-02-13T07:24:02.046Z Revalidated
+2026-02-13T09:07:40.954Z Starting createOpportunity
+2026-02-13T09:07:40.965Z Input: {"title":"Activity Log Test 2","clientId":"cmlkm5qia001lckdk97v2rc92","contactId":"cmlkm5qie001nckdkppm8rucj","value":5000,"expectedCloseDate":"2026-02-28T00:00:00.000Z"}
+2026-02-13T09:07:40.967Z Validations passed
+2026-02-13T09:07:40.972Z Starting transaction
+2026-02-13T09:07:40.979Z Generated number: OPP-2026-0002
+2026-02-13T09:07:40.981Z Creating record with number: OPP-2026-0002
+2026-02-13T09:07:41.001Z Transaction committed, ID: cmlknzqd20001cka303fh6yjg
+2026-02-13T09:07:41.010Z Logged item created
+2026-02-13T09:07:41.011Z Revalidated
+2026-02-13T09:20:42.185Z Starting createOpportunity
+2026-02-13T09:20:42.199Z Input: {"title":"Activity Log Final Test","clientId":"cmlkm5qia001lckdk97v2rc92","contactId":"cmlkm5qie001nckdkppm8rucj","value":8000,"expectedCloseDate":"2026-12-31T00:00:00.000Z"}
+2026-02-13T09:20:42.201Z Validations passed
+2026-02-13T09:20:42.202Z Starting transaction
+2026-02-13T09:20:42.208Z Generated number: OPP-2026-0003
+2026-02-13T09:20:42.210Z Creating record with number: OPP-2026-0003
+2026-02-13T09:20:42.220Z Transaction committed, ID: cmlkogh5u0005cka3uqys0k4r
+2026-02-13T09:20:42.226Z Logged item created
+2026-02-13T09:20:42.241Z Revalidated
+2026-02-13T09:45:54.151Z Starting createOpportunity
+2026-02-13T09:45:54.161Z Input: {"title":"Sheet Test","clientId":"cmlkm5qia001lckdk97v2rc92","contactId":"cmlkm5qie001nckdkppm8rucj","value":5000,"expectedCloseDate":"2026-02-13T00:00:00.000Z"}
+2026-02-13T09:45:54.164Z Validations passed
+2026-02-13T09:45:54.167Z Starting transaction
+2026-02-13T09:45:54.175Z Generated number: OPP-2026-0004
+2026-02-13T09:45:54.177Z Creating record with number: OPP-2026-0004
+2026-02-13T09:45:54.196Z Transaction committed, ID: cmlkpcvsy000fcka307uomqbq
+2026-02-13T09:45:54.201Z Logged item created
+2026-02-13T09:45:54.242Z Revalidated

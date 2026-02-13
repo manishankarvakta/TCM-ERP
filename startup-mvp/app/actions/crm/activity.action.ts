@@ -18,12 +18,17 @@ import { revalidateBothPaths } from "@/lib/route-utils-server";
  * Create a new activity
  */
 export async function createActivity(input: {
-  type: "call" | "meeting" | "email" | "note" | "task";
+  type: "call" | "meeting" | "email" | "note" | "task" | "update" | "created";
   subject: string;
   description?: string;
   contactId?: string;
   opportunityId?: string;
   leadId?: string;
+  projectId?: string;
+  issueId?: string;
+  priority?: string;
+  status?: string;
+  assignedToId?: string;
   dueDate?: Date;
   completed?: boolean;
 }) {
@@ -39,24 +44,51 @@ export async function createActivity(input: {
 
     const activity = await prisma.activity.create({
       data: {
-        ...input,
+        type: input.type,
+        subject: input.subject,
+        description: input.description,
+        contactId: input.contactId,
+        opportunityId: input.opportunityId,
+        leadId: input.leadId,
+        projectId: input.projectId,
+        issueId: input.issueId,
+        priority: input.priority || "NORMAL",
+        status: input.status || "TODO",
+        dueDate: input.dueDate,
+        completed: input.completed || false,
         ownerId: session.user.id,
+        assignedToId: input.assignedToId,
       },
       include: {
         Contact: true,
         Opportunity: true,
         Lead: true,
+        // @ts-ignore
+        AssignedTo: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          }
+        }
       }
     });
 
     const mappedActivity = {
       ...activity,
+      // @ts-ignore
       contact: activity.Contact,
+      // @ts-ignore
       opportunity: activity.Opportunity,
+      // @ts-ignore
       lead: activity.Lead,
+      // @ts-ignore
+      assignedTo: activity.AssignedTo,
       Contact: undefined,
       Opportunity: undefined,
       Lead: undefined,
+      // @ts-ignore
+      AssignedTo: undefined,
     };
 
     // Revalidate relevant paths
@@ -77,12 +109,17 @@ export async function createActivity(input: {
 export async function updateActivity(
   id: string,
   input: {
-    type?: "call" | "meeting" | "email" | "note" | "task";
+    type?: "call" | "meeting" | "email" | "note" | "task" | "update" | "created";
     subject?: string;
     description?: string;
     contactId?: string | null;
     opportunityId?: string | null;
     leadId?: string | null;
+    projectId?: string | null;
+    issueId?: string | null;
+    priority?: string;
+    status?: string;
+    assignedToId?: string | null;
     dueDate?: Date | null;
     completed?: boolean;
   }
@@ -99,13 +136,32 @@ export async function updateActivity(
     const activity = await prisma.activity.update({
       where: { id },
       data: input,
+      include: {
+        // @ts-ignore
+        AssignedTo: {
+            select: {
+                id: true,
+                name: true,
+                email: true,
+            }
+        }
+      }
     });
 
     revalidateBothPaths("crm/activities");
     if (input.opportunityId) revalidateBothPaths(`crm/opportunities/${input.opportunityId}`);
     if (input.leadId) revalidateBothPaths(`crm/leads/${input.leadId}`);
 
-    return { success: true, activity };
+    return { 
+      success: true, 
+      activity: {
+        ...activity,
+        // @ts-ignore
+        assignedTo: activity.AssignedTo,
+        // @ts-ignore
+        AssignedTo: undefined
+      } 
+    };
   } catch (error) {
     console.error("updateActivity error:", error);
     return { success: false, error: "Failed to update activity" };
@@ -169,30 +225,82 @@ export async function listActivitiesByContact(contactId: string) {
       return { success: false, error: "Permission Denied: crm.activities.view", activities: [] };
     }
 
-    const activities = await prisma.activity.findMany({
-      where: { contactId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        // @ts-ignore
-        Opportunity: true,
-        User: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    const [activities, tasks, notes] = await Promise.all([
+      prisma.activity.findMany({
+        where: { contactId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          Opportunity: true,
+          User: {
+            select: { id: true, name: true, email: true }
+          },
+          AssignedTo: {
+            select: { id: true, name: true, email: true }
           }
         }
-      }
-    });
+      }),
+      prisma.task.findMany({
+        where: { contactId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          User: {
+            select: { id: true, name: true, email: true }
+          }
+        }
+      }),
+      prisma.note.findMany({
+        where: { contactId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          User: {
+            select: { id: true, name: true, email: true }
+          }
+        }
+      })
+    ]);
 
-    const mappedActivities = activities.map(a => ({
+    const mappedActivities = (activities as any[]).map(a => ({
       ...a,
-      // @ts-ignore
       opportunity: a.Opportunity,
+      assignedTo: a.AssignedTo,
+      owner: a.User,
       Opportunity: undefined,
+      AssignedTo: undefined
     }));
 
-    return { success: true, activities: mappedActivities };
+    const mappedTasks = tasks.map((t: any) => ({
+        id: t.id,
+        type: "task",
+        subject: t.title,
+        description: t.description,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+        dueDate: t.dueDate,
+        completed: t.status === "completed",
+        status: t.status,
+        priority: t.priority,
+        owner: t.User,
+        ownerId: t.userId
+    }));
+
+    const mappedNotes = notes.map((n: any) => ({
+        id: n.id,
+        type: "note",
+        subject: n.title,
+        description: n.content,
+        createdAt: n.createdAt,
+        updatedAt: n.updatedAt,
+        owner: n.User,
+        ownerId: n.userId
+    }));
+
+    const allActivities = [
+        ...mappedActivities,
+        ...mappedTasks,
+        ...mappedNotes
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return { success: true, activities: allActivities };
   } catch (error) {
     console.error("listActivitiesByContact error:", error);
     return { success: false, error: "Failed to fetch activities", activities: [] };
@@ -213,21 +321,79 @@ export async function listActivitiesByLead(leadId: string) {
       return { success: false, error: "Permission Denied: crm.activities.view", activities: [] };
     }
 
-    const activities = await prisma.activity.findMany({
-      where: { leadId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        User: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    const [activities, tasks, notes] = await Promise.all([
+      prisma.activity.findMany({
+        where: { leadId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          User: {
+            select: { id: true, name: true, email: true }
+          },
+          AssignedTo: {
+            select: { id: true, name: true, email: true }
           }
         }
-      }
-    });
+      }),
+      prisma.task.findMany({
+        where: { leadId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          User: {
+            select: { id: true, name: true, email: true }
+          }
+        }
+      }),
+      prisma.note.findMany({
+        where: { leadId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          User: {
+            select: { id: true, name: true, email: true }
+          }
+        }
+      })
+    ]);
 
-    return { success: true, activities };
+    const mappedActivities = (activities as any[]).map(a => ({
+        ...a,
+        assignedTo: a.AssignedTo,
+        owner: a.User,
+        AssignedTo: undefined
+    }));
+
+    const mappedTasks = tasks.map((t: any) => ({
+        id: t.id,
+        type: "task",
+        subject: t.title,
+        description: t.description,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+        dueDate: t.dueDate,
+        completed: t.status === "completed",
+        status: t.status,
+        priority: t.priority,
+        owner: t.User,
+        ownerId: t.userId
+    }));
+
+    const mappedNotes = notes.map((n: any) => ({
+        id: n.id,
+        type: "note",
+        subject: n.title,
+        description: n.content,
+        createdAt: n.createdAt,
+        updatedAt: n.updatedAt,
+        owner: n.User,
+        ownerId: n.userId
+    }));
+
+    const allActivities = [
+        ...mappedActivities,
+        ...mappedTasks,
+        ...mappedNotes
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return { success: true, activities: allActivities };
   } catch (error) {
     console.error("listActivitiesByLead error:", error);
     return { success: false, error: "Failed to fetch activities", activities: [] };
@@ -248,30 +414,82 @@ export async function listActivitiesByOpportunity(opportunityId: string) {
       return { success: false, error: "Permission Denied: crm.activities.view", activities: [] };
     }
 
-    const activities = await prisma.activity.findMany({
-      where: { opportunityId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        // @ts-ignore
-        Contact: true,
-        User: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    const [activities, tasks, notes] = await Promise.all([
+      prisma.activity.findMany({
+        where: { opportunityId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          Contact: true,
+          User: {
+            select: { id: true, name: true, email: true }
+          },
+          AssignedTo: {
+            select: { id: true, name: true, email: true }
           }
         }
-      }
-    });
+      }),
+      prisma.task.findMany({
+        where: { opportunityId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          User: {
+            select: { id: true, name: true, email: true }
+          }
+        }
+      }),
+      prisma.note.findMany({
+        where: { opportunityId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          User: {
+            select: { id: true, name: true, email: true }
+          }
+        }
+      })
+    ]);
 
-    const mappedActivities = activities.map(a => ({
+    const mappedActivities = (activities as any[]).map(a => ({
       ...a,
-      // @ts-ignore
       contact: a.Contact,
+      assignedTo: a.AssignedTo,
+      owner: a.User,
       Contact: undefined,
+      AssignedTo: undefined
     }));
 
-    return { success: true, activities: mappedActivities };
+    const mappedTasks = tasks.map((t: any) => ({
+        id: t.id,
+        type: "task",
+        subject: t.title,
+        description: t.description,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+        dueDate: t.dueDate,
+        completed: t.status === "completed",
+        status: t.status,
+        priority: t.priority,
+        owner: t.User,
+        ownerId: t.userId
+    }));
+
+    const mappedNotes = notes.map((n: any) => ({
+        id: n.id,
+        type: "note",
+        subject: n.title,
+        description: n.content,
+        createdAt: n.createdAt,
+        updatedAt: n.updatedAt,
+        owner: n.User,
+        ownerId: n.userId
+    }));
+
+    const allActivities = [
+        ...mappedActivities,
+        ...mappedTasks,
+        ...mappedNotes
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return { success: true, activities: allActivities };
   } catch (error) {
     console.error("listActivitiesByOpportunity error:", error);
     return { success: false, error: "Failed to fetch activities", activities: [] };
@@ -301,10 +519,18 @@ export async function getActivities(page: number = 1, limit: number = 20) {
         take: limit,
         orderBy: { createdAt: "desc" },
         include: {
-          Contact: { select: { firstName: true, lastName: true, email: true } },
-          Opportunity: { select: { title: true } },
-          Lead: { select: { name: true } },
+          Contact: true,
+          Opportunity: true,
+          Lead: true,
           User: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          },
+          // @ts-ignore
+          AssignedTo: {
             select: {
               id: true,
               name: true,
@@ -320,15 +546,17 @@ export async function getActivities(page: number = 1, limit: number = 20) {
       dueDate: a.dueDate ? a.dueDate.toISOString() : null,
       createdAt: a.createdAt.toISOString(),
       updatedAt: a.updatedAt.toISOString(),
-      contact: a.Contact ? {
-        ...a.Contact,
-        name: `${a.Contact.firstName} ${a.Contact.lastName}`.trim()
-      } : null,
+      contact: a.Contact,
       opportunity: a.Opportunity,
       lead: a.Lead,
+      owner: a.User,
+      assignedTo: a.AssignedTo,
       Contact: undefined,
       Opportunity: undefined,
       Lead: undefined,
+      User: undefined,
+      // @ts-ignore
+      AssignedTo: undefined,
     }));
 
     return { 
