@@ -46,8 +46,8 @@ export function DocList({ docs, onDelete, onEdit }: DocListProps) {
               </Button>
             </div>
           </div>
-          <div className="flex-1 text-sm text-muted-foreground line-clamp-3 mb-4 italic">
-            {doc.content ? doc.content.substring(0, 150) + "..." : "No content available"}
+          <div className="flex-1 text-[13px] text-foreground/60 line-clamp-4 mb-4 prose-notion whitespace-pre-wrap">
+            {doc.content ? doc.content.replace(/<[^>]*>?/gm, " ") : "No content available"}
           </div>
           <div className="flex items-center justify-between mt-auto pt-3 border-t">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

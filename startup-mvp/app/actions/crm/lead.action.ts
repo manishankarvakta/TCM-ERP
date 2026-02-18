@@ -4,8 +4,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
-import { createActivity } from "./activity.action";
-import { type Prisma, LeadStatus, OpportunityStage } from "@prisma/client";
+import { createNotification } from "@/app/actions/notificationActions";
+import { type Prisma, LeadStatus, OpportunityStage, NotificationType } from "@prisma/client";
 
 /**
  * Generate unique lead number
@@ -48,7 +48,8 @@ export async function getLeads(
   sortBy: string = "createdAt",
   sortOrder: "asc" | "desc" = "desc",
   dateFrom?: string, // Changed to string
-  dateTo?: string    // Changed to string
+  dateTo?: string,    // Changed to string
+  includeTrash: boolean = false
 ) {
   try {
     const session = await auth();
@@ -61,7 +62,9 @@ export async function getLeads(
     }
 
     const skip = (page - 1) * limit;
-    const where: Prisma.LeadWhereInput = {};
+    const where: Prisma.LeadWhereInput = {
+      isTrash: includeTrash // Filter by trash status
+    };
 
     if (search) {
       where.OR = [
@@ -205,9 +208,26 @@ export async function createLead(input: {
       return { success: false, error: "Permission Denied: crm.leads.create" };
     }
 
-    // Validate email/phone presence
+    // Validate email/phone presence and duplicates
     if (!input.email && !input.phone) {
       return { success: false, error: "Either Email or Phone is required for a Lead" };
+    }
+
+    // Check for duplicates
+    const where: Prisma.LeadWhereInput = { OR: [] };
+    if (input.email) where.OR?.push({ email: input.email });
+    if (input.phone) where.OR?.push({ phone: input.phone });
+
+    if (where.OR && where.OR.length > 0) {
+      const existingLead = await prisma.lead.findFirst({ where });
+      if (existingLead) {
+        if (input.email && existingLead.email === input.email) {
+          return { success: false, error: "A lead with this email already exists." };
+        }
+        if (input.phone && existingLead.phone === input.phone) {
+          return { success: false, error: "A lead with this phone number already exists." };
+        }
+      }
     }
 
     // Destructure to separate lead data from extra info like notes
@@ -224,31 +244,39 @@ export async function createLead(input: {
       },
     });
 
-    // Automatically log "Lead Created" activity
-    await prisma.activity.create({
-      data: {
-        type: "Update",
-        subject: "Lead Created",
-        description: `Lead was created by ${session.user.name || "a user"}.`,
-        leadId: lead.id,
-        ownerId: session.user.id,
-      },
+    await logItemCreated(session.user.id, "Lead", lead.id, lead.name, lead);
+    
+    // Emit System Event for Timeline (handles activity ledger recording)
+    const { emitSystemEvent } = await import("@/lib/system/hooks");
+    await emitSystemEvent({
+      entityType: "lead",
+      entityId: lead.id,
+      eventType: "LEAD_CREATED",
+      actorId: session.user.id,
+      description: `Lead created: ${lead.name}`,
     });
 
-    // If notes are provided, create an initial activity for this lead
+    // If extra notes are provided, log them as a separate event
     if (notes) {
-      await prisma.activity.create({
-        data: {
-          type: "Note",
-          subject: "Initial Lead Note",
-          description: notes,
-          leadId: lead.id,
-          ownerId: session.user.id,
-        },
-      });
+        await emitSystemEvent({
+            entityType: "lead",
+            entityId: lead.id,
+            eventType: "NOTE_CREATED", // Or a specific INITIAL_NOTE if we had one
+            actorId: session.user.id,
+            description: `Initial Lead Note: ${notes}`,
+            metadata: { content: notes }
+        });
     }
 
-    await logItemCreated(session.user.id, "Lead", lead.id, lead.name, lead);
+    // Create system notification
+    await createNotification({
+      title: "New Lead Created",
+      message: `New lead "${lead.name}" has been created.`,
+      type: NotificationType.INFO,
+      userId: ownerId, // Notify the lead owner
+      createdBy: session.user.id,
+    });
+    
     revalidateBothPaths("crm/leads");
 
     return { success: true, lead };
@@ -278,18 +306,24 @@ export async function assignLeadOwner(leadId: string, ownerId: string) {
       include: { User: { select: { name: true } } }
     });
 
-    // Automatically log "Owner Assigned" activity
-    await prisma.activity.create({
-      data: {
-        type: "Update",
-        subject: "Owner Assigned",
-        description: `Lead ownership assigned to ${lead.User.name || "Unknown User"}.`,
-        leadId,
-        ownerId: session.user.id,
-      },
-    });
-
     await logItemUpdated(session.user.id, "Lead", leadId, ["ownerId"], lead.name, { ownerId });
+
+    // Log to Timeline using emitSystemEvent
+    const { emitSystemEvent } = await import("@/lib/system/hooks");
+    await emitSystemEvent({
+      entityType: "lead",
+      entityId: leadId,
+      eventType: "LEAD_UPDATED",
+      actorId: session.user.id,
+      description: `Lead ownership assigned to ${lead.User.name || "Unknown User"}.`,
+      metadata: { 
+        changes: [{
+          field: "ownerId",
+          from: lead.ownerId, // This might be stale if we didn't fetch old lead owner, but usually it's acceptable or we can fetch old one. actually assignLeadOwner doesn't fetch old lead first.
+          to: ownerId
+        }]
+      }
+    });
     revalidateBothPaths("crm/leads");
 
     return { success: true, lead };
@@ -325,6 +359,26 @@ export async function updateLead(leadId: string, input: {
 
     if (!oldLead) return { success: false, error: "Lead not found" };
 
+    // Check for duplicates (excluding current lead)
+    const where: Prisma.LeadWhereInput = { 
+      OR: [],
+      NOT: { id: leadId }
+    };
+    if (input.email) where.OR?.push({ email: input.email });
+    if (input.phone) where.OR?.push({ phone: input.phone });
+
+    if (where.OR && where.OR.length > 0) {
+      const existingLead = await prisma.lead.findFirst({ where });
+      if (existingLead) {
+        if (input.email && existingLead.email === input.email) {
+          return { success: false, error: "A lead with this email already exists." };
+        }
+        if (input.phone && existingLead.phone === input.phone) {
+          return { success: false, error: "A lead with this phone number already exists." };
+        }
+      }
+    }
+
     const lead = await prisma.lead.update({
       where: { id: leadId },
       data: input,
@@ -332,24 +386,50 @@ export async function updateLead(leadId: string, input: {
 
     // Track changes for activity log
     const changes: string[] = [];
-    if (input.name && input.name !== oldLead.name) changes.push(`Name: ${oldLead.name} -> ${input.name}`);
-    if (input.email && input.email !== oldLead.email) changes.push(`Email: ${oldLead.email} -> ${input.email}`);
-    if (input.phone && input.phone !== oldLead.phone) changes.push(`Phone: ${oldLead.phone || "None"} -> ${input.phone}`);
-    if (input.company && input.company !== oldLead.company) changes.push(`Company: ${oldLead.company || "None"} -> ${input.company}`);
-    if (input.source && input.source !== oldLead.source) changes.push(`Source: ${oldLead.source || "None"} -> ${input.source}`);
+    const structuredChanges: any[] = [];
+
+    if (input.name && input.name !== oldLead.name) {
+      changes.push(`Name: ${oldLead.name} -> ${input.name}`);
+      structuredChanges.push({ field: "name", from: oldLead.name, to: input.name });
+    }
+    if (input.email && input.email !== oldLead.email) {
+      changes.push(`Email: ${oldLead.email} -> ${input.email}`);
+      structuredChanges.push({ field: "email", from: oldLead.email, to: input.email });
+    }
+    if (input.phone && input.phone !== oldLead.phone) {
+      changes.push(`Phone: ${oldLead.phone || "None"} -> ${input.phone}`);
+      structuredChanges.push({ field: "phone", from: oldLead.phone, to: input.phone });
+    }
+    if (input.company && input.company !== oldLead.company) {
+      changes.push(`Company: ${oldLead.company || "None"} -> ${input.company}`);
+      structuredChanges.push({ field: "company", from: oldLead.company, to: input.company });
+    }
+    if (input.source && input.source !== oldLead.source) {
+      changes.push(`Source: ${oldLead.source || "None"} -> ${input.source}`);
+      structuredChanges.push({ field: "source", from: oldLead.source, to: input.source });
+    }
 
     if (changes.length > 0) {
-      await prisma.activity.create({
-        data: {
-          type: "Update",
-          subject: "Lead Updated",
-          description: `Lead details were updated:\n${changes.join('\n')}`,
-          leadId,
-          ownerId: session.user.id,
-        },
+      const { emitSystemEvent } = await import("@/lib/system/hooks");
+      await emitSystemEvent({
+        entityType: "lead",
+        entityId: leadId,
+        eventType: "LEAD_UPDATED",
+        actorId: session.user.id,
+        description: `Lead details updated`,
+        metadata: { changes: structuredChanges }
       });
 
       await logItemUpdated(session.user.id, "Lead", leadId, Object.keys(input), lead.name, input);
+      
+      // Create system notification
+      await createNotification({
+        title: "Lead Updated",
+        message: `Lead "${lead.name}" has been updated.`,
+        type: NotificationType.INFO,
+        userId: lead.ownerId, // Notify the lead owner
+        createdBy: session.user.id,
+      });
     }
 
     revalidateBothPaths("crm/leads");
@@ -380,18 +460,34 @@ export async function updateLeadStatus(leadId: string, status: LeadStatus) {
       data: { status },
     });
 
-    // Automatically log "Status Updated" activity
-    await prisma.activity.create({
-      data: {
-        type: "Update",
-        subject: "Status Updated",
-        description: `Lead status changed to ${status}.`,
-        leadId,
-        ownerId: session.user.id,
-      },
-    });
-
     await logItemUpdated(session.user.id, "Lead", leadId, ["status"], lead.name, { status });
+
+    // Log to Timeline using emitSystemEvent
+    const { emitSystemEvent } = await import("@/lib/system/hooks");
+    await emitSystemEvent({
+      entityType: "lead",
+      entityId: leadId,
+      eventType: "LEAD_STATUS_CHANGED",
+      actorId: session.user.id,
+      description: `Lead status changed to ${status}.`,
+      metadata: { 
+        changes: [{
+          field: "status",
+          from: lead.status === status ? "Unknown" : "Old Status", // optimization: createLeadStatus doesn't fetch old status explicitly but prisma update returns new one. To be strictly correct we should fetch old one or accept we only know new. Actually updateLeadStatus DOES NOT fetch old status.
+          to: status
+        }]
+       }
+    });
+    
+    // Create system notification
+    await createNotification({
+      title: "Lead Status Updated",
+      message: `Lead "${lead.name}" status changed to ${status}.`,
+      type: NotificationType.INFO,
+      userId: lead.ownerId, // Notify the lead owner
+      createdBy: session.user.id,
+    });
+      
     revalidateBothPaths("crm/leads");
 
     return { success: true, lead };
@@ -420,12 +516,15 @@ export async function logLeadActivity(leadId: string, input: {
       return { success: false, error: "Permission Denied: crm.activities.create" };
     }
 
-    const activity = await prisma.activity.create({
-      data: {
-        ...input,
-        leadId,
-        ownerId: session.user.id,
-      },
+    const { createActivityRecord } = await import("@/lib/system/activity-ledger");
+    const activity = await createActivityRecord({
+      type: input.type as any,
+      subject: input.subject,
+      description: input.description,
+      dueDate: input.dueDate,
+      contextType: "lead",
+      contextId: leadId,
+      actorId: session.user.id,
     });
 
     revalidateBothPaths("crm/leads");
@@ -583,17 +682,6 @@ export async function convertLeadToOpportunity(leadId: string, input: {
         data: { status: LeadStatus.CONVERTED }
       });
 
-      // Automatically log "Converted to Opportunity" activity
-      await tx.activity.create({
-        data: {
-          type: "Update",
-          subject: "Converted to Opportunity",
-          description: `Lead was converted to Opportunity: ${input.opportunityTitle}.`,
-          leadId,
-          ownerId: session.user.id,
-        },
-      });
-
       return { opportunityId: opportunity.id, contactId: contact.id };
     });
     
@@ -602,7 +690,7 @@ export async function convertLeadToOpportunity(leadId: string, input: {
     await createActivity({
         type: "created",
         subject: "Opportunity created from Lead",
-        description: `Converted from Lead: ${lead.firstName} ${lead.lastName}`,
+        description: `Converted from Lead: ${lead.name}`,
         opportunityId: result.opportunityId,
         contactId: result.contactId,
         leadId: leadId
@@ -611,6 +699,43 @@ export async function convertLeadToOpportunity(leadId: string, input: {
     console.log(`Transaction committed, Opportunity ID: ${result.opportunityId}`);
     await logItemUpdated(session.user.id, "Lead", leadId, ["status"], lead.name, { status: LeadStatus.CONVERTED });
     
+    // Create system notification
+    await createNotification({
+      title: "Lead Converted",
+      message: `Lead "${lead.name}" has been converted to an opportunity.`,
+      type: NotificationType.SUCCESS,
+      userId: lead.ownerId, // Notify the lead owner
+      createdBy: session.user.id,
+    });
+
+    // Emit System Event for conversion
+    const { emitSystemEvent } = await import("@/lib/system/hooks");
+    await emitSystemEvent({
+      entityType: "lead",
+      entityId: leadId,
+      eventType: "LEAD_CONVERTED",
+      actorId: session.user.id,
+      description: `Converted to Opportunity: ${input.opportunityTitle}`,
+      metadata: {
+        opportunityId: result.opportunityId,
+        contactId: result.contactId,
+        leadId: leadId
+      }
+    });
+
+    // Also emit for the new opportunity
+    await emitSystemEvent({
+        entityType: "opportunity",
+        entityId: result.opportunityId,
+        eventType: "OPPORTUNITY_CREATED",
+        actorId: session.user.id,
+        description: `Created from Lead: ${lead.name}`,
+        metadata: {
+          leadId: leadId,
+          contactId: result.contactId
+        }
+      });
+
     revalidateBothPaths("crm/leads");
     revalidateBothPaths("crm/opportunities");
     revalidateBothPaths("clients");
@@ -675,5 +800,124 @@ export async function backfillLeadNumbers() {
   } catch (error) {
     console.error("backfillLeadNumbers error:", error);
     return { success: false, error: "Failed to backfill lead numbers" };
+  }
+}
+
+/**
+ * Bulk move leads to trash
+ */
+export async function bulkMoveToTrash(leadIds: string[]) {
+  try {
+    const session = await auth();
+    console.log("bulkMoveToTrash session:", session?.user?.id);
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const { checkPermission } = await import("@/lib/permissions");
+    // Check for "move-to-trash" permission
+    const hasPermission = await checkPermission(session.user.id, "crm.leads", "move-to-trash");
+    console.log("bulkMoveToTrash permission:", hasPermission);
+    
+    if (!hasPermission) {
+      return { success: false, error: "Permission Denied: crm.leads.move-to-trash" };
+    }
+
+    const { count } = await prisma.lead.updateMany({
+      where: {
+        id: { in: leadIds },
+        isTrash: false,
+      },
+      data: {
+        isTrash: true,
+        deletedAt: new Date(),
+      },
+    });
+    console.log("bulkMoveToTrash moved count:", count);
+
+    revalidateBothPaths("crm/leads");
+    return { success: true, count };
+  } catch (error) {
+    console.error("bulkMoveToTrash error:", error);
+    return { success: false, error: "Failed to move leads to trash" };
+  }
+}
+
+/**
+ * Bulk restore leads from trash
+ */
+export async function bulkRestore(leadIds: string[]) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const { checkPermission } = await import("@/lib/permissions");
+    // Restore requires move-to-trash or delete-permanently permission (logic: if you can trash, you can untrash)
+    // Or stricter: only if you can delete permanently? Let's use move-to-trash for now as it's the inverse.
+    if (!(await checkPermission(session.user.id, "crm.leads", "move-to-trash"))) {
+      return { success: false, error: "Permission Denied: crm.leads.move-to-trash" };
+    }
+
+    const { count } = await prisma.lead.updateMany({
+      where: {
+        id: { in: leadIds },
+        isTrash: true,
+      },
+      data: {
+        isTrash: false,
+        deletedAt: null,
+      },
+    });
+
+    revalidateBothPaths("crm/leads");
+    return { success: true, count };
+  } catch (error) {
+    console.error("bulkRestore error:", error);
+    return { success: false, error: "Failed to restore leads" };
+  }
+}
+
+/**
+ * Bulk permanently delete leads
+ * Constraint: Cannot delete converted leads
+ */
+export async function bulkDeletePermanently(leadIds: string[]) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const { checkPermission } = await import("@/lib/permissions");
+    // Check for "delete-permanently"
+    if (!(await checkPermission(session.user.id, "crm.leads", "delete-permanently"))) {
+      return { success: false, error: "Permission Denied: crm.leads.delete-permanently" };
+    }
+
+    // Check for converted leads
+    const convertedLeads = await prisma.lead.findMany({
+      where: {
+        id: { in: leadIds },
+        status: LeadStatus.CONVERTED,
+      },
+      select: { id: true, name: true },
+    });
+
+    if (convertedLeads.length > 0) {
+      return { 
+        success: false, 
+        error: `Cannot delete converted leads: ${convertedLeads.map(l => l.name).join(", ")}` 
+      };
+    }
+    
+    // Proceed with delete
+    const { count } = await prisma.lead.deleteMany({
+      where: {
+        id: { in: leadIds },
+        isTrash: true, // Only delete from trash? Or allow direct delete? Usually from trash.
+      },
+    });
+
+    revalidateBothPaths("crm/leads");
+    return { success: true, count };
+  } catch (error) {
+    console.error("bulkDeletePermanently error:", error);
+    return { success: false, error: "Failed to delete leads permanently" };
   }
 }

@@ -323,13 +323,18 @@ export async function createOpportunity(input: {
     await logItemCreated(session.user.id, "Opportunity", opportunity.id, opportunity.title, opportunity);
     log("Logged item created");
 
-    // Log the creation activity
-    await createActivity({
-      type: "created",
-      subject: "Opportunity created",
-      description: `Opportunity created with value ${input.value}`,
-      opportunityId: opportunity.id,
-      contactId: input.contactId,
+    // Log to Timeline using emitSystemEvent
+    const { emitSystemEvent } = await import("@/lib/system/hooks");
+    await emitSystemEvent({
+      entityType: "opportunity",
+      entityId: opportunity.id,
+      eventType: "OPPORTUNITY_CREATED",
+      actorId: session.user.id,
+      description: `Opportunity created: ${opportunity.title}`,
+      metadata: { 
+        value: input.value,
+        contactId: input.contactId
+      }
     });
     revalidateBothPaths("crm/opportunities");
     log("Revalidated");
@@ -396,35 +401,30 @@ export async function updateOpportunity(id: string, input: {
 
     await logItemUpdated(session.user.id, "Opportunity", id, Object.keys(input), opportunity.title, input);
 
-    // Log updates to Activity Timeline
-    if (input.value && input.value !== Number(oldOpp.value)) {
-        await createActivity({
-            type: "update",
-            subject: "Value updated",
-            description: `Value -> ${oldOpp.value} -> ${input.value}`,
-            opportunityId: id,
-            contactId: opportunity.contactId,
-        });
+    // structured change tracking
+    const changes: any[] = [];
+    
+    if (input.title && input.title !== oldOpp.title) {
+        changes.push({ field: "title", from: oldOpp.title, to: input.title });
+    }
+    
+    if (input.value !== undefined && input.value !== Number(oldOpp.value)) {
+        changes.push({ field: "value", from: Number(oldOpp.value), to: input.value });
     }
 
     if (input.expectedCloseDate && oldOpp.expectedCloseDate && input.expectedCloseDate.getTime() !== oldOpp.expectedCloseDate.getTime()) {
-        await createActivity({
-            type: "update",
-            subject: "Expected Close Date updated",
-            description: `Close Date -> ${oldOpp.expectedCloseDate.toDateString()} -> ${input.expectedCloseDate.toDateString()}`,
-            opportunityId: id,
-            contactId: opportunity.contactId,
-        });
+        changes.push({ field: "expectedCloseDate", from: oldOpp.expectedCloseDate.toISOString(), to: input.expectedCloseDate.toISOString() });
     }
-    
-    // Generic update log if title or other fields changed not covered above
-    if (input.title && input.title !== oldOpp.title) {
-         await createActivity({
-            type: "update",
-            subject: "Opportunity details updated",
-            description: `Title updated`,
-            opportunityId: id,
-            contactId: opportunity.contactId,
+
+    if (changes.length > 0) {
+        const { emitSystemEvent } = await import("@/lib/system/hooks");
+        await emitSystemEvent({
+            entityType: "opportunity",
+            entityId: id,
+            eventType: "OPPORTUNITY_UPDATED",
+            actorId: session.user.id,
+            description: `Opportunity details updated`,
+            metadata: { changes }
         });
     }
 
@@ -465,14 +465,18 @@ export async function updateOpportunityStage(opportunityId: string, stage: Oppor
 
     await logItemUpdated(session.user.id, "Opportunity", opportunityId, ["stage"], opportunity.title, { stage });
     
-    // Log activity
+    // Log to Timeline
     if (oldOpp && oldOpp.stage !== stage) {
-        await createActivity({
-            type: "update",
-            subject: "Stage updated",
-            description: `Stage -> ${oldOpp.stage} -> ${stage}`,
-            opportunityId: opportunityId,
-            contactId: oldOpp.contactId,
+        const { emitSystemEvent } = await import("@/lib/system/hooks");
+        await emitSystemEvent({
+            entityType: "opportunity",
+            entityId: opportunityId,
+            eventType: "OPPORTUNITY_STAGE_CHANGED",
+            actorId: session.user.id,
+            description: `Stage changed to ${stage}`,
+            metadata: { 
+                changes: [{ field: "stage", from: oldOpp.stage, to: stage }]
+            }
         });
     }
 
@@ -513,12 +517,16 @@ export async function attachContactToOpportunity(opportunityId: string, contactI
     await logItemUpdated(session.user.id, "Opportunity", opportunityId, ["contactId"], opportunity.title, { contactId });
     
     // Log activity
-    await createActivity({
-        type: "update",
-        subject: "Primary Contact updated",
-        description: `Contact attached`,
-        opportunityId: opportunityId,
-        contactId: contactId,
+    const { emitSystemEvent } = await import("@/lib/system/hooks");
+    await emitSystemEvent({
+        entityType: "opportunity",
+        entityId: opportunityId,
+        eventType: "OPPORTUNITY_UPDATED",
+        actorId: session.user.id,
+        description: `Primary contact updated`,
+        metadata: { 
+            changes: [{ field: "contactId", from: oldOpp?.contactId, to: contactId }]
+        }
     });
 
     revalidateBothPaths("crm/opportunities");
@@ -559,12 +567,16 @@ export async function updateOpportunityValue(opportunityId: string, value: numbe
     
     // Log activity
     if (oldOpp && Number(oldOpp.value) !== value) {
-        await createActivity({
-            type: "update",
-            subject: "Value updated",
-            description: `Value -> ${oldOpp.value} -> ${value}`,
-            opportunityId: opportunityId,
-            contactId: oldOpp.contactId,
+        const { emitSystemEvent } = await import("@/lib/system/hooks");
+        await emitSystemEvent({
+            entityType: "opportunity",
+            entityId: opportunityId,
+            eventType: "OPPORTUNITY_UPDATED",
+            actorId: session.user.id,
+            description: `Value updated to ${value}`,
+            metadata: { 
+                changes: [{ field: "value", from: Number(oldOpp.value), to: value }]
+            }
         });
     }
 

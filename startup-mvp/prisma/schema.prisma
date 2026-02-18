@@ -26,37 +26,50 @@ model Account {
 }
 
 model Activity {
-  id            String       @id @default(cuid())
-  type          String
-  subject       String
-  description   String?
-  contactId     String?
-  opportunityId String?
-  leadId        String?
+  id            String    @id @default(cuid())
+  type          String    // Action type: TASK_CREATED, NOTE_CREATED, DOC_CREATED, etc.
+  subject       String    // Human-readable subject line
+  description   String?   // Detailed description
+  
+  // Context (Timeline Owner - where activity appears)
+  contextType   String?   // "lead", "opportunity", "contact", "project", "issue"
+  contextId     String?   // UUID of context entity
+  
+  // Subject (Affected Object - what changed)
+  subjectType   String?   // "task", "note", "doc", "event", "lead", "opportunity"
+  subjectId     String?   // UUID of subject entity
+  
+  // Metadata for additional context
+  metadata      Json?     // Old/new values, titles, etc.
+  
+  // Scheduling & Status (for activity-type records like calls, meetings)
   dueDate       DateTime?
-  completed     Boolean      @default(false)
-  ownerId       String
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  assignedToId  String?
-  issueId       String?
-  priority      String       @default("NORMAL")
-  projectId     String?
-  status        String       @default("TODO")
-  AssignedTo    User?        @relation("ActivityAssignedTo", fields: [assignedToId], references: [id])
-  Contact       Contact?     @relation(fields: [contactId], references: [id])
-  Lead          Lead?        @relation(fields: [leadId], references: [id])
-  Opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
-  User          User         @relation(fields: [ownerId], references: [id])
+  completed     Boolean   @default(false)
+  completedAt   DateTime?
+  status        String    @default("TODO")
+  priority      String    @default("NORMAL")
+  
+  // Ownership
+  ownerId       String?   // Actor - who performed the action (Optional for system actions)
+  assignedToId  String?   // Assignee (for activity-type records)
+  
+  // Timestamps
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relationships
+  Owner         User?     @relation("ActivityOwner", fields: [ownerId], references: [id])
+  AssignedTo    User?     @relation("ActivityAssignedTo", fields: [assignedToId], references: [id])
   File          File[]
-
-  @@index([contactId])
-  @@index([leadId])
-  @@index([opportunityId])
+  
+  // Indexes for timeline queries
+  @@index([contextType, contextId, createdAt(sort: Desc)], map: "idx_activity_context_timeline")
+  @@index([subjectType, subjectId, createdAt(sort: Desc)], map: "idx_activity_subject_history")
   @@index([ownerId])
   @@index([assignedToId])
   @@index([status])
   @@index([priority])
+  @@index([type])
 }
 
 model CashBankAccount {
@@ -181,7 +194,6 @@ model Contact {
   isPrimary   Boolean       @default(false)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
-  Activity    Activity[]
   Client      Client        @relation(fields: [clientId], references: [id])
   Opportunity Opportunity[]
   Note        Note[]
@@ -303,21 +315,22 @@ model Employee {
 }
 
 model File {
-  id         String    @id @default(cuid())
-  ownerId    String
-  name       String
-  path       String
-  storageKey String    @unique
-  size       Int
-  mimeType   String
-  isFolder   Boolean   @default(false)
-  etag       String?
-  metadata   Json?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  activityId String?
-  Activity   Activity? @relation(fields: [activityId], references: [id])
-  User       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  id              String           @id @default(cuid())
+  ownerId         String
+  name            String
+  path            String
+  storageKey      String           @unique
+  size            Int
+  mimeType        String
+  isFolder        Boolean          @default(false)
+  etag            String?
+  metadata        Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  activityId      String?
+  Activity        Activity?        @relation(fields: [activityId], references: [id])
+  User            User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  EntityFileLinks EntityFileLink[]
 
   @@index([createdAt])
   @@index([ownerId])
@@ -497,13 +510,15 @@ model Lead {
   ownerId    String
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
-  Activity   Activity[]
+  isTrash    Boolean    @default(false)
+  deletedAt  DateTime?
   User       User       @relation(fields: [ownerId], references: [id])
   Note       Note[]
   Task       Task[]
 
   @@index([ownerId])
   @@index([status])
+  @@index([isTrash])
 }
 
 model ModuleGroup {
@@ -562,25 +577,7 @@ model ModuleOperation {
   @@index([module])
 }
 
-model Notification {
-  id                                String           @id @default(cuid())
-  title                             String
-  message                           String
-  type                              NotificationType
-  userId                            String?
-  isRead                            Boolean          @default(false)
-  createdAt                         DateTime         @default(now())
-  readAt                            DateTime?
-  createdBy                         String?
-  User_Notification_createdByToUser User?            @relation("Notification_createdByToUser", fields: [createdBy], references: [id])
-  User_Notification_userIdToUser    User?            @relation("Notification_userIdToUser", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([createdAt])
-  @@index([createdBy])
-  @@index([isRead])
-  @@index([type])
-  @@index([userId])
-}
+// Notification model moved to end
 
 model Opportunity {
   id                String           @id @default(cuid())
@@ -595,7 +592,6 @@ model Opportunity {
   nextActivityAt    DateTime?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
-  Activity          Activity[]
   Client            Client           @relation(fields: [clientId], references: [id])
   Contact           Contact          @relation(fields: [contactId], references: [id])
   User              User             @relation(fields: [ownerId], references: [id])
@@ -909,61 +905,63 @@ model Unit {
 }
 
 model User {
-  id                                        String                 @id @default(cuid())
+  id                                        String            @id @default(cuid())
   name                                      String?
-  email                                     String                 @unique
+  email                                     String            @unique
   emailVerified                             DateTime?
   password                                  String
   image                                     String?
-  role                                      String                 @default("user")
-  status                                    String                 @default("active")
+  role                                      String            @default("user")
+  status                                    String            @default("active")
   designationTemplateId                     String?
   permissions                               Json?
   inchargeId                                String?
-  createdAt                                 DateTime               @default(now())
-  updatedAt                                 DateTime               @updatedAt
+  createdAt                                 DateTime          @default(now())
+  updatedAt                                 DateTime          @updatedAt
   Account                                   Account[]
-  AssignedActivities                        Activity[]             @relation("ActivityAssignedTo")
-  Activity                                  Activity[]
+  OwnedActivities                           Activity[]        @relation("ActivityOwner")
+  AssignedActivities                        Activity[]        @relation("ActivityAssignedTo")
   CashBankAccount                           CashBankAccount[]
   ChartOfAccount                            ChartOfAccount[]
   Client                                    Client[]
   CoverLetter                               CoverLetter[]
   Delivery                                  Delivery[]
   DeliveryLedger                            DeliveryLedger[]
-  Doc                                       Doc[]
-  Employee                                  Employee?
-  File                                      File[]
-  InventoryTransaction                      InventoryTransaction[]
-  JournalEntryLine                          JournalEntryLine[]
-  Lead                                      Lead[]
-  ModuleGroup                               ModuleGroup[]
-  Note                                      Note[]
-  Notification_Notification_createdByToUser Notification[]         @relation("Notification_createdByToUser")
-  Notification_Notification_userIdToUser    Notification[]         @relation("Notification_userIdToUser")
+  Notification_Notification_createdByToUser Notification[]    @relation("Notification_createdByToUser")
+  Notification_Notification_userIdToUser    Notification[]    @relation("Notification_userIdToUser")
   Opportunity                               Opportunity[]
   Organization                              Organization[]
-  Purchase_Purchase_createdByToUser         Purchase[]             @relation("Purchase_createdByToUser")
-  Purchase_Purchase_updatedByToUser         Purchase[]             @relation("Purchase_updatedByToUser")
-  Quotation_Quotation_submittedByIdToUser   Quotation[]            @relation("Quotation_submittedByIdToUser")
-  Quotation_Quotation_updatedByIdToUser     Quotation[]            @relation("Quotation_updatedByIdToUser")
+  Purchase_Purchase_createdByToUser         Purchase[]        @relation("Purchase_createdByToUser")
+  Purchase_Purchase_updatedByToUser         Purchase[]        @relation("Purchase_updatedByToUser")
+  Quotation_Quotation_submittedByIdToUser   Quotation[]       @relation("Quotation_submittedByIdToUser")
+  Quotation_Quotation_updatedByIdToUser     Quotation[]       @relation("Quotation_updatedByIdToUser")
   Section                                   Section[]
   Session                                   Session[]
   Supplier                                  Supplier[]
-  Task                                      Task[]
-  Unit                                      Unit[]
-  PermissionTemplate                        PermissionTemplate?    @relation(fields: [designationTemplateId], references: [id])
-  User                                      User?                  @relation("UserToUser", fields: [inchargeId], references: [id])
-  other_User                                User[]                 @relation("UserToUser")
-  UserLog                                   UserLog[]
-  UserPermission                            UserPermission[]
-  Voucher_Voucher_createdByToUser           Voucher[]              @relation("Voucher_createdByToUser")
-  Voucher_Voucher_postedByIdToUser          Voucher[]              @relation("Voucher_postedByIdToUser")
-  Voucher_Voucher_userIdToUser              Voucher[]              @relation("Voucher_userIdToUser")
-  VoucherLine                               VoucherLine[]
-  WorkOrder                                 WorkOrder[]
-  settings_settings_created_byToUser        settings[]             @relation("settings_created_byToUser")
-  settings_settings_user_idToUser           settings[]             @relation("settings_user_idToUser")
+  TasksOwned                                Task[]            @relation("TaskOwner")
+  TasksAssigned                             Task[]            @relation("TaskAssignee")
+  NotesOwned                                Note[]            @relation("NoteOwner")
+  DocsOwned                                 Doc[]             @relation("DocOwner")
+
+  Unit                               Unit[]
+  Employee                           Employee?
+  File                               File[]
+  InventoryTransaction               InventoryTransaction[]
+  JournalEntryLine                   JournalEntryLine[]
+  Lead                               Lead[]
+  ModuleGroup                        ModuleGroup[]
+  PermissionTemplate                 PermissionTemplate?    @relation(fields: [designationTemplateId], references: [id])
+  User                               User?                  @relation("UserToUser", fields: [inchargeId], references: [id])
+  other_User                         User[]                 @relation("UserToUser")
+  UserLog                            UserLog[]
+  UserPermission                     UserPermission[]
+  Voucher_Voucher_createdByToUser    Voucher[]              @relation("Voucher_createdByToUser")
+  Voucher_Voucher_postedByIdToUser   Voucher[]              @relation("Voucher_postedByIdToUser")
+  Voucher_Voucher_userIdToUser       Voucher[]              @relation("Voucher_userIdToUser")
+  VoucherLine                        VoucherLine[]
+  WorkOrder                          WorkOrder[]
+  settings_settings_created_byToUser settings[]             @relation("settings_created_byToUser")
+  settings_settings_user_idToUser    settings[]             @relation("settings_user_idToUser")
 
   @@index([designationTemplateId])
   @@index([inchargeId])
@@ -1099,13 +1097,19 @@ model WorkOrder {
 }
 
 model Task {
-  id            String       @id @default(cuid())
-  title         String
-  description   String?
-  status        String       @default("todo")
-  priority      String       @default("medium")
-  dueDate       DateTime?
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  status      String    @default("todo")
+  priority    String    @default("medium")
+  dueDate     DateTime?
+
+  // Polymorphic Relations
+  entityType String? // e.g., "lead", "opportunity", "project"
+  entityId   String? // UUID of the related entity
+
   userId        String
+  assigneeId    String?
   contactId     String?
   opportunityId String?
   leadId        String?
@@ -1114,20 +1118,29 @@ model Task {
   Contact       Contact?     @relation(fields: [contactId], references: [id])
   Lead          Lead?        @relation(fields: [leadId], references: [id])
   Opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
-  User          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  User          User         @relation("TaskOwner", fields: [userId], references: [id], onDelete: Cascade)
+  Assignee      User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
 
+  @@index([entityType, entityId])
   @@index([userId])
   @@index([status])
   @@index([priority])
   @@index([contactId])
   @@index([leadId])
   @@index([opportunityId])
+  // Timeline optimization index
+  @@index([entityType, entityId, createdAt(sort: Desc)], map: "idx_task_entity_created")
 }
 
 model Note {
-  id            String       @id @default(cuid())
-  title         String
-  content       String?
+  id      String  @id @default(cuid())
+  title   String
+  content String?
+
+  // Polymorphic Relations
+  entityType String?
+  entityId   String?
+
   userId        String
   contactId     String?
   opportunityId String?
@@ -1137,24 +1150,37 @@ model Note {
   Contact       Contact?     @relation(fields: [contactId], references: [id])
   Lead          Lead?        @relation(fields: [leadId], references: [id])
   Opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
-  User          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  User          User         @relation("NoteOwner", fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([entityType, entityId])
   @@index([userId])
   @@index([contactId])
   @@index([leadId])
   @@index([opportunityId])
+  // Timeline optimization index
+  @@index([entityType, entityId, createdAt(sort: Desc)], map: "idx_note_entity_created")
 }
 
 model Doc {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
+  id      String  @id @default(cuid())
+  title   String
+  content String? // Markdown or HTML content
+  status  String  @default("draft") // draft, published, archived
+
+  // Polymorphic Relations
+  entityType String?
+  entityId   String?
+
   userId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  User User @relation("DocOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([entityType, entityId])
   @@index([userId])
+  // Timeline optimization index
+  @@index([entityType, entityId, createdAt(sort: Desc)], map: "idx_doc_entity_created")
 }
 
 model settings {
@@ -1275,4 +1301,62 @@ enum WorkOrderStatus {
   COMPLETE
   CANCELED
   HOLD
+}
+
+// Unified models (Task, Note, Doc) are defined above
+
+model Notification {
+  id                                String    @id @default(cuid())
+  userId                            String
+  type                              String
+  title                             String
+  message                           String
+  entityType                        String?
+  entityId                          String?
+  isRead                            Boolean   @default(false)
+  createdAt                         DateTime  @default(now())
+  readAt                            DateTime?
+  createdBy                         String?
+  User_Notification_createdByToUser User?     @relation("Notification_createdByToUser", fields: [createdBy], references: [id])
+  User_Notification_userIdToUser    User?     @relation("Notification_userIdToUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([createdBy])
+  @@index([isRead])
+  @@index([type])
+  @@index([userId])
+}
+
+// --- New System Modules (Events, Analytics) ---
+
+
+
+model Analytics {
+  id         String   @id @default(cuid())
+  metric     String // e.g., "VIEW", "CLICK", "CONVERSION", "TIME_SPENT"
+  value      Decimal  @default(0) @db.Decimal(10, 2)
+  entityType String
+  entityId   String
+  dimension  String? // e.g., "mobile", "desktop", "campaign_source"
+  timestamp  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([metric])
+  @@index([timestamp])
+}
+
+
+
+model EntityFileLink {
+  id         String   @id @default(cuid())
+  fileId     String
+  entityType String
+  entityId   String
+  docType    String?
+  createdAt  DateTime @default(now())
+
+  File File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, entityType, entityId])
+  @@index([entityType, entityId])
 }

@@ -85,7 +85,6 @@ export async function getClients(
         image: true,
         status: true,
         createdBy: true,
-        createdBy: true,
         // @ts-ignore
         User: {
           select: {
@@ -176,7 +175,6 @@ export async function getClientById(clientId: string) {
         company: true,
         image: true,
         status: true,
-        createdBy: true,
         createdBy: true,
         // @ts-ignore
         User: {
@@ -529,6 +527,20 @@ export async function createClient(input: {
     );
 
     // Revalidate clients page
+    // Emit System Event for Timeline
+    const { emitSystemEvent } = await import("@/lib/system/hooks");
+    await emitSystemEvent({
+      entityType: "client",
+      entityId: result.client.id,
+      eventType: "CLIENT_CREATED",
+      actorId: session.user.id,
+      description: `Client created: ${result.client.name || result.client.email}`,
+      metadata: { 
+        clientCode: result.chartOfAccount.code,
+        email: result.client.email
+      }
+    });
+
     revalidateBothPaths("clients");
 
     return {
@@ -805,17 +817,54 @@ export async function updateClient(input: {
 
     // Log client update - track what actually changed
     const changes: string[] = [];
-    if (input.name !== existingClient.name) changes.push("name");
-    if (input.email !== existingClient.email) changes.push("email");
-    if (input.phone !== existingClient.phone) changes.push("phone");
-    if (input.address !== existingClient.address) changes.push("address");
-    if (input.city !== existingClient.city) changes.push("city");
-    if (input.state !== existingClient.state) changes.push("state");
-    if (input.zip !== existingClient.zip) changes.push("zip");
-    if (input.country !== existingClient.country) changes.push("country");
-    if (input.company !== existingClient.company) changes.push("company");
-    if (input.image !== undefined && input.image !== existingClient.image) changes.push("image");
-    if (input.status && input.status !== existingClient.status) changes.push("status");
+    const structuredChanges: any[] = [];
+
+    if (input.name !== undefined && input.name !== existingClient.name) {
+       changes.push("name");
+       structuredChanges.push({ field: "name", from: existingClient.name, to: input.name });
+    }
+    if (input.email !== existingClient.email) {
+       changes.push("email");
+       structuredChanges.push({ field: "email", from: existingClient.email, to: input.email });
+    }
+    if (input.phone !== undefined && input.phone !== existingClient.phone) {
+       changes.push("phone");
+       structuredChanges.push({ field: "phone", from: existingClient.phone, to: input.phone });
+    }
+    if (input.address !== undefined && input.address !== existingClient.address) {
+       changes.push("address");
+       structuredChanges.push({ field: "address", from: existingClient.address, to: input.address });
+    }
+    if (input.city !== undefined && input.city !== existingClient.city) {
+       changes.push("city");
+       structuredChanges.push({ field: "city", from: existingClient.city, to: input.city });
+    }
+    if (input.state !== undefined && input.state !== existingClient.state) {
+       changes.push("state");
+       structuredChanges.push({ field: "state", from: existingClient.state, to: input.state });
+    }
+    if (input.zip !== undefined && input.zip !== existingClient.zip) {
+       changes.push("zip");
+       structuredChanges.push({ field: "zip", from: existingClient.zip, to: input.zip });
+    }
+    if (input.country !== undefined && input.country !== existingClient.country) {
+       changes.push("country");
+       structuredChanges.push({ field: "country", from: existingClient.country, to: input.country });
+    }
+    if (input.company !== undefined && input.company !== existingClient.company) {
+       changes.push("company");
+       structuredChanges.push({ field: "company", from: existingClient.company, to: input.company });
+    }
+    if (input.image !== undefined && input.image !== existingClient.image) {
+       changes.push("image");
+       // Don't log full image string if it's base64 or long url, but here we assume it's okay or we can skip strictly 'from/to' for image if huge.
+       // Let's just log it changed for hygiene if we want, or from/to if they are short URLs.
+       structuredChanges.push({ field: "image", from: existingClient.image, to: input.image }); 
+    }
+    if (input.status && input.status !== existingClient.status) {
+       changes.push("status");
+       structuredChanges.push({ field: "status", from: existingClient.status, to: input.status });
+    }
 
     await logItemUpdated(
       session.user.id,
@@ -833,6 +882,20 @@ export async function updateClient(input: {
     );
 
     // Revalidate clients page
+    // Emit System Event for Timeline
+    const { emitSystemEvent } = await import("@/lib/system/hooks");
+    
+    if (structuredChanges.length > 0) {
+        await emitSystemEvent({
+        entityType: "client",
+        entityId: client.id,
+        eventType: "CLIENT_UPDATED",
+        actorId: session.user.id,
+        description: `Client updated: ${client.name || client.email}`,
+        metadata: { changes: structuredChanges }
+        });
+    }
+
     revalidateBothPaths("clients");
     revalidatePath(`/dashboard/crm/clients/${client.id}`);
     revalidatePath(`/dashboard/crm/clients/details?id=${client.id}`);

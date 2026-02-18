@@ -30,7 +30,7 @@ export default function DocManager() {
 
   const fetchData = () => {
     startTransition(async () => {
-      const res = await getDocs(1, 100);
+      const res = await getDocs();
       if (res.success) setDocs(res.docs || []);
       else toast.error(res.error || "Failed to load documents");
     });

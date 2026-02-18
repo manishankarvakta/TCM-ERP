@@ -124,7 +124,7 @@ async function main() {
         ]
       },
     },
-    include: { items: true }
+    include: { OrderItem: true }
   });
   console.log(`Created Order: ${order.orderNumber} (${order.id})`);
 
@@ -164,7 +164,7 @@ async function main() {
 
   // --- STEP 3: Deliver 600k ---
   console.log("\n[Step 3] Delivering 600k (6 items)...");
-  const orderItem = order.items[0];
+  const orderItem = order.OrderItem[0];
   const deliveryRes = await postDelivery({
     orderId: order.id,
     orderItemId: orderItem.id,

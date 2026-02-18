@@ -3,25 +3,6 @@
 import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { useDebounce } from "@/hooks/use-debounce";
-import { FiPlus, FiRefreshCcw, FiSearch, FiUser, FiList, FiGrid, FiColumns } from "react-icons/fi";
-import { EmptyState } from "@/components/crm/EmptyState";
-import LeadTable from "./LeadTable";
-import LeadGrid from "./LeadGrid";
-import LeadKanban from "./LeadKanban";
-import LeadForm from "./LeadForm";
-import { getLeads, updateLeadStatus } from "@/app/actions/crm/lead.action";
-import { toast } from "sonner";
-import { useRouter, useSearchParams } from "next/navigation";
-import { LeadStatus } from "@prisma/client";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -29,6 +10,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import LeadGrid from "./LeadGrid";
+import LeadKanban from "./LeadKanban";
+import LeadSheet from "./LeadSheet";
+import { Input } from "@/components/ui/input";
+import { useDebounce } from "@/hooks/use-debounce";
+import { FiPlus, FiRefreshCcw, FiSearch, FiUser, FiList, FiGrid, FiColumns, FiTrash2 } from "react-icons/fi";
+import { EmptyState } from "@/components/crm/EmptyState";
+import LeadTable from "./LeadTable";
+import { getLeads, updateLeadStatus } from "@/app/actions/crm/lead.action";
+import { toast } from "sonner";
+import { useRouter, useSearchParams } from "next/navigation";
+import { LeadStatus } from "@prisma/client";
 
 interface Pagination {
   page: number;
@@ -66,9 +59,15 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const debouncedSearch = useDebounce(search, 500);
 
+  // Trash View State
+  const [isTrashView, setIsTrashView] = useState(false);
+
+  // Reset trash view if filters change significantly, or easier: reset other filters when entering trash?
+  // Let's keep it simple.
+
   const fetchLeads = (page: number = 1) => {
     startTransition(async () => {
-      console.log("fetchLeads calling getLeads with:", { page, search: debouncedSearch, status: statusFilter, sortBy, sortOrder, dateFrom, dateTo });
+      console.log("fetchLeads calling getLeads with:", { page, search: debouncedSearch, status: statusFilter, sortBy, sortOrder, dateFrom, dateTo, isTrashView });
       const result = await getLeads(
         page, 
         view === "kanban" ? 100 : 10, 
@@ -77,7 +76,8 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
         sortBy, 
         sortOrder,
         dateFrom,
-        dateTo
+        dateTo,
+        isTrashView // Pass trash status
       );
       if (result.success) {
         setLeads(result.leads || []);
@@ -101,7 +101,9 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
     if (statusFilter !== "all") params.set("status", statusFilter);
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
-
+    // Maybe track trash view in URL? 
+    // For now keeping it local state to avoid complex URL permutations unless requested.
+    
     const queryString = params.toString();
     const currentQueryString = searchParams.toString();
 
@@ -109,9 +111,11 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
     if (queryString !== currentQueryString) {
       console.log("LeadManager filters changed, updating URL with:", queryString);
       router.push(`/dashboard/crm/leads?${queryString}`, { scroll: false });
-      fetchLeads(1);
     }
-  }, [debouncedSearch, view, sortBy, sortOrder, statusFilter, dateFrom, dateTo]);
+    
+    // Fetch leads whenever dependencies change, including isTrashView
+    fetchLeads(1);
+  }, [debouncedSearch, view, sortBy, sortOrder, statusFilter, dateFrom, dateTo, isTrashView]);
 
   const handleCreateSuccess = () => {
     setIsDrawerOpen(false);
@@ -124,24 +128,36 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Leads</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Leads {isTrashView && <span className="text-destructive">(Trash)</span>}</h2>
           <p className="text-muted-foreground">
-            Manage your incoming leads and track initial revenue discovery.
+            {isTrashView ? "Manage deleted leads. Restore or permanently delete them." : "Manage your incoming leads and track initial revenue discovery."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Tabs value={view} onValueChange={(v) => setView(v as ViewMode)} className="w-auto">
-            <TabsList>
-              <TabsTrigger value="table" title="Table View"><FiList className="h-4 w-4" /></TabsTrigger>
-              <TabsTrigger value="grid" title="Grid View"><FiGrid className="h-4 w-4" /></TabsTrigger>
-              <TabsTrigger value="kanban" title="Kanban View"><FiColumns className="h-4 w-4" /></TabsTrigger>
-            </TabsList>
-          </Tabs>
+            {!isTrashView ? (
+                <>
+                    <Tabs value={view} onValueChange={(v) => setView(v as ViewMode)} className="w-auto">
+                        <TabsList>
+                        <TabsTrigger value="table" title="Table View"><FiList className="h-4 w-4" /></TabsTrigger>
+                        <TabsTrigger value="grid" title="Grid View"><FiGrid className="h-4 w-4" /></TabsTrigger>
+                        <TabsTrigger value="kanban" title="Kanban View"><FiColumns className="h-4 w-4" /></TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                    
+                    <Button variant="outline" size="sm" onClick={() => setIsTrashView(true)} className="text-destructive border-destructive/20 hover:bg-destructive/10">
+                        <FiTrash2 className="mr-2 h-4 w-4" /> Trash
+                    </Button>
+                </>
+            ) : (
+                <Button variant="outline" size="sm" onClick={() => setIsTrashView(false)}>
+                    <FiList className="mr-2 h-4 w-4" /> Back to Leads
+                </Button>
+            )}
           
           <Button variant="outline" size="icon" onClick={() => fetchLeads(pagination.page)} disabled={isPending}>
             <FiRefreshCcw className={isPending ? "animate-spin" : ""} />
           </Button>
-          {canCreate && (
+          {!isTrashView && canCreate && (
             <Button onClick={() => { setEditingLead(null); setIsDrawerOpen(true); }} className="gap-2">
                 <FiPlus /> New Lead
             </Button>
@@ -238,11 +254,11 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
       {leads.length === 0 && !search ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 border rounded-lg bg-muted/10 border-dashed min-h-[400px]">
                 <EmptyState 
-                    icon={FiUser} 
-                    title="No Leads Yet" 
-                    description={canCreate ? "Capture your first lead to start tracking potential deals." : "No leads found."}
-                    actionLabel={canCreate ? "Create Lead" : undefined}
-                    onAction={canCreate ? () => { setEditingLead(null); setIsDrawerOpen(true); } : undefined}
+                    icon={isTrashView ? FiTrash2 : FiUser} 
+                    title={isTrashView ? "Trash is Empty" : "No Leads Yet"} 
+                    description={isTrashView ? "No deleted leads found." : (canCreate ? "Capture your first lead to start tracking potential deals." : "No leads found.")}
+                    actionLabel={!isTrashView && canCreate ? "Create Lead" : undefined}
+                    onAction={!isTrashView && canCreate ? () => { setEditingLead(null); setIsDrawerOpen(true); } : undefined}
                 />
             </div>
       ) : (
@@ -253,26 +269,32 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
               owners={initialOwners}
               onEdit={(lead) => { setEditingLead(lead); setIsDrawerOpen(true); }}
               onRefresh={() => fetchLeads(pagination.page)}
+              isTrashView={isTrashView}
             />
           )}
-          {view === "grid" && (
+          {view === "grid" && !isTrashView && (
             <LeadGrid 
               leads={leads}
               onEdit={(lead) => { setEditingLead(lead); setIsDrawerOpen(true); }}
             />
           )}
-          {view === "kanban" && (
+          {view === "kanban" && !isTrashView && (
             <LeadKanban 
                 initialLeads={leads} 
                 canCreate={canCreate} 
                 onRefresh={() => fetchLeads(pagination.page)} 
             />
           )}
+          {isTrashView && view !== "table" && (
+             <div className="p-8 text-center text-muted-foreground border rounded-lg border-dashed">
+                 Grid and Kanban views are not available in Trash. Please switch to Table view.
+             </div>
+          )}
         </div>
       )}
 
       {/* Basic Pagination Controls - Hidden in Kanban */}
-      {view !== "kanban" && (
+      {(view !== "kanban" || isTrashView) && (
         <div className="flex items-center justify-end space-x-2 py-4">
             <Button
             variant="outline"
@@ -296,21 +318,12 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
         </div>
       )}
 
-      <Dialog open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingLead ? "Edit Lead" : "Create New Lead"}</DialogTitle>
-            <DialogDescription>
-              Fill in the details below to track a new potential business lead.
-            </DialogDescription>
-          </DialogHeader>
-          <LeadForm
-            onSuccess={handleCreateSuccess}
-            onCancel={() => setIsDrawerOpen(false)}
-            initialData={editingLead}
-          />
-        </DialogContent>
-      </Dialog>
+      <LeadSheet
+        open={isDrawerOpen}
+        onOpenChange={setIsDrawerOpen}
+        lead={editingLead}
+        onSuccess={handleCreateSuccess}
+      />
     </div>
   );
 }

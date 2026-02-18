@@ -24,14 +24,16 @@ import {
 import { useState, useTransition } from "react";
 import { createTask, updateTask } from "@/app/actions/system/task.action";
 import { toast } from "sonner";
-import { FiLoader } from "react-icons/fi";
+import { FiLoader, FiCalendar } from "react-icons/fi";
+import { Badge } from "@/components/ui/badge";
 
 const taskSchema = z.object({
   title: z.string().min(1, "Title is required"),
-  description: z.string().default(""),
-  status: z.string().default("todo"),
-  priority: z.string().default("medium"),
-  dueDate: z.string().nullable().default(null),
+  description: z.string().min(0),
+  status: z.string(),
+  priority: z.string(),
+  dueDate: z.string().nullable(),
+  assigneeId: z.string().nullable(),
 });
 
 type TaskFormValues = z.infer<typeof taskSchema>;
@@ -39,10 +41,11 @@ type TaskFormValues = z.infer<typeof taskSchema>;
 interface Task {
   id: string;
   title: string;
-  description?: string;
+  description?: string | null;
   status: string;
   priority: string;
   dueDate?: string | null | Date;
+  assigneeId?: string | null;
 }
 
 interface TaskFormProps {
@@ -51,9 +54,10 @@ interface TaskFormProps {
   initialData?: Task | null;
   entityId?: string;
   entityType?: "lead" | "opportunity" | "contact";
+  users?: { id: string; name: string | null; email: string; image?: string | null }[];
 }
 
-export function TaskForm({ onSuccess, onCancel, initialData, entityId, entityType }: TaskFormProps) {
+export function TaskForm({ onSuccess, onCancel, initialData, entityId, entityType, users }: TaskFormProps) {
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<TaskFormValues>({
@@ -64,6 +68,7 @@ export function TaskForm({ onSuccess, onCancel, initialData, entityId, entityTyp
       status: initialData?.status || "todo",
       priority: initialData?.priority || "medium",
       dueDate: initialData?.dueDate ? new Date(initialData.dueDate).toISOString().split("T")[0] : null,
+      assigneeId: initialData?.assigneeId || null,
     },
   });
 
@@ -75,6 +80,7 @@ export function TaskForm({ onSuccess, onCancel, initialData, entityId, entityTyp
         status: values.status,
         priority: values.priority,
         dueDate: values.dueDate ? new Date(values.dueDate) : undefined,
+        assigneeId: (values.assigneeId && values.assigneeId !== "unassigned") ? values.assigneeId : undefined,
       };
 
       if (entityId && entityType) {
@@ -99,48 +105,33 @@ export function TaskForm({ onSuccess, onCancel, initialData, entityId, entityTyp
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        
+        {/* Title */}
         <FormField
           control={form.control}
           name="title"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Title</FormLabel>
+              <FormLabel className="text-sm font-medium">Task Title</FormLabel>
               <FormControl>
-                <Input placeholder="Enter task title..." {...field} />
+                <Input placeholder="What needs to be done?" {...field} className="h-10" />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Textarea 
-                  placeholder="Enter task description (optional)..." 
-                  className="resize-none" 
-                  {...field} 
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="grid grid-cols-2 gap-4">
+        {/* Status & Priority */}
+        <div className="grid grid-cols-2 gap-3">
           <FormField
             control={form.control}
             name="status"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Status</FormLabel>
+                <FormLabel className="text-sm font-medium">Status</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-10">
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                   </FormControl>
@@ -161,10 +152,10 @@ export function TaskForm({ onSuccess, onCancel, initialData, entityId, entityTyp
             name="priority"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Priority</FormLabel>
+                <FormLabel className="text-sm font-medium">Priority</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-10">
                       <SelectValue placeholder="Select priority" />
                     </SelectTrigger>
                   </FormControl>
@@ -181,25 +172,87 @@ export function TaskForm({ onSuccess, onCancel, initialData, entityId, entityTyp
           />
         </div>
 
+        {/* Description */}
         <FormField
           control={form.control}
-          name="dueDate"
+          name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Due Date</FormLabel>
+              <FormLabel className="text-sm font-medium">Details</FormLabel>
               <FormControl>
-                <Input type="date" {...field} value={field.value || ""} />
+                <Textarea 
+                  placeholder="Add details..." 
+                  className="resize-none min-h-[100px]" 
+                  {...field} 
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <div className="flex justify-end gap-2 pt-4">
+        {/* Assign To & Deadline */}
+        <div className="grid grid-cols-2 gap-3">
+          <FormField
+            control={form.control}
+            name="assigneeId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm font-medium">Assign To</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
+                  <FormControl>
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="Unassigned" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {users?.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        <div className="flex items-center gap-2">
+                          <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold">
+                            {user.name?.[0] || user.email[0].toUpperCase()}
+                          </div>
+                          <span className="truncate">{user.name || user.email}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="dueDate"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel className="text-sm font-medium">Deadline</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <FiCalendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      type="date" 
+                      className="pl-9 h-10" 
+                      {...field} 
+                      value={field.value || ""} 
+                    />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-3 pt-4 border-t mt-6">
           <Button type="button" variant="outline" onClick={onCancel} disabled={isPending}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending} className="min-w-[120px] font-bold shadow-sm">
             {isPending && <FiLoader className="mr-2 animate-spin" />}
             {initialData ? "Update Task" : "Create Task"}
           </Button>

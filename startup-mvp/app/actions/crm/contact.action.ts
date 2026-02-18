@@ -122,6 +122,17 @@ export async function createContact(data: {
     });
 
     await logItemCreated(session.user.id, "Contact", contact.id, `${firstName} ${lastName}`, contact);
+    
+    // Emit System Event for Timeline
+    const { emitSystemEvent } = await import("@/lib/system/hooks");
+    await emitSystemEvent({
+      entityType: "contact",
+      entityId: contact.id,
+      eventType: "CONTACT_CREATED",
+      actorId: session.user.id,
+      description: `Contact created: ${firstName} ${lastName}`,
+    });
+
     revalidateBothPaths("crm/contacts");
     revalidateBothPaths("dashboard/contacts");
 
@@ -153,6 +164,12 @@ export async function updateContact(id: string, data: Partial<{
       return { success: false, error: "Permission Denied: crm.contacts.edit" };
     }
 
+    const oldContact = await prisma.contact.findUnique({
+      where: { id },
+    });
+
+    if (!oldContact) return { success: false, error: "Contact not found" };
+
     const updateData: any = {};
     if (data.name) {
       const nameParts = data.name.trim().split(/\s+/);
@@ -171,6 +188,49 @@ export async function updateContact(id: string, data: Partial<{
     });
 
     await logItemUpdated(session.user.id, "Contact", id, Object.keys(data), `${contact.firstName} ${contact.lastName}`, data);
+    
+    // Structured change tracking
+    const changes: any[] = [];
+    const newFirstName = updateData.firstName;
+    const newLastName = updateData.lastName;
+    
+    // Name check is a bit tricky since we split it.
+    if (newFirstName && newFirstName !== oldContact.firstName) {
+        changes.push({ field: "firstName", from: oldContact.firstName, to: newFirstName });
+    }
+    if (newLastName !== undefined && newLastName !== oldContact.lastName) { // lastName can be empty string
+        changes.push({ field: "lastName", from: oldContact.lastName, to: newLastName });
+    }
+
+    if (updateData.email !== undefined && updateData.email !== oldContact.email) {
+         changes.push({ field: "email", from: oldContact.email, to: updateData.email });
+    }
+    if (updateData.phone !== undefined && updateData.phone !== oldContact.phone) {
+         changes.push({ field: "phone", from: oldContact.phone, to: updateData.phone });
+    }
+    if (updateData.role !== undefined && updateData.role !== oldContact.role) {
+         changes.push({ field: "role", from: oldContact.role, to: updateData.role });
+    }
+    if (updateData.clientId && updateData.clientId !== oldContact.clientId) {
+         changes.push({ field: "clientId", from: oldContact.clientId, to: updateData.clientId });
+    }
+    if (updateData.isPrimary !== undefined && updateData.isPrimary !== oldContact.isPrimary) {
+         changes.push({ field: "isPrimary", from: oldContact.isPrimary, to: updateData.isPrimary });
+    }
+
+    if (changes.length > 0) {
+        // Emit System Event for Timeline
+        const { emitSystemEvent } = await import("@/lib/system/hooks");
+        await emitSystemEvent({
+        entityType: "contact",
+        entityId: contact.id,
+        eventType: "CONTACT_UPDATED",
+        actorId: session.user.id,
+        description: `Contact updated: ${contact.firstName} ${contact.lastName}`,
+        metadata: { changes }
+        });
+    }
+
     revalidateBothPaths("crm/contacts");
     revalidateBothPaths("dashboard/contacts");
 

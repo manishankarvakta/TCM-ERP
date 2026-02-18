@@ -4,20 +4,27 @@ import { getLeadById } from "@/app/actions/crm/lead.action";
 import { listActivitiesByLead } from "@/app/actions/crm/activity.action";
 import { getTasks } from "@/app/actions/system/task.action";
 import { getNotes } from "@/app/actions/system/note.action";
+import { getDocs } from "@/app/actions/system/doc.action";
+import { getSystemTimeline } from "@/app/actions/system/timeline";
+import { getSystemEvents } from "@/app/actions/system/events";
+import { getUsers } from "@/app/actions/user.action";
 import { checkPermission } from "@/lib/permissions";
 import ActivitySection from "../../activities/_components/ActivitySection";
 import TaskManager from "../../activities/_components/TaskManager";
+import EventManager from "../../activities/_components/EventManager";
 import NoteManager from "../../activities/_components/NoteManager";
+import DocManager from "../../activities/_components/DocManager";
 import FileManager from "../../activities/_components/FileManager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { ArrowLeftIcon, MailIcon, PhoneIcon, BuildingIcon, Clock, Calendar, CheckSquare, FileText, Layout, Hash, Globe } from "lucide-react";
+import { ArrowLeftIcon, MailIcon, PhoneIcon, BuildingIcon, Clock, Calendar, CheckSquare, FileText, Folder, Hash, Globe, CalendarDays, StickyNote } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export default async function LeadDetailPage({ params }: { params: { id: string } }) {
+export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await auth();
   if (!session?.user) return redirect("/login");
 
@@ -32,13 +39,14 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
       );
   }
 
-  const { id } = await params;
-
-  const [leadResult, activityResult, taskResult, noteResult] = await Promise.all([
+  const [leadResult, taskResult, noteResult, docResult, eventResult, timelineResult, userResult] = await Promise.all([
     getLeadById(id),
-    listActivitiesByLead(id),
-    getTasks(1, 100, id, "lead"),
-    getNotes(1, 100, id, "lead")
+    getTasks(id, "lead", 20),
+    getNotes(id, "lead", 20),
+    getDocs(id, "lead", 20),
+    getSystemEvents("lead", id, 20),
+    getSystemTimeline("lead", id, 50),
+    getUsers(),
   ]);
 
   if (!leadResult.success || !leadResult.lead) {
@@ -52,9 +60,19 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   }
 
   const lead = leadResult.lead;
-  const activities = activityResult.success ? activityResult.activities : [];
   const tasks = taskResult.success ? taskResult.tasks : [];
   const notes = noteResult.success ? noteResult.notes : [];
+  const docs = docResult.success ? docResult.docs : [];
+  const events = eventResult.events || [];
+  const users = userResult.success ? userResult.users : [];
+  const timelineResultData = timelineResult as any;
+  const timelineEvents = (timelineResultData?.events || []) as any[];
+
+  // For the timeline, we primarily use timelineEvents (which are Activity records)
+  // We keep the tasks/notes/docs for the specific tabs and for metadata lookup in ActivitySection
+  const allActivities = [...timelineEvents].sort((a, b) => 
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 
   const statusColors: Record<string, "default" | "secondary" | "outline" | "destructive" | "success" | null | undefined> = {
     NEW: "default",
@@ -63,6 +81,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     UNQUALIFIED: "destructive",
     CONVERTED: "outline",
   };
+
 
   return (
     <div className="space-y-6 max-w-full mx-auto">
@@ -87,13 +106,25 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         {/* Main Content: Tabs */}
         <div className="lg:col-span-3 space-y-6">
             <Tabs defaultValue="timeline" className="w-full">
-                <TabsList className="flex w-full justify-start h-auto bg-transparent border-b rounded-none p-0 mb-6 gap-8">
+                <TabsList className="flex w-full justify-start h-auto bg-transparent border-b rounded-none p-0 mb-6 gap-8 overflow-x-auto">
                     <TabsTrigger 
                         value="timeline" 
                         className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 py-3 bg-transparent shadow-none gap-2 hover:text-primary transition-all"
                     >
                         <Clock className="h-4 w-4" />
                         <span className="font-semibold">Timeline</span>
+                    </TabsTrigger>
+                    <TabsTrigger 
+                        value="events" 
+                        className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 py-3 bg-transparent shadow-none gap-2 hover:text-primary transition-all"
+                    >
+                        <CalendarDays className="h-4 w-4" />
+                        <span className="font-semibold">Events</span>
+                        {events.length > 0 && (
+                            <Badge variant="secondary" className="ml-1 h-5 min-w-5 flex items-center justify-center p-0 text-[10px]">
+                                {events.length}
+                            </Badge>
+                        )}
                     </TabsTrigger>
                     <TabsTrigger 
                         value="tasks" 
@@ -111,7 +142,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
                         value="notes" 
                         className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 py-3 bg-transparent shadow-none gap-2 hover:text-primary transition-all"
                     >
-                        <FileText className="h-4 w-4" />
+                        <StickyNote className="h-4 w-4" />
                         <span className="font-semibold">Notes</span>
                         {notes.length > 0 && (
                             <Badge variant="secondary" className="ml-1 h-5 min-w-5 flex items-center justify-center p-0 text-[10px]">
@@ -119,11 +150,25 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
                             </Badge>
                         )}
                     </TabsTrigger>
+                    
+                     <TabsTrigger 
+                        value="docs" 
+                        className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 py-3 bg-transparent shadow-none gap-2 hover:text-primary transition-all"
+                    >
+                        <FileText className="h-4 w-4" />
+                        <span className="font-semibold">Docs</span>
+                        {docs.length > 0 && (
+                            <Badge variant="secondary" className="ml-1 h-5 min-w-5 flex items-center justify-center p-0 text-[10px]">
+                                {docs.length}
+                            </Badge>
+                        )}
+                    </TabsTrigger>
+
                     <TabsTrigger 
                         value="files" 
                         className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 py-3 bg-transparent shadow-none gap-2 hover:text-primary transition-all"
                     >
-                        <Layout className="h-4 w-4" />
+                        <Folder className="h-4 w-4" />
                         <span className="font-semibold">Files</span>
                     </TabsTrigger>
                 </TabsList>
@@ -133,7 +178,11 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
                         <ActivitySection 
                             entityId={lead.id} 
                             entityType="lead" 
-                            activities={activities}
+                            activities={allActivities}
+                            tasks={tasks}
+                            notes={notes}
+                            events={allActivities}
+                            docs={docs}
                         />
                     </TabsContent>
 
@@ -143,6 +192,18 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
                                 entityId={lead.id} 
                                 entityType="lead" 
                                 tasks={tasks}
+                                users={users}
+                            />
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="events">
+                        <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
+                            <EventManager 
+                                entityId={lead.id} 
+                                entityType="lead" 
+                                events={events}
+                                users={users as any}
                             />
                         </div>
                     </TabsContent>
@@ -153,6 +214,16 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
                                 entityId={lead.id} 
                                 entityType="lead" 
                                 notes={notes}
+                            />
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="docs">
+                         <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden text-card-foreground">
+                            <DocManager 
+                                entityId={lead.id} 
+                                entityType="lead" 
+                                docs={docs} 
                             />
                         </div>
                     </TabsContent>

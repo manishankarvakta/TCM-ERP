@@ -307,8 +307,12 @@ export async function confirmUpload(input: {
 /**
  * List files and folders in a directory
  */
+/**
+ * List files and folders in a directory
+ */
 export async function listFolder(input: {
   path: string;
+  filterUserId?: string; // Admin only: filter by user ID
 }): Promise<ActionResult<{ files: Array<{
   id: string;
   name: string;
@@ -327,19 +331,41 @@ export async function listFolder(input: {
   };
 }> }>> {
   try {
-    const user = await getAuthenticatedUser();
-    const { path } = input;
+    const session = await auth();
+    if (!session?.user) {
+      throw new Error("Unauthorized");
+    }
+    const user = session.user;
+    const { path, filterUserId } = input;
+
+    // Determine target user ID
+    let targetUserId = user.id;
+
+    // If filterUserId is provided, check if current user is admin
+    if (filterUserId && filterUserId !== user.id) {
+        // Fetch user role to verify admin status
+        // const currentUser = await prisma.user.findUnique({ where: { id: user.id }, select: { role: true } });
+        // Assuming session.user.role is available or we check DB. 
+        // Let's check DB to be safe as session might be stale or role not in session types here nicely without casting
+        const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { role: true } });
+        
+        if (dbUser?.role === "ADMIN" || dbUser?.role === "SUPER_ADMIN") {
+            targetUserId = filterUserId;
+        } else {
+             // If not admin, ignore filter and stick to own files (or throw error? sticking to own files is safer default to prevent leakage)
+             console.warn(`User ${user.id} tried to access files of ${filterUserId} without admin privileges.`);
+        }
+    }
 
     // Normalize path
     const normalizedPath = path.replace(/^\/+/, "").replace(/\/+$/, "");
-    const prefix = normalizedPath ? `${user.id}/${normalizedPath}/` : `${user.id}/`;
-
-    // Get files from database that match the path
-    console.log(`[listFolder] User: ${user.id}, Path: "${normalizedPath || "/"}"`);
+    
+    // Get files from database that match the path for the target user
+    console.log(`[listFolder] TargetUser: ${targetUserId}, Path: "${normalizedPath || "/"}"`);
     
     const files = await prisma.file.findMany({
       where: {
-        ownerId: user.id,
+        ownerId: targetUserId,
         path: normalizedPath || "/",
       },
       select: {
@@ -368,7 +394,7 @@ export async function listFolder(input: {
     });
 
     // Normalize storageKey nulls to undefined for compatibility with UI types
-    console.log(`[listFolder] Found ${files.length} files. First file:`, files[0]?.name);
+    // console.log(`[listFolder] Found ${files.length} files.`);
     
     const sanitizedFiles = files.map((file) => ({
       ...file,
@@ -377,12 +403,13 @@ export async function listFolder(input: {
       storageKey: file.storageKey || undefined,
     }));
 
-    // Log the action
+    // Log the action (only if listing own files to avoid spamming logs for admin browsing?)
+    // Or log everything. Let's log.
     await createUserLog({
       userId: user.id,
       action: "FOLDER_LISTED",
-      details: `Listed folder contents: ${path || "/"}`,
-      metadata: { path: normalizedPath || "/", fileCount: sanitizedFiles.length },
+      details: `Listed folder contents: ${path || "/"} for user ${targetUserId}`,
+      metadata: { path: normalizedPath || "/", fileCount: sanitizedFiles.length, targetUserId },
     });
 
     return {

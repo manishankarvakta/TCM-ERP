@@ -2,11 +2,10 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { logItemCreated, logItemUpdated } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 
 /**
- * Minimal Activity Types:
+ * Activity Types:
  * - call
  * - meeting
  * - email
@@ -15,17 +14,21 @@ import { revalidateBothPaths } from "@/lib/route-utils-server";
  */
 
 /**
- * Create a new activity
+ * Create a new activity with polymorphic entity relationship
  */
 export async function createActivity(input: {
   type: "call" | "meeting" | "email" | "note" | "task" | "update" | "created";
   subject: string;
   description?: string;
-  contactId?: string;
-  opportunityId?: string;
+  entityType?: string; // "lead", "opportunity", "contact", "project", "issue"
+  entityId?: string;
+  // Specific entity IDs for backward compatibility
   leadId?: string;
-  projectId?: string;
-  issueId?: string;
+  opportunityId?: string;
+  contactId?: string;
+  // Subject IDs
+  subjectType?: string;
+  subjectId?: string;
   priority?: string;
   status?: string;
   assignedToId?: string;
@@ -35,6 +38,10 @@ export async function createActivity(input: {
   try {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    // Map entityId/Type from specific IDs if not provided
+    const contextType = input.entityType || (input.leadId ? "lead" : input.opportunityId ? "opportunity" : input.contactId ? "contact" : undefined);
+    const contextId = input.entityId || input.leadId || input.opportunityId || input.contactId;
 
     // Permission Check
     const { checkPermission } = await import("@/lib/permissions");
@@ -47,23 +54,26 @@ export async function createActivity(input: {
         type: input.type,
         subject: input.subject,
         description: input.description,
-        contactId: input.contactId,
-        opportunityId: input.opportunityId,
-        leadId: input.leadId,
-        projectId: input.projectId,
-        issueId: input.issueId,
+        contextType: contextType,
+        contextId: contextId,
+        subjectType: input.subjectType,
+        subjectId: input.subjectId,
         priority: input.priority || "NORMAL",
         status: input.status || "TODO",
         dueDate: input.dueDate,
         completed: input.completed || false,
+        completedAt: input.completed ? new Date() : null,
         ownerId: session.user.id,
         assignedToId: input.assignedToId,
-      },
+      } as any,
       include: {
-        Contact: true,
-        Opportunity: true,
-        Lead: true,
-        // @ts-ignore
+        Owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          }
+        },
         AssignedTo: {
           select: {
             id: true,
@@ -71,32 +81,25 @@ export async function createActivity(input: {
             email: true,
           }
         }
-      }
+      } as any
     });
-
-    const mappedActivity = {
-      ...activity,
-      // @ts-ignore
-      contact: activity.Contact,
-      // @ts-ignore
-      opportunity: activity.Opportunity,
-      // @ts-ignore
-      lead: activity.Lead,
-      // @ts-ignore
-      assignedTo: activity.AssignedTo,
-      Contact: undefined,
-      Opportunity: undefined,
-      Lead: undefined,
-      // @ts-ignore
-      AssignedTo: undefined,
-    };
 
     // Revalidate relevant paths
     revalidateBothPaths("crm/activities");
-    if (input.opportunityId) revalidateBothPaths(`crm/opportunities/${input.opportunityId}`);
-    if (input.leadId) revalidateBothPaths(`crm/leads/${input.leadId}`);
+    if (input.entityType && input.entityId) {
+      revalidateBothPaths(`crm/${input.entityType}s/${input.entityId}`);
+    }
 
-    return { success: true, activity: mappedActivity };
+    return { 
+      success: true, 
+      activity: {
+        ...activity,
+        entityType: (activity as any).contextType,
+        entityId: (activity as any).contextId,
+        owner: (activity as any).Owner,
+        assignedTo: (activity as any).AssignedTo,
+      } as any
+    };
   } catch (error) {
     console.error("createActivity error:", error);
     return { success: false, error: "Failed to create activity" };
@@ -112,11 +115,8 @@ export async function updateActivity(
     type?: "call" | "meeting" | "email" | "note" | "task" | "update" | "created";
     subject?: string;
     description?: string;
-    contactId?: string | null;
-    opportunityId?: string | null;
-    leadId?: string | null;
-    projectId?: string | null;
-    issueId?: string | null;
+    entityType?: string | null;
+    entityId?: string | null;
     priority?: string;
     status?: string;
     assignedToId?: string | null;
@@ -133,34 +133,61 @@ export async function updateActivity(
       return { success: false, error: "Permission Denied: crm.activities.edit" };
     }
 
+    // Map legacy input names to new schema field names
+    const updateData: any = {
+      type: input.type,
+      subject: input.subject,
+      description: input.description,
+      contextType: input.entityType,
+      contextId: input.entityId,
+      priority: input.priority,
+      status: input.status,
+      assignedToId: input.assignedToId,
+      dueDate: input.dueDate,
+      completed: input.completed,
+    };
+
+    if (input.completed === true) {
+      updateData.completedAt = new Date();
+    } else if (input.completed === false) {
+      updateData.completedAt = null;
+    }
+
     const activity = await prisma.activity.update({
       where: { id },
-      data: input,
+      data: updateData,
       include: {
-        // @ts-ignore
+        Owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          }
+        },
         AssignedTo: {
-            select: {
-                id: true,
-                name: true,
-                email: true,
-            }
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          }
         }
-      }
+      } as any
     });
 
     revalidateBothPaths("crm/activities");
-    if (input.opportunityId) revalidateBothPaths(`crm/opportunities/${input.opportunityId}`);
-    if (input.leadId) revalidateBothPaths(`crm/leads/${input.leadId}`);
+    if (input.entityType && input.entityId) {
+      revalidateBothPaths(`crm/${input.entityType}s/${input.entityId}`);
+    }
 
     return { 
       success: true, 
       activity: {
         ...activity,
-        // @ts-ignore
-        assignedTo: activity.AssignedTo,
-        // @ts-ignore
-        AssignedTo: undefined
-      } 
+        entityType: (activity as any).contextType,
+        entityId: (activity as any).contextId,
+        owner: (activity as any).Owner,
+        assignedTo: (activity as any).AssignedTo,
+      } as any
     };
   } catch (error) {
     console.error("updateActivity error:", error);
@@ -176,7 +203,6 @@ export async function completeActivity(activityId: string) {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
 
-    // Permission Check
     const { checkPermission } = await import("@/lib/permissions");
     if (!(await checkPermission(session.user.id, "crm.activities", "edit"))) {
       return { success: false, error: "Permission Denied: crm.activities.edit" };
@@ -184,7 +210,10 @@ export async function completeActivity(activityId: string) {
 
     const activity = await prisma.activity.update({
       where: { id: activityId },
-      data: { completed: true },
+      data: { 
+        completed: true,
+        completedAt: new Date(),
+      } as any,
     });
 
     revalidateBothPaths("crm/activities");
@@ -202,8 +231,8 @@ export async function scheduleActivity(input: {
   type: "call" | "meeting" | "email" | "task";
   subject: string;
   dueDate: Date;
-  opportunityId?: string;
-  contactId?: string;
+  entityType?: string;
+  entityId?: string;
 }) {
   return createActivity({
     ...input,
@@ -212,288 +241,80 @@ export async function scheduleActivity(input: {
 }
 
 /**
- * List activities for a specific contact
+ * List activities for any entity type (cursor-based pagination for timeline)
+ * This replaces listActivitiesByContact, listActivitiesByLead, listActivitiesByOpportunity
  */
-export async function listActivitiesByContact(contactId: string) {
+export async function listActivitiesByEntity(
+  entityType: string,
+  entityId: string,
+  limit: number = 20,
+  cursor?: string
+) {
   try {
     const session = await auth();
-    if (!session?.user) return { success: false, error: "Unauthorized", activities: [] };
+    if (!session?.user) return { success: false, error: "Unauthorized", activities: [], hasMore: false, nextCursor: null };
 
-    // Permission Check
     const { checkPermission } = await import("@/lib/permissions");
     if (!(await checkPermission(session.user.id, "crm.activities", "view"))) {
-      return { success: false, error: "Permission Denied: crm.activities.view", activities: [] };
+      return { success: false, error: "Permission Denied: crm.activities.view", activities: [], hasMore: false, nextCursor: null };
     }
 
-    const [activities, tasks, notes] = await Promise.all([
-      prisma.activity.findMany({
-        where: { contactId },
-        orderBy: { createdAt: "desc" },
-        include: {
-          Opportunity: true,
-          User: {
-            select: { id: true, name: true, email: true }
-          },
-          AssignedTo: {
-            select: { id: true, name: true, email: true }
-          }
-        }
+    // Fetch one extra to check if there's more
+    const activities = await prisma.activity.findMany({
+      where: { 
+        contextType: entityType,
+        contextId: entityId,
+      } as any,
+      take: limit + 1,
+      ...(cursor && {
+        cursor: { id: cursor },
+        skip: 1,
       }),
-      prisma.task.findMany({
-        where: { contactId },
-        orderBy: { createdAt: "desc" },
-        include: {
-          User: {
-            select: { id: true, name: true, email: true }
-          }
+      orderBy: { createdAt: "desc" },
+      include: {
+        Owner: {
+          select: { id: true, name: true, email: true }
+        },
+        AssignedTo: {
+          select: { id: true, name: true, email: true }
         }
-      }),
-      prisma.note.findMany({
-        where: { contactId },
-        orderBy: { createdAt: "desc" },
-        include: {
-          User: {
-            select: { id: true, name: true, email: true }
-          }
-        }
-      })
-    ]);
+      } as any
+    });
 
-    const mappedActivities = (activities as any[]).map(a => ({
+    const hasMore = activities.length > limit;
+    const items = hasMore ? activities.slice(0, -1) : activities;
+
+    const mappedActivities = items.map(a => ({
       ...a,
-      opportunity: a.Opportunity,
-      assignedTo: a.AssignedTo,
-      owner: a.User,
-      Opportunity: undefined,
-      AssignedTo: undefined
+      entityType: (a as any).contextType,
+      entityId: (a as any).contextId,
+      owner: (a as any).Owner,
+      assignedTo: (a as any).AssignedTo,
     }));
 
-    const mappedTasks = tasks.map((t: any) => ({
-        id: t.id,
-        type: "task",
-        subject: t.title,
-        description: t.description,
-        createdAt: t.createdAt,
-        updatedAt: t.updatedAt,
-        dueDate: t.dueDate,
-        completed: t.status === "completed",
-        status: t.status,
-        priority: t.priority,
-        owner: t.User,
-        ownerId: t.userId
-    }));
-
-    const mappedNotes = notes.map((n: any) => ({
-        id: n.id,
-        type: "note",
-        subject: n.title,
-        description: n.content,
-        createdAt: n.createdAt,
-        updatedAt: n.updatedAt,
-        owner: n.User,
-        ownerId: n.userId
-    }));
-
-    const allActivities = [
-        ...mappedActivities,
-        ...mappedTasks,
-        ...mappedNotes
-    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    return { success: true, activities: allActivities };
+    return { 
+      success: true, 
+      activities: mappedActivities,
+      hasMore,
+      nextCursor: hasMore ? items[items.length - 1].id : null,
+    };
   } catch (error) {
-    console.error("listActivitiesByContact error:", error);
-    return { success: false, error: "Failed to fetch activities", activities: [] };
+    console.error("listActivitiesByEntity error:", error);
+    return { success: false, error: "Failed to fetch activities", activities: [], hasMore: false, nextCursor: null };
   }
 }
 
-/**
- * List activities for a specific lead
- */
-export async function listActivitiesByLead(leadId: string) {
-  try {
-    const session = await auth();
-    if (!session?.user) return { success: false, error: "Unauthorized", activities: [] };
-
-    // Permission Check
-    const { checkPermission } = await import("@/lib/permissions");
-    if (!(await checkPermission(session.user.id, "crm.activities", "view"))) {
-      return { success: false, error: "Permission Denied: crm.activities.view", activities: [] };
-    }
-
-    const [activities, tasks, notes] = await Promise.all([
-      prisma.activity.findMany({
-        where: { leadId },
-        orderBy: { createdAt: "desc" },
-        include: {
-          User: {
-            select: { id: true, name: true, email: true }
-          },
-          AssignedTo: {
-            select: { id: true, name: true, email: true }
-          }
-        }
-      }),
-      prisma.task.findMany({
-        where: { leadId },
-        orderBy: { createdAt: "desc" },
-        include: {
-          User: {
-            select: { id: true, name: true, email: true }
-          }
-        }
-      }),
-      prisma.note.findMany({
-        where: { leadId },
-        orderBy: { createdAt: "desc" },
-        include: {
-          User: {
-            select: { id: true, name: true, email: true }
-          }
-        }
-      })
-    ]);
-
-    const mappedActivities = (activities as any[]).map(a => ({
-        ...a,
-        assignedTo: a.AssignedTo,
-        owner: a.User,
-        AssignedTo: undefined
-    }));
-
-    const mappedTasks = tasks.map((t: any) => ({
-        id: t.id,
-        type: "task",
-        subject: t.title,
-        description: t.description,
-        createdAt: t.createdAt,
-        updatedAt: t.updatedAt,
-        dueDate: t.dueDate,
-        completed: t.status === "completed",
-        status: t.status,
-        priority: t.priority,
-        owner: t.User,
-        ownerId: t.userId
-    }));
-
-    const mappedNotes = notes.map((n: any) => ({
-        id: n.id,
-        type: "note",
-        subject: n.title,
-        description: n.content,
-        createdAt: n.createdAt,
-        updatedAt: n.updatedAt,
-        owner: n.User,
-        ownerId: n.userId
-    }));
-
-    const allActivities = [
-        ...mappedActivities,
-        ...mappedTasks,
-        ...mappedNotes
-    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    return { success: true, activities: allActivities };
-  } catch (error) {
-    console.error("listActivitiesByLead error:", error);
-    return { success: false, error: "Failed to fetch activities", activities: [] };
-  }
+// Backward compatibility wrappers
+export async function listActivitiesByContact(contactId: string, limit?: number, cursor?: string) {
+  return listActivitiesByEntity("contact", contactId, limit, cursor);
 }
 
-/**
- * List activities for a specific opportunity
- */
-export async function listActivitiesByOpportunity(opportunityId: string) {
-  try {
-    const session = await auth();
-    if (!session?.user) return { success: false, error: "Unauthorized", activities: [] };
+export async function listActivitiesByLead(leadId: string, limit?: number, cursor?: string) {
+  return listActivitiesByEntity("lead", leadId, limit, cursor);
+}
 
-    // Permission Check
-    const { checkPermission } = await import("@/lib/permissions");
-    if (!(await checkPermission(session.user.id, "crm.activities", "view"))) {
-      return { success: false, error: "Permission Denied: crm.activities.view", activities: [] };
-    }
-
-    const [activities, tasks, notes] = await Promise.all([
-      prisma.activity.findMany({
-        where: { opportunityId },
-        orderBy: { createdAt: "desc" },
-        include: {
-          Contact: true,
-          User: {
-            select: { id: true, name: true, email: true }
-          },
-          AssignedTo: {
-            select: { id: true, name: true, email: true }
-          }
-        }
-      }),
-      prisma.task.findMany({
-        where: { opportunityId },
-        orderBy: { createdAt: "desc" },
-        include: {
-          User: {
-            select: { id: true, name: true, email: true }
-          }
-        }
-      }),
-      prisma.note.findMany({
-        where: { opportunityId },
-        orderBy: { createdAt: "desc" },
-        include: {
-          User: {
-            select: { id: true, name: true, email: true }
-          }
-        }
-      })
-    ]);
-
-    const mappedActivities = (activities as any[]).map(a => ({
-      ...a,
-      contact: a.Contact,
-      assignedTo: a.AssignedTo,
-      owner: a.User,
-      Contact: undefined,
-      AssignedTo: undefined
-    }));
-
-    const mappedTasks = tasks.map((t: any) => ({
-        id: t.id,
-        type: "task",
-        subject: t.title,
-        description: t.description,
-        createdAt: t.createdAt,
-        updatedAt: t.updatedAt,
-        dueDate: t.dueDate,
-        completed: t.status === "completed",
-        status: t.status,
-        priority: t.priority,
-        owner: t.User,
-        ownerId: t.userId
-    }));
-
-    const mappedNotes = notes.map((n: any) => ({
-        id: n.id,
-        type: "note",
-        subject: n.title,
-        description: n.content,
-        createdAt: n.createdAt,
-        updatedAt: n.updatedAt,
-        owner: n.User,
-        ownerId: n.userId
-    }));
-
-    const allActivities = [
-        ...mappedActivities,
-        ...mappedTasks,
-        ...mappedNotes
-    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    return { success: true, activities: allActivities };
-  } catch (error) {
-    console.error("listActivitiesByOpportunity error:", error);
-    return { success: false, error: "Failed to fetch activities", activities: [] };
-  }
+export async function listActivitiesByOpportunity(opportunityId: string, limit?: number, cursor?: string) {
+  return listActivitiesByEntity("opportunity", opportunityId, limit, cursor);
 }
 
 /**
@@ -504,7 +325,6 @@ export async function getActivities(page: number = 1, limit: number = 20) {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized", activities: [] };
 
-    // Permission Check
     const { checkPermission } = await import("@/lib/permissions");
     if (!(await checkPermission(session.user.id, "crm.activities", "view"))) {
       return { success: false, error: "Permission Denied: crm.activities.view", activities: [] };
@@ -519,17 +339,13 @@ export async function getActivities(page: number = 1, limit: number = 20) {
         take: limit,
         orderBy: { createdAt: "desc" },
         include: {
-          Contact: true,
-          Opportunity: true,
-          Lead: true,
-          User: {
+          Owner: {
             select: {
               id: true,
               name: true,
               email: true,
             }
           },
-          // @ts-ignore
           AssignedTo: {
             select: {
               id: true,
@@ -537,7 +353,7 @@ export async function getActivities(page: number = 1, limit: number = 20) {
               email: true,
             }
           }
-        }
+        } as any
       })
     ]);
 
@@ -546,17 +362,9 @@ export async function getActivities(page: number = 1, limit: number = 20) {
       dueDate: a.dueDate ? a.dueDate.toISOString() : null,
       createdAt: a.createdAt.toISOString(),
       updatedAt: a.updatedAt.toISOString(),
-      contact: a.Contact,
-      opportunity: a.Opportunity,
-      lead: a.Lead,
-      owner: a.User,
+      completedAt: a.completedAt ? a.completedAt.toISOString() : null,
+      owner: a.Owner,
       assignedTo: a.AssignedTo,
-      Contact: undefined,
-      Opportunity: undefined,
-      Lead: undefined,
-      User: undefined,
-      // @ts-ignore
-      AssignedTo: undefined,
     }));
 
     return { 
@@ -572,5 +380,30 @@ export async function getActivities(page: number = 1, limit: number = 20) {
   } catch (error) {
     console.error("getActivities error:", error);
     return { success: false, error: "Failed to fetch activities", activities: [] };
+  }
+}
+
+/**
+ * Delete an activity
+ */
+export async function deleteActivity(id: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const { checkPermission } = await import("@/lib/permissions");
+    if (!(await checkPermission(session.user.id, "crm.activities", "delete"))) {
+      return { success: false, error: "Permission Denied: crm.activities.delete" };
+    }
+
+    await prisma.activity.delete({
+      where: { id },
+    });
+
+    revalidateBothPaths("crm/activities");
+    return { success: true };
+  } catch (error) {
+    console.error("deleteActivity error:", error);
+    return { success: false, error: "Failed to delete activity" };
   }
 }

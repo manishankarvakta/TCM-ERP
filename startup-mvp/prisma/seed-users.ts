@@ -16,7 +16,7 @@ async function main() {
         name: "Admin User",
         email: "admin@example.com",
         emailVerified: new Date("2025-12-17T09:05:18.733Z"),
-        password: "$2b$12$c.vyi5n7QaMCPy4L5yauveKrwXQYMfV2hEuGmMXCtz2OGRAE1qJfy",
+        password: "$2b$12$OBkYONn6r58/uzD/CD870uhN5q6f8A7dsdTla3kwxIEmlgcB878uy", // password123
         image: "https://dev.espaciobd.com/api/files/cmj9sd9xq0000o1010acd1hsq/1.jpg",
         role: "admin",
         status: "active",
@@ -28,7 +28,7 @@ async function main() {
         name: "Mahidul Anik",
         email: "anik@techsoulbd.com",
         emailVerified: null,
-        password: "$2b$12$0NUPAwHbqvS8UqDYehPn4eoPxW1l0gYsVH3Ea/by2gxtFAzL63ssO",
+        password: "$2b$12$OBkYONn6r58/uzD/CD870uhN5q6f8A7dsdTla3kwxIEmlgcB878uy", // password123
         image: null,
         role: "admin",
         status: "active",
@@ -40,7 +40,7 @@ async function main() {
         name: "Rakib",
         email: "rakib@techsoulbd.com",
         emailVerified: null,
-        password: "$2b$12$HbdbeqKVvNAcwNGDfaqjDuHfZ4zem57aQaLOTK8KThvoEBXeZJdeC",
+        password: "$2b$12$OBkYONn6r58/uzD/CD870uhN5q6f8A7dsdTla3kwxIEmlgcB878uy", // password123
         image: null,
         role: "admin",
         status: "active",

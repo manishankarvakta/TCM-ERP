@@ -96,9 +96,12 @@ export default function ContactTable({ contacts, onEdit, onRefresh, hideClientCo
               <TableRow key={contact.id}>
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-2">
-                    <Link href={`/dashboard/crm/contacts/${contact.id}`} className="hover:underline">
+                    <div 
+                        onClick={() => onEdit(contact)}
+                        className="hover:underline cursor-pointer font-medium"
+                    >
                         {contact.name}
-                    </Link>
+                    </div>
                     {contact.isPrimary && <Badge variant="secondary" className="text-xs">Primary</Badge>}
                   </div>
                 </TableCell>

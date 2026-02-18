@@ -27,6 +27,7 @@ import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiE
 import { EmptyState } from "@/components/crm/EmptyState";
 import { deleteClient, bulkUpdateClientStatus, deleteClientsPermanently } from "../_actions/client.action";
 import ProtectedAction from "@/components/permissions/protected-action";
+import ClientSheet from "./ClientSheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -105,6 +106,8 @@ export default function ClientsListClient({
   const [search, setSearch] = useState(initialSearch);
   const [deleteClientId, setDeleteClientId] = useState<string | null>(null);
   const [restoreClientId, setRestoreClientId] = useState<string | null>(null);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -357,7 +360,7 @@ export default function ClientsListClient({
                 title="No Clients Yet" 
                 description="Your client list is empty. Add a client to get started." 
                 actionLabel="Create Client"
-                onAction={() => router.push("/dashboard/crm/clients/add")}
+                onAction={() => setIsSheetOpen(true)}
             />
          </div>
       ) : (
@@ -420,7 +423,15 @@ export default function ClientsListClient({
                           <AvatarImage src={client.image || undefined} alt={client.name || client.email} />
                           <AvatarFallback>{getInitials(client.name, client.email)}</AvatarFallback>
                         </Avatar>
-                        <span className="font-medium">{client.name || "No name"}</span>
+                        <span 
+                            className="font-medium hover:underline cursor-pointer"
+                            onClick={() => {
+                                setEditingClient(client);
+                                setIsSheetOpen(true);
+                            }}
+                        >
+                            {client.name || "No name"}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{client.email}</TableCell>
@@ -445,14 +456,20 @@ export default function ClientsListClient({
                             <ProtectedAction
                               permissionKey="peoples.clients"
                               action="edit"
-                              href={`/dashboard/crm/clients/${client.id}/edit`}
+                              onClick={() => {
+                                setEditingClient(client);
+                                setIsSheetOpen(true);
+                              }}
                               userId={providedUserId || undefined}
                               hasAccess={permissions?.edit}
                             />
                             <ProtectedAction
                               permissionKey="peoples.clients"
                               action="view"
-                              href={`/dashboard/crm/clients/${client.id}`}
+                              onClick={() => {
+                                setEditingClient(client);
+                                setIsSheetOpen(true);
+                              }}
                               userId={providedUserId || undefined}
                               hasAccess={permissions?.view}
                             />
@@ -584,6 +601,24 @@ export default function ClientsListClient({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ClientSheet
+        open={!!editingClient || isSheetOpen}
+        onOpenChange={(open) => {
+            if (!open) {
+                setIsSheetOpen(false);
+                setEditingClient(null);
+            } else {
+                setIsSheetOpen(true);
+            }
+        }}
+        client={editingClient}
+        onSuccess={() => {
+            setIsSheetOpen(false);
+            setEditingClient(null);
+            router.refresh();
+        }}
+      />
     </div>
   );
 }

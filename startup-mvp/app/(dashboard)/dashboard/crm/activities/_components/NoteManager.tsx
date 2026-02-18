@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
@@ -44,6 +45,7 @@ interface NoteManagerProps {
 export default function NoteManager({ entityId, entityType, notes }: NoteManagerProps) {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [selectedNote, setSelectedNote] = useState<NoteItem | null>(null);
+    const router = useRouter();
 
     const handleCreateNew = () => {
         setSelectedNote(null);
@@ -78,11 +80,11 @@ export default function NoteManager({ entityId, entityType, notes }: NoteManager
                             entityType={entityType}
                             initialData={selectedNote ? {
                                 ...selectedNote,
-                                content: selectedNote.content || undefined
+                                content: selectedNote.content || ""
                             } : null}
                             onSuccess={() => {
                                 setIsSheetOpen(false);
-                                window.location.reload(); 
+                                router.refresh(); 
                             }}
                             onCancel={() => setIsSheetOpen(false)}
                         />
@@ -116,9 +118,10 @@ export default function NoteManager({ entityId, entityType, notes }: NoteManager
                                     {note.title}
                                 </h4>
                                 {note.content && (
-                                    <div className="bg-muted/30 rounded-lg p-3 text-sm text-muted-foreground leading-relaxed border border-border/50">
-                                        {note.content}
-                                    </div>
+                                    <div 
+                                        className="bg-muted/30 rounded-lg p-3 text-sm text-muted-foreground leading-relaxed border border-border/50 tiptap"
+                                        dangerouslySetInnerHTML={{ __html: note.content }}
+                                    />
                                 )}
                                 <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border/30">
                                     <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">

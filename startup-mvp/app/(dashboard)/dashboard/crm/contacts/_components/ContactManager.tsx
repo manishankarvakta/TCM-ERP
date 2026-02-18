@@ -2,16 +2,9 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import { FiPlus, FiUsers } from "react-icons/fi";
+import { FiPlus } from "react-icons/fi";
 import ContactTable from "./ContactTable";
-import ContactForm from "./ContactForm";
+import ContactSheet from "./ContactSheet";
 import { useRouter } from "next/navigation";
 
 interface ContactManagerProps {
@@ -76,24 +69,14 @@ export default function ContactManager({
         hideClientColumn={hideClientColumn}
       />
 
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="sm:max-w-xl">
-          <SheetHeader>
-            <SheetTitle>{editingContact ? "Edit Contact" : "Create New Contact"}</SheetTitle>
-            <SheetDescription>
-              {editingContact ? "Update contact details." : "Add a new contact person to your CRM."}
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-6">
-            <ContactForm
-              clients={clients}
-              initialData={editingContact}
-              onSuccess={handleSuccess}
-              onCancel={() => setIsSheetOpen(false)}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
+      <ContactSheet
+        open={isSheetOpen}
+        onOpenChange={setIsSheetOpen}
+        contact={editingContact}
+        onSuccess={handleSuccess}
+        clients={clients}
+      />
     </div>
   );
 }
+

@@ -54,11 +54,12 @@ interface ClientFormProps {
     image: string | null;
     status: string;
   };
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
-export default function ClientForm({ mode, initialData }: ClientFormProps) {
+export default function ClientForm({ mode, initialData, onSuccess, onCancel }: ClientFormProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
@@ -123,7 +124,11 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
           throw new Error(result.error || "Failed to create client");
         }
 
-        router.push("/dashboard/crm/clients");
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.push("/dashboard/crm/clients");
+        }
       } else {
         const result = await updateClient({
           id: initialData!.id,
@@ -144,7 +149,11 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
           throw new Error(result.error || "Failed to update client");
         }
 
-        router.push("/dashboard/crm/clients");
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.push("/dashboard/crm/clients");
+        }
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");
@@ -352,7 +361,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => router.back()}
+                onClick={() => onCancel ? onCancel() : router.back()}
                 disabled={loading}
               >
                 Cancel

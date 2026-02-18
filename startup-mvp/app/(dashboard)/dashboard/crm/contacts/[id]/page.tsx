@@ -4,10 +4,16 @@ import { getContactById } from "@/app/actions/crm/contact.action";
 import { listActivitiesByContact } from "@/app/actions/crm/activity.action";
 import { getTasks } from "@/app/actions/system/task.action";
 import { getNotes } from "@/app/actions/system/note.action";
+import { getSystemTimeline } from "@/app/actions/system/timeline";
+import { getSystemEvents } from "@/app/actions/system/events";
+import { getDocs } from "@/app/actions/system/doc.action";
+import { getUsers } from "@/app/actions/user.action";
 import { checkPermission } from "@/lib/permissions";
 import ActivitySection from "../../activities/_components/ActivitySection";
 import TaskManager from "../../activities/_components/TaskManager";
+import EventManager from "../../activities/_components/EventManager";
 import NoteManager from "../../activities/_components/NoteManager";
+import DocManager from "../../activities/_components/DocManager";
 import FileManager from "../../activities/_components/FileManager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,8 +28,10 @@ import {
     Clock, 
     CheckSquare, 
     FileText, 
-    Layout, 
-    Briefcase
+    Folder, 
+    Briefcase,
+    CalendarDays,
+    StickyNote
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -32,7 +40,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default async function ContactDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
   const session = await auth();
@@ -49,11 +57,14 @@ export default async function ContactDetailPage({
       );
   }
 
-  const [contactResult, activityResult, taskResult, noteResult] = await Promise.all([
+  const [contactResult, taskResult, noteResult, docResult, eventResult, timelineResult, userResult] = await Promise.all([
     getContactById(id),
-    listActivitiesByContact(id),
-    getTasks(1, 100, id, "contact"),
-    getNotes(1, 100, id, "contact")
+    getTasks(id, "contact", 20),
+    getNotes(id, "contact", 20),
+    getDocs(id, "contact", 20),
+    getSystemEvents("contact", id, 20),
+    getSystemTimeline("contact", id, 50),
+    getUsers(),
   ]);
 
   if (!contactResult.success || !contactResult.contact) {
@@ -73,9 +84,18 @@ export default async function ContactDetailPage({
   }
 
   const { contact } = contactResult;
-  const activities = activityResult.success ? activityResult.activities : [];
   const tasks = taskResult.success ? taskResult.tasks : [];
   const notes = noteResult.success ? noteResult.notes : [];
+  const docs = docResult.success ? docResult.docs : [];
+  const events = eventResult.events || [];
+  const users = userResult.success ? userResult.users : [];
+  const timelineResultData = timelineResult as any;
+  const timelineEvents = (timelineResultData?.events || []) as any[];
+
+  // For the timeline, we primarily use timelineEvents (which are Activity records)
+  const allActivities = [...timelineEvents].sort((a, b) => 
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 
   return (
     <div className="space-y-6 max-w-full mx-auto">
@@ -101,13 +121,25 @@ export default async function ContactDetailPage({
         {/* Main Content: Tabs */}
         <div className="lg:col-span-3 space-y-6">
             <Tabs defaultValue="timeline" className="w-full">
-                <TabsList className="flex w-full justify-start h-auto bg-transparent border-b rounded-none p-0 mb-6 gap-8">
+                <TabsList className="flex w-full justify-start h-auto bg-transparent border-b rounded-none p-0 mb-6 gap-8 overflow-x-auto">
                     <TabsTrigger 
                         value="timeline" 
                         className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 py-3 bg-transparent shadow-none gap-2 hover:text-primary transition-all"
                     >
                         <Clock className="h-4 w-4" />
                         <span className="font-semibold">Timeline</span>
+                    </TabsTrigger>
+                    <TabsTrigger 
+                        value="events" 
+                        className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 py-3 bg-transparent shadow-none gap-2 hover:text-primary transition-all"
+                    >
+                        <CalendarDays className="h-4 w-4" />
+                        <span className="font-semibold">Events</span>
+                        {events.length > 0 && (
+                            <Badge variant="secondary" className="ml-1 h-5 min-w-5 flex items-center justify-center p-0 text-[10px]">
+                                {events.length}
+                            </Badge>
+                        )}
                     </TabsTrigger>
                     <TabsTrigger 
                         value="tasks" 
@@ -125,7 +157,7 @@ export default async function ContactDetailPage({
                         value="notes" 
                         className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 py-3 bg-transparent shadow-none gap-2 hover:text-primary transition-all"
                     >
-                        <FileText className="h-4 w-4" />
+                        <StickyNote className="h-4 w-4" />
                         <span className="font-semibold">Notes</span>
                         {notes.length > 0 && (
                             <Badge variant="secondary" className="ml-1 h-5 min-w-5 flex items-center justify-center p-0 text-[10px]">
@@ -133,11 +165,25 @@ export default async function ContactDetailPage({
                             </Badge>
                         )}
                     </TabsTrigger>
+                    
+                     <TabsTrigger 
+                        value="docs" 
+                        className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 py-3 bg-transparent shadow-none gap-2 hover:text-primary transition-all"
+                    >
+                        <FileText className="h-4 w-4" />
+                        <span className="font-semibold">Docs</span>
+                        {docs.length > 0 && (
+                            <Badge variant="secondary" className="ml-1 h-5 min-w-5 flex items-center justify-center p-0 text-[10px]">
+                                {docs.length}
+                            </Badge>
+                        )}
+                    </TabsTrigger>
+
                     <TabsTrigger 
                         value="files" 
                         className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0 py-3 bg-transparent shadow-none gap-2 hover:text-primary transition-all"
                     >
-                        <Layout className="h-4 w-4" />
+                        <Folder className="h-4 w-4" />
                         <span className="font-semibold">Files</span>
                     </TabsTrigger>
                 </TabsList>
@@ -147,7 +193,11 @@ export default async function ContactDetailPage({
                         <ActivitySection 
                             entityId={contact.id} 
                             entityType="contact" 
-                            activities={activities}
+                            activities={allActivities}
+                            tasks={tasks}
+                            notes={notes}
+                            events={allActivities}
+                            docs={docs}
                         />
                     </TabsContent>
 
@@ -157,6 +207,18 @@ export default async function ContactDetailPage({
                                 entityId={contact.id} 
                                 entityType="contact" 
                                 tasks={tasks}
+                                users={users}
+                            />
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="events">
+                        <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
+                            <EventManager 
+                                entityId={contact.id} 
+                                entityType="contact" 
+                                events={events}
+                                users={users as any}
                             />
                         </div>
                     </TabsContent>
@@ -167,6 +229,16 @@ export default async function ContactDetailPage({
                                 entityId={contact.id} 
                                 entityType="contact" 
                                 notes={notes}
+                            />
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="docs">
+                         <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden text-card-foreground">
+                            <DocManager 
+                                entityId={contact.id} 
+                                entityType="contact" 
+                                docs={docs} 
                             />
                         </div>
                     </TabsContent>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ interface TaskItem {
         id: string;
         name: string | null;
         email: string;
+        image?: string | null;
     } | null;
 }
 
@@ -46,13 +48,21 @@ interface TaskManagerProps {
     entityId: string;
     entityType: "lead" | "opportunity" | "contact";
     tasks: any[];
+    users?: { id: string; name: string | null; email: string; image?: string | null }[];
 }
 
-export default function TaskManager({ entityId, entityType, tasks }: TaskManagerProps) {
+export default function TaskManager({ entityId, entityType, tasks, users }: TaskManagerProps) {
     const [taskList, setTaskList] = useState<TaskItem[]>(tasks);
+
+    // Sync local state when props change (revalidation)
+    useEffect(() => {
+        setTaskList(tasks);
+    }, [tasks]);
+
     const [loading, setLoading] = useState<string | null>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
+    const router = useRouter();
 
     const handleToggleComplete = async (task: TaskItem) => {
         try {
@@ -69,13 +79,14 @@ export default function TaskManager({ entityId, entityType, tasks }: TaskManager
                     t.id === task.id ? { ...t, status: newStatus } : t
                 ));
                 toast.success(newStatus === "completed" ? "Task completed" : "Task reopened");
+                router.refresh();
             } else {
                 toast.error(result.error || "Failed to update task");
             }
         } catch (error) {
             toast.error("An error occurred");
         } finally {
-            setLoading(null);
+             setLoading(null);
         }
     };
 
@@ -121,13 +132,15 @@ export default function TaskManager({ entityId, entityType, tasks }: TaskManager
                             entityType={entityType}
                             initialData={selectedTask ? {
                                 ...selectedTask,
-                                description: selectedTask.description || undefined
-                            } : null}
+                                description: selectedTask.description || undefined,
+                                assigneeId: selectedTask.User?.id
+                            } as any : null}
                             onSuccess={() => {
                                 setIsSheetOpen(false);
-                                window.location.reload(); 
+                                router.refresh(); 
                             }}
                             onCancel={() => setIsSheetOpen(false)}
+                            users={users as any}
                         />
                     </SheetContent>
                 </Sheet>
@@ -191,9 +204,19 @@ export default function TaskManager({ entityId, entityType, tasks }: TaskManager
                                                     </div>
                                                 )}
                                                 {task.User && (
-                                                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-bold">
-                                                        <User className="h-3.5 w-3.5" />
-                                                        {task.User.name || "Assigned"}
+                                                    <div className="flex items-center gap-2 ml-auto">
+                                                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">
+                                                            Assignee: {task.User.name || "User"}
+                                                        </span>
+                                                        <div className="h-6 w-6 rounded-full ring-2 ring-background overflow-hidden bg-muted border border-primary/20" title={`Assigned to: ${task.User.name || task.User.email}`}>
+                                                            {task.User.image ? (
+                                                                <img src={task.User.image} alt={task.User.name || ""} className="h-full w-full object-cover" />
+                                                            ) : (
+                                                                <div className="h-full w-full flex items-center justify-center text-[10px] font-bold uppercase text-primary">
+                                                                    {(task.User.name || task.User.email || "?").charAt(0)}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
