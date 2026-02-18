@@ -31,6 +31,10 @@ interface EventItem {
     endTime: Date | string;
     location?: string | null;
     attendees?: string[];
+    allDay?: boolean;
+    eventType?: string | null;
+    reminder?: string | null;
+    status?: string | null;
     owner?: {
         id: string;
         name: string | null;
@@ -94,6 +98,7 @@ export default function EventManager({ entityId, entityType, events, users = [] 
                         </SheetHeader>
 
                         <SystemEventForm 
+                            key={selectedEvent?.id || "new-event"}
                             entityId={entityId}
                             entityType={entityType}
                             initialData={selectedEvent}

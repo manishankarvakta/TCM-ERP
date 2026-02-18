@@ -96,7 +96,7 @@ export async function getLeads(
       }
     }
 
-    console.log("Final Prisma where clause:", JSON.stringify(where, null, 2));
+
 
     const orderBy: any = {};
     if (sortBy === "status") {

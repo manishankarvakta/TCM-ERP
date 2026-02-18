@@ -194,6 +194,11 @@ const ActivityItem = ({
     const isNote = activity.metadata?.noteId || 
                    (activity.description && activity.description.trim().startsWith('<') && activity.description.trim().endsWith('>'));
     
+    const typeLower = activity.type.toLowerCase();
+    const metadataType = activity.metadata?.eventType?.toLowerCase() || "";
+    const combinedType = `${typeLower} ${metadataType}`;
+    const isEvent = combinedType.includes("event") || combinedType.includes("meeting");
+
     const hasMetadata = activity.metadata && Object.keys(activity.metadata).length > 0;
     const isClickable = onClick && (hasMetadata || !isUpdate);
     const [isExpanded, setIsExpanded] = useState(!isUpdate); // Updates collapsed by default, others expanded
@@ -258,9 +263,33 @@ const ActivityItem = ({
                                     </button>
                                 )}
                             </div>
-                            <p className="text-xs text-muted-foreground/60 font-medium">
-                                {formatTimeAgo(activity.createdAt)} • by <span className="text-foreground/80">{actorName}</span>
-                            </p>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <p className="text-xs text-muted-foreground/60 font-medium">
+                                    {formatTimeAgo(activity.createdAt)}
+                                </p>
+                                <span className="text-[10px] text-muted-foreground/30">•</span>
+                                <div className="flex items-center gap-1.5">
+                                    <Avatar className="h-4 w-4 border border-border/50">
+                                        <AvatarImage src={activity.Owner?.image || ""} />
+                                        <AvatarFallback className="text-[8px] bg-primary/5 text-primary">
+                                            {actorInitials}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-xs font-medium text-foreground/80">{actorName}</span>
+                                </div>
+
+                                {isEvent && activity.dueDate && (
+                                    <>
+                                        <span className="text-[10px] text-muted-foreground/30">•</span>
+                                        <div className="flex items-center gap-1 text-xs font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/30 px-1.5 py-0.5 rounded-md">
+                                            <Calendar className="h-3 w-3" />
+                                            <span>
+                                                {format(new Date(activity.dueDate), "MMM d, h:mm a")}
+                                            </span>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
 

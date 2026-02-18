@@ -23,6 +23,12 @@ import {
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet";
+import { getTaskById } from "@/app/actions/system/task.action";
+import { getNoteById } from "@/app/actions/system/note.action";
+import { getDocById } from "@/app/actions/system/doc.action";
+import { getSystemEventById } from "@/app/actions/system/events";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 interface ActivitySectionProps {
   entityId: string;
@@ -89,64 +95,113 @@ export default function ActivitySection({
     router.refresh();
   };
 
-  const handleActivityClick = (activity: any) => {
-    // If it's a legacy activity, use the ActivitySheet
-    if (!activity.metadata?.eventType) {
-        setSelectedActivity(activity);
-        return;
-    }
+  const handleActivityClick = async (activity: any) => {
+    const metadata = activity.metadata || {};
+    const eventType = metadata.eventType;
+    const type = (activity.type || "").toLowerCase();
+    const subjectType = (activity.subjectType || "").toLowerCase();
 
-    const eventType = activity.metadata.eventType;
-    const resourceId = activity.metadata.taskId || activity.metadata.noteId || activity.metadata.eventId || activity.metadata.docId;
+    // Determine target ID and type
+    const taskId = metadata.taskId || (subjectType === 'task' ? activity.subjectId : null);
+    const noteId = metadata.noteId || (subjectType === 'note' ? activity.subjectId : null);
+    const eventId = metadata.eventId || (subjectType === 'event' || subjectType === 'meeting' ? activity.subjectId : null);
+    const docId = metadata.docId || (subjectType === 'doc' ? activity.subjectId : null);
 
     // Handle lifecycle events with navigation
     if (eventType === 'LEAD_CONVERTED' || eventType === 'OPPORTUNITY_CREATED') {
-        const oppId = activity.metadata.opportunityId;
+        const oppId = metadata.opportunityId;
         if (oppId) {
             router.push(`/dashboard/crm/opportunities/${oppId}`);
             return;
         }
     }
 
-    // Handle resource-specific events
-    if (eventType === 'TASK_CREATED' || eventType === 'TASK_COMPLETED' || activity.metadata.taskId) {
-        const task = tasks.find(t => t.id === activity.metadata.taskId);
-        if (task) {
-            setSelectedTask(task);
-            setIsTaskSheetOpen(true);
+    // Task Logic
+    const isTask = taskId || type.includes('task') || eventType?.includes('TASK');
+    if (isTask) {
+        const targetId = taskId || (type.includes('task') ? activity.id : null);
+        if (targetId) {
+            let task = tasks.find(t => t.id === targetId);
+            if (!task) {
+                const res = await getTaskById(targetId);
+                if (res.success) task = res.task;
+            }
+            if (task) {
+                setSelectedTask(task);
+                setIsTaskSheetOpen(true);
+                return;
+            }
         }
-    } else if (eventType === 'NOTE_CREATED' || activity.metadata.noteId) {
-        const note = notes.find(n => n.id === activity.metadata.noteId);
-        if (note) {
-            setSelectedNote(note);
-            setIsNoteSheetOpen(true);
-        }
-    } else if (eventType === 'EVENT_SCHEDULED' || activity.metadata.eventId) {
-        const event = events.find(e => e.id === activity.metadata.eventId);
-        if (event) {
-            setSelectedEvent(event);
-            setIsEventSheetOpen(true);
-        }
-    } else if (eventType === 'DOC_CREATED' || activity.metadata.docId) {
-        const doc = docs.find(d => d.id === activity.metadata.docId);
-        if (doc) {
-            setSelectedDoc(doc);
-            setIsDocSheetOpen(true);
-        }
-    } else {
-        // Fallback for generic updates or system events without specific sheets
-        setSelectedActivity(activity);
     }
+
+    // Note Logic
+    const isNote = noteId || type.includes('note') || eventType?.includes('NOTE');
+    if (isNote) {
+        const targetId = noteId || (type.includes('note') ? activity.id : null);
+        if (targetId) {
+            let note = notes.find(n => n.id === targetId);
+            if (!note) {
+                const res = await getNoteById(targetId);
+                if (res.success) note = res.note;
+            }
+            if (note) {
+                setSelectedNote(note);
+                setIsNoteSheetOpen(true);
+                return;
+            }
+        }
+    }
+
+    // Event/Meeting Logic
+    const isEvent = eventId || type.includes('meeting') || type.includes('event') || eventType?.includes('EVENT');
+    if (isEvent) {
+        const targetId = eventId || ((type.includes('meeting') || type.includes('event')) ? activity.id : null);
+        if (targetId) {
+            let event = events.find(e => e.id === targetId);
+            if (!event) {
+                const res = await getSystemEventById(targetId);
+                if (res.success) event = res.event;
+            }
+            if (event) {
+                setSelectedEvent(event);
+                setIsEventSheetOpen(true);
+                return;
+            }
+        }
+    }
+
+    // Doc Logic
+    const isDoc = docId || type.includes('doc') || eventType?.includes('DOC');
+    if (isDoc) {
+        const targetId = docId || (type.includes('doc') ? activity.id : null);
+        if (targetId) {
+            let doc = docs.find(d => d.id === targetId);
+            if (!doc) {
+                const res = await getDocById(targetId);
+                if (res.success) doc = res.doc;
+            }
+            if (doc) {
+                setSelectedDoc(doc);
+                setIsDocSheetOpen(true);
+                return;
+            }
+        }
+    }
+
+    // Fallback for generic updates, system events, etc.
+    setSelectedActivity(activity);
   };
 
   return (
     <div className="space-y-6">
 
 
-      <ActivityTimeline 
-        activities={activities} 
-        onActivityClick={handleActivityClick}
-      />
+      <div className="max-h-[600px] overflow-y-auto pr-1">
+        <ActivityTimeline 
+          activities={activities} 
+          onActivityClick={handleActivityClick}
+        />
+      </div>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-lg">
@@ -198,7 +253,7 @@ export default function ActivitySection({
                 <SheetTitle>Edit Note</SheetTitle>
             </SheetHeader>
             {selectedNote && (
-                <NoteForm 
+                <NoteForm
                     entityId={entityId}
                     entityType={entityType}
                     initialData={selectedNote}
@@ -216,6 +271,7 @@ export default function ActivitySection({
             </SheetHeader>
             {selectedEvent && (
                 <SystemEventForm 
+                    key={selectedEvent.id}
                     entityId={entityId}
                     entityType={entityType as any}
                     initialData={selectedEvent}
@@ -229,7 +285,7 @@ export default function ActivitySection({
 
       {/* Doc Sheet */}
       <Sheet open={isDocSheetOpen} onOpenChange={setIsDocSheetOpen}>
-        <SheetContent className="sm:max-w-md">
+        <SheetContent className="sm:max-w-3xl">
             <SheetHeader className="mb-4">
                 <SheetTitle>Edit Document</SheetTitle>
             </SheetHeader>

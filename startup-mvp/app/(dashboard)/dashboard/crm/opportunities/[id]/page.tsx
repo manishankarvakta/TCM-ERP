@@ -173,7 +173,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                             activities={allActivities}
                             tasks={tasks}
                             notes={notes}
-                            events={allActivities}
+                            events={events}
                             docs={docs}
                         />
                     </TabsContent>
@@ -235,7 +235,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
         {/* Sidebar: Details */}
         <div className="space-y-4">
             <Card className="shadow-sm border-slate-200 overflow-hidden">
-                <CardHeader className="bg-slate-50/50 border-b py-4">
+                <CardHeader className="bg-slate-50/50 border-b py-3">
                     <CardTitle className="text-base font-semibold">Deal Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm pt-4">

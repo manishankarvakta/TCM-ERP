@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -62,27 +62,57 @@ export default function SystemEventForm({
     register,
     handleSubmit,
     control,
-    watch,
+    reset,
     formState: { errors },
   } = useForm<EventFormData>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
-      title: initialData?.title || "",
-      eventType: initialData?.eventType || "MEETING",
-      startDate: initialData?.startTime
-        ? format(new Date(initialData.startTime), "yyyy-MM-dd'T'HH:mm")
+      title: initialData?.title || initialData?.subject || "",
+      eventType: (initialData?.eventType || initialData?.metadata?.eventType || "MEETING").toString().toUpperCase(),
+      startDate: (initialData?.startTime || initialData?.dueDate)
+        ? format(new Date(initialData.startTime || initialData.dueDate), "yyyy-MM-dd'T'HH:mm")
         : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-      endDate: initialData?.endTime
-        ? format(new Date(initialData.endTime), "yyyy-MM-dd'T'HH:mm")
+      endDate: (initialData?.endTime || initialData?.completedAt)
+        ? format(new Date(initialData.endTime || initialData.completedAt), "yyyy-MM-dd'T'HH:mm")
         : format(new Date(Date.now() + 3600000), "yyyy-MM-dd'T'HH:mm"),
-      allDay: initialData?.allDay || false,
-      attendees: initialData?.attendees || [],
-      location: initialData?.location || "",
+      allDay: initialData?.allDay || initialData?.metadata?.allDay || false,
+      attendees: initialData?.attendees || initialData?.metadata?.attendees || [],
+      location: initialData?.location || initialData?.metadata?.location || "",
       description: initialData?.description || "",
-      reminder: initialData?.reminder || "15_MIN",
-      status: initialData?.status || "TODO",
+      reminder: (initialData?.reminder || initialData?.metadata?.reminder || "15_MIN").toString().toUpperCase(),
+      status: (initialData?.status || "TODO").toString().toUpperCase(),
     },
   });
+
+  // Keep form in sync with initialData (crucial for sheets that stay mounted)
+  useEffect(() => {
+    if (initialData) {
+      const rawType = initialData.eventType || initialData.metadata?.eventType;
+      const normalizedType = rawType ? rawType.toString().toUpperCase() : "MEETING";
+
+      const rawReminder = initialData.reminder || initialData.metadata?.reminder;
+      const normalizedReminder = rawReminder ? rawReminder.toString().toUpperCase() : "15_MIN";
+
+      const rawStatus = initialData.status?.toString().toUpperCase() || "TODO";
+
+      reset({
+        title: initialData.title || initialData.subject || "",
+        eventType: normalizedType,
+        startDate: (initialData.startTime || initialData.dueDate)
+          ? format(new Date(initialData.startTime || initialData.dueDate), "yyyy-MM-dd'T'HH:mm")
+          : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+        endDate: (initialData.endTime || initialData.completedAt)
+          ? format(new Date(initialData.endTime || initialData.completedAt), "yyyy-MM-dd'T'HH:mm")
+          : format(new Date(Date.now() + 3600000), "yyyy-MM-dd'T'HH:mm"),
+        allDay: initialData.allDay || initialData.metadata?.allDay || false,
+        attendees: initialData.attendees || initialData.metadata?.attendees || [],
+        location: initialData.location || initialData.metadata?.location || "",
+        description: initialData.description || "",
+        reminder: normalizedReminder,
+        status: rawStatus,
+      });
+    }
+  }, [initialData, reset]);
 
   const attendeeOptions: MultiSelectOption[] = users.map((u) => ({
     label: u.name || u.email,
@@ -152,7 +182,7 @@ export default function SystemEventForm({
             name="eventType"
             control={control}
             render={({ field }) => (
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
+              <Select onValueChange={field.onChange} value={field.value} disabled={isPending}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
@@ -295,7 +325,7 @@ export default function SystemEventForm({
             name="reminder"
             control={control}
             render={({ field }) => (
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
+              <Select onValueChange={field.onChange} value={field.value} disabled={isPending}>
                 <SelectTrigger>
                   <SelectValue placeholder="Set reminder" />
                 </SelectTrigger>
@@ -319,7 +349,7 @@ export default function SystemEventForm({
             name="status"
             control={control}
             render={({ field }) => (
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
+              <Select onValueChange={field.onChange} value={field.value} disabled={isPending}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>

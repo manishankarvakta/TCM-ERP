@@ -14,7 +14,8 @@ import TaskManager from "../../activities/_components/TaskManager";
 import EventManager from "../../activities/_components/EventManager";
 import NoteManager from "../../activities/_components/NoteManager";
 import DocManager from "../../activities/_components/DocManager";
-import FileManager from "../../activities/_components/FileManager";
+import { LeadStatusBadge } from "../_components/LeadStatusBadge";
+import { LeadConversionButton } from "../_components/LeadConversionButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -22,6 +23,7 @@ import { ArrowLeftIcon, MailIcon, PhoneIcon, BuildingIcon, Clock, Calendar, Chec
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import FileManager from "../../activities/_components/FileManager";
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -74,31 +76,27 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
-  const statusColors: Record<string, "default" | "secondary" | "outline" | "destructive" | "success" | null | undefined> = {
-    NEW: "default",
-    CONTACTED: "secondary",
-    QUALIFIED: "success",
-    UNQUALIFIED: "destructive",
-    CONVERTED: "outline",
-  };
-
-
   return (
     <div className="space-y-6 max-w-full mx-auto">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
-            <Link href="/dashboard/crm/leads">
-                <ArrowLeftIcon className="h-4 w-4" />
-            </Link>
-        </Button>
-        <div>
-           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">{lead.name}</h1>
-            <Badge variant={statusColors[lead.status] || "default"}>{lead.status}</Badge>
-           </div>
-           <p className="text-muted-foreground text-sm font-medium">
-             {lead.company} • Created on {lead.createdAt ? format(new Date(lead.createdAt), "PPP") : "-"}
-           </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-background/50 ">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" asChild className="shrink-0">
+              <Link href="/dashboard/crm/leads">
+                  <ArrowLeftIcon className="h-4 w-4" />
+              </Link>
+          </Button>
+          <div className="min-w-0">
+             <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate max-w-[200px] sm:max-w-[400px]">{lead.name}</h1>
+              <LeadStatusBadge leadId={lead.id} currentStatus={lead.status} />
+             </div>
+             <p className="text-muted-foreground text-xs sm:text-sm font-medium truncate">
+               {lead.company} • Created on {lead.createdAt ? format(new Date(lead.createdAt), "PPP") : "-"}
+             </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <LeadConversionButton leadId={lead.id} leadName={lead.name} currentStatus={lead.status} />
         </div>
       </div>
 
@@ -181,7 +179,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                             activities={allActivities}
                             tasks={tasks}
                             notes={notes}
-                            events={allActivities}
+                            events={events}
                             docs={docs}
                         />
                     </TabsContent>
@@ -243,7 +241,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         {/* Sidebar: Details */}
         <div className="space-y-6">
             <Card className="shadow-sm border-slate-200 overflow-hidden">
-                <CardHeader className="bg-slate-50/50 border-b py-4">
+                <CardHeader className="bg-slate-50/50 border-b py-3">
                     <CardTitle className="text-base font-semibold">Lead Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm pt-4">

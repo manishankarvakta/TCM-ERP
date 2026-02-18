@@ -169,4 +169,40 @@ export async function getSystemEvents(
     };
 }
 
+// Fetches a single event by ID and maps it to the EventItem structure
+export async function getSystemEventById(id: string) {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const event = await SystemEventDomain.get(id);
+    if (!event) return { success: false, error: "Event not found" };
+
+    const hasPermission = await checkSystemPermission('system.events', 'read', {
+        entityType: (event as any).contextType,
+        entityId: (event as any).contextId
+    });
+    
+    if (!hasPermission) return { success: false, error: "Permission denied" };
+
+    // Map Activity to EventItem structure
+    const mappedEvent = {
+        ...event,
+        title: event.subject,
+        startTime: event.dueDate,
+        endTime: event.completedAt,
+        location: (event.metadata as any)?.location || null,
+        allDay: (event.metadata as any)?.allDay || false,
+        eventType: (event.metadata as any)?.eventType || null,
+        reminder: (event.metadata as any)?.reminder || null,
+        attendees: (event.metadata as any)?.attendees || [],
+        status: event.status,
+        owner: event.Owner
+    };
+
+    return {
+        success: true,
+        event: mappedEvent
+    };
+}
+
 
