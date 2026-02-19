@@ -68,7 +68,7 @@ services:
 
   ts-crm-app:
     build:
-      context: ./ts-crm
+      context: ./startup-mvp
       dockerfile: Dockerfile
     container_name: ts-crm-app
     restart: unless-stopped
