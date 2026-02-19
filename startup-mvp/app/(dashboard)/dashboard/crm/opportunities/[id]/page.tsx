@@ -18,7 +18,7 @@ import FileManager from "../../activities/_components/FileManager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { ArrowLeftIcon, Clock, CheckSquare, FileText, Layout, DollarSign, Calendar, User, UserPlus, CalendarDays, Folder, StickyNote } from "lucide-react";
+import { ArrowLeftIcon, Clock, CheckSquare, FileText, Layout, DollarSign, Calendar, User, UserPlus, CalendarDays, Folder, StickyNote, Hash } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -89,7 +89,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
             </Badge>
            </div>
            <p className="text-muted-foreground text-sm font-medium">
-             {opportunity.client?.name} • Created on {opportunity.createdAt ? format(new Date(opportunity.createdAt), "PPP") : "-"}
+             Deal #{opportunity.opportunityNumber} • {opportunity.client?.name} • Created on {opportunity.createdAt ? format(new Date(opportunity.createdAt), "PPP") : "-"}
            </p>
         </div>
       </div>
@@ -240,11 +240,23 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm pt-4">
                     <div className="flex items-start gap-3">
+                        <div className="bg-slate-100 p-2 rounded text-slate-600">
+                            <Hash className="h-4 w-4" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Deal Number</p>
+                            <span className="font-medium">
+                                {opportunity.opportunityNumber}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-start gap-3">
                         <div className="bg-emerald-100/50 p-2 rounded text-emerald-600">
                             <DollarSign className="h-4 w-4" />
                         </div>
                         <div>
-                            <p className="text-xs text-muted-foreground">Deal Value</p>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Deal Value</p>
                             <span className="font-bold text-lg text-emerald-700">
                                 ${Number(opportunity.value ?? 0).toLocaleString()}
                             </span>
@@ -256,7 +268,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                             <Calendar className="h-4 w-4" />
                         </div>
                         <div>
-                            <p className="text-xs text-muted-foreground">Expected Close</p>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Expected Close</p>
                             <span className="font-medium">
                                 {opportunity.expectedCloseDate ? format(new Date(opportunity.expectedCloseDate), "MMM d, yyyy") : "Not set"}
                             </span>

@@ -14,6 +14,7 @@ import { getOrder } from "@/app/actions/orders";
 import { getInvoice } from "@/app/actions/invoices";
 import { getVoucherById } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
 import { getLeadById } from "@/app/actions/crm/lead.action";
+import { getOpportunityById } from "@/app/actions/crm/opportunity.action";
 
 
 // Map route paths to display names
@@ -335,15 +336,13 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
 
     let cancelled = false;
     
-    import("@/app/actions/crm/opportunity.action").then(({ getOpportunityById }) => {
-        getOpportunityById(id)
-            .then((result) => {
-                if (!cancelled && result.success && result.opportunity) {
-                    setOpportunityNumber(result.opportunity.opportunityNumber || "Opportunity");
-                }
-            })
-            .catch(() => {});
-    });
+    getOpportunityById(id)
+        .then((result) => {
+            if (!cancelled && result.success && result.opportunity) {
+                setOpportunityNumber(result.opportunity.opportunityNumber || "Opportunity");
+            }
+        })
+        .catch(() => {});
 
     return () => { cancelled = true; setOpportunityNumber(null); };
   }, [pathname]);
@@ -517,7 +516,7 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
         const opportunityListItem = items.find(item => item.path === "/dashboard/crm/opportunities");
         parentItem = opportunityListItem || { path: "/dashboard/crm/opportunities", label: "Opportunities" };
         // Use opportunityNumber state if available, otherwise fallback
-        currentLabel = opportunityNumber ? opportunityNumber : "Opportunity Details";
+        currentLabel = opportunityNumber ? `${opportunityNumber}` : "Opportunity Details";
      }
   }
 
