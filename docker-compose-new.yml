@@ -60,8 +60,6 @@ services:
       /usr/bin/mc alias set myminio http://ts-crm-minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
       /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-ts-crm-files} || echo 'Bucket already exists';
       /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-ts-crm-files} || true;
-      /usr/bin/mc anonymous set upload myminio/${MINIO_BUCKET_NAME:-ts-crm-files} || true;
-      /usr/bin/mc anonymous set public myminio/${MINIO_BUCKET_NAME:-ts-crm-files} || true;
       echo 'MinIO bucket setup complete!';
       exit 0;
       "
@@ -77,11 +75,10 @@ services:
     expose:
       - "3000"
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@ts-crm-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@ts-crm-postgres:5432/${POSTGRES_DB:-ts-crm}?schema=public
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required}
       NEXTAUTH_URL: ${NEXTAUTH_URL:?NEXTAUTH_URL is required}
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
-      # MINIO_ENDPOINT: ts-crm-minio
       MINIO_PORT: 9000
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
@@ -112,6 +109,7 @@ services:
     image: redis:7-alpine
     container_name: ts-crm-redis
     restart: unless-stopped
+    command: redis-server --appendonly yes
     volumes:
       # ABSOLUTE PATH - Cache data stays here
       - /var/lib/ts-crm/redis:/data
