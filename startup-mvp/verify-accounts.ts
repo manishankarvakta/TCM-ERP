@@ -1,0 +1,1 @@
+import { PrismaClient } from "@prisma/client"; const prisma = new PrismaClient(); async function main() { console.log("ChartOfAccounts:", await prisma.chartOfAccount.count()); console.log("Vouchers:", await prisma.voucher.count()); console.log("JournalEntries:", await prisma.journalEntry.count()); }; main();
