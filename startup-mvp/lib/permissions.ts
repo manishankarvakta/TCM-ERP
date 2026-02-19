@@ -31,8 +31,8 @@ export async function getUserPermissions(
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        designationTemplate: true,
-        userPermissions: true,
+        PermissionTemplate: true,
+        UserPermission: true,
       },
     });
 
@@ -43,17 +43,17 @@ export async function getUserPermissions(
     let mergedPermissions: PartialPermissions = {};
 
     // If UserPermission records exist, use them directly (they contain the full current state)
-    if (user.userPermissions && user.userPermissions.length > 0) {
-      for (const userPerm of user.userPermissions) {
+    if (user.UserPermission && user.UserPermission.length > 0) {
+      for (const userPerm of user.UserPermission) {
         const permissionKey = userPerm.module; // Can be "items" or "items.groups"
         const operations = userPerm.operations as Operation[];
         
         // Store the operations (empty array is valid - means no permissions for this key)
         mergedPermissions[permissionKey] = operations;
       }
-    } else if (user.designationTemplate?.permissions) {
+    } else if (user.PermissionTemplate?.permissions) {
       // If no UserPermission records, fall back to template permissions
-      const templatePerms = user.designationTemplate
+      const templatePerms = user.PermissionTemplate
         .permissions as PartialPermissions;
       mergedPermissions = { ...templatePerms };
     }
@@ -109,20 +109,30 @@ export async function hasPermission(
   try {
     let permissions;
     try {
-        permissions = await getUserPermissionsEnhanced(userId);
+      permissions = await getUserPermissionsEnhanced(userId);
     } catch (e) {
-        // Fallback to uncached version if unstable_cache fails (e.g. in CLI/tests)
-        permissions = await getUserPermissions(userId);
+      // Fallback to uncached version if unstable_cache fails (e.g. in CLI/tests)
+      permissions = await getUserPermissions(userId);
     }
+
+    // Check direct permission
     const pagePermission = permissions[permissionKey] as PagePermission | undefined;
-    
-    if (pagePermission) {
-      // Enhanced format: check operations array
-      if (pagePermission.operations && pagePermission.operations.includes(operation)) {
-        return true;
-      }
+    if (pagePermission?.operations?.includes(operation)) {
+      return true;
     }
-    
+
+    // If checking top-level module (e.g., "crm"), check if any sub-module (e.g., "crm.leads") has the permission
+    if (!permissionKey.includes(".")) {
+      const subModuleKeys = Object.keys(permissions).filter((key) =>
+        key.startsWith(`${permissionKey}.`)
+      );
+      const hasSubModulePermission = subModuleKeys.some((key) => {
+        const p = permissions[key] as PagePermission | undefined;
+        return p?.operations?.includes(operation);
+      });
+      if (hasSubModulePermission) return true;
+    }
+
     // Also check parent module permission if checking sub-module
     if (permissionKey.includes(".")) {
       const [parentModule] = permissionKey.split(".");
@@ -131,7 +141,7 @@ export async function hasPermission(
         return true;
       }
     }
-    
+
     return false;
   } catch (error) {
     console.error("Error checking permission:", error);
@@ -151,14 +161,25 @@ export async function canAccessModule(
     const permissions = await getUserPermissions(userId);
     
     // Check module-level permission
-    const modulePermissions = permissions[module] || [];
-    if (modulePermissions.length > 0) return true;
+    const modulePermissions = permissions[module];
+    if (modulePermissions) {
+      if (Array.isArray(modulePermissions)) {
+        if (modulePermissions.length > 0) return true;
+      } else if (modulePermissions.operations && modulePermissions.operations.length > 0) {
+        return true;
+      }
+    }
     
     // Check sub-module permissions
     const subModuleKeys = Object.keys(permissions).filter((key) =>
       key.startsWith(`${module}.`)
     );
-    return subModuleKeys.some((key) => (permissions[key]?.length || 0) > 0);
+    return subModuleKeys.some((key) => {
+      const p = permissions[key];
+      if (!p) return false;
+      if (Array.isArray(p)) return p.length > 0;
+      return (p.operations?.length || 0) > 0;
+    });
   } catch (error) {
     console.error("Error checking module access:", error);
     return false;
@@ -335,7 +356,9 @@ export async function getUserModules(userId: string): Promise<Module[]> {
     
     // Check all permission keys
     for (const key of Object.keys(permissions)) {
-      if ((permissions[key]?.length || 0) > 0) {
+      const p = permissions[key];
+      const hasOps = p && (Array.isArray(p) ? p.length > 0 : (p.operations?.length || 0) > 0);
+      if (hasOps) {
         // Extract module from key (e.g., "items.groups" -> "items")
         const module = key.split(".")[0] as Module;
         if (module) {
@@ -363,13 +386,16 @@ export async function getUserSubModules(
     const accessibleSubModules: string[] = [];
     
     // Check module-level permission - grants access to all sub-modules
-    if (permissions[module] && permissions[module]!.length > 0) {
+    const modulePerms = permissions[module];
+    if (modulePerms && (Array.isArray(modulePerms) ? modulePerms.length > 0 : (modulePerms.operations?.length || 0) > 0)) {
       return ["*"]; // Wildcard means all sub-modules
     }
     
     // Check individual sub-module permissions
     for (const key of Object.keys(permissions)) {
-      if (key.startsWith(`${module}.`) && (permissions[key]?.length || 0) > 0) {
+      const p = permissions[key];
+      const hasOps = p && (Array.isArray(p) ? p.length > 0 : (p.operations?.length || 0) > 0);
+      if (key.startsWith(`${module}.`) && hasOps) {
         const subModule = key.split(".")[1];
         if (subModule) {
           accessibleSubModules.push(subModule);
@@ -394,8 +420,10 @@ export async function hasAnyPermission(
 ): Promise<boolean> {
   try {
     const permissions = await getUserPermissions(userId);
-    const modulePermissions = permissions[module] || [];
-    return operations.some((op) => modulePermissions.includes(op));
+    const modulePermissions = permissions[module];
+    if (!modulePermissions) return false;
+    const ops = Array.isArray(modulePermissions) ? modulePermissions : (modulePermissions.operations || []);
+    return operations.some((op) => ops.includes(op));
   } catch (error) {
     console.error("Error checking any permission:", error);
     return false;
@@ -412,8 +440,10 @@ export async function hasAllPermissions(
 ): Promise<boolean> {
   try {
     const permissions = await getUserPermissions(userId);
-    const modulePermissions = permissions[module] || [];
-    return operations.every((op) => modulePermissions.includes(op));
+    const modulePermissions = permissions[module];
+    if (!modulePermissions) return false;
+    const ops = Array.isArray(modulePermissions) ? modulePermissions : (modulePermissions.operations || []);
+    return operations.every((op) => ops.every((op) => ops.includes(op)));
   } catch (error) {
     console.error("Error checking all permissions:", error);
     return false;

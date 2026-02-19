@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -20,7 +20,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle } from "react-icons/fi";
 import { createSupplier, updateSupplier } from "../_actions/supplier.action";
 import MediaSelector from "@/components/MediaSelector";
-import { getBasePathFromPathname } from "@/lib/route-utils-client";
 
 const supplierFormSchema = z.object({
   name: z.string().optional().or(z.literal("")),
@@ -58,7 +57,6 @@ interface SupplierFormProps {
 
 export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
@@ -123,8 +121,7 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
           throw new Error(result.error || "Failed to create supplier");
         }
 
-        const basePath = getBasePathFromPathname(pathname);
-        router.push(`${basePath}/suppliers`);
+        router.push("/dashboard/suppliers");
       } else {
         const result = await updateSupplier({
           id: initialData!.id,
@@ -145,8 +142,7 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
           throw new Error(result.error || "Failed to update supplier");
         }
 
-        const basePath = getBasePathFromPathname(pathname);
-        router.push(`${basePath}/suppliers`);
+        router.push("/dashboard/suppliers");
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");

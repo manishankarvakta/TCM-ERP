@@ -13,6 +13,8 @@ import { getDelivery } from "@/app/actions/deliveries";
 import { getOrder } from "@/app/actions/orders";
 import { getInvoice } from "@/app/actions/invoices";
 import { getVoucherById } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
+import { getLeadById } from "@/app/actions/crm/lead.action";
+import { getOpportunityById } from "@/app/actions/crm/opportunity.action";
 
 
 // Map route paths to display names
@@ -103,6 +105,9 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [invoiceLabel, setInvoiceLabel] = useState<string | null>(null);
   const [orderLabel, setOrderLabel] = useState<string | null>(null);
   const [voucherLabel, setVoucherLabel] = useState<string | null>(null);
+  const [percentage, setPercentage] = useState<number>(0); // Unused but keeping for consistency if needed? No, just add opportunityNumber
+  const [leadNumber, setLeadNumber] = useState<string | null>(null);
+  const [opportunityNumber, setOpportunityNumber] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
 
   // Fetch quotation number if we're on a quotation detail or edit page
@@ -299,6 +304,49 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     return () => { cancelled = true; setVoucherLabel(null); };
   }, [pathname]);
 
+  // Fetch lead number
+  useEffect(() => {
+    const match = pathname.match(/^\/dashboard\/crm\/leads\/([^\/]+)$/);
+    if (!match) return;
+    
+    const id = match[1];
+    if (id === "add") return;
+
+    let cancelled = false;
+    
+    getLeadById(id)
+        .then((result) => {
+            if (!cancelled && result.success && result.lead) {
+                const lead = result.lead as any;
+                setLeadNumber(lead.leadNumber);
+            }
+        })
+        .catch(() => {});
+
+    return () => { cancelled = true; setLeadNumber(null); };
+  }, [pathname]);
+
+  // Fetch opportunity number
+  useEffect(() => {
+    const match = pathname.match(/^\/dashboard\/crm\/opportunities\/([^\/]+)$/);
+    if (!match) return;
+    
+    const id = match[1];
+    if (id === "add") return;
+
+    let cancelled = false;
+    
+    getOpportunityById(id)
+        .then((result) => {
+            if (!cancelled && result.success && result.opportunity) {
+                setOpportunityNumber(result.opportunity.opportunityNumber || "Opportunity");
+            }
+        })
+        .catch(() => {});
+
+    return () => { cancelled = true; setOpportunityNumber(null); };
+  }, [pathname]);
+
   // If we're at the root dashboard, show just "Dashboard"
   if (pathname === "/dashboard" || items.length === 1) {
     return (
@@ -438,7 +486,6 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
       currentLabel = isWorkOrderEdit ? "Edit Work Order" : "Work Order Details";
     }
   }
-
   // Handle Voucher Details
   const isVoucherDetail = pathname.match(/^\/dashboard\/accounts\/vouchers\/([^\/]+)$/);
   if (isVoucherDetail) {
@@ -447,6 +494,29 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
         const voucherListItem = items.find(item => item.path === "/dashboard/accounts/vouchers");
         parentItem = voucherListItem || { path: "/dashboard/accounts/vouchers", label: "Vouchers" };
         currentLabel = voucherLabel ? voucherLabel : "Voucher Details";
+     }
+  }
+
+  // Handle Lead Details
+  const isLeadDetail = pathname.match(/^\/dashboard\/crm\/leads\/([^\/]+)$/);
+  if (isLeadDetail) {
+     const id = isLeadDetail[1];
+     if (id !== "add") {
+        const leadListItem = items.find(item => item.path === "/dashboard/crm/leads");
+        parentItem = leadListItem || { path: "/dashboard/crm/leads", label: "Leads" };
+        currentLabel = leadNumber ? leadNumber : "Lead Details";
+     }
+  }
+
+  // Handle Opportunity Details
+  const isOpportunityDetail = pathname.match(/^\/dashboard\/crm\/opportunities\/([^\/]+)$/);
+  if (isOpportunityDetail) {
+     const id = isOpportunityDetail[1];
+     if (id !== "add") {
+        const opportunityListItem = items.find(item => item.path === "/dashboard/crm/opportunities");
+        parentItem = opportunityListItem || { path: "/dashboard/crm/opportunities", label: "Opportunities" };
+        // Use opportunityNumber state if available, otherwise fallback
+        currentLabel = opportunityNumber ? `${opportunityNumber}` : "Opportunity Details";
      }
   }
 

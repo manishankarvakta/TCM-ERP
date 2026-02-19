@@ -20,11 +20,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import Link from "next/link";
 import {
   FiSearch,
+  FiEdit,
   FiTrash2,
   FiX,
   FiMoreVertical,
+  FiEye,
   FiRotateCw,
 } from "react-icons/fi";
 import {
@@ -32,7 +35,6 @@ import {
   bulkUpdatePurchaseStatus,
   deletePurchasesPermanently,
 } from "../_actions/purchase.action";
-import ProtectedAction from "@/components/permissions/protected-action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,13 +79,6 @@ interface PurchasesListClientProps {
   initialPagination: Pagination;
   initialSearch: string;
   isTrash?: boolean;
-  userId?: string;
-  permissions?: {
-    view: boolean;
-    edit: boolean;
-    moveToTrash: boolean;
-    deletePermanently: boolean;
-  };
 }
 
 const STATUS_LABELS: Record<PurchaseStatus, string> = {
@@ -99,8 +94,6 @@ export default function PurchasesListClient({
   initialPagination,
   initialSearch,
   isTrash = false,
-  userId: providedUserId,
-  permissions,
 }: PurchasesListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -367,20 +360,16 @@ export default function PurchasesListClient({
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
-                            <ProtectedAction
-                              permissionKey="purchases.purchases"
-                              action="edit"
-                              href={`/dashboard/purchases/${purchase.id}`}
-                              userId={providedUserId || undefined}
-                              hasAccess={permissions?.edit}
-                            />
-                            <ProtectedAction
-                              permissionKey="purchases.purchases"
-                              action="view"
-                              href={`/dashboard/purchases/details?id=${purchase.id}`}
-                              userId={providedUserId || undefined}
-                              hasAccess={permissions?.view}
-                            />
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/dashboard/purchases/${purchase.id}`}>
+                                <FiEdit className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/dashboard/purchases/details?id=${purchase.id}`}>
+                                <FiEye className="h-4 w-4" />
+                              </Link>
+                            </Button>
                           </>
                         )}
                         {isTrash && (
@@ -396,18 +385,16 @@ export default function PurchasesListClient({
                             <FiRotateCw className="h-4 w-4" />
                           </Button>
                         )}
-                        <ProtectedAction
-                          permissionKey="purchases.purchases"
-                          action={isTrash ? "delete-permanently" : "move-to-trash"}
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setDeletePurchaseId(purchase.id)}
-                          userId={providedUserId || undefined}
-                          hasAccess={isTrash ? permissions?.deletePermanently : permissions?.moveToTrash}
-                          buttonProps={{
-                            disabled: isPending,
-                            className: "text-destructive hover:text-destructive",
-                            title: isTrash ? "Delete permanently" : "Move to trash",
-                          }}
-                        />
+                          className="text-destructive hover:text-destructive"
+                          title={isTrash ? "Delete permanently" : "Move to trash"}
+                          disabled={isPending}
+                        >
+                          <FiTrash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

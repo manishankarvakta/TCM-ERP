@@ -217,8 +217,6 @@ export async function getGroupById(groupId: string) {
         height: item.height ? Number(item.height) : null,
         width: item.width ? Number(item.width) : null,
         depth: item.depth ? Number(item.depth) : null,
-        baseUnit: item.baseUnit !== null && item.baseUnit !== undefined ? item.baseUnit : null,
-        baseUnitPrice: item.baseUnitPrice !== null && item.baseUnitPrice !== undefined ? Number(item.baseUnitPrice) : null,
         unitPrice: Number(item.unitPrice),
         amount: Number(item.amount),
       })),

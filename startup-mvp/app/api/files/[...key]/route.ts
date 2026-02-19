@@ -34,10 +34,10 @@ function createS3Client() {
  */
 export async function GET(
   request: NextRequest,
-  context: { params?: { key?: string[] } }
+  props: { params: Promise<{ key?: string[] }> }
 ) {
   try {
-    const { params } = context || {};
+    const params = await props.params;
 
     // Validate and reconstruct the full key from path segments
     if (!params?.key || !Array.isArray(params.key) || params.key.length === 0) {
@@ -88,7 +88,9 @@ export async function GET(
     }
 
     // Get bucket name from environment
-    const bucketName = process.env.MINIO_BUCKET_NAME || "espacio-files";
+    const bucketName = process.env.MINIO_BUCKET_NAME || "espaciofiles";
+    
+    console.log(`[API] Fetching file: ${key} from bucket: ${bucketName}`);
 
     // Create S3 client (at runtime, not build time)
     const s3 = createS3Client();
@@ -129,7 +131,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Download proxy error:", error);
+    console.error("Download proxy error for key:", error);
     return NextResponse.json(
       { error: "Failed to download file" },
       { status: 500 }

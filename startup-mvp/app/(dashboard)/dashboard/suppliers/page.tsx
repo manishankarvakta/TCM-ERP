@@ -5,8 +5,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import SuppliersListClient from "./_components/suppliers";
-import { auth } from "@/lib/auth";
-import { hasPermission } from "@/lib/permissions";
 
 interface SuppliersPageProps {
   searchParams: Promise<{
@@ -22,19 +20,8 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
   const search = params.search || "";
   const tab = params.tab || "all";
 
-  const session = await auth();
-  const userId = session?.user?.id;
-
   const status = tab === "trash" ? "trash" : "all";
-  
-  // Check permissions on server side for better performance
-  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
-    getSuppliers(page, 10, search, status),
-    userId ? hasPermission(userId, "peoples.suppliers", "view") : false,
-    userId ? hasPermission(userId, "peoples.suppliers", "edit") : false,
-    userId ? hasPermission(userId, "peoples.suppliers", "move-to-trash") : false,
-    userId ? hasPermission(userId, "peoples.suppliers", "delete-permanently") : false,
-  ]);
+  const result = await getSuppliers(page, 10, search, status);
 
   // Handle errors
   if (!result.success) {
@@ -92,13 +79,6 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
             }}
             initialSearch={search}
             isTrash={false}
-            userId={userId || undefined}
-            permissions={{
-              view: canView,
-              edit: canEdit,
-              moveToTrash: canMoveToTrash,
-              deletePermanently: canDeletePermanently,
-            }}
           />
         </TabsContent>
         <TabsContent value="trash" className="mt-4">
@@ -112,13 +92,6 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
             }}
             initialSearch={search}
             isTrash={true}
-            userId={userId || undefined}
-            permissions={{
-              view: canView,
-              edit: canEdit,
-              moveToTrash: canMoveToTrash,
-              deletePermanently: canDeletePermanently,
-            }}
           />
         </TabsContent>
       </Tabs>

@@ -51,8 +51,9 @@ import CoverLetter from "./_components/coverLetter/CoverLetter";
 import TOS from "./_components/Tos";
 
 
-type SettingsSection = "profile" | 
-                       "experience" | 
+
+type SettingsSection = "organization"| 
+                      "experience" | 
                        "emails" | 
                        "calendars" |
                        "backup" | 
@@ -63,7 +64,6 @@ type SettingsSection = "profile" |
                        "data-model" | 
                        "integrations" | 
                        "security" | 
-                       "organization"| 
                        "apis" | 
                        "webhooks" | 
                        "tex" | 
@@ -81,7 +81,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [advanced, setAdvanced] = useState(false);
-  const [activeSection, setActiveSection] = useState<SettingsSection>("profile");
+  const [activeSection, setActiveSection] = useState<SettingsSection>("organization");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [, startTransition] = useTransition();
 
@@ -121,7 +121,7 @@ export default function SettingsPage() {
       category: "Settings",
       items: [
         // { id: "profile" as SettingsSection, label: "Profile", icon: User, active: activeSection === "profile" },
-        { id: "organization" as SettingsSection, label: "Organization", icon: Building2, active: activeSection === "experience" },
+        { id: "organization" as SettingsSection, label: "Organization", icon: Building2, active: activeSection === "organization" },
         { id: "experience" as SettingsSection, label: "Experience", icon: Fingerprint, active: activeSection === "experience" },
         {
           id: "accounts" as SettingsSection,

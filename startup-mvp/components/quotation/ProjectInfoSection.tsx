@@ -13,15 +13,19 @@ import {
 import { PROJECT_TYPES, LOCATION_TYPES } from '@/types/enums';
 import type { ProjectType, LocationType } from '@/types/enums';
 
+import OpportunitySelect from './OpportunitySelect';
+
 interface ProjectInfoSectionProps {
   projectName: string;
   projectLocation: string;
   projectType: ProjectType;
   selectedLocation?: LocationType | null;
+  opportunityId?: string | null;
   onProjectNameChange: (value: string) => void;
   onProjectLocationChange: (value: string) => void;
   onProjectTypeChange: (value: ProjectType) => void;
   onLocationChange: (value: LocationType) => void;
+  onOpportunityChange: (value: string | null) => void;
 }
 
 export function ProjectInfoSection({
@@ -29,10 +33,12 @@ export function ProjectInfoSection({
   projectLocation,
   projectType,
   selectedLocation,
+  opportunityId,
   onProjectNameChange,
   onProjectLocationChange,
   onProjectTypeChange,
   onLocationChange,
+  onOpportunityChange,
 }: ProjectInfoSectionProps) {
   return (
     <Card className="mb-4">
@@ -40,6 +46,14 @@ export function ProjectInfoSection({
         <CardTitle className="text-sm font-semibold">Project Information</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        <div>
+          <Label className="text-xs">Linked Opportunity</Label>
+          <OpportunitySelect 
+            value={opportunityId || undefined} 
+            onValueChange={onOpportunityChange} 
+          />
+        </div>
+
         <div>
           <Label htmlFor="projectName" className="text-xs">Project Name</Label>
           <Input

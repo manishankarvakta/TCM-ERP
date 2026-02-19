@@ -18,7 +18,7 @@ export default async function RegistrationPage() {
     // Redirect based on user role
     const userRole = session.user.role?.toLowerCase();
     if (userRole === "admin") {
-      redirect("/admin");
+      redirect("/dashboard");
     } else {
       redirect("/dashboard");
     }

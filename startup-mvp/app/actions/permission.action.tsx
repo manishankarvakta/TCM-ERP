@@ -165,7 +165,7 @@ export async function createPermissionTemplate(input: {
       details: `Created permission template: ${input.name}`,
     });
 
-    nextRevalidatePath("/admin/settings/permissions/templates");
+    nextRevalidatePath("/dashboard/settings/permissions/templates");
     return {
       success: true,
       template: {
@@ -270,7 +270,7 @@ export async function updatePermissionTemplate(
       details: `Updated permission template: ${template.name}`,
     });
 
-    nextRevalidatePath("/admin/settings/permissions/templates");
+    nextRevalidatePath("/dashboard/settings/permissions/templates");
     return {
       success: true,
       template: {
@@ -339,7 +339,7 @@ export async function deletePermissionTemplate(templateId: string) {
       details: `Deleted permission template: ${template.name}`,
     });
 
-    nextRevalidatePath("/admin/settings/permissions/templates");
+    nextRevalidatePath("/dashboard/settings/permissions/templates");
     return {
       success: true,
     };
@@ -371,8 +371,8 @@ export async function getUserPermissionsAction(userId: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        designationTemplate: true,
-        userPermissions: true,
+        PermissionTemplate: true,
+        UserPermission: true,
       },
     });
 
@@ -390,16 +390,16 @@ export async function getUserPermissionsAction(userId: string) {
     // If UserPermission records exist, use them directly. Otherwise, use template permissions.
     let displayPermissions: PartialPermissions = {};
     
-    if (user.userPermissions && user.userPermissions.length > 0) {
+    if (user.UserPermission && user.UserPermission.length > 0) {
       // Use UserPermission records directly (they contain the full current state)
-      for (const userPerm of user.userPermissions) {
+      for (const userPerm of user.UserPermission) {
         const permissionKey = userPerm.module;
         const operations = userPerm.operations as Operation[];
         displayPermissions[permissionKey] = operations;
       }
-    } else if (user.designationTemplate?.permissions) {
+    } else if (user.PermissionTemplate?.permissions) {
       // If no UserPermission records, fall back to template permissions
-      const templatePerms = user.designationTemplate.permissions as PartialPermissions;
+      const templatePerms = user.PermissionTemplate.permissions as PartialPermissions;
       if (isEnhancedPermissions(templatePerms)) {
         displayPermissions = convertToLegacyPermissions(templatePerms as Partial<EnhancedPermissions>);
       } else {
@@ -415,15 +415,15 @@ export async function getUserPermissionsAction(userId: string) {
     return {
       success: true,
       permissions: displayPermissions,
-      template: user.designationTemplate
+      template: user.PermissionTemplate
         ? {
-            id: user.designationTemplate.id,
-            name: user.designationTemplate.name,
-            description: user.designationTemplate.description,
-            permissions: user.designationTemplate.permissions as PartialPermissions,
+            id: user.PermissionTemplate.id,
+            name: user.PermissionTemplate.name,
+            description: user.PermissionTemplate.description,
+            permissions: user.PermissionTemplate.permissions as PartialPermissions,
           }
         : null,
-      overrides: user.userPermissions.map((up) => ({
+      overrides: user.UserPermission.map((up) => ({
         id: up.id,
         module: up.module as Module,
         operations: up.operations as Operation[],
@@ -517,7 +517,7 @@ export async function updateUserPermissionsAction(
       revalidateBothPaths('', 'page');
 
       // Revalidate admin permissions page
-      nextRevalidatePath(`/admin/settings/permissions/users/${userId}`);
+      nextRevalidatePath(`/dashboard/settings/permissions/users/${userId}`);
     }
 
     return result;
@@ -602,7 +602,7 @@ export async function resetUserPermissionsToTemplate(
       revalidateTag(`permissions-${userId}`);
       revalidateBothPaths('', 'layout');
       revalidateBothPaths('', 'page');
-      nextRevalidatePath(`/admin/settings/permissions/users/${userId}`);
+      nextRevalidatePath(`/dashboard/settings/permissions/users/${userId}`);
     }
 
     return {

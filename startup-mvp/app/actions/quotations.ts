@@ -6,7 +6,7 @@ import { Prisma, QuotationStatus } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { notifyItemCreated, notifyItemUpdated, notifyItemDeleted } from '@/lib/notification';
 import { createUserLog, LogAction } from '@/lib/user-log';
-import { createClient } from '@/app/(dashboard)/dashboard/clients/_actions/client.action';
+import { createClient } from '@/app/(dashboard)/dashboard/crm/clients/_actions/client.action';
 
 /**
  * Get all quotations with relations
@@ -641,7 +641,8 @@ export async function createQuotation(data: any) {
         shippingCharges: data.shippingCharges ? new Prisma.Decimal(data.shippingCharges) : new Prisma.Decimal(0),
         vatIncluded: data.vatIncluded || false,
         projectLocation: data.projectLocation || null,
-        isTrash: false, // Default to false - quotations are not in trash by default
+        opportunityId: (data as any).opportunityId || null,
+        isTrash: false,
         section: {
           create: (enrichedSections || []).map((section: any, sectionIndex: number) => ({
             title: section.title || `Section ${sectionIndex + 1}`,

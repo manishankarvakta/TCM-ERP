@@ -230,7 +230,7 @@ export async function getRecentQuotations(limit: number = 10) {
         discount: true,
         shippingCharges: true,
         createdAt: true,
-        client: {
+        Client: {
           select: {
             id: true,
             name: true,
@@ -238,7 +238,7 @@ export async function getRecentQuotations(limit: number = 10) {
             email: true,
           },
         },
-        submittedBy: {
+        User_Quotation_submittedByIdToUser: {
           select: {
             id: true,
             name: true,
@@ -259,6 +259,10 @@ export async function getRecentQuotations(limit: number = 10) {
       grandTotal: q.grandTotal ? Number(q.grandTotal) : 0,
       discount: q.discount ? Number(q.discount) : null,
       shippingCharges: q.shippingCharges ? Number(q.shippingCharges) : null,
+      client: q.Client,
+      submittedBy: q.User_Quotation_submittedByIdToUser,
+      Client: undefined,
+      User_Quotation_submittedByIdToUser: undefined,
     }));
 
     return {
@@ -345,16 +349,16 @@ export async function getRecentItems(limit: number = 10) {
         unitPrice: true,
         costPrice: true,
         createdAt: true,
-        unit: {
+        Unit: {
           select: {
             id: true,
             symbol: true,
             details: true,
           },
         },
-        categories: {
+        ItemCategory: {
           select: {
-            category: {
+            Category: {
               select: {
                 id: true,
                 name: true,
@@ -375,6 +379,12 @@ export async function getRecentItems(limit: number = 10) {
       ...item,
       unitPrice: Number(item.unitPrice),
       costPrice: Number(item.costPrice),
+      unit: item.Unit,
+      categories: item.ItemCategory.map((ic) => ({
+        category: ic.Category,
+      })),
+      Unit: undefined,
+      ItemCategory: undefined,
     }));
 
     return {
@@ -467,7 +477,7 @@ export async function getSystemActivity(limit: number = 10) {
         action: true,
         details: true,
         createdAt: true,
-        user: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -482,9 +492,15 @@ export async function getSystemActivity(limit: number = 10) {
       take: limit,
     });
 
+    const mappedActivities = activities.map((a) => ({
+      ...a,
+      user: a.User,
+      User: undefined,
+    }));
+
     return {
       success: true,
-      activities,
+      activities: mappedActivities,
     };
   } catch (error) {
     console.error('Error fetching system activity:', error);
@@ -797,7 +813,7 @@ export async function getUserRecentQuotations(limit: number = 10) {
         discount: true,
         shippingCharges: true,
         createdAt: true,
-        client: {
+        Client: {
           select: {
             id: true,
             name: true,
@@ -805,7 +821,7 @@ export async function getUserRecentQuotations(limit: number = 10) {
             email: true,
           },
         },
-        submittedBy: {
+        User_Quotation_submittedByIdToUser: {
           select: {
             id: true,
             name: true,
@@ -826,6 +842,10 @@ export async function getUserRecentQuotations(limit: number = 10) {
       grandTotal: q.grandTotal ? Number(q.grandTotal) : 0,
       discount: q.discount ? Number(q.discount) : null,
       shippingCharges: q.shippingCharges ? Number(q.shippingCharges) : null,
+      client: q.Client,
+      submittedBy: q.User_Quotation_submittedByIdToUser,
+      Client: undefined,
+      User_Quotation_submittedByIdToUser: undefined,
     }));
 
     return {
@@ -878,16 +898,16 @@ export async function getUserRecentItems(limit: number = 10) {
         unitPrice: true,
         costPrice: true,
         createdAt: true,
-        unit: {
+        Unit: {
           select: {
             id: true,
             symbol: true,
             details: true,
           },
         },
-        categories: {
+        ItemCategory: {
           select: {
-            category: {
+            Category: {
               select: {
                 id: true,
                 name: true,
@@ -908,6 +928,12 @@ export async function getUserRecentItems(limit: number = 10) {
       ...item,
       unitPrice: Number(item.unitPrice),
       costPrice: Number(item.costPrice),
+      unit: item.Unit,
+      categories: item.ItemCategory.map((ic) => ({
+        category: ic.Category,
+      })),
+      Unit: undefined,
+      ItemCategory: undefined,
     }));
 
     return {
@@ -1010,7 +1036,7 @@ export async function getUserActivity(limit: number = 10) {
         action: true,
         details: true,
         createdAt: true,
-        user: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -1025,9 +1051,15 @@ export async function getUserActivity(limit: number = 10) {
       take: limit,
     });
 
+    const mappedActivities = activities.map((a) => ({
+      ...a,
+      user: a.User,
+      User: undefined,
+    }));
+
     return {
       success: true,
-      activities,
+      activities: mappedActivities,
     };
   } catch (error) {
     console.error('Error fetching user activity:', error);

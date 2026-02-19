@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,6 @@ import {
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw } from "react-icons/fi";
 import { deleteCategory, bulkUpdateCategoryStatus, deleteCategoriesPermanently } from "../_actions/category.action";
-import ProtectedAction from "@/components/permissions/protected-action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,7 +36,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { getCurrentUser } from "@/app/actions/user.action"; // Only used if permissions not provided
 
 interface Category {
   id: string;
@@ -60,13 +58,6 @@ interface CategoriesListClientProps {
   initialPagination: Pagination;
   initialSearch: string;
   isTrash?: boolean;
-  userId?: string;
-  permissions?: {
-    view: boolean;
-    edit: boolean;
-    moveToTrash: boolean;
-    deletePermanently: boolean;
-  };
 }
 
 export default function CategoriesListClient({
@@ -74,8 +65,6 @@ export default function CategoriesListClient({
   initialPagination,
   initialSearch,
   isTrash = false,
-  userId: providedUserId,
-  permissions,
 }: CategoriesListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -85,23 +74,7 @@ export default function CategoriesListClient({
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [userId, setUserId] = useState<string | null>(providedUserId || null);
   const { toast } = useToast();
-
-  // Only fetch user if not provided and permissions not provided
-  useEffect(() => {
-    if (!providedUserId && !permissions) {
-      async function fetchUser() {
-        try {
-          const user = await getCurrentUser();
-          setUserId(user?.id || null);
-        } catch (error) {
-          console.error("Error fetching user:", error);
-        }
-      }
-      fetchUser();
-    }
-  }, [providedUserId, permissions]);
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -409,20 +382,16 @@ export default function CategoriesListClient({
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
-                            <ProtectedAction
-                              permissionKey="items.category"
-                              action="view"
-                              href={`/dashboard/items/category/details?id=${category.id}`}
-                              userId={userId || undefined}
-                              hasAccess={permissions?.view}
-                            />
-                            <ProtectedAction
-                              permissionKey="items.category"
-                              action="edit"
-                              href={`/dashboard/items/category/${category.id}`}
-                              userId={userId || undefined}
-                              hasAccess={permissions?.edit}
-                            />
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/dashboard/items/category/details?id=${category.id}`}>
+                                <FiEye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/dashboard/items/category/${category.id}`}>
+                                <FiEdit className="h-4 w-4" />
+                              </Link>
+                            </Button>
                           </>
                         )}
                         {isTrash && (
@@ -436,18 +405,16 @@ export default function CategoriesListClient({
                             <FiRotateCw className="h-4 w-4" />
                           </Button>
                         )}
-                        <ProtectedAction
-                          permissionKey="items.category"
-                          action={isTrash ? "delete-permanently" : "move-to-trash"}
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setDeleteCategoryId(category.id)}
-                          userId={userId || undefined}
-                          hasAccess={isTrash ? permissions?.deletePermanently : permissions?.moveToTrash}
-                          buttonProps={{
-                            disabled: isPending,
-                            className: "text-destructive hover:text-destructive",
-                            title: isTrash ? "Delete permanently" : "Move to trash",
-                          }}
-                        />
+                          className="text-destructive hover:text-destructive"
+                          title={isTrash ? "Delete permanently" : "Move to trash"}
+                          disabled={isPending}
+                        >
+                          <FiTrash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

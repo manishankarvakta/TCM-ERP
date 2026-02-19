@@ -114,9 +114,9 @@ export async function createNotification(data: {
       // Revalidate paths for all affected users
       revalidateBothPaths("");
       revalidateBothPaths("notifications");
-      nextRevalidatePath("/admin/notifications");
+      nextRevalidatePath("/dashboard/notifications");
       validUserIds.forEach((userId) => {
-        nextRevalidatePath(`/admin/users/${userId}`);
+        nextRevalidatePath(`/dashboard/users/${userId}`);
       });
 
       return {
@@ -161,10 +161,10 @@ export async function createNotification(data: {
 
     revalidateBothPaths("");
     revalidateBothPaths("notifications");
-    nextRevalidatePath("/admin/notifications");
+    nextRevalidatePath("/dashboard/notifications");
     // Revalidate for all users who received the notification
     allUsers.forEach((user) => {
-      nextRevalidatePath(`/admin/users/${user.id}`);
+      nextRevalidatePath(`/dashboard/users/${user.id}`);
     });
 
     return {
@@ -241,7 +241,8 @@ export async function getUserNotifications(
         createdAt: true,
         readAt: true,
         createdBy: true,
-        creator: {
+        // @ts-ignore
+        User_Notification_createdByToUser: {
           select: {
             id: true,
             name: true,
@@ -252,9 +253,16 @@ export async function getUserNotifications(
       },
     });
 
+    const mappedNotifications = notifications.map((n) => ({
+      ...n,
+      // @ts-ignore
+      creator: n.User_Notification_createdByToUser,
+      User_Notification_createdByToUser: undefined,
+    }));
+
     return {
       success: true,
-      data: notifications,
+      data: mappedNotifications,
     };
   } catch (error) {
     console.error("getUserNotifications error:", error);
@@ -288,7 +296,7 @@ export async function getCurrentUserNotifications(): Promise<ActionResult> {
       revalidateBothPaths("");
       revalidateBothPaths("notifications");
       nextRevalidatePath("/dashboard/notifications");
-      nextRevalidatePath("/admin/notifications");
+      nextRevalidatePath("/dashboard/notifications");
     }
 
     return result;
@@ -360,7 +368,7 @@ export async function markAsRead(
     revalidateBothPaths("");
     revalidateBothPaths("notifications");
     if (notification.userId) {
-      nextRevalidatePath(`/admin/users/${notification.userId}`);
+      nextRevalidatePath(`/dashboard/users/${notification.userId}`);
     }
 
     return {
@@ -436,7 +444,7 @@ export async function markAsUnread(
     revalidateBothPaths("");
     revalidateBothPaths("notifications");
     if (notification.userId) {
-      nextRevalidatePath(`/admin/users/${notification.userId}`);
+      nextRevalidatePath(`/dashboard/users/${notification.userId}`);
     }
 
     return {
@@ -499,7 +507,7 @@ export async function deleteNotification(
 
     revalidateBothPaths("");
     if (notification.userId) {
-      nextRevalidatePath(`/admin/users/${notification.userId}`);
+      nextRevalidatePath(`/dashboard/users/${notification.userId}`);
     }
 
     return {

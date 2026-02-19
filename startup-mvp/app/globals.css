@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @plugin "tailwindcss-animate";
+@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -183,4 +184,165 @@
     background: white;
     z-index: 9999;
   }
+}
+
+/* Notion-Inspired Block Readability */
+.prose-notion {
+  --notion-space-y: 1.5rem;
+  --notion-text-main: hsl(240 10% 10%);
+  --notion-text-muted: hsl(240 5% 45%);
+}
+
+.prose-notion p {
+  margin-top: var(--notion-space-y);
+  margin-bottom: var(--notion-space-y);
+  line-height: 1.8;
+  color: var(--notion-text-main);
+}
+
+.prose-notion h1, 
+.prose-notion h2, 
+.prose-notion h3 {
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--notion-text-main);
+}
+
+.prose-notion ul, 
+.prose-notion ol {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  padding-left: 1.75rem;
+}
+
+.prose-notion li {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Typing Surface Metrics */
+.writing-surface-notion {
+  line-height: 2 !important;
+  letter-spacing: -0.01em;
+  tab-size: 2;
+  font-variant-numeric: tabular-nums;
+  scroll-behavior: smooth;
+}
+
+::selection {
+  background-color: hsla(210, 100%, 90%, 0.7);
+  color: inherit;
+}
+
+/* Tiptap Specific Overrides for "Pretty" Design */
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Target li children of taskList directly since data-type="taskItem" might be missing */
+.ProseMirror ul[data-type="taskList"] > li {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 0.75rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.ProseMirror ul[data-type="taskList"] > li > label {
+  flex: 0 0 auto !important;
+  margin-top: 0.35rem !important; /* Optical adjustment to align with text baseline */
+  user-select: none;
+}
+
+.ProseMirror ul[data-type="taskList"] > li > div {
+  flex: 1 1 auto !important;
+}
+
+/* Remove prose margins from p inside task items */
+.ProseMirror ul[data-type="taskList"] > li > div > p {
+  margin: 0 !important;
+}
+
+/* Custom Checkbox Styling */
+.ProseMirror input[type="checkbox"] {
+  cursor: pointer;
+  appearance: none;
+  background-color: transparent;
+  margin: 0;
+  width: 1.1em;
+  height: 1.1em;
+  border: 1.5px solid currentColor;
+  border-radius: 0.25em;
+  display: grid;
+  place-content: center;
+  color: var(--muted-foreground);
+  transition: all 0.2s ease-in-out;
+}
+
+.ProseMirror input[type="checkbox"]::before {
+  content: "";
+  width: 0.65em;
+  height: 0.65em;
+  transform: scale(0);
+  transition: 120ms transform ease-in-out;
+  box-shadow: inset 1em 1em var(--primary);
+  border-radius: 0.1em;
+  background-color: currentColor;
+  transform-origin: center;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+.ProseMirror input[type="checkbox"]:checked {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.ProseMirror input[type="checkbox"]:checked::before {
+  transform: scale(1);
+  background-color: var(--primary-foreground);
+  box-shadow: none;
+}
+
+
+/* Blockquote Styling */
+.ProseMirror blockquote {
+  border-left: 3px solid var(--primary);
+  padding-left: 1rem;
+  margin-left: 0;
+  margin-right: 0;
+  font-style: italic;
+  color: var(--muted-foreground);
+  background: var(--muted);
+  padding: 0.5rem 1rem;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+/* Code Block Styling */
+.ProseMirror pre {
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  font-family: 'JetBrains Mono', monospace;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+}
+
+.ProseMirror code {
+  color: var(--primary);
+  background-color: var(--muted);
+  padding: 0.2em 0.4em;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  font-weight: 500;
+}
+
+.ProseMirror pre code {
+  color: inherit;
+  background: none;
+  padding: 0;
+  font-size: 100%;
 }

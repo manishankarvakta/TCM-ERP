@@ -23,7 +23,6 @@ import {
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiMoreVertical, FiEye, FiRotateCw, FiCheck, FiCircle } from "react-icons/fi";
 import { deleteGroup, deleteGroupPermanently, bulkUpdateGroupStatus, deleteGroupsPermanently, restoreGroup } from "../_actions/group.action";
-import ProtectedAction from "@/components/permissions/protected-action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -78,13 +77,6 @@ interface GroupsListClientProps {
   initialPagination?: Pagination;
   initialSearch?: string;
   isTrash?: boolean;
-  userId?: string;
-  permissions?: {
-    view: boolean;
-    edit: boolean;
-    moveToTrash: boolean;
-    deletePermanently: boolean;
-  };
 }
 
 export default function GroupsListClient({
@@ -92,8 +84,6 @@ export default function GroupsListClient({
   initialPagination,
   initialSearch = "",
   isTrash = false,
-  userId: providedUserId,
-  permissions,
 }: GroupsListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -451,30 +441,24 @@ export default function GroupsListClient({
                       <div className="flex items-center justify-end gap-0">
                         {!isTrash && (
                           <>
-                            <ProtectedAction
-                              permissionKey="items.groups"
-                              action="view"
-                              href={`/dashboard/items/groups/${group.id}`}
-                              userId={providedUserId || undefined}
-                              hasAccess={permissions?.view}
-                              buttonProps={{ className: "h-8 w-8 p-0" }}
-                            />
-                            <ProtectedAction
-                              permissionKey="items.groups"
-                              action="edit"
-                              href={`/dashboard/items/groups/${group.id}/edit`}
-                              userId={providedUserId || undefined}
-                              hasAccess={permissions?.edit}
-                              buttonProps={{ className: "h-8 w-8 p-0" }}
-                            />
-                            <ProtectedAction
-                              permissionKey="items.groups"
-                              action="move-to-trash"
+                            <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0">
+                              <Link href={`/dashboard/items/groups/${group.id}`}>
+                                <FiEye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0">
+                              <Link href={`/dashboard/items/groups/${group.id}/edit`}>
+                                <FiEdit className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleDelete(group.id)}
-                              userId={providedUserId || undefined}
-                              hasAccess={permissions?.moveToTrash}
-                              buttonProps={{ className: "h-8 w-8 p-0 text-destructive" }}
-                            />
+                              className="h-8 w-8 p-0"
+                            >
+                              <FiTrash2 className="h-4 w-4 text-destructive" />
+                            </Button>
                           </>
                         )}
                         {isTrash && (

@@ -167,7 +167,7 @@ export async function updateCurrentUserProfile(input: {
     // Revalidate profile page and dashboard layout to refresh session
     revalidateBothPaths("profile");
     revalidateBothPaths("");
-    revalidateBothPaths("settings");
+    revalidateBothPaths("/dashboard/settings");
 
     return {
       success: true,
@@ -359,7 +359,7 @@ export async function getUsers(
           image: true,
         status: true,
           inchargeId: true,
-          incharge: {
+          User: {
             select: {
               id: true,
               name: true,
@@ -367,21 +367,21 @@ export async function getUsers(
             },
           },
           createdAt: true,
-          sessions: {
+          Session: {
             select: {
               id: true,
               expires: true,
             },
-          where: {
-            expires: {
-              gt: new Date(), // Only active sessions
+            where: {
+              expires: {
+                gt: new Date(), // Only active sessions
+              },
             },
-          },
           },
           _count: {
             select: {
-              userLogs: true,
-              sessions: true,
+              UserLog: true,
+              Session: true,
             },
           },
         },
@@ -392,9 +392,18 @@ export async function getUsers(
 
     const totalPages = Math.ceil(total / limit);
 
+    const mappedUsers = users.map((user) => ({
+      ...user,
+      sessions: user.Session,
+      userLogs: user._count?.UserLog || 0,
+      incharge: user.User,
+      Session: undefined,
+      User: undefined,
+    }));
+
     return {
       success: true,
-      users,
+      users: mappedUsers,
       pagination: {
         page,
         limit,
@@ -471,7 +480,7 @@ export async function deleteUser(userId: string) {
     await logUserDeleted(userId, session.user.id, userToDelete.email || undefined);
 
     // Revalidate users page for both admin and dashboard
-    nextRevalidatePath("/admin/users");
+    nextRevalidatePath("/dashboard/users");
 
     return {
       success: true,
@@ -534,7 +543,7 @@ export async function forceLogoutUser(userId: string) {
     });
 
     // Revalidate users page to update login status
-    revalidatePath("/dashboard/users");
+    nextRevalidatePath("/dashboard/users");
 
     return {
       success: true,
@@ -582,20 +591,26 @@ export async function getUserById(userId: string) {
         role: true,
         image: true,
         inchargeId: true,
-        incharge: {
+        User: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
+        PermissionTemplate: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
         _count: {
           select: {
-            userLogs: true,
-            sessions: true,
-            accounts: true,
+            UserLog: true,
+            Session: true,
+            Account: true,
           },
         },
       },
@@ -609,9 +624,18 @@ export async function getUserById(userId: string) {
       };
     }
 
+    const mappedUser = {
+      ...user,
+      sessions: user._count?.Session || 0,
+      userLogs: user._count?.UserLog || 0,
+      accounts: user._count?.Account || 0,
+      incharge: user.User,
+      User: undefined,
+    };
+
     return {
       success: true,
-      user,
+      user: mappedUser,
     };
   } catch (error) {
     console.error("getUserById error:", error);
@@ -749,7 +773,7 @@ export async function createUser(input: {
     await logUserCreated(user.id, session.user.id, user.email);
 
     // Revalidate users page for both admin and dashboard
-    nextRevalidatePath("/admin/users");
+    nextRevalidatePath("/dashboard/users");
 
     return {
       success: true,
@@ -910,8 +934,8 @@ export async function updateUser(input: {
     }
 
     // Revalidate users page for both admin and dashboard
-    nextRevalidatePath("/admin/users");
-    nextRevalidatePath(`/admin/users/${user.id}`);
+    nextRevalidatePath("/dashboard/users");
+    nextRevalidatePath(`/dashboard/users/${user.id}`);
 
     return {
       success: true,
@@ -979,7 +1003,7 @@ export async function bulkUpdateUserStatus(
     });
 
     // Revalidate users page for both admin and dashboard
-    nextRevalidatePath("/admin/users");
+    nextRevalidatePath("/dashboard/users");
 
     return {
       success: true,
@@ -1040,7 +1064,7 @@ export async function deleteUsersPermanently(userIds: string[]) {
     });
 
     // Revalidate users page for both admin and dashboard
-    nextRevalidatePath("/admin/users");
+    nextRevalidatePath("/dashboard/users");
     
     return {
       success: true,

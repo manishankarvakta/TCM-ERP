@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma, AccountType } from "@prisma/client";
-import { revalidatePath } from "next/cache";
 
 /**
  * Get paginated list of suppliers with search
@@ -212,11 +211,9 @@ export async function getSupplierById(supplierId: string) {
 
 /**
  * Helper function to find Accounts Payable parent account
- * @param tx Optional transaction client - if provided, uses transaction for consistency
  */
-async function findAccountsPayableParent(tx?: Prisma.TransactionClient): Promise<string | null> {
-  const client = tx || prisma;
-  const account = await client.chartOfAccount.findFirst({
+async function findAccountsPayableParent(): Promise<string | null> {
+  const account = await prisma.chartOfAccount.findFirst({
     where: {
       name: {
         contains: "Accounts Payable",
@@ -350,41 +347,8 @@ export async function createSupplier(input: {
 
     // Use transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
-      // Generate unique supplier code
-      let supplierCode = await generateSupplierCode(tx);
-      
-      // Ensure code doesn't exist (double-check for race conditions)
-      let supplierCodeExists = await tx.supplier.findUnique({
-        where: { supplierCode },
-        select: { id: true },
-      });
-
-      // Retry logic for code generation (up to 10 attempts)
-      let supplierCodeAttempts = 0;
-      while (supplierCodeExists && supplierCodeAttempts < 10) {
-        // Extract number and increment
-        const codeWithoutPrefix = supplierCode.replace("SUP", "");
-        const number = parseInt(codeWithoutPrefix, 10);
-        if (!isNaN(number) && number >= 1000001) {
-          const newNumber = number + 1;
-          supplierCode = `SUP${newNumber.toString().padStart(7, "0")}`;
-        } else {
-          // Fallback: start from 1000001
-          supplierCode = `SUP1000001`;
-        }
-        supplierCodeExists = await tx.supplier.findUnique({
-          where: { supplierCode },
-          select: { id: true },
-        });
-        supplierCodeAttempts++;
-      }
-
-      if (supplierCodeExists) {
-        throw new Error("Unable to generate unique supplier code. Please try again.");
-      }
-
       // Find Accounts Payable parent account
-      const apParentId = await findAccountsPayableParent(tx);
+      const apParentId = await findAccountsPayableParent();
       
       if (!apParentId) {
         throw new Error(
@@ -457,6 +421,9 @@ export async function createSupplier(input: {
         },
       });
 
+      // Generate unique supplier code
+      let supplierCode = await generateSupplierCode(tx);
+
       // Create supplier with chartOfAccountId reference
       const supplier = await tx.supplier.create({
         data: {
@@ -477,9 +444,9 @@ export async function createSupplier(input: {
         },
         select: {
           id: true,
-        name: true,
-        supplierCode: true,
-        email: true,
+          name: true,
+          supplierCode: true,
+          email: true,
           phone: true,
           address: true,
           city: true,
@@ -561,22 +528,6 @@ export async function updateSupplier(input: {
     // Check if supplier exists
     const existingSupplier = await prisma.supplier.findUnique({
       where: { id: input.id },
-      select: {
-        id: true,
-        name: true,
-        supplierCode: true,
-        email: true,
-        phone: true,
-        address: true,
-        city: true,
-        state: true,
-        zip: true,
-        country: true,
-        company: true,
-        image: true,
-        status: true,
-        chartOfAccountId: true,
-      },
     });
 
     if (!existingSupplier) {
@@ -602,190 +553,85 @@ export async function updateSupplier(input: {
       }
     }
 
-    // Use transaction to ensure atomicity when creating missing account
-    const result = await prisma.$transaction(async (tx) => {
-      const supplierName = input.name !== undefined ? (input.name || input.email) : (existingSupplier.name || existingSupplier.email);
-      let chartOfAccountId = existingSupplier.chartOfAccountId;
-      
-      // Generate supplier code if missing
-      let supplierCode = existingSupplier.supplierCode;
-      if (!supplierCode) {
-        supplierCode = await generateSupplierCode(tx);
-        
-        // Ensure code doesn't exist
-        let supplierCodeExists = await tx.supplier.findUnique({
-          where: { supplierCode },
-          select: { id: true },
+    // Build update data
+    const updateData: Prisma.SupplierUpdateInput = {
+      name: input.name !== undefined ? (input.name || null) : undefined,
+      email: input.email,
+      phone: input.phone !== undefined ? (input.phone || null) : undefined,
+      address: input.address !== undefined ? (input.address || null) : undefined,
+      city: input.city !== undefined ? (input.city || null) : undefined,
+      state: input.state !== undefined ? (input.state || null) : undefined,
+      zip: input.zip !== undefined ? (input.zip || null) : undefined,
+      country: input.country !== undefined ? (input.country || null) : undefined,
+      company: input.company !== undefined ? (input.company || null) : undefined,
+      image: input.image !== undefined ? (input.image || null) : undefined,
+    };
+
+    if (input.status) {
+      updateData.status = input.status;
+    }
+
+    // Backfill supplier code if missing
+    if (!existingSupplier.supplierCode) {
+      const supplierCode = await (async () => {
+        const lastSupplier = await prisma.supplier.findFirst({
+          orderBy: { createdAt: "desc" },
+          select: { supplierCode: true },
         });
 
-        // Retry logic for code generation (up to 10 attempts)
-        let supplierCodeAttempts = 0;
-        while (supplierCodeExists && supplierCodeAttempts < 10) {
-          const codeWithoutPrefix = supplierCode.replace("SUP", "");
-          const number = parseInt(codeWithoutPrefix, 10);
-          if (!isNaN(number)) {
-            const newNumber = number + 1;
-            const digits = newNumber < 1000 ? 3 : newNumber.toString().length;
-            supplierCode = `SUP${newNumber.toString().padStart(digits, "0")}`;
-          } else {
-            supplierCode = `SUP${Date.now().toString().slice(-6)}`;
+        let nextNumber = 1000001;
+        if (lastSupplier?.supplierCode) {
+          const lastNumber = parseInt(lastSupplier.supplierCode.replace("SUP", ""), 10);
+          if (!isNaN(lastNumber)) {
+            nextNumber = lastNumber + 1;
           }
-          supplierCodeExists = await tx.supplier.findUnique({
-            where: { supplierCode },
-            select: { id: true },
-          });
-          supplierCodeAttempts++;
         }
+        return `SUP${nextNumber}`;
+      })();
+      updateData.supplierCode = supplierCode;
+    }
 
-        if (supplierCodeExists) {
-          throw new Error("Unable to generate unique supplier code. Please try again.");
-        }
-      }
-
-      // Check and create Accounts Payable account if missing
-      if (!chartOfAccountId) {
-        // Find Accounts Payable parent account (required)
-        const apParentId = await findAccountsPayableParent(tx);
-        
-        if (!apParentId) {
-          throw new Error(
-            "Accounts Payable control account not found. Please ensure it exists in Chart of Accounts before updating suppliers."
-          );
-        }
-
-        // Verify parent account is active
-        const parentAccount = await tx.chartOfAccount.findUnique({
-          where: { id: apParentId },
-          select: { id: true, status: true, type: true },
-        });
-
-        if (!parentAccount || parentAccount.status !== "active") {
-          throw new Error("Accounts Payable parent account is not active");
-        }
-
-        if (parentAccount.type !== AccountType.LIABILITY) {
-          throw new Error("Accounts Payable parent account must be of type LIABILITY");
-        }
-
-        // Generate unique account code
-        let accountCode = await generateSupplierAccountCode(tx);
-        
-        // Ensure code doesn't exist
-        let codeExists = await tx.chartOfAccount.findUnique({
-          where: { code: accountCode },
-          select: { id: true },
-        });
-
-        // Retry logic for code generation (up to 10 attempts)
-        let attempts = 0;
-        while (codeExists && attempts < 10) {
-          const parts = accountCode.split("-");
-          const numberPart = parts[parts.length - 1];
-          const number = parseInt(numberPart, 10);
-          if (!isNaN(number)) {
-            const newNumber = number + 1;
-            accountCode = `${parts.slice(0, -1).join("-")}-${newNumber.toString().padStart(4, "0")}`;
-          } else {
-            accountCode = `AP-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
-          }
-          codeExists = await tx.chartOfAccount.findUnique({
-            where: { code: accountCode },
-            select: { id: true },
-          });
-          attempts++;
-        }
-
-        if (codeExists) {
-          throw new Error("Unable to generate unique account code. Please try again.");
-        }
-
-        // Create Chart of Account for supplier
-        const accountName = `AP - ${supplierName}`;
-        const chartOfAccount = await tx.chartOfAccount.create({
-          data: {
-            id: crypto.randomUUID(),
-            code: accountCode,
-            name: accountName,
-            type: AccountType.LIABILITY,
-            parentId: apParentId,
-            description: `Accounts Payable account for supplier: ${supplierName}`,
-            status: "active",
-            createdBy: session.user.id,
+    // Update supplier
+    const supplier = await prisma.supplier.update({
+      where: { id: input.id },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        supplierCode: true,
+        email: true,
+        phone: true,
+        address: true,
+        city: true,
+        state: true,
+        zip: true,
+        country: true,
+        company: true,
+        image: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        ChartOfAccount: {
+          select: {
+            id: true,
           },
-        });
-
-        chartOfAccountId = chartOfAccount.id;
-      }
-
-      // Build update data
-      const updateData: Prisma.SupplierUpdateInput = {
-        name: input.name !== undefined ? (input.name || null) : undefined,
-        email: input.email,
-        phone: input.phone !== undefined ? (input.phone || null) : undefined,
-        address: input.address !== undefined ? (input.address || null) : undefined,
-        city: input.city !== undefined ? (input.city || null) : undefined,
-        state: input.state !== undefined ? (input.state || null) : undefined,
-        zip: input.zip !== undefined ? (input.zip || null) : undefined,
-        country: input.country !== undefined ? (input.country || null) : undefined,
-        company: input.company !== undefined ? (input.company || null) : undefined,
-        image: input.image !== undefined ? (input.image || null) : undefined,
-      };
-
-      if (input.status) {
-        updateData.status = input.status;
-      }
-
-      // Add supplierCode if it was generated
-      if (supplierCode && supplierCode !== existingSupplier.supplierCode) {
-        updateData.supplierCode = supplierCode;
-      }
-
-      // Add chartOfAccountId if it was created
-      if (chartOfAccountId && chartOfAccountId !== existingSupplier.chartOfAccountId) {
-        (updateData as any).ChartOfAccount = { connect: { id: chartOfAccountId } };
-      }
-
-      // Update supplier
-      const supplier = await tx.supplier.update({
-        where: { id: input.id },
-        data: updateData,
-        select: {
-          id: true,
-          name: true,
-          supplierCode: true,
-          email: true,
-          phone: true,
-          address: true,
-          city: true,
-          state: true,
-          zip: true,
-          country: true,
-          company: true,
-          image: true,
-          status: true,
-          createdAt: true,
-          updatedAt: true,
         },
-      });
-
-      // Handle rename: Update COA name if supplier name changed and COA exists
-      if (input.name !== undefined && input.name !== existingSupplier.name && chartOfAccountId) {
-        const updatedSupplierName = input.name || input.email;
-        const accountName = `AP - ${updatedSupplierName}`;
-        
-        await tx.chartOfAccount.update({
-          where: { id: chartOfAccountId },
-          data: {
-            name: accountName,
-            description: `Accounts Payable account for supplier: ${updatedSupplierName}`,
-          },
-        });
-      }
-
-      return supplier;
+      },
     });
 
-    const supplier = result;
+    // Handle rename: Update COA name if supplier name changed and COA exists
+    if (input.name !== undefined && input.name !== existingSupplier.name && supplier.ChartOfAccount?.id) {
+      const supplierName = input.name || input.email;
+      const accountName = `AP - ${supplierName}`;
+      
+      await prisma.chartOfAccount.update({
+        where: { id: supplier.ChartOfAccount.id },
+        data: {
+          name: accountName,
+          description: `Accounts Payable account for supplier: ${supplierName}`,
+        },
+      });
+    }
 
     // Log supplier update - track what actually changed
     const changes: string[] = [];
@@ -818,8 +664,6 @@ export async function updateSupplier(input: {
 
     // Revalidate suppliers page
     revalidateBothPaths("suppliers");
-    revalidatePath(`/dashboard/suppliers/${supplier.id}`);
-    revalidatePath(`/dashboard/suppliers/details?id=${supplier.id}`);
 
     return {
       success: true,

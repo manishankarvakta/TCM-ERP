@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import { Upload, X, Check, Cloud, FileText, Image, Video, Music, Archive, Code, FileSpreadsheet, Presentation } from "lucide-react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Upload, X, Check, Cloud, FileText, Image, Video, Music, Archive, Code, FileSpreadsheet, Presentation, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { uploadFileServerSide } from "@/app/actions/files";
+import { getSetting } from "@/app/(dashboard)/dashboard/settings/_actions/settings.action";
 import { formatBytes } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 interface UploadDialogProps {
   open: boolean;
@@ -34,6 +36,42 @@ export default function UploadDialog({
   const [uploads, setUploads] = useState<UploadFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+  
+  // Settings state
+  const [maxFileSizeMB, setMaxFileSizeMB] = useState(50);
+  const [supportedExtensions, setSupportedExtensions] = useState<string[]>([]);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+
+  // Fetch settings on mount
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const result = await getSetting("system", "general");
+        if (result.success && result.setting?.settings) {
+          const settings = result.setting.settings as Record<string, any>;
+          if (settings.fileSizeLimit) {
+            setMaxFileSizeMB(Number(settings.fileSizeLimit));
+          }
+          if (settings.supportedFileTypes) {
+            const exts = (settings.supportedFileTypes as string)
+              .split(",")
+              .map((e: string) => e.trim().toLowerCase())
+              .filter(Boolean);
+            setSupportedExtensions(exts);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch upload settings", error);
+      } finally {
+        setSettingsLoading(false);
+      }
+    };
+
+    if (open) {
+      fetchSettings();
+    }
+  }, [open]);
 
   const getFileIcon = (file: File) => {
     const mimeType = file.type;
@@ -77,7 +115,41 @@ export default function UploadDialog({
     const fileArray = Array.from(files);
     if (fileArray.length === 0) return;
 
-    const newUploads: UploadFile[] = fileArray.map((file) => ({
+    // Filter files based on settings
+    const validFiles: File[] = [];
+    const invalidFiles: { file: File; reason: string }[] = [];
+
+    fileArray.forEach(file => {
+      // Check size
+      if (file.size > maxFileSizeMB * 1024 * 1024) {
+        invalidFiles.push({ file, reason: `Exceeds ${maxFileSizeMB}MB limit` });
+        return;
+      }
+
+      // Check extension (if restrictions exist)
+      if (supportedExtensions.length > 0) {
+        const ext = file.name.split(".").pop()?.toLowerCase();
+        if (!ext || !supportedExtensions.includes(ext)) {
+          invalidFiles.push({ file, reason: `Type not allowed` });
+          return;
+        }
+      }
+
+      validFiles.push(file);
+    });
+
+    // Show errors for invalid files
+    if (invalidFiles.length > 0) {
+      toast({
+        title: "Some files were rejected",
+        description: invalidFiles.map(f => `${f.file.name}: ${f.reason}`).join("\n"),
+        variant: "destructive",
+      });
+    }
+
+    if (validFiles.length === 0) return;
+
+    const newUploads: UploadFile[] = validFiles.map((file) => ({
       id: Math.random().toString(36).substring(7),
       file,
       progress: 0,
@@ -92,7 +164,7 @@ export default function UploadDialog({
     newUploads.forEach((upload) => {
       uploadFile(upload);
     });
-  }, []);
+  }, [maxFileSizeMB, supportedExtensions, toast]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -236,9 +308,18 @@ export default function UploadDialog({
             <p className="text-sm font-semibold mb-1">
               Choose a file or drag & drop it here.
             </p>
-            <p className="text-xs text-muted-foreground">
-              JPEG, PNG, PDF, and MP4 formats, up to 50 MB.
-            </p>
+            <div className="text-xs text-muted-foreground flex flex-col gap-1 items-center">
+               {settingsLoading ? (
+                 <Loader2 className="h-3 w-3 animate-spin" />
+               ) : (
+                 <>
+                   <span>Max Size: {maxFileSizeMB} MB</span>
+                   {supportedExtensions.length > 0 && (
+                     <span className="max-w-xs truncate">Allowed: {supportedExtensions.join(", ")}</span>
+                   )}
+                 </>
+               )}
+            </div>
           </div>
           <Button onClick={handleBrowseClick} variant="outline" size="sm">
             Browse File
@@ -271,6 +352,9 @@ export default function UploadDialog({
                 <div className="mt-1 space-y-1">
                   {upload.status === "uploading" && (
                     <>
+                      <p className="text-xs text-muted-foreground">
+              JPEG, PNG, PDF, and MP4 formats, up to {maxFileSizeMB} MB.
+            </p>
                       <p className="text-xs text-muted-foreground">
                         {formatBytes(upload.uploadedBytes || 0)} of {formatBytes(upload.totalBytes || upload.file.size)}.{" "}
                         <span className="text-destructive">Uploading...</span>

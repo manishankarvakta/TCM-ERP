@@ -30,7 +30,6 @@ import {
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw } from "react-icons/fi";
 import { deleteItem, bulkUpdateItemStatus, deleteItemsPermanently } from "../_actions/item.action";
-import ProtectedAction from "@/components/permissions/protected-action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -90,13 +89,6 @@ interface ItemsListClientProps {
   initialCategory?: string;
   categories?: Category[];
   isTrash?: boolean;
-  userId?: string;
-  permissions?: {
-    view: boolean;
-    edit: boolean;
-    moveToTrash: boolean;
-    deletePermanently: boolean;
-  };
 }
 
 export default function ItemsListClient({
@@ -106,8 +98,6 @@ export default function ItemsListClient({
   initialCategory = "all",
   categories = [],
   isTrash = false,
-  userId: providedUserId,
-  permissions,
 }: ItemsListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -494,20 +484,16 @@ export default function ItemsListClient({
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
-                            <ProtectedAction
-                              permissionKey="items.items"
-                              action="view"
-                              href={`/dashboard/items/details?id=${item.id}`}
-                              userId={providedUserId || undefined}
-                              hasAccess={permissions?.view}
-                            />
-                            <ProtectedAction
-                              permissionKey="items.items"
-                              action="edit"
-                              href={`/dashboard/items/${item.id}`}
-                              userId={providedUserId || undefined}
-                              hasAccess={permissions?.edit}
-                            />
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/dashboard/items/details?id=${item.id}`}>
+                                <FiEye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/dashboard/items/${item.id}`}>
+                                <FiEdit className="h-4 w-4" />
+                              </Link>
+                            </Button>
                           </>
                         )}
                         {isTrash && (
@@ -522,18 +508,16 @@ export default function ItemsListClient({
                             <FiRotateCw className="h-4 w-4" />
                           </Button>
                         )}
-                        <ProtectedAction
-                          permissionKey="items.items"
-                          action={isTrash ? "delete-permanently" : "move-to-trash"}
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setDeleteItemId(item.id)}
-                          userId={providedUserId || undefined}
-                          hasAccess={isTrash ? permissions?.deletePermanently : permissions?.moveToTrash}
-                          buttonProps={{
-                            disabled: isPending,
-                            className: "text-destructive hover:text-destructive",
-                            title: isTrash ? "Delete permanently" : "Move to trash",
-                          }}
-                        />
+                          className="text-destructive hover:text-destructive"
+                          title={isTrash ? "Delete permanently" : "Move to trash"}
+                          disabled={isPending}
+                        >
+                          <FiTrash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

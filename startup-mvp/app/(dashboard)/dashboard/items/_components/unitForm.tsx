@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -20,7 +20,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle } from "react-icons/fi";
 import { createUnit, updateUnit } from "../_actions/unit.action";
 import { useToast } from "@/hooks/use-toast";
-import { getBasePathFromPathname } from "@/lib/route-utils-client";
 
 const unitFormSchema = z.object({
   symbol: z.string().min(1, "Symbol is required"),
@@ -42,10 +41,9 @@ interface UnitFormProps {
 
 export default function UnitForm({ mode, initialData }: UnitFormProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const { toast } = useToast();
   const [error, setError] = useState<string>("");
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const {
     register,
@@ -71,8 +69,8 @@ export default function UnitForm({ mode, initialData }: UnitFormProps) {
 
   const onSubmit = async (data: UnitFormData) => {
     try {
+      setLoading(true);
       setError("");
-      const basePath = getBasePathFromPathname(pathname);
 
       if (mode === "create") {
         const result = await createUnit({
@@ -86,7 +84,7 @@ export default function UnitForm({ mode, initialData }: UnitFormProps) {
             title: "Success",
             description: "Unit created successfully",
           });
-          router.push(`${basePath}/items/units`);
+          router.push("/dashboard/items/units");
         } else {
           const errorMessage = result.error || "Failed to create unit";
           setError(errorMessage);
@@ -109,7 +107,7 @@ export default function UnitForm({ mode, initialData }: UnitFormProps) {
             title: "Success",
             description: "Unit updated successfully",
           });
-          router.push(`${basePath}/items/units`);
+          router.push("/dashboard/items/units");
         } else {
           const errorMessage = result.error || "Failed to update unit";
           setError(errorMessage);
