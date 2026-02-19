@@ -23,25 +23,25 @@ services:
       - docker-network
 
   ts-crm-minio:
-  image: minio/minio
-  container_name: ts-crm-minio
-  restart: unless-stopped
-  command: server /data --console-address ":9001"
-  environment:
-    MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-    MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-  ports:
-    - "9000:9000"
-    - "9001:9001"
-  volumes:
-    - /var/lib/ts-crm/minio:/data
-  healthcheck:
-    test: ["CMD-SHELL", "wget -q --spider http://localhost:9000/minio/health/live || exit 1"]
-    interval: 30s
-    timeout: 20s
-    retries: 3
-  networks:
-    - docker-network
+    image: minio/minio
+    container_name: ts-crm-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - /var/lib/ts-crm/minio:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9000/minio/health/live || exit 1"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - docker-network
 
   ts-crm-minio-setup:
     image: minio/mc:latest
