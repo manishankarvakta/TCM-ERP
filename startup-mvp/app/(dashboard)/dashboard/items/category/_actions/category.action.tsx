@@ -213,7 +213,7 @@ export async function createCategory(input: {
     );
 
     // Revalidate categories page
-    revalidatePath("/dashboard/category");
+    revalidateBothPaths("category");
 
     return {
       success: true,
@@ -325,7 +325,7 @@ export async function updateCategory(input: {
     );
 
     // Revalidate categories page
-    revalidatePath("/dashboard/category");
+    revalidateBothPaths("category");
     revalidatePath(`/dashboard/category/${category.id}`);
     revalidatePath(`/dashboard/category/details?id=${category.id}`);
 
@@ -386,7 +386,7 @@ export async function deleteCategory(categoryId: string) {
     );
 
     // Revalidate categories page
-    revalidatePath("/dashboard/category");
+    revalidateBothPaths("category");
 
     return {
       success: true,
@@ -435,7 +435,7 @@ export async function bulkUpdateCategoryStatus(
     });
 
     // Revalidate categories page
-    revalidatePath("/dashboard/category");
+    revalidateBothPaths("category");
 
     return {
       success: true,
@@ -480,7 +480,7 @@ export async function deleteCategoriesPermanently(categoryIds: string[]) {
 
     // Revalidate categories page
     revalidateBothPaths("items/category");
-    revalidatePath("/dashboard/category");
+    revalidateBothPaths("category");
     
     return {
       success: true,

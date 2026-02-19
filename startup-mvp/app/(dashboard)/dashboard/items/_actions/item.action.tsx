@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
+import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 
 /**
@@ -479,7 +480,7 @@ export async function createItem(input: {
       { code: item.code, description: item.description, unitPrice: item.unitPrice.toString() }
     );
 
-    // Revalidate items page for both admin and dashboard
+    // Revalidate items page
     revalidateBothPaths("items");
 
     return {
@@ -672,10 +673,10 @@ export async function updateItem(input: {
       { code: item.code, description: item.description, unitPrice: item.unitPrice.toString(), changes }
     );
 
-    // Revalidate items page for both admin and dashboard
+    // Revalidate items page
     revalidateBothPaths("items");
-    revalidateBothPaths(`items/${item.id}`);
-    revalidateBothPaths(`items/details?id=${item.id}`);
+    revalidatePath(`/dashboard/items/${item.id}`);
+    revalidatePath(`/dashboard/items/details?id=${item.id}`);
 
     return {
       success: true,
@@ -733,7 +734,7 @@ export async function deleteItem(itemId: string) {
       { code: itemToDelete.code, description: itemToDelete.description }
     );
 
-    // Revalidate items page for both admin and dashboard
+    // Revalidate items page
     revalidateBothPaths("items");
 
     return {
@@ -782,7 +783,7 @@ export async function bulkUpdateItemStatus(
       },
     });
 
-    // Revalidate items page for both admin and dashboard
+    // Revalidate items page
     revalidateBothPaths("items");
 
     return {
@@ -826,7 +827,7 @@ export async function deleteItemsPermanently(itemIds: string[]) {
       },
     });
 
-    // Revalidate items page for both admin and dashboard
+    // Revalidate items page
     revalidateBothPaths("items");
     
     return {

@@ -22,43 +22,39 @@ const quotationSchema = z.object({
   quotationNumber: z.string().min(1, 'Quotation number is required'),
   date: z.string().min(1, 'Date is required'),
   subject: z.string().min(1, 'Subject is required'),
-  submittedTo: z.string().optional(), // Will be set to current user
+  submittedTo: z.string().optional(),
   coverLetter: z.string().optional(),
   financialStatement: z.string().optional(),
   tos: z.string().optional(),
   expiredDate: z.string().optional(),
   
-  // Organization info
   organizationId: z.string().optional(),
   organizationName: z.string().optional(),
   
-  // Client info (will be used to create/select client)
-  clientId: z.string().optional(),
-  // clientName: z.string().optional(),
-  // clientAddress: z.string().optional(),
-  // clientContact: z.string().optional(),
+  opportunityId: z.string().optional().nullable(),
   
-  // Submitted by (will be current user)
+  clientId: z.string().optional(),
+  clientName: z.string().optional(),
+  clientAddress: z.string().optional(),
+  clientContact: z.string().optional(),
+  
   submittedById: z.string().optional(),
-  submittedBy: z.string().optional(), // Will be current user
+  submittedBy: z.string().optional(),
   submittedByContact: z.string().optional(),
   
-  // New fields
-  shippingCharges: z.number().optional().default(0),
-  discount: z.number().optional().default(0),
-  vatIncluded: z.boolean().optional().default(false),
+  shippingCharges: z.number().default(0),
+  discount: z.number().default(0),
+  vatIncluded: z.boolean().default(false),
   
-  // Project info (optional)
   projectLocation: z.string().optional(),
   
-  // Sections with items
-      sections: z.array(
+  sections: z.array(
     z.object({
       title: z.string().min(1, 'Section title is required'),
       note: z.string().optional(),
-      discount: z.number().optional(),
-      total: z.number().optional(),
-      grandTotal: z.number().optional(),
+      discount: z.number().default(0),
+      total: z.number().default(0),
+      grandTotal: z.number().default(0),
       sortOrder: z.number().default(0),
       categoryId: z.string().optional().nullable(),
       items: z.array(
@@ -73,7 +69,7 @@ const quotationSchema = z.object({
           unit: z.string().optional().nullable(),
           unitPrice: z.number().min(0).default(0),
           quantity: z.number().min(0).default(0),
-          discount: z.number().min(0).optional().default(0),
+          discount: z.number().min(0).default(0),
           amount: z.number().min(0).default(0),
           itemId: z.string().optional().nullable(),
         })
@@ -99,7 +95,7 @@ const quotationSchema = z.object({
               unit: z.string().optional().nullable(),
               unitPrice: z.number().min(0).default(0),
               quantity: z.number().min(0).default(0),
-              discount: z.number().min(0).optional().default(0),
+              discount: z.number().min(0).default(0),
               amount: z.number().min(0).default(0),
               itemId: z.string().optional().nullable(),
             })
@@ -122,7 +118,7 @@ const quotationSchema = z.object({
               unit: z.string().optional().nullable(),
               unitPrice: z.number().min(0).default(0),
               quantity: z.number().min(0).default(0),
-              discount: z.number().min(0).optional().default(0),
+              discount: z.number().min(0).default(0),
               amount: z.number().min(0).default(0),
               itemId: z.string().optional().nullable(),
             })
@@ -238,9 +234,13 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
     : [
         {
           title: 'Section 1',
+          discount: 0,
+          total: 0,
+          grandTotal: 0,
           sortOrder: 0,
           items: [],
           groups: [],
+          categoryGroups: [],
         },
       ];
 
@@ -250,7 +250,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
     watch,
     setValue,
     formState: { errors },
-  } = useForm<QuotationFormValues>({
+  } = useForm({
     resolver: zodResolver(quotationSchema),
     defaultValues: {
       quotationNumber: initialData?.quotationNumber || generateQuotationNumber(),
@@ -274,7 +274,8 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
       clientAddress: initialData?.client?.address || initialData?.clientAddress || '',
       clientContact: initialData?.client?.phone || initialData?.clientContact || '',
       organizationId: initialData?.organizationId || initialData?.organization?.id || undefined,
-      organizationName: initialData?.organizationName || initialData?.organization?.name || undefined,
+      organizationName: initialData?.organizationName || initialData?.organization?.name || '',
+      opportunityId: initialData?.opportunityId || '',
       submittedById: initialData?.submittedById || initialData?.submittedBy?.id || '',
       submittedBy: initialData?.submittedBy?.name || initialData?.submittedBy || '',
       submittedByContact: initialData?.submittedBy?.email || initialData?.submittedByContact || '',
@@ -347,13 +348,14 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           }
         } else {
           // For edit mode, ensure organizationId and organizationName are set if they exist
-          if (initialData.organizationId) {
-            setValue('organizationId', initialData.organizationId, { shouldDirty: false, shouldValidate: false });
-            dispatch(updateQuotationField({ field: 'organizationId', value: initialData.organizationId }));
+          const data = initialData as any;
+          if (data.organizationId) {
+            setValue('organizationId', data.organizationId, { shouldDirty: false, shouldValidate: false });
+            dispatch(updateQuotationField({ field: 'organizationId', value: data.organizationId }));
           }
-          if (initialData.organizationName) {
-            setValue('organizationName', initialData.organizationName, { shouldDirty: false, shouldValidate: false });
-            dispatch(updateQuotationField({ field: 'organizationName', value: initialData.organizationName }));
+          if (data.organizationName) {
+            setValue('organizationName', data.organizationName, { shouldDirty: false, shouldValidate: false });
+            dispatch(updateQuotationField({ field: 'organizationName', value: data.organizationName }));
           }
         }
         
@@ -420,15 +422,16 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
   const discount = watch('discount');
   const vatIncluded = watch('vatIncluded');
   const projectLocation = watch('projectLocation');
+  const opportunityId = watch('opportunityId');
 
   // Memoize watched values object with stable dependencies
   const watchedValuesObject = useMemo(() => ({
     quotationNumber: quotationNumber || '',
     date: date || '',
     subject: subject || '',
-    coverLetter: coverLetter || null,
-    financialStatement: financialStatement || null,
-    tos: tos || null,
+    coverLetter: coverLetter || undefined,
+    financialStatement: financialStatement || undefined,
+    tos: tos || undefined,
     expiredDate: expiredDate || '',
     clientId: clientId || undefined,
     clientName: clientName || undefined,
@@ -441,7 +444,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
     discount: discount || 0,
     vatIncluded: vatIncluded || false,
     projectLocation: projectLocation || '',
-    expiredDate: expiredDate || '',
+    opportunityId: opportunityId || '',
   }), [
     quotationNumber,
     date,
@@ -461,6 +464,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
     discount,
     vatIncluded,
     projectLocation,
+    opportunityId,
   ]);
 
   // Track previous values to prevent infinite loop
@@ -484,6 +488,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
     discount?: number;
     vatIncluded?: boolean;
     projectLocation?: string;
+    opportunityId?: string;
     total?: number;
   }>({});
 
@@ -552,6 +557,9 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
     }
     if (prev.projectLocation !== current.projectLocation) {
       updates.push({ field: 'projectLocation', value: current.projectLocation });
+    }
+    if (prev.opportunityId !== current.opportunityId) {
+      updates.push({ field: 'opportunityId', value: current.opportunityId });
     }
     if (prev.total !== current.total) {
       updates.push({ field: 'total', value: current.total });
@@ -628,14 +636,14 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
       const latestUpdates = collectChangedFields(latestPrev, currentValues);
 
       // Batch all Redux dispatches in a single transition
-      if (latestUpdates.length > 0) {
+        if (latestUpdates.length > 0) {
         if (process.env.NODE_ENV === 'development') {
           console.log('[QuotationFormV3] Dispatching Redux updates:', latestUpdates.length);
         }
         
         startTransition(() => {
           latestUpdates.forEach(({ field, value }) => {
-            dispatch(updateQuotationField({ field, value }));
+            dispatch(updateQuotationField({ field: field as any, value }));
           });
         });
         
@@ -680,8 +688,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
     setValue('sections', newSections, { 
       shouldValidate: false, 
       shouldDirty: false, 
-      shouldTouch: false,
-      shouldFocus: false 
+      shouldTouch: false
     });
     // Update Redux slice - this will recalculate totals
     dispatch(updateSections(newSections));
@@ -723,6 +730,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
       discount: data.discount || 0,
       vatIncluded: data.vatIncluded || false,
       projectLocation: data.projectLocation || '',
+      opportunityId: data.opportunityId || null,
       sections: sections.map((section: any) => ({
         title: section.title || 'Untitled Section',
         note: section.note || '',
@@ -823,6 +831,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
       discount: data.discount || 0,
       vatIncluded: data.vatIncluded || false,
       projectLocation: data.projectLocation || '',
+      opportunityId: data.opportunityId || null,
       sections: sections.map((section: any) => ({
         title: section.title,
         note: section.note || '',
@@ -907,7 +916,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmitWithErrorHandling, onError)} className="space-y-4">
+    <form onSubmit={handleSubmit((data) => onFormSubmit(data as any), onError)} className="space-y-4">
       <div className="flex flex-col md:flex-row gap-4">
         {/* Information Cards - Top on mobile, Right on desktop */}
         <div className="w-full md:w-1/4 space-y-4 order-1 md:order-2">
@@ -926,9 +935,11 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
             vatIncluded={watchedValuesObject.vatIncluded}
             projectLocation={watchedValuesObject.projectLocation}
             expiredDate={watchedValuesObject.expiredDate}
+            opportunityId={watchedValuesObject.opportunityId}
             onQuotationNumberChange={useCallback((value: string) => setValue('quotationNumber', value), [setValue])}
             onDateChange={useCallback((value: string) => setValue('date', value), [setValue])}
             onSubjectChange={useCallback((value: string) => setValue('subject', value), [setValue])}
+            onOpportunityChange={useCallback((value: string | null) => setValue('opportunityId', value), [setValue])}
             onOrganizationChange={useCallback((organizationId: string, organizationName: string) => {
               setValue('organizationId', organizationId);
               setValue('organizationName', organizationName);
@@ -938,7 +949,6 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
             }, [setValue, dispatch])}
             onClientChange={useCallback((clientId: string, clientName: string) => {
               setValue('clientId', clientId, { shouldValidate: true, shouldDirty: true });
-              // setValue('clientName', clientName, { shouldValidate: true, shouldDirty: true });
               // Update Redux slice
               dispatch(updateQuotationField({ field: 'clientId', value: clientId }));
               dispatch(updateQuotationField({ field: 'clientName', value: clientName }));

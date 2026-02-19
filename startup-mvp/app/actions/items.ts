@@ -1,4 +1,7 @@
 'use server';
+/**
+ * @deprecated Legacy bridge action. Use `app/(dashboard)/dashboard/items/_actions/item.action` instead.
+ */
 
 import { getActiveItems } from '@/app/(dashboard)/dashboard/items/_actions/item.action';
 

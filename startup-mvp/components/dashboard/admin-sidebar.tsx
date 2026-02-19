@@ -191,7 +191,7 @@ export default function AdminSidebar() {
                       {item.subMenu.map((subItem) => {
                         const SubIcon = subItem.icon;
                         // Only exact match for sub-menu items to avoid false positives
-                        // e.g., /admin/items should not be active when on /admin/items/units
+                        // e.g., /dashboard/items should not be active when on /dashboard/items/units
                         const isActive = pathname === subItem.href;
                         return (
                           <Link

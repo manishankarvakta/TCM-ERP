@@ -427,15 +427,15 @@ export default function UsersListClient({
                         {!isTrash && (
                           <>
                             <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/admin/users/${user.id}`}>View</Link>
+                              <Link href={`/dashboard/users/${user.id}`}>View</Link>
                             </Button>
                             <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/admin/users/edit-user?id=${user.id}`}>
+                              <Link href={`/dashboard/users/edit-user?id=${user.id}`}>
                                 <FiEdit className="h-4 w-4" />
                               </Link>
                             </Button>
                             <Button variant="ghost" size="sm" asChild title="Manage Permissions">
-                              <Link href={`/admin/settings/permissions/users/${user.id}`}>
+                              <Link href={`/dashboard/settings/permissions/users/${user.id}`}>
                                 <FiLock className="h-4 w-4" />
                               </Link>
                             </Button>

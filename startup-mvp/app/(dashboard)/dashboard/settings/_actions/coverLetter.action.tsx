@@ -229,7 +229,7 @@ export async function createCoverLetter(input: {
     );
 
     // Revalidate settings page
-    revalidateBothPaths("settings");
+    revalidateBothPaths("/dashboard/settings");
 
     return {
       success: true,
@@ -326,7 +326,7 @@ export async function updateCoverLetter(
     );
 
     // Revalidate settings page
-    revalidateBothPaths("settings");
+    revalidateBothPaths("/dashboard/settings");
 
     return {
       success: true,
@@ -386,7 +386,7 @@ export async function deleteCoverLetter(coverLetterId: string) {
     );
 
     // Revalidate settings page
-    revalidateBothPaths("settings");
+    revalidateBothPaths("/dashboard/settings");
 
     return {
       success: true,
@@ -440,7 +440,7 @@ export async function restoreCoverLetter(coverLetterId: string) {
     });
 
     // Revalidate settings page
-    revalidateBothPaths("settings");
+    revalidateBothPaths("/dashboard/settings");
 
     return {
       success: true,
@@ -487,7 +487,7 @@ export async function bulkUpdateCoverLetterStatus(
     });
 
     // Revalidate settings page
-    revalidateBothPaths("settings");
+    revalidateBothPaths("/dashboard/settings");
 
     return {
       success: true,
@@ -545,7 +545,7 @@ export async function deleteCoverLettersPermanently(coverLetterIds: string[]) {
     });
 
     // Revalidate settings page
-    revalidateBothPaths("settings");
+    revalidateBothPaths("/dashboard/settings");
 
     return {
       success: true,

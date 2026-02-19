@@ -68,9 +68,6 @@ export default async function QuotationsPage({ searchParams }: QuotationsPagePro
           <TabsTrigger value="REVIEW" asChild>
             <Link href="/dashboard/quotations?tab=REVIEW&page=1">Review</Link>
           </TabsTrigger>
-          <TabsTrigger value="APPROVED" asChild>
-            <Link href="/dashboard/quotations?tab=APPROVED&page=1">Approved</Link>
-          </TabsTrigger>
           <TabsTrigger value="SENT" asChild>
             <Link href="/dashboard/quotations?tab=SENT&page=1">Sent</Link>
           </TabsTrigger>
@@ -83,8 +80,8 @@ export default async function QuotationsPage({ searchParams }: QuotationsPagePro
           <TabsTrigger value="EXPIRED" asChild>
             <Link href="/dashboard/quotations?tab=EXPIRED&page=1">Expired</Link>
           </TabsTrigger>
-          <TabsTrigger value="CANCELLED" asChild>
-            <Link href="/dashboard/quotations?tab=CANCELLED&page=1">Cancelled</Link>
+          <TabsTrigger value="REVISED" asChild>
+            <Link href="/dashboard/quotations?tab=REVISED&page=1">Revised</Link>
           </TabsTrigger>
           <TabsTrigger value="trash" asChild>
             <Link href="/dashboard/quotations?tab=trash&page=1">Trash</Link>
@@ -117,19 +114,6 @@ export default async function QuotationsPage({ searchParams }: QuotationsPagePro
           />
         </TabsContent>
         <TabsContent value="REVIEW" className="mt-4">
-          <QuotationsListClient
-            initialQuotations={result.quotations || []}
-            initialPagination={result.pagination || {
-              page: 1,
-              limit: 10,
-              total: 0,
-              totalPages: 0,
-            }}
-            initialSearch={search}
-            isTrash={false}
-          />
-        </TabsContent>
-        <TabsContent value="APPROVED" className="mt-4">
           <QuotationsListClient
             initialQuotations={result.quotations || []}
             initialPagination={result.pagination || {
@@ -194,7 +178,7 @@ export default async function QuotationsPage({ searchParams }: QuotationsPagePro
             isTrash={false}
           />
         </TabsContent>
-        <TabsContent value="CANCELLED" className="mt-4">
+        <TabsContent value="REVISED" className="mt-4">
           <QuotationsListClient
             initialQuotations={result.quotations || []}
             initialPagination={result.pagination || {

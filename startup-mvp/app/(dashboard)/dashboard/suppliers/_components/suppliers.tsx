@@ -24,7 +24,6 @@ import {
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw } from "react-icons/fi";
 import { deleteSupplier, bulkUpdateSupplierStatus, deleteSuppliersPermanently } from "../_actions/supplier.action";
-import ProtectedAction from "@/components/permissions/protected-action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -81,13 +80,6 @@ interface SuppliersListClientProps {
   initialPagination: Pagination;
   initialSearch: string;
   isTrash?: boolean;
-  userId?: string;
-  permissions?: {
-    view: boolean;
-    edit: boolean;
-    moveToTrash: boolean;
-    deletePermanently: boolean;
-  };
 }
 
 export default function SuppliersListClient({
@@ -95,8 +87,6 @@ export default function SuppliersListClient({
   initialPagination,
   initialSearch,
   isTrash = false,
-  userId: providedUserId,
-  permissions,
 }: SuppliersListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -410,20 +400,16 @@ export default function SuppliersListClient({
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
-                            <ProtectedAction
-                              permissionKey="peoples.suppliers"
-                              action="edit"
-                              href={`/dashboard/suppliers/${supplier.id}`}
-                              userId={providedUserId || undefined}
-                              hasAccess={permissions?.edit}
-                            />
-                            <ProtectedAction
-                              permissionKey="peoples.suppliers"
-                              action="view"
-                              href={`/dashboard/suppliers/details?id=${supplier.id}`}
-                              userId={providedUserId || undefined}
-                              hasAccess={permissions?.view}
-                            />
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/dashboard/suppliers/${supplier.id}`}>
+                                <FiEdit className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/dashboard/suppliers/details?id=${supplier.id}`}>
+                                <FiEye className="h-4 w-4" />
+                              </Link>
+                            </Button>
                           </>
                         )}
                         {isTrash && (
@@ -439,18 +425,16 @@ export default function SuppliersListClient({
                             <FiRotateCw className="h-4 w-4" />
                           </Button>
                         )}
-                        <ProtectedAction
-                          permissionKey="peoples.suppliers"
-                          action={isTrash ? "delete-permanently" : "move-to-trash"}
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setDeleteSupplierId(supplier.id)}
-                          userId={providedUserId || undefined}
-                          hasAccess={isTrash ? permissions?.deletePermanently : permissions?.moveToTrash}
-                          buttonProps={{
-                            disabled: isPending,
-                            className: "text-destructive hover:text-destructive",
-                            title: isTrash ? "Delete permanently" : "Move to trash",
-                          }}
-                        />
+                          className="text-destructive hover:text-destructive"
+                          title={isTrash ? "Delete permanently" : "Move to trash"}
+                          disabled={isPending}
+                        >
+                          <FiTrash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

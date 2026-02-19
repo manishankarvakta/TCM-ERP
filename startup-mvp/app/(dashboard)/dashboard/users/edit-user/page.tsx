@@ -36,6 +36,8 @@ export default async function EditUserPage({ searchParams }: EditUserPageProps) 
           email: result.user.email,
           role: result.user.role,
           image: result.user.image,
+          inchargeId: result.user.inchargeId || null,
+          incharge: result.user.incharge || null,
         }}
       />
     </div>

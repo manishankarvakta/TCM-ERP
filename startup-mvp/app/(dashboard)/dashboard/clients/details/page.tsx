@@ -122,6 +122,28 @@ export default async function ClientDetailsPage({ searchParams }: ClientDetailsP
                   <p className="text-sm">{format(new Date(client.updatedAt), "MMM d, yyyy 'at' h:mm a")}</p>
                 </div>
               </div>
+
+              {/* Accounting Fields Section */}
+              <div>
+                <h3 className="text-sm font-semibold mb-4">Accounting Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Accounts Receivable Account</label>
+                    {client.chartOfAccount ? (
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">
+                          {client.chartOfAccount.code} - {client.chartOfAccount.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Type: {client.chartOfAccount.type}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm">-</p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Right Side - Image (1 column) */}

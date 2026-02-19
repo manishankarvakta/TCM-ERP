@@ -74,11 +74,11 @@ export async function createSalesVoucherForQuotation(
 
     // Find Accounts Receivable account
     const arAccountId = await findControlAccount("Accounts Receivable");
-    if (!arAccountId) return { success: false, error: "Accounts Receivable control account not found." };
+    if (!arAccountId) return { success: false, voucherId: null, error: "Accounts Receivable control account not found." };
 
     // Find Sales account
     const salesAccountId = await findControlAccount("Sales");
-    if (!salesAccountId) return { success: false, error: "Sales account not found." };
+    if (!salesAccountId) return { success: false, voucherId: null, error: "Sales account not found." };
 
     // Find Inventory & COGS accounts
     const inventoryAccountId = await findControlAccount("Inventory Asset");
@@ -106,7 +106,7 @@ export async function createSalesVoucherForQuotation(
       }
     });
 
-    if (!quotation) return { success: false, error: "Quotation not found" };
+    if (!quotation) return { success: false, voucherId: null, error: "Quotation not found" };
 
     // Calculate COGS and Gather Items
     let totalCOGS = 0;
@@ -132,7 +132,14 @@ export async function createSalesVoucherForQuotation(
     });
 
     // Create voucher lines
-    const voucherLines = [
+    const voucherLines: {
+      lineNumber: number;
+      debitAmount: number;
+      creditAmount: number;
+      description: string;
+      chartOfAccountId: string;
+      clientId?: string | null;
+    }[] = [
       {
         lineNumber: 1,
         debitAmount: amount,
@@ -159,7 +166,7 @@ export async function createSalesVoucherForQuotation(
         creditAmount: 0,
         description: `Cost of Goods Sold: ${quotationNumber}`,
         chartOfAccountId: cogsAccountId,
-        clientId: null,
+        clientId: undefined,
       });
       voucherLines.push({
         lineNumber: 4,
@@ -167,7 +174,7 @@ export async function createSalesVoucherForQuotation(
         creditAmount: totalCOGS,
         description: `Inventory Consumption: ${quotationNumber}`,
         chartOfAccountId: inventoryAccountId,
-        clientId: null,
+        clientId: undefined,
       });
     }
 

@@ -3,7 +3,7 @@
 import { QuotationFormV3 } from '@/components/quotation/QuotationFormV3';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition, useRef, useCallback } from 'react';
+import { useState, useTransition } from 'react';
 import { updateQuotation } from '@/app/actions/quotations';
 
 interface EditQuotationFormProps {
@@ -16,21 +16,10 @@ export default function EditQuotationForm({ quotationId, initialData }: EditQuot
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Debug: Track renders
-  const renderCountRef = useRef(0);
-  renderCountRef.current += 1;
-  
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`[EditQuotationForm /dashboard] Render #${renderCountRef.current}`);
-  }
 
-  const handleSubmit = useCallback(async (data: Record<string, unknown>) => {
+  const handleSubmit = async (data: Record<string, unknown>) => {
     // Prevent multiple simultaneous submissions
     if (isSubmitting) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('[EditQuotationForm /dashboard] Blocked duplicate submission attempt');
-      }
       return;
     }
     
@@ -57,7 +46,7 @@ export default function EditQuotationForm({ quotationId, initialData }: EditQuot
         setIsSubmitting(false);
       }
     });
-  }, [quotationId, isSubmitting, router, startTransition]);
+  };
 
   return (
     <>

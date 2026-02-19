@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -20,7 +20,6 @@ import { MultiSelect, type MultiSelectOption } from "@/components/ui/multi-selec
 import { FiAlertCircle, FiSearch } from "react-icons/fi";
 import { createItem, updateItem, getActiveUnits, getActiveCategories } from "../_actions/item.action";
 import MediaSelector from "@/components/MediaSelector";
-import { getBasePathFromPathname } from "@/lib/route-utils-client";
 
 const itemFormSchema = z.object({
   code: z.string().min(1, "Code is required"),
@@ -72,7 +71,6 @@ interface Category {
 
 export default function ItemForm({ mode, initialData }: ItemFormProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -167,8 +165,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           throw new Error(result.error || "Failed to create item");
         }
 
-        const basePath = getBasePathFromPathname(pathname);
-        router.push(`${basePath}/items`);
+        router.push("/dashboard/items");
       } else {
         const result = await updateItem({
           id: initialData!.id,
@@ -186,8 +183,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           throw new Error(result.error || "Failed to update item");
         }
 
-        const basePath = getBasePathFromPathname(pathname);
-        router.push(`${basePath}/items`);
+        router.push("/dashboard/items");
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");

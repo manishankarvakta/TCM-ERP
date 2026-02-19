@@ -75,7 +75,7 @@ async function seedPermissions() {
     ...createPermissionsForPages(["peoples.users"], ["view"]),
     ...createPermissionsForPages(["files"], ["view", "create"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["analytics", "reports"], ["view"]),
+    // ...createPermissionsForPages(["analytics", "reports"], ["view"]),
   };
 
   // Accounts Template - Accounts module focus
@@ -119,7 +119,7 @@ async function seedPermissions() {
     ),
     ...createPermissionsForPages(["files"], ["view"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["analytics", "reports"], ["view"]),
+    // ...createPermissionsForPages(["analytics", "reports"], ["view"]),
   };
 
   // Basic User Template - Read-only
@@ -175,7 +175,7 @@ async function seedPermissions() {
     ),
     ...createPermissionsForPages(["files"], allStandardOps),
     ...createPermissionsForPages(["notifications"], ["view", "edit"]),
-    ...createPermissionsForPages(["analytics", "reports"], ["view", "export"]),
+    // ...createPermissionsForPages(["analytics", "reports"], ["view", "export"]),
     // Settings - full access except developer tools
     ...createPermissionsForPages(
       [
@@ -200,6 +200,11 @@ async function seedPermissions() {
       ],
       ["view", "edit"]
     ),
+    ...createPermissionsForPages(
+      ["crm.leads", "crm.opportunities", "crm.contacts", "peoples.clients", "crm.activities"],
+      allStandardOps
+    ),
+    ...createPermissionsForPages(["work-orders"], allStandardOps),
     // NO access to developer settings
   };
 
@@ -242,9 +247,14 @@ async function seedPermissions() {
       ["peoples.users", "peoples.clients", "peoples.suppliers"],
       ["view"]
     ),
+    ...createPermissionsForPages(
+      ["crm.leads", "crm.opportunities", "crm.contacts", "peoples.clients", "crm.activities"],
+      ["view", "export"]
+    ),
+    ...createPermissionsForPages(["work-orders"], ["view", "export"]),
     ...createPermissionsForPages(["files"], ["view"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["analytics", "reports"], ["view", "export"]),
+    // ...createPermissionsForPages(["analytics", "reports"], ["view", "export"]),
   };
 
   // ============================================
@@ -293,7 +303,7 @@ async function seedPermissions() {
     ...createPermissionsForPages(["peoples.users"], ["view"]),
     ...createPermissionsForPages(["files"], ["view"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["analytics", "reports"], ["view", "export"]),
+    // ...createPermissionsForPages(["analytics", "reports"], ["view", "export"]),
     // Settings - accounts related
     ...createPermissionsForPages(
       ["settings.accounts", "settings.tex", "settings.paymentMethods"],
@@ -345,9 +355,14 @@ async function seedPermissions() {
       ["peoples.users", "peoples.clients", "peoples.suppliers"],
       ["view"]
     ),
+    ...createPermissionsForPages(
+      ["crm.leads", "crm.opportunities", "crm.contacts", "peoples.clients", "crm.activities"],
+      ["view", "edit", "export"]
+    ),
+    ...createPermissionsForPages(["work-orders"], ["view", "edit", "export"]),
     ...createPermissionsForPages(["files"], ["view", "create"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["analytics", "reports"], ["view", "export"]),
+    // ...createPermissionsForPages(["analytics", "reports"], ["view", "export"]),
   };
 
   // SR (Sales Representative) Template - Quotation creation and client management
@@ -401,9 +416,14 @@ async function seedPermissions() {
       ["peoples.suppliers", "peoples.users"],
       ["view"]
     ),
+    ...createPermissionsForPages(
+      ["crm.leads", "crm.opportunities", "crm.contacts", "peoples.clients", "crm.activities"],
+      allStandardOps
+    ),
+    ...createPermissionsForPages(["work-orders"], ["view"]),
     ...createPermissionsForPages(["files"], ["view", "create"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["analytics", "reports"], ["view"]),
+    // ...createPermissionsForPages(["analytics", "reports"], ["view"]),
   };
 
   // Architect Template - Technical quotation creation with item/group focus
@@ -455,7 +475,7 @@ async function seedPermissions() {
     ),
     ...createPermissionsForPages(["files"], allStandardOps),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["analytics", "reports"], ["view", "export"]),
+    // ...createPermissionsForPages(["analytics", "reports"], ["view", "export"]),
   };
 
   // Factory Manager Template - Order management and production tracking
@@ -493,7 +513,7 @@ async function seedPermissions() {
     ),
     ...createPermissionsForPages(["files"], ["view", "create"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["analytics", "reports"], ["view"]),
+    // ...createPermissionsForPages(["analytics", "reports"], ["view"]),
   };
 
   const templates = [

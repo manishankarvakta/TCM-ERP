@@ -67,12 +67,17 @@ interface Quotation {
   total?: number;
   status: 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'REVISED';
   clientId?: string;
+  clientName?: string;
   organizationId?: string;
+  organizationName?: string;
+  opportunityId?: string | null;
   submittedById?: string;
+  submittedBy?: string;
+  submittedByContact?: string;
   shippingCharges?: number;
   vatIncluded?: boolean;
   projectLocation?: string;
-  section?: Section[];
+  sections?: Section[];
 }
 
 interface QuotationState {
@@ -125,8 +130,8 @@ const areSectionsEqual = (sections1: Section[], sections2: Section[]): boolean =
 
 // Helper function to recalculate section totals
 const recalculateSectionTotals = (state: QuotationState, sectionIndex: number) => {
-  if (!state.currentQuotation?.section) return;
-  const section = state.currentQuotation.section[sectionIndex];
+  if (!state.currentQuotation?.sections) return;
+  const section = state.currentQuotation.sections[sectionIndex];
   if (!section) return;
   
   // Calculate module group total (sum of all groups' items)
@@ -266,25 +271,25 @@ const quotationSlice = createSlice({
       });
       
       // Only update if sections actually changed (deep equality check)
-      const currentSections = state.currentQuotation.section || [];
+      const currentSections = state.currentQuotation.sections || [];
       if (!areSectionsEqual(currentSections, sectionsWithTotals)) {
-        state.currentQuotation.section = sectionsWithTotals;
+        state.currentQuotation.sections = sectionsWithTotals;
       }
     },
     addItem: (state, action: PayloadAction<{ sectionIndex: number; item: QuotationItem; groupIndex?: number }>) => {
-      if (!state.currentQuotation?.section) return;
+      if (!state.currentQuotation?.sections) return;
       const { sectionIndex, item, groupIndex } = action.payload;
       
       if (groupIndex !== undefined) {
         // Add to group
-        const group = state.currentQuotation.section[sectionIndex]?.groups?.[groupIndex];
+        const group = state.currentQuotation.sections?.[sectionIndex]?.groups?.[groupIndex];
         if (group) {
           if (!group.items) group.items = [];
           group.items.push(item);
         }
       } else {
         // Add directly to section
-        const section = state.currentQuotation.section[sectionIndex];
+        const section = state.currentQuotation.sections?.[sectionIndex];
         if (section) {
           if (!section.items) section.items = [];
           section.items.push(item);
@@ -294,17 +299,17 @@ const quotationSlice = createSlice({
       recalculateSectionTotals(state, sectionIndex);
     },
     updateItem: (state, action: PayloadAction<{ sectionIndex: number; itemIndex: number; item: Partial<QuotationItem>; groupIndex?: number }>) => {
-      if (!state.currentQuotation?.section) return;
+      if (!state.currentQuotation?.sections) return;
       const { sectionIndex, itemIndex, item, groupIndex } = action.payload;
       
       if (groupIndex !== undefined) {
-        const group = state.currentQuotation.section[sectionIndex]?.groups?.[groupIndex];
+        const group = state.currentQuotation.sections?.[sectionIndex]?.groups?.[groupIndex];
         if (group?.items?.[itemIndex]) {
           group.items[itemIndex] = { ...group.items[itemIndex], ...item };
         }
       } else {
-        const section = state.currentQuotation.section[sectionIndex];
-        if (section?.items?.[itemIndex]) {
+        const section = state.currentQuotation.sections?.[sectionIndex];
+        if (section?.items) {
           section.items[itemIndex] = { ...section.items[itemIndex], ...item };
         }
       }
@@ -312,16 +317,16 @@ const quotationSlice = createSlice({
       recalculateSectionTotals(state, sectionIndex);
     },
     removeItem: (state, action: PayloadAction<{ sectionIndex: number; itemIndex: number; groupIndex?: number }>) => {
-      if (!state.currentQuotation?.section) return;
+      if (!state.currentQuotation?.sections) return;
       const { sectionIndex, itemIndex, groupIndex } = action.payload;
       
       if (groupIndex !== undefined) {
-        const group = state.currentQuotation.section[sectionIndex]?.groups?.[groupIndex];
+        const group = state.currentQuotation.sections?.[sectionIndex]?.groups?.[groupIndex];
         if (group?.items) {
           group.items.splice(itemIndex, 1);
         }
       } else {
-        const section = state.currentQuotation.section[sectionIndex];
+        const section = state.currentQuotation.sections?.[sectionIndex];
         if (section?.items) {
           section.items.splice(itemIndex, 1);
         }
@@ -330,9 +335,9 @@ const quotationSlice = createSlice({
       recalculateSectionTotals(state, sectionIndex);
     },
     updateSectionNote: (state, action: PayloadAction<{ sectionIndex: number; note: string }>) => {
-      if (!state.currentQuotation?.section) return;
+      if (!state.currentQuotation?.sections) return;
       const { sectionIndex, note } = action.payload;
-      const section = state.currentQuotation.section[sectionIndex];
+      const section = state.currentQuotation.sections[sectionIndex];
       if (section) {
         section.note = note;
         // Recalculate section totals
@@ -340,9 +345,9 @@ const quotationSlice = createSlice({
       }
     },
     updateSectionDiscount: (state, action: PayloadAction<{ sectionIndex: number; discount: number | undefined }>) => {
-      if (!state.currentQuotation?.section) return;
+      if (!state.currentQuotation?.sections) return;
       const { sectionIndex, discount } = action.payload;
-      const section = state.currentQuotation.section[sectionIndex];
+      const section = state.currentQuotation.sections[sectionIndex];
       if (section) {
         section.discount = discount;
         // Recalculate section totals
@@ -350,18 +355,22 @@ const quotationSlice = createSlice({
       }
     },
     calculateGrandTotal: (state) => {
-      if (!state.currentQuotation?.section) return;
+      if (!state.currentQuotation?.sections) return;
       
       // First, recalculate totals for all sections to ensure they're up to date
-      state.currentQuotation.section.forEach((_section: Section, index: number) => {
-        recalculateSectionTotals(state, index);
-      });
+      if (state.currentQuotation.sections) {
+        state.currentQuotation.sections.forEach((_section: Section, index: number) => {
+          recalculateSectionTotals(state, index);
+        });
+      }
       
       // Sum up all section grandTotals
       let quotationTotal = 0;
-      state.currentQuotation.section.forEach((section: Section) => {
-        quotationTotal += section.grandTotal || 0;
-      });
+      if (state.currentQuotation.sections) {
+        state.currentQuotation.sections.forEach((section: Section) => {
+          quotationTotal += section.grandTotal || 0;
+        });
+      }
       
       if (state.currentQuotation) {
         state.currentQuotation.total = quotationTotal;

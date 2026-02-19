@@ -72,7 +72,12 @@ export default function FilePreviewDialog({
       // Try to get public URL first, fallback to presigned URL
       const publicResult = await getPublicUrl({ key: file.storageKey });
       if (publicResult.success && publicResult.data) {
-        setFileUrl(publicResult.data.url);
+        let url = publicResult.data.url;
+        // Construct full URL if relative
+        if (url.startsWith("/")) {
+          url = `${window.location.origin}${url}`;
+        }
+        setFileUrl(url);
       } else {
         // Fallback to presigned URL
         const downloadResult = await getDownloadUrl({ key: file.storageKey, expiresIn: 86400 }); // 24 hours

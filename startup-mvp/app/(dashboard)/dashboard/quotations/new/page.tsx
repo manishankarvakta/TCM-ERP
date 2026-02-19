@@ -1,13 +1,14 @@
-'use client';
-
+"use client";
 import { QuotationFormV3 } from '@/components/quotation/QuotationFormV3';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useTransition, useRef, useCallback } from 'react';
 import { createQuotation } from '@/app/actions/quotations';
 
 export default function NewQuotationPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const opportunityId = searchParams.get('opportunityId');
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   
@@ -74,7 +75,10 @@ export default function NewQuotationPage() {
         )}
 
         <ErrorBoundary>
-          <QuotationFormV3 onSubmit={handleSubmit} />
+          <QuotationFormV3 
+            initialData={opportunityId ? { opportunityId } : undefined} 
+            onSubmit={handleSubmit} 
+          />
         </ErrorBoundary>
       </div>
     </div>

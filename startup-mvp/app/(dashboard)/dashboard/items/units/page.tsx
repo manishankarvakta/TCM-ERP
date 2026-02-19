@@ -5,8 +5,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import UnitsListClient from "../_components/units";
-import { auth } from "@/lib/auth";
-import { hasPermission } from "@/lib/permissions";
 
 interface UnitsPageProps {
   searchParams: Promise<{
@@ -22,20 +20,9 @@ export default async function UnitsPage({ searchParams }: UnitsPageProps) {
   const search = params.search || "";
   const tab = params.tab || "all";
 
-  const session = await auth();
-  const userId = session?.user?.id;
-
   // Map tab to status: all -> all, active -> active, inactive -> inactive, trash -> trash
   const status = tab === "trash" ? "trash" : tab === "active" ? "active" : tab === "inactive" ? "inactive" : "all";
-  
-  // Check permissions on server side for better performance
-  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
-    getUnits(page, 10, search, status),
-    userId ? hasPermission(userId, "items.units", "view") : false,
-    userId ? hasPermission(userId, "items.units", "edit") : false,
-    userId ? hasPermission(userId, "items.units", "move-to-trash") : false,
-    userId ? hasPermission(userId, "items.units", "delete-permanently") : false,
-  ]);
+  const result = await getUnits(page, 10, search, status);
 
   // Handle errors
   if (!result.success) {
@@ -99,13 +86,6 @@ export default async function UnitsPage({ searchParams }: UnitsPageProps) {
             }}
             initialSearch={search}
             isTrash={false}
-            userId={userId || undefined}
-            permissions={{
-              view: canView,
-              edit: canEdit,
-              moveToTrash: canMoveToTrash,
-              deletePermanently: canDeletePermanently,
-            }}
           />
         </TabsContent>
         <TabsContent value="active" className="mt-4">
@@ -119,13 +99,6 @@ export default async function UnitsPage({ searchParams }: UnitsPageProps) {
             }}
             initialSearch={search}
             isTrash={false}
-            userId={userId || undefined}
-            permissions={{
-              view: canView,
-              edit: canEdit,
-              moveToTrash: canMoveToTrash,
-              deletePermanently: canDeletePermanently,
-            }}
           />
         </TabsContent>
         <TabsContent value="inactive" className="mt-4">
@@ -139,13 +112,6 @@ export default async function UnitsPage({ searchParams }: UnitsPageProps) {
             }}
             initialSearch={search}
             isTrash={false}
-            userId={userId || undefined}
-            permissions={{
-              view: canView,
-              edit: canEdit,
-              moveToTrash: canMoveToTrash,
-              deletePermanently: canDeletePermanently,
-            }}
           />
         </TabsContent>
         <TabsContent value="trash" className="mt-4">
@@ -159,13 +125,6 @@ export default async function UnitsPage({ searchParams }: UnitsPageProps) {
             }}
             initialSearch={search}
             isTrash={true}
-            userId={userId || undefined}
-            permissions={{
-              view: canView,
-              edit: canEdit,
-              moveToTrash: canMoveToTrash,
-              deletePermanently: canDeletePermanently,
-            }}
           />
         </TabsContent>
       </Tabs>

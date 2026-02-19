@@ -91,6 +91,14 @@ export async function getClients(
             email: true,
           },
         },
+        chartOfAccount: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            type: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
       },
@@ -166,7 +174,7 @@ export async function getClientById(clientId: string) {
             email: true,
           },
         },
-        ChartOfAccount: {
+        chartOfAccount: {
           select: {
             id: true,
             code: true,
@@ -203,11 +211,9 @@ export async function getClientById(clientId: string) {
 
 /**
  * Helper function to find Accounts Receivable parent account
- * @param tx Optional transaction client - if provided, uses transaction for consistency
  */
-async function findAccountsReceivableParent(tx?: Prisma.TransactionClient): Promise<string | null> {
-  const client = tx || prisma;
-  const account = await client.chartOfAccount.findFirst({
+async function findAccountsReceivableParent(): Promise<string | null> {
+  const account = await prisma.chartOfAccount.findFirst({
     where: {
       name: {
         contains: "Accounts Receivable",
@@ -437,7 +443,6 @@ export async function createClient(input: {
 
       const chartOfAccount = await tx.chartOfAccount.create({
         data: {
-          id: crypto.randomUUID(),
           code: accountCode,
           name: accountName,
           type: AccountType.ASSET,
@@ -554,6 +559,7 @@ export async function updateClient(input: {
       select: {
         id: true,
         name: true,
+        clientCode: true,
         email: true,
         phone: true,
         address: true,
@@ -564,7 +570,6 @@ export async function updateClient(input: {
         company: true,
         image: true,
         status: true,
-        clientCode: true,
         chartOfAccountId: true,
       },
     });
@@ -613,12 +618,12 @@ export async function updateClient(input: {
         while (clientCodeExists && clientCodeAttempts < 10) {
           const codeWithoutPrefix = clientCode.replace("CLI", "");
           const number = parseInt(codeWithoutPrefix, 10);
-          if (!isNaN(number)) {
+          if (!isNaN(number) && number >= 1000001) {
             const newNumber = number + 1;
-            const digits = newNumber < 1000 ? 3 : newNumber.toString().length;
-            clientCode = `CLI${newNumber.toString().padStart(digits, "0")}`;
+            clientCode = `CLI${newNumber.toString().padStart(7, "0")}`;
           } else {
-            clientCode = `CLI${Date.now().toString().slice(-6)}`;
+            // Fallback: start from 1000001
+            clientCode = `CLI1000001`;
           }
           clientCodeExists = await tx.client.findUnique({
             where: { clientCode },
@@ -693,7 +698,6 @@ export async function updateClient(input: {
         const accountName = `AR - ${clientName}`;
         const chartOfAccount = await tx.chartOfAccount.create({
           data: {
-            id: crypto.randomUUID(),
             code: accountCode,
             name: accountName,
             type: AccountType.ASSET,
@@ -757,24 +761,10 @@ export async function updateClient(input: {
         },
       });
 
-      // Handle rename: Update COA name if client name changed and COA exists
-      if (input.name !== undefined && input.name !== existingClient.name && chartOfAccountId) {
-        const updatedClientName = input.name || input.email;
-        const accountName = `AR - ${updatedClientName}`;
-        
-        await tx.chartOfAccount.update({
-          where: { id: chartOfAccountId },
-          data: {
-            name: accountName,
-            description: `Accounts Receivable account for customer: ${updatedClientName}`,
-          },
-        });
-      }
-
-      return client;
+      return { client };
     });
 
-    const client = result;
+    const client = result.client;
 
     // Log client update - track what actually changed
     const changes: string[] = [];
@@ -807,8 +797,6 @@ export async function updateClient(input: {
 
     // Revalidate clients page
     revalidateBothPaths("clients");
-    revalidatePath(`/dashboard/clients/${client.id}`);
-    revalidatePath(`/dashboard/clients/details?id=${client.id}`);
 
     return {
       success: true,

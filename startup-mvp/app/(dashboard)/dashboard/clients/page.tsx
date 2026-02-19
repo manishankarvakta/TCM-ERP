@@ -5,9 +5,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import ClientsListClient from "./_components/clients";
-import PageGuard from "@/components/permissions/page-guard";
-import { auth } from "@/lib/auth";
-import { hasPermission } from "@/lib/permissions";
 
 interface ClientsPageProps {
   searchParams: Promise<{
@@ -23,19 +20,8 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   const search = params.search || "";
   const tab = params.tab || "all";
 
-  const session = await auth();
-  const userId = session?.user?.id;
-
   const status = tab === "trash" ? "trash" : "all";
-  
-  // Check permissions on server side for better performance
-  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
-    getClients(page, 10, search, status),
-    userId ? hasPermission(userId, "peoples.clients", "view") : false,
-    userId ? hasPermission(userId, "peoples.clients", "edit") : false,
-    userId ? hasPermission(userId, "peoples.clients", "move-to-trash") : false,
-    userId ? hasPermission(userId, "peoples.clients", "delete-permanently") : false,
-  ]);
+  const result = await getClients(page, 10, search, status);
 
   // Handle errors
   if (!result.success) {
@@ -57,75 +43,59 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   }
 
   return (
-    <PageGuard permissionKey="peoples.clients">
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">Clients</h1>
-            <p className="text-sm text-muted-foreground">Manage clients in your system</p>
-          </div>
-          {tab !== "trash" && (
-            <Button asChild>
-              <Link href="/dashboard/clients/add">
-                <FiPlus className="mr-2 h-4 w-4" />
-                Add Client
-              </Link>
-            </Button>
-          )}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Clients</h1>
+          <p className="text-sm text-muted-foreground">Manage clients in your system</p>
         </div>
-
-        <Tabs defaultValue={tab} className="w-full">
-          <TabsList>
-            <TabsTrigger value="all" asChild>
-              <Link href="/dashboard/clients?tab=all&page=1">All Clients</Link>
-            </TabsTrigger>
-            <TabsTrigger value="trash" asChild>
-              <Link href="/dashboard/clients?tab=trash&page=1">Trash</Link>
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="all" className="mt-4">
-            <ClientsListClient
-              initialClients={result.clients || []}
-              initialPagination={result.pagination || {
-                page: 1,
-                limit: 10,
-                total: 0,
-                totalPages: 0,
-              }}
-              initialSearch={search}
-              isTrash={false}
-              userId={userId || undefined}
-              permissions={{
-                view: canView,
-                edit: canEdit,
-                moveToTrash: canMoveToTrash,
-                deletePermanently: canDeletePermanently,
-              }}
-            />
-          </TabsContent>
-          <TabsContent value="trash" className="mt-4">
-            <ClientsListClient
-              initialClients={result.clients || []}
-              initialPagination={result.pagination || {
-                page: 1,
-                limit: 10,
-                total: 0,
-                totalPages: 0,
-              }}
-              initialSearch={search}
-              isTrash={true}
-              userId={userId || undefined}
-              permissions={{
-                view: canView,
-                edit: canEdit,
-                moveToTrash: canMoveToTrash,
-                deletePermanently: canDeletePermanently,
-              }}
-            />
-          </TabsContent>
-        </Tabs>
+        {tab !== "trash" && (
+          <Button asChild>
+            <Link href="/dashboard/clients/add">
+              <FiPlus className="mr-2 h-4 w-4" />
+              Add Client
+            </Link>
+          </Button>
+        )}
       </div>
-    </PageGuard>
+
+      <Tabs defaultValue={tab} className="w-full">
+        <TabsList>
+          <TabsTrigger value="all" asChild>
+            <Link href="/dashboard/clients?tab=all&page=1">All Clients</Link>
+          </TabsTrigger>
+          <TabsTrigger value="trash" asChild>
+            <Link href="/dashboard/clients?tab=trash&page=1">Trash</Link>
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="all" className="mt-4">
+          <ClientsListClient
+            initialClients={result.clients || []}
+            initialPagination={result.pagination || {
+              page: 1,
+              limit: 10,
+              total: 0,
+              totalPages: 0,
+            }}
+            initialSearch={search}
+            isTrash={false}
+          />
+        </TabsContent>
+        <TabsContent value="trash" className="mt-4">
+          <ClientsListClient
+            initialClients={result.clients || []}
+            initialPagination={result.pagination || {
+              page: 1,
+              limit: 10,
+              total: 0,
+              totalPages: 0,
+            }}
+            initialSearch={search}
+            isTrash={true}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
 

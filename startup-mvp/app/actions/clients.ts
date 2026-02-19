@@ -1,6 +1,9 @@
 'use server';
+/**
+ * @deprecated Legacy bridge action. Use `app/(dashboard)/dashboard/clients/_actions/client.action` instead.
+ */
 
-import { getClients } from '@/app/(dashboard)/dashboard/clients/_actions/client.action';
+import { getClients } from '@/app/(dashboard)/dashboard/crm/clients/_actions/client.action';
 
 /**
  * Get active clients for dropdown selection

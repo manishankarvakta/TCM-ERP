@@ -38,7 +38,7 @@ export default async function EditTemplatePage({ params }: EditTemplatePageProps
         </p>
       </div>
 
-      <TemplateForm template={{ ...result.template, description: result.template.description ?? undefined }} mode="edit" />
+      <TemplateForm template={result.template} mode="edit" />
     </div>
   );
 }

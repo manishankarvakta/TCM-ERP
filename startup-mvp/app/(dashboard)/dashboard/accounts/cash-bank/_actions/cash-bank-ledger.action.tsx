@@ -110,14 +110,14 @@ export async function getCashLedger(
     const ledgerLines = await prisma.journalEntryLine.findMany({
       where: {
         chartOfAccountId: { in: accountIds },
-        journalEntry: {
+        JournalEntry: {
           ...(Object.keys(journalEntryDateFilter).length > 0 && { date: journalEntryDateFilter }),
         },
       },
       include: {
-        journalEntry: {
+        JournalEntry: {
           include: {
-            voucher: {
+            Voucher: {
               select: {
                 id: true,
                 voucherNumber: true,
@@ -158,7 +158,7 @@ export async function getCashLedger(
             email: true,
           },
         },
-        organization: {
+        Organization: {
           select: {
             id: true,
             name: true,
@@ -166,7 +166,7 @@ export async function getCashLedger(
         },
       },
       orderBy: {
-        journalEntry: {
+        JournalEntry: {
           date: "asc",
         },
       },
@@ -182,65 +182,70 @@ export async function getCashLedger(
     });
 
     // Serialize Decimal fields and format response
-    const serializedLedger = ledgerLines.map((line) => ({
-      id: line.id,
-      lineNumber: line.lineNumber,
-      debitAmount: Number(line.debitAmount),
-      creditAmount: Number(line.creditAmount),
-      description: line.description,
-      journalEntry: {
-        id: line.journalEntry.id,
-        entryNumber: line.journalEntry.entryNumber,
-        date: line.journalEntry.date,
-        description: line.journalEntry.description,
-        status: line.journalEntry.status,
-        postedAt: line.journalEntry.postedAt,
-        voucher: line.journalEntry.voucher
+    const serializedLedger = ledgerLines.map((line) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const entry = (line as any).JournalEntry;
+
+      return {
+        id: line.id,
+        lineNumber: line.lineNumber,
+        debitAmount: Number(line.debitAmount),
+        creditAmount: Number(line.creditAmount),
+        description: line.description,
+        journalEntry: {
+          id: entry.id,
+          entryNumber: entry.entryNumber,
+          date: entry.date,
+          description: entry.description,
+          status: entry.status,
+          postedAt: entry.postedAt,
+          voucher: entry.Voucher
+            ? {
+                id: entry.Voucher.id,
+                voucherNumber: entry.Voucher.voucherNumber,
+                type: entry.Voucher.type,
+                reference: entry.Voucher.reference,
+                description: entry.Voucher.description,
+                status: entry.Voucher.status,
+              }
+            : null,
+        },
+        chartOfAccount: {
+          id: (line as any).ChartOfAccount.id,
+          code: (line as any).ChartOfAccount.code,
+          name: (line as any).ChartOfAccount.name,
+          type: (line as any).ChartOfAccount.type,
+        },
+        client: (line as any).Client
           ? {
-              id: line.journalEntry.voucher.id,
-              voucherNumber: line.journalEntry.voucher.voucherNumber,
-              type: line.journalEntry.voucher.type,
-              reference: line.journalEntry.voucher.reference,
-              description: line.journalEntry.voucher.description,
-              status: line.journalEntry.voucher.status,
+              id: (line as any).Client.id,
+              name: (line as any).Client.name,
+              email: (line as any).Client.email,
             }
           : null,
-      },
-      chartOfAccount: {
-        id: (line as any).ChartOfAccount.id,
-        code: (line as any).ChartOfAccount.code,
-        name: (line as any).ChartOfAccount.name,
-        type: (line as any).ChartOfAccount.type,
-      },
-      client: (line as any).Client
-        ? {
-            id: (line as any).Client.id,
-            name: (line as any).Client.name,
-            email: (line as any).Client.email,
-          }
-        : null,
-      supplier: (line as any).Supplier
-        ? {
-            id: (line as any).Supplier.id,
-            name: (line as any).Supplier.name,
-            email: (line as any).Supplier.email,
-          }
-        : null,
-      user: (line as any).User
-        ? {
-            id: (line as any).User.id,
-            name: (line as any).User.name,
-            email: (line as any).User.email,
-          }
-        : null,
-      organization: line.organization
-        ? {
-            id: line.organization.id,
-            name: line.organization.name,
-          }
-        : null,
-      createdAt: line.createdAt,
-    }));
+        supplier: (line as any).Supplier
+          ? {
+              id: (line as any).Supplier.id,
+              name: (line as any).Supplier.name,
+              email: (line as any).Supplier.email,
+            }
+          : null,
+        user: (line as any).User
+          ? {
+              id: (line as any).User.id,
+              name: (line as any).User.name,
+              email: (line as any).User.email,
+            }
+          : null,
+        organization: (line as any).Organization
+          ? {
+              id: (line as any).Organization.id,
+              name: (line as any).Organization.name,
+            }
+          : null,
+        createdAt: line.createdAt,
+      };
+    });
 
     return {
       success: true,
@@ -369,14 +374,14 @@ export async function getBankLedger(
     const ledgerLines = await prisma.journalEntryLine.findMany({
       where: {
         chartOfAccountId: { in: accountIds },
-        journalEntry: {
+        JournalEntry: {
           ...(Object.keys(journalEntryDateFilter).length > 0 && { date: journalEntryDateFilter }),
         },
       },
       include: {
-        journalEntry: {
+        JournalEntry: {
           include: {
-            voucher: {
+            Voucher: {
               select: {
                 id: true,
                 voucherNumber: true,
@@ -417,7 +422,7 @@ export async function getBankLedger(
             email: true,
           },
         },
-        organization: {
+        Organization: {
           select: {
             id: true,
             name: true,
@@ -425,7 +430,7 @@ export async function getBankLedger(
         },
       },
       orderBy: {
-        journalEntry: {
+        JournalEntry: {
           date: "asc",
         },
       },
@@ -441,65 +446,70 @@ export async function getBankLedger(
     });
 
     // Serialize Decimal fields and format response
-    const serializedLedger = ledgerLines.map((line) => ({
-      id: line.id,
-      lineNumber: line.lineNumber,
-      debitAmount: Number(line.debitAmount),
-      creditAmount: Number(line.creditAmount),
-      description: line.description,
-      journalEntry: {
-        id: line.journalEntry.id,
-        entryNumber: line.journalEntry.entryNumber,
-        date: line.journalEntry.date,
-        description: line.journalEntry.description,
-        status: line.journalEntry.status,
-        postedAt: line.journalEntry.postedAt,
-        voucher: line.journalEntry.voucher
+    const serializedLedger = ledgerLines.map((line) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const entry = (line as any).JournalEntry;
+
+      return {
+        id: line.id,
+        lineNumber: line.lineNumber,
+        debitAmount: Number(line.debitAmount),
+        creditAmount: Number(line.creditAmount),
+        description: line.description,
+        journalEntry: {
+          id: entry.id,
+          entryNumber: entry.entryNumber,
+          date: entry.date,
+          description: entry.description,
+          status: entry.status,
+          postedAt: entry.postedAt,
+          voucher: entry.Voucher
+            ? {
+                id: entry.Voucher.id,
+                voucherNumber: entry.Voucher.voucherNumber,
+                type: entry.Voucher.type,
+                reference: entry.Voucher.reference,
+                description: entry.Voucher.description,
+                status: entry.Voucher.status,
+              }
+            : null,
+        },
+        chartOfAccount: {
+          id: (line as any).ChartOfAccount.id,
+          code: (line as any).ChartOfAccount.code,
+          name: (line as any).ChartOfAccount.name,
+          type: (line as any).ChartOfAccount.type,
+        },
+        client: (line as any).Client
           ? {
-              id: line.journalEntry.voucher.id,
-              voucherNumber: line.journalEntry.voucher.voucherNumber,
-              type: line.journalEntry.voucher.type,
-              reference: line.journalEntry.voucher.reference,
-              description: line.journalEntry.voucher.description,
-              status: line.journalEntry.voucher.status,
+              id: (line as any).Client.id,
+              name: (line as any).Client.name,
+              email: (line as any).Client.email,
             }
           : null,
-      },
-      chartOfAccount: {
-        id: (line as any).ChartOfAccount.id,
-        code: (line as any).ChartOfAccount.code,
-        name: (line as any).ChartOfAccount.name,
-        type: (line as any).ChartOfAccount.type,
-      },
-      client: (line as any).Client
-        ? {
-            id: (line as any).Client.id,
-            name: (line as any).Client.name,
-            email: (line as any).Client.email,
-          }
-        : null,
-      supplier: (line as any).Supplier
-        ? {
-            id: (line as any).Supplier.id,
-            name: (line as any).Supplier.name,
-            email: (line as any).Supplier.email,
-          }
-        : null,
-      user: (line as any).User
-        ? {
-            id: (line as any).User.id,
-            name: (line as any).User.name,
-            email: (line as any).User.email,
-          }
-        : null,
-      organization: line.organization
-        ? {
-            id: line.organization.id,
-            name: line.organization.name,
-          }
-        : null,
-      createdAt: line.createdAt,
-    }));
+        supplier: (line as any).Supplier
+          ? {
+              id: (line as any).Supplier.id,
+              name: (line as any).Supplier.name,
+              email: (line as any).Supplier.email,
+            }
+          : null,
+        user: (line as any).User
+          ? {
+              id: (line as any).User.id,
+              name: (line as any).User.name,
+              email: (line as any).User.email,
+            }
+          : null,
+        organization: (line as any).Organization
+          ? {
+              id: (line as any).Organization.id,
+              name: (line as any).Organization.name,
+            }
+          : null,
+        createdAt: line.createdAt,
+      };
+    });
 
     return {
       success: true,

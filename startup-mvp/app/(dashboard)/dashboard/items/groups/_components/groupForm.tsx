@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -27,7 +27,6 @@ import {
   GROUP_BASE_UNIT_OPTIONS, 
   type LengthUnit 
 } from "@/lib/utils/unitConverter";
-import { getBasePathFromPathname } from "@/lib/route-utils-client";
 
 const groupItemSchema = z.object({
   sl: z.number(),
@@ -91,7 +90,6 @@ interface GroupFormProps {
 
 export default function GroupForm({ mode, initialData }: GroupFormProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
@@ -330,6 +328,18 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
     }
   }, [baseUnit, baseUnitPrice, items.length, recalculateAllItems]);
 
+  // Recalculate items on initial mount if baseUnit and baseUnitPrice are available
+  useEffect(() => {
+    if (!hasRecalculatedOnMount.current && baseUnit && baseUnitPrice && baseUnitPrice > 0 && items.length > 0) {
+      // Use a longer delay on initial mount to ensure form is fully initialized
+      const timer = setTimeout(() => {
+        recalculateAllItems();
+        hasRecalculatedOnMount.current = true;
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [baseUnit, baseUnitPrice, items.length, recalculateAllItems]);
+
   // Watch for changes to baseUnit or baseUnitPrice and recalculate all items
   // This runs after initial mount when values change
   useEffect(() => {
@@ -394,7 +404,6 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
   // Watch for changes to group's baseUnit
 
   const onSubmit = async (data: GroupFormData) => {
-    console.log("onSubmit", data);
     try {
       setError("");
       setLoading(true);
@@ -421,14 +430,12 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
         })),
       };
 
-      const basePath = getBasePathFromPathname(pathname);
-      
       if (mode === "create") {
         const result = await createGroup(submitData);
         if (!result.success) {
           throw new Error(result.error || "Failed to create group");
         }
-        router.push(`${basePath}/items/groups`);
+        router.push("/dashboard/items/groups");
       } else {
         const result = await updateGroup({
           id: initialData!.id,
@@ -437,7 +444,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
         if (!result.success) {
           throw new Error(result.error || "Failed to update group");
         }
-        router.push(`${basePath}/items/groups`);
+        router.push("/dashboard/items/groups");
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");

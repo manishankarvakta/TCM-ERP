@@ -6,20 +6,20 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getQuotation } from "@/app/actions/quotations";
-import { getGroupById } from "@/app/(dashboard)/admin/items/groups/_actions/group.action";
-import { getItemById } from "@/app/(dashboard)/admin/items/_actions/item.action";
+import { getGroupById } from "@/app/(dashboard)/dashboard/items/groups/_actions/group.action";
+import { getItemById } from "@/app/(dashboard)/dashboard/items/_actions/item.action";
 import { getWorkOrder } from "@/app/actions/work-orders";
 
 // Map route paths to display names
 const routeMap: Record<string, string> = {
-  "/admin": "Dashboard",
-  "/admin/profile": "Profile",
-  "/admin/settings": "Settings",
-  "/admin/users": "Users",
-  "/admin/users/add-user": "Add User",
-  "/admin/users/edit-user": "Edit User",
-  "/admin/files": "Files",
-  "/admin/files/upload": "Upload",
+  "/dashboard": "Dashboard",
+  "/dashboard/profile": "Profile",
+  "/dashboard/settings": "Settings",
+  "/dashboard/users": "Users",
+  "/dashboard/users/add-user": "Add User",
+  "/dashboard/users/edit-user": "Edit User",
+  "/dashboard/files": "Files",
+  "/dashboard/files/upload": "Upload",
 };
 
 // Check if a path segment is a dynamic route (e.g., [id])
@@ -56,10 +56,10 @@ const getBreadcrumbItems = (pathname: string): Array<{ path: string; label: stri
   const items: Array<{ path: string; label: string }> = [];
   
   // Always include Dashboard as first item
-  items.push({ path: "/admin", label: "Dashboard" });
+  items.push({ path: "/dashboard", label: "Dashboard" });
   
   // Build path segments
-  let currentPath = "/admin";
+  let currentPath = "/dashboard";
   for (let i = 1; i < segments.length; i++) {
     const segment = segments[i];
     currentPath += "/" + segment;
@@ -146,14 +146,14 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     };
   }, [pathname]);
 
-  // Fetch item label if we're on an item edit page (/admin/items/:id)
+  // Fetch item label if we're on an item edit page (/dashboard/items/:id)
   useEffect(() => {
     const itemMatch = pathname.match(/^\/admin\/items\/([^\/]+)$/);
     if (!itemMatch) {
       return;
     }
 
-    // Ignore non-item subroutes under /admin/items/*
+    // Ignore non-item subroutes under /dashboard/items/*
     const segment = itemMatch[1];
     if (segment === "groups" || segment === "units" || segment === "category" || segment === "details") {
       return;
@@ -205,7 +205,7 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   }, [pathname]);
 
   // If we're at the root admin dashboard, show just "Dashboard"
-  if (pathname === "/admin" || items.length === 1) {
+  if (pathname === "/dashboard" || items.length === 1) {
     return (
       <div className={className}>
         <div className="flex items-center gap-2">
@@ -237,12 +237,12 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   // For quotation routes, replace the ID segment with "Quotations" as parent
   if (isQuotationDetail || isQuotationEdit) {
     // Find the "Quotations" item (should be before the ID)
-    const quotationsItem = items.find(item => item.path === "/admin/quotations");
+    const quotationsItem = items.find(item => item.path === "/dashboard/quotations");
     if (quotationsItem) {
       parentItem = quotationsItem;
     } else {
       // If not found, create a parent item pointing to quotations list
-      parentItem = { path: "/admin/quotations", label: "Quotations" };
+      parentItem = { path: "/dashboard/quotations", label: "Quotations" };
     }
     
     // Update current label with quotation number
@@ -261,12 +261,12 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   // For group routes, replace the ID segment with "Groups" as parent
   if (isGroupDetail || isGroupEdit) {
     // Find the "Groups" item (should be before the ID)
-    const groupsItem = items.find(item => item.path === "/admin/items/groups");
+    const groupsItem = items.find(item => item.path === "/dashboard/items/groups");
     if (groupsItem) {
       parentItem = groupsItem;
     } else {
       // If not found, create a parent item pointing to groups list
-      parentItem = { path: "/admin/items/groups", label: "Groups" };
+      parentItem = { path: "/dashboard/items/groups", label: "Groups" };
     }
     
     // Update current label with group code
@@ -298,12 +298,12 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   // For work order routes, replace the ID segment with "Work Orders" as parent
   if (isWorkOrderDetail || isWorkOrderEdit) {
     // Find the "Work Orders" item (should be before the ID)
-    const workOrdersItem = items.find(item => item.path === "/admin/work-orders");
+    const workOrdersItem = items.find(item => item.path === "/dashboard/work-orders");
     if (workOrdersItem) {
       parentItem = workOrdersItem;
     } else {
       // If not found, create a parent item pointing to work orders list
-      parentItem = { path: "/admin/work-orders", label: "Work Orders" };
+      parentItem = { path: "/dashboard/work-orders", label: "Work Orders" };
     }
     
     // Update current label with work order code
