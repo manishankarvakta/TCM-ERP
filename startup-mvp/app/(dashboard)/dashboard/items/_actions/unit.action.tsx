@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
+import { revalidatePath } from "next/cache";
 import { type Prisma } from "@prisma/client";
 
 /**
@@ -71,7 +72,7 @@ export async function getUnits(
         symbol: true,
         status: true,
         createdBy: true,
-        creator: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -86,11 +87,16 @@ export async function getUnits(
       },
     });
 
+    const mappedUnits = units.map((unit: any) => ({
+      ...unit,
+      creator: unit.User,
+    }));
+
     const totalPages = Math.ceil(total / limit);
 
     return {
       success: true,
-      units,
+      units: mappedUnits,
       pagination: {
         page,
         limit,
@@ -137,7 +143,7 @@ export async function getUnitById(unitId: string) {
         symbol: true,
         status: true,
         createdBy: true,
-        creator: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -159,7 +165,10 @@ export async function getUnitById(unitId: string) {
 
     return {
       success: true,
-      unit,
+      unit: {
+        ...unit,
+        creator: (unit as any).User,
+      },
     };
   } catch (error) {
     console.error("getUnitById error:", error);

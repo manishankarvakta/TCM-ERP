@@ -346,6 +346,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                 </div>
               </div>
 
+
               <div className="space-y-2">
                 <Label htmlFor="categoryIds">Categories (Optional)</Label>
                 {loadingCategories ? (

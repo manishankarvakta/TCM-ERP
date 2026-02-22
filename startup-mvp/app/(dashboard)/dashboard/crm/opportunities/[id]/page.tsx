@@ -89,7 +89,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
             </Badge>
            </div>
            <p className="text-muted-foreground text-sm font-medium">
-             Deal #{opportunity.opportunityNumber} • {opportunity.client?.name} • Created on {opportunity.createdAt ? format(new Date(opportunity.createdAt), "PPP") : "-"}
+             {opportunity.opportunityNumber} • {opportunity.client?.name} • Created on {opportunity.createdAt ? format(new Date(opportunity.createdAt), "PPP") : "-"}
            </p>
         </div>
       </div>

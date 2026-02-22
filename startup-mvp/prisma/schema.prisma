@@ -407,11 +407,15 @@ model Item {
   updatedAt            DateTime               @updatedAt
   minStock             Decimal                @default(0) @db.Decimal(10, 2)
   quantity             Decimal                @default(0) @db.Decimal(10, 2)
+  height               Decimal?               @db.Decimal(10, 2)
+  width                Decimal?               @db.Decimal(10, 2)
+  depth                Decimal?               @db.Decimal(10, 2)
   InventoryTransaction InventoryTransaction[]
   Unit                 Unit                   @relation(fields: [unitId], references: [id])
   ItemCategory         ItemCategory[]
   PurchaseItem         PurchaseItem[]
   QuotationItem        QuotationItem[]
+  ModuleGroupItem      ModuleGroupItem[]
 
   @@index([code])
   @@index([status])
@@ -523,16 +527,16 @@ model Lead {
 
 model ModuleGroup {
   id              String            @id @default(cuid())
-  code            String?
+  code            String?           @unique
+  name            String
   description     String?
+  type            String            @default("Combo") // Combo, Offer, etc.
+  price           Decimal           @default(0) @db.Decimal(12, 2)
   sortOrder       Int               @default(0)
   status          String            @default("active")
   createdBy       String
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
-  baseUnit        String?
-  baseUnitPrice   Decimal?          @db.Decimal(10, 2)
-  costPrice       Decimal           @default(0) @db.Decimal(10, 2)
   User            User              @relation(fields: [createdBy], references: [id], onDelete: Cascade)
   ModuleGroupItem ModuleGroupItem[]
 
@@ -543,23 +547,20 @@ model ModuleGroup {
 model ModuleGroupItem {
   id            String          @id @default(cuid())
   sl            Int
-  code          String?
-  description   String?
-  height        Decimal?        @db.Decimal(10, 2)
-  width         Decimal?        @db.Decimal(10, 2)
-  depth         Decimal?        @db.Decimal(10, 2)
-  unit          String?
-  unitPrice     Decimal         @db.Decimal(10, 2)
-  amount        Decimal         @db.Decimal(12, 2)
+  itemId        String
+  quantity      Decimal         @default(1) @db.Decimal(10, 2)
+  unitPrice     Decimal?        @db.Decimal(10, 2) // Optional individual price override
+  amount        Decimal?        @db.Decimal(12, 2)
   sortOrder     Int             @default(0)
-  quantity      Decimal?        @db.Decimal(10, 2)
   moduleGroupId String
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   ModuleGroup   ModuleGroup     @relation(fields: [moduleGroupId], references: [id], onDelete: Cascade)
+  Item          Item            @relation(fields: [itemId], references: [id])
   QuotationItem QuotationItem[]
 
   @@index([moduleGroupId])
+  @@index([itemId])
 }
 
 model ModuleOperation {

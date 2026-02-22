@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/utils/formatters';
 import { calculateKitchenModule, type AreaUnit } from '@/lib/calculateKitchenModule';
-import { FiPlus, FiTrash2, FiChevronDown, FiChevronUp, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiChevronDown, FiChevronUp, FiSearch, FiLayers, FiPackage, FiEdit3, FiGrid } from 'react-icons/fi';
 import { BsGripVertical } from 'react-icons/bs';
 import { getModuleGroupById } from '@/app/(dashboard)/dashboard/items/groups/_actions/group.action';
 import { useAppDispatch } from '@/lib/redux/hooks';
@@ -294,17 +294,16 @@ const SortableItem = memo(function SortableItem({
         />
       </TableCell>
       <TableCell className="min-w-[120px]">
-        {groupIndex !== undefined ? (
-          // For custom items (isCustomItem flag), always show auto-generated code
+        {item.isCustomItem ? (
+          <Input
+            value={item.code || ''}
+            onChange={(e) => onUpdate({ code: e.target.value })}
+            placeholder="Custom Code"
+            className="h-8 text-xs w-full"
+          />
+        ) : groupIndex !== undefined ? (
           // For regular items, show dropdown if group has moduleGroupId (for "Add Item")
-          item.isCustomItem ? (
-            <Input
-              value={item.code || ''}
-              readOnly
-              placeholder="Auto-generated"
-              className="h-8 text-xs w-full bg-muted"
-            />
-          ) : groupModuleGroupId ? (
+          groupModuleGroupId ? (
             <div className="flex gap-2 items-center w-full">
               <div className="flex-1 relative w-full min-w-0">
                 <Select
@@ -469,8 +468,9 @@ const SortableItem = memo(function SortableItem({
           type="number"
           step="0.01"
           value={item.unitPrice}
-          readOnly
-          className="h-8 w-24 text-xs bg-muted"
+          onChange={(e) => onUpdate({ unitPrice: Number(e.target.value) })}
+          readOnly={!item.isCustomItem}
+          className={`h-8 w-24 text-xs ${!item.isCustomItem ? 'bg-muted' : ''}`}
         />
       </TableCell>
       {groupIndex !== undefined && units && (
@@ -677,7 +677,7 @@ export function QuotationItemsArea({
               itemId: item.itemId || undefined,
             })),
             baseUnit: result.group.baseUnit || null,
-            baseUnitPrice: result.group.baseUnitPrice || null,
+            baseUnitPrice: result.group.price ? Number(result.group.price) : null,
           };
         }
         return null;
@@ -984,7 +984,7 @@ export function QuotationItemsArea({
     onSectionsChange(sections.filter((_, i) => i !== index));
   };
 
-  const addItemToSection = (sectionIndex: number, groupId?: string, categoryGroupId?: string) => {
+  const addItemToSection = (sectionIndex: number, groupId?: string, categoryGroupId?: string, isCustom: boolean = false) => {
     const section = sections[sectionIndex];
     const newItem: QuotationItem = {
       id: generateId(),
@@ -994,6 +994,7 @@ export function QuotationItemsArea({
       quantity: 1,
       discount: 0,
       amount: 0,
+      isCustomItem: isCustom,
     };
 
     // Create deep copy of sections
@@ -1532,7 +1533,7 @@ export function QuotationItemsArea({
       };
     });
 
-    onSectionsChange(updated);
+    onSectionsChange(updated as Section[]);
   };
 
   const removeItem = (
@@ -1600,9 +1601,9 @@ export function QuotationItemsArea({
         total: totals.total,
         grandTotal: totals.grandTotal,
       };
-      });
+    }).filter((s): s is Section => s !== undefined);
 
-    onSectionsChange(updated);
+    onSectionsChange(updated as Section[]);
   };
 
   const updateGroup = (
@@ -2151,33 +2152,44 @@ export function QuotationItemsArea({
                     {/* Section Actions */}
                     <div className="flex gap-2 mt-3 items-center justify-between">
                       <div className="flex gap-2">
-                      
-                      <Button
+                                            <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                          onClick={() => addGroupToSection(sectionIndex)}
+                        onClick={() => addGroupToSection(sectionIndex)}
+                        className="bg-blue-50 hover:bg-blue-100 border-blue-200"
                       >
-                        <FiPlus className="w-4 h-4 mr-2" />
-                        Add Group
+                        <FiLayers className="w-4 h-4 mr-2 text-blue-600" />
+                        Add Module Group
                       </Button>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                          onClick={() => addItemToSection(sectionIndex)}
+                        onClick={() => addItemToSection(sectionIndex, undefined, undefined, false)}
+                        className="bg-green-50 hover:bg-green-100 border-green-200"
                       >
-                        <FiPlus className="w-4 h-4 mr-2" />
-                        Add Item
+                        <FiPackage className="w-4 h-4 mr-2 text-green-600" />
+                        Add Catalog Item
                       </Button>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                          onClick={() => addCategoryGroupToSection(sectionIndex)}
+                        onClick={() => addItemToSection(sectionIndex, undefined, undefined, true)}
+                        className="bg-orange-50 hover:bg-orange-100 border-orange-200"
                       >
-                        <FiPlus className="w-4 h-4 mr-2" />
-                        Add Category
+                        <FiEdit3 className="w-4 h-4 mr-2 text-orange-600" />
+                        Add Custom Item
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addCategoryGroupToSection(sectionIndex)}
+                      >
+                        <FiGrid className="w-4 h-4 mr-2" />
+                        Add Category Group
                       </Button>
                       </div>
                       <div className="flex items-center gap-2">
@@ -2269,7 +2281,7 @@ export function QuotationItemsArea({
                                                 code: moduleGroup.code || group.code,
                                                 description: moduleGroup.description || group.description,
                                                 baseUnit: moduleGroup.baseUnit || null,
-                                                baseUnitPrice: moduleGroup.baseUnitPrice || null,
+                                                baseUnitPrice: moduleGroup.price ? Number(moduleGroup.price) : null,
                                                 isExpanded: true, // Auto-expand when ModuleGroup is selected
                                               });
                                             }

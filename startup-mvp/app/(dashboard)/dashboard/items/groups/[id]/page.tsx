@@ -56,12 +56,19 @@ export default async function GroupDetailsPage({ params }: GroupDetailsPageProps
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>{group.code || "Untitled Group"}</CardTitle>
-              <CardDescription>
+              <div className="flex items-center gap-3">
+                <CardTitle className="text-2xl">{group.name}</CardTitle>
+                <Badge variant="outline">{group.type}</Badge>
+              </div>
+              <CardDescription className="mt-1">
+                {group.code && <span className="mr-2 font-mono text-xs">[{group.code}]</span>}
                 {group.description || "No description"}
               </CardDescription>
             </div>
-            <div>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-primary mb-1">
+                {formatCurrency(group.price)}
+              </div>
               {groupStatus === "trash" ? (
                 <Badge variant="destructive">Trash</Badge>
               ) : groupStatus === "inactive" ? (
@@ -73,67 +80,50 @@ export default async function GroupDetailsPage({ params }: GroupDetailsPageProps
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Group Base Unit Price Info */}
-          {(group.baseUnit || group.baseUnitPrice || group.costPrice) && (
-            <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
-              <div>
-                <span className="text-sm text-muted-foreground">Base Unit:</span>
-                <p className="font-medium">{group.baseUnit || "-"}</p>
-              </div>
-              <div>
-                <span className="text-sm text-muted-foreground">Base Unit Price:</span>
-                <p className="font-medium">
-                  {group.baseUnitPrice ? formatCurrency(group.baseUnitPrice) : "-"}
-                </p>
-              </div>
-              <div>
-                <span className="text-sm text-muted-foreground">Cost Price:</span>
-                <p className="font-medium">
-                  {group.costPrice ? formatCurrency(group.costPrice) : "-"}
-                </p>
-              </div>
+          {/* Metadata Row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4 border-y">
+            <div>
+              <span className="text-sm text-muted-foreground block">Created By</span>
+              <span className="font-medium">{(group as any).creator?.name || (group as any).creator?.email || "Unknown"}</span>
             </div>
-          )}
+            <div>
+              <span className="text-sm text-muted-foreground block">Created At</span>
+              <span className="font-medium">{format(new Date(group.createdAt), "MMM d, yyyy")}</span>
+            </div>
+            <div>
+              <span className="text-sm text-muted-foreground block">Last Updated</span>
+              <span className="font-medium">{format(new Date(group.updatedAt), "MMM d, yyyy")}</span>
+            </div>
+          </div>
 
           {/* Items Table */}
           {group.items && group.items.length > 0 && (
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold">Items ({group.items.length})</h3>
+                <h3 className="text-lg font-semibold">Included Items ({group.items.length})</h3>
               </div>
               <div className="border rounded-lg overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12">SL</TableHead>
-                      <TableHead>Code</TableHead>
-                      <TableHead>Description</TableHead>
-                      {(group.items.some(item => item.height || item.width || item.depth)) && (
-                        <>
-                          <TableHead className="w-16">H</TableHead>
-                          <TableHead className="w-16">W</TableHead>
-                          <TableHead className="w-16">D</TableHead>
-                        </>
-                      )}
-                      <TableHead>Unit</TableHead>
+                      <TableHead>Item</TableHead>
+                      <TableHead>Quantity</TableHead>
                       <TableHead>Unit Price</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {group.items.map((item) => (
+                    {group.items.map((item: any) => (
                       <TableRow key={item.id}>
                         <TableCell>{item.sl}</TableCell>
-                        <TableCell className="font-medium">{item.code || "-"}</TableCell>
-                        <TableCell>{item.description || "-"}</TableCell>
-                        {(group.items.some(i => i.height || i.width || i.depth)) && (
-                          <>
-                            <TableCell>{item.height ? item.height.toFixed(2) : "-"}</TableCell>
-                            <TableCell>{item.width ? item.width.toFixed(2) : "-"}</TableCell>
-                            <TableCell>{item.depth ? item.depth.toFixed(2) : "-"}</TableCell>
-                          </>
-                        )}
-                        <TableCell>{item.unit || "-"}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{item.code}</span>
+                            <span className="text-xs text-muted-foreground">{item.description}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{item.quantity} {item.unit}</TableCell>
                         <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
                         <TableCell className="text-right font-medium">
                           {formatCurrency(item.amount)}
@@ -145,9 +135,14 @@ export default async function GroupDetailsPage({ params }: GroupDetailsPageProps
               </div>
             </div>
           )}
+
+          {(!group.items || group.items.length === 0) && (
+            <div className="text-center py-8 text-muted-foreground">
+              No items included in this group.
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
   );
 }
-

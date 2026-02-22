@@ -19,70 +19,60 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FiAlertCircle, FiPlus, FiTrash2, FiCopy } from "react-icons/fi";
+import { FiAlertCircle, FiPlus, FiTrash2, FiCopy, FiSearch } from "react-icons/fi";
 import { createGroup, updateGroup } from "../_actions/group.action";
-import { 
-  convertAreaPriceToLengthPrice, 
-  calculateSurfaceArea,
-  GROUP_BASE_UNIT_OPTIONS, 
-  type LengthUnit 
-} from "@/lib/utils/unitConverter";
+import { useCatalogData } from "@/hooks/useCatalogData";
+import { formatCurrency } from "@/lib/utils/formatters";
 
 const groupItemSchema = z.object({
+  id: z.string().optional(),
   sl: z.number(),
+  itemId: z.string().min(1, "Item is required"),
+  quantity: z.number().min(0.01, "Quantity must be greater than 0"),
+  unitPrice: z.number().optional().nullable(),
+  amount: z.number().optional().nullable(),
+  sortOrder: z.number(),
+  // For display purposes
   code: z.string().optional(),
   description: z.string().optional(),
-  height: z.number().optional(),
-  width: z.number().optional(),
-  depth: z.number().optional(),
   unit: z.string().optional(),
-  unitPrice: z.number().min(0),
-  amount: z.number().min(0),
-  sortOrder: z.number(),
 });
 
 const groupFormSchema = z.object({
   code: z.string().optional(),
+  name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
+  type: z.string().default("Combo"),
+  price: z.number().min(0).default(0),
   sortOrder: z.string().optional(),
   status: z.enum(["active", "inactive"]),
-  baseUnit: z.enum(["sqm", "sqft", "rft"]).optional(),
-  baseUnitPrice: z.number().min(0).optional(),
-  costPrice: z.number().min(0).default(0),
   items: z.array(groupItemSchema).min(1, "At least one item is required"),
 });
 
 type GroupFormData = z.infer<typeof groupFormSchema>;
 type GroupItem = z.infer<typeof groupItemSchema>;
 
-const GROUP_LENGTH_UNIT_OPTIONS: Array<{ value: LengthUnit; label: string }> = [
-  { value: "in", label: "in" },
-  { value: "mm", label: "mm" },
-  { value: "ft", label: "ft" },
-];
-
 interface GroupFormProps {
   mode: "create" | "edit";
   initialData?: {
     id: string;
     code?: string;
+    name: string;
     description?: string;
+    type: string;
+    price: number;
     sortOrder?: number;
     status: string;
-    baseUnit?: string;
-    baseUnitPrice?: number;
-    costPrice?: number;
     items: Array<{
       id?: string;
       sl: number;
+      itemId: string;
       code?: string;
       description?: string;
-      height?: number;
-      width?: number;
-      depth?: number;
       unit?: string;
-      unitPrice: number;
-      amount: number;
+      quantity: number;
+      unitPrice?: number;
+      amount?: number;
       sortOrder: number;
     }>;
   };
@@ -92,6 +82,8 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const { items: catalogItems, isLoading: isCatalogLoading } = useCatalogData();
+  const [itemSearch, setItemSearch] = useState<{ [key: number]: string }>({});
 
   const {
     register,
@@ -105,165 +97,49 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
     defaultValues: initialData
       ? {
           code: initialData.code || "",
+          name: initialData.name,
           description: initialData.description || "",
+          type: initialData.type || "Combo",
+          price: initialData.price || 0,
           sortOrder: initialData.sortOrder?.toString() || "0",
           status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
-          baseUnit: initialData.baseUnit ? (initialData.baseUnit as "sqm" | "sqft" | "rft") : "sqm",
-          baseUnitPrice: initialData.baseUnitPrice !== null && initialData.baseUnitPrice !== undefined ? initialData.baseUnitPrice : undefined,
-          costPrice: initialData.costPrice !== null && initialData.costPrice !== undefined ? initialData.costPrice : 0,
-          items: initialData.items.map((item) => {
-            // Recalculate unitPrice if baseUnit and baseUnitPrice are available
-            let calculatedUnitPrice = item.unitPrice || 0;
-            if (initialData.baseUnit && initialData.baseUnitPrice && initialData.baseUnitPrice > 0 && item.unit) {
-              try {
-                calculatedUnitPrice = convertAreaPriceToLengthPrice(
-                  initialData.baseUnit as "sqm" | "sqft" | "rft",
-                  initialData.baseUnitPrice,
-                  item.unit as LengthUnit
-                );
-              } catch (error) {
-                console.error("Error calculating initial unit price:", error);
-              }
-            }
-            
-            // Calculate amount if we have dimensions
-            let calculatedAmount = item.amount || 0;
-            if (item.height && item.width && item.depth && item.unit && calculatedUnitPrice > 0) {
-              try {
-                const surfaceArea = calculateSurfaceArea(
-                  item.height,
-                  item.width,
-                  item.depth,
-                  item.unit as LengthUnit
-                );
-                calculatedAmount = surfaceArea * calculatedUnitPrice;
-              } catch (error) {
-                console.error("Error calculating initial amount:", error);
-              }
-            }
-            
-            return {
-              sl: item.sl,
-              code: item.code || "",
-              description: item.description || "",
-              height: item.height,
-              width: item.width,
-              depth: item.depth,
-              unit: item.unit || "",
-              unitPrice: calculatedUnitPrice,
-              amount: calculatedAmount,
-              sortOrder: item.sortOrder,
-            };
-          }),
+          items: initialData.items.map((item) => ({
+            id: item.id,
+            sl: item.sl,
+            itemId: item.itemId,
+            code: item.code,
+            description: item.description,
+            unit: item.unit,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            amount: item.amount,
+            sortOrder: item.sortOrder,
+          })),
         }
       : {
           code: "",
+          name: "",
           description: "",
+          type: "Combo",
+          price: 0,
           sortOrder: "0",
           status: "active",
-          baseUnit: "sqm",
-          baseUnitPrice: undefined,
-          costPrice: 0,
           items: [],
         },
   });
 
   const items = watch("items");
-  const baseUnit = watch("baseUnit");
-  const baseUnitPrice = watch("baseUnitPrice");
-  const hasRecalculatedOnMount = useRef(false);
-
-  // Generate item code from H-W-D dimensions (format: "HH-WW-DD")
-  const generateItemCode = (height?: number, width?: number, depth?: number): string => {
-    const getFirstTwoDigits = (value?: number): string => {
-      if (!value || value <= 0) return "00";
-      const str = Math.floor(value).toString();
-      return str.length >= 2 ? str.substring(0, 2) : str.padStart(2, "0");
-    };
-
-    const h = getFirstTwoDigits(height);
-    const w = getFirstTwoDigits(width);
-    const d = getFirstTwoDigits(depth);
-    
-    return `${h}-${w}-${d}`;
-  };
-
-  const calculateItemAmount = useCallback((item: GroupItem): number => {
-    // If we have dimensions and unit, calculate surface area
-    if (item.height && item.width && item.depth && 
-        item.height > 0 && item.width > 0 && item.depth > 0 &&
-        item.unit) {
-      try {
-        // Calculate surface area in the unit
-        const surfaceArea = calculateSurfaceArea(
-          item.height,
-          item.width,
-          item.depth,
-          item.unit as LengthUnit
-        );
-        
-        // Amount = surface area * unit price
-        return surfaceArea * item.unitPrice;
-      } catch (error) {
-        console.error("Error calculating surface area:", error);
-        // Fallback to simple calculation
-        return item.unitPrice;
-      }
-    }
-    
-    // Fallback: simple calculation without surface area
-    return item.unitPrice;
-  }, []);
 
   const addItem = () => {
-    // Calculate unit price if baseUnit and baseUnitPrice are set
-    let initialUnitPrice = 0;
-    if (baseUnit && baseUnitPrice && baseUnitPrice > 0) {
-      try {
-        initialUnitPrice = convertAreaPriceToLengthPrice(
-          baseUnit as "sqm" | "sqft" | "rft",
-          baseUnitPrice,
-          "mm" as LengthUnit
-        );
-      } catch (error) {
-        console.error("Error calculating initial unit price:", error);
-      }
-    }
-
     const newItem: GroupItem = {
       sl: items.length + 1,
-      height: 1,
-      width: 1,
-      depth: 1,
-      code: generateItemCode(1, 1, 1), // "01-01-01" for new items with default dimensions
-      description: "",
-      unit: "mm", // Default to mm
-      unitPrice: initialUnitPrice,
-      amount: 0, // Will be calculated by updateItem when dimensions are set
+      itemId: "",
+      quantity: 1,
+      unitPrice: null,
+      amount: null,
       sortOrder: items.length,
     };
-    
-    // Calculate amount with default dimensions
-    const itemWithAmount = {
-      ...newItem,
-      amount: calculateItemAmount(newItem),
-    };
-    
-    setValue("items", [...items, itemWithAmount]);
-  };
-
-  const duplicateItem = (index: number) => {
-    if (index < 0 || index >= items.length) return;
-    
-    const itemToDuplicate = items[index];
-    const newItem: GroupItem = {
-      ...itemToDuplicate,
-      sl: items.length + 1,
-      sortOrder: items.length,
-    };
-    
-    const updated = [...items, newItem];
-    setValue("items", updated);
+    setValue("items", [...items, newItem]);
   };
 
   const removeItem = (index: number) => {
@@ -275,133 +151,33 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
     setValue("items", updated);
   };
 
-  // Recalculate all items when group's baseUnit or baseUnitPrice changes
-  const recalculateAllItems = useCallback(() => {
-    const currentBaseUnit = watch("baseUnit");
-    const currentBaseUnitPrice = watch("baseUnitPrice");
-    const currentItems = watch("items");
-
-    if (!currentBaseUnit || !currentBaseUnitPrice || currentBaseUnitPrice <= 0) {
-      return;
-    }
-
-    if (!currentItems || currentItems.length === 0) {
-      return;
-    }
-
-    const updated = currentItems.map((item) => {
-      if (!item.unit) return item;
-
-      try {
-        // Convert group's base area price to item's unit price
-        const calculatedUnitPrice = convertAreaPriceToLengthPrice(
-          currentBaseUnit as "sqm" | "sqft" | "rft",
-          currentBaseUnitPrice,
-          item.unit as LengthUnit
-        );
-        
-        const updatedItem = {
-          ...item,
-          unitPrice: calculatedUnitPrice,
-        };
-        
-        updatedItem.amount = calculateItemAmount(updatedItem);
-        return updatedItem;
-      } catch (error) {
-        console.error("Error converting unit price:", error);
-        return item;
-      }
-    });
-
-    setValue("items", updated, { shouldDirty: false });
-  }, [watch, setValue, calculateItemAmount]);
-
-  // Recalculate items on initial mount if baseUnit and baseUnitPrice are available
-  useEffect(() => {
-    if (!hasRecalculatedOnMount.current && baseUnit && baseUnitPrice && baseUnitPrice > 0 && items.length > 0) {
-      // Use a longer delay on initial mount to ensure form is fully initialized
-      const timer = setTimeout(() => {
-        recalculateAllItems();
-        hasRecalculatedOnMount.current = true;
-      }, 200);
-      return () => clearTimeout(timer);
-    }
-  }, [baseUnit, baseUnitPrice, items.length, recalculateAllItems]);
-
-  // Recalculate items on initial mount if baseUnit and baseUnitPrice are available
-  useEffect(() => {
-    if (!hasRecalculatedOnMount.current && baseUnit && baseUnitPrice && baseUnitPrice > 0 && items.length > 0) {
-      // Use a longer delay on initial mount to ensure form is fully initialized
-      const timer = setTimeout(() => {
-        recalculateAllItems();
-        hasRecalculatedOnMount.current = true;
-      }, 200);
-      return () => clearTimeout(timer);
-    }
-  }, [baseUnit, baseUnitPrice, items.length, recalculateAllItems]);
-
-  // Watch for changes to baseUnit or baseUnitPrice and recalculate all items
-  // This runs after initial mount when values change
-  useEffect(() => {
-    // Skip if we haven't done initial recalculation yet
-    if (!hasRecalculatedOnMount.current) return;
-    
-    if (baseUnit && baseUnitPrice && baseUnitPrice > 0 && items.length > 0) {
-      // Use setTimeout to ensure form state is updated
-      const timer = setTimeout(() => {
-        recalculateAllItems();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [baseUnit, baseUnitPrice, items.length, recalculateAllItems]);
-
-  const updateItem = (index: number, field: keyof GroupItem, value: unknown) => {
-    if (index < 0 || index >= items.length) return;
-    
+  const updateItem = (index: number, field: keyof GroupItem, value: any) => {
     const updated = [...items];
-    const currentItem = updated[index];
-    if (!currentItem) return;
-    
-    updated[index] = { ...currentItem, [field]: value };
-    const updatedItem = updated[index];
-    
-    // Auto-generate code when height, width, or depth changes
-    if (field === "height" || field === "width" || field === "depth") {
-      updatedItem.code = generateItemCode(
-        updatedItem.height,
-        updatedItem.width,
-        updatedItem.depth
-      );
-    }
-    
-    // STEP 1: Convert group's baseUnitPrice to item's unit and set unitPrice
-    // This happens when unit changes
-    if (field === "unit") {
-      if (baseUnit && baseUnitPrice && baseUnitPrice > 0 && updatedItem.unit) {
-        try {
-          // Convert group's base area price to the same square-unit as the selected unit (sqin/sqmm/sqft)
-          const calculatedUnitPrice = convertAreaPriceToLengthPrice(
-            baseUnit as "sqm" | "sqft" | "rft",
-            baseUnitPrice,
-            updatedItem.unit as LengthUnit
-          );
-          updatedItem.unitPrice = calculatedUnitPrice;
-        } catch (error) {
-          console.error("Error converting unit price:", error);
+    updated[index] = { ...updated[index], [field]: value };
+
+    // If itemId changed, update other item details from catalog
+    if (field === "itemId" && value) {
+      const selectedCatalogItem = catalogItems.find(i => i.id === value);
+      if (selectedCatalogItem) {
+        updated[index].code = selectedCatalogItem.code;
+        updated[index].description = selectedCatalogItem.description;
+        updated[index].unit = selectedCatalogItem.unit?.symbol || "";
+        // If no unitPrice set, use catalog's unitPrice
+        if (!updated[index].unitPrice) {
+          updated[index].unitPrice = selectedCatalogItem.unitPrice;
         }
       }
     }
-    
-    // STEP 2: Calculate amount = surface area (in unit) * unitPrice
-    // This happens when height, width, depth, unit, unitPrice changes
-    if (field === "height" || field === "width" || field === "depth" || field === "unit" || field === "unitPrice") {
-      updatedItem.amount = calculateItemAmount(updatedItem);
+
+    // Recalculate amount if quantity or unitPrice changed
+    if (field === "quantity" || field === "unitPrice" || field === "itemId") {
+      const quantity = updated[index].quantity || 0;
+      const unitPrice = updated[index].unitPrice || 0;
+      updated[index].amount = quantity * unitPrice;
     }
-    
+
     setValue("items", updated);
   };
-
-  // Watch for changes to group's baseUnit
 
   const onSubmit = async (data: GroupFormData) => {
     try {
@@ -410,22 +186,18 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
 
       const submitData = {
         code: data.code || undefined,
+        name: data.name,
         description: data.description || undefined,
+        type: data.type,
+        price: data.price,
         sortOrder: data.sortOrder ? Number(data.sortOrder) : 0,
         status: data.status,
-        baseUnit: data.baseUnit || undefined,
-        baseUnitPrice: data.baseUnitPrice,
-        costPrice: data.costPrice !== undefined && data.costPrice !== null ? Number(data.costPrice) : 0,
         items: data.items.map((item) => ({
           sl: item.sl,
-          code: item.code || undefined,
-          description: item.description || undefined,
-          height: item.height,
-          width: item.width,
-          depth: item.depth,
-          unit: item.unit || undefined,
-          unitPrice: item.unitPrice,
-          amount: item.amount,
+          itemId: item.itemId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice || undefined,
+          amount: item.amount || undefined,
           sortOrder: item.sortOrder,
         })),
       };
@@ -446,7 +218,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
         }
         router.push("/dashboard/items/groups");
       }
-    } catch (err: unknown) {
+    } catch (err: any) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
@@ -460,7 +232,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
           <CardTitle>{mode === "create" ? "Create Group" : "Edit Group"}</CardTitle>
           <CardDescription>
             {mode === "create"
-              ? "Create a new group template that can be used in quotations"
+              ? "Create a new combo or offer group template"
               : "Update the group information"}
           </CardDescription>
         </CardHeader>
@@ -471,40 +243,44 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
               <span>{error}</span>
             </div>
           )}
+          <div className="w-full">
+            <div className="space-y-2">
+              <Label htmlFor="name">Name *</Label>
+              <Input
+                id="name"
+                {...register("name")}
+                placeholder="Group name"
+                disabled={loading}
+              />
+              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+            </div>
 
-          {/* Top Row: Code, Base Unit, Base Unit Price, Cost Price, Status */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
             <div className="space-y-2">
               <Label htmlFor="code">Code</Label>
               <Input
                 id="code"
-                type="text"
-                placeholder="Optional code"
                 {...register("code")}
+                placeholder="Optional code"
                 disabled={loading}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="baseUnit">Base Unit</Label>
+              <Label htmlFor="type">Type</Label>
               <Controller
-                name="baseUnit"
+                name="type"
                 control={control}
                 render={({ field }) => (
-                  <Select 
-                    value={field.value || "sqm"} 
-                    onValueChange={field.onChange}
-                    disabled={loading}
-                  >
-                    <SelectTrigger id="baseUnit">
-                      <SelectValue placeholder="Select base unit" />
+                  <Select value={field.value} onValueChange={field.onChange} disabled={loading}>
+                    <SelectTrigger id="type">
+                      <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {GROUP_BASE_UNIT_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="Combo">Combo</SelectItem>
+                      <SelectItem value="Offer">Offer</SelectItem>
                     </SelectContent>
                   </Select>
                 )}
@@ -512,45 +288,17 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="baseUnitPrice">Base Unit Price</Label>
+              <Label htmlFor="price">Price *</Label>
               <Controller
-                name="baseUnitPrice"
+                name="price"
                 control={control}
                 render={({ field }) => (
                   <Input
-                    id="baseUnitPrice"
+                    id="price"
                     type="number"
                     step="0.01"
-                    placeholder="0.00"
-                    value={field.value !== undefined && field.value !== null ? field.value : ""}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const numVal = val === "" ? undefined : Number(val);
-                      field.onChange(numVal);
-                    }}
-                    disabled={loading}
-                  />
-                )}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="costPrice">Cost Price</Label>
-              <Controller
-                name="costPrice"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    id="costPrice"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={field.value !== undefined && field.value !== null ? field.value : ""}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const numVal = val === "" ? 0 : Number(val);
-                      field.onChange(numVal);
-                    }}
+                    value={field.value}
+                    onChange={(e) => field.onChange(Number(e.target.value))}
                     disabled={loading}
                   />
                 )}
@@ -577,13 +325,12 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
             </div>
           </div>
 
-          {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              placeholder="Group description"
               {...register("description")}
+              placeholder="Group description"
               disabled={loading}
               rows={3}
             />
@@ -592,7 +339,7 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
           {/* Items Section */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label>Items *</Label>
+              <Label className="text-lg font-semibold">Items *</Label>
               <Button
                 type="button"
                 variant="outline"
@@ -605,158 +352,128 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
               </Button>
             </div>
 
-            {items.length > 0 && (
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">SL</TableHead>
-                      <TableHead>Code</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>H</TableHead>
-                      <TableHead>W</TableHead>
-                      <TableHead>D</TableHead>
-                      <TableHead>Unit</TableHead>
-                      <TableHead>Unit Price</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead className="w-12"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((item, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{item.sl}</TableCell>
-                        <TableCell>
-                          <Input
-                            value={item.code || ""}
-                            placeholder="Auto-generated"
-                            disabled={true}
-                            readOnly
-                            className="w-[150px] bg-muted"
-                            title="Code is auto-generated from H-W-D dimensions"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={item.description || ""}
-                            onChange={(e) => updateItem(index, "description", e.target.value)}
-                            placeholder="Description"
-                            disabled={loading}
-                            className="w-[200px]"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={item.height || ""}
-                            onChange={(e) => updateItem(index, "height", e.target.value ? Number(e.target.value) : undefined)}
-                            placeholder="H"
-                            disabled={loading}
-                            className="w-20"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={item.width || ""}
-                            onChange={(e) => updateItem(index, "width", e.target.value ? Number(e.target.value) : undefined)}
-                            placeholder="W"
-                            disabled={loading}
-                            className="w-20"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={item.depth || ""}
-                            onChange={(e) => updateItem(index, "depth", e.target.value ? Number(e.target.value) : undefined)}
-                            placeholder="D"
-                            disabled={loading}
-                            className="w-20"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={(item.unit as LengthUnit | undefined) || "mm"}
-                            onValueChange={(value) => {
-                              updateItem(index, "unit", value);
-                            }}
-                            disabled={loading}
-                          >
-                            <SelectTrigger className="w-24">
-                              <SelectValue placeholder="Unit" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {GROUP_LENGTH_UNIT_OPTIONS.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">SL</TableHead>
+                    <TableHead className="w-[300px]">Item</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead>Unit Price</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead className="w-12"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{item.sl}</TableCell>
+                      <TableCell>
+                        <Select
+                          value={item.itemId || "none"}
+                          onValueChange={(val) => updateItem(index, "itemId", val === "none" ? "" : val)}
+                          disabled={loading || isCatalogLoading}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder={isCatalogLoading ? "Loading..." : "Select item"}>
+                              {item.itemId ? (
+                                <div className="flex flex-col text-left">
+                                  <span className="font-medium">{item.code}</span>
+                                  <span className="text-[10px] text-muted-foreground truncate max-w-[200px]">
+                                    {item.description}
+                                  </span>
+                                </div>
+                              ) : "Select item"}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[300px]">
+                            <div className="p-2 border-b">
+                              <div className="relative">
+                                <FiSearch className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                  placeholder="Search items..."
+                                  value={itemSearch[index] || ""}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    setItemSearch({ ...itemSearch, [index]: e.target.value });
+                                  }}
+                                  className="pl-8 h-8 text-xs font-normal"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </div>
+                            </div>
+                            <SelectItem value="none">Select an item</SelectItem>
+                            {catalogItems
+                              .filter(ci => 
+                                !itemSearch[index] || 
+                                ci.code.toLowerCase().includes(itemSearch[index].toLowerCase()) ||
+                                ci.description.toLowerCase().includes(itemSearch[index].toLowerCase())
+                              )
+                              .map((ci) => (
+                                <SelectItem key={ci.id} value={ci.id}>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{ci.code}</span>
+                                    <span className="text-xs text-muted-foreground truncate max-w-[250px]">
+                                      {ci.description}
+                                    </span>
+                                  </div>
                                 </SelectItem>
                               ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={item.unitPrice}
-                            onChange={(e) => updateItem(index, "unitPrice", Number(e.target.value))}
-                            placeholder="0.00"
-                            disabled={loading}
-                            className="w-24"
-                            readOnly
-                            title="Calculated from Group Base Unit Price"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-medium">{item.amount.toFixed(2)}</span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => duplicateItem(index)}
-                              disabled={loading}
-                              title="Duplicate item"
-                            >
-                              <FiCopy className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeItem(index)}
-                              disabled={loading}
-                              title="Remove item"
-                            >
-                              <FiTrash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-
-            {items.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground border rounded-lg">
-                No items added. Click &quot;Add Item&quot; to add items to this group.
-              </div>
-            )}
-
-            {errors.items && (
-              <p className="text-sm text-destructive">{errors.items.message}</p>
-            )}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={item.quantity}
+                          onChange={(e) => updateItem(index, "quantity", Number(e.target.value))}
+                          className="h-9 w-24"
+                          disabled={loading}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={item.unitPrice || 0}
+                          onChange={(e) => updateItem(index, "unitPrice", Number(e.target.value))}
+                          className="h-9 w-32"
+                          disabled={loading}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-semibold h-9 flex items-center">
+                          {formatCurrency(item.amount || 0)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeItem(index)}
+                          disabled={loading}
+                        >
+                          <FiTrash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {items.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        No items added yet.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            {errors.items && <p className="text-sm text-destructive">{errors.items.message}</p>}
           </div>
 
-          <div className="flex justify-end gap-4 pt-4 border-t">
+          <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
               type="button"
               variant="outline"
@@ -774,4 +491,3 @@ export default function GroupForm({ mode, initialData }: GroupFormProps) {
     </form>
   );
 }
-

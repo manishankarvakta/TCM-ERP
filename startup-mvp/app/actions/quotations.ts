@@ -7,6 +7,7 @@ import { auth } from '@/lib/auth';
 import { notifyItemCreated, notifyItemUpdated, notifyItemDeleted } from '@/lib/notification';
 import { createUserLog, LogAction } from '@/lib/user-log';
 import { createClient } from '@/app/(dashboard)/dashboard/crm/clients/_actions/client.action';
+import { serializeData } from '@/lib/utils/serialization';
 
 /**
  * Get all quotations with relations
@@ -84,8 +85,8 @@ export async function getQuotations(
         OR: [
           { quotationNumber: { contains: search, mode: 'insensitive' } },
           { subject: { contains: search, mode: 'insensitive' } },
-          { client: { name: { contains: search, mode: 'insensitive' } } },
-          { client: { company: { contains: search, mode: 'insensitive' } } },
+          { Client: { name: { contains: search, mode: 'insensitive' } } },
+          { Client: { company: { contains: search, mode: 'insensitive' } } },
         ],
       });
     }
@@ -100,7 +101,7 @@ export async function getQuotations(
     const quotations = await prisma.quotation.findMany({
       where,
       include: {
-        client: {
+        Client: {
           select: {
             id: true,
             name: true,
@@ -109,7 +110,7 @@ export async function getQuotations(
             image: true,
           },
         },
-        submittedBy: {
+        User_Quotation_submittedByIdToUser: {
           select: {
             id: true,
             name: true,
@@ -117,13 +118,13 @@ export async function getQuotations(
             image: true,
           },
         },
-        organization: {
+        Organization: {
           select: {
             id: true,
             name: true,
           },
         },
-        updatedBy: {
+        User_Quotation_updatedByIdToUser: {
           select: {
             id: true,
             name: true,
@@ -131,7 +132,7 @@ export async function getQuotations(
             image: true,
           },
         },
-        order: {
+        Order: {
           select: {
             id: true,
             orderNumber: true,
@@ -160,7 +161,7 @@ export async function getQuotations(
 
     return {
       success: true,
-      quotations: serializedQuotations,
+      quotations: serializeData(quotations),
       pagination: {
         page,
         limit,
@@ -202,7 +203,7 @@ export async function getQuotation(id: string) {
     const quotation = await prisma.quotation.findUnique({
       where: { id },
       include: {
-        client: {
+        Client: {
           select: {
             id: true,
             name: true,
@@ -213,14 +214,14 @@ export async function getQuotation(id: string) {
             image: true,
           },
         },
-        order: {
+        Order: {
           select: {
             id: true,
             orderNumber: true,
             status: true,
           },
         },
-        organization: {
+        Organization: {
           select: {
             id: true,
             name: true,
@@ -232,14 +233,14 @@ export async function getQuotation(id: string) {
             logo: true,
           },
         },
-        submittedBy: {
+        User_Quotation_submittedByIdToUser: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        updatedBy: {
+        User_Quotation_updatedByIdToUser: {
           select: {
             id: true,
             name: true,
@@ -247,20 +248,20 @@ export async function getQuotation(id: string) {
             image: true,
           },
         },
-        section: {
+        Section: {
           include: {
-            preparedBy: {
+            User: {
               select: {
                 id: true,
                 name: true,
                 email: true,
               },
             },
-            groups: {
+            ItemGroup: {
               include: {
-                items: {
+                QuotationItem: {
                   include: {
-                    item: {
+                    Item: {
                       select: {
                         id: true,
                         code: true,
@@ -275,9 +276,9 @@ export async function getQuotation(id: string) {
                 sortOrder: 'asc',
               },
             },
-            items: {
+            QuotationItem: {
               include: {
-                item: {
+                Item: {
                   select: {
                     id: true,
                     code: true,
@@ -290,17 +291,17 @@ export async function getQuotation(id: string) {
                 sortOrder: 'asc',
               },
             },
-            categoryGroups: {
+            CategoryGroup: {
               include: {
-                category: {
+                Category: {
                   select: {
                     id: true,
                     name: true,
                   },
                 },
-                items: {
+                QuotationItem: {
                   include: {
-                    item: {
+                    Item: {
                       select: {
                         id: true,
                         code: true,
@@ -354,22 +355,25 @@ export async function getQuotation(id: string) {
       shippingCharges: quotation.shippingCharges ? Number(quotation.shippingCharges) : null,
       vatIncluded: quotation.vatIncluded,
       projectLocation: quotation.projectLocation,
-      client: quotation.client,
-      organization: quotation.organization || null,
+      client: (quotation as any).Client,
+      order: (quotation as any).Order,
+      organization: (quotation as any).Organization || null,
       organizationId: quotation.organizationId || null,
-      submittedBy: quotation.submittedBy,
-      section: quotation.section?.map((section) => ({
+      submittedBy: (quotation as any).User_Quotation_submittedByIdToUser,
+      updatedBy: (quotation as any).User_Quotation_updatedByIdToUser,
+      section: (quotation as any).Section?.map((section: any) => ({
         ...section,
         discount: section.discount ? Number(section.discount) : null,
         total: section.total ? Number(section.total) : null,
         grandTotal: section.grandTotal ? Number(section.grandTotal) : null,
         categoryId: section.categoryId || null,
-        groups: section.groups?.map((group) => ({
+        preparedBy: section.User,
+        groups: section.ItemGroup?.map((group: any) => ({
           ...group,
           quantity: group.quantity ? Number(group.quantity) : null,
           baseUnit: group.baseUnit || null,
           baseUnitPrice: group.baseUnitPrice ? Number(group.baseUnitPrice) : null,
-          items: group.items?.map((item) => ({
+          items: group.QuotationItem?.map((item: any) => ({
             ...item,
             no: item.no != null ? String(item.no) : null, // Ensure no is always string
             height: item.height ? Number(item.height) : null,
@@ -381,13 +385,13 @@ export async function getQuotation(id: string) {
             unitShutter: item.unitShutter ? Number(item.unitShutter) : null,
             totalShutter: item.totalShutter ? Number(item.totalShutter) : null,
             amount: Number(item.amount),
-            item: item.item ? {
-              ...item.item,
-              unitPrice: Number(item.item.unitPrice),
+            item: item.Item ? {
+              ...item.Item,
+              unitPrice: Number(item.Item.unitPrice),
             } : null,
           })),
         })),
-        items: section.items?.map((item) => ({
+        items: section.QuotationItem?.map((item: any) => ({
           ...item,
           height: item.height ? Number(item.height) : null,
           width: item.width ? Number(item.width) : null,
@@ -398,19 +402,19 @@ export async function getQuotation(id: string) {
           unitShutter: item.unitShutter ? Number(item.unitShutter) : null,
           totalShutter: item.totalShutter ? Number(item.totalShutter) : null,
           amount: Number(item.amount),
-          item: item.item ? {
-            ...item.item,
-            unitPrice: Number(item.item.unitPrice),
+          item: item.Item ? {
+            ...item.Item,
+            unitPrice: Number(item.Item.unitPrice),
           } : null,
         })),
-        categoryGroups: section.categoryGroups?.map((categoryGroup) => ({
+        categoryGroups: section.CategoryGroup?.map((categoryGroup: any) => ({
           ...categoryGroup,
           categoryId: categoryGroup.categoryId || null,
-          category: categoryGroup.category ? {
-            id: categoryGroup.category.id,
-            name: categoryGroup.category.name,
+          category: categoryGroup.Category ? {
+            id: categoryGroup.Category.id,
+            name: categoryGroup.Category.name,
           } : null,
-          items: categoryGroup.items?.map((item) => ({
+          items: categoryGroup.QuotationItem?.map((item: any) => ({
             ...item,
             height: item.height ? Number(item.height) : null,
             width: item.width ? Number(item.width) : null,
@@ -421,9 +425,9 @@ export async function getQuotation(id: string) {
             unitShutter: item.unitShutter ? Number(item.unitShutter) : null,
             totalShutter: item.totalShutter ? Number(item.totalShutter) : null,
             amount: Number(item.amount),
-            item: item.item ? {
-              ...item.item,
-              unitPrice: Number(item.item.unitPrice),
+            item: item.Item ? {
+              ...item.Item,
+              unitPrice: Number(item.Item.unitPrice),
             } : null,
           })),
         })),
@@ -432,7 +436,7 @@ export async function getQuotation(id: string) {
 
     return {
       success: true,
-      data: serializedQuotation,
+      data: serializeData(serializedQuotation),
     };
   } catch (error) {
     console.error('Error fetching quotation:', error);
@@ -643,7 +647,7 @@ export async function createQuotation(data: any) {
         projectLocation: data.projectLocation || null,
         opportunityId: (data as any).opportunityId || null,
         isTrash: false,
-        section: {
+        Section: {
           create: (enrichedSections || []).map((section: any, sectionIndex: number) => ({
             title: section.title || `Section ${sectionIndex + 1}`,
             note: section.note || null,
@@ -653,7 +657,7 @@ export async function createQuotation(data: any) {
             sortOrder: section.sortOrder ?? sectionIndex,
             categoryId: section.categoryId || null,
             preparedById: section.preparedById || session.user.id,
-            groups: {
+            ItemGroup: {
               create: (section.groups || []).map((group: any, groupIndex: number) => ({
                 code: group.code || null,
                 description: group.description || '',
@@ -663,7 +667,7 @@ export async function createQuotation(data: any) {
                 moduleGroupId: group.moduleGroupId && group.moduleGroupId !== '' ? group.moduleGroupId : null,
                 baseUnit: group.baseUnit || null,
                 baseUnitPrice: group.baseUnitPrice ? new Prisma.Decimal(group.baseUnitPrice) : null,
-                items: {
+                QuotationItem: {
                   create: (group.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,
                     no: item.no != null && item.no !== '' ? String(item.no) : null,
@@ -686,7 +690,7 @@ export async function createQuotation(data: any) {
                 },
               })),
             },
-            items: {
+            QuotationItem: {
               create: (section.items || []).map((item: any, itemIndex: number) => ({
                 sl: item.sl ?? itemIndex + 1,
                 no: item.no != null && item.no !== '' ? String(item.no) : null,
@@ -706,11 +710,11 @@ export async function createQuotation(data: any) {
                 itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
               })),
             },
-            categoryGroups: {
+            CategoryGroup: {
               create: (section.categoryGroups || []).map((categoryGroup: any, categoryGroupIndex: number) => ({
                 categoryId: categoryGroup.categoryId || null,
                 sortOrder: categoryGroup.sortOrder ?? categoryGroupIndex,
-                items: {
+                QuotationItem: {
                   create: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,
                     no: item.no != null && item.no !== '' ? String(item.no) : null,
@@ -737,13 +741,13 @@ export async function createQuotation(data: any) {
       },
       // Selective includes: Only fetch essential relations, not everything
       include: {
-        client: {
+        Client: {
           select: { id: true, name: true },
         },
-        submittedBy: {
+        User_Quotation_submittedByIdToUser: {
           select: { id: true, name: true, email: true },
         },
-        section: {
+        Section: {
           select: {
             id: true,
             title: true,
@@ -782,7 +786,7 @@ export async function createQuotation(data: any) {
     
     return {
       success: true,
-      data: quotation,
+      data: serializeData(quotation),
     };
   } catch (error) {
     console.error('Error creating quotation:', error);
@@ -1018,7 +1022,7 @@ export async function updateQuotation(id: string, data: any) {
         shippingCharges: data.shippingCharges !== undefined ? (data.shippingCharges ? new Prisma.Decimal(data.shippingCharges) : new Prisma.Decimal(0)) : existingQuotation.shippingCharges,
         vatIncluded: data.vatIncluded !== undefined ? data.vatIncluded : existingQuotation.vatIncluded,
         projectLocation: data.projectLocation !== undefined ? (data.projectLocation || null) : existingQuotation.projectLocation,
-        section: {
+        Section: {
           create: (enrichedSections || []).map((section: any, sectionIndex: number) => ({
             title: section.title || `Section ${sectionIndex + 1}`,
             note: section.note || null,
@@ -1028,7 +1032,7 @@ export async function updateQuotation(id: string, data: any) {
             sortOrder: section.sortOrder ?? sectionIndex,
             categoryId: section.categoryId || null,
             preparedById: section.preparedById || session.user.id,
-            groups: {
+            ItemGroup: {
               create: (section.groups || []).map((group: any, groupIndex: number) => ({
                 code: group.code || null,
                 description: group.description || '',
@@ -1038,7 +1042,7 @@ export async function updateQuotation(id: string, data: any) {
                 moduleGroupId: group.moduleGroupId && group.moduleGroupId !== '' ? group.moduleGroupId : null,
                 baseUnit: group.baseUnit || null,
                 baseUnitPrice: group.baseUnitPrice ? new Prisma.Decimal(group.baseUnitPrice) : null,
-                items: {
+                QuotationItem: {
                   create: (group.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,
                     no: item.no != null && item.no !== '' ? String(item.no) : null,
@@ -1061,7 +1065,7 @@ export async function updateQuotation(id: string, data: any) {
                 },
               })),
             },
-            items: {
+            QuotationItem: {
               create: (section.items || []).map((item: any, itemIndex: number) => ({
                 sl: item.sl ?? itemIndex + 1,
                 no: item.no != null && item.no !== '' ? String(item.no) : null,
@@ -1081,11 +1085,11 @@ export async function updateQuotation(id: string, data: any) {
                 itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
               })),
             },
-            categoryGroups: {
+            CategoryGroup: {
               create: (section.categoryGroups || []).map((categoryGroup: any, categoryGroupIndex: number) => ({
                 categoryId: categoryGroup.categoryId || null,
                 sortOrder: categoryGroup.sortOrder ?? categoryGroupIndex,
-                items: {
+                QuotationItem: {
                   create: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
                     sl: item.sl ?? itemIndex + 1,
                     no: item.no != null && item.no !== '' ? String(item.no) : null,
@@ -1112,16 +1116,16 @@ export async function updateQuotation(id: string, data: any) {
       },
       // Selective includes: Only fetch essential relations, not everything
       include: {
-        client: {
+        Client: {
           select: { id: true, name: true },
         },
-        submittedBy: {
+        User_Quotation_submittedByIdToUser: {
           select: { id: true, name: true, email: true },
         },
-        updatedBy: {
+        User_Quotation_updatedByIdToUser: {
           select: { id: true, name: true, email: true },
         },
-        section: {
+        Section: {
           select: {
             id: true,
             title: true,
@@ -1212,7 +1216,7 @@ export async function updateQuotation(id: string, data: any) {
     
     return {
       success: true,
-      data: quotation,
+      data: serializeData(quotation),
     };
   } catch (error) {
     return {

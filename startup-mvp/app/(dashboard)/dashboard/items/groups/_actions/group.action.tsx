@@ -41,6 +41,7 @@ export async function getGroups(
     if (search) {
       where.OR = [
         { code: { contains: search, mode: "insensitive" } },
+        { name: { contains: search, mode: "insensitive" } },
         { description: { contains: search, mode: "insensitive" } },
       ];
     }
@@ -64,17 +65,8 @@ export async function getGroups(
       where,
       skip,
       take: limit,
-      select: {
-        id: true,
-        code: true,
-        description: true,
-        sortOrder: true,
-        status: true,
-        baseUnit: true,
-        baseUnitPrice: true,
-        costPrice: true,
-        createdBy: true,
-        creator: {
+      include: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -82,36 +74,40 @@ export async function getGroups(
             image: true,
           },
         },
-        items: {
-          select: {
-            id: true,
-            sl: true,
-            code: true,
-            description: true,
-            unitPrice: true,
-            amount: true,
+        ModuleGroupItem: {
+          include: {
+            Item: {
+              include: {
+                Unit: true,
+              },
+            },
           },
           orderBy: {
             sortOrder: "asc",
           },
         },
-        createdAt: true,
-        updatedAt: true,
       },
       orderBy: {
         createdAt: "desc",
       },
     });
 
-    // Serialize Decimal fields
-    const serializedGroups = groups.map((mg) => ({
+    // Serialize Decimal fields and map to frontend structure
+    const serializedGroups = groups.map((mg: any) => ({
       ...mg,
-      baseUnitPrice: mg.baseUnitPrice !== null && mg.baseUnitPrice !== undefined ? Number(mg.baseUnitPrice) : null,
-      costPrice: Number(mg.costPrice),
-      items: mg.items.map((item) => ({
-        ...item,
-        unitPrice: Number(item.unitPrice),
-        amount: Number(item.amount),
+      creator: mg.User,
+      price: Number(mg.price),
+      items: mg.ModuleGroupItem.map((item: any) => ({
+        id: item.id,
+        sl: item.sl,
+        itemId: item.itemId,
+        code: item.Item.code,
+        description: item.Item.description,
+        unit: item.Item.Unit.symbol,
+        quantity: Number(item.quantity),
+        unitPrice: item.unitPrice ? Number(item.unitPrice) : Number(item.Item.unitPrice),
+        amount: item.amount ? Number(item.amount) : (Number(item.quantity) * (item.unitPrice ? Number(item.unitPrice) : Number(item.Item.unitPrice))),
+        sortOrder: item.sortOrder,
       })),
     }));
 
@@ -158,17 +154,8 @@ export async function getGroupById(groupId: string) {
 
     const group = await prisma.moduleGroup.findUnique({
       where: { id: groupId },
-      select: {
-        id: true,
-        code: true,
-        description: true,
-        sortOrder: true,
-        status: true,
-        baseUnit: true,
-        baseUnitPrice: true,
-        costPrice: true,
-        createdBy: true,
-        creator: {
+      include: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -176,26 +163,18 @@ export async function getGroupById(groupId: string) {
             image: true,
           },
         },
-        items: {
-          select: {
-            id: true,
-            sl: true,
-            code: true,
-            description: true,
-            height: true,
-            width: true,
-            depth: true,
-            unit: true,
-            unitPrice: true,
-            amount: true,
-            sortOrder: true,
+        ModuleGroupItem: {
+          include: {
+            Item: {
+              include: {
+                Unit: true,
+              },
+            },
           },
           orderBy: {
             sortOrder: "asc",
           },
         },
-        createdAt: true,
-        updatedAt: true,
       },
     });
 
@@ -207,18 +186,22 @@ export async function getGroupById(groupId: string) {
       };
     }
 
-    // Serialize Decimal fields
+    // Serialize Decimal fields and map to frontend structure
     const serializedGroup = {
       ...group,
-      baseUnitPrice: group.baseUnitPrice !== null && group.baseUnitPrice !== undefined ? Number(group.baseUnitPrice) : null,
-      costPrice: Number(group.costPrice),
-      items: group.items.map((item) => ({
-        ...item,
-        height: item.height ? Number(item.height) : null,
-        width: item.width ? Number(item.width) : null,
-        depth: item.depth ? Number(item.depth) : null,
-        unitPrice: Number(item.unitPrice),
-        amount: Number(item.amount),
+      creator: (group as any).User,
+      price: Number(group.price),
+      items: (group as any).ModuleGroupItem.map((item: any) => ({
+        id: item.id,
+        sl: item.sl,
+        itemId: item.itemId,
+        code: item.Item.code,
+        description: item.Item.description,
+        unit: item.Item.Unit.symbol,
+        quantity: Number(item.quantity),
+        unitPrice: item.unitPrice ? Number(item.unitPrice) : Number(item.Item.unitPrice),
+        amount: item.amount ? Number(item.amount) : (Number(item.quantity) * (item.unitPrice ? Number(item.unitPrice) : Number(item.Item.unitPrice))),
+        sortOrder: item.sortOrder,
       })),
     };
 
@@ -241,22 +224,18 @@ export async function getGroupById(groupId: string) {
  */
 export async function createGroup(input: {
   code?: string;
+  name: string;
   description?: string;
+  type?: string;
+  price: number;
   sortOrder?: number;
   status?: "active" | "inactive";
-  baseUnit?: string;
-  baseUnitPrice?: number;
-  costPrice?: number;
   items: Array<{
     sl: number;
-    code?: string;
-    description?: string;
-    height?: number;
-    width?: number;
-    depth?: number;
-    unit?: string;
-    unitPrice: number;
-    amount: number;
+    itemId: string;
+    quantity: number;
+    unitPrice?: number;
+    amount?: number;
     sortOrder: number;
   }>;
 }) {
@@ -275,42 +254,46 @@ export async function createGroup(input: {
     const group = await prisma.moduleGroup.create({
       data: {
         code: input.code || null,
+        name: input.name,
         description: input.description || null,
+        type: input.type || "Combo",
+        price: new Prisma.Decimal(input.price),
         sortOrder: input.sortOrder || 0,
         status: input.status || "active",
-        baseUnit: input.baseUnit || null,
-        baseUnitPrice: input.baseUnitPrice ? new Prisma.Decimal(input.baseUnitPrice) : null,
-        costPrice: input.costPrice !== undefined && input.costPrice !== null && !isNaN(Number(input.costPrice)) ? new Prisma.Decimal(input.costPrice) : new Prisma.Decimal(0),
         createdBy: session.user.id,
-        items: {
+        ModuleGroupItem: {
           create: input.items.map((item) => ({
             sl: item.sl,
-            code: item.code || null,
-            description: item.description || null,
-            height: item.height ? new Prisma.Decimal(item.height) : null,
-            width: item.width ? new Prisma.Decimal(item.width) : null,
-            depth: item.depth ? new Prisma.Decimal(item.depth) : null,
-            unit: item.unit || null,
-            unitPrice: new Prisma.Decimal(item.unitPrice),
-            amount: new Prisma.Decimal(item.amount),
+            itemId: item.itemId,
+            quantity: new Prisma.Decimal(item.quantity),
+            unitPrice: item.unitPrice ? new Prisma.Decimal(item.unitPrice) : null,
+            amount: item.amount ? new Prisma.Decimal(item.amount) : null,
             sortOrder: item.sortOrder,
           })),
         },
       },
       include: {
-        creator: {
+        User: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        items: true,
+        ModuleGroupItem: {
+          include: {
+            Item: {
+              include: {
+                Unit: true,
+              },
+            },
+          },
+        },
       },
     });
 
     // Notify and log
-    const groupLabel = group.code || "Untitled Group";
+    const groupLabel = group.name || group.code || "Untitled Group";
     await notifyItemCreated(
       session.user.id,
       "Group",
@@ -328,7 +311,17 @@ export async function createGroup(input: {
 
     return {
       success: true,
-      group,
+      group: {
+        ...group,
+        creator: (group as any).User,
+        price: Number(group.price),
+        items: (group as any).ModuleGroupItem.map((item: any) => ({
+          ...item,
+          quantity: Number(item.quantity),
+          unitPrice: item.unitPrice ? Number(item.unitPrice) : Number(item.Item.unitPrice),
+          amount: item.amount ? Number(item.amount) : (Number(item.quantity) * (item.unitPrice ? Number(item.unitPrice) : Number(item.Item.unitPrice))),
+        })),
+      },
     };
   } catch (error) {
     console.error("createGroup error:", error);
@@ -346,23 +339,18 @@ export async function createGroup(input: {
 export async function updateGroup(input: {
   id: string;
   code?: string;
+  name: string;
   description?: string;
+  type?: string;
+  price: number;
   sortOrder?: number;
   status?: "active" | "inactive";
-  baseUnit?: string;
-  baseUnitPrice?: number;
-  costPrice?: number;
   items: Array<{
-    id?: string;
     sl: number;
-    code?: string;
-    description?: string;
-    height?: number;
-    width?: number;
-    depth?: number;
-    unit?: string;
-    unitPrice: number;
-    amount: number;
+    itemId: string;
+    quantity: number;
+    unitPrice?: number;
+    amount?: number;
     sortOrder: number;
   }>;
 }) {
@@ -400,41 +388,45 @@ export async function updateGroup(input: {
       where: { id: input.id },
       data: {
         code: input.code || null,
+        name: input.name,
         description: input.description || null,
+        type: input.type || "Combo",
+        price: new Prisma.Decimal(input.price),
         sortOrder: input.sortOrder || 0,
         status: input.status || "active",
-        baseUnit: input.baseUnit || null,
-        baseUnitPrice: input.baseUnitPrice ? new Prisma.Decimal(input.baseUnitPrice) : null,
-        costPrice: input.costPrice !== undefined && input.costPrice !== null && !isNaN(Number(input.costPrice)) ? new Prisma.Decimal(input.costPrice) : new Prisma.Decimal(0),
-        items: {
+        ModuleGroupItem: {
           create: input.items.map((item) => ({
             sl: item.sl,
-            code: item.code || null,
-            description: item.description || null,
-            height: item.height ? new Prisma.Decimal(item.height) : null,
-            width: item.width ? new Prisma.Decimal(item.width) : null,
-            depth: item.depth ? new Prisma.Decimal(item.depth) : null,
-            unit: item.unit || null,
-            unitPrice: new Prisma.Decimal(item.unitPrice),
-            amount: new Prisma.Decimal(item.amount),
+            itemId: item.itemId,
+            quantity: new Prisma.Decimal(item.quantity),
+            unitPrice: item.unitPrice ? new Prisma.Decimal(item.unitPrice) : null,
+            amount: item.amount ? new Prisma.Decimal(item.amount) : null,
             sortOrder: item.sortOrder,
           })),
         },
       },
       include: {
-        creator: {
+        User: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        items: true,
+        ModuleGroupItem: {
+          include: {
+            Item: {
+              include: {
+                Unit: true,
+              },
+            },
+          },
+        },
       },
     });
 
     // Notify and log
-    const groupLabel = group.code || "Untitled Group";
+    const groupLabel = group.name || group.code || "Untitled Group";
     await notifyItemUpdated(
       session.user.id,
       "Group",
@@ -452,7 +444,17 @@ export async function updateGroup(input: {
 
     return {
       success: true,
-      group,
+      group: {
+        ...group,
+        creator: (group as any).User,
+        price: Number(group.price),
+        items: (group as any).ModuleGroupItem.map((item: any) => ({
+          ...item,
+          quantity: Number(item.quantity),
+          unitPrice: item.unitPrice ? Number(item.unitPrice) : Number(item.Item.unitPrice),
+          amount: item.amount ? Number(item.amount) : (Number(item.quantity) * (item.unitPrice ? Number(item.unitPrice) : Number(item.Item.unitPrice))),
+        })),
+      },
     };
   } catch (error) {
     console.error("updateGroup error:", error);
@@ -498,7 +500,7 @@ export async function deleteGroup(id: string) {
     });
 
     // Notify and log
-    const groupLabel = group.code || "Untitled Group";
+    const groupLabel = group.name || group.code || "Untitled Group";
     await notifyItemDeleted(
       session.user.id,
       "Group",
@@ -564,7 +566,7 @@ export async function deleteGroupPermanently(id: string) {
     });
 
     // Log permanent deletion
-    const groupLabel = group.code || "Untitled Group";
+    const groupLabel = group.name || group.code || "Untitled Group";
     await createUserLog({
       userId: session.user.id,
       action: LogAction.ITEM_DELETED,
@@ -638,7 +640,7 @@ export async function restoreGroup(id: string) {
     });
 
     // Notify and log
-    const groupLabel = group.code || "Untitled Group";
+    const groupLabel = group.name || group.code || "Untitled Group";
     await notifyItemUpdated(
       session.user.id,
       "Group",
@@ -707,6 +709,7 @@ export async function bulkUpdateGroupStatus(
       select: {
         id: true,
         code: true,
+        name: true,
       },
     });
 
@@ -724,7 +727,7 @@ export async function bulkUpdateGroupStatus(
 
     // Notify for each group
     for (const group of updatedGroups) {
-      const groupLabel = group.code || "Untitled Group";
+      const groupLabel = group.name || group.code || "Untitled Group";
       if (status === "trash") {
         await notifyItemDeleted(
           session.user.id,
@@ -785,6 +788,7 @@ export async function deleteGroupsPermanently(groupIds: string[]) {
       select: {
         id: true,
         code: true,
+        name: true,
       },
     });
 
@@ -816,7 +820,7 @@ export async function deleteGroupsPermanently(groupIds: string[]) {
 
     // Notify for each group
     for (const group of groups) {
-      const groupLabel = group.code || "Untitled Group";
+      const groupLabel = group.name || group.code || "Untitled Group";
       await notifyItemDeleted(
         session.user.id,
         "Group",
@@ -856,25 +860,14 @@ export async function getModuleGroupById(id: string) {
 
     const group = await prisma.moduleGroup.findUnique({
       where: { id },
-      select: {
-        id: true,
-        code: true,
-        description: true,
-        baseUnit: true,
-        baseUnitPrice: true,
-        items: {
-          select: {
-            id: true,
-            sl: true,
-            code: true,
-            description: true,
-            height: true,
-            width: true,
-            depth: true,
-            unit: true,
-            unitPrice: true,
-            amount: true,
-            sortOrder: true,
+      include: {
+        ModuleGroupItem: {
+          include: {
+            Item: {
+              include: {
+                Unit: true,
+              },
+            },
           },
           orderBy: {
             sortOrder: "asc",
@@ -891,18 +884,21 @@ export async function getModuleGroupById(id: string) {
       };
     }
 
-    // Serialize Decimal fields
+    // Serialize Decimal fields and map to frontend structure
     const serializedGroup = {
       ...group,
-      baseUnitPrice: group.baseUnitPrice !== null && group.baseUnitPrice !== undefined ? Number(group.baseUnitPrice) : null,
-      costPrice: Number(group.costPrice),
-      items: group.items.map((item) => ({
-        ...item,
-        height: item.height ? Number(item.height) : null,
-        width: item.width ? Number(item.width) : null,
-        depth: item.depth ? Number(item.depth) : null,
-        unitPrice: Number(item.unitPrice),
-        amount: Number(item.amount),
+      price: Number(group.price),
+      items: (group as any).ModuleGroupItem.map((item: any) => ({
+        id: item.id,
+        sl: item.sl,
+        itemId: item.itemId,
+        code: item.Item.code,
+        description: item.Item.description,
+        unit: item.Item.Unit.symbol,
+        quantity: Number(item.quantity),
+        unitPrice: item.unitPrice ? Number(item.unitPrice) : Number(item.Item.unitPrice),
+        amount: item.amount ? Number(item.amount) : (Number(item.quantity) * (item.unitPrice ? Number(item.unitPrice) : Number(item.Item.unitPrice))),
+        sortOrder: item.sortOrder,
       })),
     };
 
@@ -939,18 +935,14 @@ export async function getActiveGroups() {
       where: {
         status: "active",
       },
-      select: {
-        id: true,
-        code: true,
-        description: true,
-        items: {
-          select: {
-            id: true,
-            sl: true,
-            code: true,
-            description: true,
-            unitPrice: true,
-            amount: true,
+      include: {
+        ModuleGroupItem: {
+          include: {
+            Item: {
+              include: {
+                Unit: true,
+              },
+            },
           },
           orderBy: {
             sortOrder: "asc",
@@ -958,17 +950,25 @@ export async function getActiveGroups() {
         },
       },
       orderBy: {
-        code: "asc",
+        name: "asc",
       },
     });
 
-    // Serialize Decimal fields
-    const serializedGroups = groups.map((mg) => ({
+    // Serialize Decimal fields and map to frontend structure
+    const serializedGroups = groups.map((mg: any) => ({
       ...mg,
-      items: mg.items.map((item) => ({
-        ...item,
-        unitPrice: Number(item.unitPrice),
-        amount: Number(item.amount),
+      price: Number(mg.price),
+      items: mg.ModuleGroupItem.map((item: any) => ({
+        id: item.id,
+        sl: item.sl,
+        itemId: item.itemId,
+        code: item.Item.code,
+        description: item.Item.description,
+        unit: item.Item.Unit.symbol,
+        quantity: Number(item.quantity),
+        unitPrice: item.unitPrice ? Number(item.unitPrice) : Number(item.Item.unitPrice),
+        amount: item.amount ? Number(item.amount) : (Number(item.quantity) * (item.unitPrice ? Number(item.unitPrice) : Number(item.Item.unitPrice))),
+        sortOrder: item.sortOrder,
       })),
     }));
 
@@ -985,4 +985,3 @@ export async function getActiveGroups() {
     };
   }
 }
-

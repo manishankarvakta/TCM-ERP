@@ -44,7 +44,7 @@ export async function getItems(
       where.OR = [
         { code: { contains: search, mode: "insensitive" } },
         { description: { contains: search, mode: "insensitive" } },
-        { categories: { some: { category: { name: { contains: search, mode: "insensitive" } } } } },
+        { ItemCategory: { some: { Category: { name: { contains: search, mode: "insensitive" } } } } },
       ];
     }
 
@@ -62,7 +62,7 @@ export async function getItems(
 
     // Filter by category
     if (categoryId && categoryId !== "all") {
-      where.categories = {
+      where.ItemCategory = {
         some: {
           categoryId: categoryId,
         },
@@ -82,7 +82,7 @@ export async function getItems(
         code: true,
         description: true,
         unitId: true,
-        unit: {
+        Unit: {
           select: {
             id: true,
             symbol: true,
@@ -91,10 +91,10 @@ export async function getItems(
         },
         unitPrice: true,
         costPrice: true,
-        categories: {
+        ItemCategory: {
           select: {
             id: true,
-            category: {
+            Category: {
               select: {
                 id: true,
                 name: true,
@@ -106,15 +106,16 @@ export async function getItems(
         status: true,
         createdAt: true,
         updatedAt: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+      } as any,
     });
 
-    // Convert Decimal to number for serialization
-    const serializedItems = items.map((item) => ({
+    const serializedItems = items.map((item: any) => ({
       ...item,
+      unit: item.Unit,
+      categories: item.ItemCategory?.map((ic: any) => ({
+        ...ic,
+        category: ic.Category
+      })),
       unitPrice: Number(item.unitPrice),
       costPrice: item.costPrice !== null && item.costPrice !== undefined ? Number(item.costPrice) : null,
     }));
@@ -169,7 +170,7 @@ export async function getItemById(itemId: string) {
         code: true,
         description: true,
         unitId: true,
-        unit: {
+        Unit: {
           select: {
             id: true,
             symbol: true,
@@ -178,10 +179,10 @@ export async function getItemById(itemId: string) {
         },
         unitPrice: true,
         costPrice: true,
-        categories: {
+        ItemCategory: {
           select: {
             id: true,
-            category: {
+            Category: {
               select: {
                 id: true,
                 name: true,
@@ -193,7 +194,7 @@ export async function getItemById(itemId: string) {
         status: true,
         createdAt: true,
         updatedAt: true,
-      },
+      } as any,
     });
 
     if (!item) {
@@ -204,11 +205,15 @@ export async function getItemById(itemId: string) {
       };
     }
 
-    // Serialize Decimal fields to numbers for client components
     const serializedItem = {
       ...item,
-      unitPrice: Number(item.unitPrice),
-      costPrice: item.costPrice !== null && item.costPrice !== undefined ? Number(item.costPrice) : null,
+      unit: (item as any).Unit,
+      categories: (item as any).ItemCategory?.map((ic: any) => ({
+        ...ic,
+        category: ic.Category
+      })),
+      unitPrice: Number((item as any).unitPrice),
+      costPrice: (item as any).costPrice !== null && (item as any).costPrice !== undefined ? Number((item as any).costPrice) : null,
     };
 
     return {
@@ -336,9 +341,9 @@ export async function getActiveItems() {
         description: true,
         unitPrice: true,
         costPrice: true,
-        categories: {
+        ItemCategory: {
           select: {
-            category: {
+            Category: {
               select: {
                 id: true,
                 name: true,
@@ -346,7 +351,7 @@ export async function getActiveItems() {
             },
           },
         },
-        unit: {
+        Unit: {
           select: {
             id: true,
             symbol: true,
@@ -358,9 +363,13 @@ export async function getActiveItems() {
       },
     });
 
-    // Convert Decimal to number for serialization
-    const serializedItems = items.map((item) => ({
+    const serializedItems = items.map((item: any) => ({
       ...item,
+      unit: item.Unit,
+      categories: item.ItemCategory?.map((ic: any) => ({
+        ...ic,
+        category: ic.Category
+      })),
       unitPrice: Number(item.unitPrice),
       costPrice: item.costPrice !== null && item.costPrice !== undefined ? Number(item.costPrice) : null,
     }));
@@ -422,11 +431,11 @@ export async function createItem(input: {
         code: input.code,
         description: input.description,
         unitId: input.unitId,
-        unitPrice: new Prisma.Decimal(input.unitPrice),
-        costPrice: new Prisma.Decimal(input.costPrice),
+        unitPrice: new Prisma.Decimal(input.unitPrice || 0),
+        costPrice: new Prisma.Decimal(input.costPrice || 0),
         image: input.image || null,
         status: input.status || "active",
-        categories: input.categoryIds && input.categoryIds.length > 0
+        ItemCategory: input.categoryIds && input.categoryIds.length > 0
           ? {
               create: input.categoryIds.map((categoryId) => ({
                 categoryId,
@@ -439,7 +448,7 @@ export async function createItem(input: {
         code: true,
         description: true,
         unitId: true,
-        unit: {
+        Unit: {
           select: {
             id: true,
             symbol: true,
@@ -448,10 +457,10 @@ export async function createItem(input: {
         },
         unitPrice: true,
         costPrice: true,
-        categories: {
+        ItemCategory: {
           select: {
             id: true,
-            category: {
+            Category: {
               select: {
                 id: true,
                 name: true,
@@ -467,17 +476,18 @@ export async function createItem(input: {
 
     // Convert Decimal to number for serialization
     const serializedItem = {
-      ...item,
-      unitPrice: Number(item.unitPrice),
+      ...(item as any),
+      unitPrice: Number((item as any).unitPrice),
+      costPrice: (item as any).costPrice !== null && (item as any).costPrice !== undefined ? Number((item as any).costPrice) : null,
     };
 
     // Log item creation
     await logItemCreated(
       session.user.id,
       "Item",
-      item.id,
-      `${item.code} - ${item.description}`,
-      { code: item.code, description: item.description, unitPrice: item.unitPrice.toString() }
+      (item as any).id,
+      `${(item as any).code} - ${(item as any).description}`,
+      { code: (item as any).code, description: (item as any).description, unitPrice: (item as any).unitPrice.toString() }
     );
 
     // Revalidate items page
@@ -533,7 +543,7 @@ export async function updateItem(input: {
         unitPrice: true, 
         image: true, 
         status: true,
-        categories: {
+        ItemCategory: {
           select: {
             categoryId: true,
           },
@@ -550,7 +560,7 @@ export async function updateItem(input: {
     }
     
     // Check if code is being changed and if it's already taken
-    if (input.code !== existingItem.code) {
+    if (input.code !== (existingItem as any).code) {
       const codeTaken = await prisma.item.findUnique({
         where: { code: input.code },
       });
@@ -564,25 +574,12 @@ export async function updateItem(input: {
       }
     }
 
-    // Prepare update data
-    const updateData: {
-      code: string;
-      description: string;
-      unitId: string;
-      unitPrice: Prisma.Decimal;
-      costPrice: Prisma.Decimal;
-      image?: string | null;
-      status?: string;
-      categories?: {
-        deleteMany: {};
-        create?: { categoryId: string }[];
-      };
-    } = {
+    const updateData: any = {
       code: input.code,
       description: input.description,
       unitId: input.unitId,
-      unitPrice: new Prisma.Decimal(input.unitPrice),
-      costPrice: new Prisma.Decimal(input.costPrice),
+      unitPrice: new Prisma.Decimal(input.unitPrice || 0),
+      costPrice: new Prisma.Decimal(input.costPrice || 0),
     };
 
     if (input.image !== undefined) {
@@ -595,7 +592,7 @@ export async function updateItem(input: {
 
     // Handle categories: delete all existing and create new ones
     if (input.categoryIds !== undefined) {
-      updateData.categories = {
+      updateData.ItemCategory = {
         deleteMany: {},
         create: input.categoryIds.map((categoryId) => ({
           categoryId,
@@ -612,7 +609,7 @@ export async function updateItem(input: {
         code: true,
         description: true,
         unitId: true,
-        unit: {
+        Unit: {
           select: {
             id: true,
             symbol: true,
@@ -621,10 +618,10 @@ export async function updateItem(input: {
         },
         unitPrice: true,
         costPrice: true,
-        categories: {
+        ItemCategory: {
           select: {
             id: true,
-            category: {
+            Category: {
               select: {
                 id: true,
                 name: true,
@@ -636,47 +633,47 @@ export async function updateItem(input: {
         status: true,
         createdAt: true,
         updatedAt: true,
-      },
+      } as any,
     });
 
     // Convert Decimal to number for serialization
     const serializedItem = {
-      ...item,
-      unitPrice: Number(item.unitPrice),
+      ...(item as any),
+      unitPrice: Number((item as any).unitPrice),
+      costPrice: (item as any).costPrice !== null && (item as any).costPrice !== undefined ? Number((item as any).costPrice) : null,
     };
 
-    // Log item update - track what actually changed
     const changes: string[] = [];
-    if (input.code !== existingItem.code) changes.push("code");
-    if (input.description !== existingItem.description) changes.push("description");
-    if (input.unitId !== existingItem.unitId) changes.push("unitId");
-    if (input.unitPrice !== Number(existingItem.unitPrice)) changes.push("unitPrice");
+    if (input.code !== (existingItem as any).code) changes.push("code");
+    if (input.description !== (existingItem as any).description) changes.push("description");
+    if (input.unitId !== (existingItem as any).unitId) changes.push("unitId");
+    if (input.unitPrice !== Number((existingItem as any).unitPrice)) changes.push("unitPrice");
     
     // Check if categories changed
     if (input.categoryIds !== undefined) {
-      const existingCategoryIds = existingItem.categories.map(c => c.categoryId).sort();
+      const existingCategoryIds = (existingItem as any).ItemCategory.map((c: any) => c.categoryId).sort();
       const newCategoryIds = [...input.categoryIds].sort();
       if (JSON.stringify(existingCategoryIds) !== JSON.stringify(newCategoryIds)) {
         changes.push("categories");
       }
     }
     
-    if (input.image !== undefined && input.image !== existingItem.image) changes.push("image");
-    if (input.status && input.status !== existingItem.status) changes.push("status");
+    if (input.image !== undefined && input.image !== (existingItem as any).image) changes.push("image");
+    if (input.status && input.status !== (existingItem as any).status) changes.push("status");
 
     await logItemUpdated(
       session.user.id,
       "Item",
-      item.id,
+      (item as any).id,
       changes,
-      `${item.code} - ${item.description}`,
-      { code: item.code, description: item.description, unitPrice: item.unitPrice.toString(), changes }
+      `${(item as any).code} - ${(item as any).description}`,
+      { code: (item as any).code, description: (item as any).description, unitPrice: (item as any).unitPrice.toString(), changes }
     );
 
     // Revalidate items page
     revalidateBothPaths("items");
-    revalidatePath(`/dashboard/items/${item.id}`);
-    revalidatePath(`/dashboard/items/details?id=${item.id}`);
+    revalidatePath(`/dashboard/items/${(item as any).id}`);
+    revalidatePath(`/dashboard/items/details?id=${(item as any).id}`);
 
     return {
       success: true,
@@ -793,52 +790,14 @@ export async function bulkUpdateItemStatus(
     console.error("bulkUpdateItemStatus error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to update items",
+      error: error instanceof Error ? error.message : "Failed to update items status",
     };
   }
 }
 
 /**
- * Delete items permanently
+ * Restore items from trash
  */
-export async function deleteItemsPermanently(itemIds: string[]) {
-  try {
-    const session = await auth();
-    
-    if (!session?.user) {
-      return {
-        success: false,
-        error: "Unauthorized",
-      };
-    }
-
-    if (itemIds.length === 0) {
-      return {
-        success: false,
-        error: "No items selected",
-      };
-    }
-
-    // Delete items permanently
-    await prisma.item.deleteMany({
-      where: {
-        id: { in: itemIds },
-        status: "trash", // Only allow deleting items that are in trash
-      },
-    });
-
-    // Revalidate items page
-    revalidateBothPaths("items");
-    
-    return {
-      success: true,
-    };
-  } catch (error) {
-    console.error("deleteItemsPermanently error:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Failed to delete items",
-    };
-  }
+export async function restoreItems(itemIds: string[]) {
+  return bulkUpdateItemStatus(itemIds, "active");
 }
-

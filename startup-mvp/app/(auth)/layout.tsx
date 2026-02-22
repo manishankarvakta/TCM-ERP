@@ -17,8 +17,8 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex bg-[url('/auth-bg.jpg')] bg-cover bg-center min-h-screen">
-    {/* Left Side - Branding & Testimonial */}
+    <div className="min-h-screen flex  min-h-screen">
+    {/* Left Side - Branding & Testimonial bg-[url('/auth-bg.jpg')] bg-cover bg-center*/}
     <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-muted/30 p-8 lg:p-12">
       <div>
         <Link href="/" className="inline-flex items-center hover:opacity-80 transition-opacity mb-8">

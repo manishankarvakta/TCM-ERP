@@ -16,28 +16,29 @@ export default async function EditGroupPage({ params }: EditGroupPageProps) {
     notFound();
   }
 
+  const group = result.group;
+
   return (
     <div className="space-y-6">
       <GroupForm
         mode="edit"
         initialData={{
-          id: result.group.id,
-          code: result.group.code || undefined,
-          description: result.group.description || undefined,
-          sortOrder: result.group.sortOrder,
-          status: result.group.status,
-          baseUnit: result.group.baseUnit || undefined,
-          baseUnitPrice: result.group.baseUnitPrice || undefined,
-          costPrice: result.group.costPrice !== null && result.group.costPrice !== undefined ? result.group.costPrice : undefined,
-          items: result.group.items.map((item) => ({
+          id: group.id,
+          code: group.code || undefined,
+          name: group.name,
+          type: group.type,
+          price: group.price,
+          description: group.description || undefined,
+          sortOrder: group.sortOrder,
+          status: group.status,
+          items: group.items.map((item: any) => ({
             id: item.id,
             sl: item.sl,
+            itemId: item.itemId,
             code: item.code || undefined,
             description: item.description || undefined,
-            height: item.height || undefined,
-            width: item.width || undefined,
-            depth: item.depth || undefined,
             unit: item.unit || undefined,
+            quantity: item.quantity,
             unitPrice: item.unitPrice,
             amount: item.amount,
             sortOrder: item.sortOrder,
@@ -47,4 +48,3 @@ export default async function EditGroupPage({ params }: EditGroupPageProps) {
     </div>
   );
 }
-

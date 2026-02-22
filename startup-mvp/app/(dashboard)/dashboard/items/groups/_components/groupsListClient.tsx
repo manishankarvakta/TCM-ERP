@@ -36,16 +36,17 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils/formatters";
 
 interface Group {
   id: string;
   code: string | null;
+  name: string;
+  type: string;
+  price: number;
   description: string | null;
   sortOrder: number;
   status: string;
-  baseUnit: string | null;
-  baseUnitPrice: number | null;
-  costPrice: number;
   createdBy: string;
   creator: {
     id: string;
@@ -61,8 +62,8 @@ interface Group {
     unitPrice: number;
     amount: number;
   }>;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string | Date;
+  updatedAt: string | Date;
 }
 
 interface Pagination {
@@ -384,18 +385,19 @@ export default function GroupsListClient({
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead>Code</TableHead>
-              <TableHead>Items Count</TableHead>
-              <TableHead>Created By</TableHead>
+              <TableHead>Group</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Items</TableHead>
+              <TableHead>Price</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Created At</TableHead>
+              <TableHead>Created By</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {initialGroups.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed groups found" : "No groups found"}
                 </TableCell>
               </TableRow>
@@ -403,7 +405,7 @@ export default function GroupsListClient({
               initialGroups.map((group) => {
                 const isSelected = selectedGroups.has(group.id);
                 const groupStatus = group.status || "active";
-                const groupLabel = group.code || "Untitled Group";
+                const groupLabel = group.name || group.code || "Untitled Group";
                 
                 return (
                   <TableRow key={group.id} className={cn(isSelected && "bg-muted/50")}>
@@ -414,8 +416,20 @@ export default function GroupsListClient({
                         aria-label={`Select ${groupLabel}`}
                       />
                     </TableCell>
-                    <TableCell className="font-medium">{group.code || "-"}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-semibold">{group.name}</span>
+                        {group.code && <span className="text-xs text-muted-foreground">{group.code}</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{group.type}</Badge>
+                    </TableCell>
                     <TableCell>{group.items.length}</TableCell>
+                    <TableCell className="font-medium text-primary">
+                      {formatCurrency(group.price)}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(groupStatus)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {group.creator.image ? (
@@ -426,17 +440,15 @@ export default function GroupsListClient({
                             className="h-6 w-6 rounded-full"
                           />
                         ) : (
-                          <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
+                          <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-medium">
                             {getInitials(group.creator.name, group.creator.email)}
                           </div>
                         )}
-                        <span className="text-sm">
+                        <span className="text-xs truncate max-w-[100px]">
                           {group.creator.name || group.creator.email}
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>{getStatusBadge(groupStatus)}</TableCell>
-                    <TableCell>{format(new Date(group.createdAt), "MMM d, yyyy")}</TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-0">
                         {!isTrash && (
@@ -584,4 +596,3 @@ export default function GroupsListClient({
     </div>
   );
 }
-
