@@ -6,6 +6,7 @@ import { logItemCreated, logItemUpdated } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma, OpportunityStage } from "@prisma/client";
 import { createActivity } from "./activity.action";
+import { serializeData } from "@/lib/utils/serialization";
 
 /**
  * Get paginated list of opportunities
@@ -78,7 +79,11 @@ export async function getOpportunities(
         take: limit,
         include: {
           // @ts-ignore
-          Client: true,
+          Client: {
+            include: {
+              Contact: true
+            }
+          },
           // @ts-ignore
           Contact: true,
           // @ts-ignore
@@ -110,7 +115,7 @@ export async function getOpportunities(
       opportunityNumber: o.opportunityNumber,
     }));
 
-    return {
+    return serializeData({
       success: true,
       opportunities: mappedOpportunities,
       pagination: {
@@ -119,7 +124,7 @@ export async function getOpportunities(
         total,
         totalPages: Math.ceil(total / limit),
       },
-    };
+    });
   } catch (error) {
     console.error("getOpportunities error:", error);
     return { success: false, error: "Failed to fetch opportunities", opportunities: [] };
@@ -144,7 +149,11 @@ export async function getOpportunityById(id: string) {
       where: { id },
       include: {
         // @ts-ignore
-        Client: true,
+        Client: {
+          include: {
+            Contact: true
+          }
+        },
         // @ts-ignore
         Contact: true,
         // @ts-ignore
@@ -176,7 +185,7 @@ export async function getOpportunityById(id: string) {
       opportunityNumber: opportunity.opportunityNumber,
     };
 
-    return { success: true, opportunity: mappedOpportunity };
+    return serializeData({ success: true, opportunity: mappedOpportunity });
   } catch (error) {
     console.error("getOpportunityById error:", error);
     return { success: false, error: "Failed to fetch opportunity" };
@@ -359,7 +368,7 @@ export async function createOpportunity(input: {
       opportunityNumber: opportunity.opportunityNumber,
     };
 
-    return { success: true, opportunity: mappedOpportunity };
+    return serializeData({ success: true, opportunity: mappedOpportunity });
   } catch (error: any) {
     log(`Error: ${error.message || JSON.stringify(error)}`);
     return { success: false, error: `Failed to create opportunity: ${error.message || JSON.stringify(error)}` };
@@ -431,7 +440,7 @@ export async function updateOpportunity(id: string, input: {
     revalidateBothPaths("crm/opportunities");
     revalidateBothPaths(`crm/opportunities/${id}`);
 
-    return { success: true, opportunity };
+    return serializeData({ success: true, opportunity });
   } catch (error) {
     console.error("updateOpportunity error:", error);
     return { success: false, error: "Failed to update opportunity" };
@@ -482,7 +491,7 @@ export async function updateOpportunityStage(opportunityId: string, stage: Oppor
 
     revalidateBothPaths("crm/opportunities");
 
-    return { success: true, opportunity };
+    return serializeData({ success: true, opportunity });
   } catch (error) {
     console.error("updateOpportunityStage error:", error);
     return { success: false, error: "Failed to update opportunity stage" };
@@ -531,7 +540,7 @@ export async function attachContactToOpportunity(opportunityId: string, contactI
 
     revalidateBothPaths("crm/opportunities");
 
-    return { success: true, opportunity };
+    return serializeData({ success: true, opportunity });
   } catch (error) {
     console.error("attachContactToOpportunity error:", error);
     return { success: false, error: "Failed to update opportunity contact" };
@@ -582,7 +591,7 @@ export async function updateOpportunityValue(opportunityId: string, value: numbe
 
     revalidateBothPaths("crm/opportunities");
 
-    return { success: true, opportunity };
+    return serializeData({ success: true, opportunity });
   } catch (error) {
     console.error("updateOpportunityValue error:", error);
     return { success: false, error: "Failed to update opportunity value" };
@@ -656,7 +665,7 @@ export async function getOpportunitiesWithNoUpcomingActivity() {
       opportunityNumber: o.opportunityNumber,
     }));
 
-    return { success: true, opportunities: mappedOpportunities };
+    return serializeData({ success: true, opportunities: mappedOpportunities });
   } catch (error) {
     console.error("getOpportunitiesWithNoUpcomingActivity error:", error);
     return { success: false, error: "Failed to fetch stale opportunities", opportunities: [] };

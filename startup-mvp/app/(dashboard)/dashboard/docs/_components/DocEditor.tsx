@@ -69,9 +69,9 @@ export const DocEditor = ({
     editorProps: {
       attributes: {
         class: cn(
-          "prose prose-lg prose-slate dark:prose-invert max-w-none focus:outline-none min-h-[500px]",
-          "prose-headings:font-bold prose-h1:text-4xl prose-h2:text-2xl prose-h3:text-xl",
-          "prose-p:leading-7 prose-li:marker:text-slate-400",
+          "prose prose-sm md:prose-base prose-slate dark:prose-invert max-w-none focus:outline-none min-h-[500px]",
+          "prose-headings:font-bold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg",
+          "prose-p:leading-6 prose-li:marker:text-slate-400",
            className
         ),
       },

@@ -7,6 +7,7 @@ import { formatDate, formatCurrency } from '@/lib/utils/formatters';
 import { notFound } from 'next/navigation';
 import DownloadPDFButton from './_components/DownloadPDFButton';
 import QuotationActionButtons from '@/app/(dashboard)/dashboard/quotations/[id]/_components/QuotationActionButtons';
+import { TemplateToggleButton } from './_components/TemplateToggleButton';
 import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/permissions';
 
@@ -46,7 +47,8 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
               Back to Quotations
             </Button>
           </Link>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <TemplateToggleButton quotationId={id} isTemplate={(quotation as any).isTemplate ?? false} />
             <QuotationActionButtons quotationId={id} status={quotation.status} basePath="/dashboard/quotations" canApprove={canApprove} />
             <DownloadPDFButton quotation={quotation as Record<string, unknown>} />
           </div>

@@ -10,8 +10,12 @@ export function formatNumber(num: number, decimals: number = 2): string {
   return num.toFixed(decimals);
 }
 
-export function formatCurrency(amount: number): string {
-  return `৳ ${new Intl.NumberFormat('en-BD', {
+export function formatCurrency(amount: number, currency: string = 'TK'): string {
+  const isUSD = currency === 'USD';
+  const symbol = isUSD ? '$' : '৳';
+  const locale = isUSD ? 'en-US' : 'en-BD';
+  
+  return `${symbol} ${new Intl.NumberFormat(locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount)}`;

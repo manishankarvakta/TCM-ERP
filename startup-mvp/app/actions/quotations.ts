@@ -321,7 +321,7 @@ export async function getQuotation(id: string) {
             },
           },
           orderBy: {
-            sortOrder: 'asc',
+            displayOrder: 'asc',
           },
         },
       },
@@ -612,7 +612,7 @@ export async function createQuotation(data: any) {
     });
 
     // Enrich sections with baseUnit/baseUnitPrice from ModuleGroup if missing
-    const enrichedSections = sections.map((section: any) => ({
+    const userSections = sections.map((section: any) => ({
       ...section,
       groups: (section.groups || []).map((group: any) => {
         if (group.moduleGroupId && moduleGroupData[group.moduleGroupId]) {
@@ -626,10 +626,60 @@ export async function createQuotation(data: any) {
       }),
     }));
 
+    // Prepare final sections with defaults (COVER, SUMMARY, PRICING, ACCEPTANCE)
+    const finalSections: any[] = [];
+    
+    // 1. Add COVER
+    finalSections.push({ 
+      sectionType: 'COVER', 
+      title: 'Cover', 
+      isEnabled: true, 
+      displayOrder: 1,
+      items: [], groups: [], categoryGroups: []
+    });
+    
+    // 2. Add SUMMARY
+    finalSections.push({ 
+      sectionType: 'SUMMARY', 
+      title: 'Summary', 
+      isEnabled: true, 
+      displayOrder: 2,
+      items: [], groups: [], categoryGroups: []
+    });
+    
+    // 3. Add PRICING sections (user provided or default empty)
+    if (userSections.length === 0) {
+      finalSections.push({ 
+        sectionType: 'PRICING', 
+        title: 'Pricing', 
+        isEnabled: true, 
+        displayOrder: 3,
+        items: [], groups: [], categoryGroups: []
+      });
+    } else {
+      userSections.forEach((s: any, idx: number) => {
+        finalSections.push({
+          ...s,
+          sectionType: s.sectionType || 'PRICING',
+          displayOrder: 3 + idx
+        });
+      });
+    }
+    
+    // 4. Add ACCEPTANCE
+    finalSections.push({ 
+      sectionType: 'ACCEPTANCE', 
+      title: 'Acceptance', 
+      isEnabled: true, 
+      displayOrder: finalSections.length + 1,
+      items: [], groups: [], categoryGroups: []
+    });
+
     // Create quotation with optimized data fetching
     const quotation = await prisma.quotation.create({
       data: {
         quotationNumber: data.quotationNumber || `QT-${Date.now()}`,
+        mode: data.mode || 'SIMPLE',
         subject: data.subject || '',
         date: data.date ? new Date(data.date) : new Date(),
         coverLetter: coverLetterContent || null,
@@ -643,13 +693,18 @@ export async function createQuotation(data: any) {
         organizationId: data.organizationId || null,
         submittedById: submittedById, // Always use session user
         shippingCharges: data.shippingCharges ? new Prisma.Decimal(data.shippingCharges) : new Prisma.Decimal(0),
+        currency: data.currency || 'TK',
         vatIncluded: data.vatIncluded || false,
         projectLocation: data.projectLocation || null,
         opportunityId: (data as any).opportunityId || null,
         isTrash: false,
         Section: {
-          create: (enrichedSections || []).map((section: any, sectionIndex: number) => ({
-            title: section.title || `Section ${sectionIndex + 1}`,
+          create: (finalSections || []).map((section: any, sectionIndex: number) => ({
+            sectionType: section.sectionType || 'PRICING',
+            title: section.title || null,
+            isEnabled: section.isEnabled !== undefined ? section.isEnabled : true,
+            displayOrder: section.displayOrder ?? (sectionIndex + 1),
+            metadata: section.metadata || null,
             note: section.note || null,
         discount: section.discount ? new Prisma.Decimal(section.discount) : new Prisma.Decimal(0),
         total: section.total ? new Prisma.Decimal(section.total) : new Prisma.Decimal(0),
@@ -1020,11 +1075,17 @@ export async function updateQuotation(id: string, data: any) {
         organizationId: data.organizationId !== undefined && data.organizationId !== '' ? (data.organizationId || null) : existingQuotation.organizationId,
         submittedById: submittedById,
         shippingCharges: data.shippingCharges !== undefined ? (data.shippingCharges ? new Prisma.Decimal(data.shippingCharges) : new Prisma.Decimal(0)) : existingQuotation.shippingCharges,
+        currency: data.currency || existingQuotation.currency || 'TK',
         vatIncluded: data.vatIncluded !== undefined ? data.vatIncluded : existingQuotation.vatIncluded,
         projectLocation: data.projectLocation !== undefined ? (data.projectLocation || null) : existingQuotation.projectLocation,
+        mode: data.mode || existingQuotation.mode || 'SIMPLE',
         Section: {
           create: (enrichedSections || []).map((section: any, sectionIndex: number) => ({
-            title: section.title || `Section ${sectionIndex + 1}`,
+            sectionType: section.sectionType || 'PRICING',
+            title: section.title || null,
+            isEnabled: section.isEnabled !== undefined ? section.isEnabled : true,
+            displayOrder: section.displayOrder ?? section.sortOrder ?? sectionIndex,
+            metadata: section.metadata || null,
             note: section.note || null,
         discount: section.discount ? new Prisma.Decimal(section.discount) : new Prisma.Decimal(0),
         total: section.total ? new Prisma.Decimal(section.total) : new Prisma.Decimal(0),
@@ -1732,4 +1793,131 @@ export async function checkAndUpdateExpiredQuotations(): Promise<{ updated: numb
 }
 
 
+// ── Template Mode Actions ─────────────────────────────────────────────────────
 
+/**
+ * Fetch all quotations marked as templates (isTemplate = true).
+ * Used by the TemplatePicker modal.
+ */
+export async function getTemplateQuotations() {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: 'Unauthorized', templates: [] };
+
+    const templates = await prisma.quotation.findMany({
+      where: { isTemplate: true, isTrash: false },
+      select: {
+        id: true,
+        quotationNumber: true,
+        subject: true,
+        date: true,
+        mode: true,
+        Client: { select: { id: true, name: true } },
+        Organization: { select: { id: true, name: true } },
+        _count: { select: { Section: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 50,
+    });
+
+    return { success: true, templates: serializeData(templates) };
+  } catch (error) {
+    console.error('Error fetching template quotations:', error);
+    return { success: false, error: 'Failed to fetch templates', templates: [] };
+  }
+}
+
+/**
+ * Return a deep clone of sections from a template quotation.
+ * All IDs are replaced with fresh cuid-like strings so they don't
+ * conflict with the existing quotation's sections.
+ */
+export async function getQuotationSectionsForTemplate(quotationId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: 'Unauthorized', sections: [] };
+
+    const quotation = await prisma.quotation.findUnique({
+      where: { id: quotationId, isTemplate: true, isTrash: false },
+      select: {
+        Section: {
+          select: {
+            sectionType: true,
+            title: true,
+            note: true,
+            isEnabled: true,
+            displayOrder: true,
+            metadata: true,
+            discount: true,
+            total: true,
+            grandTotal: true,
+            QuotationItem: {
+              select: {
+                sl: true, no: true, code: true, description: true,
+                height: true, width: true, depth: true, unit: true,
+                unitPrice: true, quantity: true, discount: true, amount: true,
+                itemId: true,
+              },
+            },
+          },
+          orderBy: { displayOrder: 'asc' },
+        },
+      },
+    });
+
+    if (!quotation) return { success: false, error: 'Template not found', sections: [] };
+
+    // Clone sections with fresh IDs
+    const cloned = quotation.Section.map((s, idx) => ({
+      id: `section-clone-${s.sectionType?.toLowerCase() ?? 'custom'}-${Date.now()}-${idx}`,
+      sectionType: s.sectionType,
+      title: s.title,
+      note: s.note,
+      isEnabled: s.isEnabled,
+      displayOrder: s.displayOrder ?? idx,
+      metadata: s.metadata ?? {},
+      discount: Number(s.discount ?? 0),
+      total: Number(s.total ?? 0),
+      grandTotal: Number(s.grandTotal ?? 0),
+      items: s.QuotationItem.map((item) => ({
+        ...item,
+        unitPrice: Number(item.unitPrice),
+        quantity: Number(item.quantity),
+        discount: Number(item.discount),
+        amount: Number(item.amount),
+        height: item.height !== null ? Number(item.height) : null,
+        width: item.width !== null ? Number(item.width) : null,
+        depth: item.depth !== null ? Number(item.depth) : null,
+      })),
+      groups: [],
+      categoryGroups: [],
+    }));
+
+    return serializeData({ success: true, sections: cloned });
+  } catch (error) {
+    console.error('Error cloning template sections:', error);
+    return { success: false, error: 'Failed to load template', sections: [] };
+  }
+}
+
+/**
+ * Tag or untag a quotation as a template.
+ * Called from the quotation list or detail pages.
+ */
+export async function toggleQuotationTemplate(id: string, isTemplate: boolean) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: 'Unauthorized' };
+
+    await prisma.quotation.update({
+      where: { id },
+      data: { isTemplate },
+    });
+
+    revalidateBothPaths('/dashboard/quotations');
+    return { success: true };
+  } catch (error) {
+    console.error('Error toggling template status:', error);
+    return { success: false, error: 'Failed to update template status' };
+  }
+}

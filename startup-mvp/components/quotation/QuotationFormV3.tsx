@@ -6,6 +6,10 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, generateQuotationNumber } from '@/lib/utils/formatters';
 import { useState, useCallback, useMemo, useEffect, useRef, startTransition } from 'react';
+import { QuotationSectionCard } from '@/components/quotation/builder/QuotationSectionCard';
+import { StickyTotalsBar } from '@/components/quotation/StickyTotalsBar';
+import { QuotationHeaderBar } from '@/components/quotation/builder/QuotationHeaderBar';
+import type { QuotationMode, QuotationStatus } from '@/components/quotation/builder/QuotationHeaderBar';
 import { ProjectInfoSection } from './ProjectInfoSection';
 import { ClientInformationSection } from './ClientInformationSection';
 import { SubmissionInformationSection } from './SubmissionInformationSection';
@@ -16,6 +20,35 @@ import { getQuotationUser, getTOSContent } from '@/app/actions/quotation-helpers
 import { getActiveOrganizations } from '@/app/actions/organizations';
 import { useAppDispatch } from '@/lib/redux/hooks';
 import { updateQuotationField, setCurrentQuotation, updateSections } from '@/lib/redux/slices/quotationSlice';
+
+// ── Proposal section system ───────────────────────────────────────────────────
+import { getDefaultSections, makeBlankSection } from '@/lib/quotation/defaultSections';
+import { SectionLibraryModal } from '@/components/quotation/builder/SectionLibraryModal';
+import type { SectionType } from '@/components/quotation/builder/SectionTypeIcon';
+import { SECTION_TYPE_META } from '@/components/quotation/builder/SectionTypeIcon';
+
+// Section leaf components for per-type rendering
+import { CoverSection } from '@/components/quotation/sections/CoverSection';
+import { SummarySection } from '@/components/quotation/sections/SummarySection';
+import { AcceptanceSection } from '@/components/quotation/sections/AcceptanceSection';
+import { TimelineSection } from '@/components/quotation/sections/TimelineSection';
+import { TermsSection } from '@/components/quotation/sections/TermsSection';
+import { RichTextSection } from '@/components/quotation/sections/RichTextSection';
+import { ClientInfoSection } from '@/components/quotation/sections/ClientInfoSection';
+import { ProjectSummarySection } from '@/components/quotation/sections/ProjectSummarySection';
+import { ScopeSection } from '@/components/quotation/sections/ScopeSection';
+import { PaymentTermsSection } from '@/components/quotation/sections/PaymentTermsSection';
+import { LegalTermsSection } from '@/components/quotation/sections/LegalTermsSection';
+import { ExecutiveSummarySection } from '@/components/quotation/sections/ExecutiveSummarySection';
+import { CompanyOverviewSection } from '@/components/quotation/sections/CompanyOverviewSection';
+import { TechnicalApproachSection } from '@/components/quotation/sections/TechnicalApproachSection';
+import { ArchitectureOverviewSection } from '@/components/quotation/sections/ArchitectureOverviewSection';
+import { TeamStructureSection } from '@/components/quotation/sections/TeamStructureSection';
+import { AssumptionsSection } from '@/components/quotation/sections/AssumptionsSection';
+import { RiskAssessmentSection } from '@/components/quotation/sections/RiskAssessmentSection';
+import { SupportSLASection } from '@/components/quotation/sections/SupportSLASection';
+import { AppendixSection } from '@/components/quotation/sections/AppendixSection';
+import { Plus } from 'lucide-react';
 
   // Validation schema matching Prisma schema
 const quotationSchema = z.object({
@@ -136,6 +169,234 @@ interface QuotationFormV3Props {
   onSubmit: (data: any) => void;
 }
 
+// ── Helper: render metadata-driven section content per type ────────────────────
+function SectionContentInner({
+  section,
+  onUpdate,
+  readOnly,
+  onPricingChange,
+}: {
+  section: any;
+  onUpdate: (patch: Record<string, any>) => void;
+  readOnly: boolean;
+  onPricingChange: (updated: any[]) => void;
+}) {
+  const metaData = (key: string) => (section.metadata ?? {})[key] ?? {};
+  const updateMeta = (key: string, value: any) =>
+    onUpdate({ metadata: { ...(section.metadata ?? {}), [key]: value } });
+
+  const sectionType = section.sectionType || 'PRICING';
+
+  switch (sectionType) {
+    case 'PRICING':
+      return (
+        <QuotationItemsArea
+          sections={[section]}
+          onSectionsChange={onPricingChange}
+        />
+      );
+    case 'COVER':
+      return (
+        <CoverSection
+          data={{ subject: section.subject, coverLetter: section.coverLetter, preparedBy: section.preparedBy, validUntil: section.validUntil }}
+          onChange={(data) => onUpdate(data)}
+          readOnly={readOnly}
+        />
+      );
+    case 'CLIENT_INFO':
+      return <ClientInfoSection data={metaData('clientInfo')} onChange={(d) => updateMeta('clientInfo', d)} readOnly={readOnly} />;
+    case 'PROJECT_SUMMARY':
+      return <ProjectSummarySection data={metaData('projectSummary')} onChange={(d) => updateMeta('projectSummary', d)} readOnly={readOnly} />;
+    case 'SCOPE':
+      return <ScopeSection data={metaData('scope')} onChange={(d) => updateMeta('scope', d)} readOnly={readOnly} />;
+    case 'TIMELINE':
+      return <TimelineSection milestones={section.milestones ?? []} onChange={(milestones) => onUpdate({ milestones })} readOnly={readOnly} />;
+    case 'PAYMENT_TERMS':
+      return <PaymentTermsSection data={metaData('paymentTerms')} onChange={(d) => updateMeta('paymentTerms', d)} readOnly={readOnly} />;
+    case 'LEGAL_TERMS':
+      return <LegalTermsSection data={metaData('legalTerms')} onChange={(d) => updateMeta('legalTerms', d)} readOnly={readOnly} />;
+    case 'ACCEPTANCE':
+      return (
+        <AcceptanceSection
+          data={{ acceptanceText: section.acceptanceText, signatoryName: section.signatoryName, signatoryDesignation: section.signatoryDesignation, signatureDate: section.signatureDate, signatureDataUrl: section.signatureDataUrl }}
+          onChange={(data) => onUpdate(data)}
+          readOnly={readOnly}
+        />
+      );
+    case 'EXECUTIVE_SUMMARY':
+      return <ExecutiveSummarySection data={metaData('executiveSummary')} onChange={(d) => updateMeta('executiveSummary', d)} readOnly={readOnly} />;
+    case 'COMPANY_OVERVIEW':
+      return <CompanyOverviewSection data={metaData('companyOverview')} onChange={(d) => updateMeta('companyOverview', d)} readOnly={readOnly} />;
+    case 'TECHNICAL_APPROACH':
+      return <TechnicalApproachSection data={metaData('technicalApproach')} onChange={(d) => updateMeta('technicalApproach', d)} readOnly={readOnly} />;
+    case 'ARCHITECTURE_OVERVIEW':
+      return <ArchitectureOverviewSection data={metaData('architectureOverview')} onChange={(d) => updateMeta('architectureOverview', d)} readOnly={readOnly} />;
+    case 'TEAM_STRUCTURE':
+      return <TeamStructureSection data={metaData('teamStructure')} onChange={(d) => updateMeta('teamStructure', d)} readOnly={readOnly} />;
+    case 'ASSUMPTIONS':
+      return <AssumptionsSection data={metaData('assumptions')} onChange={(d) => updateMeta('assumptions', d)} readOnly={readOnly} />;
+    case 'RISK_ASSESSMENT':
+      return <RiskAssessmentSection data={metaData('riskAssessment')} onChange={(d) => updateMeta('riskAssessment', d)} readOnly={readOnly} />;
+    case 'SUPPORT_SLA':
+      return <SupportSLASection data={metaData('supportSLA')} onChange={(d) => updateMeta('supportSLA', d)} readOnly={readOnly} />;
+    case 'APPENDIX':
+      return <AppendixSection data={metaData('appendix')} onChange={(d) => updateMeta('appendix', d)} readOnly={readOnly} />;
+    case 'SUMMARY':
+      return (
+        <SummarySection
+          data={{ projectOverview: section.projectOverview, financialStatement: section.financialStatement }}
+          onChange={(data) => onUpdate(data)}
+          readOnly={readOnly}
+        />
+      );
+    case 'TERMS':
+      return (
+        <TermsSection
+          data={{ tos: section.tos ?? section.content ?? section.note ?? '' }}
+          onChange={(data) => onUpdate({ tos: data.tos, content: data.tos, note: data.tos })}
+          readOnly={readOnly}
+        />
+      );
+    case 'CUSTOM':
+    default:
+      return (
+        <RichTextSection
+          content={section.content ?? section.note ?? ''}
+          label="Section Content"
+          placeholder="Enter content for this section…"
+          onChange={(content) => onUpdate({ content, note: content })}
+          readOnly={readOnly}
+        />
+      );
+  }
+}
+
+// ── Helper: Sections list with per-type rendering ─────────────────────────────
+function SectionsList({
+  sections,
+  collapsedSections,
+  toggleSection,
+  isSectionComplete,
+  watchedValuesObject,
+  handleSectionsChange,
+}: {
+  sections: any[];
+  collapsedSections: Record<string, boolean>;
+  toggleSection: (id: string) => void;
+  isSectionComplete: (section: any, formValues: any) => boolean;
+  watchedValuesObject: any;
+  handleSectionsChange: (newSections: any[]) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      {sections.map((section) => {
+        const sectionId = section.id ?? String(section.sortOrder ?? section.displayOrder ?? 0);
+        const isCollapsed = !!collapsedSections[sectionId];
+        const sectionType = section.sectionType || 'PRICING';
+        const meta = SECTION_TYPE_META[sectionType as SectionType];
+
+        const handleUpdate = (patch: Record<string, any>) => {
+          handleSectionsChange(
+            sections.map((s) =>
+              (s.id ?? String(s.sortOrder ?? 0)) === sectionId
+                ? { ...s, ...patch }
+                : s
+            )
+          );
+        };
+
+        const handlePricingChange = (updated: any[]) => {
+          if (updated[0]) {
+            handleSectionsChange(
+              sections.map((s) =>
+                (s.id ?? String(s.sortOrder ?? 0)) === sectionId ? updated[0] : s
+              )
+            );
+          }
+        };
+
+        return (
+          <QuotationSectionCard
+            key={sectionId}
+            id={sectionId}
+            title={section.title || meta?.label || 'Section'}
+            sectionType={sectionType}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleSection(sectionId)}
+            isComplete={isSectionComplete(section, watchedValuesObject)}
+          >
+            <SectionContentInner
+              section={section}
+              onUpdate={handleUpdate}
+              readOnly={false}
+              onPricingChange={handlePricingChange}
+            />
+          </QuotationSectionCard>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Helper: Add Section button + modal ────────────────────────────────────────
+function AddSectionButton({
+  sections,
+  handleSectionsChange,
+}: {
+  sections: any[];
+  handleSectionsChange: (newSections: any[]) => void;
+}) {
+  const [libraryOpen, setLibraryOpen] = useState(false);
+
+  // Sections already present — so the library can grey them out
+  const existingTypes = useMemo(
+    () => new Set(sections.map((s) => s.sectionType || 'PRICING')),
+    [sections]
+  );
+
+  const handleAddSection = useCallback(
+    (sectionType: string) => {
+      const meta = SECTION_TYPE_META[sectionType as SectionType];
+      const newSection = makeBlankSection(
+        sectionType,
+        meta?.label || sectionType,
+        sections.length // sortOrder
+      );
+      handleSectionsChange([...sections, newSection]);
+      setLibraryOpen(false);
+
+      // Scroll to the new section after a tick
+      setTimeout(() => {
+        const el = document.getElementById(newSection.id);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    },
+    [sections, handleSectionsChange]
+  );
+
+  return (
+    <>
+      <div className="flex justify-center py-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => setLibraryOpen(true)}
+        >
+          <Plus className="h-4 w-4" />
+          Add Section
+        </Button>
+      </div>
+      <SectionLibraryModal
+        open={libraryOpen}
+        onOpenChange={setLibraryOpen}
+        onAddSection={handleAddSection}
+      />
+    </>
+  );
+}
+
 export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props) {
   const dispatch = useAppDispatch();
   
@@ -148,6 +409,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
   }
   
   // Normalize and ensure all items and groups have IDs for drag and drop
+  // Also preserves sectionType and metadata for backward compat
   const ensureIds = (sections: any[]) => {
     return sections.map((section, sectionIndex) => ({
       title: section.title || `Section ${sectionIndex + 1}`,
@@ -157,9 +419,29 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
       grandTotal: section.grandTotal ?? 0,
       sortOrder: section.sortOrder ?? sectionIndex,
       categoryId: section.categoryId || null,
+      // ── Preserve proposal fields ──────────────────────────────────────
+      id: section.id || `section-${Date.now()}-${sectionIndex}`,
+      sectionType: section.sectionType || 'PRICING',
+      metadata: section.metadata ?? {},
+      // Legacy cover/acceptance/timeline fields
+      subject: section.subject,
+      coverLetter: section.coverLetter,
+      preparedBy: section.preparedBy,
+      validUntil: section.validUntil,
+      projectOverview: section.projectOverview,
+      financialStatement: section.financialStatement,
+      tos: section.tos,
+      content: section.content,
+      milestones: section.milestones,
+      acceptanceText: section.acceptanceText,
+      signatoryName: section.signatoryName,
+      signatoryDesignation: section.signatoryDesignation,
+      signatureDate: section.signatureDate,
+      signatureDataUrl: section.signatureDataUrl,
+      // ── Pricing arrays ────────────────────────────────────────────────
       items: (section.items || []).map((item: any, index: number) => ({
         sl: item.sl ?? index + 1,
-        no: item.no != null ? String(item.no) : null, // Ensure no is always string
+        no: item.no != null ? String(item.no) : null,
         code: item.code || null,
         description: item.description || null,
         height: item.height ?? null,
@@ -186,7 +468,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
         isExpanded: group.isExpanded !== undefined ? group.isExpanded : true,
         items: (group.items || []).map((item: any, itemIndex: number) => ({
           sl: item.sl ?? itemIndex + 1,
-          no: item.no != null ? String(item.no) : null, // Ensure no is always string
+          no: item.no != null ? String(item.no) : null,
           code: item.code || null,
           description: item.description || null,
           height: item.height ?? null,
@@ -209,7 +491,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
         isExpanded: categoryGroup.isExpanded !== undefined ? categoryGroup.isExpanded : true,
         items: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
           sl: item.sl ?? itemIndex + 1,
-          no: item.no != null ? String(item.no) : null, // Ensure no is always string
+          no: item.no != null ? String(item.no) : null,
           code: item.code || null,
           description: item.description || null,
           height: item.height ?? null,
@@ -227,22 +509,12 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
     }));
   };
 
-  // Get sections from initial data (from DB) if available
+  // ── TASK 1: Default sections ─────────────────────────────────────────────────
+  // Existing quotation data → preserve as-is; new quotation → 9 core sections
   const sectionsFromData = initialData?.sections || initialData?.section || [];
   const defaultSections = sectionsFromData.length > 0
     ? ensureIds(sectionsFromData)
-    : [
-        {
-          title: 'Section 1',
-          discount: 0,
-          total: 0,
-          grandTotal: 0,
-          sortOrder: 0,
-          items: [],
-          groups: [],
-          categoryGroups: [],
-        },
-      ];
+    : getDefaultSections();
 
   const {
     register,
@@ -288,6 +560,84 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
   });
 
   const [sections, setSections] = useState<any[]>(defaultSections);
+
+  // ── Collapse state ──────────────────────────────────────────────────────────
+  // Maps section id → true (collapsed) | false/missing (expanded)
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+
+  const toggleSection = useCallback((id: string) => {
+    setCollapsedSections((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
+
+  // ── Completion rules ────────────────────────────────────────────────────────
+  // Returns true when the section satisfies its done condition.
+  // TASK 4: Extended with all 13 new metadata-driven section types.
+  const isSectionComplete = useCallback(
+    (section: any, formValues: typeof watchedValuesObject): boolean => {
+      const type: string = section.sectionType || 'PRICING';
+      const meta = section.metadata ?? {};
+
+      switch (type) {
+        // ── Original types (unchanged) ────────────────────────────────────
+        case 'COVER':
+          return !!(formValues.subject?.trim());
+        case 'PRICING': {
+          const flatItems   = (section.items        || []).length;
+          const groupItems  = (section.groups       || []).reduce(
+            (acc: number, g: any) => acc + (g.items?.length ?? 0), 0
+          );
+          const catItems    = (section.categoryGroups || []).reduce(
+            (acc: number, cg: any) => acc + (cg.items?.length ?? 0), 0
+          );
+          return flatItems + groupItems + catItems > 0;
+        }
+        case 'TERMS':
+          return (formValues.tos?.trim().length ?? 0) > 10;
+        case 'SUMMARY':
+          return (formValues.financialStatement?.trim().length ?? 0) > 10;
+        case 'ACCEPTANCE':
+          return !!(section.signatoryName?.trim());
+        case 'TIMELINE':
+          return (section.milestones?.length ?? 0) > 0;
+
+        // ── New metadata-driven types ─────────────────────────────────────
+        case 'CLIENT_INFO':
+          return !!(meta.clientInfo?.companyName?.trim() || meta.clientInfo?.projectName?.trim());
+        case 'PROJECT_SUMMARY':
+          return !!(meta.projectSummary?.problemStatement?.trim());
+        case 'SCOPE':
+          return (meta.scope?.deliverables?.length ?? 0) > 0;
+        case 'PAYMENT_TERMS':
+          return (meta.paymentTerms?.paymentSchedule?.length ?? 0) > 0;
+        case 'LEGAL_TERMS':
+          return !!(meta.legalTerms?.confidentiality?.trim() || meta.legalTerms?.governingLaw?.trim());
+        case 'EXECUTIVE_SUMMARY':
+          return !!(meta.executiveSummary?.overview?.trim());
+        case 'COMPANY_OVERVIEW':
+          return !!(meta.companyOverview?.description?.trim());
+        case 'TECHNICAL_APPROACH':
+          return !!(meta.technicalApproach?.methodology?.trim());
+        case 'ARCHITECTURE_OVERVIEW':
+          return !!(meta.architectureOverview?.architectureDescription?.trim());
+        case 'TEAM_STRUCTURE':
+          return (meta.teamStructure?.teamMembers?.length ?? 0) > 0;
+        case 'ASSUMPTIONS':
+          return !!(meta.assumptions?.assumptions?.trim());
+        case 'RISK_ASSESSMENT':
+          return (meta.riskAssessment?.risks?.length ?? 0) > 0;
+        case 'SUPPORT_SLA':
+          return !!(meta.supportSLA?.supportDescription?.trim());
+        case 'APPENDIX':
+          return !!(meta.appendix?.attachments?.trim() || meta.appendix?.notes?.trim());
+
+        default:
+          // CUSTOM: treat as complete if note/content is set
+          return (section.note?.trim().length ?? 0) > 10;
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
   
   // Track if initial data has been loaded to prevent repeated calls
   const hasLoadedDataRef = useRef(false);
@@ -740,6 +1090,25 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
         grandTotal: section.grandTotal ?? 0,
         sortOrder: section.sortOrder ?? 0,
         categoryId: section.categoryId || null,
+        // ── Proposal fields (preserved) ─────────────────────────────────
+        sectionType: section.sectionType || 'PRICING',
+        metadata: section.metadata ?? {},
+        // Legacy section-specific fields
+        subject: section.subject,
+        coverLetter: section.coverLetter,
+        preparedBy: section.preparedBy,
+        validUntil: section.validUntil,
+        projectOverview: section.projectOverview,
+        financialStatement: section.financialStatement,
+        tos: section.tos,
+        content: section.content,
+        milestones: section.milestones,
+        acceptanceText: section.acceptanceText,
+        signatoryName: section.signatoryName,
+        signatoryDesignation: section.signatoryDesignation,
+        signatureDate: section.signatureDate,
+        signatureDataUrl: section.signatureDataUrl,
+        // ── Pricing arrays (unchanged) ──────────────────────────────────
         groups: (section.groups || []).map((group: any) => ({
           code: group.code || null,
           description: group.description || 'Untitled Group',
@@ -749,7 +1118,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           moduleGroupId: group.moduleGroupId || null,
         items: (group.items || []).map((item: any) => ({
           sl: item.sl ?? 0,
-          no: item.no != null ? String(item.no) : null, // Ensure no is always string
+          no: item.no != null ? String(item.no) : null,
           code: item.code || null,
           description: item.description || null,
           height: item.height ?? null,
@@ -766,7 +1135,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
         })),
         items: (section.items || []).map((item: any) => ({
           sl: item.sl ?? 0,
-          no: item.no != null ? String(item.no) : null, // Ensure no is always string
+          no: item.no != null ? String(item.no) : null,
           code: item.code || null,
           description: item.description || null,
           height: item.height ?? null,
@@ -784,7 +1153,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           sortOrder: categoryGroup.sortOrder ?? 0,
           items: (categoryGroup.items || []).map((item: any) => ({
             sl: item.sl ?? 0,
-            no: item.no != null ? String(item.no) : null, // Ensure no is always string
+            no: item.no != null ? String(item.no) : null,
             code: item.code || null,
             description: item.description || null,
             height: item.height ?? null,
@@ -840,16 +1209,34 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
         grandTotal: section.grandTotal,
         sortOrder: section.sortOrder,
         categoryId: section.categoryId || null,
-        groups: section.groups.map((group: any) => ({
+        // ── Proposal fields (preserved for draft) ───────────────────────
+        sectionType: section.sectionType || 'PRICING',
+        metadata: section.metadata ?? {},
+        subject: section.subject,
+        coverLetter: section.coverLetter,
+        preparedBy: section.preparedBy,
+        validUntil: section.validUntil,
+        projectOverview: section.projectOverview,
+        financialStatement: section.financialStatement,
+        tos: section.tos,
+        content: section.content,
+        milestones: section.milestones,
+        acceptanceText: section.acceptanceText,
+        signatoryName: section.signatoryName,
+        signatoryDesignation: section.signatoryDesignation,
+        signatureDate: section.signatureDate,
+        signatureDataUrl: section.signatureDataUrl,
+        // ── Pricing arrays (unchanged) ──────────────────────────────────
+        groups: (section.groups || []).map((group: any) => ({
           code: group.code || '',
           description: group.description,
           quantity: group.quantity,
           sortOrder: group.sortOrder,
           baseUnit: group.baseUnit || null,
           baseUnitPrice: group.baseUnitPrice || null,
-          items: group.items.map((item: any) => ({
+          items: (group.items || []).map((item: any) => ({
             sl: item.sl,
-            no: item.no != null ? String(item.no) : null, // Ensure no is always string
+            no: item.no != null ? String(item.no) : null,
             code: item.code || '',
             description: item.description || '',
             height: item.height,
@@ -863,9 +1250,9 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
             itemId: item.itemId || null,
           })),
         })),
-        items: section.items.map((item: any) => ({
+        items: (section.items || []).map((item: any) => ({
           sl: item.sl,
-          no: item.no != null ? String(item.no) : null, // Ensure no is always string
+          no: item.no != null ? String(item.no) : null,
           code: item.code || '',
           description: item.description || '',
           height: item.height,
@@ -883,7 +1270,7 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           sortOrder: categoryGroup.sortOrder ?? 0,
           items: (categoryGroup.items || []).map((item: any) => ({
             sl: item.sl ?? 0,
-            no: item.no != null ? String(item.no) : null, // Ensure no is always string
+            no: item.no != null ? String(item.no) : null,
             code: item.code || null,
             description: item.description || null,
             height: item.height ?? null,
@@ -916,44 +1303,34 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
   };
 
   return (
-    <form onSubmit={handleSubmit((data) => onFormSubmit(data as any), onError)} className="space-y-4">
-      <div className="flex flex-col md:flex-row gap-4">
-        {/* Information Cards - Top on mobile, Right on desktop */}
-        <div className="w-full md:w-1/4 space-y-4 order-1 md:order-2">
-          {/* Quotation Basic Info */}
+    <div className="pb-40">
+      {/* ── Sticky identity header ──────────────────────────────────────── */}
+      <QuotationHeaderBar
+        quotationNumber={watchedValuesObject.quotationNumber || ''}
+        clientName={watchedValuesObject.clientName || ''}
+        organizationName={watchedValuesObject.organizationName || ''}
+        date={date || ''}
+        status={'DRAFT' as QuotationStatus}
+        onStatusChange={useCallback((s: QuotationStatus) => {}, [])}
+        mode={'CUSTOM' as QuotationMode}
+        onModeChange={useCallback(() => {}, [])}
+        onSave={handleSaveDraft}
+        isSaving={false}
+      />
+
+      {/* ── Document body ────────────────────────────────────────────── */}
+      <form
+        onSubmit={handleSubmit((data) => onFormSubmit(data as any), onError)}
+        className="mx-auto max-w-5xl space-y-4 px-4 py-6 sm:px-6 lg:px-8"
+      >
+        {/* Meta panel — compact single row for basic identifiers */}
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
           <QuotationBasicInfoCard
-            quotationNumber={watchedValuesObject.quotationNumber}
-            date={watchedValuesObject.date}
-            subject={watchedValuesObject.subject}
-            organizationId={watchedValuesObject.organizationId}
-            organizationName={watchedValuesObject.organizationName}
-            clientId={watchedValuesObject.clientId}
-            clientName={watchedValuesObject.clientName}
-            coverLetter={watchedValuesObject.coverLetter}
             shippingCharges={watchedValuesObject.shippingCharges}
             discount={watchedValuesObject.discount}
             vatIncluded={watchedValuesObject.vatIncluded}
-            projectLocation={watchedValuesObject.projectLocation}
             expiredDate={watchedValuesObject.expiredDate}
             opportunityId={watchedValuesObject.opportunityId}
-            onQuotationNumberChange={useCallback((value: string) => setValue('quotationNumber', value), [setValue])}
-            onDateChange={useCallback((value: string) => setValue('date', value), [setValue])}
-            onSubjectChange={useCallback((value: string) => setValue('subject', value), [setValue])}
-            onOpportunityChange={useCallback((value: string | null) => setValue('opportunityId', value), [setValue])}
-            onOrganizationChange={useCallback((organizationId: string, organizationName: string) => {
-              setValue('organizationId', organizationId);
-              setValue('organizationName', organizationName);
-              // Update Redux slice
-              dispatch(updateQuotationField({ field: 'organizationId', value: organizationId }));
-              dispatch(updateQuotationField({ field: 'organizationName', value: organizationName }));
-            }, [setValue, dispatch])}
-            onClientChange={useCallback((clientId: string, clientName: string) => {
-              setValue('clientId', clientId, { shouldValidate: true, shouldDirty: true });
-              // Update Redux slice
-              dispatch(updateQuotationField({ field: 'clientId', value: clientId }));
-              dispatch(updateQuotationField({ field: 'clientName', value: clientName }));
-            }, [setValue, dispatch])}
-            onCoverLetterChange={useCallback((value: string) => setValue('coverLetter', value), [setValue])}
             onShippingChargesChange={useCallback((value: number) => {
               setValue('shippingCharges', value);
               dispatch(updateQuotationField({ field: 'shippingCharges', value }));
@@ -966,29 +1343,57 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
               setValue('vatIncluded', value);
               dispatch(updateQuotationField({ field: 'vatIncluded', value }));
             }, [setValue, dispatch])}
-            onProjectLocationChange={useCallback((value: string) => {
-              setValue('projectLocation', value);
-              dispatch(updateQuotationField({ field: 'projectLocation', value }));
-            }, [setValue, dispatch])}
             onExpiredDateChange={useCallback((value: string) => {
               setValue('expiredDate', value);
+            }, [setValue])}
+            onOpportunityChange={useCallback((value: any) => {
+              if (typeof value === 'object' && value !== null) {
+                setValue('opportunityId', value.id);
+                if (value.client) {
+                  setValue('clientId', value.client.id);
+                  setValue('clientName', value.client.name || value.client.company || value.client.email);
+                }
+              } else {
+                setValue('opportunityId', value);
+              }
             }, [setValue])}
           />
         </div>
 
-        {/* Items Area - Bottom on mobile, Left on desktop */}
-        <div className="w-full md:w-3/4 space-y-2 order-2 md:order-1">
-          <QuotationItemsArea sections={sections} onSectionsChange={handleSectionsChange} />
-        </div>
-      </div>
+        {/* ── Proposal sections — per-type rendering ─────────────────────── */}
+        <SectionsList
+          sections={sections}
+          collapsedSections={collapsedSections}
+          toggleSection={toggleSection}
+          isSectionComplete={isSectionComplete}
+          watchedValuesObject={watchedValuesObject}
+          handleSectionsChange={handleSectionsChange}
+        />
 
-      {/* Form Actions */}
-      <div className="flex justify-end gap-2 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={handleSaveDraft}>
-          Save Draft
-        </Button>
-        <Button type="submit">Submit Quotation</Button>
-      </div>
-    </form>
+        {/* ── Add optional section button + modal ────────────────────────── */}
+        <AddSectionButton
+          sections={sections}
+          handleSectionsChange={handleSectionsChange}
+        />
+      </form>
+
+      {/* ── Fixed bottom totals bar ─────────────────────────────────────── */}
+      <StickyTotalsBar
+        subtotal={grandTotal + (discount ?? 0)}  // pre-discount sum
+        discount={discount ?? 0}
+        vatIncluded={vatIncluded ?? false}
+        shippingCharges={shippingCharges ?? 0}
+        grandTotal={grandTotal + (shippingCharges ?? 0)}
+        onSaveDraft={handleSaveDraft}
+        onSubmit={() =>
+          handleSubmit(
+            (data) => onFormSubmit(data as any),
+            onError
+          )()
+        }
+      />
+    </div>
   );
 }
+
+

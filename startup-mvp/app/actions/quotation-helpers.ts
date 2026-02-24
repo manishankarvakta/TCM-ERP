@@ -1,8 +1,10 @@
 'use server';
 
+import { prisma } from '@/lib/prisma';
 import { getSetting } from '@/app/(dashboard)/dashboard/settings/_actions/settings.action';
 import { getCoverLetters } from '@/app/(dashboard)/dashboard/settings/_actions/coverLetter.action';
 import { getCurrentUser } from '@/app/actions/user.action';
+import { serializeData } from '@/lib/utils/serialization';
 
 /**
  * Get TOS content from settings
@@ -40,10 +42,10 @@ export async function getActiveCoverLetters() {
     const result = await getCoverLetters(1, 100, '', 'active');
     
     if (result.success) {
-      return {
+      return serializeData({
         success: true,
         coverLetters: result.coverLetters || [],
-      };
+      });
     }
     
     return {
@@ -65,10 +67,10 @@ export async function getActiveCoverLetters() {
 export async function getQuotationUser() {
   try {
     const user = await getCurrentUser();
-    return {
+    return serializeData({
       success: true,
       user,
-    };
+    });
   } catch (error) {
     console.error('Error fetching user:', error);
     return {
@@ -78,3 +80,36 @@ export async function getQuotationUser() {
   }
 }
 
+
+/**
+ * Get active users for dropdown (no admin check required for selection)
+ */
+export async function getQuotationUsers() {
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        status: "active",
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return serializeData({
+      success: true,
+      users,
+    });
+  } catch (error) {
+    console.error('Error fetching users for quotation:', error);
+    return {
+      success: false,
+      users: [],
+    };
+  }
+}

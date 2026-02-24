@@ -15,7 +15,7 @@ export function serializeData<T>(data: T): any {
   }
 
   // Handle Prisma Decimal
-  if (data instanceof Prisma.Decimal) {
+  if (data && typeof data === 'object' && (data instanceof Prisma.Decimal || (data as any).d && (data as any).s)) {
     return Number(data) as unknown as T;
   }
 

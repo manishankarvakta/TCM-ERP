@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/utils/formatters';
+import { cn } from '@/lib/utils';
 import { calculateKitchenModule, type AreaUnit } from '@/lib/calculateKitchenModule';
 import { FiPlus, FiTrash2, FiChevronDown, FiChevronUp, FiSearch, FiLayers, FiPackage, FiEdit3, FiGrid } from 'react-icons/fi';
 import { BsGripVertical } from 'react-icons/bs';
@@ -119,6 +120,7 @@ interface Section {
 
 interface QuotationItemsAreaProps {
   sections: Section[];
+  currency?: string;
   onSectionsChange: (sections: Section[]) => void;
 }
 
@@ -134,9 +136,11 @@ const SortableItem = memo(function SortableItem({
   isLoadingUnits,
   groupModuleGroupItems,
   groupModuleGroupId,
+  currency = 'TK',
 }: {
   item: QuotationItem;
   groupIndex?: number;
+  currency?: string;
   onUpdate: (updates: Partial<QuotationItem>) => void;
   onRemove: () => void;
   catalogItems: CatalogItem[];
@@ -268,7 +272,12 @@ const SortableItem = memo(function SortableItem({
     <TableRow
       ref={setNodeRef}
       style={style}
-      className={isDragging ? 'bg-muted' : ''}
+      className={cn(
+        isDragging ? 'bg-muted opacity-60' : '',
+        // zebra striping via CSS odd/even — works with shadcn TableRow
+        'odd:bg-background even:bg-muted/30',
+        'transition-colors hover:bg-accent/40'
+      )}
     >
       <TableCell className="w-8">
         <div
@@ -556,7 +565,7 @@ const SortableItem = memo(function SortableItem({
         />
       </TableCell>
       <TableCell className="text-right font-semibold w-32">
-        {formatCurrency(item.amount)}
+        {formatCurrency(item.amount, currency)}
       </TableCell>
       <TableCell className="w-12">
         <Button
@@ -575,6 +584,7 @@ const SortableItem = memo(function SortableItem({
 
 export function QuotationItemsArea({
   sections,
+  currency = 'TK',
   onSectionsChange,
 }: QuotationItemsAreaProps) {
   const dispatch = useAppDispatch();
@@ -676,8 +686,8 @@ export function QuotationItemsArea({
               quantity: item.quantity || 0,
               itemId: item.itemId || undefined,
             })),
-            baseUnit: result.group.baseUnit || null,
-            baseUnitPrice: result.group.price ? Number(result.group.price) : null,
+            baseUnit: (result.group as any).baseUnit || null,
+            baseUnitPrice: (result.group as any).price ? Number((result.group as any).price) : null,
           };
         }
         return null;
@@ -2080,16 +2090,12 @@ export function QuotationItemsArea({
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">Quotation Items</h2>
-        <Button type="button" onClick={addSection} size="sm">
-          <FiPlus className="w-4 h-4 mr-2" />
-          Add Section
-        </Button>
       </div>
 
       {sections.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            <p>No sections added. Click &quot;Add Section&quot; to get started.</p>
+            <p>No sections added.</p>
           </CardContent>
         </Card>
       ) : (
@@ -2152,45 +2158,36 @@ export function QuotationItemsArea({
                     {/* Section Actions */}
                     <div className="flex gap-2 mt-3 items-center justify-between">
                       <div className="flex gap-2">
-                                            <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addGroupToSection(sectionIndex)}
-                        className="bg-blue-50 hover:bg-blue-100 border-blue-200"
-                      >
-                        <FiLayers className="w-4 h-4 mr-2 text-blue-600" />
-                        Add Module Group
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addItemToSection(sectionIndex, undefined, undefined, false)}
-                        className="bg-green-50 hover:bg-green-100 border-green-200"
-                      >
-                        <FiPackage className="w-4 h-4 mr-2 text-green-600" />
-                        Add Catalog Item
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addItemToSection(sectionIndex, undefined, undefined, true)}
-                        className="bg-orange-50 hover:bg-orange-100 border-orange-200"
-                      >
-                        <FiEdit3 className="w-4 h-4 mr-2 text-orange-600" />
-                        Add Custom Item
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addCategoryGroupToSection(sectionIndex)}
-                      >
-                        <FiGrid className="w-4 h-4 mr-2" />
-                        Add Category Group
-                      </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addGroupToSection(sectionIndex)}
+                          className="bg-blue-50 hover:bg-blue-100 border-blue-200"
+                        >
+                          <FiLayers className="w-4 h-4 mr-2 text-blue-600" />
+                          Add Group
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addItemToSection(sectionIndex, undefined, undefined, false)}
+                          className="bg-green-50 hover:bg-green-100 border-green-200"
+                        >
+                          <FiPackage className="w-4 h-4 mr-2 text-green-600" />
+                          Add Items
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addItemToSection(sectionIndex, undefined, undefined, true)}
+                          className="bg-orange-50 hover:bg-orange-100 border-orange-200"
+                        >
+                          <FiEdit3 className="w-4 h-4 mr-2 text-orange-600" />
+                          Add Custom Item
+                        </Button>
                       </div>
                       <div className="flex items-center gap-2">
                         <Label htmlFor={`section-discount-${sectionIndex}`} className="text-xs whitespace-nowrap">
@@ -2280,8 +2277,8 @@ export function QuotationItemsArea({
                                                 moduleGroupId: moduleGroupId,
                                                 code: moduleGroup.code || group.code,
                                                 description: moduleGroup.description || group.description,
-                                                baseUnit: moduleGroup.baseUnit || null,
-                                                baseUnitPrice: moduleGroup.price ? Number(moduleGroup.price) : null,
+                                                baseUnit: (moduleGroup as any).baseUnit || null,
+                                                baseUnitPrice: (moduleGroup as any).price ? Number((moduleGroup as any).price) : null,
                                                 isExpanded: true, // Auto-expand when ModuleGroup is selected
                                               });
                                             }
@@ -2415,18 +2412,18 @@ export function QuotationItemsArea({
                                     <div className="overflow-x-auto">
                                       <Table>
                                         <TableHeader>
-                                          <TableRow>
+                                          <TableRow className="bg-muted/60 hover:bg-muted/60">
                                             <TableHead className="w-8"></TableHead>
-                                            <TableHead className="w-12">SL</TableHead>
-                                            <TableHead className="w-16">No</TableHead>
-                                            <TableHead className="min-w-[120px]">Code</TableHead>
-                                            <TableHead>Description</TableHead>
-                                            <TableHead className="w-56">Dimensions</TableHead>
-                                            <TableHead className="w-24">Qty</TableHead>
-                                            <TableHead className="w-32">Unit Price</TableHead>
-                                            <TableHead className="w-32">Unit</TableHead>
-                                            <TableHead className="w-32 text-right">Discount</TableHead>
-                                            <TableHead className="w-32 text-right">Amount</TableHead>
+                                            <TableHead className="w-12 font-semibold text-foreground">SL</TableHead>
+                                            <TableHead className="w-16 font-semibold text-foreground">No</TableHead>
+                                            <TableHead className="min-w-[120px] font-semibold text-foreground">Code</TableHead>
+                                            <TableHead className="font-semibold text-foreground">Description</TableHead>
+                                            <TableHead className="w-56 font-semibold text-foreground">Dimensions</TableHead>
+                                            <TableHead className="w-24 font-semibold text-foreground">Qty</TableHead>
+                                            <TableHead className="w-32 font-semibold text-foreground">Unit Price</TableHead>
+                                            <TableHead className="w-32 font-semibold text-foreground">Unit</TableHead>
+                                            <TableHead className="w-32 text-right font-semibold text-foreground">Discount</TableHead>
+                                            <TableHead className="w-32 text-right font-semibold text-foreground">Amount</TableHead>
                                             <TableHead className="w-12"></TableHead>
                                           </TableRow>
                                         </TableHeader>
@@ -2435,6 +2432,7 @@ export function QuotationItemsArea({
                                             <SortableItem
                                               key={item.id}
                                               item={item}
+                                              currency={currency}
                                               groupIndex={groupIndex}
                                               catalogItems={catalogItems}
                                               sectionCategoryId={section.categoryId}
@@ -2626,6 +2624,7 @@ export function QuotationItemsArea({
                                             <SortableItem
                                               key={item.id}
                                               item={item}
+                                              currency={currency}
                                               catalogItems={catalogItems}
                                               sectionCategoryId={categoryGroup.categoryId}
                                               onUpdate={(updates) =>
@@ -2672,15 +2671,15 @@ export function QuotationItemsArea({
                           <div className="overflow-x-auto">
                             <Table>
                               <TableHeader>
-                                <TableRow>
+                                <TableRow className="bg-muted/60 hover:bg-muted/60">
                                   <TableHead className="w-8"></TableHead>
-                                  <TableHead className="w-12">SL</TableHead>
-                                  <TableHead className="min-w-[120px]">Code</TableHead>
-                                  <TableHead>Description</TableHead>
-                                  <TableHead className="w-56">Dimensions</TableHead>
-                                  <TableHead className="w-24">Qty</TableHead>
-                                  <TableHead className="w-32">Unit Price</TableHead>
-                                  <TableHead className="w-32 text-right">Amount</TableHead>
+                                  <TableHead className="w-12 font-semibold text-foreground">SL</TableHead>
+                                  <TableHead className="min-w-[120px] font-semibold text-foreground">Code</TableHead>
+                                  <TableHead className="font-semibold text-foreground">Description</TableHead>
+                                  <TableHead className="w-56 font-semibold text-foreground">Dimensions</TableHead>
+                                  <TableHead className="w-24 font-semibold text-foreground">Qty</TableHead>
+                                  <TableHead className="w-32 font-semibold text-foreground">Unit Price</TableHead>
+                                  <TableHead className="w-32 text-right font-semibold text-foreground">Amount</TableHead>
                                   <TableHead className="w-12"></TableHead>
                                 </TableRow>
                               </TableHeader>
@@ -2689,6 +2688,7 @@ export function QuotationItemsArea({
                                   <SortableItem
                                     key={item.id}
                                     item={item}
+                                    currency={currency}
                                     catalogItems={catalogItems}
                                     sectionCategoryId={section.categoryId}
                                     onUpdate={(updates) =>
@@ -2743,7 +2743,7 @@ export function QuotationItemsArea({
         <CardContent className="pt-6">
           <div className="flex justify-between items-center">
             <Label className="text-base font-semibold">Grand Total</Label>
-            <div className="text-2xl font-bold">{formatCurrency(grandTotal)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(grandTotal, currency)}</div>
           </div>
         </CardContent>
       </Card>

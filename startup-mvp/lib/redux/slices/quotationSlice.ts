@@ -75,6 +75,7 @@ interface Quotation {
   submittedBy?: string;
   submittedByContact?: string;
   shippingCharges?: number;
+  currency?: string;
   vatIncluded?: boolean;
   projectLocation?: string;
   sections?: Section[];

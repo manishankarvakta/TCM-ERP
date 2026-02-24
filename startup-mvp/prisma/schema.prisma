@@ -751,6 +751,8 @@ model PurchaseItem {
 model Quotation {
   id                                 String          @id @default(cuid())
   quotationNumber                    String          @unique
+  mode                               QuotationMode   @default(STANDARD)
+  isTemplate                         Boolean         @default(false)
   subject                            String
   date                               DateTime        @default(now())
   coverLetter                        String?
@@ -765,6 +767,7 @@ model Quotation {
   submittedById                      String
   updatedById                        String?
   shippingCharges                    Decimal?        @db.Decimal(10, 2)
+  currency                           String          @default("TK")
   vatIncluded                        Boolean?        @default(false)
   projectLocation                    String?
   isTrash                            Boolean         @default(false)
@@ -830,7 +833,11 @@ model QuotationItem {
 
 model Section {
   id            String          @id @default(cuid())
-  title         String
+  sectionType   SectionType     @default(PRICING)
+  title         String?
+  isEnabled     Boolean         @default(true)
+  displayOrder  Int             @default(0)
+  metadata      Json?
   note          String?
   discount      Decimal?        @db.Decimal(5, 2)
   total         Decimal?        @db.Decimal(12, 2)
@@ -1360,4 +1367,39 @@ model EntityFileLink {
 
   @@unique([fileId, entityType, entityId])
   @@index([entityType, entityId])
+}
+
+enum SectionType {
+  // ── Core proposal sections ────────────────────────────────────────────────
+  COVER
+  CLIENT_INFO
+  PROJECT_SUMMARY
+  SCOPE
+  TIMELINE
+  PRICING
+  PAYMENT_TERMS
+  LEGAL_TERMS
+  ACCEPTANCE
+
+  // ── Optional / library sections ───────────────────────────────────────────
+  EXECUTIVE_SUMMARY
+  COMPANY_OVERVIEW
+  TECHNICAL_APPROACH
+  ARCHITECTURE_OVERVIEW
+  TEAM_STRUCTURE
+  ASSUMPTIONS
+  RISK_ASSESSMENT
+  SUPPORT_SLA
+  APPENDIX
+
+  // ── Legacy (kept for backward compat) ────────────────────────────────────
+  SUMMARY
+  TERMS
+  CUSTOM
+}
+
+enum QuotationMode {
+  STANDARD
+  CUSTOM
+  TEMPLATE
 }

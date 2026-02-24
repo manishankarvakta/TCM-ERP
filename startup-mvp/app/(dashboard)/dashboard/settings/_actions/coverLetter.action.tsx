@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma } from "@prisma/client";
+import { serializeData } from "@/lib/utils/serialization";
 
 /**
  * Get paginated list of cover letters with search
@@ -72,7 +73,7 @@ export async function getCoverLetters(
         status: true,
         createdAt: true,
         updatedAt: true,
-        creator: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -88,16 +89,19 @@ export async function getCoverLetters(
 
     const totalPages = Math.ceil(total / limit);
 
-    return {
+    return serializeData({
       success: true,
-      coverLetters,
+      coverLetters: coverLetters.map(cl => ({
+        ...cl,
+        creator: (cl as any).User
+      })),
       pagination: {
         page,
         limit,
         total,
         totalPages,
       },
-    };
+    });
   } catch (error) {
     console.error("getCoverLetters error:", error);
     return {
@@ -138,7 +142,7 @@ export async function getCoverLetterById(coverLetterId: string) {
         status: true,
         createdAt: true,
         updatedAt: true,
-        creator: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -159,7 +163,10 @@ export async function getCoverLetterById(coverLetterId: string) {
 
     return {
       success: true,
-      coverLetter,
+      coverLetter: {
+        ...coverLetter,
+        creator: (coverLetter as any).User
+      },
     };
   } catch (error) {
     console.error("getCoverLetterById error:", error);
@@ -205,7 +212,7 @@ export async function createCoverLetter(input: {
         status: true,
         createdAt: true,
         updatedAt: true,
-        creator: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -233,7 +240,10 @@ export async function createCoverLetter(input: {
 
     return {
       success: true,
-      coverLetter,
+      coverLetter: {
+        ...coverLetter,
+        creator: (coverLetter as any).User
+      },
     };
   } catch (error) {
     console.error("createCoverLetter error:", error);
@@ -301,7 +311,7 @@ export async function updateCoverLetter(
         status: true,
         createdAt: true,
         updatedAt: true,
-        creator: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -330,7 +340,10 @@ export async function updateCoverLetter(
 
     return {
       success: true,
-      coverLetter,
+      coverLetter: {
+        ...coverLetter,
+        creator: (coverLetter as any).User
+      },
     };
   } catch (error) {
     console.error("updateCoverLetter error:", error);

@@ -1,6 +1,6 @@
 'use client';
 
-import { QuotationFormV3 } from '@/components/quotation/QuotationFormV3';
+import { QuotationBuilderV4 } from '@/components/quotation/QuotationBuilderV4';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
@@ -57,7 +57,7 @@ export default function EditQuotationForm({ quotationId, initialData }: EditQuot
       )}
 
       <ErrorBoundary>
-        <QuotationFormV3 initialData={initialData} onSubmit={handleSubmit} />
+        <QuotationBuilderV4 initialData={initialData} onSubmit={handleSubmit} />
       </ErrorBoundary>
     </>
   );

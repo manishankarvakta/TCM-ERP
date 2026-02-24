@@ -1,5 +1,5 @@
 "use client";
-import { QuotationFormV3 } from '@/components/quotation/QuotationFormV3';
+import { QuotationBuilderV4 } from '@/components/quotation/QuotationBuilderV4';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useTransition, useRef, useCallback } from 'react';
@@ -75,9 +75,9 @@ export default function NewQuotationPage() {
         )}
 
         <ErrorBoundary>
-          <QuotationFormV3 
-            initialData={opportunityId ? { opportunityId } : undefined} 
-            onSubmit={handleSubmit} 
+          <QuotationBuilderV4
+            initialData={opportunityId ? { opportunityId } : undefined}
+            onSubmit={handleSubmit}
           />
         </ErrorBoundary>
       </div>
