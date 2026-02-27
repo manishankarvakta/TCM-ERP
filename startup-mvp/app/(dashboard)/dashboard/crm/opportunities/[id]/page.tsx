@@ -7,7 +7,7 @@ import { getNotes } from "@/app/actions/system/note.action";
 import { getDocs } from "@/app/actions/system/doc.action";
 import { getSystemTimeline } from "@/app/actions/system/timeline";
 import { getSystemEvents } from "@/app/actions/system/events";
-import { getUsers } from "@/app/actions/user.action";
+import { getActiveUsers } from "@/app/actions/user.action";
 import { checkPermission } from "@/lib/permissions";
 import ActivitySection from "../../activities/_components/ActivitySection";
 import TaskManager from "../../activities/_components/TaskManager";
@@ -46,7 +46,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
     getDocs(id, "opportunity", 20),
     getSystemEvents("opportunity", id, 20),
     getSystemTimeline("opportunity", id, 50),
-    getUsers(),
+    getActiveUsers(),
   ]);
 
   if (!oppResult.success || !oppResult.opportunity) {

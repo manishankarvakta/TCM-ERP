@@ -7,7 +7,7 @@ import { getNotes } from "@/app/actions/system/note.action";
 import { getDocs } from "@/app/actions/system/doc.action";
 import { getSystemTimeline } from "@/app/actions/system/timeline";
 import { getSystemEvents } from "@/app/actions/system/events";
-import { getUsers } from "@/app/actions/user.action";
+import { getActiveUsers } from "@/app/actions/user.action";
 import { checkPermission } from "@/lib/permissions";
 import ActivitySection from "../../activities/_components/ActivitySection";
 import TaskManager from "../../activities/_components/TaskManager";
@@ -49,7 +49,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     getDocs(id, "lead", 20),
     getSystemEvents("lead", id, 20),
     getSystemTimeline("lead", id, 50),
-    getUsers(),
+    getActiveUsers(),
   ]);
 
   if (!leadResult.success || !leadResult.lead) {

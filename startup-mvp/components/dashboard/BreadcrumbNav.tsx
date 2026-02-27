@@ -15,6 +15,7 @@ import { getInvoice } from "@/app/actions/invoices";
 import { getVoucherById } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
 import { getLeadById } from "@/app/actions/crm/lead.action";
 import { getOpportunityById } from "@/app/actions/crm/opportunity.action";
+import { getClientById } from "@/app/(dashboard)/dashboard/crm/clients/_actions/client.action";
 
 
 // Map route paths to display names
@@ -108,6 +109,7 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [percentage, setPercentage] = useState<number>(0); // Unused but keeping for consistency if needed? No, just add opportunityNumber
   const [leadNumber, setLeadNumber] = useState<string | null>(null);
   const [opportunityNumber, setOpportunityNumber] = useState<string | null>(null);
+  const [clientCode, setClientCode] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
 
   // Fetch quotation number if we're on a quotation detail or edit page
@@ -346,6 +348,27 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
 
     return () => { cancelled = true; setOpportunityNumber(null); };
   }, [pathname]);
+  
+   // Fetch client code
+   useEffect(() => {
+    const match = pathname.match(/^\/dashboard\/crm\/clients\/([^\/]+)$/);
+    if (!match) return;
+    
+    const id = match[1];
+    if (id === "add") return;
+
+    let cancelled = false;
+    
+    getClientById(id)
+        .then((result) => {
+            if (!cancelled && result.success && result.client) {
+                setClientCode(result.client.clientCode);
+            }
+        })
+        .catch(() => {});
+
+    return () => { cancelled = true; setClientCode(null); };
+  }, [pathname]);
 
   // If we're at the root dashboard, show just "Dashboard"
   if (pathname === "/dashboard" || items.length === 1) {
@@ -517,6 +540,17 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
         parentItem = opportunityListItem || { path: "/dashboard/crm/opportunities", label: "Opportunities" };
         // Use opportunityNumber state if available, otherwise fallback
         currentLabel = opportunityNumber ? `${opportunityNumber}` : "Opportunity Details";
+     }
+  }
+
+  // Handle Client Details
+  const isClientDetail = pathname.match(/^\/dashboard\/crm\/clients\/([^\/]+)$/);
+  if (isClientDetail) {
+     const id = isClientDetail[1];
+     if (id !== "add") {
+        const clientListItem = items.find(item => item.path === "/dashboard/crm/clients");
+        parentItem = clientListItem || { path: "/dashboard/crm/clients", label: "Clients" };
+        currentLabel = clientCode ? clientCode : "Client Details";
      }
   }
 

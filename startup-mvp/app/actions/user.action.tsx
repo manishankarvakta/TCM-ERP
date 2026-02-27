@@ -662,16 +662,6 @@ export async function getActiveUsers() {
       };
     }
 
-    // Only admins can view users list
-    const userRole = session.user.role?.toLowerCase();
-    if (userRole !== "admin") {
-      return {
-        success: false,
-        error: "Forbidden: Admin access required",
-        users: [],
-      };
-    }
-
     // Get active users (no pagination, for dropdown use)
     const users = await prisma.user.findMany({
       where: {
@@ -681,6 +671,7 @@ export async function getActiveUsers() {
         id: true,
         name: true,
         email: true,
+        image: true,
       },
       orderBy: {
         name: "asc",

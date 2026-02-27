@@ -7,7 +7,7 @@ import { getNotes } from "@/app/actions/system/note.action";
 import { getSystemTimeline } from "@/app/actions/system/timeline";
 import { getSystemEvents } from "@/app/actions/system/events";
 import { getDocs } from "@/app/actions/system/doc.action";
-import { getUsers } from "@/app/actions/user.action";
+import { getActiveUsers } from "@/app/actions/user.action";
 import { checkPermission } from "@/lib/permissions";
 import ActivitySection from "../../activities/_components/ActivitySection";
 import TaskManager from "../../activities/_components/TaskManager";
@@ -64,7 +64,7 @@ export default async function ContactDetailPage({
     getDocs(id, "contact", 20),
     getSystemEvents("contact", id, 20),
     getSystemTimeline("contact", id, 50),
-    getUsers(),
+    getActiveUsers(),
   ]);
 
   if (!contactResult.success || !contactResult.contact) {

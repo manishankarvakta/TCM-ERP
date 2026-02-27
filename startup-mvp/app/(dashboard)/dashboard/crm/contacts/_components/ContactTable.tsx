@@ -126,7 +126,12 @@ export default function ContactTable({ contacts, onEdit, onRefresh, hideClientCo
                 <TableCell>{contact.designation || "-"}</TableCell>
                 {!hideClientColumn && (
                     <TableCell>
-                        {contact.client?.name || contact.client?.company || "-"}
+                        <Link 
+                            href={`/dashboard/crm/clients/${contact.clientId}`}
+                            className="hover:underline cursor-pointer text-primary font-medium"
+                        >
+                            {contact.client?.name || contact.client?.company || "-"}
+                        </Link>
                     </TableCell>
                 )}
                 <TableCell className="text-right">
