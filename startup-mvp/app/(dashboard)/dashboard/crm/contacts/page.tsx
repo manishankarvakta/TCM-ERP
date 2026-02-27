@@ -9,11 +9,12 @@ import { Card, CardContent } from "@/components/ui/card";
 export default async function CRM_ContactsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; clientId?: string }>;
+  searchParams: Promise<{ search?: string; clientId?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const search = params.search;
   const clientId = params.clientId;
+  const page = parseInt(params.page || "1");
 
   const session = await auth();
   if (!session?.user) return redirect("/login");
@@ -30,7 +31,7 @@ export default async function CRM_ContactsPage({
   }
 
   const [contactsResult, clientsResult, canCreate] = await Promise.all([
-    getContacts(clientId, search),
+    getContacts(clientId, search, page),
     getActiveClients(),
     checkPermission(session.user.id, "peoples.contacts", "create")
   ]);
@@ -55,6 +56,7 @@ export default async function CRM_ContactsPage({
         canCreate={canCreate}
         defaultSearch={search}
         defaultClientId={clientId}
+        pagination={contactsResult.pagination}
       />
     </div>
   );

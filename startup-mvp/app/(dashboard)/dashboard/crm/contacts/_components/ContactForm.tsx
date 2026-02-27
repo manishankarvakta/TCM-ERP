@@ -184,9 +184,11 @@ export default function ContactForm({
                           <span className="font-semibold text-sm">
                             {client.name}
                           </span>
-                          <span className="text-[10px] text-muted-foreground leading-tight">
-                            Client ID: {client.id.slice(0, 8)}...
-                          </span>
+                          {client.clientCode && (
+                            <span className="text-[10px] text-muted-foreground leading-tight">
+                              {client.clientCode}
+                            </span>
+                          )}
                         </div>
                       </SelectItem>
                     ))

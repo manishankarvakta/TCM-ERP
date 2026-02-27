@@ -40,7 +40,7 @@ interface Contact {
   phone: string | null;
   designation: string | null;
   clientId: string;
-  client?: { name: string; company: string | null };
+  client?: { name: string; company: string | null; clientCode?: string | null };
   isPrimary?: boolean; // Optional in case not fetched
 }
 
@@ -77,6 +77,7 @@ export default function ContactTable({ contacts, onEdit, onRefresh, hideClientCo
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead>Code</TableHead>
             <TableHead>Name</TableHead>
             <TableHead>Contact Info</TableHead>
             <TableHead>Designation</TableHead>
@@ -87,21 +88,24 @@ export default function ContactTable({ contacts, onEdit, onRefresh, hideClientCo
         <TableBody>
           {contacts.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={hideClientColumn ? 4 : 5} className="h-24 text-center">
+              <TableCell colSpan={hideClientColumn ? 5 : 6} className="h-24 text-center">
                 No contacts found.
               </TableCell>
             </TableRow>
           ) : (
             contacts.map((contact) => (
               <TableRow key={contact.id}>
+                <TableCell className="font-mono text-xs text-muted-foreground">
+                  {contact.client?.clientCode || "-"}
+                </TableCell>
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-2">
-                    <div 
-                        onClick={() => onEdit(contact)}
-                        className="hover:underline cursor-pointer font-medium"
+                    <Link 
+                        href={`/dashboard/crm/contacts/${contact.id}`}
+                        className="hover:underline cursor-pointer font-medium text-primary"
                     >
                         {contact.name}
-                    </div>
+                    </Link>
                     {contact.isPrimary && <Badge variant="secondary" className="text-xs">Primary</Badge>}
                   </div>
                 </TableCell>

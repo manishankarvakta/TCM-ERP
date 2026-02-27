@@ -17,6 +17,12 @@ interface ContactManagerProps {
   defaultSearch?: string;
   hideClientColumn?: boolean;
   canCreate: boolean;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export default function ContactManager({ 
@@ -25,7 +31,8 @@ export default function ContactManager({
   defaultClientId,
   defaultSearch,
   hideClientColumn,
-  canCreate
+  canCreate,
+  pagination
 }: ContactManagerProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -67,6 +74,13 @@ export default function ContactManager({
       } else {
         params.delete("clientId");
       }
+      params.set("page", "1"); // Reset page on filter change
+      changed = true;
+    }
+
+    if (debouncedSearch !== (params.get("search") || "")) {
+      // search check already done above, but let's ensure page reset
+      params.set("page", "1");
       changed = true;
     }
 
@@ -157,9 +171,9 @@ export default function ContactManager({
                           <span className="font-semibold text-sm">
                             {client.company || client.name}
                           </span>
-                          {client.company && client.name && (
+                          {client.clientCode && (
                             <span className="text-[10px] text-muted-foreground leading-tight">
-                              {client.name}
+                              {client.clientCode}
                             </span>
                           )}
                         </div>
@@ -192,6 +206,44 @@ export default function ContactManager({
         onRefresh={handleRefresh}
         hideClientColumn={hideClientColumn}
       />
+
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between border-t pt-4">
+          <div className="text-sm text-muted-foreground font-medium">
+            Showing {((pagination.page - 1) * pagination.limit) + 1} to{" "}
+            {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
+            {pagination.total} contacts
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.page === 1}
+              onClick={() => {
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("page", String(pagination.page - 1));
+                router.push(`${pathname}?${params.toString()}`, { scroll: false });
+              }}
+              className="px-4 h-9"
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.page === pagination.totalPages}
+              onClick={() => {
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("page", String(pagination.page + 1));
+                router.push(`${pathname}?${params.toString()}`, { scroll: false });
+              }}
+              className="px-4 h-9"
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       <ContactSheet
         open={isSheetOpen}

@@ -423,15 +423,12 @@ export default function ClientsListClient({
                           <AvatarImage src={client.image || undefined} alt={client.name || client.email} />
                           <AvatarFallback>{getInitials(client.name, client.email)}</AvatarFallback>
                         </Avatar>
-                        <span 
-                            className="font-medium hover:underline cursor-pointer"
-                            onClick={() => {
-                                setEditingClient(client);
-                                setIsSheetOpen(true);
-                            }}
+                        <Link 
+                            href={`/dashboard/crm/clients/${client.id}`}
+                            className="font-medium hover:underline cursor-pointer text-primary"
                         >
                             {client.name || "No name"}
-                        </span>
+                        </Link>
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{client.email}</TableCell>
@@ -466,10 +463,7 @@ export default function ClientsListClient({
                             <ProtectedAction
                               permissionKey="peoples.clients"
                               action="view"
-                              onClick={() => {
-                                setEditingClient(client);
-                                setIsSheetOpen(true);
-                              }}
+                              href={`/dashboard/crm/clients/${client.id}`}
                               userId={providedUserId || undefined}
                               hasAccess={permissions?.view}
                             />

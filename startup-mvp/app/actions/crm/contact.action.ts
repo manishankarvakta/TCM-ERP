@@ -6,18 +6,20 @@ import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 
 /**
- * Get contacts for a specific client (account) or all contacts
+ * Get contacts for a specific client (account) or all contacts with pagination
  */
-export async function getContacts(clientId?: string, search?: string) {
+export async function getContacts(clientId?: string, search?: string, page: number = 1, limit: number = 10) {
   try {
     const session = await auth();
-    if (!session?.user) return { success: false, error: "Unauthorized", contacts: [] };
+    if (!session?.user) return { success: false, error: "Unauthorized", contacts: [], pagination: { page, limit, total: 0, totalPages: 0 } };
 
     // Permission Check
     const { checkPermission } = await import("@/lib/permissions");
     if (!(await checkPermission(session.user.id, "crm.contacts", "view"))) {
-      return { success: false, error: "Permission Denied: crm.contacts.view", contacts: [] };
+      return { success: false, error: "Permission Denied: crm.contacts.view", contacts: [], pagination: { page, limit, total: 0, totalPages: 0 } };
     }
+
+    const skip = (page - 1) * limit;
 
     const where: any = {};
     if (clientId && clientId !== "all") {
@@ -34,13 +36,22 @@ export async function getContacts(clientId?: string, search?: string) {
       ];
     }
 
+    // Get total count
+    const total = await prisma.contact.count({ where });
+
     const contacts = await prisma.contact.findMany({
       where,
       include: {
         // @ts-ignore
-        Client: { select: { name: true, company: true } }
+        Client: { select: { name: true, company: true, clientCode: true } }
       },
-      orderBy: { firstName: "asc" },
+      orderBy: { 
+        Client: { 
+          clientCode: "asc" 
+        } 
+      },
+      skip,
+      take: limit,
     });
 
     const mappedContacts = contacts.map(c => ({
@@ -51,10 +62,26 @@ export async function getContacts(clientId?: string, search?: string) {
       designation: c.role,
     }));
 
-    return { success: true, contacts: mappedContacts };
+    const totalPages = Math.ceil(total / limit);
+
+    return { 
+      success: true, 
+      contacts: mappedContacts,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages
+      }
+    };
   } catch (error) {
     console.error("getContacts error:", error);
-    return { success: false, error: "Failed to fetch contacts", contacts: [] };
+    return { 
+      success: false, 
+      error: "Failed to fetch contacts", 
+      contacts: [],
+      pagination: { page, limit, total: 0, totalPages: 0 }
+    };
   }
 }
 
@@ -78,7 +105,7 @@ export async function getContactById(id: string) {
       where: { id },
       include: {
         // @ts-ignore
-        Client: { select: { id: true, name: true, company: true } },
+        Client: { select: { id: true, name: true, company: true, clientCode: true } },
       },
     });
 
