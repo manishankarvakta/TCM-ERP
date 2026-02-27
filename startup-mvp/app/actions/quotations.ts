@@ -149,7 +149,7 @@ export async function getQuotations(
 
     const totalPages = Math.ceil(total / limit);
 
-    // Serialize Decimal values to numbers for client components
+    // Serialize Decimal values and map Prisma relation names to component-expected keys
     const serializedQuotations = quotations.map((quotation) => ({
       ...quotation,
       total: Number(quotation.total || 0),
@@ -157,11 +157,16 @@ export async function getQuotations(
       grandTotal: quotation.grandTotal ? Number(quotation.grandTotal) : null,
       shippingCharges: quotation.shippingCharges ? Number(quotation.shippingCharges) : null,
       isTrash: quotation.isTrash || false,
+      client: (quotation as any).Client || null,
+      submittedBy: (quotation as any).User_Quotation_submittedByIdToUser || null,
+      organization: (quotation as any).Organization || null,
+      updatedBy: (quotation as any).User_Quotation_updatedByIdToUser || null,
+      order: (quotation as any).Order || null,
     }));
 
     return {
       success: true,
-      quotations: serializeData(quotations),
+      quotations: serializeData(serializedQuotations),
       pagination: {
         page,
         limit,

@@ -29,15 +29,15 @@ interface Delivery {
   date: Date;
   status: string;
   quantity: any;
-  order: {
+  Order: {
     id: string;
     orderNumber: string;
-    client: {
+    Client: {
       name: string | null;
       company: string | null;
     } | null;
   };
-  orderItem: {
+  OrderItem: {
     description: string;
     unitPrice: any;
   };
@@ -123,13 +123,13 @@ export default function DeliveryListClient({
               initialDeliveries.map((delivery) => (
                 <TableRow key={delivery.id}>
                   <TableCell className="font-medium">
-                    <Link href={`/dashboard/quotations/orders/${delivery.order.id}`} className="hover:underline text-primary">
-                        {delivery.order.orderNumber}
+                    <Link href={`/dashboard/quotations/orders/${delivery.Order.id}`} className="hover:underline text-primary">
+                        {delivery.Order.orderNumber}
                     </Link>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                        <span className="text-sm font-medium">{delivery.order.client?.company || delivery.order.client?.name || "N/A"}</span>
+                        <span className="text-sm font-medium">{delivery.Order.Client?.company || delivery.Order.Client?.name || "N/A"}</span>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -138,14 +138,14 @@ export default function DeliveryListClient({
                   <TableCell>
                      <Badge variant="outline" className="uppercase text-xs">{delivery.status}</Badge>
                   </TableCell>
-                  <TableCell className="max-w-xs truncate" title={delivery.orderItem.description}>
-                      {delivery.orderItem.description}
+                  <TableCell className="max-w-xs truncate" title={delivery.OrderItem.description}>
+                      {delivery.OrderItem.description}
                   </TableCell>
                   <TableCell className="text-right font-medium">
                     {Number(delivery.quantity)}
                   </TableCell>
                    <TableCell className="text-right text-muted-foreground">
-                    {formatCurrency(Number(delivery.quantity) * Number(delivery.orderItem.unitPrice))}
+                    {formatCurrency(Number(delivery.quantity) * Number(delivery.OrderItem.unitPrice))}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0">

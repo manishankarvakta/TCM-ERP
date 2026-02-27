@@ -1,0 +1,170 @@
+
+> startup-mvp@0.1.0 build
+> prisma generate && next build --webpack
+
+Prisma schema loaded from prisma/schema.prisma
+
+✔ Generated Prisma Client (v6.19.2) to ./node_modules/@prisma/client in 330ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Interested in query caching in just a few lines of code? Try Accelerate today! https://pris.ly/tip-3-accelerate
+
+   ▲ Next.js 16.0.0 (webpack)
+   - Environments: .env
+   - Experiments (use with caution):
+     · serverActions
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 13.9s
+   Skipping validation of types
+   Collecting page data ...
+   Generating static pages (0/99) ...
+   Generating static pages (24/99) 
+   Generating static pages (49/99) 
+   Generating static pages (74/99) 
+ ✓ Generating static pages (99/99) in 2.4s
+HomePage postgresql://postgres:postgres@localhost:5432/startup_mvp?schema=public
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /about
+├ ƒ /api/admin/notifications
+├ ƒ /api/auth/[...nextauth]
+├ ƒ /api/auth/register
+├ ƒ /api/auth/signin
+├ ƒ /api/auth/signout
+├ ƒ /api/backup/[backupId]
+├ ƒ /api/backup/[backupId]/download
+├ ƒ /api/backup/[backupId]/restore
+├ ƒ /api/backup/create
+├ ƒ /api/backup/list
+├ ƒ /api/backup/progress
+├ ƒ /api/backup/restore/[restoreId]/progress
+├ ƒ /api/backup/upload
+├ ƒ /api/files/[...key]
+├ ƒ /api/files/download-zip
+├ ƒ /api/health
+├ ƒ /api/quotations/check-expired
+├ ƒ /api/setup
+├ ƒ /api/setup/check
+├ ○ /auth/forgot-password
+├ ƒ /auth/forgot-password/reset
+├ ƒ /auth/forgot-password/verify
+├ ○ /contact
+├ ƒ /dashboard
+├ ƒ /dashboard/accounts/accounts-payable
+├ ƒ /dashboard/accounts/accounts-receivable
+├ ƒ /dashboard/accounts/balance-sheet
+├ ƒ /dashboard/accounts/cash-bank
+├ ƒ /dashboard/accounts/cash-bank/bank-ledger
+├ ƒ /dashboard/accounts/cash-bank/cash-ledger
+├ ƒ /dashboard/accounts/chart-of-accounts
+├ ƒ /dashboard/accounts/chart-of-accounts/[id]
+├ ƒ /dashboard/accounts/chart-of-accounts/[id]/edit
+├ ƒ /dashboard/accounts/chart-of-accounts/add
+├ ƒ /dashboard/accounts/ledgers
+├ ƒ /dashboard/accounts/profit-loss
+├ ƒ /dashboard/accounts/project-ledger
+├ ƒ /dashboard/accounts/trial-balance
+├ ƒ /dashboard/accounts/vouchers
+├ ƒ /dashboard/accounts/vouchers/[id]
+├ ƒ /dashboard/accounts/vouchers/add
+├ ƒ /dashboard/accounts/vouchers/create
+├ ƒ /dashboard/accounts/vouchers/payment/add
+├ ƒ /dashboard/accounts/vouchers/quick-create
+├ ƒ /dashboard/accounts/vouchers/receipt/add
+├ ƒ /dashboard/category
+├ ƒ /dashboard/category/[id]
+├ ƒ /dashboard/category/add
+├ ƒ /dashboard/category/details
+├ ƒ /dashboard/clients
+├ ƒ /dashboard/clients/[id]
+├ ƒ /dashboard/clients/add
+├ ƒ /dashboard/clients/details
+├ ƒ /dashboard/contacts
+├ ƒ /dashboard/crm/activities
+├ ƒ /dashboard/crm/clients
+├ ƒ /dashboard/crm/clients/[id]
+├ ƒ /dashboard/crm/clients/[id]/edit
+├ ƒ /dashboard/crm/clients/add
+├ ƒ /dashboard/crm/contacts
+├ ƒ /dashboard/crm/contacts/[id]
+├ ƒ /dashboard/crm/leads
+├ ƒ /dashboard/crm/leads/[id]
+├ ƒ /dashboard/crm/opportunities
+├ ƒ /dashboard/crm/opportunities/[id]
+├ ƒ /dashboard/docs
+├ ƒ /dashboard/employees
+├ ƒ /dashboard/employees/[id]
+├ ƒ /dashboard/employees/add
+├ ƒ /dashboard/employees/details
+├ ƒ /dashboard/files
+├ ƒ /dashboard/items
+├ ƒ /dashboard/items/[id]
+├ ƒ /dashboard/items/add
+├ ƒ /dashboard/items/category
+├ ƒ /dashboard/items/category/[id]
+├ ƒ /dashboard/items/category/add
+├ ƒ /dashboard/items/category/details
+├ ƒ /dashboard/items/details
+├ ƒ /dashboard/items/groups
+├ ƒ /dashboard/items/groups/[id]
+├ ƒ /dashboard/items/groups/[id]/edit
+├ ƒ /dashboard/items/groups/add
+├ ƒ /dashboard/items/units
+├ ƒ /dashboard/items/units/[id]
+├ ƒ /dashboard/items/units/add
+├ ƒ /dashboard/items/units/details
+├ ƒ /dashboard/notes
+├ ƒ /dashboard/notifications
+├ ƒ /dashboard/profile
+├ ƒ /dashboard/projects
+├ ƒ /dashboard/projects/issues
+├ ƒ /dashboard/purchases
+├ ƒ /dashboard/purchases/[id]
+├ ƒ /dashboard/purchases/add
+├ ƒ /dashboard/purchases/details
+├ ƒ /dashboard/quotations
+├ ƒ /dashboard/quotations/[id]
+├ ƒ /dashboard/quotations/[id]/edit
+├ ƒ /dashboard/quotations/delivery-ledger
+├ ƒ /dashboard/quotations/delivery-schedule
+├ ƒ /dashboard/quotations/delivery-schedule/[id]
+├ ƒ /dashboard/quotations/invoices
+├ ƒ /dashboard/quotations/invoices/[id]
+├ ƒ /dashboard/quotations/new
+├ ƒ /dashboard/quotations/orders
+├ ƒ /dashboard/quotations/orders/[id]
+├ ƒ /dashboard/settings
+├ ƒ /dashboard/settings/permissions/templates
+├ ƒ /dashboard/settings/permissions/templates/[id]/edit
+├ ƒ /dashboard/settings/permissions/templates/new
+├ ƒ /dashboard/settings/permissions/users/[id]
+├ ƒ /dashboard/suppliers
+├ ƒ /dashboard/suppliers/[id]
+├ ƒ /dashboard/suppliers/add
+├ ƒ /dashboard/suppliers/details
+├ ƒ /dashboard/tasks
+├ ƒ /dashboard/users
+├ ƒ /dashboard/users/[id]
+├ ƒ /dashboard/users/[id]/permissions
+├ ƒ /dashboard/users/add-user
+├ ƒ /dashboard/users/edit-user
+├ ƒ /dashboard/work-orders
+├ ƒ /dashboard/work-orders/[id]
+├ ƒ /dashboard/work-orders/[id]/edit
+├ ƒ /dashboard/work-orders/new
+├ ○ /features
+├ ƒ /login
+├ ○ /pricing
+├ ƒ /registration
+└ ○ /setup
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

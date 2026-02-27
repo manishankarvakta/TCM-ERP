@@ -28,14 +28,14 @@ interface Order {
   status: string;
   createdAt: Date;
   updatedAt: Date;
-  client: {
+  Client: {
     id: string;
     name: string | null;
     company: string | null;
     email: string | null;
     image: string | null;
   } | null;
-  quotation?: {
+  Quotation?: {
     quotationNumber: string;
   } | null;
 }
@@ -182,25 +182,25 @@ export default function OrdersListClient({
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
                         <AvatarImage 
-                          src={order.client?.image || undefined} 
-                          alt={order.client?.name || order.client?.company || "Client"} 
+                          src={order.Client?.image || undefined} 
+                          alt={order.Client?.name || order.Client?.company || "Client"} 
                         />
                         <AvatarFallback>
-                          {getInitials(order.client?.name || null, order.client?.email || null)}
+                          {getInitials(order.Client?.name || null, order.Client?.email || null)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium">{order.client?.name || order.client?.company || "N/A"}</span>
-                        {order.client?.company && order.client.name && (
-                            <span className="text-xs text-muted-foreground">{order.client.company}</span>
+                        <span className="text-sm font-medium">{order.Client?.name || order.Client?.company || "N/A"}</span>
+                        {order.Client?.company && order.Client.name && (
+                            <span className="text-xs text-muted-foreground">{order.Client.company}</span>
                         )}
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    {order.quotation ? (
-                        <Link href={`${basePath}/quotations/${order.quotationId}`} className="text-muted-foreground hover:text-primary transition-colors">
-                            {order.quotation.quotationNumber}
+                    {order.Quotation ? (
+                        <Link href={`/dashboard/quotations/${order.quotationId}`} className="text-muted-foreground hover:text-primary transition-colors">
+                            {order.Quotation.quotationNumber}
                         </Link>
                     ) : (
                         <span className="text-muted-foreground italic">-</span>

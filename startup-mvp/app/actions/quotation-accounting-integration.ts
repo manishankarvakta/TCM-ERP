@@ -84,115 +84,111 @@ export async function createSalesVoucherForQuotation(
     const inventoryAccountId = await findControlAccount("Inventory Asset");
     const cogsAccountId = await findControlAccount("Cost of Goods Sold");
     
-    // Fetch Quotation Items to calculate COGS
-    const quotation = await prisma.quotation.findUnique({
-      where: { id: quotationId },
-      include: {
-        section: {
-          include: {
-            items: { include: { item: true } },
-            groups: {
-              include: {
-                items: { include: { item: true } }
-              }
-            },
-            categoryGroups: {
-              include: {
-                 items: { include: { item: true } }
+    // Create voucher and post it in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Fetch Quotation Items to calculate COGS
+      const quotation = await tx.quotation.findUnique({
+        where: { id: quotationId },
+        include: {
+          Section: { // Changed 'section' to 'Section'
+            include: {
+              QuotationItem: { include: { Item: true } },
+              ItemGroup: {
+                include: {
+                  QuotationItem: { include: { Item: true } }
+                }
               }
             }
           }
         }
-      }
-    });
+      });
 
-    if (!quotation) return { success: false, voucherId: null, error: "Quotation not found" };
+      if (!quotation) return { success: false, voucherId: null, error: "Quotation not found" };
 
-    // Calculate COGS and Gather Items
-    let totalCOGS = 0;
-    const inventoryItems: Array<{ itemId: string; quantity: number }> = [];
+      // Calculate COGS and Gather Items
+      let totalCOGS = 0;
+      const inventoryItems: Array<{ itemId: string; quantity: number }> = [];
 
-    // Helper to process items
-    const processItems = (items: any[]) => {
-      for (const qItem of items) {
-        if (qItem.item) {
-           const qty = Number(qItem.quantity);
-           const cost = Number(qItem.item.costPrice || 0); // Assuming costPrice exists on Item
-           totalCOGS += qty * cost;
-           inventoryItems.push({ itemId: qItem.item.id, quantity: qty });
+      // Helper to process items
+      const processItems = (items: any[]) => {
+        for (const qItem of items) {
+          if (qItem.Item) {
+             const qty = Number(qItem.quantity);
+             const cost = Number(qItem.Item.costPrice || 0); // Assuming costPrice exists on Item
+             totalCOGS += qty * cost;
+             inventoryItems.push({ itemId: qItem.Item.id, quantity: qty });
+          }
         }
-      }
-    };
-
-    // Flatten structure
-    quotation.section.forEach(sec => {
-      processItems(sec.items);
-      sec.groups.forEach(grp => processItems(grp.items));
-      sec.categoryGroups.forEach(cat => processItems(cat.items));
-    });
-
-    // Create voucher lines
-    const voucherLines: {
-      lineNumber: number;
-      debitAmount: number;
-      creditAmount: number;
-      description: string;
-      chartOfAccountId: string;
-      clientId?: string | null;
-    }[] = [
-      {
-        lineNumber: 1,
-        debitAmount: amount,
-        creditAmount: 0,
-        description: `Sales invoice: ${quotationNumber}`,
-        chartOfAccountId: arAccountId,
-        clientId: clientId,
-      },
-      {
-        lineNumber: 2,
-        debitAmount: 0,
-        creditAmount: amount,
-        description: `Sales revenue: ${quotationNumber}`,
-        chartOfAccountId: salesAccountId,
-        clientId: clientId,
-      },
-    ];
-
-    // Add COGS Lines if applicable (and if accounts exist)
-    if (totalCOGS > 0 && inventoryAccountId && cogsAccountId) {
-      voucherLines.push({
-        lineNumber: 3,
-        debitAmount: totalCOGS,
-        creditAmount: 0,
-        description: `Cost of Goods Sold: ${quotationNumber}`,
-        chartOfAccountId: cogsAccountId,
-        clientId: undefined,
-      });
-      voucherLines.push({
-        lineNumber: 4,
-        debitAmount: 0,
-        creditAmount: totalCOGS,
-        description: `Inventory Consumption: ${quotationNumber}`,
-        chartOfAccountId: inventoryAccountId,
-        clientId: undefined,
-      });
-    }
-
-    // Validate voucher lines
-    const validation = validateVoucherLines(voucherLines);
-    if (!validation.valid) {
-      return {
-        success: false,
-        voucherId: null,
-        error: validation.error,
       };
-    }
 
-    // Generate voucher number
-    const voucherNumber = await generateVoucherNumber();
+      // Flatten structure
+      quotation.Section.forEach(sec => { // Changed 'section' to 'Section'
+        processItems(sec.QuotationItem || []);
+        if (sec.ItemGroup) {
+          sec.ItemGroup.forEach((grp: any) => processItems(grp.QuotationItem || []));
+        }
+      });
 
-    // Create voucher and post it in a transaction
-    const result = await prisma.$transaction(async (tx) => {
+      // Create voucher lines
+      const voucherLines: {
+        lineNumber: number;
+        debitAmount: number;
+        creditAmount: number;
+        description: string;
+        chartOfAccountId: string;
+        clientId?: string | null;
+      }[] = [
+        {
+          lineNumber: 1,
+          debitAmount: amount,
+          creditAmount: 0,
+          description: `Sales invoice: ${quotationNumber}`,
+          chartOfAccountId: arAccountId,
+          clientId: clientId,
+        },
+        {
+          lineNumber: 2,
+          debitAmount: 0,
+          creditAmount: amount,
+          description: `Sales revenue: ${quotationNumber}`,
+          chartOfAccountId: salesAccountId,
+          clientId: clientId,
+        },
+      ];
+
+      // Add COGS Lines if applicable (and if accounts exist)
+      if (totalCOGS > 0 && inventoryAccountId && cogsAccountId) {
+        voucherLines.push({
+          lineNumber: 3,
+          debitAmount: totalCOGS,
+          creditAmount: 0,
+          description: `Cost of Goods Sold: ${quotationNumber}`,
+          chartOfAccountId: cogsAccountId,
+          clientId: undefined,
+        });
+        voucherLines.push({
+          lineNumber: 4,
+          debitAmount: 0,
+          creditAmount: totalCOGS,
+          description: `Inventory Consumption: ${quotationNumber}`,
+          chartOfAccountId: inventoryAccountId,
+          clientId: undefined,
+        });
+      }
+
+      // Validate voucher lines
+      const validation = validateVoucherLines(voucherLines);
+      if (!validation.valid) {
+        return {
+          success: false,
+          voucherId: null,
+          error: validation.error,
+        };
+      }
+
+      // Generate voucher number
+      const voucherNumber = await generateVoucherNumber();
+
       // Create voucher
       const voucher = await tx.voucher.create({
         data: {

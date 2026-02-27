@@ -97,7 +97,6 @@ export async function getWorkOrders(
       whereConditions.push({ isTrash: true });
     } else {
       whereConditions.push({ isTrash: false });
-      
       // Set status filter if specific status is requested
       if (status && status !== 'all') {
         const statusUpper = status.toUpperCase();
@@ -112,9 +111,9 @@ export async function getWorkOrders(
       whereConditions.push({
         OR: [
           { code: { contains: search, mode: 'insensitive' } },
-          { quotation: { quotationNumber: { contains: search, mode: 'insensitive' } } },
-          { quotation: { subject: { contains: search, mode: 'insensitive' } } },
-          { quotation: { client: { name: { contains: search, mode: 'insensitive' } } } },
+          { Quotation: { quotationNumber: { contains: search, mode: 'insensitive' } } },
+          { Quotation: { subject: { contains: search, mode: 'insensitive' } } },
+          { Quotation: { Client: { name: { contains: search, mode: 'insensitive' } } } },
         ],
       });
     }
@@ -129,12 +128,12 @@ export async function getWorkOrders(
     const workOrders = await prisma.workOrder.findMany({
       where,
       include: {
-        quotation: {
+        Quotation: {
           select: {
             id: true,
             quotationNumber: true,
             subject: true,
-            client: {
+            Client: {
               select: {
                 id: true,
                 name: true,
@@ -143,7 +142,7 @@ export async function getWorkOrders(
             },
           },
         },
-        createdBy: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -213,13 +212,13 @@ export async function getWorkOrder(id: string) {
     const workOrder = await prisma.workOrder.findUnique({
       where: { id },
       include: {
-        quotation: {
+        Quotation: {
           select: {
             id: true,
             quotationNumber: true,
             subject: true,
             date: true,
-            client: {
+            Client: {
               select: {
                 id: true,
                 name: true,
@@ -229,7 +228,7 @@ export async function getWorkOrder(id: string) {
                 company: true,
               },
             },
-            organization: {
+            Organization: {
               select: {
                 id: true,
                 name: true,
@@ -237,7 +236,7 @@ export async function getWorkOrder(id: string) {
             },
           },
         },
-        createdBy: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -340,14 +339,14 @@ export async function createWorkOrder(data: {
         status: data.status || WorkOrderStatus.PROGRESS,
       },
       include: {
-        quotation: {
+        Quotation: {
           select: {
             id: true,
             quotationNumber: true,
             subject: true,
           },
         },
-        createdBy: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -496,14 +495,14 @@ export async function updateWorkOrder(
         status: data.status || existingWorkOrder.status,
       },
       include: {
-        quotation: {
+        Quotation: {
           select: {
             id: true,
             quotationNumber: true,
             subject: true,
           },
         },
-        createdBy: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -589,7 +588,7 @@ export async function updateWorkOrderStatus(
         status: newStatus,
       },
       include: {
-        quotation: {
+        Quotation: {
           select: {
             id: true,
             quotationNumber: true,

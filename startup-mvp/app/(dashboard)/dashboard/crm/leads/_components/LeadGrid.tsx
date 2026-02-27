@@ -13,7 +13,9 @@ import {
   FiMoreVertical,
   FiEye,
   FiEdit,
-  FiTrendingUp
+  FiTrendingUp,
+  FiGlobe,
+  FiFacebook
 } from "react-icons/fi";
 import { LeadStatus } from "@prisma/client";
 import { format } from "date-fns";
@@ -29,9 +31,11 @@ interface Lead {
   id: string;
   leadNumber: string | null;
   name: string;
-  email: string;
-  phone: string | null;
+  email: string | null;
+  phone: string;
   company: string | null;
+  website: string | null;
+  facebook: string | null;
   status: LeadStatus;
   ownerId: string | null;
   owner?: { id: string; name: string; image: string | null } | null;
@@ -103,16 +107,28 @@ export default function LeadGrid({ leads, onEdit, onConvert }: LeadGridProps) {
           </CardHeader>
           <CardContent className="p-4 pt-2 space-y-3">
             <div className="space-y-1.5">
-              <div className="flex items-center text-sm">
-                <FiMail className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                <span className="truncate">{lead.email}</span>
-              </div>
-              {lead.phone && (
+              {lead.email && (
                 <div className="flex items-center text-sm">
-                  <FiPhone className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                  <span>{lead.phone}</span>
+                    <FiMail className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="truncate">{lead.email}</span>
                 </div>
               )}
+              <div className="flex items-center text-sm">
+                <FiPhone className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                <span>{lead.phone}</span>
+              </div>
+              <div className="flex gap-3 pt-1">
+                 {lead.website && (
+                     <a href={lead.website} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary" title="Website">
+                         <FiGlobe className="h-4 w-4" />
+                     </a>
+                 )}
+                 {lead.facebook && (
+                     <a href={lead.facebook} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary" title="Facebook">
+                         <FiFacebook className="h-4 w-4" />
+                     </a>
+                 )}
+              </div>
             </div>
             
             <div className="flex items-center justify-between pt-2">

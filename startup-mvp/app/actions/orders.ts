@@ -96,18 +96,18 @@ export async function createOrderFromQuotation(quotationId: string) {
       const sections = await tx.section.findMany({
         where: { quotationId },
         include: {
-          items: true,
-          groups: { include: { items: true } },
-          categoryGroups: { include: { items: true } }
+          QuotationItem: true,
+          ItemGroup: { include: { QuotationItem: true } },
+          CategoryGroup: { include: { QuotationItem: true } }
         }
       });
 
       // Flatten items
       const itemsToSnapshot: any[] = [];
       sections.forEach(section => {
-        section.items.forEach(item => itemsToSnapshot.push(item));
-        section.groups.forEach(group => group.items.forEach(item => itemsToSnapshot.push(item)));
-        section.categoryGroups.forEach(cat => cat.items.forEach(item => itemsToSnapshot.push(item)));
+        section.QuotationItem.forEach(item => itemsToSnapshot.push(item));
+        section.ItemGroup.forEach(group => group.QuotationItem?.forEach(item => itemsToSnapshot.push(item)));
+        section.CategoryGroup.forEach(cat => cat.QuotationItem?.forEach(item => itemsToSnapshot.push(item)));
       });
 
       // Create OrderItem snapshots
@@ -151,13 +151,13 @@ export async function updateOrderStatus(orderId: string, tx?: Prisma.Transaction
     const order = await client.order.findUnique({
       where: { id: orderId },
       include: {
-        items: {
+        OrderItem: {
           include: {
-            deliveries: true,
-            invoiceItems: true,
+            DeliveryLedger: true,
+            InvoiceItem: true,
           }
         },
-        vouchers: {
+        Voucher: {
             include: { VoucherLine: true }
         }
       }
@@ -170,9 +170,9 @@ export async function updateOrderStatus(orderId: string, tx?: Prisma.Transaction
     let allInvoiced = true;
     let anyActivity = false;
 
-    for (const item of order.items) {
-        const delivered = item.deliveries.reduce((sum: number, d) => sum + Number(d.quantity), 0);
-        const invoiced = item.invoiceItems.reduce((sum: number, i) => sum + Number(i.quantity), 0);
+    for (const item of order.OrderItem) {
+        const delivered = item.DeliveryLedger.reduce((sum: number, d) => sum + Number(d.quantity), 0);
+        const invoiced = item.InvoiceItem.reduce((sum: number, i) => sum + Number(i.quantity), 0);
         const ordered = Number(item.quantity);
 
         if (delivered < ordered) allDelivered = false;
@@ -186,7 +186,7 @@ export async function updateOrderStatus(orderId: string, tx?: Prisma.Transaction
     
     let arBalance = 0;
     if (arAccountId) {
-        order.vouchers.forEach((v: any) => {
+        order.Voucher.forEach((v: any) => {
             v.VoucherLine.forEach((line: any) => {
                 if (line.chartOfAccountId === arAccountId) {
                     arBalance += Number(line.debitAmount) - Number(line.creditAmount);
@@ -230,13 +230,13 @@ export async function getOrderFinancialSummary(orderId: string) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
-        items: {
+        OrderItem: {
           include: {
-            deliveries: true,
-            invoiceItems: true,
+            DeliveryLedger: true,
+            InvoiceItem: true,
           }
         },
-        vouchers: {
+        Voucher: {
             where: { status: "posted" },
             include: { VoucherLine: true }
         }
@@ -253,9 +253,9 @@ export async function getOrderFinancialSummary(orderId: string) {
     let deliveredValue = 0;
     let invoicedValue = 0;
 
-    order.items.forEach(item => {
-        const deliveredQty = item.deliveries.reduce((sum: number, d) => sum + Number(d.quantity), 0);
-        const invoicedQty = item.invoiceItems.reduce((sum: number, i) => sum + Number(i.quantity), 0);
+    order.OrderItem.forEach(item => {
+        const deliveredQty = item.DeliveryLedger.reduce((sum: number, d) => sum + Number(d.quantity), 0);
+        const invoicedQty = item.InvoiceItem.reduce((sum: number, i) => sum + Number(i.quantity), 0);
         const unitPrice = Number(item.unitPrice);
 
         deliveredValue += deliveredQty * unitPrice;
@@ -267,7 +267,7 @@ export async function getOrderFinancialSummary(orderId: string) {
     let advanceApplied = 0;
     let arBalance = 0; // Debits - Credits
 
-    order.vouchers.forEach((v: any) => {
+    order.Voucher.forEach((v: any) => {
         v.VoucherLine.forEach((line: any) => {
             if (advanceAccountId && line.chartOfAccountId === advanceAccountId) {
                 advanceReceived += Number(line.creditAmount);
@@ -324,7 +324,7 @@ export async function getOrders(
       where.OR = [
         { orderNumber: { contains: search, mode: "insensitive" } },
         { 
-          client: { 
+          Client: { 
             OR: [
               { name: { contains: search, mode: "insensitive" } },
               { company: { contains: search, mode: "insensitive" } }
@@ -332,7 +332,7 @@ export async function getOrders(
           } 
         },
         {
-            quotation: {
+            Quotation: {
                 quotationNumber: { contains: search, mode: "insensitive" }
             }
         }
@@ -349,7 +349,7 @@ export async function getOrders(
       take: limit,
       orderBy: { createdAt: "desc" },
       include: {
-        client: {
+        Client: {
           select: {
             id: true,
             name: true,
@@ -358,7 +358,7 @@ export async function getOrders(
             image: true,
           }
         },
-        quotation: {
+        Quotation: {
             select: {
                 quotationNumber: true
             }

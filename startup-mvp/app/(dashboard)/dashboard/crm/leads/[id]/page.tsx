@@ -24,6 +24,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FileManager from "../../activities/_components/FileManager";
+import { FiFacebook } from "react-icons/fi";
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -61,7 +62,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     );
   }
 
-  const lead = leadResult.lead;
+  const lead = leadResult.lead as any;
   const tasks = taskResult.success ? taskResult.tasks : [];
   const notes = noteResult.success ? noteResult.notes : [];
   const docs = docResult.success ? docResult.docs : [];
@@ -295,6 +296,34 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                                 <span className="font-medium">{lead.company}</span>
                             </div>
                          </div>
+                    )}
+
+                    {lead.website && (
+                        <div className="pt-4 border-t flex items-center gap-3">
+                            <div className="bg-slate-100 p-2 rounded">
+                                <Globe className="h-4 w-4 text-slate-600" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Website</p>
+                                <a href={lead.website} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline truncate block">
+                                    {lead.website}
+                                </a>
+                            </div>
+                        </div>
+                    )}
+
+                    {lead.facebook && (
+                        <div className="pt-4 border-t flex items-center gap-3">
+                             <div className="bg-slate-100 p-2 rounded">
+                                <FiFacebook className="h-4 w-4 text-slate-600" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Facebook</p>
+                                <a href={lead.facebook} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline truncate block">
+                                    Facebook Profile
+                                </a>
+                            </div>
+                        </div>
                     )}
 
                     {lead.source && (

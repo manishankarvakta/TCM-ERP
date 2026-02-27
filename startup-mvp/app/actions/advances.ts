@@ -43,7 +43,7 @@ export async function receiveOrderAdvance(input: {
         id: true, 
         orderNumber: true, 
         clientId: true,
-        client: { select: { name: true } }
+        Client: { select: { name: true } }
       }
     });
 
@@ -106,7 +106,7 @@ export async function receiveOrderAdvance(input: {
                 creditAmount: new Prisma.Decimal(amount),
                 chartOfAccountId: advanceAccountId,
                 clientId: order.clientId,
-                description: `Advance from ${order.client.name}`
+                description: `Advance from ${order.Client.name}`
               }
             ]
           }
@@ -140,7 +140,7 @@ export async function receiveOrderAdvance(input: {
                 creditAmount: new Prisma.Decimal(amount),
                 chartOfAccountId: advanceAccountId,
                 clientId: order.clientId,
-                description: `Advance from ${order.client.name}`
+                description: `Advance from ${order.Client.name}`
               }
             ]
           }

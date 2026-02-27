@@ -29,9 +29,9 @@ export async function createDeliverySchedule(
       const order = await tx.order.findUnique({
         where: { id: orderId },
         include: {
-          items: {
+          OrderItem: {
             include: {
-              deliveries: true, // Only fetch DeliveryLedger for validation
+              DeliveryLedger: true, // Only fetch DeliveryLedger for validation
             },
           },
         },
@@ -45,7 +45,7 @@ export async function createDeliverySchedule(
       const scheduleItemsData = [];
 
       for (const inputItem of data.items) {
-        const orderItem = order.items.find((item) => item.id === inputItem.orderItemId);
+        const orderItem = order.OrderItem.find((item) => item.id === inputItem.orderItemId);
 
         if (!orderItem) {
           throw new Error(`Order Item ${inputItem.orderItemId} not found in this order.`);
@@ -53,8 +53,8 @@ export async function createDeliverySchedule(
 
         // VALIDATION: Calculate remaining quantity using DeliveryLedger
         // remaining = ordered - delivered
-        const deliveredQty = orderItem.deliveries.reduce(
-          (sum, d) => sum + Number(d.quantity),
+        const deliveredQty = orderItem.DeliveryLedger.reduce(
+          (sum: number, d: any) => sum + Number(d.quantity),
           0
         );
         const orderedQty = Number(orderItem.quantity);
@@ -83,12 +83,12 @@ export async function createDeliverySchedule(
           scheduledDate: data.scheduledDate,
           description: data.description,
           status: "scheduled",
-          items: {
+          DeliveryScheduleItem: {
             create: scheduleItemsData,
           },
         },
         include: {
-          items: true,
+          DeliveryScheduleItem: true,
         },
       });
 
@@ -122,8 +122,8 @@ export async function completeDeliverySchedule(scheduleId: string) {
       const schedule = await (tx as any).deliverySchedule.findUnique({
         where: { id: scheduleId },
         include: {
-          items: true,
-          order: true,
+          DeliveryScheduleItem: true,
+          Order: true,
         },
       });
 
@@ -137,7 +137,7 @@ export async function completeDeliverySchedule(scheduleId: string) {
       }
 
       // 3. Prepare items for postBulkDelivery
-      const deliveryItems = schedule.items.map((item: any) => ({
+      const deliveryItems = schedule.DeliveryScheduleItem.map((item: any) => ({
         orderItemId: item.orderItemId,
         quantity: Number(item.quantity),
       }));
@@ -163,7 +163,7 @@ export async function completeDeliverySchedule(scheduleId: string) {
       
       // Match delivery ledger IDs to items
       // postBulkDelivery returns deliveries in the same order as input items
-      const invoiceItems = (schedule.items as any[]).map((item: any, index: number) => {
+      const invoiceItems = (schedule.DeliveryScheduleItem as any[]).map((item: any, index: number) => {
         const ledgerEntry = (deliveryResult.deliveries as any[])[index];
         return {
           orderItemId: item.orderItemId,
@@ -249,9 +249,9 @@ export async function getDeliverySchedules(
 
     if (search) {
       where.OR = [
-        { order: { orderNumber: { contains: search, mode: "insensitive" } } },
-        { order: { client: { name: { contains: search, mode: "insensitive" } } } },
-        { order: { client: { company: { contains: search, mode: "insensitive" } } } },
+        { Order: { orderNumber: { contains: search, mode: "insensitive" } } },
+        { Order: { Client: { name: { contains: search, mode: "insensitive" } } } },
+        { Order: { Client: { company: { contains: search, mode: "insensitive" } } } },
       ];
     }
 
@@ -263,13 +263,13 @@ export async function getDeliverySchedules(
         take: limit,
         orderBy: { scheduledDate: "desc" },
         include: {
-          order: {
+          Order: {
             include: {
-              client: true,
+              Client: true,
             },
           },
           _count: {
-            select: { items: true },
+            select: { DeliveryScheduleItem: true },
           },
         },
       }),
@@ -300,14 +300,14 @@ export async function getDeliverySchedule(id: string) {
     const schedule = await (prisma as any).deliverySchedule.findUnique({
       where: { id },
       include: {
-        items: {
+        DeliveryScheduleItem: {
           include: {
-            orderItem: true,
+            OrderItem: true,
           },
         },
-        order: {
+        Order: {
           include: {
-            client: true,
+            Client: true,
           },
         },
       },

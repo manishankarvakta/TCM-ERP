@@ -29,19 +29,19 @@ interface Delivery {
   date: Date;
   status: string;
   quantity: any;
-  order: {
+  Order: {
     id: string;
     orderNumber: string;
-    client: {
+    Client: {
       name: string | null;
       company: string | null;
     } | null;
   };
-  orderItem: {
+  OrderItem: {
     description: string;
     unitPrice: any;
   };
-  creator: {
+  User: {
     name: string | null;
     email: string | null;
   } | null;
@@ -181,13 +181,13 @@ export default function DeliveryLedgerListClient({
                     {formatDate(delivery.date)}
                   </TableCell>
                   <TableCell className="font-mono text-xs">
-                    <Link href={`/dashboard/quotations/orders/${delivery.order.id}`} className="hover:underline text-primary font-semibold">
-                        {delivery.order.orderNumber}
+                    <Link href={`/dashboard/quotations/orders/${delivery.Order.id}`} className="hover:underline text-primary font-semibold">
+                        {delivery.Order.orderNumber}
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <div className="max-w-[150px] truncate" title={delivery.order.client?.company || delivery.order.client?.name || ""}>
-                        <span className="text-sm font-medium">{delivery.order.client?.company || delivery.order.client?.name || "N/A"}</span>
+                    <div className="max-w-[150px] truncate" title={delivery.Order.Client?.company || delivery.Order.Client?.name || ""}>
+                        <span className="text-sm font-medium">{delivery.Order.Client?.company || delivery.Order.Client?.name || "N/A"}</span>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -195,18 +195,18 @@ export default function DeliveryLedgerListClient({
                         {delivery.status}
                      </Badge>
                   </TableCell>
-                  <TableCell className="max-w-xs truncate" title={delivery.orderItem.description}>
-                      <span className="text-sm">{delivery.orderItem.description}</span>
+                  <TableCell className="max-w-xs truncate" title={delivery.OrderItem.description}>
+                      <span className="text-sm">{delivery.OrderItem.description}</span>
                   </TableCell>
                   <TableCell className="text-right font-medium">
                     {Number(delivery.quantity).toFixed(2)}
                   </TableCell>
                    <TableCell className="text-right text-muted-foreground font-mono text-xs">
-                    {formatCurrency(Number(delivery.quantity) * Number(delivery.orderItem.unitPrice))}
+                    {formatCurrency(Number(delivery.quantity) * Number(delivery.OrderItem.unitPrice))}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" asChild className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Link href={`/dashboard/quotations/orders/${delivery.order.id}`}>
+                      <Link href={`/dashboard/quotations/orders/${delivery.Order.id}`}>
                         <FiEye className="h-4 w-4 text-primary" />
                       </Link>
                     </Button>

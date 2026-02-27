@@ -40,7 +40,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
-import { FiMoreVertical, FiEdit, FiTrendingUp, FiArchive, FiUser, FiCheckCircle, FiEye, FiTrash2, FiRefreshCw, FiAlertTriangle } from "react-icons/fi";
+import { FiMoreVertical, FiEdit, FiTrendingUp, FiArchive, FiUser, FiCheckCircle, FiEye, FiTrash2, FiRefreshCw, FiAlertTriangle, FiGlobe, FiFacebook } from "react-icons/fi";
 import { LeadStatus } from "@prisma/client";
 import LeadConversionDialog from "./LeadConversionDialog";
 import { updateLeadStatus, assignLeadOwner, bulkMoveToTrash, bulkRestore, bulkDeletePermanently } from "@/app/actions/crm/lead.action";
@@ -51,9 +51,11 @@ interface Lead {
   id: string;
   leadNumber: string | null;
   name: string;
-  email: string;
-  phone: string | null;
+  email: string | null;
+  phone: string;
   company: string | null;
+  website: string | null;
+  facebook: string | null;
   status: LeadStatus;
   ownerId: string | null;
   owner?: { id: string; name: string; image: string | null } | null;
@@ -287,8 +289,20 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col text-sm text-muted-foreground">
-                      <span>{lead.email}</span>
-                      {lead.phone && <span>{lead.phone}</span>}
+                      {lead.email && <span>{lead.email}</span>}
+                      <span>{lead.phone}</span>
+                      <div className="flex gap-2 mt-1">
+                          {lead.website && (
+                              <a href={lead.website} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors" title="Website">
+                                  <FiGlobe className="h-3.5 w-3.5" />
+                              </a>
+                          )}
+                          {lead.facebook && (
+                              <a href={lead.facebook} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors" title="Facebook">
+                                  <FiFacebook className="h-3.5 w-3.5" />
+                              </a>
+                          )}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>{lead.company || "-"}</TableCell>

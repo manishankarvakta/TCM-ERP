@@ -32,7 +32,7 @@ export default function PrintableInvoice({ invoice, organization }: PrintableInv
           <div className="space-y-1 text-sm">
              <p><span className="font-semibold text-gray-600">Invoice #:</span> {invoice.invoiceNumber}</p>
              <p><span className="font-semibold text-gray-600">Date:</span> {formatDate(invoice.date)}</p>
-             <p><span className="font-semibold text-gray-600">Ref (Order):</span> {invoice.order.orderNumber}</p>
+             <p><span className="font-semibold text-gray-600">Ref (Order):</span> {invoice.Order.orderNumber}</p>
           </div>
         </div>
       </div>
@@ -41,11 +41,11 @@ export default function PrintableInvoice({ invoice, organization }: PrintableInv
       <div className="mb-12">
         <h3 className="text-xs font-bold uppercase text-gray-500 mb-2 border-b pb-1">Bill To</h3>
         <div className="text-sm text-gray-800">
-           <p className="font-bold text-lg">{invoice.order.client.company || invoice.order.client.name}</p>
-           {invoice.order.client.company && <p>{invoice.order.client.name}</p>}
-           <p className="whitespace-pre-wrap max-w-xs mt-1">{invoice.order.client.address || "No address provided"}</p>
-           <p className="mt-1">{invoice.order.client.email}</p>
-           <p>{invoice.order.client.phone}</p>
+           <p className="font-bold text-lg">{invoice.Order.Client.company || invoice.Order.Client.name}</p>
+           {invoice.Order.Client.company && <p>{invoice.Order.Client.name}</p>}
+           <p className="whitespace-pre-wrap max-w-xs mt-1">{invoice.Order.Client.address || "No address provided"}</p>
+           <p className="mt-1">{invoice.Order.Client.email}</p>
+           <p>{invoice.Order.Client.phone}</p>
         </div>
       </div>
 
@@ -62,10 +62,10 @@ export default function PrintableInvoice({ invoice, organization }: PrintableInv
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {invoice.items.map((item: any, index: number) => (
+            {invoice.InvoiceItem.map((item: any, index: number) => (
               <tr key={item.id}>
                 <td className="py-3 text-gray-500">{index + 1}</td>
-                <td className="py-3 text-gray-800">{item.orderItem.description}</td>
+                <td className="py-3 text-gray-800">{item.OrderItem.description}</td>
                 <td className="py-3 text-right text-gray-800">{Number(item.quantity)}</td>
                 <td className="py-3 text-right text-gray-800">{formatCurrency(Number(item.unitPrice))}</td>
                 <td className="py-3 text-right font-medium text-gray-900">{formatCurrency(Number(item.amount))}</td>

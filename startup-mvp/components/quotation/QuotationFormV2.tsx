@@ -255,6 +255,7 @@ export function QuotationFormV2({ initialData, onSubmit }: QuotationFormV2Props)
         onProjectLocationChange={useCallback((value) => setValue('projectLocation', value), [setValue])}
         onProjectTypeChange={useCallback((value) => setValue('projectType', value as ProjectType), [setValue])}
         onLocationChange={useCallback((value) => setValue('selectedLocation', value), [setValue])}
+        onOpportunityChange={() => {}}
       />
 
       {/* Client and Submission sections would go here */}

@@ -58,6 +58,32 @@ export interface QuotationSectionCardProps {
   className?: string;
 }
 
+// ── Section Type Titles ───────────────────────────────────────────────────────
+// A map of SectionType to user-friendly titles.
+const typeTitles: Record<SectionType, string> = {
+  COVER: 'Cover Letter',
+  CLIENT_INFO: 'Client Info',
+  PROJECT_SUMMARY: 'Project Summary',
+  SCOPE: 'Scope of Work',
+  TIMELINE: 'Project Timeline',
+  PRICING: 'Pricing details',
+  PAYMENT_TERMS: 'Payment Terms',
+  LEGAL_TERMS: 'Legal Terms',
+  ACCEPTANCE: 'Acceptance',
+  EXECUTIVE_SUMMARY: 'Executive Summary',
+  COMPANY_OVERVIEW: 'Company Overview',
+  TECHNICAL_APPROACH: 'Technical Approach',
+  ARCHITECTURE_OVERVIEW: 'Architecture Overview',
+  TEAM_STRUCTURE: 'Team Structure',
+  ASSUMPTIONS: 'Assumptions',
+  RISK_ASSESSMENT: 'Risk Assessment',
+  SUPPORT_SLA: 'Support & SLA',
+  APPENDIX: 'Appendix',
+  SUMMARY: 'Project Summary',
+  TERMS: 'Terms & Conditions',
+  CUSTOM: 'Custom Section',
+};
+
 // ── Accent bar colour map ─────────────────────────────────────────────────────
 // A thin left-border accent that matches the section type colour.
 const ACCENT_BORDER: Record<SectionType, string> = {
@@ -69,6 +95,19 @@ const ACCENT_BORDER: Record<SectionType, string> = {
   TERMS:         'border-l-slate-400  dark:border-l-slate-500',
   ACCEPTANCE:    'border-l-purple-400 dark:border-l-purple-500',
   CUSTOM:        'border-l-gray-300   dark:border-l-gray-600',
+  CLIENT_INFO:   'border-l-blue-400   dark:border-l-blue-500',
+  PROJECT_SUMMARY: 'border-l-indigo-400 dark:border-l-indigo-500',
+  SCOPE:         'border-l-emerald-400 dark:border-l-emerald-500',
+  LEGAL_TERMS:   'border-l-slate-400  dark:border-l-slate-500',
+  EXECUTIVE_SUMMARY: 'border-l-purple-400 dark:border-l-purple-500',
+  COMPANY_OVERVIEW:  'border-l-blue-400   dark:border-l-blue-500',
+  TECHNICAL_APPROACH: 'border-l-emerald-400 dark:border-l-emerald-500',
+  ARCHITECTURE_OVERVIEW: 'border-l-indigo-400 dark:border-l-indigo-500',
+  TEAM_STRUCTURE:  'border-l-orange-400 dark:border-l-orange-500',
+  ASSUMPTIONS:     'border-l-gray-300   dark:border-l-gray-600',
+  RISK_ASSESSMENT: 'border-l-red-400    dark:border-l-red-500',
+  SUPPORT_SLA:     'border-l-teal-400   dark:border-l-teal-500',
+  APPENDIX:      'border-l-gray-300   dark:border-l-gray-600',
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────

@@ -34,19 +34,19 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
   const invoice = await prisma.invoice.findUnique({
     where: { id },
     include: {
-      order: {
+      Order: {
         include: {
-          client: true,
-          quotation: {
+          Client: true,
+          Quotation: {
             include: {
-                organization: true
+                Organization: true
             }
           }
         }
       },
-      items: {
+      InvoiceItem: {
         include: {
-          orderItem: true
+          OrderItem: true
         }
       }
     }
@@ -70,16 +70,16 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
   const serializedInvoice = {
     ...invoice,
     totalAmount: Number(invoice.totalAmount),
-    items: invoice.items.map((item) => ({
+    InvoiceItem: invoice.InvoiceItem.map((item) => ({
       ...item,
       quantity: Number(item.quantity),
       unitPrice: Number(item.unitPrice),
       amount: Number(item.amount),
-      orderItem: {
-        ...item.orderItem,
-        quantity: Number(item.orderItem.quantity),
-        unitPrice: Number(item.orderItem.unitPrice),
-        amount: Number(item.orderItem.amount),
+      OrderItem: {
+        ...item.OrderItem,
+        quantity: Number(item.OrderItem.quantity),
+        unitPrice: Number(item.OrderItem.unitPrice),
+        amount: Number(item.OrderItem.amount),
       },
     })),
   };
@@ -90,7 +90,7 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
       {/* Printable Invoice Component (Hidden on screen) */}
       <PrintableInvoice 
         invoice={serializedInvoice} 
-        organization={invoice.order.quotation?.organization} 
+        organization={invoice.Order.Quotation?.Organization} 
       />
 
       {/* Header */}
@@ -142,8 +142,8 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
                     </div>
                     <div>
                         <p className="text-sm text-muted-foreground font-medium">Order Reference</p>
-                        <Link href={`/dashboard/quotations/orders/${invoice.order.id}`} className="text-lg font-bold text-primary hover:underline block truncate" title={invoice.order.orderNumber}>
-                             {invoice.order.orderNumber}
+                        <Link href={`/dashboard/quotations/orders/${invoice.Order.id}`} className="text-lg font-bold text-primary hover:underline block truncate" title={invoice.Order.orderNumber}>
+                             {invoice.Order.orderNumber}
                         </Link>
                     </div>
                 </CardContent>
@@ -169,7 +169,7 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
                     <div className="overflow-hidden">
                         <p className="text-sm text-muted-foreground font-medium">Client</p>
                          <p className="text-lg font-bold truncate">
-                            {invoice.order.client.company || invoice.order.client.name}
+                            {invoice.Order.Client.company || invoice.Order.Client.name}
                          </p>
                     </div>
                 </CardContent>
@@ -199,9 +199,9 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
-                                {invoice.items.map((item) => (
+                                {invoice.InvoiceItem.map((item) => (
                                     <tr key={item.id} className="hover:bg-muted/20 transition-colors">
-                                        <td className="py-4 px-6 font-medium text-foreground">{item.orderItem.description}</td>
+                                        <td className="py-4 px-6 font-medium text-foreground">{item.OrderItem.description}</td>
                                         <td className="py-4 px-6 text-right tabular-nums">{Number(item.quantity)}</td>
                                         <td className="py-4 px-6 text-right tabular-nums text-muted-foreground">{formatCurrency(Number(item.unitPrice))}</td>
                                         <td className="py-4 px-6 text-right font-medium tabular-nums">{formatCurrency(Number(item.amount))}</td>
@@ -231,49 +231,49 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div>
-                        <div className="font-bold text-lg">{invoice.order.client.company || invoice.order.client.name}</div>
-                        {invoice.order.client.company && <div className="text-muted-foreground">{invoice.order.client.name}</div>}
+                        <div className="font-bold text-lg">{invoice.Order.Client.company || invoice.Order.Client.name}</div>
+                        {invoice.Order.Client.company && <div className="text-muted-foreground">{invoice.Order.Client.name}</div>}
                     </div>
                     
                     <div className="space-y-3 pt-2 text-sm">
-                        {invoice.order.client.email && (
+                        {invoice.Order.Client.email && (
                             <div className="flex gap-3">
                                 <span className="text-muted-foreground w-16">Email:</span>
-                                <span className="font-medium truncate">{invoice.order.client.email}</span>
+                                <span className="font-medium truncate">{invoice.Order.Client.email}</span>
                             </div>
                          )}
-                         {invoice.order.client.phone && (
+                         {invoice.Order.Client.phone && (
                             <div className="flex gap-3">
                                 <span className="text-muted-foreground w-16">Phone:</span>
-                                <span className="font-medium">{invoice.order.client.phone}</span>
+                                <span className="font-medium">{invoice.Order.Client.phone}</span>
                             </div>
                          )}
-                         {invoice.order.client.address && (
+                         {invoice.Order.Client.address && (
                              <div className="pt-2 border-t mt-2">
                                 <p className="text-muted-foreground mb-1 text-xs uppercase font-bold">Billing Address</p>
-                                <p className="leading-relaxed whitespace-pre-wrap">{invoice.order.client.address}</p>
+                                <p className="leading-relaxed whitespace-pre-wrap">{invoice.Order.Client.address}</p>
                              </div>
                          )}
                     </div>
                 </CardContent>
             </Card>
 
-            <Card>
+             <Card>
                 <CardHeader>
                     <CardTitle className="text-base">Related Documents</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
                      <div className="flex justify-between items-center bg-muted/30 p-2 rounded">
                         <span className="text-muted-foreground">Order Ref</span>
-                        <Link href={`/dashboard/quotations/orders/${invoice.order.id}`} className="font-medium text-primary hover:underline">
-                            {invoice.order.orderNumber}
+                        <Link href={`/dashboard/quotations/orders/${invoice.Order.id}`} className="font-medium text-primary hover:underline">
+                            {invoice.Order.orderNumber}
                         </Link>
                     </div>
-                    {invoice.order.quotation && (
+                    {invoice.Order.Quotation && (
                         <div className="flex justify-between items-center bg-muted/30 p-2 rounded">
                             <span className="text-muted-foreground">Quotation</span>
-                            <Link href={`/dashboard/quotations/${invoice.order.quotation.id}`} className="font-medium text-primary hover:underline">
-                                 {invoice.order.quotation.quotationNumber}
+                            <Link href={`/dashboard/quotations/${invoice.Order.Quotation.id}`} className="font-medium text-primary hover:underline">
+                                 {invoice.Order.Quotation.quotationNumber}
                             </Link>
                         </div>
                     )}

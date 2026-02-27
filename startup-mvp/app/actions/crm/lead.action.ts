@@ -71,7 +71,11 @@ export async function getLeads(
         { name: { contains: search, mode: "insensitive" } },
         { email: { contains: search, mode: "insensitive" } },
         { company: { contains: search, mode: "insensitive" } },
-      ];
+        { phone: { contains: search, mode: "insensitive" } },
+        { leadNumber: { contains: search, mode: "insensitive" } },
+        { website: { contains: search, mode: "insensitive" } },
+        { facebook: { contains: search, mode: "insensitive" } },
+      ] as any;
     }
 
     if (status && status !== "all") {
@@ -191,10 +195,12 @@ export async function getLeadById(id: string) {
  */
 export async function createLead(input: {
   name: string;
-  email: string;
-  phone?: string;
+  email?: string;
+  phone: string;
   company?: string;
   source?: string;
+  website?: string;
+  facebook?: string;
   ownerId?: string;
   notes?: string;
 }) {
@@ -208,9 +214,9 @@ export async function createLead(input: {
       return { success: false, error: "Permission Denied: crm.leads.create" };
     }
 
-    // Validate email/phone presence and duplicates
-    if (!input.email && !input.phone) {
-      return { success: false, error: "Either Email or Phone is required for a Lead" };
+    // Validate phone presence (Required field)
+    if (!input.phone) {
+      return { success: false, error: "Phone number is required" };
     }
 
     // Check for duplicates
@@ -236,9 +242,17 @@ export async function createLead(input: {
 
     const leadNumber = await generateLeadNumber();
 
+    // Sanitize data
+    const sanitizedData: any = {
+      ...leadData,
+      email: leadData.email || null,
+      website: leadData.website || null,
+      facebook: leadData.facebook || null,
+    };
+
     const lead = await prisma.lead.create({
       data: {
-        ...leadData,
+        ...sanitizedData,
         leadNumber,
         ownerId,
       },
@@ -342,6 +356,8 @@ export async function updateLead(leadId: string, input: {
   phone?: string;
   company?: string;
   source?: string;
+  website?: string;
+  facebook?: string;
 }) {
   try {
     const session = await auth();
@@ -379,9 +395,17 @@ export async function updateLead(leadId: string, input: {
       }
     }
 
+    // Sanitize data
+    const sanitizedInput: any = {
+      ...input,
+      email: input.email === "" ? null : input.email,
+      website: input.website === "" ? null : input.website,
+      facebook: input.facebook === "" ? null : input.facebook,
+    };
+
     const lead = await prisma.lead.update({
       where: { id: leadId },
-      data: input,
+      data: sanitizedInput,
     });
 
     // Track changes for activity log

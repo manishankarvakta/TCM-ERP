@@ -28,7 +28,7 @@ interface OrderItem {
   id: string;
   description: string;
   quantity: number;
-  deliveries: Array<{ quantity: number }>;
+  DeliveryLedger: Array<{ quantity: number }>;
 }
 
 interface Delivery {
@@ -38,7 +38,7 @@ interface Delivery {
   status: string;
   description?: string | null;
   createdBy: string;
-  orderItem: {
+  OrderItem: {
     description: string;
   };
 }
@@ -49,16 +49,16 @@ interface DeliverySchedule {
   status: string;
   description: string | null;
   _count: {
-    items: number;
+    DeliveryScheduleItem: number;
   };
 }
 
 interface DeliveryScheduleTabProps {
   order: {
     id: string;
-    items: OrderItem[];
-    deliveries: Delivery[];
-    deliverySchedules: DeliverySchedule[];
+    OrderItem: OrderItem[];
+    DeliveryLedger: Delivery[];
+    DeliverySchedule: DeliverySchedule[];
   };
   canEdit: boolean;
 }
@@ -85,7 +85,7 @@ export default function DeliveryScheduleTab({ order, canEdit }: DeliverySchedule
   };
 
   const handleSetMax = (item: OrderItem) => {
-    const delivered = item.deliveries.reduce((s, d) => s + Number(d.quantity), 0);
+    const delivered = item.DeliveryLedger.reduce((s, d) => s + Number(d.quantity), 0);
     const remaining = Number(item.quantity) - delivered;
     if (remaining > 0) {
       handleQtyChange(item.id, remaining.toString());
@@ -93,7 +93,7 @@ export default function DeliveryScheduleTab({ order, canEdit }: DeliverySchedule
   };
 
   const remainingQtyParams = (item: OrderItem) => {
-    const delivered = item.deliveries.reduce((s, d) => s + Number(d.quantity), 0);
+    const delivered = item.DeliveryLedger.reduce((s, d) => s + Number(d.quantity), 0);
     const remaining = Math.max(0, Number(item.quantity) - delivered);
     return { delivered, remaining };
   }
@@ -105,7 +105,7 @@ export default function DeliveryScheduleTab({ order, canEdit }: DeliverySchedule
     for (const [itemId, qtyStr] of Object.entries(deliveryQuantities)) {
         const qty = parseFloat(qtyStr);
         if (!isNaN(qty) && qty > 0) {
-             const item = order.items.find(i => i.id === itemId);
+             const item = order.OrderItem.find(i => i.id === itemId);
              if (item) {
                  const { remaining } = remainingQtyParams(item);
                  if (qty > remaining) {
@@ -172,7 +172,7 @@ export default function DeliveryScheduleTab({ order, canEdit }: DeliverySchedule
     for (const [itemId, qtyStr] of Object.entries(scheduleQuantities)) {
         const qty = parseFloat(qtyStr);
         if (!isNaN(qty) && qty > 0) {
-             const item = order.items.find(i => i.id === itemId);
+             const item = order.OrderItem.find(i => i.id === itemId);
              if (item) {
                  const { remaining } = remainingQtyParams(item);
                  if (qty > remaining) {
@@ -230,7 +230,7 @@ export default function DeliveryScheduleTab({ order, canEdit }: DeliverySchedule
   // Group deliveries by batch (Date + Description + Status)
   const groupedDeliveries = useMemo(() => {
      const groups: Record<string, Delivery[]> = {};
-     order.deliveries.forEach(d => {
+     order.DeliveryLedger.forEach(d => {
         // Create a key based on date (day), description, and status
         const dateKey = new Date(d.date).toISOString().split('T')[0];
         const key = `${dateKey}|${d.description || ''}|${d.status}`;
@@ -238,12 +238,12 @@ export default function DeliveryScheduleTab({ order, canEdit }: DeliverySchedule
         groups[key].push(d);
      });
      return groups;
-  }, [order.deliveries]);
+  }, [order.DeliveryLedger]);
 
   return (
     <div className="space-y-6">
       {/* Active Schedules Section */}
-      {order.deliverySchedules && order.deliverySchedules.length > 0 && (
+      {order.DeliverySchedule && order.DeliverySchedule.length > 0 && (
         <Card className="border-blue-100 bg-blue-50/20">
           <CardHeader className="py-3 px-6 border-b border-blue-100/50">
             <CardTitle className="text-sm font-bold flex items-center gap-2 text-blue-800 uppercase tracking-tight">
@@ -262,8 +262,8 @@ export default function DeliveryScheduleTab({ order, canEdit }: DeliverySchedule
                       <th className="py-2 px-6 text-right font-bold w-[80px]">Action</th>
                    </tr>
                 </thead>
-                <tbody className="divide-y divide-blue-100/30">
-                   {order.deliverySchedules.map((s) => (
+                 <tbody className="divide-y divide-blue-100/30">
+                   {order.DeliverySchedule.map((s) => (
                       <tr key={s.id} className="hover:bg-blue-50/50 transition-colors">
                          <td className="py-3 px-6 font-semibold text-blue-900">{formatDate(s.scheduledDate)}</td>
                          <td className="py-3">
@@ -279,7 +279,7 @@ export default function DeliveryScheduleTab({ order, canEdit }: DeliverySchedule
                          </td>
                          <td className="py-3 text-center">
                             <span className="bg-blue-100/50 text-blue-700 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                               {s._count.items}
+                               {s._count.DeliveryScheduleItem}
                             </span>
                          </td>
                          <td className="py-3 px-6 text-right">
@@ -353,7 +353,7 @@ export default function DeliveryScheduleTab({ order, canEdit }: DeliverySchedule
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
-                                {order.items.map((item) => {
+                                {order.OrderItem.map((item) => {
                                     const { delivered, remaining } = remainingQtyParams(item);
                                     const isFullyDelivered = remaining <= 0;
                                     const currentInput = deliveryQuantities[item.id] || "";
@@ -462,7 +462,7 @@ export default function DeliveryScheduleTab({ order, canEdit }: DeliverySchedule
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-blue-50">
-                                {order.items.map((item) => {
+                                {order.OrderItem.map((item) => {
                                     const { delivered, remaining } = remainingQtyParams(item);
                                     const isFullyDelivered = remaining <= 0;
                                     const currentInput = scheduleQuantities[item.id] || "";
@@ -546,11 +546,11 @@ export default function DeliveryScheduleTab({ order, canEdit }: DeliverySchedule
                   <td className="py-3 align-top text-muted-foreground font-medium">
                       {first.description || "-"}
                   </td>
-                  <td className="py-3 align-top">
+                   <td className="py-3 align-top">
                     <div className="flex flex-col gap-1">
                         {deliveries.map(d => (
                             <div key={d.id} className="text-xs flex justify-between gap-4 border-b border-dashed pb-1 last:border-0 last:pb-0">
-                                <span className="text-foreground/90">{d.orderItem.description}</span>
+                                <span className="text-foreground/90">{d.OrderItem.description}</span>
                                 <span className="font-semibold text-nowrap">x {Number(d.quantity)}</span>
                             </div>
                         ))}

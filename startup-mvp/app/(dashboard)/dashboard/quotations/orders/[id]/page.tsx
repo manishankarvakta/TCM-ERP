@@ -45,7 +45,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
   const order = await prisma.order.findUnique({
     where: { id },
     include: {
-        client: {
+        Client: {
             select: {
                 id: true,
                 name: true,
@@ -55,32 +55,32 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                 phone: true,
             }
         },
-        quotation: {
+        Quotation: {
             select: { id: true, quotationNumber: true }
         },
-        items: {
+        OrderItem: {
             include: {
-                deliveries: true,
-                invoiceItems: true
+                DeliveryLedger: true,
+                InvoiceItem: true
             }
         },
-        deliveries: {
+        DeliveryLedger: {
             orderBy: { date: 'desc' },
             include: {
-                orderItem: true,
-                creator: {
+                OrderItem: true,
+                User: {
                     select: { name: true, email: true }
                 }
             }
         },
-        invoices: {
+        Invoice: {
             orderBy: { date: 'desc' }
         },
-        deliverySchedules: {
+        DeliverySchedule: {
             orderBy: { scheduledDate: 'desc' },
             include: {
                 _count: {
-                    select: { items: true }
+                    select: { DeliveryScheduleItem: true }
                 }
             }
         }
@@ -118,11 +118,11 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             <p className="text-muted-foreground flex items-center gap-2 text-sm">
                <FiCalendar className="h-4 w-4" />
                Created on {formatDate(order.createdAt)}
-               {order.quotation && (
+               {order.Quotation && (
                    <>
                      <span className="text-gray-300">|</span>
                      <FiFileText className="h-4 w-4" />
-                     Ref: <Link href={`/dashboard/quotations/${order.quotation.id}`} className="text-primary hover:underline font-medium">{order.quotation.quotationNumber}</Link>
+                     Ref: <Link href={`/dashboard/quotations/${order.Quotation.id}`} className="text-primary hover:underline font-medium">{order.Quotation.quotationNumber}</Link>
                    </>
                )}
             </p>
@@ -152,7 +152,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             <Card>
                 <CardContent className="p-4 flex flex-col justify-between h-full">
                     <p className="text-sm font-medium text-muted-foreground">Total Items</p>
-                    <div className="text-2xl font-bold mt-1">{order.items.length}</div>
+                    <div className="text-2xl font-bold mt-1">{order.OrderItem.length}</div>
                 </CardContent>
             </Card>
             <Card>
@@ -171,13 +171,13 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             </Card>
              <Card>
                 <CardContent className="p-4 flex flex-col justify-between h-full hover:bg-muted/50 transition-colors cursor-pointer group">
-                     <Link href={`/dashboard/contacts/clients/${order.client.id}`}>
+                     <Link href={`/dashboard/contacts/clients/${order.Client.id}`}>
                         <div className="flex justify-between items-start">
                              <p className="text-sm font-medium text-muted-foreground">Client</p>
                              <FiUser className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
                         </div>
-                        <div className="text-lg font-bold mt-1 truncate" title={order.client.company || order.client.name || ""}>
-                            {order.client.company || order.client.name}
+                        <div className="text-lg font-bold mt-1 truncate" title={order.Client.company || order.Client.name || ""}>
+                            {order.Client.company || order.Client.name}
                         </div>
                      </Link>
                 </CardContent>
@@ -208,9 +208,9 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
-                                    {order.items.map((item) => {
-                                        const deliveredQty = item.deliveries.reduce((sum, d) => sum + Number(d.quantity), 0);
-                                        const invoicedQty = item.invoiceItems.reduce((sum, i) => sum + Number(i.quantity), 0);
+                                    {order.OrderItem.map((item) => {
+                                        const deliveredQty = item.DeliveryLedger.reduce((sum, d) => sum + Number(d.quantity), 0);
+                                        const invoicedQty = item.InvoiceItem.reduce((sum, i) => sum + Number(i.quantity), 0);
                                         const isFulfilled = deliveredQty >= Number(item.quantity);
 
                                         return (
@@ -286,27 +286,27 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                     <CardContent className="p-4 space-y-4">
                         <div>
                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Bill To</p>
-                             <div className="font-semibold text-base">{order.client?.company || order.client?.name}</div>
-                             {order.client?.company && <div className="text-sm text-muted-foreground">{order.client.name}</div>}
+                             <div className="font-semibold text-base">{order.Client?.company || order.Client?.name}</div>
+                             {order.Client?.company && <div className="text-sm text-muted-foreground">{order.Client.name}</div>}
                         </div>
                         <Separator />
                         <div className="space-y-2 text-sm">
-                            {order.client?.email && (
+                            {order.Client?.email && (
                                 <div className="flex items-center gap-2">
                                      <span className="text-muted-foreground w-4 text-center">@</span>
-                                     <a href={`mailto:${order.client.email}`} className="hover:underline text-primary">{order.client.email}</a>
+                                     <a href={`mailto:${order.Client.email}`} className="hover:underline text-primary">{order.Client.email}</a>
                                 </div>
                             )}
-                             {order.client?.phone && (
+                             {order.Client?.phone && (
                                 <div className="flex items-center gap-2">
                                      <span className="text-muted-foreground w-4 text-center">#</span>
-                                     <span>{order.client.phone}</span>
+                                     <span>{order.Client.phone}</span>
                                 </div>
                             )}
-                             {order.client?.address && (
+                             {order.Client?.address && (
                                 <div className="flex items-start gap-2 mt-2">
                                     <FiMapPin className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                                    <span className="whitespace-pre-wrap text-muted-foreground">{order.client.address}</span>
+                                    <span className="whitespace-pre-wrap text-muted-foreground">{order.Client.address}</span>
                                 </div>
                             )}
                         </div>

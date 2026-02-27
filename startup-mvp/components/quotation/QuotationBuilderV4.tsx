@@ -120,90 +120,53 @@ interface QuotationBuilderV4Props {
 // ── Helpers (identical to V3) ─────────────────────────────────────────────────
 
 const ensureIds = (sections: any[]) =>
-  sections.map((section, sectionIndex) => ({
-    title: section.title || `Section ${sectionIndex + 1}`,
-    note: section.note || '',
-    discount: section.discount ?? 0,
-    total: section.total ?? 0,
-    grandTotal: section.grandTotal ?? 0,
-    sortOrder: section.sortOrder ?? sectionIndex,
-    categoryId: section.categoryId || null,
-    sectionType: section.sectionType || 'PRICING',
-    isEnabled: section.isEnabled !== false,
-    displayOrder: section.displayOrder ?? sectionIndex,
-    metadata: section.metadata || null,
-    // give each section a stable id
-    id: section.id || `section-${sectionIndex}-${Date.now()}`,
-    items: (section.items || []).map((item: any, index: number) => ({
-      sl: item.sl ?? index + 1,
-      no: item.no != null ? String(item.no) : null,
-      code: item.code || null,
-      description: item.description || null,
-      height: item.height ?? null,
-      width: item.width ?? null,
-      depth: item.depth ?? null,
-      unit: item.unit || null,
-      unitPrice: item.unitPrice ?? 0,
-      quantity: item.quantity ?? 0,
-      discount: item.discount ?? 0,
-      amount: item.amount ?? 0,
-      itemId: item.itemId || null,
-      id: item.id || `item-${Date.now()}-${index}-${Math.random()}`,
-    })),
-    groups: (section.groups || []).map((group: any, groupIndex: number) => ({
-      code: group.code || null,
-      description: group.description || 'Untitled Group',
-      quantity: group.quantity ?? 0,
-      number: group.number ?? 0,
-      sortOrder: group.sortOrder ?? groupIndex,
-      moduleGroupId: group.moduleGroupId || null,
-      baseUnit: group.baseUnit || null,
-      baseUnitPrice: group.baseUnitPrice || null,
-      id: group.id || `group-${Date.now()}-${groupIndex}-${Math.random()}`,
-      isExpanded: group.isExpanded !== undefined ? group.isExpanded : true,
-      items: (group.items || []).map((item: any, itemIndex: number) => ({
-        sl: item.sl ?? itemIndex + 1,
+  sections.map((section, sectionIndex) => {
+    // Flatten legacy groups into items if they exist
+    let allItems = [...(section.items || [])];
+    let addedNotes: string[] = [];
+    
+    if (section.groups && Array.isArray(section.groups)) {
+      section.groups.forEach((group: any) => {
+        if (group.items && Array.isArray(group.items)) {
+          allItems = [...allItems, ...group.items];
+        }
+        if (group.description) {
+          addedNotes.push(`Group: ${group.description}`);
+        }
+      });
+    }
+
+    const mergedNote = [section.note || '', ...addedNotes].filter(Boolean).join('\n\n');
+
+    return {
+      title: section.title || `Section ${sectionIndex + 1}`,
+      note: mergedNote,
+      discount: section.discount ?? 0,
+      total: section.total ?? 0,
+      grandTotal: section.grandTotal ?? 0,
+      sortOrder: section.sortOrder ?? sectionIndex,
+      categoryId: section.categoryId || null,
+      sectionType: section.sectionType || 'PRICING',
+      isEnabled: section.isEnabled !== false,
+      displayOrder: section.displayOrder ?? sectionIndex,
+      metadata: section.metadata || null,
+      // give each section a stable id
+      id: section.id || `section-${sectionIndex}-${Date.now()}`,
+      items: allItems.map((item: any, index: number) => ({
+        sl: item.sl ?? index + 1,
         no: item.no != null ? String(item.no) : null,
         code: item.code || null,
         description: item.description || null,
-        height: item.height ?? null,
-        width: item.width ?? null,
-        depth: item.depth ?? null,
         unit: item.unit || null,
         unitPrice: item.unitPrice ?? 0,
         quantity: item.quantity ?? 0,
         discount: item.discount ?? 0,
         amount: item.amount ?? 0,
         itemId: item.itemId || null,
-        moduleGroupItemId: item.moduleGroupItemId || null,
-        id: item.id || `item-${Date.now()}-${groupIndex}-${itemIndex}-${Math.random()}`,
+        id: item.id || `item-${Date.now()}-${index}-${Math.random()}`,
       })),
-    })),
-    categoryGroups: (section.categoryGroups || []).map(
-      (cg: any, cgIndex: number) => ({
-        categoryId: cg.categoryId || null,
-        sortOrder: cg.sortOrder ?? cgIndex,
-        id: cg.id || `cg-${Date.now()}-${cgIndex}-${Math.random()}`,
-        isExpanded: cg.isExpanded !== undefined ? cg.isExpanded : true,
-        items: (cg.items || []).map((item: any, itemIndex: number) => ({
-          sl: item.sl ?? itemIndex + 1,
-          no: item.no != null ? String(item.no) : null,
-          code: item.code || null,
-          description: item.description || null,
-          height: item.height ?? null,
-          width: item.width ?? null,
-          depth: item.depth ?? null,
-          unit: item.unit || null,
-          unitPrice: item.unitPrice ?? 0,
-          quantity: item.quantity ?? 0,
-          discount: item.discount ?? 0,
-          amount: item.amount ?? 0,
-          itemId: item.itemId || null,
-          id: item.id || `item-${Date.now()}-${cgIndex}-${itemIndex}-${Math.random()}`,
-        })),
-      })
-    ),
-  }));
+    };
+  });
 
 /** Build the payload shape expected by the server action (identical to V3). */
 const buildSubmitPayload = (data: QuotationFormValues, sections: any[], mode: QuotationMode) => ({
@@ -244,63 +207,17 @@ const buildSubmitPayload = (data: QuotationFormValues, sections: any[], mode: Qu
     isEnabled: section.isEnabled !== false,
     displayOrder: section.displayOrder ?? 0,
     metadata: section.metadata || null,
-    groups: (section.groups || []).map((group: any) => ({
-      code: group.code || null,
-      description: group.description || 'Untitled Group',
-      quantity: group.quantity ?? 0,
-      number: group.number ?? 0,
-      sortOrder: group.sortOrder ?? 0,
-      moduleGroupId: group.moduleGroupId || null,
-      items: (group.items || []).map((item: any) => ({
-        sl: item.sl ?? 0,
-        no: item.no != null ? String(item.no) : null,
-        code: item.code || null,
-        description: item.description || null,
-        height: item.height ?? null,
-        width: item.width ?? null,
-        depth: item.depth ?? null,
-        unit: item.unit || null,
-        unitPrice: item.unitPrice ?? 0,
-        quantity: item.quantity ?? 0,
-        discount: item.discount ?? 0,
-        amount: item.amount ?? 0,
-        itemId: item.itemId || null,
-        moduleGroupItemId: item.moduleGroupItemId || null,
-      })),
-    })),
     items: (section.items || []).map((item: any) => ({
       sl: item.sl ?? 0,
       no: item.no != null ? String(item.no) : null,
       code: item.code || null,
       description: item.description || null,
-      height: item.height ?? null,
-      width: item.width ?? null,
-      depth: item.depth ?? null,
       unit: item.unit || null,
       unitPrice: item.unitPrice ?? 0,
       quantity: item.quantity ?? 0,
       discount: item.discount ?? 0,
       amount: item.amount ?? 0,
       itemId: item.itemId || null,
-    })),
-    categoryGroups: (section.categoryGroups || []).map((cg: any) => ({
-      categoryId: cg.categoryId || null,
-      sortOrder: cg.sortOrder ?? 0,
-      items: (cg.items || []).map((item: any) => ({
-        sl: item.sl ?? 0,
-        no: item.no != null ? String(item.no) : null,
-        code: item.code || null,
-        description: item.description || null,
-        height: item.height ?? null,
-        width: item.width ?? null,
-        depth: item.depth ?? null,
-        unit: item.unit || null,
-        unitPrice: item.unitPrice ?? 0,
-        quantity: item.quantity ?? 0,
-        discount: item.discount ?? 0,
-        amount: item.amount ?? 0,
-        itemId: item.itemId || null,
-      })),
     })),
   })),
 });
@@ -467,12 +384,6 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
     sections.forEach((section) => {
       let sectionTotal = 0;
       (section.items || []).forEach((item: any) => { sectionTotal += item.amount || 0; });
-      (section.groups || []).forEach((group: any) => {
-        (group.items || []).forEach((item: any) => { sectionTotal += item.amount || 0; });
-      });
-      (section.categoryGroups || []).forEach((cg: any) => {
-        (cg.items || []).forEach((item: any) => { sectionTotal += item.amount || 0; });
-      });
       if (section.discount) sectionTotal -= section.discount;
       total += Math.max(0, sectionTotal);
     });

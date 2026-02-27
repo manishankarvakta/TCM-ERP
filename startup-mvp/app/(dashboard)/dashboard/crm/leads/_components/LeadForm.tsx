@@ -15,10 +15,12 @@ import { type LeadStatus } from "@prisma/client";
 const leadSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
-  email: z.string().email("Invalid email address"),
-  phone: z.string().optional().or(z.literal("")),
+  email: z.string().email("Invalid email address").optional().or(z.literal("")),
+  phone: z.string().min(1, "Phone number is required"),
   company: z.string().optional().or(z.literal("")),
   source: z.string().optional().or(z.literal("")),
+  website: z.string().optional().or(z.literal("")),
+  facebook: z.string().optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
 });
 
@@ -43,6 +45,8 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
       phone: "",
       company: "",
       source: "",
+      website: "",
+      facebook: "",
       notes: "",
     };
 
@@ -51,6 +55,13 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
       ...initialData,
       firstName: nameParts[0] || "",
       lastName: nameParts.slice(1).join(" ") || "",
+      email: initialData.email || "",
+      phone: initialData.phone || "",
+      company: initialData.company || "",
+      source: initialData.source || "",
+      website: initialData.website || "",
+      facebook: initialData.facebook || "",
+      notes: initialData.notes || "",
     };
   };
 
@@ -121,16 +132,11 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="email">Email *</Label>
-        <Input id="email" type="email" {...register("email")} disabled={loading} placeholder="jane.doe@example.com" />
-        {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-      </div>
-
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="phone">Phone</Label>
+          <Label htmlFor="phone">Phone *</Label>
           <Input id="phone" {...register("phone")} disabled={loading} placeholder="+1 234 567 890" />
+          {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
         </div>
         <div className="space-y-2">
           <Label htmlFor="company">Company</Label>
@@ -138,9 +144,29 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="source">Source</Label>
-        <Input id="source" {...register("source")} disabled={loading} placeholder="Website, Referral, etc." />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" type="email" {...register("email")} disabled={loading} placeholder="jane.doe@example.com" />
+          {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="website">Website</Label>
+          <Input id="website" {...register("website")} disabled={loading} placeholder="https://example.com" />
+          {errors.website && <p className="text-xs text-destructive">{errors.website.message}</p>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="facebook">FB Page/Profile Link</Label>
+          <Input id="facebook" {...register("facebook")} disabled={loading} placeholder="https://facebook.com/profile" />
+          {errors.facebook && <p className="text-xs text-destructive">{errors.facebook.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="source">Source</Label>
+          <Input id="source" {...register("source")} disabled={loading} placeholder="Website, Referral, etc." />
+        </div>
       </div>
 
       <div className="space-y-2">

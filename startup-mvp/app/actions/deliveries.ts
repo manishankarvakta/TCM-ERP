@@ -36,15 +36,15 @@ export async function postDelivery(input: {
     const orderItem = await prisma.orderItem.findUnique({
       where: { id: orderItemId },
       include: {
-        deliveries: true,
-        order: { select: { clientId: true } }
+        DeliveryLedger: true,
+        Order: { select: { clientId: true } }
       }
     });
 
     if (!orderItem) return { success: false, error: "Order item not found" };
     if (orderItem.orderId !== orderId) return { success: false, error: "Item does not belong to this order" };
 
-    const totalDelivered = orderItem.deliveries.reduce((sum, d) => sum + Number(d.quantity), 0);
+    const totalDelivered = orderItem.DeliveryLedger.reduce((sum: number, d: any) => sum + Number(d.quantity), 0);
     const remainingQty = Number(orderItem.quantity) - totalDelivered;
 
     // Validate (for positive deliveries)
@@ -126,9 +126,9 @@ export async function getDeliveries(
     // Search filter (Order No, Client Name)
     if (search) {
       where.OR = [
-        { order: { orderNumber: { contains: search, mode: "insensitive" } } },
-        { order: { client: { name: { contains: search, mode: "insensitive" } } } },
-        { order: { client: { company: { contains: search, mode: "insensitive" } } } }
+        { Order: { orderNumber: { contains: search, mode: "insensitive" } } },
+        { Order: { Client: { name: { contains: search, mode: "insensitive" } } } },
+        { Order: { Client: { company: { contains: search, mode: "insensitive" } } } }
       ];
     }
 
@@ -147,11 +147,11 @@ export async function getDeliveries(
         take: limit,
         orderBy: { date: "desc" },
         include: {
-          order: {
+          Order: {
             select: {
               id: true,
               orderNumber: true,
-              client: {
+              Client: {
                 select: {
                   id: true,
                   name: true,
@@ -160,13 +160,13 @@ export async function getDeliveries(
               }
             }
           },
-          orderItem: {
+          OrderItem: {
              select: {
                  description: true,
                  unitPrice: true,
              }
           },
-          creator: {
+          User: {
              select: {
                  name: true,
                  email: true
@@ -242,14 +242,14 @@ export async function postBulkDelivery(input: {
         const orderItem = await itx.orderItem.findUnique({
           where: { id: orderItemId },
           include: {
-            deliveries: true,
+            DeliveryLedger: true,
           }
         });
 
         if (!orderItem) throw new Error(`Order item ${orderItemId} not found`);
         if (orderItem.orderId !== orderId) throw new Error(`Item ${orderItem.description} does not belong to this order`);
 
-        const totalDelivered = orderItem.deliveries.reduce((sum, d) => sum + Number(d.quantity), 0);
+        const totalDelivered = orderItem.DeliveryLedger.reduce((sum, d) => sum + Number(d.quantity), 0);
         const remainingQty = Number(orderItem.quantity) - totalDelivered;
 
         // Validate

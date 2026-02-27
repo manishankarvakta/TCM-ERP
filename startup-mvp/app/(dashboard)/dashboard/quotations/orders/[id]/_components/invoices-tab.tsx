@@ -26,8 +26,8 @@ interface OrderItem {
   description: string;
   quantity: number; // Ordered
   unitPrice: number;
-  deliveries: Array<{ quantity: number }>;
-  invoiceItems: Array<{ quantity: number }>;
+  DeliveryLedger: Array<{ quantity: number }>;
+  InvoiceItem: Array<{ quantity: number }>;
 }
 
 interface Invoice {
@@ -41,8 +41,8 @@ interface Invoice {
 interface InvoicesTabProps {
   order: {
     id: string;
-    items: OrderItem[];
-    invoices: Invoice[];
+    OrderItem: OrderItem[];
+    Invoice: Invoice[];
   };
   canCreate: boolean;
 }
@@ -62,13 +62,13 @@ export default function InvoicesTab({ order, canCreate }: InvoicesTabProps) {
   // Helper to calculate billable stats
   const getItemStats = (item: OrderItem) => {
     const ordered = Number(item.quantity);
-    const delivered = item.deliveries.reduce((sum, d) => sum + Number(d.quantity), 0);
-    const invoiced = item.invoiceItems.reduce((sum, i) => sum + Number(i.quantity), 0);
+    const delivered = item.DeliveryLedger.reduce((sum, d) => sum + Number(d.quantity), 0);
+    const invoiced = item.InvoiceItem.reduce((sum, i) => sum + Number(i.quantity), 0);
     const billable = Math.max(0, delivered - invoiced);
     return { ordered, delivered, invoiced, billable };
   };
 
-  const billableItems = order.items.filter(item => getItemStats(item).billable > 0);
+  const billableItems = order.OrderItem.filter(item => getItemStats(item).billable > 0);
   const canCreateInvoice = billableItems.length > 0;
 
   const handleCheckboxChange = (itemId: string, checked: boolean) => {
@@ -84,7 +84,7 @@ export default function InvoicesTab({ order, canCreate }: InvoicesTabProps) {
   const calculateTotal = () => {
       let total = 0;
       selectedItemIds.forEach(id => {
-          const item = order.items.find(i => i.id === id);
+          const item = order.OrderItem.find(i => i.id === id);
           if (item) {
               const stats = getItemStats(item);
               total += stats.billable * Number(item.unitPrice);
@@ -103,7 +103,7 @@ export default function InvoicesTab({ order, canCreate }: InvoicesTabProps) {
     setLoading(true);
     try {
       const itemsToInvoice = Array.from(selectedItemIds).map(itemId => {
-          const item = order.items.find(i => i.id === itemId)!;
+          const item = order.OrderItem.find(i => i.id === itemId)!;
           const stats = getItemStats(item);
           return {
               orderItemId: itemId,
@@ -273,7 +273,7 @@ export default function InvoicesTab({ order, canCreate }: InvoicesTabProps) {
 
       </CardHeader>
       <CardContent>
-        {order.invoices.length === 0 ? (
+        {order.Invoice.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">No invoices generated</div>
         ) : (
           <table className="w-full text-sm">
@@ -287,7 +287,7 @@ export default function InvoicesTab({ order, canCreate }: InvoicesTabProps) {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {order.invoices.map((invoice) => (
+              {order.Invoice.map((invoice) => (
                 <tr key={invoice.id}>
                   <td className="py-3 font-medium">{invoice.invoiceNumber}</td>
                   <td className="py-3">{formatDate(invoice.date)}</td>

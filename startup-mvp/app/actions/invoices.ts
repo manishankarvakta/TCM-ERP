@@ -63,13 +63,13 @@ export async function createInvoice(input: {
     for (const item of items) {
         const orderItem = await client.orderItem.findUnique({
             where: { id: item.orderItemId },
-            include: { deliveries: true, invoiceItems: true }
+            include: { DeliveryLedger: true, InvoiceItem: true }
         });
 
         if (!orderItem) return { success: false, error: "Order item not found" };
 
-        const totalDelivered = orderItem.deliveries.reduce((sum, d) => sum + Number(d.quantity), 0);
-        const totalInvoiced = orderItem.invoiceItems.reduce((sum, i) => sum + Number(i.quantity), 0);
+        const totalDelivered = orderItem.DeliveryLedger.reduce((sum, d) => sum + Number(d.quantity), 0);
+        const totalInvoiced = orderItem.InvoiceItem.reduce((sum, i) => sum + Number(i.quantity), 0);
         const billableQty = totalDelivered - totalInvoiced;
 
         if (item.quantity > billableQty) {
@@ -90,7 +90,7 @@ export async function createInvoice(input: {
         date,
         totalAmount: new Prisma.Decimal(totalAmount),
         status: "draft",
-        items: {
+        InvoiceItem: {
           create: items.map(item => ({
             orderItemId: item.orderItemId,
             deliveryLedgerId: item.deliveryLedgerId,
@@ -125,8 +125,8 @@ export async function postInvoice(invoiceId: string, userId?: string) {
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: { 
-        items: true,
-        order: { select: { clientId: true, orderNumber: true } }
+        InvoiceItem: true,
+        Order: { select: { clientId: true, orderNumber: true } }
       }
     });
 
@@ -149,9 +149,9 @@ export async function postInvoice(invoiceId: string, userId?: string) {
         lineNumber: 1,
         debitAmount: amount,
         creditAmount: 0,
-        description: `Invoice ${invoice.invoiceNumber} for Order ${invoice.order.orderNumber}`,
+        description: `Invoice ${invoice.invoiceNumber} for Order ${invoice.Order.orderNumber}`,
         chartOfAccountId: arAccountId,
-        clientId: invoice.order.clientId,
+        clientId: invoice.Order.clientId,
       },
       {
         lineNumber: 2,
@@ -178,7 +178,7 @@ export async function postInvoice(invoiceId: string, userId?: string) {
           description: `Sales Invoice: ${invoice.invoiceNumber}`,
           status: "posted",
           createdBy: effectiveUserId,
-          clientId: invoice.order.clientId,
+          clientId: invoice.Order.clientId,
           orderId: invoice.orderId,
           postedById: effectiveUserId,
           postedAt: new Date(),
@@ -270,17 +270,17 @@ export async function applyAdvanceToInvoice(input: {
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: { 
-        order: {
+        Order: {
           select: { 
             id: true, 
             clientId: true, 
             orderNumber: true,
-            vouchers: {
+            Voucher: {
               include: { VoucherLine: true }
             }
           }
         },
-        vouchers: { // Previous applications
+        Voucher_Voucher_invoiceIdToInvoice: { // Previous applications
           include: { VoucherLine: true }
         }
       }
@@ -302,7 +302,7 @@ export async function applyAdvanceToInvoice(input: {
     let totalAdvance = 0;
     let totalAppliedToOrder = 0;
 
-    invoice.order.vouchers.forEach(v => {
+    invoice.Order.Voucher.forEach(v => {
       v.VoucherLine.forEach(line => {
         if (line.chartOfAccountId === advanceAccountId) {
           totalAdvance += Number(line.creditAmount);
@@ -318,7 +318,7 @@ export async function applyAdvanceToInvoice(input: {
     const initialAR = Number(invoice.totalAmount);
     let previousAppliedToInvoice = 0;
     
-    invoice.vouchers.forEach(v => {
+    invoice.Voucher_Voucher_invoiceIdToInvoice.forEach(v => {
         v.VoucherLine.forEach(line => {
             if (line.chartOfAccountId === arAccountId) {
                 previousAppliedToInvoice += Number(line.creditAmount);
@@ -358,8 +358,8 @@ export async function applyAdvanceToInvoice(input: {
                 description: `Advance application to Invoice ${invoice.invoiceNumber}`,
                 status: "posted",
                 createdBy: effectiveUserId,
-                clientId: invoice.order.clientId,
-                orderId: invoice.order.id,
+                clientId: invoice.Order.clientId,
+                orderId: invoice.Order.id,
                 invoiceId: invoice.id,
                 postedById: effectiveUserId,
                 postedAt: new Date(),
@@ -371,7 +371,7 @@ export async function applyAdvanceToInvoice(input: {
                             debitAmount: new Prisma.Decimal(amount),
                             creditAmount: new Prisma.Decimal(0),
                             chartOfAccountId: advanceAccountId,
-                            clientId: invoice.order.clientId,
+                            clientId: invoice.Order.clientId,
                             description: `Utilize advance for ${invoice.invoiceNumber}`,
                             updatedAt: new Date()
                         },
@@ -381,7 +381,7 @@ export async function applyAdvanceToInvoice(input: {
                             debitAmount: new Prisma.Decimal(0),
                             creditAmount: new Prisma.Decimal(amount),
                             chartOfAccountId: arAccountId,
-                            clientId: invoice.order.clientId,
+                            clientId: invoice.Order.clientId,
                             description: `Payment via advance: ${invoice.invoiceNumber}`,
                             updatedAt: new Date()
                         }
@@ -409,7 +409,7 @@ export async function applyAdvanceToInvoice(input: {
                             debitAmount: new Prisma.Decimal(amount),
                             creditAmount: new Prisma.Decimal(0),
                             chartOfAccountId: advanceAccountId,
-                            clientId: invoice.order.clientId,
+                            clientId: invoice.Order.clientId,
                             description: voucher.description
                         },
                         {
@@ -418,7 +418,7 @@ export async function applyAdvanceToInvoice(input: {
                             debitAmount: new Prisma.Decimal(0),
                             creditAmount: new Prisma.Decimal(amount),
                             chartOfAccountId: arAccountId,
-                            clientId: invoice.order.clientId,
+                            clientId: invoice.Order.clientId,
                             description: voucher.description
                         }
                     ]
@@ -466,9 +466,9 @@ export async function getInvoices(
     if (search) {
       where.OR = [
         { invoiceNumber: { contains: search, mode: "insensitive" } },
-        { order: { orderNumber: { contains: search, mode: "insensitive" } } },
-        { order: { client: { name: { contains: search, mode: "insensitive" } } } },
-        { order: { client: { company: { contains: search, mode: "insensitive" } } } }
+        { Order: { orderNumber: { contains: search, mode: "insensitive" } } },
+        { Order: { Client: { name: { contains: search, mode: "insensitive" } } } },
+        { Order: { Client: { company: { contains: search, mode: "insensitive" } } } }
       ];
     }
 
@@ -480,11 +480,11 @@ export async function getInvoices(
         take: limit,
         orderBy: { date: "desc" },
         include: {
-          order: {
+          Order: {
             select: {
               id: true,
               orderNumber: true,
-              client: {
+              Client: {
                 select: {
                   id: true,
                   name: true,

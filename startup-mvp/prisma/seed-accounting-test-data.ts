@@ -460,14 +460,14 @@ async function seedDraftQuotations(creatorId: string, clients: Array<{ id: strin
         clientId: client.id,
         submittedById: creatorId,
         isTrash: false,
-        section: {
+        Section: {
           create: {
             title: "Main Section",
             note: "Test section for draft quotation",
             total: new Prisma.Decimal(quotation.total),
             grandTotal: new Prisma.Decimal(quotation.total),
             sortOrder: 0,
-            items: {
+            QuotationItem: {
               create: [
                 {
                   sl: 1,
@@ -593,14 +593,14 @@ async function seedAcceptedQuotations(creatorId: string, clients: Array<{ id: st
         clientId: client.id,
         submittedById: creatorId,
         isTrash: false,
-        section: {
+        Section: {
           create: {
             title: "Main Section",
             note: "Test section for accepted quotation",
             total: new Prisma.Decimal(quotation.total),
             grandTotal: new Prisma.Decimal(quotation.total),
             sortOrder: 0,
-            items: {
+            QuotationItem: {
               create: [
                 {
                   sl: 1,

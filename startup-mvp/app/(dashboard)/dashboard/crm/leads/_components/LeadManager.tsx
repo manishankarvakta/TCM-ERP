@@ -171,7 +171,7 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
             <FiSearch className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
                 type="search"
-                placeholder="Search leads..."
+                placeholder="Search by name, email, phone, company, lead #..."
                 className="pl-8 bg-background"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
