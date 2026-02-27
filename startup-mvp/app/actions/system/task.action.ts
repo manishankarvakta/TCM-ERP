@@ -62,7 +62,15 @@ export async function createTask(input: {
         eventType: 'TASK_CREATED',
         actorId: session.user.id,
         description: `Created task: ${task.title}`,
-        metadata: { taskId: task.id }
+        metadata: { taskId: task.id },
+        ...(input.assigneeId && input.assigneeId !== session.user.id && {
+          notification: {
+            recipientId: input.assigneeId,
+            type: 'TASK_ASSIGNED',
+            title: 'New Task Assigned',
+            message: `You have been assigned a new task: ${task.title}`
+          }
+        })
       });
     }
 
@@ -156,7 +164,15 @@ export async function updateTask(
                 metadata: { 
                     taskId: task.id,
                     changes 
-                }
+                },
+                ...(input.assigneeId && input.assigneeId !== oldTask.assigneeId && input.assigneeId !== session.user.id && {
+                  notification: {
+                    recipientId: input.assigneeId,
+                    type: 'TASK_ASSIGNED',
+                    title: 'Task Assigned',
+                    message: `You have been assigned the task: ${task.title}`
+                  }
+                })
             });
 
             // Maintain legacy ledger specific records if needed, OR simplify purely to emitSystemEvent.

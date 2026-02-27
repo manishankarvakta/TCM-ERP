@@ -128,6 +128,29 @@ export async function updateSystemEvent(id: string, data: {
         });
     }
 
+    // Handle attendee notifications on update
+    if (data.attendees) {
+        const oldAttendees = (oldEvent.metadata as any)?.attendees || [];
+        const newAttendees = data.attendees.filter((id: string) => !oldAttendees.includes(id));
+        
+        if (newAttendees.length > 0) {
+            const { createNotification } = await import("@/lib/system/notifications");
+            for (const attendeeId of newAttendees) {
+                if (attendeeId !== session.user.id) {
+                    await createNotification({
+                        recipientId: attendeeId,
+                        type: 'EVENT_INVITE',
+                        title: 'Event Invitation',
+                        message: `You have been invited to an event: ${event.subject}`,
+                        entityType: (event as any).contextType,
+                        entityId: (event as any).contextId,
+                        createdBy: session.user.id
+                    });
+                }
+            }
+        }
+    }
+
     revalidatePath(`/dashboard/crm/${(event as any).contextType}s/${(event as any).contextId}`);
     return { success: true, data: event };
 }

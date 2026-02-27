@@ -83,11 +83,22 @@ export async function createActivity(input: {
         }
       } as any
     });
+    
+    // Notify the assigned user if they are not the creator
+    if (input.assignedToId && input.assignedToId !== session.user.id) {
+      await (await import("@/lib/notification")).notifyUserAction({
+        userId: input.assignedToId,
+        type: 'SYSTEM' as any,
+        title: `New ${input.type.charAt(0).toUpperCase() + input.type.slice(1)} Assigned`,
+        message: `You have been assigned a new ${input.type}: ${input.subject}`,
+        action: 'item_created'
+      });
+    }
 
     // Revalidate relevant paths
     revalidateBothPaths("crm/activities");
-    if (input.entityType && input.entityId) {
-      revalidateBothPaths(`crm/${input.entityType}s/${input.entityId}`);
+    if (contextType && contextId) {
+      revalidateBothPaths(`crm/${contextType}s/${contextId}`);
     }
 
     return { 

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { FiPlus } from "react-icons/fi";
 import { useRouter } from "next/navigation";
-import { getUsers } from "@/app/actions/user.action";
+import { getActiveUsers } from "@/app/actions/user.action";
 import SystemEventForm from "./SystemEventForm";
 import { TaskForm } from "@/app/(dashboard)/dashboard/tasks/_components/TaskForm";
 import { NoteForm } from "@/app/(dashboard)/dashboard/notes/_components/NoteForm";
@@ -73,7 +73,7 @@ export default function ActivitySection({
 
   useEffect(() => {
     const fetchUsers = async () => {
-        const result = await getUsers();
+        const result = await getActiveUsers();
         if (result.success) {
             setUsers(result.users || []);
         }
@@ -242,6 +242,7 @@ export default function ActivitySection({
                     initialData={selectedTask}
                     onSuccess={handleSuccess}
                     onCancel={() => setIsTaskSheetOpen(false)}
+                    users={users}
                 />
             )}
         </SheetContent>
