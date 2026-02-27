@@ -21,12 +21,21 @@ export async function getAdminCrmMetrics() {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
+    // Calculate dates for the last 6 months
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(now.getMonth() - 5);
+    sixMonthsAgo.setDate(1);
+    sixMonthsAgo.setHours(0, 0, 0, 0);
+
     const [
       totalOpportunities,
       totalLeads,
       wonOpportunities,
+      lostOpportunities,
       openOpportunities,
-      recentLeads
+      recentLeads,
+      leadsBySource,
+      recentWonOpportunities
     ] = await Promise.all([
       // Total Pipeline Value (Open)
       prisma.opportunity.aggregate({
@@ -47,6 +56,13 @@ export async function getAdminCrmMetrics() {
         _count: true
       }),
 
+      // Lost Opportunities Value
+      prisma.opportunity.aggregate({
+        where: { stage: OpportunityStage.LOST },
+        _sum: { value: true },
+        _count: true
+      }),
+
       // Opportunities grouped by stage for Funnel
       prisma.opportunity.groupBy({
         by: ['stage'],
@@ -60,6 +76,22 @@ export async function getAdminCrmMetrics() {
         take: 5,
         orderBy: { createdAt: 'desc' },
         select: { id: true, name: true, company: true, status: true, createdAt: true }
+      }),
+
+      // Leads grouped by source
+      prisma.lead.groupBy({
+        by: ['source'],
+        _count: { id: true },
+        where: { isTrash: false }
+      }),
+
+      // Recent won opportunities for timeline (last 6 months)
+      prisma.opportunity.findMany({
+        where: { 
+          stage: OpportunityStage.WON,
+          createdAt: { gte: sixMonthsAgo } 
+        },
+        select: { value: true, createdAt: true }
       })
     ]);
 
@@ -79,14 +111,50 @@ export async function getAdminCrmMetrics() {
       }
     });
 
+    // Build Monthly Revenue Chart Data
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const revenueByMonth = Array.from({ length: 6 }).map((_, i) => {
+      const d = new Date(now);
+      d.setMonth(now.getMonth() - (5 - i));
+      return {
+        name: `${monthNames[d.getMonth()]}`,
+        month: d.getMonth(),
+        year: d.getFullYear(),
+        revenue: 0,
+        deals: 0
+      };
+    });
+
+    recentWonOpportunities.forEach(opp => {
+      const oppDate = new Date(opp.createdAt);
+      const oppMonth = oppDate.getMonth();
+      const oppYear = oppDate.getFullYear();
+      
+      const targetMonth = revenueByMonth.find(m => m.month === oppMonth && m.year === oppYear);
+      if (targetMonth) {
+        targetMonth.revenue += Number(opp.value || 0);
+        targetMonth.deals += 1;
+      }
+    });
+
+    // Build Lead Source Data
+    const leadSources = leadsBySource.map(source => ({
+      name: source.source || 'Unknown',
+      value: source._count.id
+    })).sort((a, b) => b.value - a.value);
+
     const metrics = {
       pipelineValue: totalOpportunities._sum.value || 0,
       pipelineCount: totalOpportunities._count || 0,
       wonValue: wonOpportunities._sum.value || 0,
       wonCount: wonOpportunities._count || 0,
+      lostValue: lostOpportunities._sum.value || 0,
+      lostCount: lostOpportunities._count || 0,
       newLeadsMonth: totalLeads,
       funnel: stageCounts,
-      recentLeads
+      recentLeads,
+      revenueByMonth,
+      leadSources
     };
 
     return serializeData({ success: true, metrics });
@@ -97,9 +165,9 @@ export async function getAdminCrmMetrics() {
 }
 
 /**
- * Get personalized metrics for the User CRM Dashboard
+ * Get personalized metrics for the User CRM Dashboard (or all for Admin)
  */
-export async function getUserCrmMetrics() {
+export async function getUserCrmMetrics(isAdminView: boolean = false, selectedUserId?: string) {
   try {
     const session = await auth();
     if (!session?.user) return serializeData({ success: false, error: "Unauthorized" });
@@ -114,6 +182,41 @@ export async function getUserCrmMetrics() {
     // End of today
     const todayEnd = new Date(now);
     todayEnd.setHours(23, 59, 59, 999);
+
+    let targetUserId = userId;
+    let fetchAll = false;
+
+    // Permission check for admin view
+    if (isAdminView) {
+      const canManage = await checkPermission(userId, "crm", "manage");
+      const isSystemAdmin = session.user.role?.toLowerCase() === 'admin' || session.user.role?.toLowerCase() === 'superadmin';
+      if (!canManage && !isSystemAdmin) {
+        return serializeData({ success: false, error: "Permission Denied: crm.manage" });
+      }
+
+      if (!selectedUserId || selectedUserId === "all") {
+        fetchAll = true;
+      } else {
+        targetUserId = selectedUserId;
+      }
+    }
+
+    const ownerFilter = fetchAll ? {} : { ownerId: targetUserId };
+    const taskFilter = fetchAll ? {} : { OR: [{ assigneeId: targetUserId }, { userId: targetUserId }] };
+    const activityFilter = fetchAll ? {} : { OR: [{ ownerId: targetUserId }, { assignedToId: targetUserId }] };
+    const eventFilter = fetchAll ? {} : {
+        OR: [
+            { ownerId: targetUserId }, 
+            { assignedToId: targetUserId },
+            {
+              metadata: {
+                path: ['attendees'],
+                array_contains: targetUserId
+              }
+            }
+        ]
+    };
+    const userFilter = fetchAll ? {} : { userId: targetUserId };
 
     const [
       myOpportunities,
@@ -130,7 +233,7 @@ export async function getUserCrmMetrics() {
       // User's Pipeline Summary
       prisma.opportunity.aggregate({
         where: { 
-          ownerId: userId,
+          ...ownerFilter,
           stage: { notIn: [OpportunityStage.WON, OpportunityStage.LOST] } 
         },
         _sum: { value: true },
@@ -140,7 +243,7 @@ export async function getUserCrmMetrics() {
       // Overdue Tasks assigned to or created by user
       prisma.task.findMany({
         where: {
-          OR: [{ assigneeId: userId }, { userId: userId }],
+          ...taskFilter,
           status: { notIn: ['completed', 'cancelled'] },
           dueDate: { lt: todayStart }
         },
@@ -158,7 +261,7 @@ export async function getUserCrmMetrics() {
       // Tasks Due Today
       prisma.task.findMany({
         where: {
-          OR: [{ assigneeId: userId }, { userId: userId }],
+          ...taskFilter,
           status: { notIn: ['completed', 'cancelled'] },
           dueDate: { gte: todayStart, lte: todayEnd }
         },
@@ -177,16 +280,7 @@ export async function getUserCrmMetrics() {
       prisma.activity.findMany({
         where: {
           type: { in: ['EVENT_SCHEDULED', 'LOG_CALL', 'LOG_EMAIL'] },
-          OR: [
-            { ownerId: userId }, 
-            { assignedToId: userId },
-            {
-              metadata: {
-                path: ['attendees'],
-                array_contains: userId
-              }
-            }
-          ],
+          ...eventFilter,
           dueDate: { gte: todayStart, lte: todayEnd }
         },
         include: {
@@ -200,7 +294,7 @@ export async function getUserCrmMetrics() {
       // Recently assigned leads (needs attention)
       prisma.lead.findMany({
         where: { 
-          ownerId: userId, 
+          ...ownerFilter, 
           isTrash: false,
           status: 'NEW' 
         },
@@ -212,7 +306,7 @@ export async function getUserCrmMetrics() {
       // Tasks completed today
       prisma.task.count({
         where: {
-          OR: [{ assigneeId: userId }, { userId: userId }],
+          ...taskFilter,
           status: 'completed',
           updatedAt: { gte: todayStart, lte: todayEnd }
         }
@@ -221,7 +315,7 @@ export async function getUserCrmMetrics() {
       // Meetings held today
       prisma.activity.count({
         where: {
-          OR: [{ ownerId: userId }, { assignedToId: userId }],
+          ...activityFilter,
           type: 'EVENT_SCHEDULED', // Adjust this if there's a specific MEETING type, EVENT_SCHEDULED seems to be what was used
           dueDate: { gte: todayStart, lte: todayEnd }
         }
@@ -230,7 +324,7 @@ export async function getUserCrmMetrics() {
       // Calls logged today
       prisma.activity.count({
         where: {
-          OR: [{ ownerId: userId }, { assignedToId: userId }],
+          ...activityFilter,
           type: 'LOG_CALL', // Common activity type for calls
           createdAt: { gte: todayStart, lte: todayEnd }
         }
@@ -238,7 +332,7 @@ export async function getUserCrmMetrics() {
 
       // Important Notes
       prisma.note.findMany({
-        where: { userId },
+        where: { ...userFilter },
         orderBy: { createdAt: 'desc' },
         take: 5,
         select: {
@@ -256,7 +350,7 @@ export async function getUserCrmMetrics() {
       // New Assigned Opportunities
       prisma.opportunity.findMany({
         where: {
-          ownerId: userId,
+          ...ownerFilter,
           stage: 'DISCOVERY' // Treating discovery stage as 'newly assigned'
         },
         orderBy: { createdAt: 'desc' },

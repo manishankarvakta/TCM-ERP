@@ -11,18 +11,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export function UserDashboard() {
+export function UserDashboard({ isAdmin = false, selectedUserId }: { isAdmin?: boolean; selectedUserId?: string }) {
   const [metrics, setMetrics] = useState<any>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     startTransition(async () => {
-      const result = await getUserCrmMetrics();
+      const result = await getUserCrmMetrics(isAdmin, selectedUserId);
       if (result.success) {
         setMetrics(result.metrics);
       }
     });
-  }, []);
+  }, [isAdmin, selectedUserId]);
 
   if (!metrics && isPending) {
     return <UserDashboardSkeleton />;
@@ -142,7 +142,7 @@ export function UserDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Card 1: Assign Tasks */}
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[450px]">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[450px] overflow-hidden">
               <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                       <FiCheckSquare className="text-primary" /> Assign Tasks
@@ -253,7 +253,7 @@ export function UserDashboard() {
           </div>
 
           {/* Card 2: Upcoming Events */}
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[450px]">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[450px] overflow-hidden">
               <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                       <FiCalendar className="text-primary" /> Upcoming Events
@@ -341,7 +341,7 @@ export function UserDashboard() {
           </div>
 
           {/* Card 3: Important Notes */}
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[450px]">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[450px] overflow-hidden">
               <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                       <FiFileText className="text-primary" /> Important Notes
@@ -398,9 +398,9 @@ export function UserDashboard() {
           </div>
 
           {/* Card 4: Assigned Leads & Opportunities */}
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[450px]">
-              <Tabs defaultValue="leads" className="flex-1 flex flex-col">
-                  <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col gap-3">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[450px] overflow-hidden">
+              <Tabs defaultValue="leads" className="flex-1 flex flex-col min-h-0">
+                  <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col gap-3 shrink-0">
                       <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 px-2">
                           <FiUsers className="text-primary" /> Leads & Opportunities
                       </h3>
