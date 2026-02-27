@@ -42,3 +42,16 @@ export function formatCurrency(amount: number): string {
     maximumFractionDigits: 2,
   }).format(amount);
 }
+
+/**
+ * Format number as compact currency (e.g. 20K, 2.5M)
+ */
+export function formatCompactCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-BD', {
+    style: 'currency',
+    currency: 'BDT',
+    notation: 'compact',
+    compactDisplay: 'short',
+    maximumFractionDigits: 1
+  }).format(amount);
+}

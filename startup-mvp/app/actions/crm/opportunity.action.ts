@@ -384,6 +384,7 @@ export async function updateOpportunity(id: string, input: {
   contactId?: string;
   value?: number;
   expectedCloseDate?: Date;
+  ownerId?: string;
 }) {
   try {
     const session = await auth();
@@ -423,6 +424,10 @@ export async function updateOpportunity(id: string, input: {
 
     if (input.expectedCloseDate && oldOpp.expectedCloseDate && input.expectedCloseDate.getTime() !== oldOpp.expectedCloseDate.getTime()) {
         changes.push({ field: "expectedCloseDate", from: oldOpp.expectedCloseDate.toISOString(), to: input.expectedCloseDate.toISOString() });
+    }
+
+    if (input.ownerId && input.ownerId !== oldOpp.ownerId) {
+        changes.push({ field: "ownerId", from: oldOpp.ownerId, to: input.ownerId });
     }
 
     if (changes.length > 0) {

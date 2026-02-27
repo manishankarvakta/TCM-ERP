@@ -84,9 +84,11 @@ const menuItems: MenuItem[] = [
   },
   {
     label: "CRM",
+    href: "/dashboard/crm",
     icon: FiUsers,
     module: "crm",
     subMenu: [
+      { href: "/dashboard/crm", label: "Dashboard", icon: FiTarget, module: "crm" },
       { href: "/dashboard/crm/leads", label: "Leads", icon: FiTarget, module: "crm" },
       { href: "/dashboard/crm/opportunities", label: "Opportunities", icon: FiTrendingUp, module: "crm" },
       { href: "/dashboard/clients", label: "Clients", icon: FiUsers, module: "peoples" },
@@ -370,6 +372,11 @@ export default function DashboardSidebar({
         // This ensures sub-pages without permissions are hidden from navigation
         if (itemCopy.subMenu) {
           itemCopy.subMenu = itemCopy.subMenu.filter((subItem) => {
+            // Always show Dashboard if the parent module is visible
+            if (itemCopy.module === "crm" && (subItem.href === "/dashboard/crm" || subItem.href === "/dashboard/crm/dashboard")) {
+              return true;
+            }
+
             const permissionKey = getPermissionKeyFromPath(subItem.href);
             if (!permissionKey) {
               // If we can't map the path to a permission key, hide it

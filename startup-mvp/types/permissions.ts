@@ -129,6 +129,7 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     label: "CRM",
     description: "Customer Relationship Management",
     subModules: [
+      { id: "dashboard", label: "Dashboard", path: "/dashboard/crm", module: "crm", permissionKey: "crm.dashboard" },
       { id: "leads", label: "Leads", path: "/dashboard/crm/leads", module: "crm", permissionKey: "crm.leads" },
       { id: "contacts", label: "Contacts", path: "/dashboard/crm/contacts", module: "crm", permissionKey: "crm.contacts" },
       { id: "opportunities", label: "Opportunities", path: "/dashboard/crm/opportunities", module: "crm", permissionKey: "crm.opportunities" },
@@ -422,6 +423,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
     id: "crm",
     label: "CRM",
     pages: [
+      {
+        permissionKey: "crm.dashboard",
+        path: "/dashboard/crm",
+        label: "Dashboard",
+        operations: ["view"],
+      },
       {
         permissionKey: "crm.leads",
         path: "/dashboard/crm/leads",

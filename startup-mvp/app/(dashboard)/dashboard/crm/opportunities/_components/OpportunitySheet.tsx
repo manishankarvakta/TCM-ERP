@@ -17,6 +17,7 @@ interface OpportunitySheetProps {
   onSuccess: () => void;
   clients: any[];
   editingOpp?: any; // The opportunity to edit, if any
+  users?: any[];
 }
 
 export default function OpportunitySheet({
@@ -24,7 +25,8 @@ export default function OpportunitySheet({
   onOpenChange,
   onSuccess,
   clients,
-  editingOpp
+  editingOpp,
+  users = []
 }: OpportunitySheetProps) {
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -55,6 +57,7 @@ export default function OpportunitySheet({
           onSuccess={onSuccess} 
           onCancel={() => onOpenChange(false)}
           initialData={editingOpp}
+          users={users}
         />
       </SheetContent>
     </Sheet>

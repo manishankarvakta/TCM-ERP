@@ -39,9 +39,11 @@ export const MENU_TEMPLATE: MenuItemData[] = [
   },
   {
     label: "CRM",
+    href: "/dashboard/crm",
     icon: "FiUsers",
     module: "crm",
     subMenu: [
+      { href: "/dashboard/crm", label: "Dashboard", icon: "FiTarget", module: "crm" },
       { href: "/dashboard/crm/leads", label: "Leads", icon: "FiTarget", module: "crm" },
       { href: "/dashboard/crm/opportunities", label: "Opportunities", icon: "FiTrendingUp", module: "crm" },
       { href: "/dashboard/crm/clients", label: "Clients", icon: "FiUsers", module: "peoples" }, // Module is peoples but shown in CRM

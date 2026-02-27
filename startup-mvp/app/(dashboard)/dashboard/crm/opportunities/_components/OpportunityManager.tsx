@@ -22,6 +22,7 @@ import OpportunityGrid from "./OpportunityGrid";
 import { OpportunityKanban } from "@/components/crm/kanban/OpportunityKanban";
 import { getOpportunities } from "@/app/actions/crm/opportunity.action";
 import { getClients } from "@/app/(dashboard)/dashboard/crm/clients/_actions/client.action";
+import { getActiveUsers } from "@/app/actions/user.action";
 import OpportunitySheet from "./OpportunitySheet";
 
 interface Pagination {
@@ -41,6 +42,7 @@ export default function OpportunityManager() {
   const [editingOpp, setEditingOpp] = useState<any>(null);
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [isPending, startTransition] = useTransition();
 
@@ -78,13 +80,21 @@ export default function OpportunityManager() {
   };
 
   useEffect(() => {
-    async function fetchClients() {
-      const result = await getClients(1, 100);
-      if (result.success) {
-        setClients(result.clients || []);
+    async function fetchClientsAndUsers() {
+      const [clientResult, userResult] = await Promise.all([
+         getClients(1, 100),
+         getActiveUsers()
+      ]);
+
+      if (clientResult.success) {
+        setClients(clientResult.clients || []);
+      }
+      
+      if (userResult.success) {
+        setUsers(userResult.users || []);
       }
     }
-    fetchClients();
+    fetchClientsAndUsers();
   }, []);
 
   useEffect(() => {
@@ -286,6 +296,7 @@ export default function OpportunityManager() {
         onOpenChange={setIsDialogOpen}
         onSuccess={() => { setIsDialogOpen(false); fetchOpportunities(pagination.page); }}
         clients={clients}
+        users={users}
         editingOpp={editingOpp}
       />
     </div>

@@ -32,12 +32,14 @@ const formSchema = z.object({
   contactId: z.string().min(1, "Contact is required"),
   value: z.number().min(0, "Value must be a positive number"),
   expectedCloseDate: z.string().min(1, "Expected close date is required"),
+  ownerId: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 interface OpportunityFormProps {
   clients: { id: string; name: string }[];
+  users?: { id: string; name: string | null; email: string }[];
   onSuccess: () => void;
   onCancel: () => void;
   initialData?: any;
@@ -45,6 +47,7 @@ interface OpportunityFormProps {
 
 export default function OpportunityForm({
   clients,
+  users = [],
   onSuccess,
   onCancel,
   initialData
@@ -64,6 +67,7 @@ export default function OpportunityForm({
       expectedCloseDate: initialData?.expectedCloseDate 
         ? new Date(initialData.expectedCloseDate).toISOString().split('T')[0] 
         : new Date().toISOString().split('T')[0],
+      ownerId: initialData?.ownerId || (users.length > 0 ? users[0]?.id : ""),
     },
   });
 
@@ -211,7 +215,7 @@ export default function OpportunityForm({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <FormField
             control={form.control}
             name="value"
@@ -241,6 +245,33 @@ export default function OpportunityForm({
                 <FormControl>
                   <Input type="date" {...field} />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+           <FormField
+            control={form.control}
+            name="ownerId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Assign To</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Assignee" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {users?.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                         <div className="flex items-center gap-2">
+                           <span className="truncate">{user.name || user.email}</span>
+                         </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
