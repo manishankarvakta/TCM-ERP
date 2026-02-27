@@ -24,8 +24,9 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { createContact, updateContact } from "@/app/actions/crm/contact.action";
 import { toast } from "sonner";
-import { useState, useTransition } from "react";
-import { Loader2 } from "lucide-react";
+import { useState, useTransition, useMemo } from "react";
+import { Loader2, Search } from "lucide-react";
+import { FiSearch } from "react-icons/fi";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -52,6 +53,15 @@ export default function ContactForm({
   onCancel,
 }: ContactFormProps) {
   const [isPending, startTransition] = useTransition();
+  const [clientSearch, setClientSearch] = useState("");
+
+  const filteredClients = useMemo(() => {
+    if (!clientSearch) return clients;
+    const lowerSearch = clientSearch.toLowerCase();
+    return clients.filter(c => 
+      c.name.toLowerCase().includes(lowerSearch)
+    );
+  }, [clients, clientSearch]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -146,16 +156,41 @@ export default function ContactForm({
               <FormLabel>Client (Company)</FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!!initialData?.clientId}>
                 <FormControl>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-10">
                     <SelectValue placeholder="Select a client" />
                   </SelectTrigger>
                 </FormControl>
-                <SelectContent>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
+                <SelectContent className="max-h-[300px]">
+                  <div className="p-2 sticky top-0 bg-popover z-10 border-b">
+                    <div className="relative">
+                      <FiSearch className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground h-3.5 w-3.5" />
+                      <Input
+                        placeholder="Search clients..."
+                        value={clientSearch}
+                        onChange={(e) => setClientSearch(e.target.value)}
+                        className="h-8 text-xs pl-8"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  </div>
+                  {filteredClients.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-muted-foreground">
+                      No clients found
+                    </div>
+                  ) : (
+                    filteredClients.map((client: any) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        <div className="flex flex-col py-0.5">
+                          <span className="font-semibold text-sm">
+                            {client.name}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground leading-tight">
+                            Client ID: {client.id.slice(0, 8)}...
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               <FormMessage />

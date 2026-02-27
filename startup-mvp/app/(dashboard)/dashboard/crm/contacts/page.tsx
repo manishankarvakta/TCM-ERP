@@ -6,7 +6,15 @@ import { getContacts } from "@/app/actions/crm/contact.action";
 import { getActiveClients } from "@/app/actions/clients";
 import { Card, CardContent } from "@/components/ui/card";
 
-export default async function CRM_ContactsPage() {
+export default async function CRM_ContactsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ search?: string; clientId?: string }>;
+}) {
+  const params = await searchParams;
+  const search = params.search;
+  const clientId = params.clientId;
+
   const session = await auth();
   if (!session?.user) return redirect("/login");
 
@@ -22,7 +30,7 @@ export default async function CRM_ContactsPage() {
   }
 
   const [contactsResult, clientsResult, canCreate] = await Promise.all([
-    getContacts(),
+    getContacts(clientId, search),
     getActiveClients(),
     checkPermission(session.user.id, "peoples.contacts", "create")
   ]);
@@ -45,6 +53,8 @@ export default async function CRM_ContactsPage() {
         initialContacts={contactsResult.contacts || []} 
         clients={clientsResult.clients || []}
         canCreate={canCreate}
+        defaultSearch={search}
+        defaultClientId={clientId}
       />
     </div>
   );

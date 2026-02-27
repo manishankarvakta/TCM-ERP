@@ -8,7 +8,7 @@ import { revalidateBothPaths } from "@/lib/route-utils-server";
 /**
  * Get contacts for a specific client (account) or all contacts
  */
-export async function getContacts(clientId?: string) {
+export async function getContacts(clientId?: string, search?: string) {
   try {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized", contacts: [] };
@@ -19,8 +19,23 @@ export async function getContacts(clientId?: string) {
       return { success: false, error: "Permission Denied: crm.contacts.view", contacts: [] };
     }
 
+    const where: any = {};
+    if (clientId && clientId !== "all") {
+      where.clientId = clientId;
+    }
+
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search, mode: "insensitive" } },
+        { lastName: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+        { phone: { contains: search, mode: "insensitive" } },
+        { role: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
     const contacts = await prisma.contact.findMany({
-      where: clientId ? { clientId } : {},
+      where,
       include: {
         // @ts-ignore
         Client: { select: { name: true, company: true } }
@@ -30,10 +45,10 @@ export async function getContacts(clientId?: string) {
 
     const mappedContacts = contacts.map(c => ({
       ...c,
-      // @ts-ignore
-      client: c.Client,
+      client: (c as any).Client,
       Client: undefined,
       name: `${c.firstName} ${c.lastName}`,
+      designation: c.role,
     }));
 
     return { success: true, contacts: mappedContacts };
@@ -73,9 +88,10 @@ export async function getContactById(id: string) {
       success: true,
       contact: {
         ...contact,
-        // @ts-ignore
-        client: contact.Client,
+        client: (contact as any).Client,
         Client: undefined,
+        name: `${contact.firstName} ${contact.lastName}`,
+        designation: contact.role,
       },
     };
   } catch (error) {
