@@ -13,7 +13,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { SECTION_TYPE_META } from './SectionTypeIcon';
+import { SECTION_REGISTRY } from '../sectionRegistry';
 import type { SectionType } from './SectionTypeIcon';
 
 // ── Optional sections available in the library ────────────────────────────────
@@ -44,6 +44,11 @@ const LIBRARY_SECTIONS: LibraryEntry[] = [
     sectionType: 'ARCHITECTURE_OVERVIEW',
     defaultTitle: 'Architecture Overview',
     description: 'System design, hosting model, infrastructure, and integrations.',
+  },
+  {
+    sectionType: 'TIMELINE',
+    defaultTitle: 'Project Timeline',
+    description: 'Milestones, deliverables, and estimated completion dates.',
   },
   {
     sectionType: 'TEAM_STRUCTURE',
@@ -95,8 +100,8 @@ export function SectionLibraryModal({ open, onOpenChange, onAddSection }: Sectio
 
         <div className="mt-2 space-y-2">
           {LIBRARY_SECTIONS.map(({ sectionType, defaultTitle, description }) => {
-            const meta = SECTION_TYPE_META[sectionType];
-            const Icon = meta.icon;
+            const config = SECTION_REGISTRY[sectionType];
+            const Icon = config.icon;
             return (
               <button
                 key={sectionType}
@@ -104,11 +109,11 @@ export function SectionLibraryModal({ open, onOpenChange, onAddSection }: Sectio
                 onClick={() => { onAddSection(sectionType, defaultTitle); onOpenChange(false); }}
                 className="w-full flex items-start gap-3 rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${meta.color}`}>
-                  <Icon className={`h-4 w-4 ${meta.textColor}`} />
+                <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${config.color}`}>
+                  <Icon className={`h-4 w-4 ${config.textColor}`} />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold leading-snug">{meta.label}</p>
+                  <p className="text-sm font-semibold leading-snug">{config.label}</p>
                   <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{description}</p>
                 </div>
               </button>

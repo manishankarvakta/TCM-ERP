@@ -1,3 +1,5 @@
+"use server";
+
 import { getEntityTimeline } from "@/lib/system/activity-ledger";
 import { checkSystemPermission } from "@/lib/system/permissions";
 import { SystemEntityType } from "@/lib/system/types";

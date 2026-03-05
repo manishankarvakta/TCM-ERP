@@ -42,11 +42,22 @@ export interface CoverSectionProps {
   data: CoverSectionData;
   onChange: (data: CoverSectionData) => void;
   readOnly?: boolean;
+  /** Context variables for template replacement */
+  context?: {
+    clientName?: string;
+    contactName?: string;
+    clientCompany?: string;
+    projectName?: string;
+    yourCompany?: string;
+    yourName?: string;
+    date?: string;
+    validUntil?: string;
+  };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function CoverSection({ data, onChange, readOnly = false }: CoverSectionProps) {
+export function CoverSection({ data, onChange, readOnly = false, context }: CoverSectionProps) {
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -65,12 +76,72 @@ export function CoverSection({ data, onChange, readOnly = false }: CoverSectionP
   const update = <K extends keyof CoverSectionData>(field: K, value: CoverSectionData[K]) =>
     onChange({ ...data, [field]: value });
 
+  const replacePlaceholders = (text: string) => {
+    if (!text || !context) return text;
+
+    const clientName    = context.clientName    || context.contactName || '[Client Name]';
+    const contactName   = context.contactName   || context.clientName  || '[Contact Name]';
+    const clientCompany = context.clientCompany || clientName;
+    const projectName   = context.projectName   || '[Project Name]';
+    const yourCompany   = context.yourCompany   || '[Your Company]';
+    const yourName      = context.yourName      || '[Your Name]';
+    const date          = context.date          || '[Date]';
+    const validUntil    = context.validUntil    || '[Expiry Date]';
+
+    return text
+      // ── [Bracket] style ──────────────────────────────────────────────────
+      .replace(/\[Client Name\]/gi,   clientName)
+      .replace(/\[Contact Name\]/gi,  contactName)
+      .replace(/\[Client Company\]/gi, clientCompany)
+      .replace(/\[Project Name\]/gi,  projectName)
+      .replace(/\[Your Company\]/gi,  yourCompany)
+      .replace(/\[Your Name\]/gi,     yourName)
+      .replace(/\[Date\]/gi,          date)
+      .replace(/\[Expiry Date\]/gi,   validUntil)
+      // ── {{mustache}} style ──────────────────────────────────────────────
+      .replace(/\{\{clientName\}\}/g,    clientName)
+      .replace(/\{\{contactName\}\}/g,   contactName)
+      .replace(/\{\{clientCompany\}\}/g, clientCompany)
+      .replace(/\{\{projectName\}\}/g,   projectName)
+      .replace(/\{\{yourCompany\}\}/g,   yourCompany)
+      .replace(/\{\{yourName\}\}/g,      yourName)
+      .replace(/\{\{date\}\}/g,          date)
+      .replace(/\{\{validUntil\}\}/g,    validUntil);
+  };
+
   const handleTemplateSelect = (value: string) => {
     const template = templates.find((t) => t.id === value);
     if (template) {
-      update('coverLetter', template.content);
+      const processedContent = replacePlaceholders(template.content);
+      onChange({
+        ...data,
+        coverLetter: processedContent,
+        ...(template.subject ? { subject: replacePlaceholders(template.subject) } : {}),
+      });
     }
   };
+
+  if (readOnly) {
+    return (
+      <div className="space-y-6 text-sm">
+        {data.subject && (
+          <div>
+            <span className="font-semibold text-[#0A2540] mb-2 block tracking-tight uppercase text-xs">Subject / Project Name</span>
+            <div className="text-gray-800 text-base">{data.subject}</div>
+          </div>
+        )}
+        
+        {data.coverLetter && (
+          <div>
+            <span className="font-semibold text-[#0A2540] mb-2 block tracking-tight uppercase text-xs">Cover Letter</span>
+            <div className="text-gray-600 leading-relaxed whitespace-pre-wrap">
+              {data.coverLetter}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -83,7 +154,6 @@ export function CoverSection({ data, onChange, readOnly = false }: CoverSectionP
         <Input
           id="cover-subject"
           value={data.subject ?? ''}
-          readOnly={readOnly}
           placeholder="e.g. Interior Design Proposal — Acme HQ"
           onChange={(e) => update('subject', e.target.value)}
         />
@@ -97,7 +167,7 @@ export function CoverSection({ data, onChange, readOnly = false }: CoverSectionP
             Cover Letter
           </Label>
           
-          {!readOnly && templates.length > 0 && (
+          {templates.length > 0 && (
             <div className="flex items-center gap-2">
               <Sparkles className="h-3 w-3 text-amber-500" />
               <Select onValueChange={handleTemplateSelect}>
@@ -119,7 +189,6 @@ export function CoverSection({ data, onChange, readOnly = false }: CoverSectionP
         <Textarea
           id="cover-letter"
           value={data.coverLetter ?? ''}
-          readOnly={readOnly}
           placeholder="Dear [Client Name],&#10;&#10;We are pleased to present this quotation for…"
           className="min-h-[180px] resize-none leading-relaxed"
           onChange={(e) => update('coverLetter', e.target.value)}

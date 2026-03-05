@@ -97,6 +97,11 @@ export interface SectionRendererProps {
    */
   onChange: (updated: RendererSection | unknown[]) => void;
 
+  /**
+   * Optional context for dynamic template variables (e.g. for Cover Letter)
+   */
+  context?: Record<string, any>;
+
   readOnly?: boolean;
 }
 
@@ -121,6 +126,7 @@ export function SectionRenderer({
   allPricingSections,
   clientContacts,
   onChange,
+  context,
   readOnly = false,
 }: SectionRendererProps) {
   const type: SectionType = section.sectionType ?? 'CUSTOM';
@@ -152,6 +158,7 @@ export function SectionRenderer({
       <CoverSection
         data={data}
         readOnly={readOnly}
+        context={context}
         onChange={(updated) =>
           onChange(withMeta(section, updated as Record<string, unknown>))
         }
@@ -231,11 +238,25 @@ export function SectionRenderer({
   if (type === 'SCOPE') {
     return <ScopeSection data={metaData('scope')} onChange={(d) => updateMetaKey('scope', d)} readOnly={readOnly} />;
   }
-  if (type === 'PAYMENT_TERMS') {
-    return <PaymentTermsSection data={metaData('paymentTerms')} onChange={(d) => updateMetaKey('paymentTerms', d)} readOnly={readOnly} />;
-  }
   if (type === 'LEGAL_TERMS') {
-    return <LegalTermsSection data={metaData('legalTerms')} onChange={(d) => updateMetaKey('legalTerms', d)} readOnly={readOnly} />;
+    return (
+      <TermsSection
+        data={{ 
+          tos: meta(section, 'tos', meta(section, 'content', '')),
+          paymentTerms: meta(section, 'paymentTerms', ''),
+          refundPolicy: meta(section, 'refundPolicy', ''),
+          terminationPolicy: meta(section, 'terminationPolicy', ''),
+        }}
+        readOnly={readOnly}
+        onChange={(data) => onChange(withMeta(section, { 
+          tos: data.tos, 
+          paymentTerms: data.paymentTerms,
+          refundPolicy: data.refundPolicy,
+          terminationPolicy: data.terminationPolicy,
+          content: data.tos 
+        }))}
+      />
+    );
   }
   if (type === 'EXECUTIVE_SUMMARY') {
     return <ExecutiveSummarySection data={metaData('executiveSummary')} onChange={(d) => updateMetaKey('executiveSummary', d)} readOnly={readOnly} />;

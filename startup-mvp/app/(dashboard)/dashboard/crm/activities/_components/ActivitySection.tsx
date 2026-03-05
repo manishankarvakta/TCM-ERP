@@ -32,12 +32,13 @@ import { Loader2 } from "lucide-react";
 
 interface ActivitySectionProps {
   entityId: string;
-  entityType: "contact" | "opportunity" | "lead";
+  entityType: "contact" | "opportunity" | "lead" | "project" | "milestone" | "issue";
   activities: any[];
   tasks?: any[];
   notes?: any[];
   events?: any[];
   docs?: any[];
+  users?: any[];
   // Optional: Pass context data if needed for the form to allow linking other items
   contextData?: {
     contacts?: any[];
@@ -209,7 +210,7 @@ export default function ActivitySection({
             <DialogTitle>Create Event</DialogTitle>
           </DialogHeader>
           <SystemEventForm
-            entityType={entityType as any}
+            entityType={entityType}
             entityId={entityId}
             onSuccess={handleSuccess}
             onCancel={() => setIsOpen(false)}
@@ -238,7 +239,7 @@ export default function ActivitySection({
             {selectedTask && (
                 <TaskForm 
                     entityId={entityId}
-                    entityType={entityType}
+                    entityType={entityType as any}
                     initialData={selectedTask}
                     onSuccess={handleSuccess}
                     onCancel={() => setIsTaskSheetOpen(false)}
@@ -256,7 +257,7 @@ export default function ActivitySection({
             {selectedNote && (
                 <NoteForm
                     entityId={entityId}
-                    entityType={entityType}
+                    entityType={entityType as any}
                     initialData={selectedNote}
                     onSuccess={handleSuccess}
                     onCancel={() => setIsNoteSheetOpen(false)}
@@ -274,7 +275,7 @@ export default function ActivitySection({
                 <SystemEventForm 
                     key={selectedEvent.id}
                     entityId={entityId}
-                    entityType={entityType as any}
+                    entityType={entityType}
                     initialData={selectedEvent}
                     onSuccess={handleSuccess}
                     onCancel={() => setIsEventSheetOpen(false)}

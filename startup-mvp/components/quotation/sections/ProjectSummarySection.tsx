@@ -18,6 +18,17 @@ interface Props {
 }
 
 export function ProjectSummarySection({ data, onChange, readOnly = false }: Props) {
+  if (readOnly) {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <Label className="text-sm font-semibold text-gray-500 uppercase tracking-wider block mb-4">Project Summary</Label>
+          <div className="prose prose-sm max-w-none text-gray-700 bg-gray-50 p-6 rounded-xl border border-gray-100" dangerouslySetInnerHTML={{ __html: data.content ?? 'No summary provided.' }} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">

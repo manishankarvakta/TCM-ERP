@@ -69,6 +69,7 @@ export async function getCoverLetters(
       select: {
         id: true,
         title: true,
+        subject: true,
         content: true,
         status: true,
         createdAt: true,
@@ -138,6 +139,7 @@ export async function getCoverLetterById(coverLetterId: string) {
       select: {
         id: true,
         title: true,
+        subject: true,
         content: true,
         status: true,
         createdAt: true,
@@ -183,6 +185,7 @@ export async function getCoverLetterById(coverLetterId: string) {
  */
 export async function createCoverLetter(input: {
   title: string;
+  subject?: string | null;
   content: string;
   status?: "active" | "inactive";
 }) {
@@ -201,6 +204,7 @@ export async function createCoverLetter(input: {
     const coverLetter = await prisma.coverLetter.create({
       data: {
         title: input.title,
+        subject: input.subject || null,
         content: input.content,
         status: input.status || "active",
         createdBy: session.user.id,
@@ -208,6 +212,7 @@ export async function createCoverLetter(input: {
       select: {
         id: true,
         title: true,
+        subject: true,
         content: true,
         status: true,
         createdAt: true,
@@ -262,6 +267,7 @@ export async function updateCoverLetter(
   coverLetterId: string,
   input: {
     title?: string;
+    subject?: string | null;
     content?: string;
     status?: "active" | "inactive";
   }
@@ -293,6 +299,7 @@ export async function updateCoverLetter(
     // Track changes for logging
     const changes: string[] = [];
     if (input.title && input.title !== existingCoverLetter.title) changes.push("title");
+    if (input.subject !== undefined && input.subject !== existingCoverLetter.subject) changes.push("subject");
     if (input.content && input.content !== existingCoverLetter.content) changes.push("content");
     if (input.status && input.status !== existingCoverLetter.status) changes.push("status");
 
@@ -301,12 +308,14 @@ export async function updateCoverLetter(
       where: { id: coverLetterId },
       data: {
         title: input.title !== undefined ? input.title : existingCoverLetter.title,
+        subject: input.subject !== undefined ? input.subject : existingCoverLetter.subject,
         content: input.content !== undefined ? input.content : existingCoverLetter.content,
         status: input.status !== undefined ? input.status : existingCoverLetter.status,
       },
       select: {
         id: true,
         title: true,
+        subject: true,
         content: true,
         status: true,
         createdAt: true,

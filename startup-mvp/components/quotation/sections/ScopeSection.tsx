@@ -59,6 +59,91 @@ export function ScopeSection({ data, onChange, readOnly = false }: Props) {
   const inclusions   = data.inclusions ?? [];
   const exclusions   = data.exclusions ?? [];
 
+  if (readOnly) {
+    const hasData = data.overview || deliverables.length > 0 || inclusions.length > 0 || exclusions.length > 0;
+    if (!hasData) return null;
+
+    return (
+      <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm text-sm space-y-8">
+        {data.overview && (
+          <div className="space-y-2">
+            <span className="font-semibold text-[#0A2540] tracking-tight uppercase text-xs border-b border-gray-100 pb-2 block">Scope Overview</span>
+            <div className="text-gray-600 leading-relaxed whitespace-pre-wrap pl-3 border-l-2 border-primary">
+              {data.overview}
+            </div>
+          </div>
+        )}
+
+        {deliverables.length > 0 && (
+          <div className="space-y-4">
+            <span className="font-semibold text-[#0A2540] tracking-tight uppercase text-xs border-b border-gray-100 pb-2 block">Key Deliverables</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {deliverables.map((d, idx) => (
+                <div key={d.id || idx} className="bg-gray-50/50 border border-gray-100 rounded-lg p-5">
+                  <h6 className="font-bold text-[#0A2540] text-sm mb-3 flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs shrink-0">{idx + 1}</span>
+                    {d.name || 'Unnamed Deliverable'}
+                  </h6>
+                  <div className="space-y-3 pl-8 text-sm text-gray-600">
+                    {d.description && <p className="leading-relaxed">{d.description}</p>}
+                    {d.features && (
+                      <div>
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Features</span>
+                        <p className="leading-relaxed whitespace-pre-wrap">{d.features}</p>
+                      </div>
+                    )}
+                    {d.acceptanceCriteria && (
+                      <div>
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Acceptance Criteria</span>
+                        <p className="leading-relaxed whitespace-pre-wrap">{d.acceptanceCriteria}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(inclusions.length > 0 || exclusions.length > 0) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-50">
+            {inclusions.length > 0 && (
+              <div className="space-y-3 bg-emerald-50/30 p-5 rounded-lg border border-emerald-100/50">
+                <span className="font-semibold text-emerald-800 tracking-tight flex items-center gap-2">
+                  <Plus className="w-4 h-4" /> Inclusions
+                </span>
+                <ul className="space-y-2">
+                  {inclusions.map((inc, i) => (
+                    <li key={i} className="flex items-start gap-2 text-gray-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
+                      <span className="leading-relaxed">{inc}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {exclusions.length > 0 && (
+              <div className="space-y-3 bg-red-50/30 p-5 rounded-lg border border-red-100/50">
+                <span className="font-semibold text-red-800 tracking-tight flex items-center gap-2">
+                  <span className="w-4 h-0.5 bg-red-600 shrink-0 inline-block rounded-full" /> Exclusions
+                </span>
+                <ul className="space-y-2">
+                  {exclusions.map((exc, i) => (
+                    <li key={i} className="flex items-start gap-2 text-gray-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 shrink-0" />
+                      <span className="leading-relaxed">{exc}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const addDeliverable = () => onChange({
     ...data,
     deliverables: [...deliverables, { id: `d-${Date.now()}`, name: '', description: '', features: '', acceptanceCriteria: '' }],
@@ -73,7 +158,7 @@ export function ScopeSection({ data, onChange, readOnly = false }: Props) {
     <div className="space-y-6">
       <div className="space-y-1.5">
         <Label className="text-sm font-medium">Scope Overview</Label>
-        <Textarea value={data.overview ?? ''} readOnly={readOnly} placeholder="High-level scope description…"
+        <Textarea value={data.overview ?? ''} placeholder="High-level scope description…"
           rows={3} className="resize-y"
           onChange={(e) => onChange({ ...data, overview: e.target.value })} />
       </div>
@@ -81,25 +166,23 @@ export function ScopeSection({ data, onChange, readOnly = false }: Props) {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <Label className="text-sm font-semibold">Deliverables</Label>
-          {!readOnly && <Button type="button" variant="outline" size="sm" onClick={addDeliverable}><Plus className="h-3.5 w-3.5 mr-1.5" />Add Deliverable</Button>}
+          <Button type="button" variant="outline" size="sm" onClick={addDeliverable}><Plus className="h-3.5 w-3.5 mr-1.5" />Add Deliverable</Button>
         </div>
         {deliverables.map((d, idx) => (
           <div key={d.id} className="rounded-lg border bg-muted/20 p-4 space-y-3">
             <div className="flex items-center gap-2">
-              <Input value={d.name} readOnly={readOnly} placeholder="Deliverable name"
+              <Input value={d.name} placeholder="Deliverable name"
                 className="font-medium" onChange={(e) => updateDeliverable(idx, { name: e.target.value })} />
-              {!readOnly && (
-                <Button type="button" variant="ghost" size="icon" className="shrink-0 text-destructive"
-                  onClick={() => onChange({ ...data, deliverables: deliverables.filter((_, i) => i !== idx) })}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
+              <Button type="button" variant="ghost" size="icon" className="shrink-0 text-destructive"
+                onClick={() => onChange({ ...data, deliverables: deliverables.filter((_, i) => i !== idx) })}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
-            <Textarea value={d.description ?? ''} readOnly={readOnly} placeholder="Description" rows={2}
+            <Textarea value={d.description ?? ''} placeholder="Description" rows={2}
               className="resize-none text-sm" onChange={(e) => updateDeliverable(idx, { description: e.target.value })} />
-            <Textarea value={d.features ?? ''} readOnly={readOnly} placeholder="Features included" rows={2}
+            <Textarea value={d.features ?? ''} placeholder="Features included" rows={2}
               className="resize-none text-sm" onChange={(e) => updateDeliverable(idx, { features: e.target.value })} />
-            <Textarea value={d.acceptanceCriteria ?? ''} readOnly={readOnly} placeholder="Acceptance criteria" rows={2}
+            <Textarea value={d.acceptanceCriteria ?? ''} placeholder="Acceptance criteria" rows={2}
               className="resize-none text-sm" onChange={(e) => updateDeliverable(idx, { acceptanceCriteria: e.target.value })} />
           </div>
         ))}

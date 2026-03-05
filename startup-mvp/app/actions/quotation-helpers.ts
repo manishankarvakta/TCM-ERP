@@ -1,37 +1,65 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { getSetting } from '@/app/(dashboard)/dashboard/settings/_actions/settings.action';
 import { getCoverLetters } from '@/app/(dashboard)/dashboard/settings/_actions/coverLetter.action';
 import { getCurrentUser } from '@/app/actions/user.action';
 import { serializeData } from '@/lib/utils/serialization';
+import { auth } from "@/lib/auth";
+import { DEFAULT_TOS, DEFAULT_PAYMENT_TERMS, DEFAULT_REFUND_POLICY, DEFAULT_TERMINATION_POLICY } from "@/lib/quotation/templates";
 
 /**
- * Get TOS content from settings
+ * Fetches Quotation-related settings (TOS, Payment Terms, etc.)
  */
-export async function getTOSContent() {
+export async function getQuotationSettings() {
   try {
-    const result = await getSetting('tos', 'quotation');
-    
-    if (result.success && result.setting) {
-      const settings = result.setting.settings as { content?: string };
-      return {
-        success: true,
-        content: settings?.content || null,
-      };
-    }
-    
+    const session = await auth();
+    if (!session?.user) return { 
+      success: true, 
+      tos: DEFAULT_TOS, 
+      paymentTerms: DEFAULT_PAYMENT_TERMS,
+      refundPolicy: DEFAULT_REFUND_POLICY,
+      terminationPolicy: DEFAULT_TERMINATION_POLICY 
+    };
+
+    const tosSetting = await prisma.settings.findFirst({
+      where: {
+        code: "tos",
+        category: "quotation",
+        is_active: true,
+        OR: [{ user_id: session.user.id }, { is_global: true }],
+      },
+    });
+
+    const settings = (tosSetting?.settings as any) || {};
+
     return {
       success: true,
-      content: null,
+      tos: settings.content || DEFAULT_TOS,
+      paymentTerms: settings.paymentTerms || DEFAULT_PAYMENT_TERMS,
+      refundPolicy: settings.refundPolicy || DEFAULT_REFUND_POLICY,
+      terminationPolicy: settings.terminationPolicy || DEFAULT_TERMINATION_POLICY,
     };
   } catch (error) {
-    console.error('Error fetching TOS:', error);
-    return {
-      success: false,
-      content: null,
+    console.error("Error fetching quotation settings:", error);
+    return { 
+      success: false, 
+      tos: DEFAULT_TOS, 
+      paymentTerms: DEFAULT_PAYMENT_TERMS,
+      refundPolicy: DEFAULT_REFUND_POLICY,
+      terminationPolicy: DEFAULT_TERMINATION_POLICY 
     };
   }
+}
+
+/**
+ * Legacy wrapper for getTOSContent
+ */
+export async function getTOSContent() {
+  const result = await getQuotationSettings();
+  return {
+    success: result.success,
+    content: result.tos
+  };
 }
 
 /**

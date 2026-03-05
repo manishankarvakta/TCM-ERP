@@ -25,7 +25,9 @@ import { ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import {
-  SECTION_TYPE_META,
+  SECTION_REGISTRY,
+} from '../sectionRegistry';
+import {
   SectionTypeBadge,
   type SectionType,
 } from './SectionTypeIcon';
@@ -58,58 +60,6 @@ export interface QuotationSectionCardProps {
   className?: string;
 }
 
-// ── Section Type Titles ───────────────────────────────────────────────────────
-// A map of SectionType to user-friendly titles.
-const typeTitles: Record<SectionType, string> = {
-  COVER: 'Cover Letter',
-  CLIENT_INFO: 'Client Info',
-  PROJECT_SUMMARY: 'Project Summary',
-  SCOPE: 'Scope of Work',
-  TIMELINE: 'Project Timeline',
-  PRICING: 'Pricing details',
-  PAYMENT_TERMS: 'Payment Terms',
-  LEGAL_TERMS: 'Legal Terms',
-  ACCEPTANCE: 'Acceptance',
-  EXECUTIVE_SUMMARY: 'Executive Summary',
-  COMPANY_OVERVIEW: 'Company Overview',
-  TECHNICAL_APPROACH: 'Technical Approach',
-  ARCHITECTURE_OVERVIEW: 'Architecture Overview',
-  TEAM_STRUCTURE: 'Team Structure',
-  ASSUMPTIONS: 'Assumptions',
-  RISK_ASSESSMENT: 'Risk Assessment',
-  SUPPORT_SLA: 'Support & SLA',
-  APPENDIX: 'Appendix',
-  SUMMARY: 'Project Summary',
-  TERMS: 'Terms & Conditions',
-  CUSTOM: 'Custom Section',
-};
-
-// ── Accent bar colour map ─────────────────────────────────────────────────────
-// A thin left-border accent that matches the section type colour.
-const ACCENT_BORDER: Record<SectionType, string> = {
-  COVER:         'border-l-blue-400   dark:border-l-blue-500',
-  SUMMARY:       'border-l-indigo-400 dark:border-l-indigo-500',
-  PRICING:       'border-l-emerald-400 dark:border-l-emerald-500',
-  TIMELINE:      'border-l-amber-400  dark:border-l-amber-500',
-  PAYMENT_TERMS: 'border-l-orange-400 dark:border-l-orange-500',
-  TERMS:         'border-l-slate-400  dark:border-l-slate-500',
-  ACCEPTANCE:    'border-l-purple-400 dark:border-l-purple-500',
-  CUSTOM:        'border-l-gray-300   dark:border-l-gray-600',
-  CLIENT_INFO:   'border-l-blue-400   dark:border-l-blue-500',
-  PROJECT_SUMMARY: 'border-l-indigo-400 dark:border-l-indigo-500',
-  SCOPE:         'border-l-emerald-400 dark:border-l-emerald-500',
-  LEGAL_TERMS:   'border-l-slate-400  dark:border-l-slate-500',
-  EXECUTIVE_SUMMARY: 'border-l-purple-400 dark:border-l-purple-500',
-  COMPANY_OVERVIEW:  'border-l-blue-400   dark:border-l-blue-500',
-  TECHNICAL_APPROACH: 'border-l-emerald-400 dark:border-l-emerald-500',
-  ARCHITECTURE_OVERVIEW: 'border-l-indigo-400 dark:border-l-indigo-500',
-  TEAM_STRUCTURE:  'border-l-orange-400 dark:border-l-orange-500',
-  ASSUMPTIONS:     'border-l-gray-300   dark:border-l-gray-600',
-  RISK_ASSESSMENT: 'border-l-red-400    dark:border-l-red-500',
-  SUPPORT_SLA:     'border-l-teal-400   dark:border-l-teal-500',
-  APPENDIX:      'border-l-gray-300   dark:border-l-gray-600',
-};
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function QuotationSectionCard({
@@ -122,8 +72,8 @@ export function QuotationSectionCard({
   children,
   className,
 }: QuotationSectionCardProps) {
-  const meta = SECTION_TYPE_META[sectionType] ?? SECTION_TYPE_META.CUSTOM;
-  const Icon = meta.icon;
+  const config = SECTION_REGISTRY[sectionType] ?? SECTION_REGISTRY.CUSTOM;
+  const Icon = config.icon;
   const bodyId = `section-body-${id}`;
 
   return (
@@ -134,7 +84,7 @@ export function QuotationSectionCard({
         'rounded-xl border bg-card text-card-foreground',
         // Accent left border (2 px)
         'border-l-2',
-        ACCENT_BORDER[sectionType],
+        config.accentColor,
         // Subtle shadow + transition
         'shadow-sm transition-shadow hover:shadow-md',
         className
@@ -152,11 +102,11 @@ export function QuotationSectionCard({
         <span
           className={cn(
             'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-            meta.color
+            config.color
           )}
           aria-hidden="true"
         >
-          <Icon className={cn('h-4.5 w-4.5', meta.textColor)} />
+          <Icon className={cn('h-4.5 w-4.5', config.textColor)} />
         </span>
 
         {/* Type badge */}
@@ -168,7 +118,7 @@ export function QuotationSectionCard({
           className="min-w-0 flex-1 truncate text-base font-bold leading-snug tracking-tight"
           title={title}
         >
-          {title || meta.label}
+          {title || config.label}
         </h3>
 
         {/* Completion indicator */}

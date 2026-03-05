@@ -26,6 +26,7 @@ async function main() {
       {
         id: "cmjalmyod00eno0016w66t11s",
         code: "ES-x",
+        name: "Migrated Group",
         description: parseDescription('"Kitchen Top Solid Surface:\n100% Pure Acrylic Solid Surface\nThickness -12mm\nAs per drawing"'),
         sortOrder: 0,
         status: "active",
@@ -36,6 +37,7 @@ async function main() {
       {
         id: "cmjalnsr000euo001ngdjfh3r",
         code: "ES-Solid Surface Support",
+        name: "Migrated Group",
         description: "24 mm Board Support Under Solid Surface ",
         sortOrder: 0,
         status: "active",
@@ -46,6 +48,7 @@ async function main() {
       {
         id: "cmjalop3j00f1o001cmmdprf2",
         code: "ES-604-65",
+        name: "Migrated Group",
         description: "(Silicon IP 65) Under Cabinet  LINEAR LED \nLIGHT_Color-Warm",
         sortOrder: 0,
         status: "active",
@@ -56,6 +59,7 @@ async function main() {
       {
         id: "cmjalphuj00f8o001by22akma",
         code: "ES-606-24",
+        name: "Migrated Group",
         description: "Driver 24W DRIVER+PLUG,match for \nitem LED LINEAR LIGHT20W",
         sortOrder: 0,
         status: "active",
@@ -66,6 +70,7 @@ async function main() {
       {
         id: "cmjalq37x00ffo0016s96se8t",
         code: "ES-610-24",
+        name: "Migrated Group",
         description: "Sensor head,match for item LED LINEAR LIGHT",
         sortOrder: 0,
         status: "active",
@@ -76,6 +81,7 @@ async function main() {
       {
         id: "cmjalqtt600fmo001jollthav",
         code: "ES-609-LED",
+        name: "Migrated Group",
         description: "U pvc channel for IP65",
         sortOrder: 0,
         status: "active",
@@ -86,6 +92,7 @@ async function main() {
       {
         id: "cmjaf81w20012o001jlrt58f6",
         code: "ES-BTC-WPW",
+        name: "Migrated Group",
         description: "Carcase materials:  Made by 16mm waterproof melamine plywood with 1 mm PVC edge banding , Back ply 6 mm waterproof melamine plywood Colour & Finish: Warm white, semi matte,",
         sortOrder: 0,
         status: "active",
@@ -96,6 +103,7 @@ async function main() {
       {
         id: "cmjakvk86007lo0018wtl4lbh",
         code: "ES-WC-WPW",
+        name: "Migrated Group",
         description: "Carcase materials:  Made by 16mm waterproof melamine plywood with 1 mm PVC edge banding , Back ply 6 mm waterproof melamine plywood Colour & Finish: Warm white, semi matte,",
         sortOrder: 0,
         status: "active",
@@ -106,6 +114,7 @@ async function main() {
       {
         id: "cmjal32xa00aro001nm115n60",
         code: "ES-Base+Upper Frame",
+        name: "Migrated Group",
         description: "Supply of Custom Made Modular Cabinet knockdown system body, Made by 16mm thick  waterproof melamine plywood with double faced warm white as approved drawing, including all imported hardware, without accessories",
         sortOrder: 0,
         status: "active",
@@ -116,6 +125,7 @@ async function main() {
       {
         id: "cmjal40fd00ayo001os0qn395",
         code: "ES-BC-WPW",
+        name: "Migrated Group",
         description: "Supply of Custom Made Modular Cabinet knockdown system body, Made by 16 mm thick  waterproof melamine plywood with double faced warm white as approved drawing",
         sortOrder: 0,
         status: "active",
@@ -126,6 +136,7 @@ async function main() {
       {
         id: "cmjal5pew00b5o001yo0ve8cn",
         code: "Base Shutter:  ES. HPL ",
+        name: "Migrated Group",
         description: parseDescription('"Door/ side panel: Material:Made by 18mm thick plywood, \nBackside finish : melamine/HPL\nFront side/ surface: UV / HPL\nFinish: high gloss/matte with  with matching/ contrast edge banding."'),
         sortOrder: 0,
         status: "active",
@@ -136,6 +147,7 @@ async function main() {
       {
         id: "cmjal7j2e00bco0013eo5p8b7",
         code: "Upper Shutter  ES. HPL ",
+        name: "Migrated Group",
         description: "Door/ side panel: Material:Made by 18mm thick plywood, \nBackside finish : melamine/HPL\nFront side/ surface: UV / HPL\nFinish: high gloss/matte with  with matching/ contrast edge banding.",
         sortOrder: 0,
         status: "active",
@@ -146,6 +158,7 @@ async function main() {
       {
         id: "cmjal9c5a00bjo00148a17ts8",
         code: "Base+Tall & Top of Tall  Shutter",
+        name: "Migrated Group",
         description: "Door/ side panel: Material:Made by 18mm thick moistureproof Green MDF-E1 ,/ partical/ plywood, \nBackside finish",
         sortOrder: 0,
         status: "active",
@@ -156,6 +169,7 @@ async function main() {
       {
         id: "cmjaladv000bqo0016jywzh3n",
         code: "Base Shutter  ",
+        name: "Migrated Group",
         description: "Door/ side panel: Material:Made by 18mm thick moistureproof Green MDF-E1 ,/ partical/ plywood, \n",
         sortOrder: 0,
         status: "active",
@@ -166,6 +180,7 @@ async function main() {
       {
         id: "cmjalbesw00bxo001dprc4ao4",
         code: "Frame+Handle ES.302(B)",
+        name: "Migrated Group",
         description: "5mm Coffee Color Glass Shatter with Narrow Profile Aluminum Frame ",
         sortOrder: 0,
         status: "active",
@@ -176,6 +191,7 @@ async function main() {
       {
         id: "cmjalch9e00c4o001pw1fh9zr",
         code: "ES-Glass Shelf",
+        name: "Migrated Group",
         description: "10mm Clear Transparent Glass Shelf",
         sortOrder: 0,
         status: "active",
@@ -186,6 +202,7 @@ async function main() {
       {
         id: "cmjaldr4i00cbo0012pwuwd3b",
         code: "ES-PO-100",
+        name: "Migrated Group",
         description: "Tip on / Push to open (Glass Shutter)",
         sortOrder: 0,
         status: "active",
@@ -196,6 +213,7 @@ async function main() {
       {
         id: "cmjalejmr00cio001lcb45gps",
         code: "ES-PO-101",
+        name: "Migrated Group",
         description: "Tip on / Push to open ",
         sortOrder: 0,
         status: "active",
@@ -206,6 +224,7 @@ async function main() {
       {
         id: "cmjalfg4k00cpo001bb3xpq4n",
         code: "ES-FLR-50/75/100mm",
+        name: "Migrated Group",
         description: "Filler",
         sortOrder: 0,
         status: "active",
@@ -216,6 +235,7 @@ async function main() {
       {
         id: "cmjalh37z00cwo001fjo3bw5e",
         code: "ES-101 (S)",
+        name: "Migrated Group",
         description: "Handle: Grip profile (Silver)",
         sortOrder: 0,
         status: "active",
@@ -226,6 +246,7 @@ async function main() {
       {
         id: "cmjalhl2o00d3o001dqahsrx6",
         code: "ES-209-DS",
+        name: "Migrated Group",
         description: "concealed hinge , Full ovarlay with MK logo, Chrome finish.all accessories, SS304, soft close hinge, clip-on, 2D,with arm cover and cup cover and screws and dowel, 1pc/bag,10pcs/inner box, 100pcs/ctn; 304",
         sortOrder: 0,
         status: "active",
@@ -236,6 +257,7 @@ async function main() {
       {
         id: "cmjali23b00dao00158m7brvb",
         code: "ES-109-PA",
+        name: "Migrated Group",
         description: "concealed hinge , Full ovarlay with MK logo, Chrome finish. , , aluminum hinge, clip-on, 3D,with arm cover and screws,",
         sortOrder: 0,
         status: "active",
@@ -246,6 +268,7 @@ async function main() {
       {
         id: "cmjalihz700dho001yme9dnfb",
         code: "ES-003-CH",
+        name: "Migrated Group",
         description: "Hinge: Tiomos 110 AL Full Overlay110° opening angle",
         sortOrder: 0,
         status: "active",
@@ -256,6 +279,7 @@ async function main() {
       {
         id: "cmjalizk700doo001fuef5e2q",
         code: "ES-005-CH",
+        name: "Migrated Group",
         description: "Adjustable Hanging hook",
         sortOrder: 0,
         status: "active",
@@ -266,6 +290,7 @@ async function main() {
       {
         id: "cmjaljkqi00dvo0013c7pt03d",
         code: "ES-006-CH",
+        name: "Migrated Group",
         description: "Adjustable ABS legs with clip",
         sortOrder: 0,
         status: "active",
@@ -276,6 +301,7 @@ async function main() {
       {
         id: "cmjalkmr700e2o001dujxz9nk",
         code: "ES-601-CH",
+        name: "Migrated Group",
         description: "Skirting : PVC , Finish: Silver",
         sortOrder: 0,
         status: "active",
@@ -286,6 +312,7 @@ async function main() {
       {
         id: "cmjallc1e00e9o001p5dnrq2c",
         code: "ES-602-CH",
+        name: "Migrated Group",
         description: "Skirting : PVC , Finish: Black",
         sortOrder: 0,
         status: "active",
@@ -296,6 +323,7 @@ async function main() {
       {
         id: "cmjalm0ob00ego00167fktogc",
         code: "ES-603-CH",
+        name: "Migrated Group",
         description: "Skirting : Aluminium, Finish: Golden",
         sortOrder: 0,
         status: "active",
@@ -306,6 +334,7 @@ async function main() {
       {
         id: "cmjalrk1500fto001jvz37gu1",
         code: "ES-611-24",
+        name: "Migrated Group",
         description: parseDescription('"Spot Light_Warm\nlight size:φ80*8MM 3W 4000k CRI≥80 300LM SMD2835,21PCS with 12W 1A DRIVER AND SENSOR HEAR AND PLUG"'),
         sortOrder: 0,
         status: "active",
@@ -320,6 +349,7 @@ async function main() {
         where: { id: group.id },
         update: {
           code: group.code,
+          name: group.name,
           description: group.description,
           sortOrder: group.sortOrder,
           status: group.status,

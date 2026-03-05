@@ -111,6 +111,7 @@ interface Section {
 interface QuotationItemsAreaProps {
   sections: Section[];
   onSectionsChange: (sections: Section[]) => void;
+  readOnly?: boolean;
 }
 
 // Sortable Item Component - Memoized for performance
@@ -125,30 +126,36 @@ const SortableItem = memo(function SortableItem({
   isLoadingUnits,
   groupModuleGroupItems,
   groupModuleGroupId,
+  readOnly,
 }: {
-  item: QuotationItem;
+  item: QuotationItem & {
+    amount: number;
+    moduleGroupItemId?: string;
+    itemId?: string;
+  };
   groupIndex?: number;
   onUpdate: (updates: Partial<QuotationItem>) => void;
   onRemove: () => void;
   catalogItems: CatalogItem[];
-  sectionCategoryId?: string;
+  sectionCategoryId?: string | null;
   units?: Array<{ id: string; symbol: string; details: string }>;
   isLoadingUnits?: boolean;
   groupModuleGroupItems?: Array<{
     id: string;
     sl: number;
-    code?: string;
-    description?: string;
-    height?: number;
-    width?: number;
-    depth?: number;
-    unit?: string;
+    code: string | null;
+    description: string;
+    height: number;
+    width: number;
+    depth: number;
+    unit: string | null;
     unitPrice: number;
     amount: number;
     quantity: number;
     itemId?: string;
   }>;
   groupModuleGroupId?: string | null;
+  readOnly?: boolean;
 }) {
   const {
     attributes,
@@ -208,16 +215,16 @@ const SortableItem = memo(function SortableItem({
       
       const updates: Partial<QuotationItem> = {
         moduleGroupItemId: selectedGroupItem.id,
-        code: selectedGroupItem.code,
+        code: selectedGroupItem.code ?? undefined,
         description: selectedGroupItem.description,
         height: selectedGroupItem.height,
         width: selectedGroupItem.width,
-        depth: selectedGroupItem.depth,
-        unit: selectedGroupItem.unit,
+        depth: selectedGroupItem.depth ?? undefined,
+        unit: selectedGroupItem.unit ?? undefined,
         unitPrice: unitPrice,
         quantity: quantity,
         amount: amount,
-        itemId: selectedGroupItem.itemId,
+        itemId: selectedGroupItem.itemId ?? undefined,
         isCustomItem: false, // Clear custom item flag when selecting from ModuleGroup
       };
       onUpdate(updates);
@@ -257,22 +264,26 @@ const SortableItem = memo(function SortableItem({
 
   return (
     <TableRow
-      ref={setNodeRef}
-      style={style}
-      className={isDragging ? 'bg-muted' : ''}
+      ref={!readOnly ? setNodeRef : undefined}
+      style={!readOnly ? style : undefined}
+      className={isDragging && !readOnly ? 'bg-muted' : ''}
     >
-      <TableCell className="w-8">
-        <div
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing"
-        >
-          <BsGripVertical className="w-4 h-4 text-muted-foreground" />
-        </div>
-      </TableCell>
+      {!readOnly && (
+        <TableCell className="w-8">
+          <div
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing"
+          >
+            <BsGripVertical className="w-4 h-4 text-muted-foreground" />
+          </div>
+        </TableCell>
+      )}
       <TableCell className="font-medium w-12">{item.sl}</TableCell>
       <TableCell className="min-w-[120px]">
-        {item.isCustomItem ? (
+        {readOnly ? (
+          <span className="text-sm font-medium">{item.code || '-'}</span>
+        ) : item.isCustomItem ? (
           <Input
             value={item.code || ''}
             onChange={(e) => onUpdate({ code: e.target.value })}
@@ -389,61 +400,79 @@ const SortableItem = memo(function SortableItem({
         )}
       </TableCell>
       <TableCell>
-        <Input
-          value={item.description || ''}
-          onChange={(e) => onUpdate({ description: e.target.value })}
-          placeholder="Description"
-          className="h-8 text-xs"
-        />
+        {readOnly ? (
+          <span className="text-sm">{item.description || '-'}</span>
+        ) : (
+          <Input
+            value={item.description || ''}
+            onChange={(e) => onUpdate({ description: e.target.value })}
+            placeholder="Description"
+            className="h-8 text-xs"
+          />
+        )}
       </TableCell>
 
       <TableCell>
-        <Input
-          type="number"
-          step="0.01"
-          value={item.unitPrice}
-          onChange={(e) => onUpdate({ unitPrice: Number(e.target.value) })}
-          readOnly={!item.isCustomItem}
-          className={`h-8 w-24 text-xs ${!item.isCustomItem ? 'bg-muted' : ''}`}
-        />
+        {readOnly ? (
+          <span className="text-sm">{formatCurrency(item.unitPrice)}</span>
+        ) : (
+          <Input
+            type="number"
+            step="0.01"
+            value={item.unitPrice}
+            onChange={(e) => onUpdate({ unitPrice: Number(e.target.value) })}
+            readOnly={!item.isCustomItem}
+            className={`h-8 w-24 text-xs ${!item.isCustomItem ? 'bg-muted' : ''}`}
+          />
+        )}
       </TableCell>
       <TableCell>
-        <Input
-          type="number"
-          step="0.01"
-          value={item.quantity}
-          onChange={(e) => onUpdate({ quantity: Number(e.target.value) })}
-          className="h-8 w-16 text-xs text-right"
-        />
+        {readOnly ? (
+          <span className="text-sm pr-4">{item.quantity}</span>
+        ) : (
+          <Input
+            type="number"
+            step="0.01"
+            value={item.quantity}
+            onChange={(e) => onUpdate({ quantity: Number(e.target.value) })}
+            className="h-8 w-16 text-xs text-right"
+          />
+        )}
       </TableCell>
       <TableCell className="text-right w-32">
-        <Input
-          type="number"
-          step="0.01"
-          value={item.discount || ''}
-          onChange={(e) => {
-            const discount = e.target.value ? Number(e.target.value) : undefined;
-            onUpdate({ discount });
-          }}
-          placeholder="0.00"
-          className="h-8 w-24 text-xs text-right"
-          min="0"
-        />
+        {readOnly ? (
+          <span className="text-sm">{item.discount ? formatCurrency(item.discount) : '-'}</span>
+        ) : (
+          <Input
+            type="number"
+            step="0.01"
+            value={item.discount || ''}
+            onChange={(e) => {
+              const discount = e.target.value ? Number(e.target.value) : undefined;
+              onUpdate({ discount });
+            }}
+            placeholder="0.00"
+            className="h-8 w-24 text-xs text-right"
+            min="0"
+          />
+        )}
       </TableCell>
       <TableCell className="text-right font-semibold w-32">
         {formatCurrency(item.amount)}
       </TableCell>
-      <TableCell className="w-12">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onRemove}
-          className="h-8 w-8 p-0"
-        >
-          <FiTrash2 className="w-4 h-4 text-red-500" />
-        </Button>
-      </TableCell>
+      {!readOnly && (
+        <TableCell className="w-12">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onRemove}
+            className="h-8 w-8 p-0"
+          >
+            <FiTrash2 className="w-4 h-4 text-red-500" />
+          </Button>
+        </TableCell>
+      )}
     </TableRow>
   );
 });
@@ -451,6 +480,7 @@ const SortableItem = memo(function SortableItem({
 export function QuotationItemsArea({
   sections,
   onSectionsChange,
+  readOnly = false,
 }: QuotationItemsAreaProps) {
   const dispatch = useAppDispatch();
   
@@ -1143,18 +1173,24 @@ export function QuotationItemsArea({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold">Quotation Items</h2>
-        <Button type="button" onClick={addSection} size="sm">
-          <FiPlus className="w-4 h-4 mr-2" />
-          Add Section
-        </Button>
-      </div>
+      {!readOnly && (
+        <div className="flex justify-between items-center">
+          <h2 className="text-lg font-semibold">Quotation Items</h2>
+          {/* <Button type="button" onClick={addSection} size="sm">
+            <FiPlus className="w-4 h-4 mr-2" />
+            Add Section
+          </Button> */}
+        </div>
+      )}
 
       {sections.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            <p>No sections added. Click &quot;Add Section&quot; to get started.</p>
+            {readOnly ? (
+              <p>No pricing items available.</p>
+            ) : (
+              <p>No sections added. Click &quot;Add Section&quot; to get started.</p>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -1172,10 +1208,10 @@ export function QuotationItemsArea({
                 onDragEnd={(e) => handleDragEnd(e, sectionIndex)}
               >
                 <Card>
-                  <CardHeader className="pb-3">
+                  <CardHeader className={readOnly ? "pb-0 pt-4" : "pb-3"}>
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        {isEditing ? (
+                        {isEditing && !readOnly ? (
                           <Input
                             value={section.title}
                             onChange={(e) =>
@@ -1187,36 +1223,39 @@ export function QuotationItemsArea({
                           />
                         ) : (
                           <CardTitle
-                            className="text-base cursor-pointer"
-                            onClick={() => setEditingSection(`${sectionIndex}`)}
+                            className={`text-base ${!readOnly ? 'cursor-pointer' : ''}`}
+                            onClick={() => !readOnly && setEditingSection(`${sectionIndex}`)}
                           >
                             {section.title}
                           </CardTitle>
                         )}
                         {section.note && (
-                          <p className="text-xs text-muted-foreground mt-1">
+                          <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
                             {section.note}
                           </p>
                         )}
                       </div>
                       <div className="flex gap-2 items-center">
-                        <Badge variant="outline">
+                        <span className="font-semibold text-primary">
                           {formatCurrency(sectionTotal)}
-                        </Badge>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeSection(sectionIndex)}
-                        >
-                          <FiTrash2 className="w-4 h-4" />
-                        </Button>
+                        </span>
+                        {!readOnly && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeSection(sectionIndex)}
+                          >
+                            <FiTrash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
 
                     {/* Section Actions */}
-                    <div className="flex gap-2 mt-3 items-center justify-between">
-                      <div className="flex gap-2">
+                    {!readOnly && (
+                      <div className="flex gap-2 mt-3 items-center justify-between">
+                        <div className="flex gap-2">
                                             <Button
                         type="button"
                         variant="outline"
@@ -1348,9 +1387,10 @@ export function QuotationItemsArea({
                         />
                       </div>
                     </div>
+                    )}
                   </CardHeader>
 
-                  <CardContent>
+                  <CardContent className={readOnly ? "pt-4" : ""}>
                     <SortableContext
                       items={allItemIds}
                       strategy={verticalListSortingStrategy}
@@ -1362,15 +1402,15 @@ export function QuotationItemsArea({
                             <Table>
                               <TableHeader>
                                 <TableRow>
-                                  <TableHead className="w-8"></TableHead>
+                                  {!readOnly && <TableHead className="w-8"></TableHead>}
                                   <TableHead className="w-12">SL</TableHead>
                                   <TableHead className="min-w-[120px]">Code</TableHead>
                                   <TableHead>Description</TableHead>
                                   <TableHead className="w-32">Unit Price</TableHead>
-                                  <TableHead className="w-24">Unit</TableHead>
+                                  <TableHead className={`w-24 ${readOnly ? 'text-right' : ''}`}>Qty</TableHead>
                                   <TableHead className="w-32 text-right">Discount</TableHead>
                                   <TableHead className="w-32 text-right">Sub Total</TableHead>
-                                  <TableHead className="w-12"></TableHead>
+                                  {!readOnly && <TableHead className="w-12"></TableHead>}
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -1391,6 +1431,7 @@ export function QuotationItemsArea({
                                     onRemove={() =>
                                       removeItem(sectionIndex, itemIndex, undefined)
                                     }
+                                    readOnly={readOnly}
                                   />
                                 ))}
                               </TableBody>
@@ -1401,23 +1442,34 @@ export function QuotationItemsArea({
                     </SortableContext>
 
                     {/* Section Note Field */}
-                    <div className="mt-4 pt-4 border-t">
-                      <Label htmlFor={`section-note-${sectionIndex}`} className="text-xs mb-1">
-                        Note
-                      </Label>
-                      <Textarea
-                        id={`section-note-${sectionIndex}`}
-                        value={section.note || ''}
-                        onChange={(e) => {
-                          const note = e.target.value;
-                          updateSection(sectionIndex, { note });
-                          dispatch(updateSectionNote({ sectionIndex, note }));
-                        }}
-                        placeholder="Enter section note"
-                        className="text-sm min-h-[20px] w-full"
-                        rows={2}
-                      />
-                    </div>
+                    {readOnly ? (
+                      (section.discount && section.discount > 0) ? (
+                        <div className="mt-4 flex justify-end">
+                            <div className="text-right">
+                                <p className="text-sm font-medium text-muted-foreground">Discount</p>
+                                <p className="text-sm text-red-600 font-semibold">-{formatCurrency(section.discount)}</p>
+                            </div>
+                        </div>
+                      ) : null
+                    ) : (
+                      <div className="mt-4 pt-4 border-t">
+                        <Label htmlFor={`section-note-${sectionIndex}`} className="text-xs mb-1">
+                          Note
+                        </Label>
+                        <Textarea
+                          id={`section-note-${sectionIndex}`}
+                          value={section.note || ''}
+                          onChange={(e) => {
+                            const note = e.target.value;
+                            updateSection(sectionIndex, { note });
+                            dispatch(updateSectionNote({ sectionIndex, note }));
+                          }}
+                          placeholder="Enter section note"
+                          className="text-sm min-h-[20px] w-full"
+                          rows={2}
+                        />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </DndContext>
@@ -1426,15 +1478,7 @@ export function QuotationItemsArea({
         </div>
       )}
 
-      {/* Grand Total */}
-      <Card className="bg-primary/5">
-        <CardContent className="pt-6">
-          <div className="flex justify-between items-center">
-            <Label className="text-base font-semibold">Grand Total</Label>
-            <div className="text-2xl font-bold">{formatCurrency(grandTotal)}</div>
-          </div>
-        </CardContent>
-      </Card>
+
     </div>
   );
 }

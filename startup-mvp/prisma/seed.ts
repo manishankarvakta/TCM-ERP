@@ -17,7 +17,8 @@
  *   npx tsx prisma/seed-module-group-items-1.ts && \
  *   npx tsx prisma/seed-module-group-items-2.ts && \
  *   npx tsx prisma/seed-module-group-items-3.ts && \
- *   npx tsx prisma/seed-module-group-items-4.ts
+ *   npx tsx prisma/seed-module-group-items-4.ts && \
+ *   npx tsx prisma/seed-cover-letters.ts
  * 
  * Or run individually: npx tsx prisma/seed-*.ts
  */
@@ -34,6 +35,6 @@ console.log("   5. seed-item-categories.ts (depends on items & categories)");
 console.log("   6. seed-module-groups.ts (29 groups, depends on users)");
 console.log("   7. seed-module-group-items-1.ts through seed-module-group-items-4.ts");
 console.log("      (~145 items, depends on module groups)");
+console.log("   8. seed-cover-letters.ts (Default templates with subjects)");
 console.log("\n   See SEED_README.md for more details.");
 console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-

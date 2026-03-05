@@ -7,6 +7,8 @@ import { auth } from '@/lib/auth';
 import { notifyItemCreated, notifyItemUpdated, notifyItemDeleted } from '@/lib/notification';
 import { createUserLog, LogAction } from '@/lib/user-log';
 import { createClient } from '@/app/(dashboard)/dashboard/crm/clients/_actions/client.action';
+import { buildDefaultSections } from '@/lib/quotation/buildDefaultSections';
+import { sortSectionsByDisplayOrder } from '@/lib/quotation/sortSections';
 import { serializeData } from '@/lib/utils/serialization';
 
 /**
@@ -253,6 +255,12 @@ export async function getQuotation(id: string) {
             image: true,
           },
         },
+        Opportunity: {
+          select: {
+            id: true,
+            title: true,
+          }
+        },
         Section: {
           include: {
             User: {
@@ -366,7 +374,7 @@ export async function getQuotation(id: string) {
       organizationId: quotation.organizationId || null,
       submittedBy: (quotation as any).User_Quotation_submittedByIdToUser,
       updatedBy: (quotation as any).User_Quotation_updatedByIdToUser,
-      section: (quotation as any).Section?.map((section: any) => ({
+      section: sortSectionsByDisplayOrder((quotation as any).Section)?.map((section: any) => ({
         ...section,
         discount: section.discount ? Number(section.discount) : null,
         total: section.total ? Number(section.total) : null,
@@ -554,31 +562,17 @@ export async function createQuotation(data: any) {
       return sum + discountedTotal;
     }, 0) : 0;
 
-    // Prepare moduleGroupIds for parallel fetching
-    const moduleGroupIdsToFetch = new Set<string>();
-    sections.forEach((section: any) => {
-      if (section.groups && Array.isArray(section.groups)) {
-        section.groups.forEach((group: any) => {
-          if (group.moduleGroupId && 
-              group.moduleGroupId !== '' && 
-              (!group.baseUnit || !group.baseUnitPrice)) {
-            moduleGroupIdsToFetch.add(group.moduleGroupId);
-          }
-        });
-      }
-    });
-
-    // Parallel database queries: Fetch TOS, coverLetter, and moduleGroups simultaneously
-    const [tosResult, coverLetterResult, moduleGroupsResult] = await Promise.all([
-      // TOS content fetch
-      !data.tos ? (async () => {
+    // Parallel database queries: Fetch Quotation Settings (TOS, Payment Terms), coverLetterSimultaneously
+    const [settingsResult, coverLetterResult] = await Promise.all([
+      // Quotation settings fetch (TOS & Payment Terms)
+      (async () => {
         try {
-          const { getTOSContent } = await import('@/app/actions/quotation-helpers');
-          return await getTOSContent();
+          const { getQuotationSettings } = await import('@/app/actions/quotation-helpers');
+          return await getQuotationSettings();
         } catch (error) {
-          return { success: false, content: null };
+          return { success: false, tos: null, paymentTerms: null };
         }
-      })() : Promise.resolve({ success: true, content: data.tos }),
+      })(),
       
       // Cover letter fetch
       (!data.coverLetter && data.selectedCoverLetterId && data.selectedCoverLetterId !== 'custom') 
@@ -591,94 +585,32 @@ export async function createQuotation(data: any) {
             }
           })()
         : Promise.resolve({ success: true, coverLetter: data.coverLetter ? { content: data.coverLetter } : null }),
-      
-      // ModuleGroup data fetch
-      moduleGroupIdsToFetch.size > 0
-        ? prisma.moduleGroup.findMany({
-            where: { id: { in: Array.from(moduleGroupIdsToFetch) } },
-            select: { id: true, baseUnit: true, baseUnitPrice: true },
-          })
-        : Promise.resolve([])
     ]);
-
+ 
     // Extract results
-    const tosContent = tosResult.success ? tosResult.content : data.tos || null;
+    const tosContent = settingsResult.success ? settingsResult.tos : data.tos || null;
+    const paymentTermsContent = settingsResult.success ? settingsResult.paymentTerms : null;
     const coverLetterContent = coverLetterResult.success && coverLetterResult.coverLetter
       ? coverLetterResult.coverLetter.content
       : data.coverLetter || null;
-
-    // Build moduleGroupData map
-    const moduleGroupData: Record<string, { baseUnit: string | null; baseUnitPrice: number | null }> = {};
-    moduleGroupsResult.forEach((mg) => {
-      moduleGroupData[mg.id] = {
-        baseUnit: mg.baseUnit,
-        baseUnitPrice: mg.baseUnitPrice ? Number(mg.baseUnitPrice) : null,
-      };
-    });
-
-    // Enrich sections with baseUnit/baseUnitPrice from ModuleGroup if missing
-    const userSections = sections.map((section: any) => ({
-      ...section,
-      groups: (section.groups || []).map((group: any) => {
-        if (group.moduleGroupId && moduleGroupData[group.moduleGroupId]) {
-          return {
-            ...group,
-            baseUnit: group.baseUnit || moduleGroupData[group.moduleGroupId].baseUnit,
-            baseUnitPrice: group.baseUnitPrice || moduleGroupData[group.moduleGroupId].baseUnitPrice,
-          };
-        }
-        return group;
-      }),
-    }));
-
-    // Prepare final sections with defaults (COVER, SUMMARY, PRICING, ACCEPTANCE)
-    const finalSections: any[] = [];
+ 
+    // Prepare final sections
+    let finalSections: any[] = [];
     
-    // 1. Add COVER
-    finalSections.push({ 
-      sectionType: 'COVER', 
-      title: 'Cover', 
-      isEnabled: true, 
-      displayOrder: 1,
-      items: [], groups: [], categoryGroups: []
-    });
-    
-    // 2. Add SUMMARY
-    finalSections.push({ 
-      sectionType: 'SUMMARY', 
-      title: 'Summary', 
-      isEnabled: true, 
-      displayOrder: 2,
-      items: [], groups: [], categoryGroups: []
-    });
-    
-    // 3. Add PRICING sections (user provided or default empty)
-    if (userSections.length === 0) {
-      finalSections.push({ 
-        sectionType: 'PRICING', 
-        title: 'Pricing', 
-        isEnabled: true, 
-        displayOrder: 3,
-        items: [], groups: [], categoryGroups: []
-      });
+    if (sections.length === 0) {
+      // Use the Factory to generate the standard sections, passing initial payment terms
+      const { buildDefaultSections } = await import('@/lib/quotation/buildDefaultSections');
+      finalSections = buildDefaultSections(paymentTermsContent);
     } else {
-      userSections.forEach((s: any, idx: number) => {
+      // Use provided sections
+      sections.forEach((s: any, idx: number) => {
         finalSections.push({
           ...s,
           sectionType: s.sectionType || 'PRICING',
-          displayOrder: 3 + idx
+          displayOrder: idx + 1
         });
       });
     }
-    
-    // 4. Add ACCEPTANCE
-    finalSections.push({ 
-      sectionType: 'ACCEPTANCE', 
-      title: 'Acceptance', 
-      isEnabled: true, 
-      displayOrder: finalSections.length + 1,
-      items: [], groups: [], categoryGroups: []
-    });
 
     // Create quotation with optimized data fetching
     const quotation = await prisma.quotation.create({
@@ -704,99 +636,113 @@ export async function createQuotation(data: any) {
         opportunityId: (data as any).opportunityId || null,
         isTrash: false,
         Section: {
-          create: (finalSections || []).map((section: any, sectionIndex: number) => ({
-            sectionType: section.sectionType || 'PRICING',
-            title: section.title || null,
-            isEnabled: section.isEnabled !== undefined ? section.isEnabled : true,
-            displayOrder: section.displayOrder ?? (sectionIndex + 1),
-            metadata: section.metadata || null,
-            note: section.note || null,
-        discount: section.discount ? new Prisma.Decimal(section.discount) : new Prisma.Decimal(0),
-        total: section.total ? new Prisma.Decimal(section.total) : new Prisma.Decimal(0),
-        grandTotal: section.grandTotal ? new Prisma.Decimal(section.grandTotal) : new Prisma.Decimal(0),
-            sortOrder: section.sortOrder ?? sectionIndex,
-            categoryId: section.categoryId || null,
-            preparedById: section.preparedById || session.user.id,
-            ItemGroup: {
-              create: (section.groups || []).map((group: any, groupIndex: number) => ({
-                code: group.code || null,
-                description: group.description || '',
-                quantity: group.quantity ? new Prisma.Decimal(group.quantity) : new Prisma.Decimal(0),
-                number: group.number || null,
-                sortOrder: group.sortOrder ?? groupIndex,
-                moduleGroupId: group.moduleGroupId && group.moduleGroupId !== '' ? group.moduleGroupId : null,
-                baseUnit: group.baseUnit || null,
-                baseUnitPrice: group.baseUnitPrice ? new Prisma.Decimal(group.baseUnitPrice) : null,
-                QuotationItem: {
-                  create: (group.items || []).map((item: any, itemIndex: number) => ({
-                    sl: item.sl ?? itemIndex + 1,
-                    no: item.no != null && item.no !== '' ? String(item.no) : null,
-                    code: item.code || null,
-                    description: item.description || null,
-                    height: item.height ? new Prisma.Decimal(item.height) : null,
-                    width: item.width ? new Prisma.Decimal(item.width) : null,
-                    depth: item.depth ? new Prisma.Decimal(item.depth) : null,
-                    unit: item.unit || null,
-                    unitPrice: new Prisma.Decimal(item.unitPrice || 0),
-                    quantity: new Prisma.Decimal(item.quantity || 0),
-                    unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
-                    totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
-                    discount: item.discount ? new Prisma.Decimal(item.discount) : null,
-                    amount: new Prisma.Decimal(item.amount || 0),
-                    sortOrder: item.sortOrder ?? itemIndex,
-                    itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
-                    moduleGroupItemId: item.moduleGroupItemId && item.moduleGroupItemId !== '' ? item.moduleGroupItemId : null,
-                  })),
-                },
-              })),
-            },
-            QuotationItem: {
-              create: (section.items || []).map((item: any, itemIndex: number) => ({
-                sl: item.sl ?? itemIndex + 1,
-                no: item.no != null && item.no !== '' ? String(item.no) : null,
-                code: item.code || null,
-                description: item.description || null,
-                height: item.height ? new Prisma.Decimal(item.height) : null,
-                width: item.width ? new Prisma.Decimal(item.width) : null,
-                depth: item.depth ? new Prisma.Decimal(item.depth) : null,
-                unit: item.unit || null,
-                unitPrice: new Prisma.Decimal(item.unitPrice || 0),
-                quantity: new Prisma.Decimal(item.quantity || 0),
-                unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
-                totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
-                discount: item.discount ? new Prisma.Decimal(item.discount) : null,
-                amount: new Prisma.Decimal(item.amount || 0),
-                sortOrder: item.sortOrder ?? itemIndex,
-                itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
-              })),
-            },
-            CategoryGroup: {
-              create: (section.categoryGroups || []).map((categoryGroup: any, categoryGroupIndex: number) => ({
-                categoryId: categoryGroup.categoryId || null,
-                sortOrder: categoryGroup.sortOrder ?? categoryGroupIndex,
-                QuotationItem: {
-                  create: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
-                    sl: item.sl ?? itemIndex + 1,
-                    no: item.no != null && item.no !== '' ? String(item.no) : null,
-                    code: item.code || null,
-                    description: item.description || null,
-                    height: item.height ? new Prisma.Decimal(item.height) : null,
-                    width: item.width ? new Prisma.Decimal(item.width) : null,
-                    depth: item.depth ? new Prisma.Decimal(item.depth) : null,
-                    unit: item.unit || null,
-                    unitPrice: new Prisma.Decimal(item.unitPrice || 0),
-                    quantity: new Prisma.Decimal(item.quantity || 0),
-                    unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
-                    totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
-                    discount: item.discount ? new Prisma.Decimal(item.discount) : null,
-                    amount: new Prisma.Decimal(item.amount || 0),
-                    sortOrder: item.sortOrder ?? itemIndex,
-                    itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
-                  })),
-                },
-              })),
-            },
-          })),
+          create: (finalSections || []).map((section: any, sectionIndex: number) => {
+            const sectionData: any = {
+              sectionType: section.sectionType || 'PRICING',
+              title: section.title || null,
+              isEnabled: section.isEnabled !== undefined ? section.isEnabled : true,
+              displayOrder: section.displayOrder ?? (sectionIndex + 1),
+              metadata: section.metadata || null,
+              note: section.note || null,
+              discount: section.discount ? new Prisma.Decimal(section.discount) : new Prisma.Decimal(0),
+              total: section.total ? new Prisma.Decimal(section.total) : new Prisma.Decimal(0),
+              grandTotal: section.grandTotal ? new Prisma.Decimal(section.grandTotal) : new Prisma.Decimal(0),
+              sortOrder: section.sortOrder ?? sectionIndex,
+              categoryId: section.categoryId || null,
+              preparedById: section.preparedById || session.user.id,
+            };
+
+            // Only add relations if their arrays are non-empty
+            if (section.groups && Array.isArray(section.groups) && section.groups.length > 0) {
+              sectionData.ItemGroup = {
+                create: section.groups.map((group: any, groupIndex: number) => ({
+                  code: group.code || null,
+                  description: group.description || '',
+                  quantity: group.quantity ? new Prisma.Decimal(group.quantity) : new Prisma.Decimal(0),
+                  number: group.number || null,
+                  sortOrder: group.sortOrder ?? groupIndex,
+                  moduleGroupId: group.moduleGroupId && group.moduleGroupId !== '' ? group.moduleGroupId : null,
+                  baseUnit: group.baseUnit || null,
+                  baseUnitPrice: group.baseUnitPrice ? new Prisma.Decimal(group.baseUnitPrice) : null,
+                  QuotationItem: {
+                    create: (group.items || []).map((item: any, itemIndex: number) => ({
+                      sl: item.sl ?? itemIndex + 1,
+                      no: item.no != null && item.no !== '' ? String(item.no) : null,
+                      code: item.code || null,
+                      description: item.description || null,
+                      height: item.height ? new Prisma.Decimal(item.height) : null,
+                      width: item.width ? new Prisma.Decimal(item.width) : null,
+                      depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                      unit: item.unit || null,
+                      unitPrice: new Prisma.Decimal(item.unitPrice || 0),
+                      quantity: new Prisma.Decimal(item.quantity || 0),
+                      unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
+                      totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
+                      discount: item.discount ? new Prisma.Decimal(item.discount) : null,
+                      amount: new Prisma.Decimal(item.amount || 0),
+                      sortOrder: item.sortOrder ?? itemIndex,
+                      itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
+                      moduleGroupItemId: item.moduleGroupItemId && item.moduleGroupItemId !== '' ? item.moduleGroupItemId : null,
+                    })),
+                  },
+                })),
+              };
+            }
+
+            if (section.items && Array.isArray(section.items) && section.items.length > 0) {
+              sectionData.QuotationItem = {
+                create: section.items.map((item: any, itemIndex: number) => ({
+                  sl: item.sl ?? itemIndex + 1,
+                  no: item.no != null && item.no !== '' ? String(item.no) : null,
+                  code: item.code || null,
+                  description: item.description || null,
+                  height: item.height ? new Prisma.Decimal(item.height) : null,
+                  width: item.width ? new Prisma.Decimal(item.width) : null,
+                  depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                  unit: item.unit || null,
+                  unitPrice: new Prisma.Decimal(item.unitPrice || 0),
+                  quantity: new Prisma.Decimal(item.quantity || 0),
+                  unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
+                  totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
+                  discount: item.discount ? new Prisma.Decimal(item.discount) : null,
+                  amount: new Prisma.Decimal(item.amount || 0),
+                  sortOrder: item.sortOrder ?? itemIndex,
+                  itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
+                })),
+              };
+            }
+
+            if (section.categoryGroups && Array.isArray(section.categoryGroups) && section.categoryGroups.length > 0) {
+              sectionData.CategoryGroup = {
+                create: section.categoryGroups.map((categoryGroup: any, categoryGroupIndex: number) => ({
+                  categoryId: categoryGroup.categoryId || null,
+                  sortOrder: categoryGroup.sortOrder ?? categoryGroupIndex,
+                  QuotationItem: {
+                    create: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
+                      sl: item.sl ?? itemIndex + 1,
+                      no: item.no != null && item.no !== '' ? String(item.no) : null,
+                      code: item.code || null,
+                      description: item.description || null,
+                      height: item.height ? new Prisma.Decimal(item.height) : null,
+                      width: item.width ? new Prisma.Decimal(item.width) : null,
+                      depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                      unit: item.unit || null,
+                      unitPrice: new Prisma.Decimal(item.unitPrice || 0),
+                      quantity: new Prisma.Decimal(item.quantity || 0),
+                      unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
+                      totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
+                      discount: item.discount ? new Prisma.Decimal(item.discount) : null,
+                      amount: new Prisma.Decimal(item.amount || 0),
+                      sortOrder: item.sortOrder ?? itemIndex,
+                      itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
+                    })),
+                  },
+                })),
+              };
+            }
+
+            return sectionData;
+          }),
         },
       },
       // Selective includes: Only fetch essential relations, not everything
@@ -972,60 +918,6 @@ export async function updateQuotation(id: string, data: any) {
       return sum + discountedTotal;
     }, 0) : 0;
 
-    // Prepare moduleGroupIds for parallel fetching
-    const moduleGroupIdsToFetch = new Set<string>();
-    sections.forEach((section: any) => {
-      if (section.groups && Array.isArray(section.groups)) {
-        section.groups.forEach((group: any) => {
-          if (group.moduleGroupId && 
-              group.moduleGroupId !== '' && 
-              (!group.baseUnit || !group.baseUnitPrice)) {
-            moduleGroupIdsToFetch.add(group.moduleGroupId);
-          }
-        });
-      }
-    });
-
-    // Parallel operations: Delete sections and fetch moduleGroups simultaneously
-    const [, moduleGroupsResult] = await Promise.all([
-      // Delete existing sections (cascade will handle items and groups)
-      prisma.section.deleteMany({
-        where: { quotationId: id },
-      }),
-      
-      // Fetch moduleGroup data in parallel
-      moduleGroupIdsToFetch.size > 0
-        ? prisma.moduleGroup.findMany({
-            where: { id: { in: Array.from(moduleGroupIdsToFetch) } },
-            select: { id: true, baseUnit: true, baseUnitPrice: true },
-          })
-        : Promise.resolve([])
-    ]);
-
-    // Build moduleGroupData map
-    const moduleGroupData: Record<string, { baseUnit: string | null; baseUnitPrice: number | null }> = {};
-    moduleGroupsResult.forEach((mg) => {
-      moduleGroupData[mg.id] = {
-        baseUnit: mg.baseUnit,
-        baseUnitPrice: mg.baseUnitPrice ? Number(mg.baseUnitPrice) : null,
-      };
-    });
-
-    // Enrich sections with baseUnit/baseUnitPrice from ModuleGroup if missing
-    const enrichedSections = sections.map((section: any) => ({
-      ...section,
-      groups: (section.groups || []).map((group: any) => {
-        if (group.moduleGroupId && moduleGroupData[group.moduleGroupId]) {
-          return {
-            ...group,
-            baseUnit: group.baseUnit || moduleGroupData[group.moduleGroupId].baseUnit,
-            baseUnitPrice: group.baseUnitPrice || moduleGroupData[group.moduleGroupId].baseUnitPrice,
-          };
-        }
-        return group;
-      }),
-    }));
-
     // Parallel fetch for TOS and coverLetter
     const [tosResult, coverLetterResult] = await Promise.all([
       // TOS content fetch
@@ -1085,99 +977,113 @@ export async function updateQuotation(id: string, data: any) {
         projectLocation: data.projectLocation !== undefined ? (data.projectLocation || null) : existingQuotation.projectLocation,
         mode: data.mode || existingQuotation.mode || 'SIMPLE',
         Section: {
-          create: (enrichedSections || []).map((section: any, sectionIndex: number) => ({
-            sectionType: section.sectionType || 'PRICING',
-            title: section.title || null,
-            isEnabled: section.isEnabled !== undefined ? section.isEnabled : true,
-            displayOrder: section.displayOrder ?? section.sortOrder ?? sectionIndex,
-            metadata: section.metadata || null,
-            note: section.note || null,
-        discount: section.discount ? new Prisma.Decimal(section.discount) : new Prisma.Decimal(0),
-        total: section.total ? new Prisma.Decimal(section.total) : new Prisma.Decimal(0),
-        grandTotal: section.grandTotal ? new Prisma.Decimal(section.grandTotal) : new Prisma.Decimal(0),
-            sortOrder: section.sortOrder ?? sectionIndex,
-            categoryId: section.categoryId || null,
-            preparedById: section.preparedById || session.user.id,
-            ItemGroup: {
-              create: (section.groups || []).map((group: any, groupIndex: number) => ({
-                code: group.code || null,
-                description: group.description || '',
-                quantity: group.quantity ? new Prisma.Decimal(group.quantity) : new Prisma.Decimal(0),
-                number: group.number || null,
-                sortOrder: group.sortOrder ?? groupIndex,
-                moduleGroupId: group.moduleGroupId && group.moduleGroupId !== '' ? group.moduleGroupId : null,
-                baseUnit: group.baseUnit || null,
-                baseUnitPrice: group.baseUnitPrice ? new Prisma.Decimal(group.baseUnitPrice) : null,
-                QuotationItem: {
-                  create: (group.items || []).map((item: any, itemIndex: number) => ({
-                    sl: item.sl ?? itemIndex + 1,
-                    no: item.no != null && item.no !== '' ? String(item.no) : null,
-                    code: item.code || null,
-                    description: item.description || null,
-                    height: item.height ? new Prisma.Decimal(item.height) : null,
-                    width: item.width ? new Prisma.Decimal(item.width) : null,
-                    depth: item.depth ? new Prisma.Decimal(item.depth) : null,
-                    unit: item.unit || null,
-                    unitPrice: new Prisma.Decimal(item.unitPrice || 0),
-                    quantity: new Prisma.Decimal(item.quantity || 0),
-                    unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
-                    totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
-                    discount: item.discount ? new Prisma.Decimal(item.discount) : null,
-                    amount: new Prisma.Decimal(item.amount || 0),
-                    sortOrder: item.sortOrder ?? itemIndex,
-                    itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
-                    moduleGroupItemId: item.moduleGroupItemId && item.moduleGroupItemId !== '' ? item.moduleGroupItemId : null,
-                  })),
-                },
-              })),
-            },
-            QuotationItem: {
-              create: (section.items || []).map((item: any, itemIndex: number) => ({
-                sl: item.sl ?? itemIndex + 1,
-                no: item.no != null && item.no !== '' ? String(item.no) : null,
-                code: item.code || null,
-                description: item.description || null,
-                height: item.height ? new Prisma.Decimal(item.height) : null,
-                width: item.width ? new Prisma.Decimal(item.width) : null,
-                depth: item.depth ? new Prisma.Decimal(item.depth) : null,
-                unit: item.unit || null,
-                unitPrice: new Prisma.Decimal(item.unitPrice || 0),
-                quantity: new Prisma.Decimal(item.quantity || 0),
-                unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
-                totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
-                discount: item.discount ? new Prisma.Decimal(item.discount) : null,
-                amount: new Prisma.Decimal(item.amount || 0),
-                sortOrder: item.sortOrder ?? itemIndex,
-                itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
-              })),
-            },
-            CategoryGroup: {
-              create: (section.categoryGroups || []).map((categoryGroup: any, categoryGroupIndex: number) => ({
-                categoryId: categoryGroup.categoryId || null,
-                sortOrder: categoryGroup.sortOrder ?? categoryGroupIndex,
-                QuotationItem: {
-                  create: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
-                    sl: item.sl ?? itemIndex + 1,
-                    no: item.no != null && item.no !== '' ? String(item.no) : null,
-                    code: item.code || null,
-                    description: item.description || null,
-                    height: item.height ? new Prisma.Decimal(item.height) : null,
-                    width: item.width ? new Prisma.Decimal(item.width) : null,
-                    depth: item.depth ? new Prisma.Decimal(item.depth) : null,
-                    unit: item.unit || null,
-                    unitPrice: new Prisma.Decimal(item.unitPrice || 0),
-                    quantity: new Prisma.Decimal(item.quantity || 0),
-                    unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
-                    totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
-                    discount: item.discount ? new Prisma.Decimal(item.discount) : null,
-                    amount: new Prisma.Decimal(item.amount || 0),
-                    sortOrder: item.sortOrder ?? itemIndex,
-                    itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
-                  })),
-                },
-              })),
-            },
-          })),
+          create: (sections || []).map((section: any, sectionIndex: number) => {
+            const sectionData: any = {
+              sectionType: section.sectionType || 'PRICING',
+              title: section.title || null,
+              isEnabled: section.isEnabled !== undefined ? section.isEnabled : true,
+              displayOrder: section.displayOrder ?? section.sortOrder ?? sectionIndex,
+              metadata: section.metadata || null,
+              note: section.note || null,
+              discount: section.discount ? new Prisma.Decimal(section.discount) : new Prisma.Decimal(0),
+              total: section.total ? new Prisma.Decimal(section.total) : new Prisma.Decimal(0),
+              grandTotal: section.grandTotal ? new Prisma.Decimal(section.grandTotal) : new Prisma.Decimal(0),
+              sortOrder: section.sortOrder ?? sectionIndex,
+              categoryId: section.categoryId || null,
+              preparedById: section.preparedById || session.user.id,
+            };
+
+            // Only add relations if their arrays are non-empty
+            if (section.groups && Array.isArray(section.groups) && section.groups.length > 0) {
+              sectionData.ItemGroup = {
+                create: section.groups.map((group: any, groupIndex: number) => ({
+                  code: group.code || null,
+                  description: group.description || '',
+                  quantity: group.quantity ? new Prisma.Decimal(group.quantity) : new Prisma.Decimal(0),
+                  number: group.number || null,
+                  sortOrder: group.sortOrder ?? groupIndex,
+                  moduleGroupId: group.moduleGroupId && group.moduleGroupId !== '' ? group.moduleGroupId : null,
+                  baseUnit: group.baseUnit || null,
+                  baseUnitPrice: group.baseUnitPrice ? new Prisma.Decimal(group.baseUnitPrice) : null,
+                  QuotationItem: {
+                    create: (group.items || []).map((item: any, itemIndex: number) => ({
+                      sl: item.sl ?? itemIndex + 1,
+                      no: item.no != null && item.no !== '' ? String(item.no) : null,
+                      code: item.code || null,
+                      description: item.description || null,
+                      height: item.height ? new Prisma.Decimal(item.height) : null,
+                      width: item.width ? new Prisma.Decimal(item.width) : null,
+                      depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                      unit: item.unit || null,
+                      unitPrice: new Prisma.Decimal(item.unitPrice || 0),
+                      quantity: new Prisma.Decimal(item.quantity || 0),
+                      unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
+                      totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
+                      discount: item.discount ? new Prisma.Decimal(item.discount) : null,
+                      amount: new Prisma.Decimal(item.amount || 0),
+                      sortOrder: item.sortOrder ?? itemIndex,
+                      itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
+                      moduleGroupItemId: item.moduleGroupItemId && item.moduleGroupItemId !== '' ? item.moduleGroupItemId : null,
+                    })),
+                  },
+                })),
+              };
+            }
+
+            if (section.items && Array.isArray(section.items) && section.items.length > 0) {
+              sectionData.QuotationItem = {
+                create: section.items.map((item: any, itemIndex: number) => ({
+                  sl: item.sl ?? itemIndex + 1,
+                  no: item.no != null && item.no !== '' ? String(item.no) : null,
+                  code: item.code || null,
+                  description: item.description || null,
+                  height: item.height ? new Prisma.Decimal(item.height) : null,
+                  width: item.width ? new Prisma.Decimal(item.width) : null,
+                  depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                  unit: item.unit || null,
+                  unitPrice: new Prisma.Decimal(item.unitPrice || 0),
+                  quantity: new Prisma.Decimal(item.quantity || 0),
+                  unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
+                  totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
+                  discount: item.discount ? new Prisma.Decimal(item.discount) : null,
+                  amount: new Prisma.Decimal(item.amount || 0),
+                  sortOrder: item.sortOrder ?? itemIndex,
+                  itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
+                })),
+              };
+            }
+
+            if (section.categoryGroups && Array.isArray(section.categoryGroups) && section.categoryGroups.length > 0) {
+              sectionData.CategoryGroup = {
+                create: section.categoryGroups.map((categoryGroup: any, categoryGroupIndex: number) => ({
+                  categoryId: categoryGroup.categoryId || null,
+                  sortOrder: categoryGroup.sortOrder ?? categoryGroupIndex,
+                  QuotationItem: {
+                    create: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
+                      sl: item.sl ?? itemIndex + 1,
+                      no: item.no != null && item.no !== '' ? String(item.no) : null,
+                      code: item.code || null,
+                      description: item.description || null,
+                      height: item.height ? new Prisma.Decimal(item.height) : null,
+                      width: item.width ? new Prisma.Decimal(item.width) : null,
+                      depth: item.depth ? new Prisma.Decimal(item.depth) : null,
+                      unit: item.unit || null,
+                      unitPrice: new Prisma.Decimal(item.unitPrice || 0),
+                      quantity: new Prisma.Decimal(item.quantity || 0),
+                      unitShutter: item.unitShutter ? new Prisma.Decimal(item.unitShutter) : null,
+                      totalShutter: item.totalShutter ? new Prisma.Decimal(item.totalShutter) : null,
+                      discount: item.discount ? new Prisma.Decimal(item.discount) : null,
+                      amount: new Prisma.Decimal(item.amount || 0),
+                      sortOrder: item.sortOrder ?? itemIndex,
+                      itemId: item.itemId && item.itemId !== '' ? item.itemId : null,
+                    })),
+                  },
+                })),
+              };
+            }
+
+            return sectionData;
+          }),
         },
       },
       // Selective includes: Only fetch essential relations, not everything
@@ -1872,8 +1778,8 @@ export async function getQuotationSectionsForTemplate(quotationId: string) {
 
     if (!quotation) return { success: false, error: 'Template not found', sections: [] };
 
-    // Clone sections with fresh IDs
-    const cloned = quotation.Section.map((s, idx) => ({
+    // Clone sections with fresh IDs and sort them safely
+    const cloned = sortSectionsByDisplayOrder(quotation.Section).map((s, idx) => ({
       id: `section-clone-${s.sectionType?.toLowerCase() ?? 'custom'}-${Date.now()}-${idx}`,
       sectionType: s.sectionType,
       title: s.title,

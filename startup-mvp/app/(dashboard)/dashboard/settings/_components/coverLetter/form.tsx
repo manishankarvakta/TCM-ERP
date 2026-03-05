@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const coverLetterFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
+  subject: z.string().optional(),
   content: z.string().min(1, "Content is required"),
   status: z.enum(["active", "inactive"]),
 });
@@ -31,6 +32,7 @@ interface CoverLetterFormProps {
   initialData?: {
     id: string;
     title: string;
+    subject?: string | null;
     content: string;
     status: string;
   };
@@ -54,11 +56,13 @@ export default function CoverLetterForm({ mode, initialData, onSuccess, onCancel
     defaultValues: initialData
       ? {
           title: initialData.title,
+          subject: initialData.subject || "",
           content: initialData.content,
           status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
         }
       : {
           title: "",
+          subject: "",
           content: "",
           status: "active",
         },
@@ -75,6 +79,7 @@ export default function CoverLetterForm({ mode, initialData, onSuccess, onCancel
       if (mode === "create") {
         result = await createCoverLetter({
           title: data.title,
+          subject: data.subject || null,
           content: data.content,
           status: data.status,
         });
@@ -86,6 +91,7 @@ export default function CoverLetterForm({ mode, initialData, onSuccess, onCancel
         }
         result = await updateCoverLetter(initialData.id, {
           title: data.title,
+          subject: data.subject || null,
           content: data.content,
           status: data.status,
         });
@@ -136,6 +142,19 @@ export default function CoverLetterForm({ mode, initialData, onSuccess, onCancel
         />
         {errors.title && (
           <p className="mt-1 text-sm text-destructive">{errors.title.message}</p>
+        )}
+      </div>
+
+      <div>
+        <Label htmlFor="subject" className="mb-2">Subject (Optional)</Label>
+        <Input
+          id="subject"
+          {...register("subject")}
+          placeholder="Cover letter subject (e.g. Proposal for [Project Name])"
+          className={errors.subject ? "border-destructive" : ""}
+        />
+        {errors.subject && (
+          <p className="mt-1 text-sm text-destructive">{errors.subject.message}</p>
         )}
       </div>
 

@@ -9,7 +9,10 @@ export type SystemPermission =
   | 'system.notifications'
   | 'system.analytics'
   | 'system.docs'
-  | 'system.files';
+  | 'system.files'
+  | 'system.projects'
+  | 'system.milestones'
+  | 'system.issues';
 
 export type PermissionAction = 'create' | 'read' | 'update' | 'delete';
 

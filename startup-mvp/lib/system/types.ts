@@ -8,6 +8,7 @@ export type SystemEntityType =
   | 'order' 
   | 'invoice' 
   | 'project' 
+  | 'milestone'
   | 'task' 
   | 'issue' 
   | 'user';
@@ -43,7 +44,16 @@ export type SystemEventType =
   | 'NOTE_UPDATED'
   | 'DOC_UPDATED'
   | 'EVENT_CREATED'
-  | 'EVENT_UPDATED';
+  | 'EVENT_UPDATED'
+  | 'PROJECT_CREATED'
+  | 'PROJECT_UPDATED'
+  | 'PROJECT_COMPLETED'
+  | 'MILESTONE_CREATED'
+  | 'MILESTONE_UPDATED'
+  | 'MILESTONE_COMPLETED'
+  | 'ISSUE_CREATED'
+  | 'ISSUE_UPDATED'
+  | 'ISSUE_RESOLVED';
 
 export type SystemNotificationType = 
   | 'LEAD_STATUS' 
@@ -53,6 +63,7 @@ export type SystemNotificationType =
   | 'TASK_COMPLETED'
   | 'EVENT_INVITE' 
   | 'ISSUE_CREATED' 
+  | 'ISSUE_ASSIGNED'
   | 'MENTION' 
   | 'SYSTEM_ALERT';
 
@@ -64,7 +75,10 @@ export type SystemPermissionKey =
   | 'system.files' 
   | 'system.timeline' 
   | 'system.notifications' 
-  | 'system.analytics';
+  | 'system.analytics'
+  | 'system.projects'
+  | 'system.milestones'
+  | 'system.issues';
 
 // Common Interfaces
 

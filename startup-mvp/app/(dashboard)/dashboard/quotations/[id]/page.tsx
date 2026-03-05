@@ -10,6 +10,8 @@ import QuotationActionButtons from '@/app/(dashboard)/dashboard/quotations/[id]/
 import { TemplateToggleButton } from './_components/TemplateToggleButton';
 import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/permissions';
+import { SectionViewRenderer } from '@/components/quotation/SectionViewRenderer';
+import { replaceQuotationTemplates } from '@/lib/quotation/templateReplacer';
 
 interface QuotationDetailPageProps {
   params: Promise<{
@@ -26,6 +28,9 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
   }
 
   const quotation = result.data;
+  
+  const hasDynamicCover = quotation.section?.some((s: any) => s.sectionType === 'COVER' && s.isEnabled !== false);
+  const hasDynamicTerms = quotation.section?.some((s: any) => s.sectionType === 'TERMS' && s.isEnabled !== false);
 
   // Check if user has approve permission
   const session = await auth();
@@ -117,19 +122,19 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
           </div>
 
           {/* 2. COVER LETTER SECTION */}
-          {(quotation.coverLetter || (quotation as any).financialStatement) && (
+          {!hasDynamicCover && (quotation.coverLetter || (quotation as any).financialStatement) && (
             <div className="p-12 md:p-20 border-b border-gray-100">
               <div className="max-w-3xl">
                 <h2 className="text-2xl font-bold text-[#0A2540] mb-8">Introduction</h2>
                 {quotation.coverLetter && (
-                  <div className="prose prose-blue max-w-none text-gray-600 leading-relaxed mb-12 shrink-0 overflow-hidden break-words" dangerouslySetInnerHTML={{ __html: quotation.coverLetter }} />
+                  <div className="prose prose-blue max-w-none text-gray-600 leading-relaxed mb-12 shrink-0 overflow-hidden break-words" dangerouslySetInnerHTML={{ __html: replaceQuotationTemplates(quotation.coverLetter, quotation) }} />
                 )}
                 
                 {/* Embedded Financial Summary if it exists */}
                 {(quotation as any).financialStatement && (
                    <div className="bg-gray-50 rounded-2xl p-8 border border-gray-100">
                      <h3 className="text-lg font-bold text-[#0A2540] mb-6">Financial Investment Summary</h3>
-                     <div dangerouslySetInnerHTML={{ __html: (quotation as any).financialStatement }} className="text-sm text-gray-600" />
+                     <div dangerouslySetInnerHTML={{ __html: replaceQuotationTemplates((quotation as any).financialStatement, quotation) }} className="text-sm text-gray-600" />
                    </div>
                 )}
               </div>
@@ -139,8 +144,11 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
           {/* 3. DYNAMIC PRICING SECTIONS */}
           {quotation.section && quotation.section.length > 0 && (
             <div className="space-y-0">
-              {quotation.section.map((section: any, sectionIndex: number) => {
+              {quotation.section
+                .filter((section: any) => section.isEnabled !== false)
+                .map((section: any, index: number) => {
                 const discountValue = section.discount ? Number(section.discount) : null;
+                const sectionIndex = index; // Keep 0-indexed for display logic if needed
                 
                 return (
                   <div key={section.id || sectionIndex} className="p-12 md:p-20 border-b border-gray-100 last:border-b-0">
@@ -157,10 +165,13 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                           </div>
                         )}
                       </div>
-                      {section.note && (
+                      {section.note && section.sectionType === 'PRICING' && (
                         <p className="text-gray-500 mt-4 max-w-2xl">{section.note}</p>
                       )}
                     </div>
+
+                    {/* Unified Section Content Renderer (Metadata-driven) */}
+                    <SectionViewRenderer section={section} quotation={quotation} />
 
                     <div className="space-y-12">
                       {/* Groups Rendering */}
@@ -234,10 +245,10 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
         </div>
         
         {/* Helper for Terms & Conditions or Footer */}
-        {quotation.tos && (
+        {!hasDynamicTerms && quotation.tos && (
           <div className="mt-12 max-w-3xl mx-auto text-center px-4">
              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Terms & Conditions</h3>
-             <div className="text-xs text-gray-400 leading-relaxed text-left max-h-40 overflow-y-auto p-6 bg-white rounded-xl border border-gray-100" dangerouslySetInnerHTML={{ __html: quotation.tos }} />
+             <div className="text-xs text-gray-400 leading-relaxed text-left max-h-40 overflow-y-auto p-6 bg-white rounded-xl border border-gray-100" dangerouslySetInnerHTML={{ __html: replaceQuotationTemplates(quotation.tos, quotation) }} />
           </div>
         )}
       </div>

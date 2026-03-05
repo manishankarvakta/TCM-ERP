@@ -246,7 +246,7 @@ export async function deleteTask(id: string) {
  */
 export async function getTasks(
   entityId?: string,
-  entityType?: "lead" | "opportunity" | "contact",
+  entityType?: SystemEntityType,
   limit: number = 20,
   cursor?: string
 ) {

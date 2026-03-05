@@ -68,7 +68,8 @@ import { QuotationItemsArea } from '@/components/quotation/QuotationItemsArea';
 import { DocumentSectionCard } from './builder/DocumentSectionCard';
 import { QuoteMetaPanel } from './builder/QuoteMetaPanel';
 import { QuoteFooterBar } from './builder/QuoteFooterBar';
-import { type SectionType, SECTION_TYPE_META } from './builder/SectionTypeIcon';
+import { type SectionType } from './builder/SectionTypeIcon';
+import { SECTION_REGISTRY } from './sectionRegistry';
 import { QuotationHeaderBar, type QuotationMode, type QuotationStatus } from './builder/QuotationHeaderBar';
 import { TemplatePicker } from './builder/TemplatePicker';
 import { getQuotationSectionsForTemplate } from '@/app/actions/quotations';
@@ -120,40 +121,45 @@ interface QuotationBuilderV4Props {
 // ── Helpers (identical to V3) ─────────────────────────────────────────────────
 
 const ensureIds = (sections: any[]) =>
-  sections.map((section, sectionIndex) => {
-    // Flatten legacy groups into items if they exist
-    let allItems = [...(section.items || [])];
-    let addedNotes: string[] = [];
-    
-    if (section.groups && Array.isArray(section.groups)) {
-      section.groups.forEach((group: any) => {
-        if (group.items && Array.isArray(group.items)) {
-          allItems = [...allItems, ...group.items];
-        }
-        if (group.description) {
-          addedNotes.push(`Group: ${group.description}`);
-        }
-      });
-    }
-
-    const mergedNote = [section.note || '', ...addedNotes].filter(Boolean).join('\n\n');
-
-    return {
-      title: section.title || `Section ${sectionIndex + 1}`,
-      note: mergedNote,
-      discount: section.discount ?? 0,
-      total: section.total ?? 0,
-      grandTotal: section.grandTotal ?? 0,
-      sortOrder: section.sortOrder ?? sectionIndex,
-      categoryId: section.categoryId || null,
-      sectionType: section.sectionType || 'PRICING',
-      isEnabled: section.isEnabled !== false,
-      displayOrder: section.displayOrder ?? sectionIndex,
-      metadata: section.metadata || null,
-      // give each section a stable id
-      id: section.id || `section-${sectionIndex}-${Date.now()}`,
-      items: allItems.map((item: any, index: number) => ({
-        sl: item.sl ?? index + 1,
+  sections.map((section, sectionIndex) => ({
+    title: section.title || `Section ${sectionIndex + 1}`,
+    note: section.note || '',
+    discount: section.discount ?? 0,
+    total: section.total ?? 0,
+    grandTotal: section.grandTotal ?? 0,
+    sortOrder: section.sortOrder ?? sectionIndex,
+    categoryId: section.categoryId || null,
+    sectionType: section.sectionType || 'PRICING',
+    isEnabled: section.isEnabled !== false,
+    displayOrder: section.displayOrder ?? sectionIndex,
+    metadata: section.metadata || null,
+    id: section.id || `section-${sectionIndex}-${Date.now()}`,
+    items: (section.items || []).map((item: any, index: number) => ({
+      sl: item.sl ?? index + 1,
+      no: item.no != null ? String(item.no) : null,
+      code: item.code || null,
+      description: item.description || null,
+      unit: item.unit || null,
+      unitPrice: item.unitPrice ?? 0,
+      quantity: item.quantity ?? 0,
+      discount: item.discount ?? 0,
+      amount: item.amount ?? 0,
+      itemId: item.itemId || null,
+      id: item.id || `item-${Date.now()}-${index}-${Math.random()}`,
+    })),
+    groups: (section.groups || []).map((group: any, groupIndex: number) => ({
+      code: group.code || null,
+      description: group.description || 'Untitled Group',
+      quantity: group.quantity ?? 0,
+      number: group.number ?? 0,
+      sortOrder: group.sortOrder ?? groupIndex,
+      moduleGroupId: group.moduleGroupId || null,
+      baseUnit: group.baseUnit || null,
+      baseUnitPrice: group.baseUnitPrice || null,
+      id: group.id || `group-${Date.now()}-${groupIndex}-${Math.random()}`,
+      isExpanded: group.isExpanded !== undefined ? group.isExpanded : true,
+      items: (group.items || []).map((item: any, itemIndex: number) => ({
+        sl: item.sl ?? itemIndex + 1,
         no: item.no != null ? String(item.no) : null,
         code: item.code || null,
         description: item.description || null,
@@ -163,20 +169,54 @@ const ensureIds = (sections: any[]) =>
         discount: item.discount ?? 0,
         amount: item.amount ?? 0,
         itemId: item.itemId || null,
-        id: item.id || `item-${Date.now()}-${index}-${Math.random()}`,
+        id: item.id || `item-${Date.now()}-${groupIndex}-${itemIndex}-${Math.random()}`,
       })),
-    };
-  });
+    })),
+    categoryGroups: (section.categoryGroups || []).map((categoryGroup: any, categoryGroupIndex: number) => ({
+      categoryId: categoryGroup.categoryId || null,
+      sortOrder: categoryGroup.sortOrder ?? categoryGroupIndex,
+      id: categoryGroup.id || `categoryGroup-${Date.now()}-${categoryGroupIndex}-${Math.random()}`,
+      isExpanded: categoryGroup.isExpanded !== undefined ? categoryGroup.isExpanded : true,
+      items: (categoryGroup.items || []).map((item: any, itemIndex: number) => ({
+        sl: item.sl ?? itemIndex + 1,
+        no: item.no != null ? String(item.no) : null,
+        code: item.code || null,
+        description: item.description || null,
+        unit: item.unit || null,
+        unitPrice: item.unitPrice ?? 0,
+        quantity: item.quantity ?? 0,
+        discount: item.discount ?? 0,
+        amount: item.amount ?? 0,
+        itemId: item.itemId || null,
+        id: item.id || `item-${Date.now()}-${categoryGroupIndex}-${itemIndex}-${Math.random()}`,
+      })),
+    })),
+  }));
 
 /** Build the payload shape expected by the server action (identical to V3). */
-const buildSubmitPayload = (data: QuotationFormValues, sections: any[], mode: QuotationMode) => ({
+const buildSubmitPayload = (data: QuotationFormValues, sections: any[], mode: QuotationMode) => {
+  // Extract legacy fields from sections if they exist
+  let coverLetter = data.coverLetter || '';
+  let tos = data.tos || '';
+  
+  const coverSection = sections.find(s => s.sectionType === 'COVER');
+  if (coverSection?.metadata?.cover?.coverLetter) {
+    coverLetter = coverSection.metadata.cover.coverLetter;
+  }
+  
+  const termsSection = sections.find(s => s.sectionType === 'TERMS');
+  if (termsSection?.metadata?.terms?.terms) {
+    tos = termsSection.metadata.terms.terms;
+  }
+
+  return {
   quotationNumber: data.quotationNumber,
   date: data.date,
   subject: data.subject,
   submittedTo: data.clientName || '',
-  coverLetter: data.coverLetter || '',
+  coverLetter,
   financialStatement: data.financialStatement || '',
-  tos: data.tos || '',
+  tos,
   expiredDate: data.expiredDate,
   clientId: data.clientId,
   clientName: data.clientName,
@@ -220,7 +260,7 @@ const buildSubmitPayload = (data: QuotationFormValues, sections: any[], mode: Qu
       itemId: item.itemId || null,
     })),
   })),
-});
+};};
 
 // ── Add Section button helper ─────────────────────────────────────────────────
 function AddSectionButtonV4({
@@ -234,13 +274,30 @@ function AddSectionButtonV4({
 
   const handleAddSection = useCallback(
     (sectionType: string) => {
-      const meta = SECTION_TYPE_META[sectionType as SectionType];
+      const config = SECTION_REGISTRY[sectionType as SectionType];
       const newSection = {
-        ...makeBlankSection(sectionType, meta?.label || sectionType, sections.length),
-        displayOrder: sections.length + 1,
+        ...makeBlankSection(sectionType, config?.label || sectionType, 0),
         isEnabled: true,
       };
-      handleSectionsChange([...sections, newSection]);
+
+      const pricingIndex = sections.findIndex((s) => s.sectionType === 'PRICING');
+      let newSections = [...sections];
+
+      if (pricingIndex !== -1) {
+        // Insert right before PRICING
+        newSections.splice(pricingIndex, 0, newSection);
+      } else {
+        // Fallback: append at end
+        newSections.push(newSection);
+      }
+
+      // Re-apply display order sequentially
+      newSections = newSections.map((s, idx) => ({
+        ...s,
+        displayOrder: idx + 1,
+      }));
+
+      handleSectionsChange(newSections);
       setLibraryOpen(false);
 
       // Scroll to the new section after a tick
@@ -371,6 +428,9 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
   const [sections, setSections] = useState<any[]>(defaultSections);
   const [users, setUsers] = useState<any[]>([]);
   const [clientContacts, setClientContacts] = useState<any[]>([]);
+  const [opportunityName, setOpportunityName] = useState<string>(
+    initialData?.opportunity?.title || ''
+  );
 
   // Sort sections by displayOrder for rendering
   const orderedSections = useMemo(
@@ -400,6 +460,13 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
   const shippingCharges = watch('shippingCharges') ?? 0;
   const discount = watch('discount') ?? 0;
   const vatIncluded = watch('vatIncluded') ?? false;
+
+  // Primary contact's full name for cover letter templating
+  const primaryContact = clientContacts.find((c: any) => c.isPrimary) || clientContacts[0];
+  const contactName = primaryContact
+    ? `${primaryContact.firstName || ''} ${primaryContact.lastName || ''}`.trim()
+    : '';
+  const clientCompany = watch('clientName') || ''; // clientName is actually the company name
 
   useEffect(() => {
     let isMounted = true;
@@ -484,6 +551,20 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
     [handleSectionsChange]
   );
 
+  /** Remove a single section by its index in the unsorted `sections` array. */
+  const removeSection = useCallback(
+    (sectionIndex: number) => {
+      const updated = sectionsRef.current.filter((_, i) => i !== sectionIndex);
+      // Re-apply display order sequentially
+      const reordered = updated.map((s, idx) => ({
+        ...s,
+        displayOrder: idx + 1,
+      }));
+      handleSectionsChange(reordered);
+    },
+    [handleSectionsChange]
+  );
+
   /** Merge updated pricing sections back into the full sections array. */
   const handlePricingSectionsChange = useCallback(
     (updated: any[]) => {
@@ -557,6 +638,7 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
     (v: any) => {
       if (typeof v === 'object' && v !== null) {
         setValue('opportunityId', v.id);
+        if (v.title) setOpportunityName(v.title);
         if (v.client) {
           setValue('clientId', v.client.id);
           setValue('clientName', v.client.name || v.client.company || v.client.email);
@@ -650,6 +732,74 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
     [orderedSections]
   );
 
+  // ── Track Active Section (Scroll tracking) ──────────────────────────────
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const handleScroll = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+
+      timeoutId = setTimeout(() => {
+        // Find which section is closest to the top offset (e.g. 150px from top)
+        const offset = 150; 
+        
+        let currentActiveId: string | null = null;
+        let minDistance = Infinity;
+
+        orderedSections.forEach((section) => {
+          const el = document.getElementById(section.id);
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            
+            // For a sticky header of ~60px, we check when the section passes ~150px from top
+            if (rect.top <= offset && rect.bottom > offset) {
+              currentActiveId = section.id;
+              minDistance = 0;
+            } else {
+              const distance = Math.abs(rect.top - offset);
+              if (distance < minDistance && minDistance !== 0) {
+                minDistance = distance;
+                currentActiveId = section.id;
+              }
+            }
+          }
+        });
+
+        if (currentActiveId && currentActiveId !== activeSectionId) {
+          setActiveSectionId(currentActiveId);
+        }
+      }, 50); // throttle slightly
+    };
+
+    // Attach to window
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    // Also try to attach to the likely dashboard scroll container if it exists
+    const dashboardMain = document.querySelector('main');
+    if (dashboardMain) {
+       dashboardMain.addEventListener('scroll', handleScroll, { passive: true });
+    }
+    
+    // Trigger once on mount to set initial
+    handleScroll();
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (dashboardMain) {
+        dashboardMain.removeEventListener('scroll', handleScroll);
+      }
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [orderedSections, activeSectionId]);
+  
+  const handleSectionClick = useCallback((id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
+
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="pb-24">
@@ -697,6 +847,10 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
                 // Find the true index in the unsorted sections array for updates
                 const rawIndex = sections.findIndex((s) => s.id === section.id);
 
+                // A section is considered "custom" (and thus removable) if its type is not present in the preset default structure
+                const CORE_SECTION_TYPES = ['COVER', 'CLIENT_INFO', 'PROJECT_SUMMARY', 'SCOPE', 'PRICING', 'LEGAL_TERMS', 'ACCEPTANCE'];
+                const isCoreSection = CORE_SECTION_TYPES.includes(sectionType as string);
+
                 return (
                   <DocumentSectionCard
                     key={section.id}
@@ -707,6 +861,7 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
                     defaultCollapsed={false}
                     onTitleChange={(title) => updateSection(rawIndex, { title })}
                     onToggleEnabled={(isEnabled) => updateSection(rawIndex, { isEnabled })}
+                    onRemove={!isCoreSection ? () => removeSection(rawIndex) : undefined}
                   >
                     {/* PRICING → delegate entirely to QuotationItemsArea (unchanged) */}
                     {sectionType === 'PRICING' ? (
@@ -719,6 +874,16 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
                       <SectionRenderer
                         section={{ ...section, sectionType }}
                         clientContacts={clientContacts}
+                        context={{
+                          clientName: contactName || clientName,
+                          contactName: contactName || clientName,
+                          clientCompany,
+                          projectName: opportunityName || watch('subject'),
+                          yourCompany: organizationName,
+                          yourName: watch('submittedBy'),
+                          date,
+                          validUntil: expiredDate,
+                        }}
                         onChange={(updated) => {
                           if (!Array.isArray(updated)) {
                             updateSection(rawIndex, updated as any);
@@ -767,7 +932,9 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
         discount={discount}
         shippingCharges={shippingCharges}
         vatIncluded={vatIncluded}
-        sectionCount={sections.length}
+        sections={orderedSections as any[]}
+        activeSectionId={activeSectionId}
+        onSectionClick={handleSectionClick}
         onSaveDraft={handleSaveDraft}
         onSubmit={handleFooterSubmit}
       />

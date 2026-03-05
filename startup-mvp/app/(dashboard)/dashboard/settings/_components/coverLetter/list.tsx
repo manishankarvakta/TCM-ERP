@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 interface CoverLetter {
   id: string;
   title: string;
+  subject: string | null;
   content: string;
   status: string;
   createdAt: Date;
@@ -328,6 +329,7 @@ export default function CoverLettersListClient({
                 />
               </TableHead>
               <TableHead>Title</TableHead>
+              <TableHead>Subject</TableHead>
               <TableHead>Content Preview</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created By</TableHead>
@@ -365,6 +367,7 @@ export default function CoverLettersListClient({
                       />
                     </TableCell>
                     <TableCell className="font-medium">{coverLetter.title}</TableCell>
+                    <TableCell>{coverLetter.subject || <span className="text-muted-foreground">-</span>}</TableCell>
                     <TableCell className="max-w-md">
                       <div className="truncate text-sm text-muted-foreground">
                         {coverLetter.content.substring(0, 100)}

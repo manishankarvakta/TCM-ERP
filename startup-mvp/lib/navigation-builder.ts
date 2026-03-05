@@ -15,6 +15,7 @@ export interface SubMenuItemData {
   label: string;
   icon: string;
   module?: string;
+  permissionKey?: string;
 }
 
 export interface SubMenuGroup {
@@ -53,11 +54,14 @@ export const MENU_TEMPLATE: MenuItemData[] = [
   },
   {
     label: "Projects",
+    href: "/dashboard/projects",
     icon: "FiBriefcase",
     module: "projects",
     subMenu: [
-      { href: "/dashboard/projects", label: "Projects", icon: "FiBriefcase", module: "projects" },
-      { href: "/dashboard/projects/issues", label: "Issues", icon: "FiAlertCircle", module: "projects" },
+      { href: "/dashboard/projects", label: "Dashboard", icon: "FiTarget", module: "projects", permissionKey: "projects.projects" },
+      { href: "/dashboard/projects/all", label: "Projects", icon: "FiFolder", module: "projects", permissionKey: "projects.all" },
+      { href: "/dashboard/projects/milestone", label: "Milestones", icon: "FiLayers", module: "projects", permissionKey: "projects.milestones" },
+      { href: "/dashboard/projects/issues", label: "Issues", icon: "FiAlertCircle", module: "projects", permissionKey: "projects.issues" },
     ],
   },
   {

@@ -67,6 +67,39 @@ export function ClientInfoSection({ data, onChange, readOnly = false, contacts =
     'Other'
   ];
 
+  if (readOnly) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6 bg-gray-50 p-6 rounded-2xl border border-gray-100">
+          <div className="space-y-1">
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Company Name</h4>
+            <p className="text-base text-gray-900 font-medium">{data.companyName || 'N/A'}</p>
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Contact Person</h4>
+            <p className="text-base text-gray-900">{data.contactPerson || 'N/A'}</p>
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Email</h4>
+            <p className="text-base text-gray-900">{data.email || 'N/A'}</p>
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Phone</h4>
+            <p className="text-base text-gray-900">{data.phone || 'N/A'}</p>
+          </div>
+          <div className="space-y-1 sm:col-span-2">
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Industry / Vertical</h4>
+            <p className="text-base text-gray-900">{data.industry || 'N/A'}</p>
+          </div>
+          <div className="space-y-1 sm:col-span-2">
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Address</h4>
+            <p className="text-base text-gray-900 whitespace-pre-wrap">{data.address || 'N/A'}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

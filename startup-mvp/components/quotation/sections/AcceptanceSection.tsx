@@ -51,6 +51,55 @@ export function AcceptanceSection({
   const update = <K extends keyof AcceptanceData>(field: K, value: AcceptanceData[K]) =>
     onChange({ ...data, [field]: value });
 
+  if (readOnly) {
+    return (
+      <div className="space-y-8 bg-gray-50 p-8 rounded-2xl border border-gray-100">
+        <div className="space-y-4">
+          <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+            <PenSquare className="h-4 w-4" /> Acceptance Statement
+          </h4>
+          <p className="text-base text-gray-800 leading-relaxed italic border-l-4 border-blue-500 pl-4 py-1">
+            {data.acceptanceText ?? DEFAULT_ACCEPTANCE_TEXT}
+          </p>
+        </div>
+        
+        <Separator className="bg-gray-200" />
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="space-y-1">
+            <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+              <User className="h-4 w-4" /> Full Name
+            </h4>
+            <p className="text-base text-gray-900 font-medium">{data.signatoryName || '____________________'}</p>
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+              <Briefcase className="h-4 w-4" /> Designation / Title
+            </h4>
+            <p className="text-base text-gray-900">{data.signatoryDesignation || '____________________'}</p>
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" /> Date Signed
+            </h4>
+            <p className="text-base text-gray-900">{data.signatureDate ? new Date(data.signatureDate).toLocaleDateString() : '____________________'}</p>
+          </div>
+        </div>
+
+        <div className="space-y-2 pt-4">
+          <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+            <FileSignature className="h-4 w-4" /> Signature
+          </h4>
+          {data.signatureDataUrl ? (
+            <img src={data.signatureDataUrl} alt="Client signature" className="h-24 w-auto object-contain mix-blend-multiply" />
+          ) : (
+            <div className="h-24 w-64 border-b-2 border-dashed border-gray-300 mt-8"></div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Acceptance statement — editable so firms can customise the wording */}

@@ -5,10 +5,10 @@
  * Stores in section.metadata.paymentTerms
  */
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 
 export interface PaymentScheduleRow {
   id: string;
@@ -89,17 +89,29 @@ export function PaymentTermsSection({ data, onChange, readOnly = false }: Props)
         ] as Array<{ key: keyof PaymentTermsData; label: string; placeholder: string }>).map(({ key, label, placeholder }) => (
           <div key={key} className="space-y-1.5">
             <Label className="text-sm font-medium">{label}</Label>
-            <Textarea value={(data[key] as string) ?? ''} readOnly={readOnly} placeholder={placeholder}
-              rows={2} className="resize-none text-sm"
-              onChange={(e) => onChange({ ...data, [key]: e.target.value })} />
+            <div className="rounded-md border bg-card shadow-sm overflow-hidden">
+              <RichTextEditor
+                value={(data[key] as string) ?? ''}
+                onChange={(val) => onChange({ ...data, [key]: val })}
+                placeholder={placeholder}
+                className="min-h-[80px]"
+                readOnly={readOnly}
+              />
+            </div>
           </div>
         ))}
       </div>
       <div className="space-y-1.5">
         <Label className="text-sm font-medium">Bank Details</Label>
-        <Textarea value={data.bankDetails ?? ''} readOnly={readOnly} placeholder="Bank name, account number, IBAN, SWIFT…"
-          rows={3} className="resize-none text-sm"
-          onChange={(e) => onChange({ ...data, bankDetails: e.target.value })} />
+        <div className="rounded-md border bg-card shadow-sm overflow-hidden">
+          <RichTextEditor
+            value={data.bankDetails ?? ''}
+            onChange={(val) => onChange({ ...data, bankDetails: val })}
+            placeholder="Bank name, account number, IBAN, SWIFT…"
+            className="min-h-[100px]"
+            readOnly={readOnly}
+          />
+        </div>
       </div>
     </div>
   );

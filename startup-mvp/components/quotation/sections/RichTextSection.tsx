@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 
 export interface RichTextSectionProps {
   /** The section's stored content (plain text or HTML) */
@@ -30,27 +29,19 @@ export function RichTextSection({
   onChange,
   readOnly = false,
 }: RichTextSectionProps) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  // Auto-resize as the user types
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, [content]);
 
   return (
     <div className="space-y-2">
       {label && <Label className="text-sm font-medium">{label}</Label>}
-      <Textarea
-        ref={ref}
-        value={content}
-        placeholder={placeholder}
-        readOnly={readOnly}
-        className="min-h-[160px] resize-none overflow-hidden rounded-md border bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+        <RichTextEditor
+          value={content}
+          onChange={onChange}
+          placeholder={placeholder}
+          className="min-h-[160px]"
+          readOnly={readOnly}
+        />
+      </div>
     </div>
   );
 }

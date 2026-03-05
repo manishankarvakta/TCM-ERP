@@ -48,34 +48,11 @@ import PermissionsSettings from "./_components/PermissionsSettings";
 
 import { SlEnvolopeLetter } from "react-icons/sl";
 import CoverLetter from "./_components/coverLetter/CoverLetter";
-import TOS from "./_components/Tos";
+import QuotationTerms from "./_components/quotationTerms/QuotationTerms";
 
 
 
-type SettingsSection = "organization"| 
-                      "experience" | 
-                       "emails" | 
-                       "calendars" |
-                       "backup" | 
-                       "permissions" |
-                       "general" | 
-                       "members" | 
-                       "roles" | 
-                       "data-model" | 
-                       "integrations" | 
-                       "security" | 
-                       "apis" | 
-                       "webhooks" | 
-                       "tex" | 
-                       "lab" | 
-                       "releases" | 
-                       "whatsapp" | 
-                       "telegram" | 
-                       "sms" | 
-                       "paymentMethods" | 
-                       "coverLetter" | 
-                       "tos" | 
-                       "preferences";
+type SettingsSection = "profile" | "organization" | "experience" | "emails" | "calendars" | "backup" | "permissions" | "general" | "members" | "roles" | "data-model" | "integrations" | "security" | "apis" | "webhooks" | "tex" | "lab" | "releases" | "whatsapp" | "telegram" | "sms" | "paymentMethods" | "coverLetter" | "tos" | "accounts" | "preferences";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -200,7 +177,7 @@ export default function SettingsPage() {
       case "coverLetter":
         return <CoverLetter />;
       case "tos":
-        return <TOS />;
+        return <QuotationTerms />;
       case "general":
         return <General />;
       case "members":

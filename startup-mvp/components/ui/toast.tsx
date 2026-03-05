@@ -9,7 +9,7 @@ export interface Toast {
   title?: string;
   description?: string;
   variant?: "default" | "destructive";
-  duration?: number;
+  duration?: number | null;
 }
 
 interface ToastProps {

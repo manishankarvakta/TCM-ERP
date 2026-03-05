@@ -22,6 +22,7 @@ import { ArrowLeftIcon, Clock, CheckSquare, FileText, Layout, DollarSign, Calend
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import PromoteToProject from "./_components/PromoteToProject";
 
 export default async function OpportunityDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -75,22 +76,28 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
 
   return (
     <div className="space-y-6 max-w-full mx-auto">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
-            <Link href="/dashboard/crm/opportunities">
-                <ArrowLeftIcon className="h-4 w-4" />
-            </Link>
-        </Button>
-        <div>
-           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">{opportunity.title}</h1>
-            <Badge variant="outline" className="font-bold border-primary/20 text-primary bg-primary/5 uppercase tracking-wider px-2 py-0.5 h-6">
-                {opportunity.stage}
-            </Badge>
-           </div>
-           <p className="text-muted-foreground text-sm font-medium">
-             {opportunity.opportunityNumber} • {opportunity.client?.name} • Created on {opportunity.createdAt ? format(new Date(opportunity.createdAt), "PPP") : "-"}
-           </p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-border/40">
+        <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" asChild className="rounded-xl h-12 w-12 hover:bg-muted">
+                <Link href="/dashboard/crm/opportunities">
+                    <ArrowLeftIcon className="h-5 w-5" />
+                </Link>
+            </Button>
+            <div>
+            <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-black uppercase tracking-tighter">{opportunity.title}</h1>
+                <Badge variant="outline" className="font-black border-primary/20 text-primary bg-primary/5 uppercase tracking-widest px-4 py-1.5 h-auto text-[10px] rounded-full shadow-sm animate-pulse">
+                    {opportunity.stage}
+                </Badge>
+            </div>
+            <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest mt-1 opacity-70">
+                {opportunity.opportunityNumber} • {opportunity.client?.name} • Created {opportunity.createdAt ? format(new Date(opportunity.createdAt), "MMM dd, yyyy") : "-"}
+            </p>
+            </div>
+        </div>
+        
+        <div className="flex items-center gap-3 ml-auto md:ml-0">
+            <PromoteToProject opportunity={opportunity} />
         </div>
       </div>
 

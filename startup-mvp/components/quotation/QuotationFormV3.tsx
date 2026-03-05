@@ -16,7 +16,7 @@ import { SubmissionInformationSection } from './SubmissionInformationSection';
 import { QuotationBasicInfoCard } from './QuotationBasicInfoCard';
 import { QuotationItemsArea } from './QuotationItemsArea';
 import type { ProjectType, LocationType } from '@/types/enums';
-import { getQuotationUser, getTOSContent } from '@/app/actions/quotation-helpers';
+import { getQuotationUser, getQuotationSettings } from '@/app/actions/quotation-helpers';
 import { getActiveOrganizations } from '@/app/actions/organizations';
 import { useAppDispatch } from '@/lib/redux/hooks';
 import { updateQuotationField, setCurrentQuotation, updateSections } from '@/lib/redux/slices/quotationSlice';
@@ -25,7 +25,7 @@ import { updateQuotationField, setCurrentQuotation, updateSections } from '@/lib
 import { getDefaultSections, makeBlankSection } from '@/lib/quotation/defaultSections';
 import { SectionLibraryModal } from '@/components/quotation/builder/SectionLibraryModal';
 import type { SectionType } from '@/components/quotation/builder/SectionTypeIcon';
-import { SECTION_TYPE_META } from '@/components/quotation/builder/SectionTypeIcon';
+import { SECTION_REGISTRY } from '@/components/quotation/sectionRegistry';
 
 // Section leaf components for per-type rendering
 import { CoverSection } from '@/components/quotation/sections/CoverSection';
@@ -175,11 +175,13 @@ function SectionContentInner({
   onUpdate,
   readOnly,
   onPricingChange,
+  formValues,
 }: {
   section: any;
   onUpdate: (patch: Record<string, any>) => void;
   readOnly: boolean;
   onPricingChange: (updated: any[]) => void;
+  formValues?: any;
 }) {
   const metaData = (key: string) => (section.metadata ?? {})[key] ?? {};
   const updateMeta = (key: string, value: any) =>
@@ -201,6 +203,14 @@ function SectionContentInner({
           data={{ subject: section.subject, coverLetter: section.coverLetter, preparedBy: section.preparedBy, validUntil: section.validUntil }}
           onChange={(data) => onUpdate(data)}
           readOnly={readOnly}
+          context={{
+            clientName: formValues?.clientName,
+            projectName: formValues?.subject,
+            yourCompany: formValues?.organizationName,
+            yourName: formValues?.submittedBy,
+            date: formValues?.date,
+            validUntil: formValues?.expiredDate,
+          }}
         />
       );
     case 'CLIENT_INFO':
@@ -211,10 +221,35 @@ function SectionContentInner({
       return <ScopeSection data={metaData('scope')} onChange={(d) => updateMeta('scope', d)} readOnly={readOnly} />;
     case 'TIMELINE':
       return <TimelineSection milestones={section.milestones ?? []} onChange={(milestones) => onUpdate({ milestones })} readOnly={readOnly} />;
-    case 'PAYMENT_TERMS':
-      return <PaymentTermsSection data={metaData('paymentTerms')} onChange={(d) => updateMeta('paymentTerms', d)} readOnly={readOnly} />;
     case 'LEGAL_TERMS':
-      return <LegalTermsSection data={metaData('legalTerms')} onChange={(d) => updateMeta('legalTerms', d)} readOnly={readOnly} />;
+      // Map consolidated data to TermsSection
+      return (
+        <TermsSection
+          data={{ 
+            tos: section.tos ?? (section.metadata?.legalTerms?.content || ''),
+            paymentTerms: section.paymentTerms ?? (section.metadata?.legalTerms?.paymentTerms || ''),
+            refundPolicy: section.refundPolicy ?? (section.metadata?.legalTerms?.refundPolicy || ''),
+            terminationPolicy: section.terminationPolicy ?? (section.metadata?.legalTerms?.terminationPolicy || ''),
+          }}
+          onChange={(data) => onUpdate({ 
+            tos: data.tos,
+            paymentTerms: data.paymentTerms,
+            refundPolicy: data.refundPolicy,
+            terminationPolicy: data.terminationPolicy,
+            metadata: {
+              ...(section.metadata || {}),
+              legalTerms: {
+                ...(section.metadata?.legalTerms || {}),
+                tos: data.tos,
+                paymentTerms: data.paymentTerms,
+                refundPolicy: data.refundPolicy,
+                terminationPolicy: data.terminationPolicy,
+              }
+            }
+          })}
+          readOnly={readOnly}
+        />
+      );
     case 'ACCEPTANCE':
       return (
         <AcceptanceSection
@@ -293,7 +328,7 @@ function SectionsList({
         const sectionId = section.id ?? String(section.sortOrder ?? section.displayOrder ?? 0);
         const isCollapsed = !!collapsedSections[sectionId];
         const sectionType = section.sectionType || 'PRICING';
-        const meta = SECTION_TYPE_META[sectionType as SectionType];
+        const config = SECTION_REGISTRY[sectionType as SectionType];
 
         const handleUpdate = (patch: Record<string, any>) => {
           handleSectionsChange(
@@ -319,7 +354,7 @@ function SectionsList({
           <QuotationSectionCard
             key={sectionId}
             id={sectionId}
-            title={section.title || meta?.label || 'Section'}
+            title={section.title || config?.label || 'Section'}
             sectionType={sectionType}
             isCollapsed={isCollapsed}
             onToggleCollapse={() => toggleSection(sectionId)}
@@ -330,6 +365,7 @@ function SectionsList({
               onUpdate={handleUpdate}
               readOnly={false}
               onPricingChange={handlePricingChange}
+              formValues={watchedValuesObject}
             />
           </QuotationSectionCard>
         );
@@ -356,10 +392,10 @@ function AddSectionButton({
 
   const handleAddSection = useCallback(
     (sectionType: string) => {
-      const meta = SECTION_TYPE_META[sectionType as SectionType];
+      const config = SECTION_REGISTRY[sectionType as SectionType];
       const newSection = makeBlankSection(
         sectionType,
-        meta?.label || sectionType,
+        config?.label || sectionType,
         sections.length // sortOrder
       );
       handleSectionsChange([...sections, newSection]);
@@ -679,10 +715,31 @@ export function QuotationFormV3({ initialData, onSubmit }: QuotationFormV3Props)
           setValue('submittedByContact', userResult.user.email || '', { shouldDirty: false, shouldValidate: false });
         }
 
-        // Get TOS from settings
-        const tosResult = await getTOSContent();
-        if (tosResult.success && tosResult.content) {
-          setValue('tos', tosResult.content, { shouldDirty: false, shouldValidate: false });
+        // Get Quotation Settings (TOS and Payment Terms) from settings
+        const settingsResult = await getQuotationSettings();
+        if (settingsResult.success) {
+          if (settingsResult.tos) {
+            setValue('tos', settingsResult.tos, { shouldDirty: false, shouldValidate: false });
+          }
+          
+          // Pre-fill PAYMENT_TERMS section metadata if it exists and is currently empty
+          if (settingsResult.paymentTerms && !initialData) {
+            setSections(prev => prev.map(s => {
+              if (s.sectionType === 'PAYMENT_TERMS') {
+                return {
+                  ...s,
+                  metadata: {
+                    ...s.metadata,
+                    paymentTerms: {
+                      ...(s.metadata?.paymentTerms || {}),
+                      invoiceTerms: settingsResult.paymentTerms
+                    }
+                  }
+                };
+              }
+              return s;
+            }));
+          }
         }
 
         // Set first organization as default for new quotations

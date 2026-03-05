@@ -1,5 +1,5 @@
 import { getQuotation } from '@/app/actions/quotations';
-import EditQuotationForm from './EditQuotationForm';
+import { QuotationFormWrapper } from '@/components/quotation/QuotationFormWrapper';
 import { notFound } from 'next/navigation';
 
 interface EditQuotationPageProps {
@@ -41,6 +41,7 @@ export default async function EditQuotationPage({ params }: EditQuotationPagePro
     clientContact: (quotation as any).client?.phone || (quotation as any).client?.email || '',
     organizationId: quotation.organizationId || undefined,
     organizationName: quotation.organization?.name || undefined,
+    opportunityId: quotation.opportunityId || undefined,
     submittedById: quotation.submittedById,
     submittedBy: (quotation as any).submittedBy?.name || '',
     submittedByContact: (quotation as any).submittedBy?.email || '',
@@ -58,6 +59,10 @@ export default async function EditQuotationPage({ params }: EditQuotationPagePro
       sortOrder: section.sortOrder,
       categoryId: section.categoryId || undefined,
       preparedById: section.preparedById,
+      sectionType: section.sectionType || 'PRICING',
+      isEnabled: section.isEnabled !== false,
+      displayOrder: section.displayOrder,
+      metadata: section.metadata || null,
       groups: section.groups?.map((group: any) => {
         // Log group data for debugging
         console.log('[Edit Page] Processing group:', {
@@ -169,11 +174,10 @@ export default async function EditQuotationPage({ params }: EditQuotationPagePro
   };
 
   return (
-    <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8">Edit Quotation</h1>
-        <EditQuotationForm quotationId={id} initialData={formData} />
-      </div>
-    </div>
+    <QuotationFormWrapper
+      quotationId={id} 
+      initialData={formData} 
+      title="Edit Quotation"
+    />
   );
 }

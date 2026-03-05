@@ -214,7 +214,7 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
 
   // Determine if this is a V4 Proposal using structured Sections
   const hasSections = (quotation.section || quotation.sections) && Array.isArray(quotation.section || quotation.sections) && (quotation.section || quotation.sections).length > 0;
-  const sections = (quotation.section || quotation.sections || []);
+  const sections = (quotation.section || quotation.sections || []).filter((s: any) => s.isEnabled !== false);
   const hasCoverSection = sections.some((s: any) => s.sectionType === 'COVER');
   const hasAdvancedSections = sections.some((s: any) => s.sectionType && s.sectionType !== 'PRICING' && s.sectionType !== 'SUMMARY' && s.sectionType !== 'CUSTOM');
   const isV4Proposal = hasCoverSection || hasAdvancedSections;
@@ -512,10 +512,11 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
       doc.line(margin + 5, yPos - 5, pageWidth - margin - 5, yPos - 5);
 
       if (!isPricing) {
-        // Render as a rich text section for SCOPE, TIMELINE, PROJECT_SUMMARY, LEGAL_TERMS, etc.
+        // --- Metadata-driven rendering for non-pricing sections ---
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         
+        // Always render the note if it exists (top-level description)
         if (section.note) {
           const textLines = doc.splitTextToSize(String(section.note), pageWidth - 2 * margin - 10);
           textLines.forEach((line: string) => {
@@ -523,18 +524,225 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
             doc.text(line, margin + 5, yPos);
             yPos += 5;
           });
+          yPos += 5;
         }
-        
-        // Add signature blocks if it is the ACCEPTANCE segment
+
+        const metadata = section.metadata || {};
+
+        // 1. Technical Approach Rendering
+        if (sType === 'TECHNICAL_APPROACH') {
+          const tech = (metadata.technicalApproach || metadata) as any;
+          const categories = [
+            { label: 'Languages', items: tech.languages },
+            { label: 'Frontend',  items: tech.frontend },
+            { label: 'Backend',   items: tech.backend },
+            { label: 'Database',  items: tech.database },
+            { label: 'Cloud/Server', items: tech.server }
+          ];
+
+          categories.forEach(cat => {
+            if (cat.items && Array.isArray(cat.items) && cat.items.length > 0) {
+              ensurePageSpace(10);
+              doc.setFont('helvetica', 'bold');
+              doc.text(`${cat.label}:`, margin + 10, yPos);
+              doc.setFont('helvetica', 'normal');
+              doc.text(cat.items.join(', '), margin + 45, yPos);
+              yPos += 7;
+            }
+          });
+        }
+
+        // 2. Timeline / Milestones Rendering
+        if (sType === 'TIMELINE') {
+          const milestones = (metadata.milestones || section.milestones) as any[];
+          if (milestones && Array.isArray(milestones) && milestones.length > 0) {
+            yPos += 5;
+            milestones.forEach((m, idx) => {
+              ensurePageSpace(20);
+              doc.setFillColor(245, 247, 250);
+              doc.rect(margin + 5, yPos, pageWidth - 2 * margin - 10, 15, 'F');
+              doc.setFont('helvetica', 'bold');
+              doc.text(`M${idx + 1}: ${m.title || 'Milestone'}`, margin + 10, yPos + 6);
+              doc.setFontSize(8);
+              doc.setTextColor(100, 100, 100);
+              doc.text(`Duration: ${m.duration || 'N/A'}`, margin + 10, yPos + 11);
+              
+              doc.setFontSize(9);
+              doc.setTextColor(0, 0, 0);
+              const deliv = doc.splitTextToSize(`Deliverables: ${m.deliverables || 'None'}`, pageWidth - 2 * margin - 80);
+              doc.text(deliv, margin + 70, yPos + 6);
+              
+              yPos += 20;
+            });
+          }
+        }
+
+        // 3. Team Structure Rendering
+        if (sType === 'TEAM_STRUCTURE') {
+          const members = (metadata.teamStructure?.members || metadata.members) as any[];
+          if (members && Array.isArray(members) && members.length > 0) {
+            members.forEach(m => {
+              ensurePageSpace(10);
+              doc.setFont('helvetica', 'bold');
+              doc.text(m.role || 'Member', margin + 10, yPos);
+              doc.setFont('helvetica', 'normal');
+              doc.text(`: ${m.count || 1} Person(s) - ${m.responsibilities || ''}`, margin + 45, yPos);
+              yPos += 7;
+            });
+          }
+        }
+
+        // 5. Scope Rendering
+        if (sType === 'SCOPE') {
+            const scope = (metadata.scope || metadata) as any;
+            if (scope.overview) {
+                ensurePageSpace(15);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Scope Overview:', margin + 10, yPos);
+                yPos += 6;
+                doc.setFont('helvetica', 'normal');
+                const overLines = doc.splitTextToSize(scope.overview, pageWidth - 2 * margin - 20);
+                overLines.forEach((line: string) => {
+                    ensurePageSpace(6);
+                    doc.text(line, margin + 15, yPos);
+                    yPos += 5;
+                });
+                yPos += 5;
+            }
+
+            if (scope.deliverables && Array.isArray(scope.deliverables) && scope.deliverables.length > 0) {
+                ensurePageSpace(15);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Key Deliverables:', margin + 10, yPos);
+                yPos += 7;
+                scope.deliverables.forEach((d: any) => {
+                    ensurePageSpace(20);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(`• ${d.name || 'Deliverable'}`, margin + 15, yPos);
+                    doc.setFont('helvetica', 'normal');
+                    yPos += 5;
+                    if (d.description) {
+                        const dl = doc.splitTextToSize(d.description, pageWidth - 2 * margin - 30);
+                        dl.forEach((l: string) => { ensurePageSpace(5); doc.text(l, margin + 20, yPos); yPos += 4.5; });
+                    }
+                    yPos += 3;
+                });
+            }
+
+            // Inclusions / Exclusions
+            const inc = scope.inclusions || [];
+            const exc = scope.exclusions || [];
+            if (inc.length > 0 || exc.length > 0) {
+                yPos += 5;
+                ensurePageSpace(30);
+                const startY = yPos;
+                if (inc.length > 0) {
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(16, 185, 129); // Emerald-500
+                    doc.text('Inclusions:', margin + 10, yPos);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(0, 0, 0);
+                    yPos += 6;
+                    inc.forEach((item: string) => {
+                        ensurePageSpace(6);
+                        doc.text(`+ ${item}`, margin + 15, yPos);
+                        yPos += 5;
+                    });
+                }
+                
+                if (exc.length > 0) {
+                    const excY = inc.length > 0 ? yPos + 5 : startY;
+                    yPos = excY;
+                    ensurePageSpace(15);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(239, 68, 68); // Red-500
+                    doc.text('Exclusions:', margin + 10, yPos);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(0, 0, 0);
+                    yPos += 6;
+                    exc.forEach((item: string) => {
+                        ensurePageSpace(6);
+                        doc.text(`- ${item}`, margin + 15, yPos);
+                        yPos += 5;
+                    });
+                }
+            }
+        }
+
+        // 6. Risk Assessment Rendering
+        if (sType === 'RISK_ASSESSMENT') {
+          const risks = (metadata.risks || metadata.riskAssessment?.risks) as any[];
+          if (risks && Array.isArray(risks) && risks.length > 0) {
+            yPos += 5;
+            risks.forEach((r, idx) => {
+              ensurePageSpace(25);
+              doc.setFont('helvetica', 'bold');
+              doc.text(`${idx + 1}. ${r.risk || 'Risk'}`, margin + 10, yPos);
+              yPos += 5;
+              doc.setFont('helvetica', 'normal');
+              doc.setFontSize(8);
+              doc.text(`Prob/Impact: ${r.probability}/${r.impact}`, margin + 15, yPos);
+              yPos += 4;
+              const mit = doc.splitTextToSize(`Mitigation: ${r.mitigation || 'N/A'}`, pageWidth - 2 * margin - 20);
+              doc.text(mit, margin + 15, yPos);
+              yPos += (mit.length * 4.5) + 3;
+              doc.setFontSize(10);
+            });
+          }
+        }
+
+        // 7. Appendix / Custom Rendering
+        if (sType === 'APPENDIX') {
+          const content = metadata.appendix || metadata.content || '';
+          if (content) {
+            ensurePageSpace(10);
+            const lines = doc.splitTextToSize(String(content).replace(/<[^>]*>?/gm, ''), pageWidth - 2 * margin - 10);
+            lines.forEach((line: string) => { ensurePageSpace(5); doc.text(line, margin + 10, yPos); yPos += 5; });
+          }
+        }
+
+        // 8. Consolidated Legal Terms Rendering
+        if (sType === 'LEGAL_TERMS') {
+          const terms = [
+            { label: 'Terms & Conditions', value: metadata.tos },
+            { label: 'Payment Schedule',   value: metadata.paymentTerms },
+            { label: 'Refund Policy',     value: metadata.refundPolicy },
+            { label: 'Termination Policy', value: metadata.terminationPolicy }
+          ];
+
+          terms.forEach(term => {
+            if (term.value) {
+              ensurePageSpace(15);
+              doc.setFont('helvetica', 'bold');
+              doc.setTextColor(10, 37, 64);
+              doc.text(`${term.label}:`, margin + 10, yPos);
+              yPos += 7;
+              
+              doc.setFont('helvetica', 'normal');
+              doc.setTextColor(60, 60, 60);
+              const cleanContent = String(term.value).replace(/<[^>]*>?/gm, '');
+              const lines = doc.splitTextToSize(cleanContent, pageWidth - 2 * margin - 20);
+              lines.forEach((line: string) => {
+                ensurePageSpace(5);
+                doc.text(line, margin + 15, yPos);
+                yPos += 5;
+              });
+              yPos += 5;
+            }
+          });
+        }
+
+        // 4. Acceptance Signatures (Matching existing logic but ensuring yPos)
         if (sType === 'ACCEPTANCE') {
-          yPos += 30;
-          ensurePageSpace(20);
+          yPos += 15;
+          ensurePageSpace(40);
           doc.setFont('helvetica', 'bold');
-          doc.text('Authorized Signature (Provider)', margin + 5, yPos);
-          doc.text('Authorized Signature (Client)', pageWidth - margin - 60, yPos);
-          doc.setDrawColor(0,0,0);
-          doc.line(margin + 5, yPos - 5, margin + 65, yPos - 5);
-          doc.line(pageWidth - margin - 60, yPos - 5, pageWidth - margin - 5, yPos - 5);
+          doc.line(margin + 5, yPos + 25, margin + 75, yPos + 25);
+          doc.text('Authorized Signature (Provider)', margin + 5, yPos + 32);
+          
+          doc.line(pageWidth - margin - 75, yPos + 25, pageWidth - margin - 5, yPos + 25);
+          doc.text('Authorized Signature (Client)', pageWidth - margin - 75, yPos + 32);
+          yPos += 45;
         }
 
       } else {

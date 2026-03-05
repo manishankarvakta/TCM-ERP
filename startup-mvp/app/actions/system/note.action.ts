@@ -196,7 +196,7 @@ export async function deleteNote(id: string) {
  */
 export async function getNotes(
   entityId?: string,
-  entityType?: "lead" | "opportunity" | "contact",
+  entityType?: SystemEntityType,
   limit: number = 20,
   cursor?: string
 ) {

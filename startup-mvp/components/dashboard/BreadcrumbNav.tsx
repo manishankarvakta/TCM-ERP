@@ -16,6 +16,7 @@ import { getVoucherById } from "@/app/(dashboard)/dashboard/accounts/vouchers/_a
 import { getLeadById } from "@/app/actions/crm/lead.action";
 import { getOpportunityById } from "@/app/actions/crm/opportunity.action";
 import { getClientById } from "@/app/(dashboard)/dashboard/crm/clients/_actions/client.action";
+import { getProjectById } from "@/app/actions/projects/project.action";
 
 
 // Map route paths to display names
@@ -110,6 +111,7 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [leadNumber, setLeadNumber] = useState<string | null>(null);
   const [opportunityNumber, setOpportunityNumber] = useState<string | null>(null);
   const [clientCode, setClientCode] = useState<string | null>(null);
+  const [projectNumber, setProjectNumber] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
 
   // Fetch quotation number if we're on a quotation detail or edit page
@@ -370,6 +372,27 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     return () => { cancelled = true; setClientCode(null); };
   }, [pathname]);
 
+  // Fetch project number
+  useEffect(() => {
+    const match = pathname.match(/^\/dashboard\/projects\/([^\/]+)$/);
+    if (!match) return;
+    
+    const id = match[1];
+    if (id === "all" || id === "milestone" || id === "issues" || id === "add") return;
+
+    let cancelled = false;
+    
+    getProjectById(id)
+        .then((result) => {
+            if (!cancelled && result.success && result.project) {
+                setProjectNumber(result.project.projectNumber || result.project.title);
+            }
+        })
+        .catch(() => {});
+
+    return () => { cancelled = true; setProjectNumber(null); };
+  }, [pathname]);
+
   // If we're at the root dashboard, show just "Dashboard"
   if (pathname === "/dashboard" || items.length === 1) {
     return (
@@ -551,6 +574,16 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
         const clientListItem = items.find(item => item.path === "/dashboard/crm/clients");
         parentItem = clientListItem || { path: "/dashboard/crm/clients", label: "Clients" };
         currentLabel = clientCode ? clientCode : "Client Details";
+     }
+  }
+
+  // Handle Project Details
+  const isProjectDetail = pathname.match(/^\/dashboard\/projects\/([^\/]+)$/);
+  if (isProjectDetail) {
+     const id = isProjectDetail[1];
+     if (id !== "all" && id !== "milestone" && id !== "issues" && id !== "add") {
+        parentItem = { path: "/dashboard/projects/all", label: "Projects" };
+        currentLabel = projectNumber ? projectNumber : "Project Details";
      }
   }
 

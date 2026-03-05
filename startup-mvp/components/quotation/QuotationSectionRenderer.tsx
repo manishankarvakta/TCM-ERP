@@ -14,7 +14,11 @@
 
 import { useState, useCallback } from 'react';
 
+import { SECTION_REGISTRY } from './sectionRegistry';
+import { normalizeSectionMetadata } from '@/lib/quotation/normalizeSectionMetadata';
+
 // Shell
+
 import { QuotationSectionCard } from './builder/QuotationSectionCard';
 import type { SectionType } from './builder/SectionTypeIcon';
 
@@ -75,6 +79,9 @@ export interface RendererSection {
 
   // ── Legacy TERMS / PAYMENT_TERMS ─────────────────────────────────────────
   tos?: string;
+  paymentTerms?: string;
+  refundPolicy?: string;
+  terminationPolicy?: string;
   content?: string;
   note?: string;
 
@@ -121,181 +128,22 @@ function SectionContent({
   readOnly: boolean;
 }) {
   /** Helper to read/write structured data from metadata under a given key. */
-  const metaData = (key: string) => (section.metadata ?? {})[key] ?? {};
-  const updateMeta = (key: string, value: any) =>
-    onUpdate({ metadata: { ...(section.metadata ?? {}), [key]: value } });
+  const normalizedMetadata = normalizeSectionMetadata(section.sectionType, section.metadata);
+  const metaData = (key: string) => normalizedMetadata[key] ?? {};
+  const updateMeta = (key: string, value: any) => onUpdate({ metadata: { ...(section.metadata || {}), [key]: value } });
+  const getContent = (sec: RendererSection) => sec.content ?? sec.note ?? '';
 
-  switch (section.sectionType) {
-    // ── PRICING (unchanged) ───────────────────────────────────────────────────
-    case 'PRICING':
-      return (
-        <QuotationItemsArea
-          sections={[section as any]}
-          onSectionsChange={(updated: any[]) => { if (updated[0]) onUpdate(updated[0]); }}
-        />
-      );
-
-    // ── COVER ─────────────────────────────────────────────────────────────────
-    case 'COVER':
-      return (
-        <CoverSection
-          data={{ subject: section.subject, coverLetter: section.coverLetter, preparedBy: section.preparedBy, validUntil: section.validUntil }}
-          onChange={(data) => onUpdate(data)}
-          readOnly={readOnly}
-        />
-      );
-
-    // ── CLIENT_INFO ───────────────────────────────────────────────────────────
-    case 'CLIENT_INFO':
-      return <ClientInfoSection data={metaData('clientInfo')} onChange={(d) => updateMeta('clientInfo', d)} readOnly={readOnly} />;
-
-    // ── PROJECT_SUMMARY ───────────────────────────────────────────────────────
-    case 'PROJECT_SUMMARY':
-      return <ProjectSummarySection data={metaData('projectSummary')} onChange={(d) => updateMeta('projectSummary', d)} readOnly={readOnly} />;
-
-    // ── SCOPE ─────────────────────────────────────────────────────────────────
-    case 'SCOPE':
-      return <ScopeSection data={metaData('scope')} onChange={(d) => updateMeta('scope', d)} readOnly={readOnly} />;
-
-    // ── TIMELINE ─────────────────────────────────────────────────────────────
-    case 'TIMELINE':
-      return <TimelineSection milestones={section.milestones ?? []} onChange={(milestones) => onUpdate({ milestones })} readOnly={readOnly} />;
-
-    // ── PAYMENT_TERMS ─────────────────────────────────────────────────────────
-    case 'PAYMENT_TERMS':
-      return <PaymentTermsSection data={metaData('paymentTerms')} onChange={(d) => updateMeta('paymentTerms', d)} readOnly={readOnly} />;
-
-    // ── LEGAL_TERMS ───────────────────────────────────────────────────────────
-    case 'LEGAL_TERMS':
-      return <LegalTermsSection data={metaData('legalTerms')} onChange={(d) => updateMeta('legalTerms', d)} readOnly={readOnly} />;
-
-    // ── ACCEPTANCE ────────────────────────────────────────────────────────────
-    case 'ACCEPTANCE':
-      return (
-        <AcceptanceSection
-          data={{ acceptanceText: section.acceptanceText, signatoryName: section.signatoryName, signatoryDesignation: section.signatoryDesignation, signatureDate: section.signatureDate, signatureDataUrl: section.signatureDataUrl }}
-          onChange={(data) => onUpdate(data)}
-          readOnly={readOnly}
-        />
-      );
-
-    // ── EXECUTIVE_SUMMARY ─────────────────────────────────────────────────────
-    case 'EXECUTIVE_SUMMARY':
-      return <ExecutiveSummarySection data={metaData('executiveSummary')} onChange={(d) => updateMeta('executiveSummary', d)} readOnly={readOnly} />;
-
-    // ── COMPANY_OVERVIEW ──────────────────────────────────────────────────────
-    case 'COMPANY_OVERVIEW':
-      return <CompanyOverviewSection data={metaData('companyOverview')} onChange={(d) => updateMeta('companyOverview', d)} readOnly={readOnly} />;
-
-    // ── TECHNICAL_APPROACH ────────────────────────────────────────────────────
-    case 'TECHNICAL_APPROACH':
-      return <TechnicalApproachSection data={metaData('technicalApproach')} onChange={(d) => updateMeta('technicalApproach', d)} readOnly={readOnly} />;
-
-    // ── ARCHITECTURE_OVERVIEW ─────────────────────────────────────────────────
-    case 'ARCHITECTURE_OVERVIEW':
-      return <ArchitectureOverviewSection data={metaData('architectureOverview')} onChange={(d) => updateMeta('architectureOverview', d)} readOnly={readOnly} />;
-
-    // ── TEAM_STRUCTURE ────────────────────────────────────────────────────────
-    case 'TEAM_STRUCTURE':
-      return <TeamStructureSection data={metaData('teamStructure')} onChange={(d) => updateMeta('teamStructure', d)} readOnly={readOnly} />;
-
-    // ── ASSUMPTIONS ───────────────────────────────────────────────────────────
-    case 'ASSUMPTIONS':
-      return <AssumptionsSection data={metaData('assumptions')} onChange={(d) => updateMeta('assumptions', d)} readOnly={readOnly} />;
-
-    // ── RISK_ASSESSMENT ───────────────────────────────────────────────────────
-    case 'RISK_ASSESSMENT':
-      return <RiskAssessmentSection data={metaData('riskAssessment')} onChange={(d) => updateMeta('riskAssessment', d)} readOnly={readOnly} />;
-
-    // ── SUPPORT_SLA ───────────────────────────────────────────────────────────
-    case 'SUPPORT_SLA':
-      return <SupportSLASection data={metaData('supportSLA')} onChange={(d) => updateMeta('supportSLA', d)} readOnly={readOnly} />;
-
-    // ── APPENDIX ──────────────────────────────────────────────────────────────
-    case 'APPENDIX':
-      return <AppendixSection data={metaData('appendix')} onChange={(d) => updateMeta('appendix', d)} readOnly={readOnly} />;
-
-    // ── SUMMARY (legacy) ──────────────────────────────────────────────────────
-    case 'SUMMARY':
-      return (
-        <SummarySection
-          data={{ projectOverview: section.projectOverview, financialStatement: section.financialStatement }}
-          onChange={(data) => onUpdate(data)}
-          readOnly={readOnly}
-        />
-      );
-
-    // ── TERMS (legacy) ────────────────────────────────────────────────────────
-    case 'TERMS':
-      return (
-        <TermsSection
-          data={{ tos: section.tos ?? section.content ?? section.note ?? '' }}
-          onChange={(data) => onUpdate({ tos: data.tos, content: data.tos, note: data.tos })}
-          readOnly={readOnly}
-        />
-      );
-
-    // ── CUSTOM / fallback ─────────────────────────────────────────────────────
-    case 'CUSTOM':
-    default:
-      return (
-        <RichTextSection
-          content={getContent(section)}
-          label="Section Content"
-          placeholder="Enter custom content for this section…"
-          onChange={(content) => onUpdate({ content, note: content })}
-          readOnly={readOnly}
-        />
-      );
-  }
-}
-
-// ── Main component ────────────────────────────────────────────────────────────
-
-export function QuotationSectionRenderer({
-  sections,
-  onUpdateSection,
-  readOnly = false,
-}: QuotationSectionRendererProps) {
-  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
-
-  const toggleCollapse = useCallback((id: string) => {
-    setCollapsedIds((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }, []);
-
-  if (sections.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-16 text-center text-sm text-muted-foreground">
-        <p className="font-medium">No sections yet.</p>
-        <p className="mt-1 text-xs">Add a section using the toolbar above.</p>
-      </div>
-    );
-  }
+  const config = SECTION_REGISTRY[section.sectionType as SectionType] || SECTION_REGISTRY.CUSTOM;
+  const Component = config.component;
 
   return (
-    <div className="space-y-4">
-      {sections.map((section) => {
-        const sectionType: SectionType = (section.sectionType as SectionType) ?? 'CUSTOM';
-        const isCollapsed = collapsedIds.has(section.id);
-        const handleUpdate = (patch: Partial<RendererSection>) => onUpdateSection({ ...section, ...patch });
-
-        return (
-          <QuotationSectionCard
-            key={section.id}
-            id={section.id}
-            title={section.title}
-            sectionType={sectionType}
-            isCollapsed={isCollapsed}
-            onToggleCollapse={() => toggleCollapse(section.id)}
-          >
-            <SectionContent section={section} onUpdate={handleUpdate} readOnly={readOnly} />
-          </QuotationSectionCard>
-        );
-      })}
-    </div>
+    <Component
+      section={section}
+      onUpdate={onUpdate}
+      readOnly={readOnly}
+      metaData={metaData}
+      updateMeta={updateMeta}
+      getContent={getContent}
+    />
   );
 }

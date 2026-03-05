@@ -153,7 +153,9 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     label: "Projects",
     description: "Manage projects and issues",
     subModules: [
-      { id: "projects", label: "Projects", path: "/dashboard/projects", module: "projects", permissionKey: "projects.projects" },
+      { id: "projects", label: "Dashboard", path: "/dashboard/projects", module: "projects", permissionKey: "projects.projects" },
+      { id: "all", label: "Projects", path: "/dashboard/projects/all", module: "projects", permissionKey: "projects.all" },
+      { id: "milestones", label: "Milestones", path: "/dashboard/projects/milestone", module: "projects", permissionKey: "projects.milestones" },
       { id: "issues", label: "Issues", path: "/dashboard/projects/issues", module: "projects", permissionKey: "projects.issues" },
     ],
   },
@@ -468,7 +470,19 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
       {
         permissionKey: "projects.projects",
         path: "/dashboard/projects",
+        label: "Dashboard",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "projects.all",
+        path: "/dashboard/projects/all",
         label: "Projects",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "projects.milestones",
+        path: "/dashboard/projects/milestone",
+        label: "Milestones",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
       {
