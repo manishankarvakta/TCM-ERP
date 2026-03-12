@@ -26,42 +26,42 @@ model Account {
 }
 
 model Activity {
-  id            String    @id @default(cuid())
-  type          String    // Action type: TASK_CREATED, NOTE_CREATED, DOC_CREATED, etc.
-  subject       String    // Human-readable subject line
-  description   String?   // Detailed description
-  
+  id          String  @id @default(cuid())
+  type        String // Action type: TASK_CREATED, NOTE_CREATED, DOC_CREATED, etc.
+  subject     String // Human-readable subject line
+  description String? // Detailed description
+
   // Context (Timeline Owner - where activity appears)
-  contextType   String?   // "lead", "opportunity", "contact", "project", "issue"
-  contextId     String?   // UUID of context entity
-  
+  contextType String? // "lead", "opportunity", "contact", "project", "issue"
+  contextId   String? // UUID of context entity
+
   // Subject (Affected Object - what changed)
-  subjectType   String?   // "task", "note", "doc", "event", "lead", "opportunity"
-  subjectId     String?   // UUID of subject entity
-  
+  subjectType String? // "task", "note", "doc", "event", "lead", "opportunity"
+  subjectId   String? // UUID of subject entity
+
   // Metadata for additional context
-  metadata      Json?     // Old/new values, titles, etc.
-  
+  metadata Json? // Old/new values, titles, etc.
+
   // Scheduling & Status (for activity-type records like calls, meetings)
-  dueDate       DateTime?
-  completed     Boolean   @default(false)
-  completedAt   DateTime?
-  status        String    @default("TODO")
-  priority      String    @default("NORMAL")
-  
+  dueDate     DateTime?
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  status      String    @default("TODO")
+  priority    String    @default("NORMAL")
+
   // Ownership
-  ownerId       String?   // Actor - who performed the action (Optional for system actions)
-  assignedToId  String?   // Assignee (for activity-type records)
-  
+  ownerId      String? // Actor - who performed the action (Optional for system actions)
+  assignedToId String? // Assignee (for activity-type records)
+
   // Timestamps
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relationships
-  Owner         User?     @relation("ActivityOwner", fields: [ownerId], references: [id])
-  AssignedTo    User?     @relation("ActivityAssignedTo", fields: [assignedToId], references: [id])
-  File          File[]
-  
+  Owner      User?  @relation("ActivityOwner", fields: [ownerId], references: [id])
+  AssignedTo User?  @relation("ActivityAssignedTo", fields: [assignedToId], references: [id])
+  File       File[]
+
   // Indexes for timeline queries
   @@index([contextType, contextId, createdAt(sort: Desc)], map: "idx_activity_context_timeline")
   @@index([subjectType, subjectId, createdAt(sort: Desc)], map: "idx_activity_subject_history")
@@ -207,7 +207,7 @@ model Contact {
 model CoverLetter {
   id        String   @id @default(cuid())
   title     String
-  subject   String?  // Optional subject line for the cover letter
+  subject   String? // Optional subject line for the cover letter
   content   String
   status    String   @default("active")
   createdBy String
@@ -1199,14 +1199,14 @@ model Doc {
   entityType String?
   entityId   String?
 
-  userId    String
+  userId      String
   projectId   String?
   milestoneId String?
   issueId     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  User User @relation("DocOwner", fields: [userId], references: [id], onDelete: Cascade)
+  User      User       @relation("DocOwner", fields: [userId], references: [id], onDelete: Cascade)
   Issue     Issue?     @relation(fields: [issueId], references: [id])
   Milestone Milestone? @relation(fields: [milestoneId], references: [id])
   Project   Project?   @relation(fields: [projectId], references: [id])
@@ -1359,8 +1359,6 @@ model Notification {
 
 // --- New System Modules (Events, Analytics) ---
 
-
-
 model Analytics {
   id         String   @id @default(cuid())
   metric     String // e.g., "VIEW", "CLICK", "CONVERSION", "TIME_SPENT"
@@ -1374,8 +1372,6 @@ model Analytics {
   @@index([metric])
   @@index([timestamp])
 }
-
-
 
 model EntityFileLink {
   id         String   @id @default(cuid())
@@ -1408,6 +1404,7 @@ enum SectionType {
   TECHNICAL_APPROACH
   ARCHITECTURE_OVERVIEW
   TEAM_STRUCTURE
+  PAYMENT_TERMS
   ASSUMPTIONS
   RISK_ASSESSMENT
   SUPPORT_SLA
@@ -1426,13 +1423,13 @@ enum QuotationMode {
 }
 
 model Project {
-  id            String        @id @default(cuid())
-  projectNumber String?       @unique
-  title         String
-  description   String?
-  status        ProjectStatus @default(PLANNING)
-  priority      String        @default("NORMAL")
-  startDate     DateTime?
+  id               String        @id @default(cuid())
+  projectNumber    String?       @unique
+  title            String
+  description      String?
+  status           ProjectStatus @default(PLANNING)
+  priority         String        @default("NORMAL")
+  startDate        DateTime?
   endDate          DateTime?
   budget           Decimal?      @db.Decimal(12, 2)
   clientId         String
