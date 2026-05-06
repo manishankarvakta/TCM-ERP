@@ -25,13 +25,13 @@ The backup system provides comprehensive data protection for the Espacio MVP app
 ├── files/
 │   └── backup-20240101-130000.zip
 │       ├── metadata.json
-│       └── [MinIO files...]
+│       └── [Local files...]
 └── full/
     └── backup-20240101-140000.zip
         ├── metadata.json
         ├── database.dump
         └── files/
-            └── [MinIO files...]
+            └── [Local files...]
 ```
 
 ## Backup Types
@@ -50,8 +50,8 @@ The backup system provides comprehensive data protection for the Espacio MVP app
 
 ### 2. Files Backup
 
-- **Contents**: All files from MinIO storage
-- **Format**: Direct streaming from MinIO to ZIP
+- **Contents**: All files from local storage
+- **Format**: Recursive compression of uploads directory
 - **Size**: Varies based on file storage usage
 - **Speed**: Moderate (depends on file count and size)
 
@@ -97,8 +97,7 @@ Each backup contains a `metadata.json` file with comprehensive information:
   },
   "files": {
     "count": 150,
-    "totalSize": 94371840,
-    "bucketName": "startup-mvp"
+    "totalSize": 94371840
   },
   "compression": {
     "algorithm": "deflate",
@@ -251,7 +250,7 @@ Start a restore operation.
     "createPreRestoreBackup": true,
     "skipVerification": false,
     "cleanDatabase": true,
-    "clearFiles": true
+    "clearFiles": true // Clear local files before restore
   }
 }
 ```
@@ -281,7 +280,7 @@ Server-Sent Events endpoint for real-time progress.
 | `INVALID_INPUT` | Invalid request parameters | No |
 | `BACKUP_CREATION_FAILED` | Backup creation failed | Yes |
 | `DATABASE_DUMP_FAILED` | pg_dump command failed | Yes |
-| `FILES_BACKUP_FAILED` | MinIO backup failed | Yes |
+| `FILES_BACKUP_FAILED` | File backup operation failed | Yes |
 | `DISK_SPACE_INSUFFICIENT` | Not enough disk space | No |
 | `BACKUP_NOT_FOUND` | Backup file not found | No |
 | `INVALID_BACKUP_FILE` | Invalid backup format | No |
@@ -319,7 +318,7 @@ Server-Sent Events endpoint for real-time progress.
 ### Streaming
 
 - ZIP creation uses `archiver` with streaming to avoid memory issues
-- MinIO files are streamed directly to ZIP without buffering
+- Local files are read and added to ZIP efficiently
 - File downloads use Node.js streams for efficient transfer
 
 ### Memory Management
@@ -370,13 +369,9 @@ brew install postgresql
 
 **Solution**: Verify `DATABASE_URL` environment variable is correct.
 
-#### "MinIO connection failed"
+#### "Storage operation failed"
 
-**Solution**: Check MinIO configuration in environment variables:
-- `MINIO_ENDPOINT`
-- `MINIO_ACCESS_KEY`
-- `MINIO_SECRET_KEY`
-- `MINIO_BUCKET_NAME`
+**Solution**: Check filesystem permissions and UPLOAD_DIR configuration.
 
 #### "Backup validation failed"
 
@@ -390,7 +385,7 @@ brew install postgresql
 
 1. **Regular Backups**: Schedule automatic backups (daily for production)
 2. **Test Restores**: Periodically test restore functionality
-3. **Multiple Copies**: Keep backups in multiple locations
+3. **Multiple Copies**: Keep backups in multiple locations (e.g., different disks or servers)
 4. **Retention Policy**: Define how long to keep backups
 5. **Pre-Migration Backups**: Always backup before major changes
 6. **Monitor Storage**: Alert when backup storage is running low
@@ -418,8 +413,8 @@ After creating a backup, copy it to external storage:
 
 ```bash
 #!/bin/bash
-# Copy backups to S3
-aws s3 sync /backups/full/ s3://my-bucket/backups/
+# Sync backups to remote server
+rsync -avz /backups/full/ user@remote-server:/path/to/backups/
 ```
 
 ### Cleanup Old Backups

@@ -17,11 +17,8 @@ Create a `.env` file in the root directory:
 DATABASE_URL="postgresql://user:password@localhost:5432/bhagyakul"
 NEXTAUTH_SECRET="your-secret"
 NEXTAUTH_URL="http://localhost:3000"
-# MinIO / S3 Config
-MINIO_ENDPOINT="localhost"
-MINIO_PORT=9000
-MINIO_ACCESS_KEY="minioadmin"
-MINIO_SECRET_KEY="minioadmin"
+# File Storage Config (Local)
+UPLOAD_DIR="/app/uploads"
 # Redis Config
 REDIS_URL="redis://localhost:6379"
 ```
@@ -55,7 +52,7 @@ npm run dev
 - **Production (Kitchen)**: Bill of Materials (BOM) management and production order tracking.
 - **Sales & POS**: Comprehensive sales management integrated with inventory and accounting.
 - **Granular RBAC**: Highly detailed permission system with pre-defined templates for various roles.
-- **Automated Backups**: Encrypted database and file backups synced to MinIO storage.
+- **Automated Backups**: Encrypted database and file backups with local persistence.
 
 ---
 

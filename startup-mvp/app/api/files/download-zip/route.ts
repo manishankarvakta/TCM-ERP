@@ -61,32 +61,16 @@ export async function POST(request: NextRequest) {
     const zip = new JSZip();
 
     // Download each file and add to ZIP
-    const { GetObjectCommand } = await import("@aws-sdk/client-s3");
-    const { s3 } = await import("@/lib/minio");
-    const bucketName = process.env.MINIO_BUCKET_NAME!;
+    const { storage } = await import("@/lib/storage");
 
     for (const file of fileRecords) {
       try {
-        const getObjectCommand = new GetObjectCommand({
-          Bucket: bucketName,
-          Key: file.storageKey,
-        });
-
-        const response = await s3.send(getObjectCommand);
-        const chunks: Uint8Array[] = [];
-        
-        if (response.Body) {
-          for await (const chunk of response.Body as any) {
-            chunks.push(chunk);
-          }
-        }
-
-        const fileBuffer = Buffer.concat(chunks);
+        const fileBuffer = await storage.readFile(file.storageKey);
         
         // Add file to ZIP with its name
         zip.file(file.name, fileBuffer);
       } catch (error) {
-        console.error(`Error downloading file ${file.name}:`, error);
+        console.error(`Error adding file ${file.name} to ZIP:`, error);
         // Continue with other files even if one fails
       }
     }

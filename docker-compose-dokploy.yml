@@ -26,65 +26,6 @@ services:
     networks:
       - docker-network
 
-  # MinIO Object Storage
-  bhagyakul-minio:
-    image: minio/minio:latest
-    container_name: bhagyakul-minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      # CORS Configuration for browser uploads - CRITICAL for file uploads to work
-      MINIO_API_CORS_ALLOW_ORIGIN: ${MINIO_CORS_ORIGIN:-*}
-    expose:
-      - "9000"
-      - "9001"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.minio-api.rule=Host(`minio.espaciobd.com`)"
-      - "traefik.http.routers.minio-api.entrypoints=websecure"
-      - "traefik.http.routers.minio-api.tls.certresolver=letsencrypt"
-      - "traefik.http.services.minio-api.loadbalancer.server.port=9000"
-      - "traefik.http.routers.minio-console.rule=Host(`minio-console.espaciobd.com`)"
-      - "traefik.http.routers.minio-console.entrypoints=websecure"
-      - "traefik.http.routers.minio-console.tls.certresolver=letsencrypt"
-      - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
-    volumes:
-      # IMPORTANT: All uploaded files persist across deployments in ./volumes/minio
-      # This directory is preserved even when containers are recreated
-      - ./volumes/minio:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-    networks:
-      - docker-network
-      - dokploy-network
-
-  # MinIO Client for bucket initialization
-  bhagyakul-minio-setup:
-    image: minio/mc:latest
-    container_name: bhagyakul-minio-setup
-    depends_on:
-      bhagyakul-minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      sleep 5;
-      echo 'Setting up MinIO bucket...';
-      /usr/bin/mc alias set myminio http://bhagyakul-minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
-      /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-bhagyakul-files} || echo 'Bucket already exists';
-      /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-bhagyakul-files} || true;
-      /usr/bin/mc anonymous set upload myminio/${MINIO_BUCKET_NAME:-bhagyakul-files} || true;
-      /usr/bin/mc anonymous set public myminio/${MINIO_BUCKET_NAME:-bhagyakul-files} || true;
-      echo 'MinIO bucket setup complete!';
-      exit 0;
-      "
-    networks:
-      - docker-network
-
   # Next.js Application
   bhagyakul-app:
     build:
@@ -103,17 +44,6 @@ services:
       NEXTAUTH_URL: ${NEXTAUTH_URL:-https://bhagyakul.aamardokan.online}
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
       
-      # MinIO Configuration - Internal Only (like PostgreSQL)
-      # MinIO is accessed internally via Docker network
-      # No public URL needed - files are uploaded/downloaded via Next.js API
-      MINIO_ENDPOINT: bhagyakul-minio
-      MINIO_PORT: 9000
-      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-bhagyakul-files}
-      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://bhagyakul-minio:9000}
-      
       # Redis (optional)
       REDIS_URL: ${REDIS_URL:-redis://bhagyakul-redis:6379}
       
@@ -131,14 +61,15 @@ services:
       
       # Node Environment
       NODE_ENV: production
+    volumes:
+      - ./volumes/uploads:/app/uploads
     depends_on:
       bhagyakul-postgres:
         condition: service_healthy
-      bhagyakul-minio:
-        condition: service_healthy
     networks:
       - docker-network
-      - dokploy-network    
+      - dokploy-network
+    
   # Redis (optional, if you're using it)
   bhagyakul-redis:
     image: redis:7-alpine
@@ -171,8 +102,6 @@ volumes:
   # but declaring them here for documentation purposes
   # Data is stored in ./volumes/ directory on the host
   postgres-data:
-    driver: local
-  minio-data:
     driver: local
   redis-data:
     driver: local

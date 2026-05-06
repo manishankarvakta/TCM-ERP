@@ -216,7 +216,7 @@ export default function UploadDialog({
         }
       }, 200);
 
-      // Upload file via server action (internal MinIO connection)
+      // Upload file via server action
       const result = await uploadFileServerSide({
         path: "",
         name: upload.file.name,

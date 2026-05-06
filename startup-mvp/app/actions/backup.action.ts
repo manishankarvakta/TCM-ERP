@@ -54,9 +54,7 @@ function parseDatabaseUrl(): {
   return { user, password, host, port, database };
 }
 import { readFile, writeFile, unlink } from "fs/promises";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { s3 } from "@/lib/minio";
-import { minio } from "@/lib/minio";
+import { storage } from "@/lib/storage";
 import JSZip from "jszip";
 import path from "path";
 import {
@@ -891,23 +889,19 @@ export async function restoreBackup(
         progress: 25,
       });
       try {
-        const { DeleteObjectCommand } = await import("@aws-sdk/client-s3");
-        const allObjects = await minio.listObjects();
+        const allObjects = await storage.listFiles("");
         let deletedCount = 0;
         for (const objectKey of allObjects) {
           // Skip folder markers
           if (objectKey.endsWith("/")) continue;
           try {
-            await s3.send(new DeleteObjectCommand({
-              Bucket: minio.config.bucketName,
-              Key: objectKey,
-            }));
+            await storage.deleteFile(objectKey);
             deletedCount++;
           } catch (error) {
             console.error(`Error deleting file ${objectKey}:`, error);
           }
         }
-        console.log(`[Time Travel] Deleted ${deletedCount} existing files from MinIO`);
+        console.log(`[Time Travel] Deleted ${deletedCount} existing files from local storage`);
       } catch (error) {
         console.error("Error deleting existing files:", error);
         // Continue with restore even if deletion fails
@@ -944,17 +938,11 @@ export async function restoreBackup(
         progress: 50,
       });
 
-      // Extract and upload each file to MinIO
+      // Extract and save each file to local storage
       for (const [relativePath, file] of fileEntries) {
         try {
           const fileBuffer = await file.async("nodebuffer");
-          const putCommand = new PutObjectCommand({
-            Bucket: minio.config.bucketName,
-            Key: relativePath,
-            Body: fileBuffer,
-          });
-
-          await s3.send(putCommand);
+          await storage.saveFile(relativePath, fileBuffer);
           filesRestored++;
           
           // Calculate progress percentage
@@ -1095,23 +1083,19 @@ export async function restoreBackup(
 
         // Time travel: Delete all existing files from MinIO before restoring
         try {
-          const { DeleteObjectCommand } = await import("@aws-sdk/client-s3");
-          const allObjects = await minio.listObjects();
+          const allObjects = await storage.listFiles("");
           let deletedCount = 0;
           for (const objectKey of allObjects) {
             // Skip folder markers
             if (objectKey.endsWith("/")) continue;
             try {
-              await s3.send(new DeleteObjectCommand({
-                Bucket: minio.config.bucketName,
-                Key: objectKey,
-              }));
+              await storage.deleteFile(objectKey);
               deletedCount++;
             } catch (error) {
               console.error(`Error deleting file ${objectKey}:`, error);
             }
           }
-          console.log(`[Time Travel] Deleted ${deletedCount} existing files from MinIO`);
+          console.log(`[Time Travel] Deleted ${deletedCount} existing files from local storage`);
         } catch (error) {
           console.error("Error deleting existing files:", error);
           // Continue with restore
@@ -1146,13 +1130,7 @@ export async function restoreBackup(
         for (const [relativePath, file] of fileEntries) {
           try {
             const fileBuffer = await file.async("nodebuffer");
-            const putCommand = new PutObjectCommand({
-              Bucket: minio.config.bucketName,
-              Key: relativePath,
-              Body: fileBuffer,
-            });
-
-            await s3.send(putCommand);
+            await storage.saveFile(relativePath, fileBuffer);
             filesRestored++;
             
             // Calculate progress percentage for full backup (65% base + up to 30% for files)

@@ -36,7 +36,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "1. Checking Containers"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-CONTAINERS=("startup-mvp-app" "startup-mvp-postgres" "startup-mvp-minio" "startup-mvp-redis")
+CONTAINERS=("fferp-app" "fferp-postgres" "fferp-redis")
 ALL_RUNNING=true
 
 for container in "${CONTAINERS[@]}"; do
@@ -63,7 +63,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "2. Checking Volume Directories"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-VOLUMES=("volumes/postgres" "volumes/minio" "volumes/redis")
+VOLUMES=("volumes/postgres" "volumes/uploads" "volumes/redis")
 
 for vol in "${VOLUMES[@]}"; do
     if [ -d "./${vol}" ]; then
@@ -83,13 +83,13 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "3. Checking Database Data"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-if docker exec startup-mvp-postgres pg_isready -U postgres > /dev/null 2>&1; then
+if docker exec fferp-postgres pg_isready -U postgres > /dev/null 2>&1; then
     echo "✅ PostgreSQL is ready"
     echo ""
     
     # Check tables and row counts
     echo "📊 Table Row Counts:"
-    docker exec startup-mvp-postgres psql -U postgres -d startup_mvp -c "
+    docker exec fferp-postgres psql -U postgres -d startup_mvp -c "
     SELECT
         schemaname,
         tablename,
@@ -103,18 +103,16 @@ if docker exec startup-mvp-postgres pg_isready -U postgres > /dev/null 2>&1; the
     echo ""
     
     # Specific critical tables
-    USER_COUNT=$(docker exec startup-mvp-postgres psql -U postgres -d startup_mvp -t -c "SELECT COUNT(*) FROM \"User\";" 2>/dev/null | xargs)
-    QUOTATION_COUNT=$(docker exec startup-mvp-postgres psql -U postgres -d startup_mvp -t -c "SELECT COUNT(*) FROM \"Quotation\";" 2>/dev/null | xargs)
-    CLIENT_COUNT=$(docker exec startup-mvp-postgres psql -U postgres -d startup_mvp -t -c "SELECT COUNT(*) FROM \"Client\";" 2>/dev/null | xargs)
-    FILE_COUNT=$(docker exec startup-mvp-postgres psql -U postgres -d startup_mvp -t -c "SELECT COUNT(*) FROM \"File\";" 2>/dev/null | xargs)
+    USER_COUNT=$(docker exec fferp-postgres psql -U postgres -d startup_mvp -t -c "SELECT COUNT(*) FROM \"User\";" 2>/dev/null | xargs)
+    CLIENT_COUNT=$(docker exec fferp-postgres psql -U postgres -d startup_mvp -t -c "SELECT COUNT(*) FROM \"Client\";" 2>/dev/null | xargs)
+    FILE_COUNT=$(docker exec fferp-postgres psql -U postgres -d startup_mvp -t -c "SELECT COUNT(*) FROM \"File\";" 2>/dev/null | xargs)
     
     echo "📈 Critical Data Counts:"
     echo "   Users: ${USER_COUNT}"
-    echo "   Quotations: ${QUOTATION_COUNT}"
     echo "   Clients: ${CLIENT_COUNT}"
     echo "   Files: ${FILE_COUNT}"
     
-    if [ "$USER_COUNT" -gt 0 ]; then
+    if [ "${USER_COUNT:-0}" -gt 0 ]; then
         echo -e "   ${GREEN}✅ Database has data${NC}"
     else
         echo -e "   ${YELLOW}⚠️  No users found - database may be empty${NC}"
@@ -126,48 +124,35 @@ fi
 echo ""
 
 # ============================================
-# 4. Check MinIO Files
+# 4. Check Local File Storage
 # ============================================
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "4. Checking MinIO File Storage"
+echo "4. Checking Local File Storage"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-if [ -d "./volumes/minio" ]; then
-    MINIO_SIZE=$(du -sh ./volumes/minio 2>/dev/null | cut -f1)
-    FILE_COUNT=$(find ./volumes/minio -type f 2>/dev/null | wc -l | xargs)
+if [ -d "./volumes/uploads" ]; then
+    UPLOADS_SIZE=$(du -sh ./volumes/uploads 2>/dev/null | cut -f1)
+    FILE_COUNT_FS=$(find ./volumes/uploads -type f 2>/dev/null | wc -l | xargs)
     
-    echo "📦 MinIO Storage:"
-    echo "   Total Size: ${MINIO_SIZE}"
-    echo "   File Count: ${FILE_COUNT}"
-    
-    # Check for buckets
-    if [ -d "./volumes/minio/espacio-files" ]; then
-        BUCKET_SIZE=$(du -sh ./volumes/minio/espacio-files 2>/dev/null | cut -f1)
-        BUCKET_FILES=$(find ./volumes/minio/espacio-files -type f 2>/dev/null | wc -l | xargs)
-        echo "   Bucket 'espacio-files': ${BUCKET_SIZE} (${BUCKET_FILES} files)"
-    fi
-    
-    if [ -d "./volumes/minio/startup-mvp-files" ]; then
-        BUCKET_SIZE=$(du -sh ./volumes/minio/startup-mvp-files 2>/dev/null | cut -f1)
-        BUCKET_FILES=$(find ./volumes/minio/startup-mvp-files -type f 2>/dev/null | wc -l | xargs)
-        echo "   Bucket 'startup-mvp-files': ${BUCKET_SIZE} (${BUCKET_FILES} files)"
-    fi
+    echo "📦 Local Uploads Storage:"
+    echo "   Total Size: ${UPLOADS_SIZE}"
+    echo "   File Count: ${FILE_COUNT_FS}"
 else
-    echo -e "${RED}❌ MinIO volume directory not found${NC}"
+    echo -e "${RED}❌ Uploads volume directory not found${NC}"
 fi
 
 echo ""
 
 # ============================================
-# 5. Check Application Logs for Data Safety Messages
+# 5. Check Application Logs
 # ============================================
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "5. Checking Recent Deployment Logs"
+# 5. Check Application Logs
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-if docker ps --format '{{.Names}}' | grep -q "^startup-mvp-app$"; then
+if docker ps --format '{{.Names}}' | grep -q "^fferp-app$"; then
     echo "📋 Recent deployment messages:"
-    docker logs startup-mvp-app --tail 50 2>/dev/null | grep -E "(migrations|data|preserved|initialized|SAFE|READY)" || echo "No relevant log messages found"
+    docker logs fferp-app --tail 50 2>/dev/null | grep -E "(migrations|data|preserved|initialized|SAFE|READY|Starting)" || echo "No relevant log messages found"
 else
     echo -e "${RED}❌ Application container not running${NC}"
 fi
@@ -181,23 +166,12 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "6. Checking Migration Status"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-if docker ps --format '{{.Names}}' | grep -q "^startup-mvp-app$"; then
+if docker ps --format '{{.Names}}' | grep -q "^fferp-app$"; then
     echo "📊 Applied Migrations:"
-    docker exec startup-mvp-app npx prisma migrate status 2>/dev/null || echo "Could not check migration status"
+    docker exec fferp-app npx prisma migrate status 2>/dev/null || echo "Could not check migration status"
 else
     echo -e "${RED}❌ Application container not running${NC}"
 fi
-
-echo ""
-
-# ============================================
-# 7. Disk Space Check
-# ============================================
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "7. Checking Disk Space"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-df -h | grep -E "(Filesystem|/$)" || df -h
 
 echo ""
 
@@ -246,11 +220,9 @@ else
     echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${YELLOW}⚠️  ISSUES FOUND: ${ISSUES}${NC}"
     echo -e "${YELLOW}   Please review the checks above.${NC}"
-    echo -e "${YELLOW}   See DATA_LOSS_PREVENTION_GUIDE.md for help.${NC}"
     echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 fi
 
 echo ""
 echo "💡 Tip: Run this script before and after deployment to verify data persistence!"
 echo ""
-

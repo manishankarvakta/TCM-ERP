@@ -26,10 +26,7 @@ Ensure the following environment variables are correctly set in your deployment 
 | `DATABASE_URL` | PostgreSQL connection string |
 | `NEXTAUTH_SECRET` | Secret for session encryption |
 | `NEXTAUTH_URL` | Base URL of the application |
-| `MINIO_ENDPOINT` | Object storage endpoint (internal or external) |
-| `MINIO_ACCESS_KEY` | MinIO access key |
-| `MINIO_SECRET_KEY` | MinIO secret key |
-| `MINIO_BUCKET_NAME` | Bucket name for file uploads |
+| `UPLOAD_DIR` | Path for file uploads (e.g., /app/uploads) |
 
 ## 3. Core Accounting Assumptions
 

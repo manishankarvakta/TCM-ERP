@@ -7,14 +7,13 @@
 1. **Node.js** v18+ (for Next.js application)
 2. **PostgreSQL** v14+ (database)
 3. **PostgreSQL Client Tools** (`pg_dump`, `pg_restore`)
-4. **MinIO** or S3-compatible object storage
-5. **Sufficient Disk Space** (at least 2x your data size)
+4. **Sufficient Disk Space** (at least 2x your data size)
 
 ### System Requirements
 
 - **Minimum RAM**: 2GB (4GB+ recommended for production)
 - **Disk Space**: Varies based on backup size and retention policy
-- **Network**: Stable connection to database and object storage
+- **Network**: Stable connection to database
 
 ## Installation
 
@@ -77,13 +76,8 @@ POSTGRES_DB=startup_mvp
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=yourpassword
 
-# MinIO Configuration
-MINIO_ENDPOINT=localhost
-MINIO_PORT=9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET_NAME=startup-mvp
-MINIO_USE_SSL=false
+# Storage Configuration
+UPLOAD_DIR=/app/uploads
 
 # Backup Configuration (Optional)
 BACKUP_ROOT_DIR=/path/to/backups
@@ -124,15 +118,6 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO your_user;
 GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO your_user;
 ```
 
-### MinIO Bucket Setup
-
-Ensure the MinIO bucket exists:
-
-```bash
-# Using mc (MinIO Client)
-mc alias set myminio http://localhost:9000 minioadmin minioadmin
-mc mb myminio/startup-mvp
-```
 
 ## Deployment Scenarios
 
@@ -141,8 +126,8 @@ mc mb myminio/startup-mvp
 Minimal setup for local development:
 
 ```bash
-# 1. Start PostgreSQL and MinIO
-docker-compose up -d postgres minio
+# 1. Start PostgreSQL
+docker-compose up -d postgres
 
 # 2. Run application
 npm run dev
@@ -165,16 +150,13 @@ services:
       - "3000:3000"
     environment:
       - DATABASE_URL=${DATABASE_URL}
-      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - UPLOAD_DIR=/app/uploads
       - BACKUP_ROOT_DIR=/app/backups
     volumes:
       - backup-data:/app/backups
       - temp-data:/tmp/backups
     depends_on:
       - postgres
-      - minio
 
   postgres:
     image: postgres:15
@@ -185,23 +167,11 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
-      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
-    volumes:
-      - minio-data:/data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
 
 volumes:
   backup-data:
   temp-data:
   postgres-data:
-  minio-data:
 ```
 
 #### Kubernetes Deployment
@@ -585,12 +555,12 @@ ENV PATH="/usr/lib/postgresql/15/bin:${PATH}"
    - Level 9: Slower, smaller files
 
 2. **Parallel Processing**: For multiple files
-3. **Network Optimization**: Use faster network for MinIO access
+3. **Disk Performance**: Use SSD storage for faster I/O
 
 ### Optimize Restore Speed
 
 1. **Skip Verification**: Only for trusted backups
-2. **Parallel File Upload**: When restoring files to MinIO
+2. **Fast Storage**: Use high-performance disks
 3. **Database Indexes**: Restore indexes after data
 
 ## Monitoring Checklist

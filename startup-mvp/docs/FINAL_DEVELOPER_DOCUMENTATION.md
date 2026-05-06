@@ -16,7 +16,7 @@ BHAGYAKUL ERP is a comprehensive Enterprise Resource Planning system built for B
 - **Database**: PostgreSQL
 - **ORM**: Prisma
 - **Authentication**: NextAuth.js v5
-- **Object Storage**: MinIO (for file uploads & backups)
+- **File Storage**: Local Persistent Storage (Docker Volumes)
 - **Caching/Queue**: Redis
 - **Styling**: Tailwind CSS & Shadcn UI
 - **Deployment**: Docker & Dokploy
@@ -111,8 +111,7 @@ A comprehensive validation script is available at `scripts/pre-deployment-valida
 npx tsx scripts/pre-deployment-validation.ts
 ```
 
-### 6.3 Backup System
-Integrated backup system that handles database exports and MinIO object storage synchronization, with built-in encryption.
+Integrated backup system that handles database exports and local file storage synchronization.
 
 ---
 
@@ -123,7 +122,7 @@ The system is containerized using Docker. The `Dockerfile` and `docker-compose-d
 ### Environment Variables:
 - `DATABASE_URL`: Connection string for PostgreSQL.
 - `NEXTAUTH_SECRET`: Secret for session security.
-- `MINIO_*`: Configuration for object storage.
+- `UPLOAD_DIR`: Path for local file storage (e.g., /app/uploads).
 - `REDIS_URL`: Connection string for Redis.
 
 ---

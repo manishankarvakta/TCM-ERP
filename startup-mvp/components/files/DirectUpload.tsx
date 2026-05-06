@@ -72,7 +72,7 @@ export default function DirectUpload({ onUploadComplete, currentPath }: DirectUp
         }
       }, 200);
 
-      // Upload file via server action (internal MinIO connection)
+      // Upload file via server action
       const result = await uploadFileServerSide({
         path: currentPath === "/" ? "" : currentPath.replace(/^\/+/, ""),
         name: upload.file.name,

@@ -28,6 +28,7 @@ This index provides a map to all documentation files available in the project, c
 
 ## 🔐 Permissions & Security
 - **[User Permission System](USER_PERMISSION_SYSTEM.md)**: Comprehensive guide to the RBAC and template system.
+- **[File Manager System](FILE_MANAGER_SYSTEM.md)**: Architecture and workflows of the local storage system.
 - **[Backup System](BACKUP_SYSTEM.md)**: Details on the backup and restore architecture.
 - **[Backup Encryption Setup](BACKUP_ENCRYPTION_SETUP.md)**: How to configure encryption for backups.
 - **[Encryption Quick Start](ENCRYPTION_QUICK_START.md)**: Fast track for security setup.
@@ -41,4 +42,5 @@ This index provides a map to all documentation files available in the project, c
 ## 🛠 Miscellaneous
 - **[Quotation Optimization Summary](QUOTATION_OPTIMIZATION_SUMMARY.md)**: Improvements made to the quotation system.
 - **[Select UI Improvements](SELECT_UI_IMPROVEMENTS.md)**: Updates to the UI/UX components.
+- **[MinIO to Local Storage Migration](MINIO_TO_LOCAL_STORAGE_MIGRATION.md)**: Details on the move to Docker volumes.
 - **[Testing Summary](TESTING_SUMMARY.md)**: General project testing overview.

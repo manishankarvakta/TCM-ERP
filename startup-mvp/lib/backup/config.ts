@@ -87,31 +87,6 @@ export function parsePostgresConfig(): PostgresConfig {
   }
 }
 
-/**
- * MinIO/S3 configuration
- */
-export interface MinIOConfig {
-  endpoint: string;
-  port: number;
-  accessKey: string;
-  secretKey: string;
-  bucketName: string;
-  useSSL: boolean;
-}
-
-/**
- * Get MinIO configuration from environment variables
- */
-export function getMinIOConfig(): MinIOConfig {
-  return {
-    endpoint: process.env.MINIO_ENDPOINT || 'localhost',
-    port: parseInt(process.env.MINIO_PORT || '9000'),
-    accessKey: process.env.MINIO_ACCESS_KEY || 'minioadmin',
-    secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
-    bucketName: process.env.MINIO_BUCKET_NAME || 'startup-mvp',
-    useSSL: process.env.MINIO_USE_SSL === 'true',
-  };
-}
 
 /**
  * Backup file naming configuration

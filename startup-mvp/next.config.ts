@@ -8,6 +8,17 @@ const nextConfig: NextConfig = {
   
   // Enable standalone output for Docker
   output: 'standalone',
+
+  // Increase body size limit for Server Actions (essential for file uploads)
+  serverActions: {
+    bodySizeLimit: '50mb',
+  },
+
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '50mb',
+    },
+  },
   
   // Ignore TypeScript errors during build
   typescript: {

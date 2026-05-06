@@ -123,16 +123,6 @@ NEXT_PUBLIC_APP_URL=https://app.espaciobd.com
 APP_PORT=3000
 ```
 
-#### MinIO Configuration
-```env
-MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=your-secure-minio-password
-MINIO_BUCKET_NAME=startup-mvp-files
-MINIO_PORT=9000
-MINIO_CONSOLE_PORT=9001
-MINIO_USE_SSL=false
-MINIO_PUBLIC_URL=http://localhost:9000
-```
 
 #### Redis Configuration (Optional)
 ```env
@@ -244,7 +234,6 @@ In Dokploy, verify all services are running:
 
 - ✅ `espacio-app` (Next.js Application)
 - ✅ `espacio-postgres` (PostgreSQL Database)
-- ✅ `espacio-minio` (MinIO Storage)
 - ✅ `espacio-redis` (Redis Cache)
 
 ### 6.2 Check Application Health
@@ -383,21 +372,6 @@ tsx prisma/seed-users.ts
 
 ---
 
-### Issue 5: MinIO Storage Not Working
-
-**Symptoms:**
-- File uploads fail
-- "Cannot connect to MinIO" error
-
-**Solution:**
-1. Verify MinIO service is running in Dokploy
-2. Check MinIO credentials in environment variables
-3. Verify bucket was created:
-   ```bash
-   # Access MinIO console
-   http://your-server-ip:9001
-   # Login with MINIO_ROOT_USER and MINIO_ROOT_PASSWORD
-   ```
 
 ---
 
@@ -457,8 +431,6 @@ If you still see this issue, verify the docker-compose file is using `prisma@6.1
 # PostgreSQL
 docker logs startup-mvp-postgres
 
-# MinIO
-docker logs startup-mvp-minio
 
 # Redis
 docker logs startup-mvp-redis
@@ -507,7 +479,6 @@ Configure in Dokploy > Backups > Schedule
 Immediately after deployment:
 - ✅ Change admin@example.com password
 - ✅ Update POSTGRES_PASSWORD
-- ✅ Update MINIO_ROOT_PASSWORD
 - ✅ Generate new NEXTAUTH_SECRET
 
 ### 2. Enable Firewall
@@ -555,7 +526,6 @@ Set up automated backups:
 ```env
 # Strong passwords
 POSTGRES_PASSWORD=use-strong-random-password-here
-MINIO_ROOT_PASSWORD=use-strong-random-password-here
 
 # Secure secrets
 NEXTAUTH_SECRET=generate-with-openssl-rand-base64-32
@@ -627,12 +597,10 @@ docker stats
 
 ### Service URLs
 - **Application**: `https://app.espaciobd.com`
-- **MinIO Console**: `http://server-ip:9001`
 - **Dokploy Dashboard**: `http://server-ip:3000`
 
 ### Default Credentials
 - **Application Admin**: `admin@example.com` / `admin123`
-- **MinIO**: `minioadmin` / `minioadmin` (or your configured password)
 - **PostgreSQL**: `postgres` / `postgres` (or your configured password)
 
 ### Important Files
@@ -654,7 +622,6 @@ Your Startup MVP application is now successfully deployed on Dokploy! 🎉
 **What You Have:**
 - ✅ Secure HTTPS application
 - ✅ PostgreSQL database with migrations
-- ✅ MinIO object storage
 - ✅ Redis caching
 - ✅ Admin user ready to use
 - ✅ Automatic SSL certificate renewal

@@ -15,7 +15,6 @@ import type { BackupMetadata, BackupCreationOptions } from '@/types/backup';
 import {
   getBackupTypeDir,
   parsePostgresConfig,
-  getMinIOConfig,
   generateBackupFilename,
   extractBackupId,
   METADATA_FILENAME,
@@ -37,8 +36,7 @@ import {
   generateTempFilePath,
   formatBytes,
 } from './utils';
-import { minio, s3 } from '@/lib/minio';
-import { GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { storage } from '@/lib/storage';
 
 const execAsync = promisify(exec);
 
@@ -207,33 +205,21 @@ export async function createFilesBackup(
   const tempZipPath = generateTempFilePath('zip');
 
   try {
-    // Step 1: List all objects in MinIO
-    console.log('[Backup] Listing files from MinIO...');
-    const minioConfig = getMinIOConfig();
-    const objects = await listMinIOObjects();
-
-    console.log(`[Backup] Found ${objects.length} files in MinIO`);
-
-    // Step 2: Create ZIP with streaming from MinIO (WITHOUT metadata)
-    console.log('[Backup] Streaming files to ZIP archive...');
+    // Step 1: List all files in local storage
+    console.log('[Backup] Listing files from local storage...');
+    const objects = await storage.listFiles("");
     let totalSize = 0;
 
+    console.log(`[Backup] Found ${objects.length} files in local storage`);
+
     await createZipArchive(tempZipPath, async (archive) => {
-      // Stream each file from MinIO to ZIP
+      // Add each file from local storage to ZIP
       for (const objectKey of objects) {
+        if (objectKey.endsWith('/')) continue;
         try {
-          const command = new GetObjectCommand({
-            Bucket: minioConfig.bucketName,
-            Key: objectKey,
-          });
-
-          const response = await s3.send(command);
-
-          if (response.Body) {
-            // Stream the file data
-            archive.append(response.Body as any, { name: objectKey });
-            totalSize += response.ContentLength || 0;
-          }
+          const fileBuffer = await storage.readFile(objectKey);
+          archive.append(fileBuffer, { name: objectKey });
+          totalSize += fileBuffer.length;
         } catch (error) {
           console.warn(`Failed to backup file ${objectKey}:`, error);
           // Continue with other files
@@ -256,7 +242,6 @@ export async function createFilesBackup(
       files: {
         count: objects.length,
         totalSize: totalSize,
-        bucketName: minioConfig.bucketName,
       },
     });
 
@@ -320,37 +305,24 @@ export async function createFullBackup(
     const { tables, recordCount } = await getDatabaseTableInfo();
     console.log(`[Backup] Found ${tables.length} tables with ${recordCount} total records`);
 
-    // Step 3: List MinIO objects
-    console.log('[Backup] Listing files from MinIO...');
-    const minioConfig = getMinIOConfig();
-    const objects = await listMinIOObjects();
-
-    console.log(`[Backup] Found ${objects.length} files in MinIO`);
-
-    // Step 4: Create ZIP with both database and files (WITHOUT metadata)
-    console.log('[Backup] Creating ZIP archive with database and files...');
+    const objects = await storage.listFiles("");
     let filesSize = 0;
+
+    console.log(`[Backup] Found ${objects.length} files in local storage`);
 
     await createZipArchive(tempZipPath, async (archive) => {
       // Add database dump
       archive.file(tempDumpPath, { name: DATABASE_DUMP_FILENAME });
 
-      // Stream files from MinIO under files/ directory
+      // Add files from local storage under files/ directory
       for (const objectKey of objects) {
+        if (objectKey.endsWith('/')) continue;
         try {
-          const command = new GetObjectCommand({
-            Bucket: minioConfig.bucketName,
-            Key: objectKey,
-          });
-
-          const response = await s3.send(command);
-
-          if (response.Body) {
-            // Add under files/ directory
-            const zipPath = path.join(FILES_DIRECTORY_NAME, objectKey);
-            archive.append(response.Body as any, { name: zipPath });
-            filesSize += response.ContentLength || 0;
-          }
+          const fileBuffer = await storage.readFile(objectKey);
+          // Add under files/ directory
+          const zipPath = path.join(FILES_DIRECTORY_NAME, objectKey);
+          archive.append(fileBuffer, { name: zipPath });
+          filesSize += fileBuffer.length;
         } catch (error) {
           console.warn(`Failed to backup file ${objectKey}:`, error);
         }
@@ -378,7 +350,6 @@ export async function createFullBackup(
       files: {
         count: objects.length,
         totalSize: filesSize,
-        bucketName: minioConfig.bucketName,
       },
     });
 
@@ -481,50 +452,6 @@ async function executePgDump(
   }
 }
 
-/**
- * List all objects in MinIO bucket
- * @returns Array of object keys
- */
-async function listMinIOObjects(): Promise<string[]> {
-  const config = getMinIOConfig();
-  const objects: string[] = [];
-
-  try {
-    const command = new ListObjectsV2Command({
-      Bucket: config.bucketName,
-    });
-
-    let continuationToken: string | undefined;
-
-    do {
-      const response = await s3.send(
-        continuationToken
-          ? new ListObjectsV2Command({
-              Bucket: config.bucketName,
-              ContinuationToken: continuationToken,
-            })
-          : command
-      );
-
-      if (response.Contents) {
-        for (const object of response.Contents) {
-          if (object.Key && !object.Key.endsWith('/')) {
-            // Skip folder markers
-            objects.push(object.Key);
-          }
-        }
-      }
-
-      continuationToken = response.NextContinuationToken;
-    } while (continuationToken);
-
-    return objects;
-  } catch (error) {
-    throw new Error(
-      `Failed to list MinIO objects: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
-}
 
 /**
  * Create a ZIP archive using archiver with streaming

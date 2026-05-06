@@ -83,8 +83,6 @@ export interface BackupMetadata {
     count: number;
     /** Total size of all files in bytes */
     totalSize: number;
-    /** MinIO bucket name */
-    bucketName: string;
   };
   
   /** Compression settings */
@@ -154,9 +152,9 @@ export interface RestoreProgress {
     tablesProcessed?: number;
     /** Total tables to process */
     tablesTotal?: number;
-    /** Files uploaded (for files restores) */
+    /** Files restored (for files restores) */
     filesUploaded?: number;
-    /** Total files to upload */
+    /** Total files to restore */
     filesTotal?: number;
     /** Bytes processed */
     bytesProcessed?: number;
@@ -213,7 +211,7 @@ export interface RestoreOptions {
   /** Drop existing database objects before restore */
   cleanDatabase?: boolean;
   
-  /** Clear MinIO files before restore */
+  /** Clear local files before restore */
   clearFiles?: boolean;
 }
 
@@ -397,7 +395,7 @@ export enum BackupErrorCode {
   
   // Connection errors
   DATABASE_CONNECTION_FAILED = 'DATABASE_CONNECTION_FAILED',
-  MINIO_CONNECTION_FAILED = 'MINIO_CONNECTION_FAILED',
+  STORAGE_CONNECTION_FAILED = 'STORAGE_CONNECTION_FAILED',
   
   // File system errors
   FILE_NOT_FOUND = 'FILE_NOT_FOUND',

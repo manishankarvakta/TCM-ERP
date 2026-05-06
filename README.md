@@ -1,23 +1,22 @@
-# Startup MVP
+# BHAGYAKUL ERP
 
-A Next.js application with PostgreSQL, MinIO, and Redis support.
+A modern Enterprise Resource Planning application built with Next.js 16, Prisma, PostgreSQL, and Redis.
 
-## 🚀 Deployment Options
+## 🚀 Storage Architecture
 
-Choose your deployment method:
+This project uses a **Local Persistent Storage** system for files and media. Unlike cloud-based S3 or MinIO, this system stores files directly on the server's filesystem within a Docker volume, ensuring:
+- **Simplicity**: No external storage services or complex bucket configurations required.
+- **Performance**: High-speed local I/O for file operations.
+- **Cost-Efficiency**: Uses existing server disk space without additional storage costs.
+- **Reliability**: Files are persisted in the `./volumes/uploads` directory on the host.
 
-- **🐳 Local Development**: Follow the instructions below for local Docker setup
-- **☁️ Production Deployment (Dokploy)**: See [docs/DOKPLOY_DEPLOYMENT_GUIDE.md](./docs/DOKPLOY_DEPLOYMENT_GUIDE.md) for complete production deployment guide
-- **🐋 Docker Production**: See [docs/DOCKER_SETUP.md](./docs/DOCKER_SETUP.md) for standalone Docker production setup
+## 🐳 Deployment Options
 
-📚 **More Documentation**: See [docs/](./docs/) folder for all guides and documentation
-
+- **Local Development**: Follow the instructions below for local Docker setup.
+- **Production Deployment (Dokploy)**: See [docs/DOKPLOY_DEPLOYMENT_GUIDE.md](./docs/DOKPLOY_DEPLOYMENT_GUIDE.md).
+- **Docker Production**: See [docs/DOCKER_SETUP.md](./docs/DOCKER_SETUP.md).
 
 ---
-
-## Diploy Branch: deploy
-## Latest Reaslae: V1.0.1
-
 
 ## Prerequisites
 
@@ -29,21 +28,18 @@ Choose your deployment method:
 
 ### Step 1: Start Docker Services
 
-First, navigate to the project root and start the Docker containers:
+Navigate to the project root and start the core infrastructure:
 
 ```bash
-cd /Users/manishankarvakta/Desktop/APPS/espacio
-docker-compose up -d postgres minio redis
+docker-compose up -d
 ```
 
 This will start:
-- **PostgreSQL** on port `5432`
-- **MinIO** on ports `9000` (API) and `9001` (Console)
-- **Redis** on port `6379`
+- **PostgreSQL** on port `5432` (Data stored in `./volumes/postgres`)
+- **Redis** on port `6379` (Data stored in `./volumes/redis`)
+- **Next.js App** on port `3000` (Files stored in `./volumes/uploads`)
 
-Wait for all services to be healthy (you can check with `docker ps`).
-
-### Step 2: Create Environment Variables File
+### Step 2: Create Environment Variables
 
 Navigate to the `startup-mvp` directory and create a `.env` file:
 
@@ -64,153 +60,74 @@ NEXTAUTH_URL=http://localhost:3000
 # Redis (optional)
 REDIS_URL=redis://localhost:6379
 
-# MinIO Configuration (for local Docker)
-MINIO_ENDPOINT=localhost
-MINIO_PORT=9000
-MINIO_USE_SSL=false
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET_NAME=startup-mvp-files
-MINIO_PUBLIC_URL=http://localhost:9000
-
-# Email Configuration (optional - update with your SMTP credentials)
+# Email Configuration (optional)
 SMTP_HOST=mail.techsoulbd.com
 SMTP_PORT=465
 SMTP_SECURE=true
 SMTP_USER=no-reply@techsoulbd.com
 SMTP_PASS=your-email-password-here
 EMAIL_FROM=no-reply@techsoulbd.com
-EMAIL_FROM_NAME=Startup MVP
+EMAIL_FROM_NAME=BHAGYAKUL ERP
 
 # App URL (for email links)
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-**Note:** Update the email configuration with your actual SMTP credentials if you plan to use email features.
+### Step 3: Database Initialization
 
-### Step 3: Install Dependencies
-
-Install the required npm packages:
+Sync your database schema and seed initial data:
 
 ```bash
 npm install
-```
-
-### Step 4: Generate Prisma Client
-
-Generate the Prisma Client from your schema:
-
-```bash
 npx prisma generate
-```
-
-### Step 5: Setup Database Schema
-
-Sync your database schema with Prisma:
-
-```bash
 npx prisma db push
-```
-
-### Step 6: Seed Database with Sample Data
-
-Seed the database with sample users and data:
-
-```bash
 npx prisma db seed
 ```
 
-This will create the following test users:
-
-#### Admin Account
+#### Default Admin Account
 - **Email:** `admin@example.com`
 - **Password:** `admin123`
 - **Role:** `admin`
 
-#### User Accounts
-- **Email:** `john@example.com`
-- **Password:** `password123`
-- **Role:** `user`
+### Step 4: Run the Application
 
-- **Email:** `jane@example.com`
-- **Password:** `password123`
-- **Role:** `user`
-
-### Step 7: Start the Application
-
-Start the development server:
+For local development with hot reloading:
 
 ```bash
 npm run dev
 ```
 
-The application will be available at [http://localhost:3000](http://localhost:3000)
-
-## Access Points
-
-- **Application:** http://localhost:3000
-- **MinIO Console:** http://localhost:9001
-  - Username: `minioadmin`
-  - Password: `minioadmin`
-- **PostgreSQL:** localhost:5432
-  - Database: `startup_mvp`
-  - Username: `postgres`
-  - Password: `postgres`
-
-## Docker Commands
-
-### Start all services
-```bash
-docker-compose up -d
-```
-
-### Stop all services
-```bash
-docker-compose down
-```
-
-### View logs
-```bash
-docker-compose logs -f
-```
-
-### Check service status
-```bash
-docker ps
-```
-
-## Troubleshooting
-
-### Database Connection Issues
-- Ensure PostgreSQL container is running: `docker ps | grep postgres`
-- Check if the database exists: `docker exec -it startup-mvp-postgres psql -U postgres -l`
-
-### MinIO Connection Issues
-- Verify MinIO is running: `docker ps | grep minio`
-- Access MinIO console at http://localhost:9001 to verify bucket creation
-
-### Prisma Issues
-- If migrations fail, try: `npx prisma db push` to sync schema
-- Regenerate Prisma Client: `npx prisma generate`
+The application will be available at [http://localhost:3000](http://localhost:3000).
 
 ## Project Structure
 
 ```
-startup-mvp/
-├── app/              # Next.js app directory
-├── components/       # React components
-├── lib/              # Utility libraries
-├── prisma/           # Prisma schema and migrations
-├── public/           # Static assets
-└── .env              # Environment variables (create this)
+.
+├── startup-mvp/       # Next.js Application Source
+│   ├── app/           # App Router Routes & Actions
+│   ├── components/    # UI Components
+│   ├── lib/           # Storage & Database Utilities
+│   └── prisma/        # Database Schema
+├── volumes/           # Persistent Storage (Host Bound)
+│   ├── postgres/      # Database Data
+│   ├── redis/         # Cache Data
+│   └── uploads/       # User Files & Media
+└── docker-compose.yml # Container Orchestration
 ```
 
-## Development
+## Troubleshooting
 
-- The app uses Next.js 16 with the App Router
-- Authentication is handled by NextAuth.js
-- File storage uses MinIO (S3-compatible)
-- Database uses PostgreSQL with Prisma ORM
+### File Permissions
+If file uploads fail with permission errors, ensure the `volumes/uploads` directory is writable:
+```bash
+docker exec -u root fferp-app chown -R nextjs:nodejs /app/uploads
+```
+
+### Database Connection
+Ensure the PostgreSQL container is healthy before running Prisma commands:
+```bash
+docker ps | grep postgres
+```
 
 ## License
 

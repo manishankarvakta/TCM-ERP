@@ -2,8 +2,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import JSZip from "jszip";
 import { prisma } from "./prisma";
-import { minio, s3 } from "./minio";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { storage } from "./storage";
 import {
   generateOperationId,
   initProgress,
@@ -389,10 +388,10 @@ export async function createFilesBackup(): Promise<string> {
 
   const zip = new JSZip();
 
-  // List all objects in MinIO bucket
-  const allObjects = await minio.listObjects();
+  // List all files in local storage
+  const allObjects = await storage.listFiles("");
 
-  // Download each file and add to ZIP
+  // Add each file to ZIP
   let fileCount = 0;
   for (const objectKey of allObjects) {
     // Skip folder markers (empty objects ending with /)
@@ -401,27 +400,13 @@ export async function createFilesBackup(): Promise<string> {
     }
 
     try {
-      const getObjectCommand = new GetObjectCommand({
-        Bucket: minio.config.bucketName,
-        Key: objectKey,
-      });
-
-      const response = await s3.send(getObjectCommand);
-      const chunks: Uint8Array[] = [];
-
-      if (response.Body) {
-        for await (const chunk of response.Body as any) {
-          chunks.push(chunk);
-        }
-      }
-
-      const fileBuffer = Buffer.concat(chunks);
+      const fileBuffer = await storage.readFile(objectKey);
 
       // Add file to ZIP preserving folder structure
       zip.file(objectKey, fileBuffer);
       fileCount++;
     } catch (error) {
-      console.error(`Error downloading file ${objectKey}:`, error);
+      console.error(`Error adding file ${objectKey} to backup:`, error);
       // Continue with other files
     }
   }
