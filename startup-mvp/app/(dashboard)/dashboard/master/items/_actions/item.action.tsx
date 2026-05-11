@@ -352,6 +352,7 @@ export async function getItemById(itemId: string) {
       };
     }
 
+    console.log("getItemById - Item:", item.id, "Sizes:", item.sizes, "Colors:", item.colors);
     return {
       success: true,
       item,
@@ -560,6 +561,8 @@ export async function createItem(input: {
 
     // Generate code
     const code = await generateItemCode(input.itemType);
+
+    console.log("Creating Item - Sizes:", input.sizes, "Colors:", input.colors);
 
     // Create item
     const item = await prisma.item.create({
@@ -778,14 +781,19 @@ export async function updateItem(input: {
       discount: input.discount || null,
       trackInventory: input.trackInventory ?? false,
       images: input.images || [],
-      sizes: input.sizes || [],
-      colors: input.colors || [],
+      sizes: input.sizes ? { set: input.sizes } : { set: [] },
+      colors: input.colors ? { set: input.colors } : { set: [] },
       isEnableEcom: input.isEnableEcom ?? false,
     };
 
     if (input.status !== undefined) {
       updateData.status = input.status;
     }
+
+    // Debug logging
+    console.log("Updating Item ID:", input.id);
+    console.log("Input Sizes:", input.sizes);
+    console.log("Input Colors:", input.colors);
 
     // Update item
     const item = await prisma.item.update({
@@ -837,7 +845,9 @@ export async function updateItem(input: {
     if (Number(input.costPrice) !== Number(existingItem.costPrice)) changes.push("costPrice");
     if ((input.salesPrice || null) !== (existingItem.salesPrice || null)) changes.push("salesPrice");
     if ((input.trackInventory ?? false) !== existingItem.trackInventory) changes.push("trackInventory");
-    if (input.image !== existingItem.image) changes.push("image");
+    if (JSON.stringify(input.images || []) !== JSON.stringify(existingItem.images || [])) changes.push("images");
+    if (JSON.stringify(input.sizes || []) !== JSON.stringify(existingItem.sizes || [])) changes.push("sizes");
+    if (JSON.stringify(input.colors || []) !== JSON.stringify(existingItem.colors || [])) changes.push("colors");
     if (input.status !== undefined && input.status !== existingItem.status) changes.push("status");
 
     await logItemUpdated(

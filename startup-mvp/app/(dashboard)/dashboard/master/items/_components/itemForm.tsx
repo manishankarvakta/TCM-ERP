@@ -122,8 +122,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           discount: initialData.discount ? Number(initialData.discount) : null,
           trackInventory: initialData.trackInventory,
           images: initialData.images || [],
-          sizes: initialData.sizes || [],
-          colors: initialData.colors || [],
+          sizes: initialData.sizes ?? [],
+          colors: initialData.colors ?? [],
           isEnableEcom: initialData.isEnableEcom || false,
           status: (initialData.status === "active" || initialData.status === "inactive") 
             ? initialData.status as "active" | "inactive"
@@ -152,6 +152,11 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
   const watchedImages = watch("images") || [];
   const watchedSizes = watch("sizes") || [];
   const watchedColors = watch("colors") || [];
+  
+  // Debug validation errors
+  if (Object.keys(errors).length > 0) {
+    console.log("Form Errors:", errors);
+  }
 
   // Fetch categories and units
   useEffect(() => {
@@ -183,6 +188,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
     try {
       setLoading(true);
       setError("");
+
+      console.log("Form Submission Data:", data);
 
       const payload = {
         name: data.name,
@@ -220,28 +227,30 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
 
   const addSize = () => {
     if (!sizeInput.trim()) return;
-    const newSizes = [...watchedSizes, sizeInput.trim()];
-    setValue("sizes", Array.from(new Set(newSizes)));
+    const currentSizes = watchedSizes || [];
+    const newSizes = Array.from(new Set([...currentSizes, sizeInput.trim()]));
+    setValue("sizes", newSizes, { shouldDirty: true, shouldValidate: true });
     setSizeInput("");
   };
 
   const removeSize = (index: number) => {
-    const newSizes = [...watchedSizes];
-    newSizes.splice(index, 1);
-    setValue("sizes", newSizes);
+    const currentSizes = [...(watchedSizes || [])];
+    currentSizes.splice(index, 1);
+    setValue("sizes", currentSizes, { shouldDirty: true, shouldValidate: true });
   };
 
   const addColor = () => {
     if (!colorInput.trim()) return;
-    const newColors = [...watchedColors, colorInput.trim()];
-    setValue("colors", Array.from(new Set(newColors)));
+    const currentColors = watchedColors || [];
+    const newColors = Array.from(new Set([...currentColors, colorInput.trim()]));
+    setValue("colors", newColors, { shouldDirty: true, shouldValidate: true });
     setColorInput("");
   };
 
   const removeColor = (index: number) => {
-    const newColors = [...watchedColors];
-    newColors.splice(index, 1);
-    setValue("colors", newColors);
+    const currentColors = [...(watchedColors || [])];
+    currentColors.splice(index, 1);
+    setValue("colors", currentColors, { shouldDirty: true, shouldValidate: true });
   };
 
   const addImage = (url: string) => {
@@ -382,92 +391,104 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                     </div>
                   </div>
 
-                  {/* Pricing */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="costPrice">Cost Price *</Label>
-                      <Input
-                        id="costPrice"
-                        type="number"
-                        step="0.01"
-                        {...register("costPrice", { valueAsNumber: true })}
-                        disabled={loading}
-                      />
+                  {/* Variations (Sizes & Colors) */}
+                  <div className="space-y-4 border-t pt-4">
+                    <div className="flex items-center gap-2 text-primary font-semibold">
+                      <FiPlus className="h-4 w-4" />
+                      <h3>Product Variations</h3>
                     </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label>Sizes</Label>
+                        <div className="flex gap-2">
+                          <Input 
+                            placeholder="Add size (e.g. XL, 42)" 
+                            value={sizeInput} 
+                            onChange={(e) => setSizeInput(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSize())}
+                          />
+                          <Button type="button" variant="outline" size="icon" onClick={addSize}><FiPlus /></Button>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {watchedSizes.map((s, i) => (
+                            <Badge key={i} variant="secondary" className="gap-1">
+                              {s} <FiTrash2 className="h-3 w-3 cursor-pointer" onClick={() => removeSize(i)} />
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="salesPrice">Sales Price</Label>
-                      <Input
-                        id="salesPrice"
-                        type="number"
-                        step="0.01"
-                        {...register("salesPrice", { valueAsNumber: true })}
-                        disabled={loading}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="wholesalePrice">Wholesale Price</Label>
-                      <Input
-                        id="wholesalePrice"
-                        type="number"
-                        step="0.01"
-                        {...register("wholesalePrice", { valueAsNumber: true })}
-                        disabled={loading}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="discount">Discount</Label>
-                      <Input
-                        id="discount"
-                        type="number"
-                        step="0.01"
-                        {...register("discount", { valueAsNumber: true })}
-                        disabled={loading}
-                      />
+                      <div className="space-y-2">
+                        <Label>Colors</Label>
+                        <div className="flex gap-2">
+                          <Input 
+                            placeholder="Add color (e.g. Red, Blue)" 
+                            value={colorInput} 
+                            onChange={(e) => setColorInput(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addColor())}
+                          />
+                          <Button type="button" variant="outline" size="icon" onClick={addColor}><FiPlus /></Button>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {watchedColors.map((c, i) => (
+                            <Badge key={i} variant="secondary" className="gap-1">
+                              {c} <FiTrash2 className="h-3 w-3 cursor-pointer" onClick={() => removeColor(i)} />
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Variations (Sizes & Colors) */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label>Sizes</Label>
-                      <div className="flex gap-2">
-                        <Input 
-                          placeholder="Add size (e.g. XL, 42)" 
-                          value={sizeInput} 
-                          onChange={(e) => setSizeInput(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSize())}
-                        />
-                        <Button type="button" variant="outline" size="icon" onClick={addSize}><FiPlus /></Button>
-                      </div>
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {watchedSizes.map((s, i) => (
-                          <Badge key={i} variant="secondary" className="gap-1">
-                            {s} <FiTrash2 className="h-3 w-3 cursor-pointer" onClick={() => removeSize(i)} />
-                          </Badge>
-                        ))}
-                      </div>
+                  {/* Pricing */}
+                  <div className="space-y-4 border-t pt-4">
+                    <div className="flex items-center gap-2 text-primary font-semibold">
+                      <FiPlus className="h-4 w-4" />
+                      <h3>Pricing Information</h3>
                     </div>
-
-                    <div className="space-y-2">
-                      <Label>Colors</Label>
-                      <div className="flex gap-2">
-                        <Input 
-                          placeholder="Add color (e.g. Red, Blue)" 
-                          value={colorInput} 
-                          onChange={(e) => setColorInput(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addColor())}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="costPrice">Cost Price *</Label>
+                        <Input
+                          id="costPrice"
+                          type="number"
+                          step="0.01"
+                          {...register("costPrice", { valueAsNumber: true })}
+                          disabled={loading}
                         />
-                        <Button type="button" variant="outline" size="icon" onClick={addColor}><FiPlus /></Button>
                       </div>
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {watchedColors.map((c, i) => (
-                          <Badge key={i} variant="secondary" className="gap-1">
-                            {c} <FiTrash2 className="h-3 w-3 cursor-pointer" onClick={() => removeColor(i)} />
-                          </Badge>
-                        ))}
+
+                      <div className="space-y-2">
+                        <Label htmlFor="salesPrice">Sales Price</Label>
+                        <Input
+                          id="salesPrice"
+                          type="number"
+                          step="0.01"
+                          {...register("salesPrice", { valueAsNumber: true })}
+                          disabled={loading}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="wholesalePrice">Wholesale Price</Label>
+                        <Input
+                          id="wholesalePrice"
+                          type="number"
+                          step="0.01"
+                          {...register("wholesalePrice", { valueAsNumber: true })}
+                          disabled={loading}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="discount">Discount</Label>
+                        <Input
+                          id="discount"
+                          type="number"
+                          step="0.01"
+                          {...register("discount", { valueAsNumber: true })}
+                          disabled={loading}
+                        />
                       </div>
                     </div>
                   </div>

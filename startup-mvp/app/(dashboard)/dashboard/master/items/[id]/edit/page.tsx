@@ -20,6 +20,8 @@ export default async function EditItemPage({ params }: EditItemPageProps) {
 
   const item = result.item;
 
+  console.log(item);
+
   return (
     <PageGuard permissionKey="master.items" requiredOperation="edit">
       <div className="space-y-6">
@@ -35,8 +37,13 @@ export default async function EditItemPage({ params }: EditItemPageProps) {
             unitId: item.unitId,
             costPrice: Number(item.costPrice),
             salesPrice: item.salesPrice ? Number(item.salesPrice) : null,
+            wholesalePrice: item.wholesalePrice ? Number(item.wholesalePrice) : null,
+            discount: item.discount ? Number(item.discount) : null,
             trackInventory: item.trackInventory,
-            image: item.image,
+            images: item.images as string[],
+            sizes: item.sizes as string[],
+            colors: item.colors as string[],
+            isEnableEcom: item.isEnableEcom,
             status: item.status as "active" | "inactive",
           }}
         />
