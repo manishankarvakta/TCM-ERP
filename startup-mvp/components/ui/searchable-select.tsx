@@ -1,22 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { FiSearch } from "react-icons/fi";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 export interface SearchableSelectOption {
   label: string;
@@ -50,13 +44,8 @@ export function SearchableSelect({
   allowClear = false,
   renderOption,
 }: SearchableSelectProps) {
-  const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
-
-  const selectedOption = React.useMemo(
-    () => options.find((option) => option.value === value),
-    [options, value]
-  );
+  const [open, setOpen] = React.useState(false);
 
   const filteredOptions = React.useMemo(() => {
     if (!searchQuery) return options;
@@ -71,87 +60,83 @@ export function SearchableSelect({
   }, [options, searchQuery]);
 
   const handleSelect = (selectedValue: string) => {
-    if (selectedValue === value && allowClear) {
-      onValueChange(null);
-    } else {
-      onValueChange(selectedValue === value ? null : selectedValue);
-    }
-    setOpen(false);
+    onValueChange(selectedValue === value && allowClear ? null : selectedValue);
     setSearchQuery("");
   };
 
   const defaultRenderOption = (option: SearchableSelectOption) => (
-    <div className="flex flex-col">
-      <span>{option.label}</span>
+    <div className="flex items-center gap-2">
+      <span className="truncate">{option.label}</span>
       {option.description && (
-        <span className="text-xs text-muted-foreground">
-          {option.description}
+        <span className="text-xs text-muted-foreground truncate">
+          ({option.description})
         </span>
       )}
     </div>
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          disabled={disabled}
-          className={cn(
-            "w-full justify-between text-left font-normal",
-            !value && "text-muted-foreground",
-            className
+    <Select
+      value={value || ""}
+      onValueChange={handleSelect}
+      disabled={disabled}
+      open={open}
+      onOpenChange={(isOpen) => {
+        setOpen(isOpen);
+        if (!isOpen) setSearchQuery("");
+      }}
+    >
+      <SelectTrigger className={cn("w-full text-left font-normal", !value && "text-muted-foreground", className)}>
+        <SelectValue placeholder={placeholder}>
+          {value && options.find(o => o.value === value) && (
+            renderOption 
+              ? renderOption(options.find(o => o.value === value)!) 
+              : defaultRenderOption(options.find(o => o.value === value)!)
           )}
-        >
-          {selectedOption ? (
-            renderOption ? (
-              renderOption(selectedOption)
-            ) : (
-              defaultRenderOption(selectedOption)
-            )
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent className="max-h-[300px]">
+        <div className="p-2 border-b sticky top-0 bg-popover z-10">
+          <div className="relative">
+            <FiSearch className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={searchPlaceholder}
+              value={searchQuery}
+              onChange={(e) => {
+                e.stopPropagation();
+                setSearchQuery(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                // Prevent Radix Select from handling navigation keys when typing in the input
+                e.stopPropagation();
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                }
+              }}
+              className="pl-8 h-8"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+        <div className="max-h-[200px] overflow-y-auto">
+          {filteredOptions.length === 0 ? (
+            <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">
+              {emptyMessage}
+            </div>
           ) : (
-            <span>{placeholder}</span>
+            filteredOptions.map((option) => (
+              <SelectItem 
+                key={option.value} 
+                value={option.value}
+                disabled={option.disabled}
+                className="cursor-pointer"
+              >
+                {renderOption ? renderOption(option) : defaultRenderOption(option)}
+              </SelectItem>
+            ))
           )}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-        <Command shouldFilter={false}>
-          <CommandInput
-            placeholder={searchPlaceholder}
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-          />
-          <CommandList>
-            <CommandEmpty>{emptyMessage}</CommandEmpty>
-            <CommandGroup>
-              {filteredOptions.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={option.value}
-                  disabled={option.disabled}
-                  onSelect={() => handleSelect(option.value)}
-                  className={cn(
-                    "cursor-pointer",
-                    option.disabled && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === option.value ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  {renderOption ? renderOption(option) : defaultRenderOption(option)}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+        </div>
+      </SelectContent>
+    </Select>
   );
 }
-

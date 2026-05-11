@@ -33,6 +33,7 @@ const clientFormSchema = z.object({
   country: z.string().optional().or(z.literal("")),
   company: z.string().optional().or(z.literal("")),
   image: z.string().url("Invalid image URL").optional().or(z.literal("")),
+  openingBalance: z.string().optional().or(z.literal("")),
   status: z.enum(["active", "inactive"]),
 });
 
@@ -52,6 +53,7 @@ interface ClientFormProps {
     country: string | null;
     company: string | null;
     image: string | null;
+    openingBalance?: any;
     status: string;
   };
 }
@@ -82,6 +84,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
           country: initialData.country || "",
           company: initialData.company || "",
           image: initialData.image || "",
+          openingBalance: initialData.openingBalance?.toString() || "0",
           status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
         }
       : {
@@ -95,6 +98,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
           country: "",
           company: "",
           image: "",
+          openingBalance: "0",
           status: "active",
         },
   });
@@ -116,6 +120,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
           country: data.country || undefined,
           company: data.company || undefined,
           image: data.image || undefined,
+          openingBalance: data.openingBalance ? parseFloat(data.openingBalance) : 0,
           status: data.status,
         });
 
@@ -138,6 +143,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
           country: data.country || undefined,
           company: data.company || undefined,
           image: data.image || undefined,
+          openingBalance: data.openingBalance ? parseFloat(data.openingBalance) : 0,
           status: data.status,
         });
 
@@ -296,18 +302,35 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="country">Country</Label>
-                  <Input
-                    id="country"
-                    type="text"
-                    placeholder="Country"
-                    {...register("country")}
-                    disabled={loading}
-                  />
-                  {errors.country && (
-                    <p className="text-sm text-destructive">{errors.country.message}</p>
-                  )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="country">Country</Label>
+                    <Input
+                      id="country"
+                      type="text"
+                      placeholder="Country"
+                      {...register("country")}
+                      disabled={loading}
+                    />
+                    {errors.country && (
+                      <p className="text-sm text-destructive">{errors.country.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="openingBalance">Opening Balance</Label>
+                    <Input
+                      id="openingBalance"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      {...register("openingBalance")}
+                      disabled={loading}
+                    />
+                    {errors.openingBalance && (
+                      <p className="text-sm text-destructive">{errors.openingBalance.message}</p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2">

@@ -506,6 +506,7 @@ model Client {
   country          String?
   company          String?
   image            String?
+  openingBalance   Decimal            @default(0) @db.Decimal(12, 2)
   createdBy        String
   status           String             @default("active")
   createdAt        DateTime           @default(now())
@@ -538,6 +539,7 @@ model Supplier {
   country          String?
   company          String?
   image            String?
+  openingBalance   Decimal            @default(0) @db.Decimal(12, 2)
   createdBy        String
   status           String             @default("active")
   createdAt        DateTime           @default(now())
