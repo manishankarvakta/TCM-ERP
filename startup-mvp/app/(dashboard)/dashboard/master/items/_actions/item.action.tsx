@@ -14,7 +14,7 @@ import { type Prisma, ItemType } from "@prisma/client";
 async function generateItemCode(itemType: ItemType): Promise<string> {
   const prefix = {
     RAW_MATERIAL: "RM",
-    FINISHED_GOOD: "FG",
+    READY_PRODUCT: "RP",
     RETAIL: "RT",
   }[itemType];
   
@@ -213,8 +213,13 @@ export async function getItems(
         unitId: true,
         costPrice: true,
         salesPrice: true,
+        wholesalePrice: true,
+        discount: true,
         trackInventory: true,
-        image: true,
+        images: true,
+        sizes: true,
+        colors: true,
+        isEnableEcom: true,
         status: true,
         isTrash: true,
         createdAt: true,
@@ -303,8 +308,13 @@ export async function getItemById(itemId: string) {
         unitId: true,
         costPrice: true,
         salesPrice: true,
+        wholesalePrice: true,
+        discount: true,
         trackInventory: true,
-        image: true,
+        images: true,
+        sizes: true,
+        colors: true,
+        isEnableEcom: true,
         status: true,
         isTrash: true,
         createdAt: true,
@@ -483,8 +493,13 @@ export async function createItem(input: {
   unitId: string;
   costPrice: number;
   salesPrice?: number | null;
+  wholesalePrice?: number | null;
+  discount?: number | null;
   trackInventory?: boolean;
-  image?: string | null;
+  images?: string[] | null;
+  sizes?: string[];
+  colors?: string[];
+  isEnableEcom?: boolean;
   status?: "active" | "inactive";
 }) {
   try {
@@ -508,11 +523,11 @@ export async function createItem(input: {
       };
     }
 
-    // Validate: salesPrice required if itemType = FINISHED_GOOD or RETAIL
-    if ((input.itemType === "FINISHED_GOOD" || input.itemType === "RETAIL") && (!input.salesPrice || input.salesPrice <= 0)) {
+    // Validate: salesPrice required if itemType = READY_PRODUCT or RETAIL
+    if ((input.itemType === "READY_PRODUCT" || input.itemType === "RETAIL") && (!input.salesPrice || input.salesPrice <= 0)) {
       return {
         success: false,
-        error: "Sales price is required for Finished Goods and Retail items",
+        error: "Sales price is required for Ready Products and Retail items",
         item: null,
       };
     }
@@ -557,8 +572,13 @@ export async function createItem(input: {
         unitId: input.unitId,
         costPrice: input.costPrice,
         salesPrice: input.salesPrice || null,
+        wholesalePrice: input.wholesalePrice || null,
+        discount: input.discount || null,
         trackInventory: input.trackInventory ?? false,
-        image: input.image || null,
+        images: input.images || [],
+        sizes: input.sizes || [],
+        colors: input.colors || [],
+        isEnableEcom: input.isEnableEcom ?? false,
         status: input.status || "active",
         isTrash: false,
         createdBy: session.user.id,
@@ -573,8 +593,13 @@ export async function createItem(input: {
         unitId: true,
         costPrice: true,
         salesPrice: true,
+        wholesalePrice: true,
+        discount: true,
         trackInventory: true,
-        image: true,
+        images: true,
+        sizes: true,
+        colors: true,
+        isEnableEcom: true,
         status: true,
         createdAt: true,
         category: {
@@ -644,8 +669,13 @@ export async function updateItem(input: {
   unitId: string;
   costPrice: number;
   salesPrice?: number | null;
+  wholesalePrice?: number | null;
+  discount?: number | null;
   trackInventory?: boolean;
-  image?: string | null;
+  images?: string[] | null;
+  sizes?: string[];
+  colors?: string[];
+  isEnableEcom?: boolean;
   status?: "active" | "inactive";
 }) {
   try {
@@ -681,8 +711,13 @@ export async function updateItem(input: {
         unitId: true,
         costPrice: true,
         salesPrice: true,
+        wholesalePrice: true,
+        discount: true,
         trackInventory: true,
-        image: true,
+        images: true,
+        sizes: true,
+        colors: true,
+        isEnableEcom: true,
         status: true,
       },
     });
@@ -695,11 +730,11 @@ export async function updateItem(input: {
       };
     }
 
-    // Validate: salesPrice required if itemType = FINISHED_GOOD or RETAIL
-    if ((input.itemType === "FINISHED_GOOD" || input.itemType === "RETAIL") && (!input.salesPrice || input.salesPrice <= 0)) {
+    // Validate: salesPrice required if itemType = READY_PRODUCT or RETAIL
+    if ((input.itemType === "READY_PRODUCT" || input.itemType === "RETAIL") && (!input.salesPrice || input.salesPrice <= 0)) {
       return {
         success: false,
-        error: "Sales price is required for Finished Goods and Retail items",
+        error: "Sales price is required for Ready Products and Retail items",
         item: null,
       };
     }
@@ -739,8 +774,13 @@ export async function updateItem(input: {
       unitId: input.unitId,
       costPrice: input.costPrice,
       salesPrice: input.salesPrice || null,
+      wholesalePrice: input.wholesalePrice || null,
+      discount: input.discount || null,
       trackInventory: input.trackInventory ?? false,
-      image: input.image || null,
+      images: input.images || [],
+      sizes: input.sizes || [],
+      colors: input.colors || [],
+      isEnableEcom: input.isEnableEcom ?? false,
     };
 
     if (input.status !== undefined) {
@@ -761,8 +801,13 @@ export async function updateItem(input: {
         unitId: true,
         costPrice: true,
         salesPrice: true,
+        wholesalePrice: true,
+        discount: true,
         trackInventory: true,
-        image: true,
+        images: true,
+        sizes: true,
+        colors: true,
+        isEnableEcom: true,
         status: true,
         createdAt: true,
         updatedAt: true,

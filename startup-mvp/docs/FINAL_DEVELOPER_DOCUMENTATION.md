@@ -36,7 +36,7 @@ The application is organized into several core modules, each with its own set of
 ### 3.2 Inventory & Warehousing
 - **Stock Tracking**: Real-time tracking of items across multiple warehouses.
 - **Stock Ledger**: Detailed history of every stock movement (IN, OUT, ADJUSTMENT).
-- **Item Management**: Categorization by type (RAW_MATERIAL, FINISHED_GOOD, RETAIL).
+- **Item Management**: Categorization by type (RAW_MATERIAL, READY_PRODUCT, RETAIL).
 
 ### 3.3 Production (Manufacturing)
 - **BOM (Bill of Materials)**: Recipes defining the raw materials required for each finished good.
@@ -83,9 +83,9 @@ Frontend protection is implemented using the `PageGuard` component:
 1. **Action**: Production Order marked as `COMPLETED`.
 2. **Inventory**: 
    - Raw Materials: Stock decreases; Stock Ledger records `OUT`.
-   - Finished Goods: Stock increases; Stock Ledger records `IN`.
+   - Ready Products: Stock increases; Stock Ledger records `IN`.
 3. **Accounting**: Journal Entry:
-   - Debit: Finished Goods Inventory (1630)
+   - Debit: Ready Products Inventory (1630)
    - Credit: Raw Material Inventory (1620)
 
 ### 5.3 Sales Flow

@@ -22,7 +22,7 @@ export interface SalesAccounts {
   
   // COGS Entry
   cogsAccountId: string;             // DR (Cost of Goods Sold)
-  finishedGoodsInventoryAccountId: string; // CR (Finished Goods Inventory)
+  finishedGoodsInventoryAccountId: string; // CR (Ready Products Inventory)
 }
 
 /**
@@ -34,7 +34,7 @@ export interface ProductionAccounts {
   consumptionRawMaterialInventoryId: string; // CR (Raw Material Inventory)
   
   // Production Completion
-  completionFinishedGoodsInventoryId: string; // DR (Finished Goods Inventory)
+  completionFinishedGoodsInventoryId: string; // DR (Ready Products Inventory)
   completionWipAccountId: string;             // CR (Work In Progress)
 }
 
@@ -43,12 +43,12 @@ export interface ProductionAccounts {
  */
 export interface InventoryAdjustmentAccounts {
   // Positive Adjustment
-  positiveFgInventoryId: string;  // DR (Finished Goods)
+  positiveFgInventoryId: string;  // DR (Ready Products)
   positiveRmInventoryId: string;  // DR (Raw Material)
   positiveAdjustmentGainId: string; // CR (Adjustment Gain)
   
   // Negative Adjustment
-  negativeFgInventoryId: string;   // CR (Finished Goods)
+  negativeFgInventoryId: string;   // CR (Ready Products)
   negativeRmInventoryId: string;   // CR (Raw Material)
   negativeAdjustmentExpenseId: string; // DR (Adjustment Expense)
 }

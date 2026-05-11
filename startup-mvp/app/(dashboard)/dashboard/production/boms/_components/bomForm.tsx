@@ -243,7 +243,7 @@ export default function BOMForm({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="itemId">Finished Good *</Label>
+                <Label htmlFor="itemId">Ready Product *</Label>
                 <Controller
                   name="itemId"
                   control={control}

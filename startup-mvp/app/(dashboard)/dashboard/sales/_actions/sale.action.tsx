@@ -168,13 +168,13 @@ export async function getItemsForSale() {
       return { success: false, error: "Unauthorized", items: [] };
     }
 
-    // Only get FINISHED_GOOD and RETAIL items with salesPrice
+    // Only get READY_PRODUCT and RETAIL items with salesPrice
     const items = await prisma.item.findMany({
       where: {
         status: "active",
         isTrash: false,
         itemType: {
-          in: [ItemType.FINISHED_GOOD, ItemType.RETAIL],
+          in: [ItemType.READY_PRODUCT, ItemType.RETAIL],
         },
         salesPrice: {
           not: null,
@@ -394,7 +394,7 @@ async function createSaleAccountingVoucher(
            // Prefer Sales settings for inventory if available (e.g. general FG or retail)
            // If detailed granular tracking specific to production types is needed, check item type
            
-           if (item.item.itemType === ItemType.FINISHED_GOOD) {
+           if (item.item.itemType === ItemType.READY_PRODUCT) {
              inventoryAccountId = productionAccounts?.completionFinishedGoodsInventoryId || salesAccounts.finishedGoodsInventoryAccountId;
            } else if (item.item.itemType === ItemType.RETAIL) {
              // For retail, reuse FG or specific retail if we add it later

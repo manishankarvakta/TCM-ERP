@@ -44,7 +44,7 @@ export default async function AnalyticsPage({
 
   const itemTypeOptions = [
     { value: "RAW_MATERIAL", label: "Raw Material" },
-    { value: "FINISHED_GOOD", label: "Finished Good" },
+    { value: "READY_PRODUCT", label: "Ready Product" },
     { value: "RETAIL", label: "Retail" },
   ];
 

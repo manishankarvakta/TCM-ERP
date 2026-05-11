@@ -53,7 +53,7 @@ enum SaleStatus {
 
 enum ItemType {
   RAW_MATERIAL
-  FINISHED_GOOD
+  READY_PRODUCT
   RETAIL
 }
 
@@ -307,9 +307,14 @@ model Item {
   categoryId     String?
   unitId         String
   costPrice      Decimal  @db.Decimal(12, 2) // Purchase/cost price
-  salesPrice     Decimal? @db.Decimal(12, 2) // Selling price (required for FINISHED_GOOD)
+  salesPrice     Decimal? @db.Decimal(12, 2) // Selling price (required for READY_PRODUCT)
+  wholesalePrice Decimal? @db.Decimal(12, 2) // Wholesale price
+  discount       Decimal? @db.Decimal(12, 2) // Discount amount or percentage
   trackInventory Boolean  @default(false) // Inventory tracking flag
-  image          String? // Image URL/path
+  images         Json?    // Array of image URLs/paths
+  sizes          String[] // Available sizes
+  colors         String[] // Available colors
+  isEnableEcom   Boolean  @default(false) // Whether to show in e-commerce
   status         String   @default("active") // active, inactive, trash
   isTrash        Boolean  @default(false)
   createdBy      String
@@ -417,7 +422,7 @@ model BOM {
   code            String   @unique // Auto-generated: BOM-2026-0001
   name            String
   description     String?
-  itemId          String // Finished Good item
+  itemId          String // Ready Product item
   quantityPerUnit Decimal  @db.Decimal(12, 2) // Quantity of FG produced (e.g., 10 pieces)
   status          String   @default("active") // active, inactive, trash
   isTrash         Boolean  @default(false)
@@ -457,7 +462,7 @@ model ProductionOrder {
   id          String                @id @default(cuid())
   code        String                @unique // Auto-generated: PROD-2026-0001
   bomId       String // Link to BOM
-  itemId      String // Finished Good item (for quick access)
+  itemId      String // Ready Product item (for quick access)
   warehouseId String // Production warehouse
   quantity    Decimal               @db.Decimal(12, 2) // Quantity to produce
   status      ProductionOrderStatus @default(PLANNED)

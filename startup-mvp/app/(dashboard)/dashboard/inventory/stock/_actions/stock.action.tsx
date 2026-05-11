@@ -391,7 +391,7 @@ export async function adjustStock(input: {
         if (!inventoryAccountId) {
           if (item.itemType === "RAW_MATERIAL") {
             inventoryAccountId = settings.production.consumptionRawMaterialInventoryId;
-          } else if (item.itemType === "FINISHED_GOOD") {
+          } else if (item.itemType === "READY_PRODUCT") {
             inventoryAccountId = settings.production.completionFinishedGoodsInventoryId;
           } else {
             inventoryAccountId = settings.purchase.inventoryAccountId;
@@ -581,7 +581,7 @@ export async function adjustStock(input: {
         if (!inventoryAccountId) {
           if (item.itemType === "RAW_MATERIAL") {
             inventoryAccountId = settings.production.consumptionRawMaterialInventoryId;
-          } else if (item.itemType === "FINISHED_GOOD") {
+          } else if (item.itemType === "READY_PRODUCT") {
             inventoryAccountId = settings.production.completionFinishedGoodsInventoryId;
           } else {
             inventoryAccountId = settings.purchase.inventoryAccountId;

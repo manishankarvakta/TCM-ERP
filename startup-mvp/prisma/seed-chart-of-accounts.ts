@@ -231,7 +231,7 @@ async function main() {
     },
     {
       code: "1630",
-      name: "Finished Goods Inventory",
+      name: "Ready Products Inventory",
       type: "ASSET" as AccountType,
       parentCode: "1600",
       description: "Finished goods inventory",

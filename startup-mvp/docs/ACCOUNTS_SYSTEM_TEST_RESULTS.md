@@ -59,7 +59,7 @@
 
 2. **Production Accounting** (`production.action.tsx`):
    - ✅ Accounting voucher creation in `completeProductionOrder()`
-   - ✅ Moves cost from Raw Material to Finished Goods Inventory
+   - ✅ Moves cost from Raw Material to Ready Products Inventory
    - ✅ Automatically posts vouchers
    - ✅ Links vouchers to production orders
 
@@ -90,7 +90,7 @@ To complete end-to-end testing, follow the steps in [ACCOUNTS_SYSTEM_TESTING_GUI
 ### Immediate Actions
 
 1. **Create New Test Purchases**:
-   - Create 3 new purchases (RAW_MATERIAL, FINISHED_GOOD, RETAIL)
+   - Create 3 new purchases (RAW_MATERIAL, READY_PRODUCT, RETAIL)
    - Mark them as RECEIVED
    - Verify vouchers are auto-created and posted
 

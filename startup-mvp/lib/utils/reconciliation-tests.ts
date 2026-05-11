@@ -74,7 +74,7 @@ export async function reconcileInventoryValue(): Promise<ReconciliationResult> {
       name: {
         in: [
           "Raw Material Inventory",
-          "Finished Goods Inventory",
+          "Ready Products Inventory",
           "Retail Inventory",
           "Inventory Stock",
         ],

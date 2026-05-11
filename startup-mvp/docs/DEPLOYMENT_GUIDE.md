@@ -35,7 +35,7 @@ The system relies on specific Chart of Account (COA) codes for automated integra
 | Code | Account Name | Usage |
 |------|--------------|-------|
 | `1620` | Raw Material Inventory | Purchases and Production input |
-| `1630` | Finished Goods Inventory | Production output and Sales COGS |
+| `1630` | Ready Products Inventory | Production output and Sales COGS |
 | `1640` | Retail Inventory | Direct retail sales |
 | `1410` | Accounts Receivable | Sales revenue tracking |
 | `2110` | Accounts Payable | Supplier balances tracking |
@@ -53,11 +53,11 @@ The system relies on specific Chart of Account (COA) codes for automated integra
    - Creates a posted Journal Entry (Debit: Inventory, Credit: Accounts Payable).
 
 ### Production Flow
-1. Create a BOM (Bill of Materials) for a Finished Good.
+1. Create a BOM (Bill of Materials) for a Ready Product.
 2. Create a Production Order and mark as `COMPLETED`.
 3. System automatically:
    - Decrements Raw Material Stock.
-   - Increments Finished Good Stock.
+   - Increments Ready Product Stock.
    - Records Stock Ledgers (Type: `OUT` for RM, `IN` for FG).
    - Creates a posted Journal Entry (Debit: FG Inventory, Credit: RM Inventory).
 

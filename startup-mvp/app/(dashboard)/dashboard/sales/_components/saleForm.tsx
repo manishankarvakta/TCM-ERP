@@ -551,7 +551,7 @@ export default function SaleForm({
       <Card>
         <CardHeader>
           <CardTitle>Items</CardTitle>
-          <CardDescription>Add items to this sale (Finished Goods and Retail only)</CardDescription>
+          <CardDescription>Add items to this sale (Ready Products and Retail only)</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">

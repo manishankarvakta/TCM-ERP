@@ -23,7 +23,7 @@ The Accounts System is a comprehensive double-entry accounting module integrated
 
 - **Double-Entry Accounting**: All transactions maintain Debit = Credit balance
 - **Automatic Voucher Creation**: Purchases, production, and sales auto-create accounting vouchers
-- **Item-Type Based Accounting**: Different inventory accounts for RAW_MATERIAL, FINISHED_GOOD, and RETAIL
+- **Item-Type Based Accounting**: Different inventory accounts for RAW_MATERIAL, READY_PRODUCT, and RETAIL
 - **Transaction Safety**: All operations use database transactions for atomicity
 - **Audit Trail**: Complete logging of all accounting operations
 
@@ -240,14 +240,14 @@ function validateVoucherLines(lines: Array<{ debitAmount: number; creditAmount: 
 ### Voucher Types
 
 1. **PURCHASE**: Created when purchases are received
-   - Debit: Inventory (Raw Material/Finished Goods/Retail)
+   - Debit: Inventory (Raw Material/Ready Products/Retail)
    - Credit: Accounts Payable
 
 2. **SALES**: Created when sales are completed
    - Debit: Accounts Receivable
    - Credit: Sales Revenue
    - Debit: COGS (for finished goods)
-   - Credit: Finished Goods Inventory (for finished goods)
+   - Credit: Ready Products Inventory (for finished goods)
 
 3. **JOURNAL**: Created for production and adjustments
    - Production: Debit FG Inventory, Credit Raw Material Inventory
@@ -273,7 +273,7 @@ Control accounts are special accounts used for automatic accounting:
 - **Sales Revenue (4110)**: Tracks sales income
 - **Cost of Goods Sold (5110)**: Tracks cost of goods sold
 - **Raw Material Inventory (1620)**: Tracks raw material stock value
-- **Finished Goods Inventory (1630)**: Tracks finished goods stock value
+- **Ready Products Inventory (1630)**: Tracks finished goods stock value
 - **Retail Inventory (1640)**: Tracks retail item stock value
 
 **Finding Control Accounts**:
@@ -312,7 +312,7 @@ const apAccountId = await findControlAccount("Accounts Payable");
 **Process**:
 
 1. Fetches purchase with items and item details
-2. Groups items by `itemType` (RAW_MATERIAL, FINISHED_GOOD, RETAIL)
+2. Groups items by `itemType` (RAW_MATERIAL, READY_PRODUCT, RETAIL)
 3. Calculates totals per item type
 4. Creates voucher lines:
    - Debit: Appropriate inventory account based on item type
@@ -374,7 +374,7 @@ if (status === "RECEIVED" || status === "PARTIALLY_RECEIVED") {
 
 1. Calculates total raw material cost from BOM items
 2. Creates JOURNAL voucher:
-   - Debit: Finished Goods Inventory = raw material cost
+   - Debit: Ready Products Inventory = raw material cost
    - Credit: Raw Material Inventory = raw material cost
 3. Posts voucher automatically
 4. Links voucher to production order
@@ -393,7 +393,7 @@ for (const bomItem of order.bom.items) {
 
 if (totalRawMaterialCost > 0 && !order.voucherId) {
   const rawMaterialInventoryId = await findControlAccount("Raw Material Inventory");
-  const finishedGoodsInventoryId = await findControlAccount("Finished Goods Inventory");
+  const finishedGoodsInventoryId = await findControlAccount("Ready Products Inventory");
   
   if (rawMaterialInventoryId && finishedGoodsInventoryId) {
     const voucherLines = [
@@ -402,7 +402,7 @@ if (totalRawMaterialCost > 0 && !order.voucherId) {
         debitAmount: totalRawMaterialCost,
         creditAmount: 0,
         chartOfAccountId: finishedGoodsInventoryId,
-        description: `Production ${order.code} - Finished Goods`,
+        description: `Production ${order.code} - Ready Products`,
       },
       {
         lineNumber: 2,
@@ -446,9 +446,9 @@ if (totalRawMaterialCost > 0 && !order.voucherId) {
 2. Creates SALES voucher:
    - Debit: Accounts Receivable = grandTotal
    - Credit: Sales Revenue = grandTotal
-   - For FINISHED_GOOD items:
+   - For READY_PRODUCT items:
      - Debit: COGS = quantity × costPrice
-     - Credit: Finished Goods Inventory = quantity × costPrice
+     - Credit: Ready Products Inventory = quantity × costPrice
 3. Posts voucher automatically
 4. Links voucher to sale
 
@@ -459,7 +459,7 @@ if (totalRawMaterialCost > 0 && !order.voucherId) {
 const arAccountId = await findControlAccount("Accounts Receivable");
 const salesRevenueAccountId = await findControlAccount("Sales Revenue");
 const cogsAccountId = await findControlAccount("Cost of Goods Sold");
-const fgInventoryAccountId = await findControlAccount("Finished Goods Inventory");
+const fgInventoryAccountId = await findControlAccount("Ready Products Inventory");
 
 const voucherLines = [
   {
@@ -481,7 +481,7 @@ const voucherLines = [
 
 // Add COGS lines for finished goods
 for (const saleItem of sale.items) {
-  if (saleItem.item.itemType === "FINISHED_GOOD" && saleItem.item.costPrice) {
+  if (saleItem.item.itemType === "READY_PRODUCT" && saleItem.item.costPrice) {
     const cogsAmount = Number(saleItem.quantity) * Number(saleItem.item.costPrice);
     voucherLines.push(
       {
@@ -755,7 +755,7 @@ export async function createInventoryAdjustmentVoucher(
 
   // Find inventory accounts
   const rawMaterialInventoryId = await findControlAccount("Raw Material Inventory");
-  const finishedGoodsInventoryId = await findControlAccount("Finished Goods Inventory");
+  const finishedGoodsInventoryId = await findControlAccount("Ready Products Inventory");
   const retailInventoryId = await findControlAccount("Retail Inventory");
   const inventoryAdjustmentAccountId = await findControlAccount("Inventory Adjustment");
 
@@ -786,7 +786,7 @@ export async function createInventoryAdjustmentVoucher(
       case "RAW_MATERIAL":
         inventoryAccountId = rawMaterialInventoryId;
         break;
-      case "FINISHED_GOOD":
+      case "READY_PRODUCT":
         inventoryAccountId = finishedGoodsInventoryId;
         break;
       case "RETAIL":
@@ -981,7 +981,7 @@ Group items by type and create separate lines:
 ```typescript
 const itemsByType: Record<ItemType, Array<{ totalCost: number }>> = {
   RAW_MATERIAL: [],
-  FINISHED_GOOD: [],
+  READY_PRODUCT: [],
   RETAIL: [],
 };
 
@@ -1017,7 +1017,7 @@ const cogsLines: Array<{
 }> = [];
 
 for (const saleItem of saleItems) {
-  if (saleItem.item.itemType === "FINISHED_GOOD" && saleItem.item.costPrice) {
+  if (saleItem.item.itemType === "READY_PRODUCT" && saleItem.item.costPrice) {
     const cogsAmount = Number(saleItem.quantity) * Number(saleItem.item.costPrice);
     
     // COGS Debit

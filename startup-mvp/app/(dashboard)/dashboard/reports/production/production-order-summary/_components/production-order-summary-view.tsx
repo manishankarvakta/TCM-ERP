@@ -78,7 +78,7 @@ export default function ProductionOrderSummaryView({
     },
     {
       key: "finishedGoodItem",
-      label: "Finished Good",
+      label: "Ready Product",
       sortable: true,
     },
     {

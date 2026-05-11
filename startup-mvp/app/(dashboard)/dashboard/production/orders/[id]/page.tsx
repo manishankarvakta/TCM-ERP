@@ -190,12 +190,12 @@ export default async function ProductionOrderDetailPage({
             </CardContent>
           </Card>
 
-          {/* Finished Good */}
+          {/* Ready Product */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FiBox className="h-5 w-5" />
-                Finished Good
+                Ready Product
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">

@@ -91,7 +91,7 @@ export function parsePostgresConfig(): PostgresConfig {
 /**
  * Backup file naming configuration
  */
-export const BACKUP_FILENAME_PATTERN = /^backup-\d{8}-\d{6}\.zip$/;
+export const BACKUP_FILENAME_PATTERN = /^backup-\d{8}-\d{6}\.zip(\.encrypted)?$/;
 
 /**
  * Generate a backup ID with current timestamp
@@ -127,7 +127,7 @@ export function isValidBackupId(id: string): boolean {
  * Extract backup ID from filename
  */
 export function extractBackupId(filename: string): string | null {
-  const match = filename.match(/^(backup-\d{8}-\d{6})\.zip$/);
+  const match = filename.match(/^(backup-\d{8}-\d{6})(\.zip|\.zip\.encrypted)$/);
   return match ? match[1] : null;
 }
 

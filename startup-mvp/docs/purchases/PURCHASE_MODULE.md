@@ -25,7 +25,7 @@ The Purchase module manages purchase orders from suppliers. It integrates with t
 - **Auto-Generated Codes**: Purchase numbers are automatically generated (e.g., `PUR1000001`)
 - **Inventory Integration**: Automatically updates stock when purchase is received
 - **Accounting Integration**: Creates accounting vouchers when purchase is received
-- **Item-Type Based Accounting**: Different accounting entries for RAW_MATERIAL, FINISHED_GOOD, and RETAIL items
+- **Item-Type Based Accounting**: Different accounting entries for RAW_MATERIAL, READY_PRODUCT, and RETAIL items
 - **Stock Ledger Integration**: Creates ledger entries for all stock movements
 - **Audit Trail**: Complete user activity logging and notifications
 - **Soft Delete**: Trash system for safe deletion
@@ -722,7 +722,7 @@ When a purchase is received, the system:
 1. **Creates Accounting Voucher**: Creates a PURCHASE type voucher
 2. **Item-Type Based Entries**:
    - **RAW_MATERIAL**: Debits Raw Material Inventory, Credits Accounts Payable
-   - **FINISHED_GOOD**: Debits Finished Goods Inventory, Credits Accounts Payable
+   - **READY_PRODUCT**: Debits Ready Products Inventory, Credits Accounts Payable
    - **RETAIL**: Debits Retail Inventory, Credits Accounts Payable
 3. **Links Voucher**: Stores `voucherId` in Purchase record
 4. **Posts Voucher**: Automatically posts the voucher to accounting
@@ -819,7 +819,7 @@ amount = quantity * unitPrice;
 1. **Voucher Creation**: Only when purchase is received
 2. **Item-Type Based**:
    - RAW_MATERIAL → Raw Material Inventory (Debit), Accounts Payable (Credit)
-   - FINISHED_GOOD → Finished Goods Inventory (Debit), Accounts Payable (Credit)
+   - READY_PRODUCT → Ready Products Inventory (Debit), Accounts Payable (Credit)
    - RETAIL → Retail Inventory (Debit), Accounts Payable (Credit)
 3. **Partial Receipt**: Accounting entries are proportional to received quantity
 4. **Voucher Posting**: Automatically posted to accounting

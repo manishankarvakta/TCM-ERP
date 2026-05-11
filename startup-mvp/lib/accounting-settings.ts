@@ -402,7 +402,7 @@ export async function getSalesAccounts(): Promise<SalesAccounts> {
     }
   }
 
-  // Validate Finished Goods Inventory account (optional - only if configured)
+  // Validate Ready Products Inventory account (optional - only if configured)
   if (settings.sales.finishedGoodsInventoryAccountId) {
     const fgAccount = accountMap.get(settings.sales.finishedGoodsInventoryAccountId);
     if (!fgAccount) {
@@ -414,7 +414,7 @@ export async function getSalesAccounts(): Promise<SalesAccounts> {
         fgAccount.name,
         "ASSET" as any,
         fgAccount.type as any,
-        "Sales Finished Goods Inventory"
+        "Sales Ready Products Inventory"
       );
     }
   }

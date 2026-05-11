@@ -325,7 +325,7 @@ export default function BOMsListClient({
 
         <Select value={initialItemId || "all"} onValueChange={handleItemFilter}>
           <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Finished Good" />
+            <SelectValue placeholder="Ready Product" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Items</SelectItem>
@@ -389,7 +389,7 @@ export default function BOMsListClient({
               </TableHead>
               <TableHead>Code</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>Finished Good</TableHead>
+              <TableHead>Ready Product</TableHead>
               <TableHead className="text-right">Qty/Unit</TableHead>
               <TableHead className="text-right">Items</TableHead>
               <TableHead>Status</TableHead>

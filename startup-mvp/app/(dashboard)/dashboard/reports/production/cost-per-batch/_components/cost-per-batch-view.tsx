@@ -45,7 +45,7 @@ export default function CostPerBatchView({
     },
     {
       key: "finishedGoodItem",
-      label: "Finished Good",
+      label: "Ready Product",
       sortable: true,
     },
     {

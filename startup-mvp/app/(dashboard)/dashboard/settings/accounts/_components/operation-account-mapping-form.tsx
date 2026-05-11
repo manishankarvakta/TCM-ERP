@@ -304,7 +304,7 @@ export default function OperationAccountMappingForm() {
               />
               <AccountSelector
                 name="salesFinishedGoodsInventoryAccountId"
-                label="CR - Finished Goods Inventory"
+                label="CR - Ready Products Inventory"
                 types={[AccountType.ASSET]}
               />
             </div>
@@ -336,7 +336,7 @@ export default function OperationAccountMappingForm() {
               <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-2">Production Completion</p>
               <AccountSelector
                 name="productionCompletionFinishedGoodsInventoryId"
-                label="DR - Finished Goods Inventory"
+                label="DR - Ready Products Inventory"
                 types={[AccountType.ASSET]}
               />
               <AccountSelector
@@ -360,7 +360,7 @@ export default function OperationAccountMappingForm() {
               <div className="space-y-4">
                 <AccountSelector
                   name="inventoryAdjustmentPositiveFgId"
-                  label="DR - Finished Goods"
+                  label="DR - Ready Products"
                   types={[AccountType.ASSET]}
                 />
                 <AccountSelector
@@ -381,7 +381,7 @@ export default function OperationAccountMappingForm() {
               <div className="space-y-4">
                 <AccountSelector
                   name="inventoryAdjustmentNegativeFgId"
-                  label="CR - Finished Goods"
+                  label="CR - Ready Products"
                   types={[AccountType.ASSET]}
                 />
                 <AccountSelector

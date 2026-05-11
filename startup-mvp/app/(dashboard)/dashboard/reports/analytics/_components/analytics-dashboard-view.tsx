@@ -44,7 +44,7 @@ interface AnalyticsDashboardViewProps {
 
 const itemTypeLabels: Record<ItemType, string> = {
   RAW_MATERIAL: "Raw Material",
-  FINISHED_GOOD: "Finished Good",
+  READY_PRODUCT: "Ready Product",
   RETAIL: "Retail",
 };
 
@@ -256,7 +256,7 @@ export default function AnalyticsDashboardView({
             }
           />
           <BarChart
-            title="Top 10 Finished Goods by Production Volume"
+            title="Top 10 Ready Products by Production Volume"
             data={data.production.topFinishedGoods.map((item) => ({
               label: `${item.itemCode} - ${item.itemName}`,
               value: item.volume,

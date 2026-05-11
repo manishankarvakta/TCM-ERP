@@ -13,7 +13,7 @@ This guide provides step-by-step instructions for manually testing the accounts 
   - At least one supplier
   - At least one client
   - At least one warehouse
-  - Items: RAW_MATERIAL, FINISHED_GOOD, RETAIL types with costPrice
+  - Items: RAW_MATERIAL, READY_PRODUCT, RETAIL types with costPrice
 
 ---
 
@@ -27,7 +27,7 @@ This guide provides step-by-step instructions for manually testing the accounts 
 1. Navigate to Chart of Accounts page
 2. Search for each required account:
    - Raw Material Inventory (code: 1620)
-   - Finished Goods Inventory (code: 1630)
+   - Ready Products Inventory (code: 1630)
    - Retail Inventory (code: 1640)
    - Accounts Receivable (code: 1410)
    - Accounts Payable (code: 2110)
@@ -90,16 +90,16 @@ npx tsx scripts/test-accounts-system.ts
    - Total Debits = Total Credits = 100
 7. Check stock: Navigate to `/dashboard/inventory/stock` - Steel quantity should increase by 10
 
-### Test 2.2: Create Purchase B - Finished Goods
+### Test 2.2: Create Purchase B - Ready Products
 
 **Steps**: Same as 2.1, but:
-- Item: Select a FINISHED_GOOD item (e.g., T-shirt)
+- Item: Select a READY_PRODUCT item (e.g., T-shirt)
 - Quantity: 50
 - Unit Price: 20
 - Total: 1000
 
 **Verification**:
-- Journal entry: Finished Goods Inventory Debit 1000, Accounts Payable Credit 1000
+- Journal entry: Ready Products Inventory Debit 1000, Accounts Payable Credit 1000
 
 ### Test 2.3: Create Purchase C - Retail
 
@@ -139,12 +139,12 @@ npx tsx scripts/test-accounts-system.ts
    - Type = JOURNAL
    - Status = posted
 5. Verify journal entry lines:
-   - Line 1: Finished Goods Inventory, Debit = raw material cost, Credit 0
+   - Line 1: Ready Products Inventory, Debit = raw material cost, Credit 0
    - Line 2: Raw Material Inventory, Debit 0, Credit = raw material cost
    - Total Debits = Total Credits
 6. Check stock:
    - Raw Material quantity decreased
-   - Finished Good quantity increased
+   - Ready Product quantity increased
 
 ---
 
@@ -153,7 +153,7 @@ npx tsx scripts/test-accounts-system.ts
 ### Test 4.1: Create and Complete Sale
 
 **Prerequisites**:
-- Finished Good stock available (from Production or Purchase B)
+- Ready Product stock available (from Production or Purchase B)
 - Client exists
 
 **Steps**:
@@ -161,7 +161,7 @@ npx tsx scripts/test-accounts-system.ts
 2. Select client
 3. Select warehouse
 4. Add item:
-   - Item: Select a FINISHED_GOOD item (e.g., Steel Rods or T-shirt)
+   - Item: Select a READY_PRODUCT item (e.g., Steel Rods or T-shirt)
    - Quantity: 2
    - Unit Price: 30
    - Amount should auto-calculate to 60
@@ -180,9 +180,9 @@ npx tsx scripts/test-accounts-system.ts
    - Line 1: Accounts Receivable, Debit 60, Credit 0, clientId set
    - Line 2: Sales Revenue, Debit 0, Credit 60
    - Line 3: COGS, Debit = (2 × costPrice), Credit 0
-   - Line 4: Finished Goods Inventory, Debit 0, Credit = (2 × costPrice)
+   - Line 4: Ready Products Inventory, Debit 0, Credit = (2 × costPrice)
    - Total Debits = Total Credits
-6. Check stock: Finished Good quantity decreased by 2
+6. Check stock: Ready Product quantity decreased by 2
 
 ---
 

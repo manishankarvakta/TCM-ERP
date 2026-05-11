@@ -42,7 +42,7 @@ export default async function RevenueByItemPage({
     prisma.item.findMany({
       where: {
         isTrash: false,
-        itemType: { in: [ItemType.FINISHED_GOOD, ItemType.RETAIL] },
+        itemType: { in: [ItemType.READY_PRODUCT, ItemType.RETAIL] },
       },
       select: { id: true, code: true, name: true, itemType: true },
       orderBy: { code: "asc" },
@@ -55,7 +55,7 @@ export default async function RevenueByItemPage({
   ]);
 
   const itemTypeOptions = [
-    { value: "FINISHED_GOOD", label: "Finished Good" },
+    { value: "READY_PRODUCT", label: "Ready Product" },
     { value: "RETAIL", label: "Retail" },
   ];
 

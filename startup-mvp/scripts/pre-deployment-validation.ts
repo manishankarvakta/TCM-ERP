@@ -80,8 +80,8 @@ async function main() {
       update: { trackInventory: true, costPrice: 50, salesPrice: 100 },
       create: {
         code: "FG-TEST-001",
-        name: "Test Finished Good",
-        itemType: ItemType.FINISHED_GOOD,
+        name: "Test Ready Product",
+        itemType: ItemType.READY_PRODUCT,
         unitId: unitPcs.id,
         costPrice: 50,
         salesPrice: 100,

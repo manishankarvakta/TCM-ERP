@@ -369,7 +369,7 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
       code: `FG-${year}-0001`,
       name: "Chicken Biryani (Half)",
       description: "Half portion chicken biryani",
-      itemType: "FINISHED_GOOD" as ItemType,
+      itemType: "READY_PRODUCT" as ItemType,
       categoryId: catBiryani.id,
       unitId: pcs.id,
       costPrice: tk(90),
@@ -380,7 +380,7 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
       code: `FG-${year}-0002`,
       name: "Chicken Biryani (Full)",
       description: "Full portion chicken biryani",
-      itemType: "FINISHED_GOOD" as ItemType,
+      itemType: "READY_PRODUCT" as ItemType,
       categoryId: catBiryani.id,
       unitId: pcs.id,
       costPrice: tk(160),
@@ -391,7 +391,7 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
       code: `FG-${year}-0003`,
       name: "Mutton Biryani (Half)",
       description: "Half portion mutton biryani",
-      itemType: "FINISHED_GOOD" as ItemType,
+      itemType: "READY_PRODUCT" as ItemType,
       categoryId: catBiryani.id,
       unitId: pcs.id,
       costPrice: tk(220),
@@ -402,7 +402,7 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
       code: `FG-${year}-0004`,
       name: "Mutton Biryani (Full)",
       description: "Full portion mutton biryani",
-      itemType: "FINISHED_GOOD" as ItemType,
+      itemType: "READY_PRODUCT" as ItemType,
       categoryId: catBiryani.id,
       unitId: pcs.id,
       costPrice: tk(400),
@@ -413,7 +413,7 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
       code: `FG-${year}-0005`,
       name: "Beef Biryani (Half)",
       description: "Half portion beef biryani",
-      itemType: "FINISHED_GOOD" as ItemType,
+      itemType: "READY_PRODUCT" as ItemType,
       categoryId: catBiryani.id,
       unitId: pcs.id,
       costPrice: tk(180),
@@ -424,7 +424,7 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
       code: `FG-${year}-0006`,
       name: "Beef Biryani (Full)",
       description: "Full portion beef biryani",
-      itemType: "FINISHED_GOOD" as ItemType,
+      itemType: "READY_PRODUCT" as ItemType,
       categoryId: catBiryani.id,
       unitId: pcs.id,
       costPrice: tk(320),
@@ -435,7 +435,7 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
       code: `FG-${year}-0007`,
       name: "Special Biryani (Half)",
       description: "Half portion special biryani with extra meat",
-      itemType: "FINISHED_GOOD" as ItemType,
+      itemType: "READY_PRODUCT" as ItemType,
       categoryId: catBiryani.id,
       unitId: pcs.id,
       costPrice: tk(250),
@@ -446,7 +446,7 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
       code: `FG-${year}-0008`,
       name: "Special Biryani (Full)",
       description: "Full portion special biryani with extra meat",
-      itemType: "FINISHED_GOOD" as ItemType,
+      itemType: "READY_PRODUCT" as ItemType,
       categoryId: catBiryani.id,
       unitId: pcs.id,
       costPrice: tk(450),
@@ -898,7 +898,7 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
           } else {
             quantity = Math.floor(Math.random() * 200) + 50; // 50-250 units
           }
-        } else if (item.itemType === "FINISHED_GOOD") {
+        } else if (item.itemType === "READY_PRODUCT") {
           // Finished goods: lower quantities (pieces)
           quantity = Math.floor(Math.random() * 50) + 10; // 10-60 pieces
           reservedQuantity = Math.floor(Math.random() * 10); // 0-10 reserved
@@ -980,7 +980,7 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
   // Get finished goods (biryani dishes)
   const finishedGoods = await prisma.item.findMany({
     where: {
-      itemType: ItemType.FINISHED_GOOD,
+      itemType: ItemType.READY_PRODUCT,
       status: "active",
       isTrash: false,
     },
@@ -1503,7 +1503,7 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
   // Get finished goods and retail items for sales
   const finishedGoodsForSale = await prisma.item.findMany({
     where: {
-      itemType: ItemType.FINISHED_GOOD,
+      itemType: ItemType.READY_PRODUCT,
       status: "active",
       isTrash: false,
     },

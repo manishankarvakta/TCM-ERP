@@ -66,7 +66,7 @@ async function getStockQty(itemName: string): Promise<number> {
  */
 async function auditState(step: string) {
   const rmInv = await getBalance("Raw Material Inventory");
-  const fgInv = await getBalance("Finished Goods Inventory");
+  const fgInv = await getBalance("Ready Products Inventory");
   const wip = await getBalance("Work In Progress");
   const ap = await getBalance("Accounts Payable");
   const ar = await getBalance("Accounts Receivable");

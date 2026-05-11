@@ -54,7 +54,7 @@ model ProductionOrder {
   id                String                 @id @default(cuid())
   code              String                 @unique // Auto-generated: PROD-2026-0001
   bomId             String                 // Link to BOM
-  itemId            String                 // Finished Good item (for quick access)
+  itemId            String                 // Ready Product item (for quick access)
   warehouseId       String                 // Production warehouse
   quantity          Decimal                @db.Decimal(12, 2) // Quantity to produce
   status            ProductionOrderStatus  @default(PLANNED)
@@ -96,7 +96,7 @@ model ProductionOrder {
 
 ### Relationships
 - **ProductionOrder → BOM**: Many-to-one relationship (Restrict delete)
-- **ProductionOrder → Item (Finished Good)**: Many-to-one relationship (Restrict delete)
+- **ProductionOrder → Item (Ready Product)**: Many-to-one relationship (Restrict delete)
 - **ProductionOrder → Warehouse**: Many-to-one relationship (Restrict delete)
 - **ProductionOrder → User (Creator)**: Many-to-one relationship (Cascade delete)
 
@@ -374,7 +374,7 @@ export async function completeProductionOrder(id: string)
 
 **Stock Updates**:
 - **Raw Materials**: Stock quantity decremented, StockLedger entry with `OUT` transaction
-- **Finished Goods**: Stock quantity incremented, StockLedger entry with `IN` transaction
+- **Ready Products**: Stock quantity incremented, StockLedger entry with `IN` transaction
 - **Reference**: All ledger entries reference production order ID
 
 **Permissions**: Requires `production.orders` `complete` permission
@@ -557,7 +557,7 @@ const canView = await hasPermission(userId, "production.orders", "view");
   - `referenceId`: ProductionOrder ID
 
 ### Item Master Integration
-- **Finished Goods**: Production orders link to `Item` with `itemType = FINISHED_GOOD`
+- **Ready Products**: Production orders link to `Item` with `itemType = READY_PRODUCT`
 - **Raw Materials**: Raw materials are linked via BOM items
 - **Validation**: Ensures items track inventory before updating stock
 
@@ -599,7 +599,7 @@ quantityNeeded = (bomItem.quantityRequired × productionQuantity) / bom.quantity
 - Raw material required per BOM unit: 0.5 kg
 - Total needed: `(0.5 × 5) / 10 = 0.25 kg`
 
-### Finished Good Calculation
+### Ready Product Calculation
 Formula for calculating finished goods produced:
 ```
 finishedGoodQuantity = bom.quantityPerUnit × productionQuantity

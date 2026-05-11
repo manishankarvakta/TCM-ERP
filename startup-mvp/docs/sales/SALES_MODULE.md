@@ -23,10 +23,10 @@ The Sales module manages sales orders to clients. It integrates with the Invento
 - **Warehouse Assignment**: Assign sales to specific warehouses for stock deduction
 - **Status Management**: Track sales through DRAFT → COMPLETED → CANCELLED workflow
 - **Auto-Generated Codes**: Sale numbers are automatically generated (e.g., `SAL-2026-0001`)
-- **Item Type Restriction**: Only FINISHED_GOOD and RETAIL items can be sold
+- **Item Type Restriction**: Only READY_PRODUCT and RETAIL items can be sold
 - **Inventory Integration**: Automatically deducts stock when sale is completed
 - **Accounting Integration**: Creates accounting vouchers when sale is completed
-- **COGS Calculation**: Automatically calculates and records Cost of Goods Sold for FINISHED_GOOD items
+- **COGS Calculation**: Automatically calculates and records Cost of Goods Sold for READY_PRODUCT items
 - **Stock Ledger Integration**: Creates ledger entries for all stock movements
 - **Audit Trail**: Complete user activity logging and notifications
 - **Soft Delete**: Trash system for safe deletion
@@ -136,7 +136,7 @@ model SaleItem {
 - **updatedBy**: User ID who last updated the sale
 
 #### SaleItem Fields
-- **itemId**: Required reference to Item master (must be FINISHED_GOOD or RETAIL)
+- **itemId**: Required reference to Item master (must be READY_PRODUCT or RETAIL)
 - **description**: Item description (required)
 - **quantity**: Quantity sold
 - **unitPrice**: Price per unit (typically from item's salesPrice)
@@ -192,7 +192,7 @@ if (result.success) {
 
 #### 2. `getItemsForSale()`
 
-Fetches all active FINISHED_GOOD and RETAIL items with salesPrice for sale form dropdown.
+Fetches all active READY_PRODUCT and RETAIL items with salesPrice for sale form dropdown.
 
 **Returns:**
 ```typescript
@@ -212,12 +212,12 @@ Fetches all active FINISHED_GOOD and RETAIL items with salesPrice for sale form 
 ```typescript
 const result = await getItemsForSale();
 if (result.success) {
-  // Use result.items (only FINISHED_GOOD and RETAIL items)
+  // Use result.items (only READY_PRODUCT and RETAIL items)
 }
 ```
 
 **Filters:**
-- Only items with `itemType = FINISHED_GOOD` or `RETAIL`
+- Only items with `itemType = READY_PRODUCT` or `RETAIL`
 - Only items with `salesPrice` not null
 - Only active, non-trashed items
 
@@ -635,9 +635,9 @@ if (result.success) {
 4. **Creates Accounting Voucher**:
    - Debit: Accounts Receivable (client-specific)
    - Credit: Sales Revenue
-   - For FINISHED_GOOD items:
+   - For READY_PRODUCT items:
      - Debit: COGS (Cost of Goods Sold)
-     - Credit: Finished Goods Inventory
+     - Credit: Ready Products Inventory
 5. **Posts Voucher**: Automatically posts the voucher to accounting
 6. **Updates Sale Status**: Sets status to COMPLETED and records completedAt
 7. **Links Voucher**: Links the voucher to the sale
@@ -951,13 +951,13 @@ await updateStockOnSale(saleId, warehouseId, [
    - Accounts Receivable (AR)
    - Sales Revenue
    - Cost of Goods Sold (COGS)
-   - Finished Goods Inventory
+   - Ready Products Inventory
 2. Creates SALES type voucher with lines:
    - **Debit**: Accounts Receivable (client-specific) = grandTotal
    - **Credit**: Sales Revenue = grandTotal
-   - **For FINISHED_GOOD items**:
+   - **For READY_PRODUCT items**:
      - **Debit**: COGS = quantity × costPrice
-     - **Credit**: Finished Goods Inventory = quantity × costPrice
+     - **Credit**: Ready Products Inventory = quantity × costPrice
 3. Posts voucher automatically
 4. Links voucher to sale via `voucherId`
 
@@ -981,7 +981,7 @@ await updateStockOnSale(saleId, warehouseId, [
       debitAmount: 0,
       creditAmount: grandTotal,
     },
-    // COGS lines for FINISHED_GOOD items
+    // COGS lines for READY_PRODUCT items
     {
       chartOfAccountId: cogsAccountId,
       debitAmount: itemCOGS,
@@ -1129,10 +1129,10 @@ amount = quantity * unitPrice;
 2. **Entry Structure**:
    - **Debit**: Accounts Receivable (client-specific) = grandTotal
    - **Credit**: Sales Revenue = grandTotal
-   - **For FINISHED_GOOD items**:
+   - **For READY_PRODUCT items**:
      - **Debit**: COGS = quantity × costPrice
-     - **Credit**: Finished Goods Inventory = quantity × costPrice
-3. **COGS Calculation**: Only for FINISHED_GOOD items, uses item's `costPrice`
+     - **Credit**: Ready Products Inventory = quantity × costPrice
+3. **COGS Calculation**: Only for READY_PRODUCT items, uses item's `costPrice`
 4. **Voucher Posting**: Automatically posted to accounting
 5. **Voucher Linking**: Voucher is linked to sale via `voucherId`
 
@@ -1209,7 +1209,7 @@ amount = quantity * unitPrice;
 - Ensure "Accounts Receivable" account exists
 - Ensure "Sales Revenue" account exists
 - Ensure "Cost of Goods Sold" account exists (for FG items)
-- Ensure "Finished Goods Inventory" account exists (for FG items)
+- Ensure "Ready Products Inventory" account exists (for FG items)
 - Run chart of accounts seed if needed
 
 ---
@@ -1252,7 +1252,7 @@ amount = quantity * unitPrice;
 **Cause**: Items don't meet criteria
 
 **Solution**:
-- Verify items are FINISHED_GOOD or RETAIL type
+- Verify items are READY_PRODUCT or RETAIL type
 - Verify items have `salesPrice` set
 - Verify items are active and not trashed
 

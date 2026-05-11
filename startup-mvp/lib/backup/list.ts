@@ -45,10 +45,10 @@ export async function scanBackupDirectory(type: BackupType): Promise<BackupListI
     // Read all files in directory
     const files = await fs.readdir(dir);
 
-    // Filter and process ZIP files
+    // Filter and process backup files
     for (const filename of files) {
-      // Only process .zip files that match backup naming pattern
-      if (!filename.endsWith('.zip')) {
+      // Only process .zip or .encrypted files that match backup naming pattern
+      if (!filename.endsWith('.zip') && !filename.endsWith('.encrypted')) {
         continue;
       }
 
@@ -67,31 +67,49 @@ export async function scanBackupDirectory(type: BackupType): Promise<BackupListI
         // Determine backup status
         const status = await determineBackupStatus(filePath);
 
-        // Extract metadata (may fail for corrupted backups)
+        // Extract metadata (may fail for corrupted or legacy backups)
         let metadata;
         try {
           metadata = await extractMetadataFromZip(filePath);
         } catch (error) {
-          // If metadata extraction fails, create a minimal backup item
-          backups.push({
-            metadata: {
-              id: backupId || filename.replace('.zip', ''),
-              type,
-              timestamp: stats.mtime.toISOString(),
-              size: stats.size,
-              encrypted: false,
-              checksum: '',
-              version: '1.0',
-              application: { name: 'unknown', version: 'unknown' },
-              compression: { algorithm: 'deflate', level: 6 },
-            },
-            filePath,
-            fileName: filename,
-            status: 'corrupted',
-            modifiedAt: stats.mtime,
-            fileSize: stats.size,
-          });
-          continue;
+          // Fallback: Check for sidecar metadata (Legacy system)
+          const { loadBackupMetadata } = await import("@/lib/backup-metadata");
+          const legacyMeta = await loadBackupMetadata(filePath);
+          
+          if (legacyMeta) {
+             metadata = {
+               id: backupId || filename.replace('.zip', '').replace('.encrypted', ''),
+               type: legacyMeta.type as any,
+               timestamp: legacyMeta.createdAt,
+               size: legacyMeta.originalSize || stats.size,
+               encrypted: legacyMeta.encrypted,
+               checksum: legacyMeta.checksum || '',
+               version: '1.0',
+               application: { name: 'legacy', version: '1.0' },
+               compression: { algorithm: 'deflate', level: 6 },
+             };
+          } else {
+            // If metadata extraction fails and no sidecar found, create a minimal backup item
+            backups.push({
+              metadata: {
+                id: backupId || filename.replace('.zip', ''),
+                type,
+                timestamp: stats.mtime.toISOString(),
+                size: stats.size,
+                encrypted: false,
+                checksum: '',
+                version: '1.0',
+                application: { name: 'unknown', version: 'unknown' },
+                compression: { algorithm: 'deflate', level: 6 },
+              },
+              filePath,
+              fileName: filename,
+              status: status === 'valid' ? 'valid' : 'corrupted',
+              modifiedAt: stats.mtime,
+              fileSize: stats.size,
+            });
+            continue;
+          }
         }
 
         backups.push({
@@ -199,8 +217,16 @@ export async function deleteBackup(backupId: string): Promise<boolean> {
  */
 async function determineBackupStatus(filePath: string): Promise<BackupStatus> {
   try {
-    // Check if file is corrupted
+    // Check if it's an encrypted legacy backup
+    if (filePath.endsWith(".encrypted")) {
+      const { loadBackupMetadata } = await import("@/lib/backup-metadata");
+      const legacyMeta = await loadBackupMetadata(filePath);
+      return legacyMeta ? "valid" : "corrupted";
+    }
+
+    // Check if file is corrupted (standard ZIP)
     if (await isCorrupted(filePath)) {
+      console.warn(`[determineBackupStatus] ${filePath} is detected as corrupted`);
       return 'corrupted';
     }
 
@@ -208,6 +234,13 @@ async function determineBackupStatus(filePath: string): Promise<BackupStatus> {
     const isValid = await quickValidate(filePath);
     if (isValid) {
       return 'valid';
+    }
+
+    // If it has sidecar metadata but failed internal validation, it's a valid legacy backup
+    const { loadBackupMetadata } = await import("@/lib/backup-metadata");
+    const legacyMeta = await loadBackupMetadata(filePath);
+    if (legacyMeta) {
+      return "valid";
     }
 
     return 'unknown';

@@ -48,7 +48,7 @@ export async function getActiveFinishedGoods() {
 
     const items = await prisma.item.findMany({
       where: {
-        itemType: ItemType.FINISHED_GOOD,
+        itemType: ItemType.READY_PRODUCT,
         status: "active",
         isTrash: false,
       },
@@ -490,7 +490,7 @@ export async function createBOM(input: {
       };
     }
 
-    // Validate: itemId must be FINISHED_GOOD
+    // Validate: itemId must be READY_PRODUCT
     const finishedGood = await prisma.item.findUnique({
       where: { id: input.itemId },
       select: { id: true, itemType: true, name: true },
@@ -504,10 +504,10 @@ export async function createBOM(input: {
       };
     }
 
-    if (finishedGood.itemType !== ItemType.FINISHED_GOOD) {
+    if (finishedGood.itemType !== ItemType.READY_PRODUCT) {
       return {
         success: false,
-        error: "Item must be a Finished Good",
+        error: "Item must be a Ready Product",
         bom: null,
       };
     }
@@ -726,7 +726,7 @@ export async function updateBOM(input: {
       };
     }
 
-    // Validate: itemId must be FINISHED_GOOD
+    // Validate: itemId must be READY_PRODUCT
     const finishedGood = await prisma.item.findUnique({
       where: { id: input.itemId },
       select: { id: true, itemType: true, name: true },
@@ -740,10 +740,10 @@ export async function updateBOM(input: {
       };
     }
 
-    if (finishedGood.itemType !== ItemType.FINISHED_GOOD) {
+    if (finishedGood.itemType !== ItemType.READY_PRODUCT) {
       return {
         success: false,
-        error: "Item must be a Finished Good",
+        error: "Item must be a Ready Product",
         bom: null,
       };
     }
