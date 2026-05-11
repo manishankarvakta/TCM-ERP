@@ -233,7 +233,7 @@ export default function BOMForm({
                 <Label htmlFor="name">BOM Name *</Label>
                 <Input
                   id="name"
-                  placeholder="e.g., Chicken Biryani Recipe"
+                  placeholder="e.g., Classic White T-shirt Recipe"
                   {...register("name")}
                   disabled={loading}
                 />

@@ -23,7 +23,7 @@ export default function AdminDashboard({ userId }: { userId: string }) {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1 font-bold italic tracking-tight">
-            Bhagyakul Biryani House • High-Level Enterprise Control
+            FashionFlow Garments Ltd • High-Level Enterprise Control
           </p>
         </div>
       </div>

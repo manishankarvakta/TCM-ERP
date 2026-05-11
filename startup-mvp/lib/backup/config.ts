@@ -52,6 +52,7 @@ export interface PostgresConfig {
   database: string;
   user: string;
   password: string;
+  containerName?: string;
 }
 
 /**
@@ -74,6 +75,7 @@ export function parsePostgresConfig(): PostgresConfig {
       database: url.pathname.slice(1).split('?')[0], // Remove leading / and query params
       user: url.username,
       password: url.password,
+      containerName: process.env.POSTGRES_CONTAINER,
     };
   } catch (error) {
     // Fallback to individual env vars
@@ -83,6 +85,7 @@ export function parsePostgresConfig(): PostgresConfig {
       database: process.env.POSTGRES_DB || 'startup_mvp',
       user: process.env.POSTGRES_USER || 'postgres',
       password: process.env.POSTGRES_PASSWORD || '',
+      containerName: process.env.POSTGRES_CONTAINER,
     };
   }
 }

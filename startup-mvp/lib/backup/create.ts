@@ -394,62 +394,133 @@ async function executePgDump(
 ): Promise<void> {
   const config = parsePostgresConfig();
 
-  // Build pg_dump command
+  // Build pg_dump command arguments
   // -Fc = custom format (compressed binary)
-  const args = [
-    `-h ${config.host}`,
-    `-p ${config.port}`,
-    `-U ${config.user}`,
-    `-d ${config.database}`,
+  const pgArgs = [
+    `-h`, config.host,
+    `-p`, config.port.toString(),
+    `-U`, config.user,
+    `-d`, config.database,
     '-Fc', // Custom format
     '--no-owner',
     '--no-acl',
-    '-f', outputPath,
   ];
 
   // Add table filters if specified
   if (options?.includeTables && options.includeTables.length > 0) {
     options.includeTables.forEach((table) => {
-      args.push(`-t ${table}`);
+      pgArgs.push('-t', table);
     });
   }
 
   if (options?.excludeTables && options.excludeTables.length > 0) {
     options.excludeTables.forEach((table) => {
-      args.push(`-T ${table}`);
+      pgArgs.push('-T', table);
     });
   }
 
-  const command = `pg_dump ${args.join(' ')}`;
-
+  // Check if pg_dump is available on the host
+  let useDocker = false;
   try {
-    await execAsync(command, {
-      env: {
-        ...process.env,
-        PGPASSWORD: config.password,
-      },
-      maxBuffer: 100 * 1024 * 1024, // 100MB buffer
-    });
-  } catch (error: any) {
-    // Provide helpful error messages
-    if (error.message.includes('command not found') || error.code === 'ENOENT') {
+    await execAsync('pg_dump --version');
+    console.log('[Backup] Using host pg_dump...');
+  } catch (error) {
+    if (config.containerName) {
+      console.log(`[Backup] pg_dump not found on host. Falling back to Docker container: ${config.containerName}`);
+      useDocker = true;
+    } else {
       throw new Error(
-        'pg_dump command not found. Please install PostgreSQL client tools.'
+        'pg_dump command not found on host and no POSTGRES_CONTAINER specified in .env. ' +
+        'Please install PostgreSQL client tools or configure a Docker container.'
       );
     }
-
-    if (error.message.includes('password authentication failed')) {
-      throw new Error('Database authentication failed. Check DATABASE_URL configuration.');
-    }
-
-    if (error.message.includes('could not connect')) {
-      throw new Error(
-        'Could not connect to database. Ensure PostgreSQL is running and accessible.'
-      );
-    }
-
-    throw new Error(`pg_dump failed: ${error.message}`);
   }
+
+  if (!useDocker) {
+    // Standard host-based pg_dump
+    const hostArgs = [...pgArgs, '-f', outputPath];
+    const command = `pg_dump ${hostArgs.join(' ')}`;
+    
+    try {
+      await execAsync(command, {
+        env: {
+          ...process.env,
+          PGPASSWORD: config.password,
+        },
+        maxBuffer: 100 * 1024 * 1024, // 100MB buffer
+      });
+    } catch (error: any) {
+      handlePgDumpError(error);
+    }
+  } else {
+    // Docker-based pg_dump
+    // We use spawn and pipe to safely handle binary data on any platform
+    return new Promise((resolve, reject) => {
+      const { spawn } = require('child_process');
+      const fs = require('fs');
+      
+      const fileStream = fs.createWriteStream(outputPath);
+      
+      // For docker exec, we don't use -f because we'll pipe the stdout to the host file
+      // We also don't need -h localhost since we're inside the container
+      const dockerPgArgs = pgArgs.filter(arg => arg !== '-h' && arg !== config.host);
+      
+      const dockerArgs = [
+        'exec',
+        '-i', // Interactive but not TTY
+        '-e', `PGPASSWORD=${config.password}`,
+        config.containerName!,
+        'pg_dump',
+        ...dockerPgArgs
+      ];
+
+      console.log(`[Backup] Executing: docker ${dockerArgs.join(' ')} > ${outputPath}`);
+
+      const child = spawn('docker', dockerArgs);
+      
+      child.stdout.pipe(fileStream);
+
+      let stderr = '';
+      child.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
+
+      child.on('close', (code: number) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`Docker pg_dump failed with code ${code}: ${stderr}`));
+        }
+      });
+
+      child.on('error', (err: Error) => {
+        reject(new Error(`Failed to start Docker process: ${err.message}`));
+      });
+    });
+  }
+}
+
+/**
+ * Handle pg_dump errors with helpful messages
+ */
+function handlePgDumpError(error: any): never {
+  if (error.message.includes('command not found') || error.code === 'ENOENT') {
+    throw new Error(
+      'pg_dump command not found. Please install PostgreSQL client tools.'
+    );
+  }
+
+  if (error.message.includes('password authentication failed')) {
+    throw new Error('Database authentication failed. Check DATABASE_URL configuration.');
+  }
+
+  if (error.message.includes('could not connect')) {
+    throw new Error(
+      'Could not connect to database. Ensure PostgreSQL is running and accessible.'
+    );
+  }
+
+  throw new Error(`pg_dump failed: ${error.message}`);
 }
 
 

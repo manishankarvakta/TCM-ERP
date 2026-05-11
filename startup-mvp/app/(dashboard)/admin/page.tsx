@@ -53,7 +53,7 @@ export default async function AdminDashboardPage() {
         <div>
           <h2 className="text-3xl font-black tracking-tight text-primary">System Administration</h2>
           <p className="text-sm text-muted-foreground mt-1 font-medium">
-            Global overview of Bhagyakul Biryani House operations
+            Global overview of FashionFlow Garments Ltd operations
           </p>
         </div>
       </div>
