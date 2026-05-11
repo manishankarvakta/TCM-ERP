@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -24,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiLogOut, FiMoreVertical, FiCheck, FiLock } from "react-icons/fi";
-import { deleteUser, forceLogoutUser, bulkUpdateUserStatus, deleteUsersPermanently } from "@/app/actions/user.action";
+import { deleteUser, forceLogoutUser, bulkUpdateUserStatus, deleteUsersPermanently, toggleUserActiveStatus } from "@/app/actions/user.action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +47,7 @@ interface User {
   role: string;
   image: string | null;
   status?: string;
+  isActive?: string;
   inchargeId?: string | null;
   incharge?: {
     id: string;
@@ -224,6 +226,25 @@ export default function UsersListClient({
     });
   };
 
+  const handleToggleActive = async (userId: string) => {
+    startTransition(async () => {
+      const result = await toggleUserActiveStatus(userId);
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: `User access ${result.isActive === "enabled" ? "enabled" : "disabled"}`,
+        });
+        router.refresh();
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to toggle status",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
   const getInitials = (name: string | null, email: string) => {
     if (name) {
       return name
@@ -361,6 +382,7 @@ export default function UsersListClient({
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Incharge</TableHead>
+              <TableHead>Access</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Joined</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -405,6 +427,13 @@ export default function UsersListClient({
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {user.incharge ? (user.incharge.name || user.incharge.email) : "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Switch
+                        checked={user.isActive === "enabled"}
+                        onCheckedChange={() => handleToggleActive(user.id)}
+                        disabled={isPending}
+                      />
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

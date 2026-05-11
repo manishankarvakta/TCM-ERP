@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { FiAlertCircle, FiSearch } from "react-icons/fi";
 import { createUser, updateUser, getActiveUsers } from "@/app/actions/user.action";
+import { getActiveWarehouses } from "@/app/(dashboard)/dashboard/master/warehouses/_actions/warehouse.action";
 import MediaSelector from "@/components/MediaSelector";
 
 const userFormSchema = z.object({
@@ -36,6 +37,9 @@ const userFormSchema = z.object({
   role: z.enum(["user", "admin"]),
   image: z.string().url("Invalid image URL").optional().or(z.literal("")),
   inchargeId: z.string().optional().or(z.literal("")),
+  defaultWarehouseId: z.string().optional().or(z.literal("")),
+  status: z.enum(["active", "inactive"]),
+  isActive: z.enum(["enabled", "disabled"]),
 });
 
 type UserFormDataWithId = z.infer<typeof userFormSchema> & { id?: string };
@@ -54,6 +58,14 @@ interface UserFormProps {
       name: string | null;
       email: string;
     } | null;
+    defaultWarehouseId?: string | null;
+    defaultWarehouse?: {
+      id: string;
+      name: string;
+      code: string;
+    } | null;
+    status: string;
+    isActive: string;
   };
 }
 
@@ -65,6 +77,8 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
   const [usersLoading, setUsersLoading] = useState(true);
+  const [warehouses, setWarehouses] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [warehousesLoading, setWarehousesLoading] = useState(true);
   const [inchargeSearch, setInchargeSearch] = useState("");
 
   const {
@@ -83,6 +97,9 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           role: (initialData.role as "user" | "admin") || "user",
           image: initialData.image || "",
           inchargeId: initialData.inchargeId || "",
+          defaultWarehouseId: initialData.defaultWarehouseId || "",
+          status: (initialData.status as "active" | "inactive") || "active",
+          isActive: (initialData.isActive as "enabled" | "disabled") || "enabled",
         }
       : {
           name: "",
@@ -91,6 +108,9 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           role: "user",
           image: "",
           inchargeId: "",
+          defaultWarehouseId: "",
+          status: "active",
+          isActive: "enabled",
         },
   });
 
@@ -110,7 +130,26 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
       }
     };
 
+    const fetchWarehouses = async () => {
+      try {
+        setWarehousesLoading(true);
+        const result = await getActiveWarehouses();
+        if (result.success && result.warehouses) {
+          setWarehouses(result.warehouses);
+          // Auto-select first warehouse on create mode if none selected
+          if (mode === "create" && result.warehouses.length > 0 && !watch("defaultWarehouseId")) {
+            setValue("defaultWarehouseId", result.warehouses[0].id);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching warehouses:", error);
+      } finally {
+        setWarehousesLoading(false);
+      }
+    };
+
     fetchUsers();
+    fetchWarehouses();
   }, []);
 
   const onSubmit = async (data: UserFormDataWithId) => {
@@ -131,6 +170,9 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           role: data.role,
           image: data.image || undefined,
           inchargeId: data.inchargeId && data.inchargeId.length > 0 ? data.inchargeId : undefined,
+          defaultWarehouseId: data.defaultWarehouseId && data.defaultWarehouseId.length > 0 ? data.defaultWarehouseId : undefined,
+          status: data.status,
+          isActive: data.isActive,
         });
 
         if (!result.success) {
@@ -147,6 +189,9 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           role: data.role,
           image: data.image || undefined,
           inchargeId: data.inchargeId && data.inchargeId.length > 0 ? data.inchargeId : undefined,
+          defaultWarehouseId: data.defaultWarehouseId && data.defaultWarehouseId.length > 0 ? data.defaultWarehouseId : undefined,
+          status: data.status,
+          isActive: data.isActive,
         });
 
         if (!result.success) {
@@ -229,84 +274,152 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Select
-                    defaultValue={initialData?.role || "user"}
-                    onValueChange={(value) => setValue("role", value as "user" | "admin")}
-                    disabled={loading}
-                  >
-                    <SelectTrigger id="role">
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="user">User</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.role && (
-                    <p className="text-sm text-destructive">{errors.role.message}</p>
-                  )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Role</Label>
+                    <Select
+                      value={watch("role")}
+                      onValueChange={(value) => setValue("role", value as "user" | "admin")}
+                      disabled={loading}
+                    >
+                      <SelectTrigger id="role">
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="user">User</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {errors.role && (
+                      <p className="text-sm text-destructive">{errors.role.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="defaultWarehouseId">Default Warehouse</Label>
+                    <Select
+                      value={watch("defaultWarehouseId") || "__none__"}
+                      onValueChange={(value) => setValue("defaultWarehouseId", value === "__none__" ? "" : value)}
+                      disabled={loading || warehousesLoading}
+                    >
+                      <SelectTrigger id="defaultWarehouseId">
+                        <SelectValue placeholder={warehousesLoading ? "Loading..." : "Select warehouse (optional)"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">None</SelectItem>
+                        {warehouses.map((warehouse) => (
+                          <SelectItem key={warehouse.id} value={warehouse.id}>
+                            {warehouse.name} ({warehouse.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.defaultWarehouseId && (
+                      <p className="text-sm text-destructive">{errors.defaultWarehouseId.message}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="inchargeId">Incharge</Label>
+                    <Select
+                      value={watch("inchargeId") || "__none__"}
+                      onValueChange={(value) => setValue("inchargeId", value === "__none__" ? "" : value)}
+                      disabled={loading || usersLoading}
+                    >
+                      <SelectTrigger id="inchargeId" className="h-9 text-xs text-left">
+                        <SelectValue placeholder={usersLoading ? "Loading..." : "Select incharge (optional)"}>
+                          {watch("inchargeId") && watch("inchargeId") !== "__none__" ? (() => {
+                            const selectedUser = users.find(u => u.id === watch("inchargeId"));
+                            return selectedUser ? (selectedUser.name || selectedUser.email) : "Select incharge (optional)";
+                          })() : "Select incharge (optional)"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        <div className="p-2">
+                          <div className="relative">
+                            <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
+                            <Input
+                              placeholder="Search users..."
+                              value={inchargeSearch}
+                              onChange={(e) => setInchargeSearch(e.target.value)}
+                              onKeyDown={(e) => {
+                                e.stopPropagation();
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                }
+                              }}
+                              className="pl-8 h-8 text-xs"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        </div>
+                        <div className="max-h-[200px] overflow-y-auto">
+                          <SelectItem value="__none__" className="text-left">None</SelectItem>
+                          {users
+                            .filter((user) => {
+                              // Filter out current user when editing
+                              if (mode === "edit" && user.id === initialData?.id) return false;
+                              // Filter by search
+                              if (!inchargeSearch) return true;
+                              const searchLower = inchargeSearch.toLowerCase();
+                              return (
+                                user.name?.toLowerCase().includes(searchLower) ||
+                                user.email.toLowerCase().includes(searchLower)
+                              );
+                            })
+                            .map((user) => (
+                              <SelectItem key={user.id} value={user.id} className="text-left">
+                                {user.name || user.email} {user.name && `(${user.email})`}
+                              </SelectItem>
+                            ))}
+                        </div>
+                      </SelectContent>
+                    </Select>
+                    {errors.inchargeId && (
+                      <p className="text-sm text-destructive">{errors.inchargeId.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select
+                      value={watch("status")}
+                      onValueChange={(value) => setValue("status", value as "active" | "inactive")}
+                      disabled={loading}
+                    >
+                      <SelectTrigger id="status">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {errors.status && (
+                      <p className="text-sm text-destructive">{errors.status.message}</p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="inchargeId">Incharge</Label>
+                  <Label htmlFor="isActive">Login Access</Label>
                   <Select
-                    value={watch("inchargeId") || "__none__"}
-                    onValueChange={(value) => setValue("inchargeId", value === "__none__" ? "" : value)}
-                    disabled={loading || usersLoading}
+                    value={watch("isActive")}
+                    onValueChange={(value) => setValue("isActive", value as "enabled" | "disabled")}
+                    disabled={loading}
                   >
-                    <SelectTrigger id="inchargeId" className="h-9 text-xs text-left">
-                      <SelectValue placeholder={usersLoading ? "Loading..." : "Select incharge (optional)"}>
-                        {watch("inchargeId") && watch("inchargeId") !== "__none__" ? (() => {
-                          const selectedUser = users.find(u => u.id === watch("inchargeId"));
-                          return selectedUser ? (selectedUser.name || selectedUser.email) : "Select incharge (optional)";
-                        })() : "Select incharge (optional)"}
-                      </SelectValue>
+                    <SelectTrigger id="isActive">
+                      <SelectValue placeholder="Select login access" />
                     </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      <div className="p-2">
-                        <div className="relative">
-                          <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
-                          <Input
-                            placeholder="Search users..."
-                            value={inchargeSearch}
-                            onChange={(e) => setInchargeSearch(e.target.value)}
-                            onKeyDown={(e) => {
-                              e.stopPropagation();
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                              }
-                            }}
-                            className="pl-8 h-8 text-xs"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                      </div>
-                      <div className="max-h-[200px] overflow-y-auto">
-                        <SelectItem value="__none__" className="text-left">None</SelectItem>
-                        {users
-                          .filter((user) => {
-                            // Filter out current user when editing
-                            if (mode === "edit" && user.id === initialData?.id) return false;
-                            // Filter by search
-                            if (!inchargeSearch) return true;
-                            const searchLower = inchargeSearch.toLowerCase();
-                            return (
-                              user.name?.toLowerCase().includes(searchLower) ||
-                              user.email.toLowerCase().includes(searchLower)
-                            );
-                          })
-                          .map((user) => (
-                            <SelectItem key={user.id} value={user.id} className="text-left">
-                              {user.name || user.email} {user.name && `(${user.email})`}
-                            </SelectItem>
-                          ))}
-                      </div>
+                    <SelectContent>
+                      <SelectItem value="enabled">Enabled</SelectItem>
+                      <SelectItem value="disabled">Disabled</SelectItem>
                     </SelectContent>
                   </Select>
-                  {errors.inchargeId && (
-                    <p className="text-sm text-destructive">{errors.inchargeId.message}</p>
+                  {errors.isActive && (
+                    <p className="text-sm text-destructive">{errors.isActive.message}</p>
                   )}
                 </div>
 

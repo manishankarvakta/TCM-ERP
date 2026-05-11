@@ -73,6 +73,7 @@ model User {
   image                            String?
   role                             String              @default("user")
   status                           String              @default("active")
+  isActive                         String              @default("")
   createdAt                        DateTime            @default(now())
   updatedAt                        DateTime            @updatedAt
   designationTemplateId            String?
@@ -113,6 +114,8 @@ model User {
   updatedSales                     Sale[]              @relation("SaleUpdatedBy")
   InventoryAdjustmentCreated       InventoryAdjustment[] @relation("InventoryAdjustment_createdBy")
   InventoryAdjustmentUpdated       InventoryAdjustment[] @relation("InventoryAdjustment_updatedBy")
+  defaultWarehouseId                String?
+  defaultWarehouse                  Warehouse?          @relation("UserDefaultWarehouse", fields: [defaultWarehouseId], references: [id])
 
   @@index([status])
   @@index([designationTemplateId])
@@ -365,6 +368,7 @@ model Warehouse {
   purchases        Purchase[]
   sales            Sale[]
   InventoryAdjustment InventoryAdjustment[]
+  defaultUsers     User[]            @relation("UserDefaultWarehouse")
 
   @@index([code])
   @@index([name])
