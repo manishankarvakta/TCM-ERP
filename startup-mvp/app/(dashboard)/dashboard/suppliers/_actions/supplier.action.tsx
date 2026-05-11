@@ -83,6 +83,7 @@ export async function getSuppliers(
         country: true,
         company: true,
         image: true,
+        openingBalance: true,
         status: true,
         createdBy: true,
         createdByUser: {
@@ -165,6 +166,7 @@ export async function getSupplierById(supplierId: string) {
         country: true,
         company: true,
         image: true,
+        openingBalance: true,
         status: true,
         createdBy: true,
         createdByUser: {
@@ -321,6 +323,7 @@ export async function createSupplier(input: {
   country?: string;
   company?: string;
   image?: string;
+  openingBalance?: number;
   status?: "active" | "inactive";
 }) {
   try {
@@ -471,6 +474,7 @@ export async function createSupplier(input: {
           country: input.country || null,
           company: input.company || null,
           image: input.image || null,
+          openingBalance: input.openingBalance || 0,
           status: input.status || "active",
           createdBy: session.user.id,
           chartOfAccountId: chartOfAccount.id,
@@ -487,7 +491,8 @@ export async function createSupplier(input: {
           country: true,
           company: true,
           image: true,
-          status: true,
+          openingBalance: true,
+        status: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -544,6 +549,7 @@ export async function updateSupplier(input: {
   country?: string;
   company?: string;
   image?: string;
+  openingBalance?: number;
   status?: "active" | "inactive";
 }) {
   try {
@@ -573,6 +579,7 @@ export async function updateSupplier(input: {
         country: true,
         company: true,
         image: true,
+        openingBalance: true,
         status: true,
         chartOfAccountId: true,
       },
@@ -729,6 +736,7 @@ export async function updateSupplier(input: {
         country: input.country !== undefined ? (input.country || null) : undefined,
         company: input.company !== undefined ? (input.company || null) : undefined,
         image: input.image !== undefined ? (input.image || null) : undefined,
+        openingBalance: input.openingBalance !== undefined ? input.openingBalance : undefined,
       };
 
       if (input.status) {
@@ -761,7 +769,8 @@ export async function updateSupplier(input: {
           country: true,
           company: true,
           image: true,
-          status: true,
+          openingBalance: true,
+        status: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -797,6 +806,7 @@ export async function updateSupplier(input: {
     if (input.zip !== existingSupplier.zip) changes.push("zip");
     if (input.country !== existingSupplier.country) changes.push("country");
     if (input.company !== existingSupplier.company) changes.push("company");
+    if (input.openingBalance !== (existingSupplier as any).openingBalance) changes.push("openingBalance");
     if (input.image !== undefined && input.image !== existingSupplier.image) changes.push("image");
     if (input.status && input.status !== existingSupplier.status) changes.push("status");
 
