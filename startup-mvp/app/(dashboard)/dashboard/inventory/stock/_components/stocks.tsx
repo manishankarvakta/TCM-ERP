@@ -35,6 +35,7 @@ interface Stock {
     id: string;
     name: string;
     code: string;
+    images: any;
     unit: {
       symbol: string;
     };
@@ -232,16 +233,26 @@ export default function StocksListClient({
                 return (
                   <TableRow key={stock.id}>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <FiPackage className="h-4 w-4 text-muted-foreground" />
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded border bg-muted overflow-hidden flex items-center justify-center shrink-0">
+                          {stock.item.images && Array.isArray(stock.item.images) && stock.item.images.length > 0 ? (
+                            <img 
+                              src={stock.item.images[0]} 
+                              alt={stock.item.name} 
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <FiPackage className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </div>
                         <div>
                           <Link
                             href={`/dashboard/master/items/${stock.item.id}`}
-                            className="font-medium hover:underline"
+                            className="font-medium hover:underline block leading-tight"
                           >
                             {stock.item.name}
                           </Link>
-                          <p className="text-xs text-muted-foreground font-mono">
+                          <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
                             {stock.item.code}
                           </p>
                         </div>
