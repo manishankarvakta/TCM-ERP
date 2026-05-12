@@ -61,6 +61,7 @@ export default function OperationAccountMappingForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [isGlobal, setIsGlobal] = useState(false);
 
   const {
     control,
@@ -92,9 +93,10 @@ export default function OperationAccountMappingForm() {
 
         // Fetch existing settings
         const settingsResult = await getAccountingOperationSettingsAction();
-        if (settingsResult.success && settingsResult.settings) {
-          const s = settingsResult.settings;
-          reset({
+          if (settingsResult.success && settingsResult.settings) {
+            const s = settingsResult.settings;
+            setIsGlobal(settingsResult.isGlobal || false);
+            reset({
             purchaseInventoryAccountId: s.purchase.inventoryAccountId,
             salesRevenueAccountId: s.sales.revenueAccountId,
             salesCogsAccountId: s.sales.cogsAccountId,
@@ -171,8 +173,8 @@ export default function OperationAccountMappingForm() {
           toAccountId: data.contraToAccountId || "",
         },
       };
-
-      const result = await updateAccountingOperationSettings(settings);
+      
+      const result = await updateAccountingOperationSettings(settings, isGlobal);
 
       if (!result.success) {
         throw new Error(result.error || "Failed to save settings");
@@ -187,14 +189,54 @@ export default function OperationAccountMappingForm() {
     }
   };
 
+  const onAutofill = () => {
+    const findAccount = (keywords: string[], type: AccountType) => {
+      return accounts.find(
+        (acc) =>
+          acc.type === type &&
+          keywords.some((kw) => acc.name.toLowerCase().includes(kw.toLowerCase()))
+      )?.id || "";
+    };
+
+    reset({
+      purchaseInventoryAccountId: findAccount(["Inventory", "Stock"], AccountType.ASSET),
+      salesRevenueAccountId: findAccount(["Revenue", "Sales Income", "Income"], AccountType.REVENUE),
+      salesCogsAccountId: findAccount(["COGS", "Cost of Goods Sold", "Cost of Sales"], AccountType.EXPENSE),
+      salesFinishedGoodsInventoryAccountId: findAccount(["Finished Goods", "Ready Product", "Inventory"], AccountType.ASSET),
+      productionConsumptionWipAccountId: findAccount(["WIP", "Work in Progress"], AccountType.ASSET),
+      productionConsumptionRawMaterialInventoryId: findAccount(["Raw Material", "Inventory"], AccountType.ASSET),
+      productionCompletionFinishedGoodsInventoryId: findAccount(["Finished Goods", "Ready Product", "Inventory"], AccountType.ASSET),
+      productionCompletionWipAccountId: findAccount(["WIP", "Work in Progress"], AccountType.ASSET),
+      inventoryAdjustmentPositiveFgId: findAccount(["Finished Goods", "Ready Product", "Inventory"], AccountType.ASSET),
+      inventoryAdjustmentPositiveRmId: findAccount(["Raw Material", "Inventory"], AccountType.ASSET),
+      inventoryAdjustmentPositiveGainId: findAccount(["Adjustment Gain", "Other Income"], AccountType.REVENUE),
+      inventoryAdjustmentNegativeFgId: findAccount(["Finished Goods", "Ready Product", "Inventory"], AccountType.ASSET),
+      inventoryAdjustmentNegativeRmId: findAccount(["Raw Material", "Inventory"], AccountType.ASSET),
+      inventoryAdjustmentNegativeExpenseId: findAccount(["Adjustment Expense", "Other Expense"], AccountType.EXPENSE),
+      paymentCashAccountId: findAccount(["Cash", "Bank", "Primary"], AccountType.ASSET),
+      receiptCashAccountId: findAccount(["Cash", "Bank", "Primary"], AccountType.ASSET),
+    });
+    setSuccess("Suggested accounts populated based on name matching!");
+    setTimeout(() => setSuccess(""), 3000);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-2 rounded-lg bg-blue-50 p-4 text-sm text-blue-800 border border-blue-200">
         <FiInfo className="mt-0.5 h-4 w-4 flex-shrink-0" />
-        <div>
+        <div className="flex-1">
           <p className="font-medium">Information</p>
           <p className="mt-1">Define the default chart of accounts for automated bookkeeping. Star marked (*) fields are configurable.</p>
         </div>
+        <Button 
+          type="button" 
+          variant="outline" 
+          size="sm" 
+          onClick={onAutofill}
+          className="shrink-0 border-blue-300 text-blue-700 hover:bg-blue-100"
+        >
+          Auto-suggest Accounts
+        </Button>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 pb-10">
@@ -391,7 +433,19 @@ export default function OperationAccountMappingForm() {
           </div>
         </section>
 
-        <div className="pt-6 border-t flex justify-end">
+        <div className="pt-6 border-t flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="isGlobal"
+              checked={isGlobal}
+              onChange={(e) => setIsGlobal(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <Label htmlFor="isGlobal" className="text-sm cursor-pointer font-normal">
+              Apply these settings globally (for all users)
+            </Label>
+          </div>
           <Button type="submit" size="lg" className="w-full md:w-auto" disabled={loading}>
             <FiSave className="mr-2" /> Save Accounting Mappings
           </Button>

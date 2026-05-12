@@ -61,12 +61,17 @@ export async function getAccountingOperationSettingsAction() {
       return { success: false, error: "Unauthorized", settings: null };
     }
 
-    const { getAccountingOperationSettings } = await import("@/lib/accounting-settings");
-    const settings = await getAccountingOperationSettings();
+    const { getAccountingOperationSettingsFull } = await import("@/lib/accounting-settings");
+    const result = await getAccountingOperationSettingsFull();
+    
+    if (!result) {
+       return { success: true, settings: null, isGlobal: false };
+    }
 
     return {
       success: true,
-      settings,
+      settings: result.settings,
+      isGlobal: result.isGlobal,
     };
   } catch (error) {
     console.error("getAccountingOperationSettingsAction error:", error);

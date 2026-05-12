@@ -1039,6 +1039,14 @@ export async function bulkUpdatePurchaseStatus(
 
         // Update stock and create accounting vouchers if status is RECEIVED
         if (status === "RECEIVED") {
+          // Pre-validate that accounting settings are configured before starting process
+          const { getPurchaseAccounts } = await import("@/lib/accounting-settings");
+          try {
+            await getPurchaseAccounts();
+          } catch (error) {
+            throw error; // Re-throw to be caught by the outer catch block
+          }
+
           for (const purchaseId of purchaseIds) {
             const stockResult = await updateStockOnPurchase(purchaseId, undefined, tx);
             if (!stockResult.success) throw new Error(stockResult.error || "Failed to update stock");
