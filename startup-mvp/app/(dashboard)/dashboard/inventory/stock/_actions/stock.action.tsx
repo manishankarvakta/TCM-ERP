@@ -901,6 +901,7 @@ export async function getStocks(
             name: true,
             code: true,
             images: true,
+            featuredImage: true,
             unit: {
               select: {
                 symbol: true,
@@ -1054,6 +1055,7 @@ export async function getStockLedger(
             name: true,
             code: true,
             images: true,
+            featuredImage: true,
             unit: {
               select: {
                 symbol: true,

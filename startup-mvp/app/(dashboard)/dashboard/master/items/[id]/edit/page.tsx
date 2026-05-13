@@ -41,6 +41,7 @@ export default async function EditItemPage({ params }: EditItemPageProps) {
             discount: item.discount ? Number(item.discount) : null,
             trackInventory: item.trackInventory,
             images: item.images as string[],
+            featuredImage: (item as any).featuredImage as string | null,
             sizes: item.sizes as string[],
             colors: item.colors as string[],
             isEnableEcom: item.isEnableEcom,

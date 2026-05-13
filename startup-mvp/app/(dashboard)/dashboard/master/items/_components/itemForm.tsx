@@ -36,6 +36,7 @@ const itemFormSchema = z.object({
   discount: z.number().min(0, "Discount must be >= 0").optional().nullable(),
   trackInventory: z.boolean().default(false),
   images: z.array(z.string()).default([]),
+  featuredImage: z.string().optional().nullable(),
   sizes: z.array(z.string()).default([]),
   colors: z.array(z.string()).default([]),
   isEnableEcom: z.boolean().default(false),
@@ -69,6 +70,7 @@ interface ItemFormProps {
     discount: number | null;
     trackInventory: boolean;
     images: string[] | null;
+    featuredImage?: string | null;
     sizes: string[];
     colors: string[];
     isEnableEcom: boolean;
@@ -122,6 +124,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           discount: initialData.discount ? Number(initialData.discount) : null,
           trackInventory: initialData.trackInventory,
           images: initialData.images || [],
+          featuredImage: initialData.featuredImage || null,
           sizes: initialData.sizes ?? [],
           colors: initialData.colors ?? [],
           isEnableEcom: initialData.isEnableEcom || false,
@@ -141,6 +144,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           discount: null,
           trackInventory: false,
           images: [],
+          featuredImage: null,
           sizes: [],
           colors: [],
           isEnableEcom: false,
@@ -150,6 +154,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
 
   const watchedItemType = watch("itemType");
   const watchedImages = watch("images") || [];
+  const watchedFeaturedImage = watch("featuredImage");
   const watchedSizes = watch("sizes") || [];
   const watchedColors = watch("colors") || [];
   
@@ -203,6 +208,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
         discount: data.discount || null,
         trackInventory: data.trackInventory,
         images: data.images,
+        featuredImage: data.featuredImage,
         sizes: data.sizes,
         colors: data.colors,
         isEnableEcom: data.isEnableEcom,
@@ -255,13 +261,26 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
 
   const addImage = (url: string) => {
     if (!url) return;
-    setValue("images", [...watchedImages, url]);
+    const newImages = [...watchedImages, url];
+    setValue("images", newImages);
+    if (!watchedFeaturedImage) {
+      setValue("featuredImage", url);
+    }
   };
 
   const removeImage = (index: number) => {
     const newImages = [...watchedImages];
+    const removedUrl = newImages[index];
     newImages.splice(index, 1);
     setValue("images", newImages);
+    
+    if (watchedFeaturedImage === removedUrl) {
+      setValue("featuredImage", newImages.length > 0 ? newImages[0] : null);
+    }
+  };
+
+  const setFeaturedImage = (url: string) => {
+    setValue("featuredImage", url);
   };
 
   if (loadingData) {
@@ -561,6 +580,27 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                         >
                           <FiTrash2 size={14} />
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setFeaturedImage(img)}
+                          className={`absolute bottom-1 left-1 p-1 rounded-md transition-opacity ${
+                            watchedFeaturedImage === img 
+                              ? "bg-primary text-white opacity-100" 
+                              : "bg-background/80 text-muted-foreground opacity-0 group-hover:opacity-100"
+                          }`}
+                          title="Set as featured image"
+                        >
+                          {watchedFeaturedImage === img ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                          )}
+                        </button>
+                        {watchedFeaturedImage === img && (
+                          <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-primary text-[10px] text-white rounded font-medium shadow-sm">
+                            Featured
+                          </div>
+                        )}
                       </div>
                     ))}
                     {watchedImages.length < 6 && (

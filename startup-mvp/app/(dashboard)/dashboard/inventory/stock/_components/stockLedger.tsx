@@ -41,6 +41,7 @@ interface StockLedgerEntry {
     name: string;
     code: string;
     images: any;
+    featuredImage: string | null;
     unit: {
       symbol: string;
     };
@@ -468,9 +469,9 @@ export default function StockLedgerClient({
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded border bg-muted overflow-hidden flex items-center justify-center shrink-0">
-                          {entry.item.images && Array.isArray(entry.item.images) && entry.item.images.length > 0 ? (
+                          {entry.item.featuredImage || (entry.item.images && Array.isArray(entry.item.images) && entry.item.images.length > 0) ? (
                             <img 
-                              src={entry.item.images[0]} 
+                              src={entry.item.featuredImage || entry.item.images[0]} 
                               alt={entry.item.name} 
                               className="w-full h-full object-cover"
                             />

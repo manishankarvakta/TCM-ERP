@@ -270,6 +270,11 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
                             <FiMaximize2 className="h-4 w-4" />
                           </a>
                         </div>
+                        {item.featuredImage === img && (
+                          <div className="absolute top-2 left-2 px-2 py-0.5 bg-primary text-[10px] text-white rounded font-bold shadow-md">
+                            FEATURED
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

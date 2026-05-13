@@ -59,6 +59,7 @@ interface Item {
   discount?: any | null;
   trackInventory: boolean;
   images: string[] | null;
+  featuredImage: string | null;
   isEnableEcom: boolean;
   status: string;
   isTrash: boolean;
@@ -271,14 +272,14 @@ export default function ItemsListClient({
             ) : (
               initialItems.map((item) => {
                 const isSelected = selectedItems.has(item.id);
-                const firstImg = item.images && item.images.length > 0 ? item.images[0] : null;
+                const displayImg = item.featuredImage || (item.images && item.images.length > 0 ? item.images[0] : null);
 
                 return (
                   <TableRow key={item.id} className={cn(isSelected && "bg-muted/50")}>
                     <TableCell><Checkbox checked={isSelected} onCheckedChange={(checked) => handleSelectItem(item.id, checked as boolean)} /></TableCell>
                     <TableCell>
                       <div className="w-10 h-10 rounded border bg-muted overflow-hidden flex items-center justify-center mx-auto">
-                        {firstImg ? <img src={firstImg} alt="" className="w-full h-full object-cover" /> : <FiImage className="text-muted-foreground" />}
+                        {displayImg ? <img src={displayImg} alt="" className="w-full h-full object-cover" /> : <FiImage className="text-muted-foreground" />}
                       </div>
                     </TableCell>
                     <TableCell>

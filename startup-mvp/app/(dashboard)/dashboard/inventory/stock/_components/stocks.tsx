@@ -36,6 +36,7 @@ interface Stock {
     name: string;
     code: string;
     images: any;
+    featuredImage: string | null;
     unit: {
       symbol: string;
     };
@@ -235,9 +236,9 @@ export default function StocksListClient({
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded border bg-muted overflow-hidden flex items-center justify-center shrink-0">
-                          {stock.item.images && Array.isArray(stock.item.images) && stock.item.images.length > 0 ? (
+                          {stock.item.featuredImage || (stock.item.images && Array.isArray(stock.item.images) && stock.item.images.length > 0) ? (
                             <img 
-                              src={stock.item.images[0]} 
+                              src={stock.item.featuredImage || stock.item.images[0]} 
                               alt={stock.item.name} 
                               className="w-full h-full object-cover"
                             />

@@ -315,6 +315,7 @@ model Item {
   discount       Decimal? @db.Decimal(12, 2) // Discount amount or percentage
   trackInventory Boolean  @default(false) // Inventory tracking flag
   images         Json?    // Array of image URLs/paths
+  featuredImage  String?  // URL/path of the featured image
   sizes          String[] // Available sizes
   colors         String[] // Available colors
   isEnableEcom   Boolean  @default(false) // Whether to show in e-commerce

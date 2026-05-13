@@ -217,6 +217,7 @@ export async function getItems(
         discount: true,
         trackInventory: true,
         images: true,
+        featuredImage: true,
         sizes: true,
         colors: true,
         isEnableEcom: true,
@@ -312,6 +313,7 @@ export async function getItemById(itemId: string) {
         discount: true,
         trackInventory: true,
         images: true,
+        featuredImage: true,
         sizes: true,
         colors: true,
         isEnableEcom: true,
@@ -498,6 +500,7 @@ export async function createItem(input: {
   discount?: number | null;
   trackInventory?: boolean;
   images?: string[] | null;
+  featuredImage?: string | null;
   sizes?: string[];
   colors?: string[];
   isEnableEcom?: boolean;
@@ -579,6 +582,7 @@ export async function createItem(input: {
         discount: input.discount || null,
         trackInventory: input.trackInventory ?? false,
         images: input.images || [],
+        featuredImage: input.featuredImage || null,
         sizes: input.sizes || [],
         colors: input.colors || [],
         isEnableEcom: input.isEnableEcom ?? false,
@@ -603,6 +607,7 @@ export async function createItem(input: {
         sizes: true,
         colors: true,
         isEnableEcom: true,
+        featuredImage: true,
         status: true,
         createdAt: true,
         category: {
@@ -676,6 +681,7 @@ export async function updateItem(input: {
   discount?: number | null;
   trackInventory?: boolean;
   images?: string[] | null;
+  featuredImage?: string | null;
   sizes?: string[];
   colors?: string[];
   isEnableEcom?: boolean;
@@ -721,6 +727,7 @@ export async function updateItem(input: {
         sizes: true,
         colors: true,
         isEnableEcom: true,
+        featuredImage: true,
         status: true,
       },
     });
@@ -781,6 +788,7 @@ export async function updateItem(input: {
       discount: input.discount || null,
       trackInventory: input.trackInventory ?? false,
       images: input.images || [],
+      featuredImage: input.featuredImage || null,
       sizes: input.sizes ? { set: input.sizes } : { set: [] },
       colors: input.colors ? { set: input.colors } : { set: [] },
       isEnableEcom: input.isEnableEcom ?? false,
