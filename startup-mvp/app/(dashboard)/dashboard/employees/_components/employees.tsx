@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw } from "react-icons/fi";
+import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw, FiImage } from "react-icons/fi";
 import { deleteEmployee, bulkUpdateEmployeeStatus, deleteEmployeesPermanently } from "../_actions/employee.action";
 import ProtectedAction from "@/components/permissions/protected-action";
 import {
@@ -52,6 +52,17 @@ interface Employee {
     email: string;
   } | null;
   status: string;
+  photo: string | null;
+  designation: string | null;
+  department: string | null;
+  salary: any | null;
+  joiningDate: Date | null;
+  gender: string | null;
+  dateOfBirth: Date | null;
+  nationalId: string | null;
+  address: any | null;
+  emergencyContact: any | null;
+  warehouseId: string | null;
   salaryPayableAccount: {
     id: string;
     code: string;
@@ -345,21 +356,22 @@ export default function EmployeesListClient({
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead>Employee Code</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
+              <TableHead className="w-16 text-center"><FiImage className="mx-auto" /></TableHead>
+              <TableHead>Code & Name</TableHead>
+              <TableHead>Designation & Dept</TableHead>
+              <TableHead>Email & Phone</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Created At</TableHead>
+              <TableHead>Joined At</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {initialEmployees.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  {isTrash ? "No trashed employees found" : "No employees found"}
-                </TableCell>
-              </TableRow>
+              {initialEmployees.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    {isTrash ? "No trashed employees found" : "No employees found"}
+                  </TableCell>
+                </TableRow>
             ) : (
               initialEmployees.map((employee) => {
                 const isSelected = selectedEmployees.has(employee.id);
@@ -374,19 +386,32 @@ export default function EmployeesListClient({
                         aria-label={`Select ${employee.name}`}
                       />
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {employee.employeeCode || "-"}
-                    </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback>{getInitials(employee.name, employee.email)}</AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium">{employee.name}</span>
+                      <div className="w-10 h-10 rounded border bg-muted overflow-hidden flex items-center justify-center mx-auto">
+                        {employee.photo ? (
+                          <img src={employee.photo} alt={employee.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <FiImage className="text-muted-foreground" />
+                        )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {employee.email || "-"}
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-medium text-foreground">{employee.name}</span>
+                        <span className="text-xs font-mono text-muted-foreground uppercase">{employee.employeeCode || "-"}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col text-sm">
+                        <span className="font-medium">{employee.designation || "-"}</span>
+                        <span className="text-xs text-muted-foreground">{employee.department || "-"}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col text-sm">
+                        <span className="text-foreground">{employee.email || "-"}</span>
+                        <span className="text-xs text-muted-foreground">{employee.phone || "-"}</span>
+                      </div>
                     </TableCell>
                     <TableCell>
                       {employeeStatus === "trash" ? (
@@ -398,7 +423,7 @@ export default function EmployeesListClient({
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {format(new Date(employee.createdAt), "MMM d, yyyy")}
+                      {employee.joiningDate ? format(new Date(employee.joiningDate), "MMM d, yyyy") : "-"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">

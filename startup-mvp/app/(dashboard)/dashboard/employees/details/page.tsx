@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { FiArrowLeft, FiEdit } from "react-icons/fi";
+import { FiArrowLeft, FiEdit, FiUser, FiMapPin, FiPhone, FiBriefcase, FiDollarSign, FiCalendar, FiCreditCard, FiMail } from "react-icons/fi";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
 import { notFound } from "next/navigation";
 import PageGuard from "@/components/permissions/page-guard";
@@ -58,77 +59,182 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
         <CardContent>
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Left Side - Details (3 columns) */}
-            <div className="lg:col-span-3 space-y-6">
+            <div className="lg:col-span-3 space-y-8">
               {/* Employee Information Section */}
-              <div>
-                <h3 className="text-sm font-semibold mb-4">Employee Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Employee Code</label>
-                    <p className="text-sm font-medium">{employee.employeeCode || "-"}</p>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b pb-2">
+                  <FiUser className="text-primary" />
+                  <h3 className="font-semibold">Personal Information</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Employee Code</label>
+                    <p className="text-sm font-mono font-medium bg-muted/50 px-2 py-1 rounded inline-block">
+                      {employee.employeeCode || "-"}
+                    </p>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Name</label>
-                    <p className="text-sm font-medium">{employee.name}</p>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Full Name</label>
+                    <p className="text-sm font-semibold text-foreground">{employee.name}</p>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Email</label>
-                    <p className="text-sm">{employee.email || "-"}</p>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Gender</label>
+                    <p className="text-sm">{employee.gender || "-"}</p>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Phone</label>
-                    <p className="text-sm">{employee.phone || "-"}</p>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Email Address</label>
+                    <div className="flex items-center gap-2 text-sm">
+                      <FiMail className="text-muted-foreground h-3 w-3" />
+                      <span>{employee.email || "-"}</span>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Status</label>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Phone Number</label>
+                    <div className="flex items-center gap-2 text-sm">
+                      <FiPhone className="text-muted-foreground h-3 w-3" />
+                      <span>{employee.phone || "-"}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Date of Birth</label>
+                    <p className="text-sm">
+                      {employee.dateOfBirth ? format(new Date(employee.dateOfBirth), "MMM d, yyyy") : "-"}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">National ID / Passport</label>
+                    <p className="text-sm">{employee.nationalId || "-"}</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</label>
                     <div>
                       {employeeStatus === "inactive" ? (
-                        <Badge variant="secondary">Inactive</Badge>
+                        <Badge variant="secondary" className="font-medium">Inactive</Badge>
                       ) : (
-                        <Badge variant="default">Active</Badge>
+                        <Badge variant="default" className="font-medium">Active</Badge>
                       )}
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Linked User</label>
-                    <p className="text-sm">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Linked User</label>
+                    <p className="text-sm text-muted-foreground">
                       {employee.user ? (
-                        `${employee.user.name || employee.user.email} (${employee.user.email})`
+                        <span className="font-medium text-foreground">{employee.user.name || employee.user.email}</span>
                       ) : (
                         "Not linked"
                       )}
                     </p>
                   </div>
+                </div>
+              </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Created At</label>
-                    <p className="text-sm">{format(new Date(employee.createdAt), "MMM d, yyyy 'at' h:mm a")}</p>
+              {/* Job Information Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b pb-2">
+                  <FiBriefcase className="text-primary" />
+                  <h3 className="font-semibold">Job Information</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Designation</label>
+                    <p className="text-sm font-medium">{employee.designation || "-"}</p>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-                    <p className="text-sm">{format(new Date(employee.updatedAt), "MMM d, yyyy 'at' h:mm a")}</p>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Department</label>
+                    <p className="text-sm">{employee.department || "-"}</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Monthly Salary</label>
+                    <div className="flex items-center gap-1 text-sm font-semibold text-primary">
+                      <span>৳</span>
+                      <span>{employee.salary ? Number(employee.salary).toLocaleString() : "0.00"}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Joining Date</label>
+                    <div className="flex items-center gap-2 text-sm">
+                      <FiCalendar className="text-muted-foreground h-3 w-3" />
+                      <span>{employee.joiningDate ? format(new Date(employee.joiningDate), "MMM d, yyyy") : "-"}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Warehouse</label>
+                    <p className="text-sm">{employee.warehouse?.name || "-"}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Accounting Fields Section */}
-              <div>
-                <h3 className="text-sm font-semibold mb-4">Accounting Information</h3>
+              {/* Address Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b pb-2">
+                  <FiMapPin className="text-primary" />
+                  <h3 className="font-semibold">Address Information</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Street Address</label>
+                    <p className="text-sm">{employee.address?.street || "-"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Location</label>
+                    <p className="text-sm">
+                      {[employee.address?.city, employee.address?.state, employee.address?.zipCode, employee.address?.country]
+                        .filter(Boolean)
+                        .join(", ") || "-"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Emergency Contact Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b pb-2">
+                  <FiPhone className="text-primary" />
+                  <h3 className="font-semibold">Emergency Contact</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Contact Name</label>
+                    <p className="text-sm font-medium">{employee.emergencyContact?.name || "-"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Relation</label>
+                    <p className="text-sm">{employee.emergencyContact?.relation || "-"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Phone Number</label>
+                    <p className="text-sm">{employee.emergencyContact?.phone || "-"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Accounting Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b pb-2">
+                  <FiCreditCard className="text-primary" />
+                  <h3 className="font-semibold">Accounting Information</h3>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Salary Payable Account</label>
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Salary Payable Account</label>
                     {employee.salaryPayableAccount ? (
-                      <div className="space-y-1">
+                      <div className="p-3 rounded-lg border bg-muted/30">
                         <p className="text-sm font-medium">
                           {employee.salaryPayableAccount.code} - {employee.salaryPayableAccount.name}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-[10px] text-muted-foreground uppercase mt-1">
                           Type: {employee.salaryPayableAccount.type}
                         </p>
                       </div>
@@ -138,13 +244,13 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Advance Account</label>
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Advance Account</label>
                     {employee.advanceAccount ? (
-                      <div className="space-y-1">
+                      <div className="p-3 rounded-lg border bg-muted/30">
                         <p className="text-sm font-medium">
                           {employee.advanceAccount.code} - {employee.advanceAccount.name}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-[10px] text-muted-foreground uppercase mt-1">
                           Type: {employee.advanceAccount.type}
                         </p>
                       </div>
@@ -156,9 +262,40 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
               </div>
             </div>
 
-            {/* Right Side - Reserved for future use (1 column) */}
-            <div className="lg:col-span-1">
-              {/* Reserved space for future features */}
+            {/* Right Side - Photo & Quick Actions (1 column) */}
+            <div className="lg:col-span-1 space-y-6">
+              <Card className="overflow-hidden max-w-[200px] mx-auto">
+                <div className="aspect-[4/5] relative bg-muted flex items-center justify-center">
+                  {employee.photo ? (
+                    <img src={employee.photo} alt={employee.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground p-4">
+                      <FiUser size={32} />
+                      <span className="text-[10px] text-center">No Photo Available</span>
+                    </div>
+                  )}
+                </div>
+                <CardContent className="p-4">
+                  <div className="text-center">
+                    <h4 className="font-bold text-lg">{employee.name}</h4>
+                    <p className="text-sm text-muted-foreground">{employee.designation || "Employee"}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="p-4 rounded-lg border bg-muted/20 space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">System Info</h4>
+                <div className="space-y-3">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Created:</span>
+                    <span className="font-medium">{format(new Date(employee.createdAt), "MMM d, yyyy")}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Updated:</span>
+                    <span className="font-medium">{format(new Date(employee.updatedAt), "MMM d, yyyy")}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>

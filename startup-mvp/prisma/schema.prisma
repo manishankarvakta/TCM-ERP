@@ -134,6 +134,22 @@ model Employee {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Personal Information
+  designation      String?
+  department       String?
+  salary           Decimal? @db.Decimal(12, 2)
+  joiningDate      DateTime?
+  gender           String?
+  dateOfBirth      DateTime?
+  nationalId       String?
+  address          Json?
+  emergencyContact Json?
+  photo            String?
+
+  // Warehouse relation
+  warehouseId String?
+  warehouse   Warehouse? @relation("WarehouseEmployees", fields: [warehouseId], references: [id], onDelete: SetNull)
+
   // Payroll accounting relations
   salaryPayableAccountId String?
   salaryPayableAccount   ChartOfAccount? @relation("Employee_salaryPayableAccountIdToChartOfAccount", fields: [salaryPayableAccountId], references: [id], onDelete: SetNull)
@@ -146,6 +162,7 @@ model Employee {
   @@index([email])
   @@index([salaryPayableAccountId])
   @@index([advanceAccountId])
+  @@index([warehouseId])
 }
 
 model Account {
@@ -370,6 +387,7 @@ model Warehouse {
   sales            Sale[]
   InventoryAdjustment InventoryAdjustment[]
   defaultUsers     User[]            @relation("UserDefaultWarehouse")
+  employees        Employee[]        @relation("WarehouseEmployees")
 
   @@index([code])
   @@index([name])
