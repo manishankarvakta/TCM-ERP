@@ -33,18 +33,6 @@ export default async function EditEmployeePage({ params }: EditEmployeePageProps
   return (
     <PageGuard permissionKey="peoples.employees" requiredOperation="edit">
       <div className="space-y-6">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm">
-          <Link
-            href="/dashboard/employees"
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Employees
-          </Link>
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          <span className="font-semibold">Edit {displayName}</span>
-        </div>
-
         <EmployeeForm mode="edit" initialData={employee} />
       </div>
     </PageGuard>

@@ -271,101 +271,115 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                     <h3 className="font-semibold">Personal Information</h3>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Full Name *</Label>
-                      <Input
-                        id="name"
-                        type="text"
-                        placeholder="John Doe"
-                        {...register("name")}
-                        disabled={loading}
-                      />
-                      {errors.name && (
-                        <p className="text-sm text-destructive">{errors.name.message}</p>
-                      )}
-                    </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-[7fr_3fr] gap-8">
+                    {/* Left Side - 70% Input Fields */}
+                    <div className="space-y-4">
+                      {/* Row 1: Name and Phone */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="name">Full Name *</Label>
+                          <Input
+                            id="name"
+                            type="text"
+                            placeholder="John Doe"
+                            {...register("name")}
+                            disabled={loading}
+                          />
+                          {errors.name && (
+                            <p className="text-sm text-destructive">{errors.name.message}</p>
+                          )}
+                        </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="john@example.com"
-                        {...register("email")}
-                        disabled={loading}
-                      />
-                      {errors.email && (
-                        <p className="text-sm text-destructive">{errors.email.message}</p>
-                      )}
-                    </div>
-                  </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="phone">Phone</Label>
+                          <Input
+                            id="phone"
+                            type="tel"
+                            placeholder="+1 234 567 8900"
+                            {...register("phone")}
+                            disabled={loading}
+                          />
+                        </div>
+                      </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Phone</Label>
-                      <Input
-                        id="phone"
-                        type="tel"
-                        placeholder="+1 234 567 8900"
-                        {...register("phone")}
-                        disabled={loading}
-                      />
-                    </div>
+                      {/* Row 2: Email and National ID */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="email">Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="john@example.com"
+                            {...register("email")}
+                            disabled={loading}
+                          />
+                          {errors.email && (
+                            <p className="text-sm text-destructive">{errors.email.message}</p>
+                          )}
+                        </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="gender">Gender</Label>
-                      <Select
-                        defaultValue={watch("gender") || ""}
-                        onValueChange={(value) => setValue("gender", value)}
-                        disabled={loading}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select gender" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Male">Male</SelectItem>
-                          <SelectItem value="Female">Female</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="nationalId">National ID / Passport</Label>
+                          <div className="relative">
+                            <FiCreditCard className="absolute left-3 top-3 text-muted-foreground" />
+                            <Input
+                              id="nationalId"
+                              className="pl-10"
+                              placeholder="1234567890"
+                              {...register("nationalId")}
+                              disabled={loading}
+                            />
+                          </div>
+                        </div>
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                      <Input
-                        id="dateOfBirth"
-                        type="date"
-                        {...register("dateOfBirth")}
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
+                      {/* Row 3: Gender and Date of Birth */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="gender">Gender</Label>
+                          <Select
+                            defaultValue={watch("gender") || ""}
+                            onValueChange={(value) => setValue("gender", value)}
+                            disabled={loading}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select gender" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Male">Male</SelectItem>
+                              <SelectItem value="Female">Female</SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="nationalId">National ID / Passport</Label>
-                      <div className="relative">
-                        <FiCreditCard className="absolute left-3 top-3 text-muted-foreground" />
-                        <Input
-                          id="nationalId"
-                          className="pl-10"
-                          placeholder="1234567890"
-                          {...register("nationalId")}
-                          disabled={loading}
-                        />
+                        <div className="space-y-2">
+                          <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                          <Input
+                            id="dateOfBirth"
+                            type="date"
+                            {...register("dateOfBirth")}
+                            disabled={loading}
+                          />
+                        </div>
                       </div>
                     </div>
 
+                    {/* Right Side - 30% Image Upload */}
                     <div className="space-y-2">
                       <Label htmlFor="photo">Employee Photo</Label>
-                      <MediaSelector
-                        label=""
-                        value={watch("photo") || ""}
-                        onChange={(url) => setValue("photo", url || "")}
-                        allowedTypes={["image/*"]}
-                        previewStyle="square"
-                      />
+                      <div className="rounded-lg border bg-muted/30 p-4 h-full flex flex-col justify-center">
+                        <MediaSelector
+                          label=""
+                          value={watch("photo") || ""}
+                          onChange={(url) => setValue("photo", url || "")}
+                          allowedTypes={["image/*"]}
+                          previewStyle="square"
+                        />
+                        <p className="text-[10px] text-muted-foreground text-center mt-2 uppercase tracking-tighter">
+                          Upload professional portrait
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -377,7 +391,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                     <h3 className="font-semibold">Job Information</h3>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="designation">Designation</Label>
                       <Input
@@ -397,9 +411,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                         disabled={loading}
                       />
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="salary">Monthly Salary</Label>
                       <div className="relative">
@@ -448,9 +460,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                         </SelectContent>
                       </Select>
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="status">Employment Status</Label>
                       <Select
