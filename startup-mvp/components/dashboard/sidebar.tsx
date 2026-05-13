@@ -33,6 +33,10 @@ import {
   FiArrowDownRight,
   FiArrowUpRight,
   FiFile,
+  FiDatabase,
+  FiShoppingBag,
+  FiBox,
+  FiClipboard,
 } from "react-icons/fi";
 import Logo from "@/components/layout/logo";
 import { SlCalculator } from "react-icons/sl";
@@ -61,6 +65,10 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   FiArrowDownRight,
   FiArrowUpRight,
   FiFile,
+  FiDatabase,
+  FiShoppingBag,
+  FiBox,
+  FiClipboard,
   SlCalculator,
   MdOutlineCategory,
 };

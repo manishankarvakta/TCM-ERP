@@ -322,7 +322,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
                     <Input
                       id="openingBalance"
                       type="number"
-                      step="0.01"
+                      step="1"
                       placeholder="0.00"
                       {...register("openingBalance")}
                       disabled={loading}

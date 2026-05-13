@@ -554,7 +554,7 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
                               render={({ field }) => (
                                 <Input
                                   type="number"
-                                  step="0.01"
+                                  step="1"
                                   min="0"
                                   placeholder="0.00"
                                   value={field.value || ""}
@@ -583,7 +583,7 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
                               render={({ field }) => (
                                 <Input
                                   type="number"
-                                  step="0.01"
+                                  step="1"
                                   min="0"
                                   placeholder="0.00"
                                   value={field.value || ""}

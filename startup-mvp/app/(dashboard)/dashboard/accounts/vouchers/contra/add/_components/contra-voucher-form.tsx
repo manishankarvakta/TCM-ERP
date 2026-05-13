@@ -394,7 +394,7 @@ export default function ContraVoucherForm() {
                   <Input
                     id="amount"
                     type="number"
-                    step="0.01"
+                    step="1"
                     min="0.01"
                     placeholder="0.00"
                     className="pl-8"

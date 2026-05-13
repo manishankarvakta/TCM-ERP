@@ -471,7 +471,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                         <Input
                           id="costPrice"
                           type="number"
-                          step="0.01"
+                          step="1"
                           {...register("costPrice", { valueAsNumber: true })}
                           disabled={loading}
                         />
@@ -482,7 +482,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                         <Input
                           id="salesPrice"
                           type="number"
-                          step="0.01"
+                          step="1"
                           {...register("salesPrice", { valueAsNumber: true })}
                           disabled={loading}
                         />
@@ -493,7 +493,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                         <Input
                           id="wholesalePrice"
                           type="number"
-                          step="0.01"
+                          step="1"
                           {...register("wholesalePrice", { valueAsNumber: true })}
                           disabled={loading}
                         />
@@ -504,7 +504,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                         <Input
                           id="discount"
                           type="number"
-                          step="0.01"
+                          step="1"
                           {...register("discount", { valueAsNumber: true })}
                           disabled={loading}
                         />

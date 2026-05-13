@@ -276,7 +276,7 @@ export default function BOMForm({
                 <Input
                   id="quantityPerUnit"
                   type="number"
-                  step="0.01"
+                  step="1"
                   placeholder="e.g., 10"
                   {...register("quantityPerUnit", { valueAsNumber: true })}
                   disabled={loading}
@@ -399,7 +399,7 @@ export default function BOMForm({
                           <div className="flex items-center gap-2">
                             <Input
                               type="number"
-                              step="0.01"
+                              step="1"
                               placeholder="0.00"
                               {...register(`items.${index}.quantityRequired`, {
                                 valueAsNumber: true,

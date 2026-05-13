@@ -336,7 +336,7 @@ export default function AdjustmentForm({ warehouses, items }: AdjustmentFormProp
                        <TableCell>
                          <Input 
                            type="number" 
-                           step="0.01" 
+                           step="1" 
                            className="text-center"
                            {...form.register(`items.${index}.quantity`, { valueAsNumber: true })} 
                          />
@@ -346,7 +346,7 @@ export default function AdjustmentForm({ warehouses, items }: AdjustmentFormProp
                           <Input 
                             readOnly
                             type="number" 
-                            step="0.01" 
+                            step="1" 
                             min="0"
                              className="text-right bg-muted"
                             {...form.register(`items.${index}.unitRate`, { valueAsNumber: true })} 
