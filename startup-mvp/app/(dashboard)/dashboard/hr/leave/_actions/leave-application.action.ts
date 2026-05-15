@@ -261,3 +261,40 @@ export async function updateLeaveStatus(id: string, newStatus: LeaveStatus) {
     return { success: false, error: error instanceof Error ? error.message : "Failed to update leave status" };
   }
 }
+
+/**
+ * Get a single leave application by ID
+ */
+export async function getLeaveApplicationById(id: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const leaveApplication = await prisma.leaveApplication.findUnique({
+      where: { id },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            name: true,
+            employeeCode: true,
+            designation: true,
+            department: true,
+            photo: true,
+          }
+        },
+        leaveType: true,
+        manager: { select: { id: true, name: true } },
+        hr: { select: { id: true, name: true } },
+        creator: { select: { id: true, name: true } }
+      }
+    });
+
+    if (!leaveApplication) return { success: false, error: "Leave application not found" };
+
+    return { success: true, leaveApplication };
+  } catch (error) {
+    console.error("getLeaveApplicationById error:", error);
+    return { success: false, error: "Failed to fetch leave application details" };
+  }
+}

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -197,36 +198,13 @@ export default function LeaveApplicationsListClient({
                   <TableCell>
                     {getStatusBadge(app.status)}
                   </TableCell>
-                  {permissions?.edit && (
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" disabled={isPending || app.status === "HR_APPROVED" || app.status === "REJECTED" || app.status === "CANCELLED"}>
-                            <FiMoreVertical className="mr-2 h-4 w-4" />
-                            Action
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {app.status === "PENDING" && (
-                            <DropdownMenuItem onClick={() => handleStatusUpdate(app.id, "MANAGER_APPROVED")}>
-                              <FiCheck className="mr-2 h-4 w-4 text-blue-500" />
-                              Approve (Manager)
-                            </DropdownMenuItem>
-                          )}
-                          {(app.status === "PENDING" || app.status === "MANAGER_APPROVED") && (
-                            <DropdownMenuItem onClick={() => handleStatusUpdate(app.id, "HR_APPROVED")}>
-                              <FiCheck className="mr-2 h-4 w-4 text-emerald-500" />
-                              Approve (HR)
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={() => handleStatusUpdate(app.id, "REJECTED")}>
-                            <FiXCircle className="mr-2 h-4 w-4 text-destructive" />
-                            Reject
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  )}
+                  <TableCell className="text-right">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/dashboard/hr/leave/${app.id}`}>
+                        View Details
+                      </Link>
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))
             )}
