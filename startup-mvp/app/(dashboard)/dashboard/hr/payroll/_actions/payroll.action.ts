@@ -35,9 +35,6 @@ export async function generatePayroll(month: number, year: number) {
     // Get all active employees with their salary info
     const employees = await prisma.employee.findMany({
       where: { status: "active" },
-      include: {
-        EmployeeSalary: true,
-      },
     });
 
     if (employees.length === 0) {
@@ -101,14 +98,13 @@ export async function generatePayroll(month: number, year: number) {
     let grandTotalAmount = 0;
 
     for (const emp of employees) {
-      const salary = emp.EmployeeSalary;
-      if (!salary) continue; // Skip if no salary setup
+      const basic = Number(emp.salary) || 0;
+      if (basic <= 0) continue; // Skip if no salary setup
 
-      const basic = Number(salary.basic) || 0;
-      const houseRent = Number(salary.houseRent) || 0;
-      const medical = Number(salary.medical) || 0;
-      const transport = Number(salary.transport) || 0;
-      const foodAllowance = Number(salary.foodAllowance) || 0;
+      const houseRent = 0;
+      const medical = 0;
+      const transport = 0;
+      const foodAllowance = 0;
 
       // Attendance values
       const att = attendanceByEmployee[emp.id] || { absentDays: 0, otHours: 0 };
@@ -131,9 +127,9 @@ export async function generatePayroll(month: number, year: number) {
         loanDeduction += deduction;
       }
 
-      // Calculate Tax & PF (based on basic)
-      const taxPercentage = Number(salary.taxPercentage) || 0;
-      const pfPercentage = Number(salary.pfPercentage) || 0;
+      // Calculate Tax & PF (based on basic) - Default to 0 for now as percentages aren't in schema
+      const taxPercentage = 0;
+      const pfPercentage = 0;
       
       const taxDeduction = basic * (taxPercentage / 100);
       const pfDeduction = basic * (pfPercentage / 100);

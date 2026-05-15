@@ -1,5 +1,5 @@
 import React from "react";
-import { getPayrollById } from "../_actions/payroll.action";
+import { getPayrollById } from "@/app/(dashboard)/dashboard/hr/payroll/_actions/payroll.action";
 import { prisma } from "@/lib/prisma";
 import PayrollDetailsClient from "./_components/payroll-details";
 import { auth } from "@/lib/auth";

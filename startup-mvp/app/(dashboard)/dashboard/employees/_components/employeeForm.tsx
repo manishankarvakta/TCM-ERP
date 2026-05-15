@@ -19,6 +19,7 @@ import {
 import { FiAlertCircle, FiUser, FiMapPin, FiPhone, FiBriefcase, FiDollarSign, FiCalendar, FiCreditCard, FiUpload } from "react-icons/fi";
 import { createEmployee, updateEmployee } from "../_actions/employee.action";
 import { getWarehouses } from "../../master/warehouses/_actions/warehouse.action";
+import { getShifts } from "../../hr/shifts/_actions/shift.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { useEffect } from "react";
 import MediaSelector from "@/components/MediaSelector";
@@ -50,6 +51,7 @@ const employeeFormSchema = z.object({
   }).optional(),
   warehouseId: z.string().optional().or(z.literal("")),
   photo: z.string().optional().or(z.literal("")),
+  shiftId: z.string().optional().or(z.literal("")),
 });
 
 type EmployeeFormData = z.infer<typeof employeeFormSchema>;
@@ -80,6 +82,7 @@ interface EmployeeFormProps {
     emergencyContact: any;
     warehouseId: string | null;
     photo: string | null;
+    shiftId: string | null;
     salaryPayableAccount: {
       id: string;
       code: string;
@@ -139,6 +142,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           },
           warehouseId: initialData.warehouseId || "",
           photo: initialData.photo || "",
+          shiftId: initialData.shiftId || "",
         }
       : {
           name: "",
@@ -166,19 +170,26 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           },
           warehouseId: "",
           photo: "",
+          shiftId: "",
         },
   });
 
   const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [shifts, setShifts] = useState<any[]>([]);
 
   useEffect(() => {
-    async function fetchWarehouses() {
-      const result = await getWarehouses(1, 100);
-      if (result.success) {
-        setWarehouses(result.warehouses);
+    async function fetchData() {
+      const warehouseResult = await getWarehouses(1, 100);
+      if (warehouseResult.success) {
+        setWarehouses(warehouseResult.warehouses);
+      }
+      
+      const shiftResult = await getShifts(1, 100, "", "active");
+      if (shiftResult.success) {
+        setShifts(shiftResult.shifts);
       }
     }
-    fetchWarehouses();
+    fetchData();
   }, []);
 
 
@@ -474,6 +485,26 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                         <SelectContent>
                           <SelectItem value="active">Active</SelectItem>
                           <SelectItem value="inactive">Inactive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="shiftId">Assigned Shift</Label>
+                      <Select
+                        defaultValue={watch("shiftId") || ""}
+                        onValueChange={(value) => setValue("shiftId", value)}
+                        disabled={loading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select shift" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {shifts.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.name} ({s.startTime} - {s.endTime})
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>

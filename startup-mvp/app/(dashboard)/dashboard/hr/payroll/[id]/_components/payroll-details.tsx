@@ -25,7 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FiCheck, FiFileText, FiSend } from "react-icons/fi";
 import { useToast } from "@/hooks/use-toast";
-import { updatePayrollStatus, postPayroll, disbursePayroll } from "../_actions/payroll.action";
+import { updatePayrollStatus, postPayroll, disbursePayroll } from "@/app/(dashboard)/dashboard/hr/payroll/_actions/payroll.action";
 import { format } from "date-fns";
 
 interface PayrollDetailsClientProps {

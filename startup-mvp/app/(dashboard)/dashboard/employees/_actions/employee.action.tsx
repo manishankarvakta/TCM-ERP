@@ -7,6 +7,7 @@ import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { revalidatePath } from "next/cache";
 import { type Prisma, AccountType } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
+import PageGuard from "@/components/permissions/page-guard";
 
 /**
  * Get paginated list of employees with search
@@ -101,6 +102,7 @@ export async function getEmployees(
           },
         },
         photo: true,
+        shiftId: true,
         salaryPayableAccount: {
           select: {
             id: true,
@@ -200,6 +202,7 @@ export async function getEmployeeById(employeeId: string) {
           },
         },
         photo: true,
+        shiftId: true, shift: { select: { id: true, name: true, startTime: true, endTime: true } },
         salaryPayableAccount: {
           select: {
             id: true,
@@ -418,6 +421,7 @@ export async function createEmployee(input: {
   emergencyContact?: any;
   warehouseId?: string;
   photo?: string;
+  shiftId?: string;
 }) {
   try {
     const session = await auth();
@@ -684,6 +688,7 @@ export async function createEmployee(input: {
           emergencyContact: input.emergencyContact || null,
           warehouseId: input.warehouseId || null,
           photo: input.photo || null,
+          shiftId: input.shiftId || null,
           salaryPayableAccountId: salaryPayableCOA.id,
           advanceAccountId: advanceCOA?.id || null,
         },
@@ -706,6 +711,7 @@ export async function createEmployee(input: {
           emergencyContact: true,
           warehouseId: true,
           photo: true,
+          shiftId: true,
           salaryPayableAccount: {
             select: {
               id: true,
@@ -785,6 +791,7 @@ export async function updateEmployee(input: {
   emergencyContact?: any;
   warehouseId?: string;
   photo?: string;
+  shiftId?: string;
 }) {
   try {
     const session = await auth();
@@ -1041,6 +1048,7 @@ export async function updateEmployee(input: {
         emergencyContact: input.emergencyContact !== undefined ? (input.emergencyContact || null) : undefined,
         warehouseId: input.warehouseId !== undefined ? (input.warehouseId || null) : undefined,
         photo: input.photo !== undefined ? (input.photo || null) : undefined,
+        shiftId: input.shiftId !== undefined ? (input.shiftId || null) : undefined,
       };
 
       // Add account IDs if they were created
@@ -1075,6 +1083,7 @@ export async function updateEmployee(input: {
           emergencyContact: true,
           warehouseId: true,
           photo: true,
+          shiftId: true,
           user: {
             select: {
               id: true,

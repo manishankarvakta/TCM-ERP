@@ -640,15 +640,9 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         operations: ["create", "view", "edit", "manage"],
       },
       {
-        permissionKey: "hr.attendance.devices",
-        path: "/dashboard/hr/attendance/devices",
-        label: "Biometric Devices",
-        operations: ["create", "view", "edit", "delete"],
-      },
-      {
         permissionKey: "hr.leave",
         path: "/dashboard/hr/leave",
-        label: "Leave Applications",
+        label: "Leave",
         operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
       },
       {
@@ -662,6 +656,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         path: "/dashboard/hr/loans",
         label: "Loans",
         operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "hr.attendance.devices",
+        path: "/dashboard/hr/attendance/devices",
+        label: "Biometric Devices",
+        operations: ["create", "view", "edit", "delete"],
       },
     ],
   },

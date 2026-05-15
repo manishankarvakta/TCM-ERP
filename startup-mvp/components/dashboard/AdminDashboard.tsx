@@ -1,11 +1,11 @@
 "use client";
 
-import FinancialOverview from "./widgets/dashboard/FinancialOverview";
-import InventorySnapshot from "./widgets/dashboard/InventorySnapshot";
-import ProductionStatus from "./widgets/dashboard/ProductionStatus";
-import PurchasePayables from "./widgets/dashboard/PurchasePayables";
-import SalesReceivables from "./widgets/dashboard/SalesReceivables";
-import AlertsExceptions from "./widgets/dashboard/AlertsExceptions";
+import FinancialOverview from "./widgets/admin/FinancialOverview";
+import InventorySnapshot from "./widgets/admin/InventorySnapshot";
+import ProductionStatus from "./widgets/admin/ProductionStatus";
+import PurchasePayables from "./widgets/admin/PurchasePayables";
+import SalesReceivables from "./widgets/admin/SalesReceivables";
+import AlertsExceptions from "./widgets/admin/AlertsExceptions";
 import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import { Badge } from "@/components/ui/badge";
 import { FiShield } from "react-icons/fi";

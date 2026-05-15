@@ -173,6 +173,19 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Warehouse</label>
                     <p className="text-sm">{employee.warehouse?.name || "-"}</p>
                   </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Assigned Shift</label>
+                    <p className="text-sm font-medium">
+                      {(employee as any).shift ? (
+                        <span>
+                          {(employee as any).shift.name} ({(employee as any).shift.startTime} - {(employee as any).shift.endTime})
+                        </span>
+                      ) : (
+                        "-"
+                      )}
+                    </p>
+                  </div>
                 </div>
               </div>
 

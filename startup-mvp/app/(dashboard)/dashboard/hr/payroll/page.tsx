@@ -8,6 +8,7 @@ import PayrollListClient from "./_components/payroll-list";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import PageGuard from "@/components/permissions/page-guard";
+import PayrollHeaderActions from "./_components/payroll-header-actions";
 
 interface PayrollPageProps {
   searchParams: Promise<{
@@ -56,30 +57,7 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
             <h1 className="text-2xl font-semibold">Payroll Engine</h1>
             <p className="text-sm text-muted-foreground">Generate, approve, and post monthly employee salaries</p>
           </div>
-          <div className="flex gap-2">
-            {canEdit && (
-              <Button variant="outline" asChild>
-                <Link href="/dashboard/hr/shifts">
-                  <FiSettings className="mr-2 h-4 w-4" />
-                  Settings
-                </Link>
-              </Button>
-            )}
-            {canCreate && (
-              <form action={async () => {
-                "use server";
-                const now = new Date();
-                const currentMonth = now.getMonth() + 1; // 1-12
-                const currentYear = now.getFullYear();
-                await generatePayroll(currentMonth, currentYear);
-              }}>
-                <Button type="submit">
-                  <FiPlus className="mr-2 h-4 w-4" />
-                  Generate This Month
-                </Button>
-              </form>
-            )}
-          </div>
+          <PayrollHeaderActions canCreate={canCreate} canEdit={canEdit} />
         </div>
 
         <Tabs defaultValue={statusParam} className="w-full">

@@ -273,12 +273,18 @@ export function getPermissionKeyFromPath(path: string): string | null {
       // e.g., ["items", "groups"] -> "items.groups"
       const moduleName = pathParts[0];
       const subModule = pathParts[1];
+      
+      // Special case for HR attendance devices
+      if (moduleName === "hr" && subModule === "attendance" && pathParts[2] === "devices") {
+        return "hr.attendance.devices";
+      }
+      
       return `${moduleName}.${subModule}`;
     } else if (pathParts.length === 1) {
       const moduleName = pathParts[0];
       
       // Check if it's a direct module page
-      if (["files", "notifications", "analytics", "reports", "profile", "settings"].includes(moduleName)) {
+      if (["files", "notifications", "analytics", "reports", "profile", "settings", "hr"].includes(moduleName)) {
         return moduleName;
       }
       
@@ -320,6 +326,7 @@ function getNavigationIdForMenuItem(item: MenuItemData): string | null {
     "/dashboard/files": "files",
     "/dashboard/notifications": "notifications",
     "/dashboard/reports": "reports.view",
+    "/dashboard/hr": "hr",
   };
   
   if (item.href) {
