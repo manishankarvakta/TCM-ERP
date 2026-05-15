@@ -472,7 +472,7 @@ export async function deleteUser(userId: string) {
     await logUserDeleted(userId, session.user.id, userToDelete.email || undefined);
 
     // Revalidate users page for both admin and dashboard
-    nextRevalidatePath("/admin/users");
+    nextRevalidatePath("/dashboard/users");
 
     return {
       success: true,
@@ -765,7 +765,7 @@ export async function createUser(input: {
     await logUserCreated(user.id, session.user.id, user.email);
 
     // Revalidate users page for both admin and dashboard
-    nextRevalidatePath("/admin/users");
+    nextRevalidatePath("/dashboard/users");
 
     return {
       success: true,
@@ -941,8 +941,8 @@ export async function updateUser(input: {
     }
 
     // Revalidate users page for both admin and dashboard
-    nextRevalidatePath("/admin/users");
-    nextRevalidatePath(`/admin/users/${user.id}`);
+    nextRevalidatePath("/dashboard/users");
+    nextRevalidatePath(`/dashboard/users/${user.id}`);
 
     return {
       success: true,
@@ -1010,7 +1010,7 @@ export async function bulkUpdateUserStatus(
     });
 
     // Revalidate users page for both admin and dashboard
-    nextRevalidatePath("/admin/users");
+    nextRevalidatePath("/dashboard/users");
 
     return {
       success: true,
@@ -1071,7 +1071,7 @@ export async function deleteUsersPermanently(userIds: string[]) {
     });
 
     // Revalidate users page for both admin and dashboard
-    nextRevalidatePath("/admin/users");
+    nextRevalidatePath("/dashboard/users");
     
     return {
       success: true,

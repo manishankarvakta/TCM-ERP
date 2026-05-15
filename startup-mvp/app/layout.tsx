@@ -11,8 +11,8 @@ const geistSans = { variable: "font-sans" };
 const geistMono = { variable: "font-mono" };
 
 export const metadata: Metadata = {
-  title: "BHAGYAKUL",
-  description: "BHAGYAKUL ERP",
+  title: "F.F. ERP",
+  description: "F.F. ERP",
   icons: {
     icon: "/site-icon.png",
     apple: "/site-icon.png",

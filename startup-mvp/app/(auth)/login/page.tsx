@@ -15,13 +15,9 @@ export default async function LoginPage() {
   // Check if user has valid session with user data
   // When force logged out, session exists but without user.id
   if (session?.user?.id && session?.user?.email) {
-    // Redirect based on user role
-    const userRole = session.user.role?.toLowerCase();
-    if (userRole === "admin") {
-      redirect("/admin");
-    } else {
-      redirect("/dashboard");
-    }
+    // Redirect all authenticated users to dashboard
+    // Admin permissions are handled within the dashboard via RBAC
+    redirect("/dashboard");
   }
 
   return (

@@ -36,7 +36,7 @@ export function revalidateBothPaths(path: string, type?: "page" | "layout"): voi
   const cleanPath = path.startsWith("/") ? path.slice(1) : path;
   
   // Revalidate admin path
-  nextRevalidatePath(`/admin/${cleanPath}`, type);
+  nextRevalidatePath(`/dashboard/${cleanPath}`, type);
   
   // Revalidate dashboard path
   nextRevalidatePath(`/dashboard/${cleanPath}`, type);

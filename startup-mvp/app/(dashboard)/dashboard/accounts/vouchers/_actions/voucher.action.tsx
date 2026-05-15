@@ -1725,6 +1725,55 @@ export async function updateVoucher(
 /**
  * Delete a draft voucher
  */
+/**
+ * Cancel/Void a voucher (updates status to cancelled and deletes related journal entry)
+ */
+export async function cancelVoucher(voucherId: string, tx?: Prisma.TransactionClient, isSystemAction?: boolean) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const client = tx || prisma;
+
+    if (!isSystemAction) {
+      const canCancel = await hasPermission(session.user.id, "accounts.vouchers", "delete");
+      if (!canCancel) return { success: false, error: "Unauthorized" };
+    }
+
+    const voucher = await client.voucher.findUnique({
+      where: { id: voucherId },
+      include: { JournalEntry: true },
+    });
+
+    if (!voucher) return { success: false, error: "Voucher not found" };
+    
+    // In a real system, you might want to create a REVERSAL journal instead of deleting.
+    // For this ERP, we follow the pattern of deleting/voiding the JournalEntry to revert impact.
+    
+    await client.$transaction(async (t) => {
+      // 1. Delete associated Journal Entries
+      await t.journalEntryLine.deleteMany({
+        where: { journalEntry: { voucherId: voucher.id } }
+      });
+      await t.journalEntry.deleteMany({
+        where: { voucherId: voucher.id }
+      });
+
+      // 2. Update voucher status to cancelled
+      await t.voucher.update({
+        where: { id: voucherId },
+        data: { status: "cancelled" }
+      });
+    });
+
+    revalidateBothPaths("accounts/vouchers");
+    return { success: true, message: "Voucher cancelled successfully" };
+  } catch (error) {
+    console.error("cancelVoucher error:", error);
+    return { success: false, error: "Failed to cancel voucher" };
+  }
+}
+
 export async function deleteVoucher(voucherId: string) {
   try {
     const session = await auth();
@@ -1743,12 +1792,21 @@ export async function deleteVoucher(voucherId: string) {
             },
           },
         },
+        PayrollVoucher: true,
+        PayrollPaymentVoucher: true,
       },
     });
 
     if (!voucher) return { success: false, error: "Voucher not found" };
     if (voucher.status === "posted") {
       return { success: false, error: "Cannot delete a posted voucher. Cancel/Reverse it instead." };
+    }
+
+    if (voucher.PayrollVoucher || voucher.PayrollPaymentVoucher) {
+      return { 
+        success: false, 
+        error: "This voucher is linked to a Payroll record and cannot be manually deleted. Please void the payroll instead." 
+      };
     }
 
     // Accounting Period Lock Check

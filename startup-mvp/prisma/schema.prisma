@@ -7,7 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 enum AccountType {
   ASSET
   LIABILITY
@@ -64,58 +63,131 @@ enum StockTransactionType {
   PRODUCTION // Production-related movement
 }
 
+enum EmploymentType {
+  PERMANENT
+  TEMPORARY
+  CONTRACT
+  INTERN
+  DAILY_WORKER
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LEAVE
+  LATE
+  HALF_DAY
+  HOLIDAY
+  WEEKEND
+}
+
+enum LeaveCategory {
+  CASUAL
+  SICK
+  ANNUAL
+  MATERNITY
+  UNPAID
+  OTHER
+}
+
+enum LeaveStatus {
+  PENDING
+  MANAGER_APPROVED
+  HR_APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum PayrollStatus {
+  DRAFT
+  REVIEWED
+  APPROVED
+  POSTED
+  PAID
+}
+
+enum LoanStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CLOSED
+}
+
+enum AttendanceSource {
+  MANUAL
+  WEB
+  MOBILE
+  BIOMETRIC
+  API
+}
+
 model User {
-  id                               String              @id @default(cuid())
+  id                               String                @id @default(cuid())
   name                             String?
-  email                            String              @unique
+  email                            String                @unique
   emailVerified                    DateTime?
   password                         String
   image                            String?
-  role                             String              @default("user")
-  status                           String              @default("active")
-  isActive                         String              @default("")
-  createdAt                        DateTime            @default(now())
-  updatedAt                        DateTime            @updatedAt
+  role                             String                @default("user")
+  status                           String                @default("active")
+  isActive                         String                @default("")
+  createdAt                        DateTime              @default(now())
+  updatedAt                        DateTime              @updatedAt
   designationTemplateId            String?
   permissions                      Json?
   inchargeId                       String?
   accounts                         Account[]
   CashBankAccount                  CashBankAccount[]
   ChartOfAccount                   ChartOfAccount[]
-  createdClients                   Client[]            @relation("ClientCreator")
-  Employee                         Employee?           @relation("UserEmployee")
+  createdClients                   Client[]              @relation("ClientCreator")
+  Employee                         Employee?             @relation("UserEmployee")
   files                            File[]
   JournalEntryLine                 JournalEntryLine[]
-  createdNotifications             Notification[]      @relation("NotificationCreator")
+  createdNotifications             Notification[]        @relation("NotificationCreator")
   notifications                    Notification[]
-  createdOrganizations             Organization[]      @relation("OrganizationCreator")
+  createdOrganizations             Organization[]        @relation("OrganizationCreator")
   sessions                         Session[]
-  createdSuppliers                 Supplier[]          @relation("SupplierCreator")
-  createdUnits                     Unit[]              @relation("UnitCreator")
-  designationTemplate              PermissionTemplate? @relation("UserDesignationTemplate", fields: [designationTemplateId], references: [id])
-  incharge                         User?               @relation("UserIncharge", fields: [inchargeId], references: [id])
-  inchargeOf                       User[]              @relation("UserIncharge")
+  createdSuppliers                 Supplier[]            @relation("SupplierCreator")
+  createdUnits                     Unit[]                @relation("UnitCreator")
+  designationTemplate              PermissionTemplate?   @relation("UserDesignationTemplate", fields: [designationTemplateId], references: [id])
+  incharge                         User?                 @relation("UserIncharge", fields: [inchargeId], references: [id])
+  inchargeOf                       User[]                @relation("UserIncharge")
   userLogs                         UserLog[]
   userPermissions                  UserPermission[]
-  Voucher_Voucher_createdByToUser  Voucher[]           @relation("Voucher_createdByToUser")
-  Voucher_Voucher_postedByIdToUser Voucher[]           @relation("Voucher_postedByIdToUser")
-  Voucher_Voucher_userIdToUser     Voucher[]           @relation("Voucher_userIdToUser")
+  Voucher_Voucher_createdByToUser  Voucher[]             @relation("Voucher_createdByToUser")
+  Voucher_Voucher_postedByIdToUser Voucher[]             @relation("Voucher_postedByIdToUser")
+  Voucher_Voucher_userIdToUser     Voucher[]             @relation("Voucher_userIdToUser")
   VoucherLine                      VoucherLine[]
-  createdSettings                  Settings[]          @relation("SettingsCreator")
-  settings                         Settings[]          @relation("SettingsUser")
-  createdPurchases                 Purchase[]          @relation("PurchaseCreatedBy")
-  updatedPurchases                 Purchase[]          @relation("PurchaseUpdatedBy")
-  createdItems                     Item[]              @relation("ItemCreator")
-  createdWarehouses                Warehouse[]         @relation("WarehouseCreator")
-  createdStockLedgers              StockLedger[]       @relation("StockLedgerCreator")
-  createdBOMs                      BOM[]               @relation("BOMCreator")
-  createdProductionOrders          ProductionOrder[]   @relation("ProductionOrderCreator")
-  createdSales                     Sale[]              @relation("SaleCreatedBy")
-  updatedSales                     Sale[]              @relation("SaleUpdatedBy")
+  createdSettings                  Settings[]            @relation("SettingsCreator")
+  settings                         Settings[]            @relation("SettingsUser")
+  createdPurchases                 Purchase[]            @relation("PurchaseCreatedBy")
+  updatedPurchases                 Purchase[]            @relation("PurchaseUpdatedBy")
+  createdItems                     Item[]                @relation("ItemCreator")
+  createdWarehouses                Warehouse[]           @relation("WarehouseCreator")
+  createdStockLedgers              StockLedger[]         @relation("StockLedgerCreator")
+  createdBOMs                      BOM[]                 @relation("BOMCreator")
+  createdProductionOrders          ProductionOrder[]     @relation("ProductionOrderCreator")
+  createdSales                     Sale[]                @relation("SaleCreatedBy")
+  updatedSales                     Sale[]                @relation("SaleUpdatedBy")
   InventoryAdjustmentCreated       InventoryAdjustment[] @relation("InventoryAdjustment_createdBy")
   InventoryAdjustmentUpdated       InventoryAdjustment[] @relation("InventoryAdjustment_updatedBy")
-  defaultWarehouseId                String?
-  defaultWarehouse                  Warehouse?          @relation("UserDefaultWarehouse", fields: [defaultWarehouseId], references: [id])
+  defaultWarehouseId               String?
+  defaultWarehouse                 Warehouse?            @relation("UserDefaultWarehouse", fields: [defaultWarehouseId], references: [id])
+
+  // HR Module Inverse Relations
+  createdShifts      Shift[]            @relation("ShiftCreator")
+  createdHolidays    Holiday[]          @relation("HolidayCreator")
+  createdLeaveTypes  LeaveType[]        @relation("LeaveTypeCreator")
+  managedLeaves      LeaveApplication[] @relation("LeaveManager")
+  hrLeaves           LeaveApplication[] @relation("LeaveHR")
+  createdLeaveApps   LeaveApplication[] @relation("LeaveAppCreator")
+  createdAttendances Attendance[]       @relation("AttendanceCreator")
+  updatedAttendances Attendance[]       @relation("AttendanceUpdater")
+  createdOvertimes   Overtime[]         @relation("OvertimeCreator")
+  approvedLoans      EmployeeLoan[]     @relation("LoanApprover")
+  createdPayrolls    Payroll[]          @relation("PayrollCreator")
+  approvedPayrolls   Payroll[]          @relation("PayrollApprover")
+  biometricSyncLogs  BiometricSyncLog[]
 
   @@index([status])
   @@index([designationTemplateId])
@@ -137,7 +209,7 @@ model Employee {
   // Personal Information
   designation      String?
   department       String?
-  salary           Decimal? @db.Decimal(12, 2)
+  salary           Decimal?  @db.Decimal(12, 2)
   joiningDate      DateTime?
   gender           String?
   dateOfBirth      DateTime?
@@ -155,6 +227,20 @@ model Employee {
   salaryPayableAccount   ChartOfAccount? @relation("Employee_salaryPayableAccountIdToChartOfAccount", fields: [salaryPayableAccountId], references: [id], onDelete: SetNull)
   advanceAccountId       String?
   advanceAccount         ChartOfAccount? @relation("Employee_advanceAccountIdToChartOfAccount", fields: [advanceAccountId], references: [id], onDelete: SetNull)
+
+  // New HR Fields
+  employmentType EmploymentType? @default(PERMANENT)
+  shiftId        String?
+  shift          Shift?          @relation("EmployeeShift", fields: [shiftId], references: [id], onDelete: SetNull)
+
+  // New Inverse Relations
+  attendances     Attendance[]
+  attendanceLogs  AttendanceLog[]
+  leaveApps       LeaveApplication[]
+  salaryStructure EmployeeSalary?
+  overtimes       Overtime[]
+  loans           EmployeeLoan[]
+  payrollItems    PayrollItem[]
 
   @@index([userId])
   @@index([status])
@@ -331,8 +417,8 @@ model Item {
   wholesalePrice Decimal? @db.Decimal(12, 2) // Wholesale price
   discount       Decimal? @db.Decimal(12, 2) // Discount amount or percentage
   trackInventory Boolean  @default(false) // Inventory tracking flag
-  images         Json?    // Array of image URLs/paths
-  featuredImage  String?  // URL/path of the featured image
+  images         Json? // Array of image URLs/paths
+  featuredImage  String? // URL/path of the featured image
   sizes          String[] // Available sizes
   colors         String[] // Available colors
   isEnableEcom   Boolean  @default(false) // Whether to show in e-commerce
@@ -342,16 +428,16 @@ model Item {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  category          Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  unit              Unit              @relation(fields: [unitId], references: [id], onDelete: Restrict)
-  creator           User              @relation("ItemCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  stocks            Stock[]
-  stockLedgers      StockLedger[]
-  bomAsFinishedGood BOM[]             @relation("BOMFinishedGood")
-  bomAsRawMaterial  BOMItem[]         @relation("BOMRawMaterial")
-  productionOrders  ProductionOrder[] @relation("ProductionOrderFG")
-  purchaseItems     PurchaseItem[]
-  saleItems         SaleItem[]
+  category                Category?                 @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  unit                    Unit                      @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  creator                 User                      @relation("ItemCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  stocks                  Stock[]
+  stockLedgers            StockLedger[]
+  bomAsFinishedGood       BOM[]                     @relation("BOMFinishedGood")
+  bomAsRawMaterial        BOMItem[]                 @relation("BOMRawMaterial")
+  productionOrders        ProductionOrder[]         @relation("ProductionOrderFG")
+  purchaseItems           PurchaseItem[]
+  saleItems               SaleItem[]
   InventoryAdjustmentItem InventoryAdjustmentItem[]
 
   @@index([code])
@@ -379,15 +465,16 @@ model Warehouse {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  creator          User              @relation("WarehouseCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  stocks           Stock[]
-  stockLedgers     StockLedger[]
-  productionOrders ProductionOrder[]
-  purchases        Purchase[]
-  sales            Sale[]
+  creator             User                  @relation("WarehouseCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  stocks              Stock[]
+  stockLedgers        StockLedger[]
+  productionOrders    ProductionOrder[]
+  purchases           Purchase[]
+  sales               Sale[]
   InventoryAdjustment InventoryAdjustment[]
-  defaultUsers     User[]            @relation("UserDefaultWarehouse")
-  employees        Employee[]        @relation("WarehouseEmployees")
+  defaultUsers        User[]                @relation("UserDefaultWarehouse")
+  employees           Employee[]            @relation("WarehouseEmployees")
+  holidays            Holiday[]
 
   @@index([code])
   @@index([name])
@@ -855,35 +942,40 @@ model JournalEntryLine {
 }
 
 model Voucher {
-  id                            String            @id @default(cuid())
-  voucherNumber                 String            @unique
-  date                          DateTime          @default(now())
+  id                            String               @id @default(cuid())
+  voucherNumber                 String               @unique
+  date                          DateTime             @default(now())
   type                          VoucherType
   reference                     String?
   description                   String?
-  status                        String            @default("draft")
+  status                        String               @default("draft")
   createdBy                     String
   postedById                    String?
   postedAt                      DateTime?
-  createdAt                     DateTime          @default(now())
-  updatedAt                     DateTime          @updatedAt
+  createdAt                     DateTime             @default(now())
+  updatedAt                     DateTime             @updatedAt
   clientId                      String?
   supplierId                    String?
   userId                        String?
   organizationId                String?
   JournalEntry                  JournalEntry[]
-  Client                        Client?           @relation(fields: [clientId], references: [id])
-  User_Voucher_createdByToUser  User              @relation("Voucher_createdByToUser", fields: [createdBy], references: [id], onDelete: Cascade)
-  Organization                  Organization?     @relation(fields: [organizationId], references: [id])
-  User_Voucher_postedByIdToUser User?             @relation("Voucher_postedByIdToUser", fields: [postedById], references: [id])
-  Supplier                      Supplier?         @relation(fields: [supplierId], references: [id])
-  User_Voucher_userIdToUser     User?             @relation("Voucher_userIdToUser", fields: [userId], references: [id])
+  Client                        Client?              @relation(fields: [clientId], references: [id])
+  User_Voucher_createdByToUser  User                 @relation("Voucher_createdByToUser", fields: [createdBy], references: [id], onDelete: Cascade)
+  Organization                  Organization?        @relation(fields: [organizationId], references: [id])
+  User_Voucher_postedByIdToUser User?                @relation("Voucher_postedByIdToUser", fields: [postedById], references: [id])
+  Supplier                      Supplier?            @relation(fields: [supplierId], references: [id])
+  User_Voucher_userIdToUser     User?                @relation("Voucher_userIdToUser", fields: [userId], references: [id])
   VoucherLine                   VoucherLine[]
   purchases                     Purchase[]
   sales                         Sale[]
   productionOrders              ProductionOrder[]
   inventoryAdjustment           InventoryAdjustment?
-  isLocked                      Boolean           @default(false)
+  isLocked                      Boolean              @default(false)
+
+  // Linking vouchers to payroll and advances
+  payrollAccrual Payroll?       @relation("PayrollVoucher")
+  payrollPayment Payroll?       @relation("PayrollPaymentVoucher")
+  employeeLoans  EmployeeLoan[]
 
   @@index([clientId])
   @@index([createdBy])
@@ -957,23 +1049,23 @@ enum InventoryAdjustmentStatus {
 }
 
 model InventoryAdjustment {
-  id              String                    @id @default(cuid())
+  id               String                    @id @default(cuid())
   adjustmentNumber String                    @unique
-  warehouseId     String
-  date            DateTime                  @default(now())
-  status          InventoryAdjustmentStatus @default(DRAFT)
-  notes           String?
-  voucherId       String?                   @unique
-  createdBy       String
-  updatedBy       String?
-  createdAt       DateTime                  @default(now())
-  updatedAt       DateTime                  @updatedAt
+  warehouseId      String
+  date             DateTime                  @default(now())
+  status           InventoryAdjustmentStatus @default(DRAFT)
+  notes            String?
+  voucherId        String?                   @unique
+  createdBy        String
+  updatedBy        String?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
 
-  warehouse       Warehouse                 @relation(fields: [warehouseId], references: [id])
-  voucher         Voucher?                  @relation(fields: [voucherId], references: [id])
-  createdByUser   User                      @relation("InventoryAdjustment_createdBy", fields: [createdBy], references: [id])
-  updatedByUser   User?                     @relation("InventoryAdjustment_updatedBy", fields: [updatedBy], references: [id])
-  items           InventoryAdjustmentItem[]
+  warehouse     Warehouse                 @relation(fields: [warehouseId], references: [id])
+  voucher       Voucher?                  @relation(fields: [voucherId], references: [id])
+  createdByUser User                      @relation("InventoryAdjustment_createdBy", fields: [createdBy], references: [id])
+  updatedByUser User?                     @relation("InventoryAdjustment_updatedBy", fields: [updatedBy], references: [id])
+  items         InventoryAdjustmentItem[]
 
   @@index([warehouseId])
   @@index([voucherId])
@@ -983,18 +1075,334 @@ model InventoryAdjustment {
 }
 
 model InventoryAdjustmentItem {
-  id                    String              @id @default(cuid())
+  id                    String   @id @default(cuid())
   inventoryAdjustmentId String
   itemId                String
-  quantity              Decimal             @db.Decimal(12, 2) // Positive for Gain, Negative for Loss
-  unitRate              Decimal             @default(0) @db.Decimal(12, 2) // Current Cost Price
-  amount                Decimal             @default(0) @db.Decimal(12, 2) // quantity * unitRate (Absolute value for display/accounting logic)
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
+  quantity              Decimal  @db.Decimal(12, 2) // Positive for Gain, Negative for Loss
+  unitRate              Decimal  @default(0) @db.Decimal(12, 2) // Current Cost Price
+  amount                Decimal  @default(0) @db.Decimal(12, 2) // quantity * unitRate (Absolute value for display/accounting logic)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
-  inventoryAdjustment   InventoryAdjustment @relation(fields: [inventoryAdjustmentId], references: [id], onDelete: Cascade)
-  item                  Item                @relation(fields: [itemId], references: [id])
+  inventoryAdjustment InventoryAdjustment @relation(fields: [inventoryAdjustmentId], references: [id], onDelete: Cascade)
+  item                Item                @relation(fields: [itemId], references: [id])
 
   @@index([inventoryAdjustmentId])
   @@index([itemId])
+}
+
+model Shift {
+  id           String @id @default(cuid())
+  name         String
+  startTime    String // Format: "09:00"
+  endTime      String // Format: "18:00"
+  graceMinutes Int    @default(0)
+  lateAfter    Int    @default(15) // Minutes after start time
+  halfDayAfter Int    @default(120) // Minutes after start time
+  otStartAfter Int    @default(30) // Minutes after end time
+
+  status    String   @default("active")
+  isTrash   Boolean  @default(false)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creator     User         @relation("ShiftCreator", fields: [createdBy], references: [id])
+  employees   Employee[]   @relation("EmployeeShift")
+  attendances Attendance[]
+
+  @@index([status])
+  @@index([isTrash])
+  @@index([createdBy])
+}
+
+model Holiday {
+  id          String   @id @default(cuid())
+  name        String
+  date        DateTime @db.Date
+  warehouseId String? // Optional: If null, it's a global company holiday
+
+  status    String   @default("active")
+  isTrash   Boolean  @default(false)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  warehouse Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  creator   User       @relation("HolidayCreator", fields: [createdBy], references: [id])
+
+  @@index([date])
+  @@index([warehouseId])
+  @@index([createdBy])
+}
+
+model LeaveType {
+  id          String        @id @default(cuid())
+  name        String
+  category    LeaveCategory
+  defaultDays Int           @default(0)
+  isPaid      Boolean       @default(true)
+
+  status    String   @default("active")
+  isTrash   Boolean  @default(false)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creator      User               @relation("LeaveTypeCreator", fields: [createdBy], references: [id])
+  applications LeaveApplication[]
+}
+
+model LeaveApplication {
+  id          String      @id @default(cuid())
+  employeeId  String
+  leaveTypeId String
+  startDate   DateTime    @db.Date
+  endDate     DateTime    @db.Date
+  totalDays   Int
+  reason      String?
+  status      LeaveStatus @default(PENDING)
+  managerId   String?
+  hrId        String?
+
+  isTrash   Boolean  @default(false)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee  Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  manager   User?     @relation("LeaveManager", fields: [managerId], references: [id], onDelete: SetNull)
+  hr        User?     @relation("LeaveHR", fields: [hrId], references: [id], onDelete: SetNull)
+  creator   User      @relation("LeaveAppCreator", fields: [createdBy], references: [id])
+  
+  attendances Attendance[]
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@index([managerId])
+  @@index([hrId])
+}
+
+model AttendanceLog {
+  id         String           @id @default(cuid())
+  employeeId String
+  timestamp  DateTime
+  source     AttendanceSource
+  deviceId   String? // E.g., ID from BiometricDevice model
+  device     BiometricDevice? @relation(fields: [deviceId], references: [id])
+  createdAt  DateTime         @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, timestamp]) // Crucial for preventing duplicate biometric syncs
+  @@index([employeeId])
+  @@index([timestamp])
+}
+
+model Attendance {
+  id         String           @id @default(cuid())
+  employeeId String
+  date       DateTime         @db.Date
+  shiftId    String?
+  checkIn    DateTime?
+  checkOut   DateTime?
+  workHours  Decimal          @default(0) @db.Decimal(5, 2)
+  otHours    Decimal          @default(0) @db.Decimal(5, 2)
+  status     AttendanceStatus
+  isManual   Boolean          @default(false)
+  notes      String?
+  isLocked   Boolean          @default(false) // Locked after payroll is posted
+  
+  leaveApplicationId String?
+  leaveApplication   LeaveApplication? @relation(fields: [leaveApplicationId], references: [id], onDelete: SetNull)
+
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shift    Shift?   @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  creator  User?    @relation("AttendanceCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  updater  User?    @relation("AttendanceUpdater", fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  @@unique([employeeId, date]) // Only one processed attendance record per day per employee
+  @@index([date])
+  @@index([status])
+  @@index([employeeId, date])
+  @@index([isLocked])
+}
+
+model Overtime {
+  id          String   @id @default(cuid())
+  employeeId  String
+  date        DateTime @db.Date
+  hours       Decimal  @db.Decimal(5, 2)
+  ratePerHour Decimal  @db.Decimal(10, 2)
+  amount      Decimal  @db.Decimal(12, 2)
+  status      String   @default("approved") // pending, approved, paid
+  isLocked    Boolean  @default(false) // True when payroll generated
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  creator  User     @relation("OvertimeCreator", fields: [createdBy], references: [id])
+
+  @@index([employeeId])
+  @@index([date])
+  @@index([status])
+}
+
+model EmployeeLoan {
+  id                 String     @id @default(cuid())
+  employeeId         String
+  amount             Decimal    @db.Decimal(12, 2)
+  monthlyInstallment Decimal    @db.Decimal(12, 2)
+  remainingBalance   Decimal    @db.Decimal(12, 2)
+  issueDate          DateTime   @db.Date
+  status             LoanStatus @default(PENDING)
+  voucherId          String? // Links to the PAYMENT voucher generated when advance is given
+  approvedBy         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  voucher  Voucher? @relation(fields: [voucherId], references: [id], onDelete: Restrict)
+  approver User?    @relation("LoanApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([voucherId])
+}
+
+model EmployeeSalary {
+  id            String  @id @default(cuid())
+  employeeId    String  @unique
+  basic         Decimal @default(0) @db.Decimal(12, 2)
+  houseRent     Decimal @default(0) @db.Decimal(12, 2)
+  medical       Decimal @default(0) @db.Decimal(12, 2)
+  transport     Decimal @default(0) @db.Decimal(12, 2)
+  foodAllowance Decimal @default(0) @db.Decimal(12, 2)
+  taxPercentage Decimal @default(0) @db.Decimal(5, 2)
+  pfPercentage  Decimal @default(0) @db.Decimal(5, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model Payroll {
+  id            String        @id @default(cuid())
+  payrollNumber String        @unique // Auto-generated: PR-2026-05
+  month         Int // 1-12
+  year          Int
+  dateGenerated DateTime      @default(now())
+  status        PayrollStatus @default(DRAFT)
+  totalAmount   Decimal       @default(0) @db.Decimal(12, 2)
+  voucherId     String?       @unique // Links to accounting JOURNAL voucher (accrual mapping)
+  paymentVchId  String?       @unique // Links to PAYMENT voucher (actual cash/bank payout)
+  notes         String?
+
+  isTrash    Boolean  @default(false)
+  createdBy  String
+  approvedBy String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  voucher        Voucher?      @relation("PayrollVoucher", fields: [voucherId], references: [id], onDelete: Restrict)
+  paymentVoucher Voucher?      @relation("PayrollPaymentVoucher", fields: [paymentVchId], references: [id], onDelete: Restrict)
+  creator        User          @relation("PayrollCreator", fields: [createdBy], references: [id])
+  approver       User?         @relation("PayrollApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+  items          PayrollItem[]
+
+  @@index([month, year])
+  @@index([status])
+  @@index([voucherId])
+  @@index([month, year, status])
+}
+
+model PayrollItem {
+  id         String @id @default(cuid())
+  payrollId  String
+  employeeId String
+
+  // Earnings snapshot
+  basic         Decimal @default(0) @db.Decimal(12, 2)
+  houseRent     Decimal @default(0) @db.Decimal(12, 2)
+  medical       Decimal @default(0) @db.Decimal(12, 2)
+  transport     Decimal @default(0) @db.Decimal(12, 2)
+  foodAllowance Decimal @default(0) @db.Decimal(12, 2)
+  otAmount      Decimal @default(0) @db.Decimal(12, 2)
+  bonus         Decimal @default(0) @db.Decimal(12, 2)
+  grossPay      Decimal @default(0) @db.Decimal(12, 2)
+
+  // Deductions snapshot
+  absentDeduction Decimal @default(0) @db.Decimal(12, 2)
+  loanDeduction   Decimal @default(0) @db.Decimal(12, 2) // Deducted from advanceAccountId
+  taxDeduction    Decimal @default(0) @db.Decimal(12, 2)
+  pfDeduction     Decimal @default(0) @db.Decimal(12, 2)
+  totalDeduction  Decimal @default(0) @db.Decimal(12, 2)
+
+  netPay Decimal @default(0) @db.Decimal(12, 2)
+
+  status    String   @default("unpaid") // unpaid, paid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payroll  Payroll  @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@unique([payrollId, employeeId])
+  @@index([employeeId])
+  @@index([status])
+  @@index([employeeId, status])
+}
+
+model BiometricSyncLog {
+  id           String   @id @default(cuid())
+  syncTime     DateTime @default(now())
+  vendor       String // ZKTeco, eSSL, FingerTec
+  deviceId     String?
+  device       BiometricDevice? @relation(fields: [deviceId], references: [id])
+  recordsCount Int      @default(0)
+  status       String   @default("SUCCESS") // SUCCESS, FAILED
+  errorMessage String?
+  syncedBy     String
+  user         User     @relation(fields: [syncedBy], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([syncTime])
+  @@index([vendor])
+}
+
+model BiometricDevice {
+  id          String   @id @default(cuid())
+  name        String
+  vendor      String // ZKTeco, eSSL, FingerTec
+  connectionType String @default("IP") // IP, WEB_API, USB
+  ipAddress   String?
+  port        Int?      @default(4370)
+  apiKey      String?
+  serialNumber String?  @unique
+  location    String?
+  status      String   @default("active") // active, inactive, disconnected
+  lastSyncAt  DateTime?
+  
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  syncLogs    BiometricSyncLog[]
+  attendanceLogs AttendanceLog[]
+
+  @@index([vendor])
+  @@index([status])
 }

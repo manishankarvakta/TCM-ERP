@@ -112,6 +112,20 @@ export const MENU_TEMPLATE: MenuItemData[] = [
     ],
   },
   {
+    label: "HR & Payroll",
+    icon: "FiUsers",
+    module: "hr",
+    subMenu: [
+      { href: "/dashboard/hr/shifts", label: "Shifts", icon: "FiBox", module: "hr" },
+      { href: "/dashboard/hr/holidays", label: "Holidays", icon: "FiCalendar", module: "hr" },
+      { href: "/dashboard/hr/attendance", label: "Attendance", icon: "FiClipboard", module: "hr" },
+      { href: "/dashboard/hr/leave", label: "Leave", icon: "FiFileText", module: "hr" },
+      { href: "/dashboard/hr/payroll", label: "Payroll", icon: "FiDollarSign", module: "hr" },
+      { href: "/dashboard/hr/loans", label: "Loans", icon: "FiCreditCard", module: "hr" },
+      { href: "/dashboard/hr/attendance/devices", label: "Biometric Devices", icon: "FiCpu", module: "hr" },
+    ],
+  },
+  {
     label: "Inventory",
     icon: "FiPackage",
     module: "inventory",
@@ -300,6 +314,7 @@ function getNavigationIdForMenuItem(item: MenuItemData): string | null {
     "sales": "sales",
     "accounts": "accounts",
     "peoples": "peoples",
+    "hr": "hr",
     "inventory": "inventory",
     "production": "production",
     "/dashboard/files": "files",

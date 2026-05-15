@@ -14,7 +14,8 @@ export type Module =
   | "inventory"
   | "analytics"
   | "production"
-  | "settings";
+  | "settings"
+  | "hr";
 
 // Basic operations
 export type BasicOperation = "create" | "read" | "update" | "delete" | "export" | "import";
@@ -184,6 +185,19 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     id: "files",
     label: "Files",
     description: "File management",
+  },
+  hr: {
+    id: "hr",
+    label: "HR & Payroll",
+    description: "Human resources, attendance, and payroll",
+    subModules: [
+      { id: "shifts", label: "Shifts", path: "/dashboard/hr/shifts", module: "hr", permissionKey: "hr.shifts" },
+      { id: "holidays", label: "Holidays", path: "/dashboard/hr/holidays", module: "hr", permissionKey: "hr.holidays" },
+      { id: "attendance", label: "Attendance", path: "/dashboard/hr/attendance", module: "hr", permissionKey: "hr.attendance" },
+      { id: "leave", label: "Leave Applications", path: "/dashboard/hr/leave", module: "hr", permissionKey: "hr.leave" },
+      { id: "payroll", label: "Payroll", path: "/dashboard/hr/payroll", module: "hr", permissionKey: "hr.payroll" },
+      { id: "loans", label: "Loans", path: "/dashboard/hr/loans", module: "hr", permissionKey: "hr.loans" },
+    ],
   },
   notifications: {
     id: "notifications",
@@ -604,6 +618,54 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
     ],
   },
   {
+    id: "hr",
+    label: "HR & Payroll",
+    pages: [
+      {
+        permissionKey: "hr.shifts",
+        path: "/dashboard/hr/shifts",
+        label: "Shifts",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "hr.holidays",
+        path: "/dashboard/hr/holidays",
+        label: "Holidays",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "hr.attendance",
+        path: "/dashboard/hr/attendance",
+        label: "Attendance",
+        operations: ["create", "view", "edit", "manage"],
+      },
+      {
+        permissionKey: "hr.attendance.devices",
+        path: "/dashboard/hr/attendance/devices",
+        label: "Biometric Devices",
+        operations: ["create", "view", "edit", "delete"],
+      },
+      {
+        permissionKey: "hr.leave",
+        path: "/dashboard/hr/leave",
+        label: "Leave Applications",
+        operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "hr.payroll",
+        path: "/dashboard/hr/payroll",
+        label: "Payroll",
+        operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "hr.loans",
+        path: "/dashboard/hr/loans",
+        label: "Loans",
+        operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
+      },
+    ],
+  },
+  {
     id: "notifications",
     label: "Notifications",
     pages: [
@@ -743,68 +805,68 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
     pages: [
       {
         permissionKey: "settings",
-        path: "/admin/settings",
+        path: "/dashboard/settings",
         label: "Settings",
         operations: ["view", "edit"],
       },
       // Settings category
       {
         permissionKey: "settings.organization",
-        path: "/admin/settings?section=organization",
+        path: "/dashboard/settings?section=organization",
         label: "Organization",
         operations: ["view", "edit"],
       },
       {
         permissionKey: "settings.experience",
-        path: "/admin/settings?section=experience",
+        path: "/dashboard/settings?section=experience",
         label: "Experience",
         operations: ["view", "edit"],
       },
       {
         permissionKey: "settings.accounts",
-        path: "/admin/settings?section=accounts",
+        path: "/dashboard/settings?section=accounts",
         label: "Accounts",
         operations: ["view", "edit"],
       },
       {
         permissionKey: "settings.emails",
-        path: "/admin/settings?section=emails",
+        path: "/dashboard/settings?section=emails",
         label: "Emails",
         operations: ["view", "edit"],
       },
       {
         permissionKey: "settings.calendars",
-        path: "/admin/settings?section=calendars",
+        path: "/dashboard/settings?section=calendars",
         label: "Calendars",
         operations: ["view", "edit"],
       },
       {
         permissionKey: "settings.whatsapp",
-        path: "/admin/settings?section=whatsapp",
+        path: "/dashboard/settings?section=whatsapp",
         label: "WhatsApp",
         operations: ["view", "edit"],
       },
       {
         permissionKey: "settings.telegram",
-        path: "/admin/settings?section=telegram",
+        path: "/dashboard/settings?section=telegram",
         label: "Telegram",
         operations: ["view", "edit"],
       },
       {
         permissionKey: "settings.sms",
-        path: "/admin/settings?section=sms",
+        path: "/dashboard/settings?section=sms",
         label: "SMS",
         operations: ["view", "edit"],
       },
       {
         permissionKey: "settings.backup",
-        path: "/admin/settings?section=backup",
+        path: "/dashboard/settings?section=backup",
         label: "Backup",
         operations: ["view", "edit", "create", "delete-permanently"],
       },
       {
         permissionKey: "settings.permissions",
-        path: "/admin/settings?section=permissions",
+        path: "/dashboard/settings?section=permissions",
         label: "Permissions",
         operations: ["view", "edit"],
       },
@@ -836,45 +898,45 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
       // Quotations category
       {
         permissionKey: "settings.coverLetter",
-        path: "/admin/settings?section=coverLetter",
+        path: "/dashboard/settings?section=coverLetter",
         label: "Cover Letter",
         operations: ["view", "edit", "create", "delete-permanently"],
       },
       {
         permissionKey: "settings.tos",
-        path: "/admin/settings?section=tos",
+        path: "/dashboard/settings?section=tos",
         label: "TOS",
         operations: ["view", "edit"],
       },
       // Notifications category
       {
         permissionKey: "settings.general",
-        path: "/admin/settings?section=general",
+        path: "/dashboard/settings?section=general",
         label: "General",
         operations: ["view", "edit"],
       },
       {
         permissionKey: "settings.members",
-        path: "/admin/settings?section=members",
+        path: "/dashboard/settings?section=members",
         label: "Members",
         operations: ["view", "edit", "create", "delete-permanently"],
       },
       {
         permissionKey: "settings.security",
-        path: "/admin/settings?section=security",
+        path: "/dashboard/settings?section=security",
         label: "Security",
         operations: ["view", "edit"],
       },
       // Developers category
       {
         permissionKey: "settings.apis",
-        path: "/admin/settings?section=apis",
+        path: "/dashboard/settings?section=apis",
         label: "APIs",
         operations: ["view", "edit", "create", "delete-permanently"],
       },
       {
         permissionKey: "settings.webhooks",
-        path: "/admin/settings?section=webhooks",
+        path: "/dashboard/settings?section=webhooks",
         label: "Webhooks",
         operations: ["view", "edit", "create", "delete-permanently"],
       },

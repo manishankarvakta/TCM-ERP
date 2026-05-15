@@ -5,22 +5,22 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getCategoryById } from "@/app/(dashboard)/admin/category/_actions/category.action";
+import { getCategoryById } from "@/app/(dashboard)/dashboard/category/_actions/category.action";
 // import { getQuotation } from "@/app/actions/quotations";
-// import { getGroupById } from "@/app/(dashboard)/admin/items/groups/_actions/group.action";
-// import { getItemById } from "@/app/(dashboard)/admin/items/_actions/item.action";
+// import { getGroupById } from "@/app/(dashboard)/dashboard/items/groups/_actions/group.action";
+// import { getItemById } from "@/app/(dashboard)/dashboard/items/_actions/item.action";
 // import { getWorkOrder } from "@/app/actions/work-orders";
 
 // Map route paths to display names
 const routeMap: Record<string, string> = {
-  "/admin": "Dashboard",
-  "/admin/profile": "Profile",
-  "/admin/settings": "Settings",
-  "/admin/users": "Users",
-  "/admin/users/add-user": "Add User",
-  "/admin/users/edit-user": "Edit User",
-  "/admin/files": "Files",
-  "/admin/files/upload": "Upload",
+  "/dashboard": "Dashboard",
+  "/dashboard/profile": "Profile",
+  "/dashboard/settings": "Settings",
+  "/dashboard/users": "Users",
+  "/dashboard/users/add-user": "Add User",
+  "/dashboard/users/edit-user": "Edit User",
+  "/dashboard/files": "Files",
+  "/dashboard/files/upload": "Upload",
 };
 
 // Check if a path segment is a dynamic route (e.g., [id])
@@ -57,10 +57,10 @@ const getBreadcrumbItems = (pathname: string): Array<{ path: string; label: stri
   const items: Array<{ path: string; label: string }> = [];
   
   // Always include Dashboard as first item
-  items.push({ path: "/admin", label: "Dashboard" });
+  items.push({ path: "/dashboard", label: "Dashboard" });
   
   // Build path segments
-  let currentPath = "/admin";
+  let currentPath = "/dashboard";
   for (let i = 1; i < segments.length; i++) {
     const segment = segments[i];
     currentPath += "/" + segment;
@@ -97,9 +97,9 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const items = getBreadcrumbItems(pathname);
 
   // Check if we're on a category detail or edit page
-  const isCategoryDetailMatch = pathname.match(/^\/admin\/category\/([^\/]+)$/);
-  const isCategoryEditMatch = pathname.match(/^\/admin\/category\/([^\/]+)\/edit$/);
-  const isCategoryDetailsPage = pathname.match(/^\/admin\/category\/details$/);
+  const isCategoryDetailMatch = pathname.match(/^\/dashboard\/category\/([^\/]+)$/);
+  const isCategoryEditMatch = pathname.match(/^\/dashboard\/category\/([^\/]+)\/edit$/);
+  const isCategoryDetailsPage = pathname.match(/^\/dashboard\/category\/details$/);
   
   // For admin category, the ID might be in the query param for details page
   const searchParams = useSearchParams();
@@ -138,7 +138,7 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
  
 
   // If we're at the root admin dashboard, show just "Dashboard"
-  if (pathname === "/admin" || items.length === 1) {
+  if (pathname === "/dashboard" || items.length === 1) {
     return (
       <div className={className}>
         <div className="flex items-center gap-2">
@@ -164,18 +164,18 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   let currentLabel = currentItem.label;
   
   // If we're on a quotation detail or edit page, use quotation number
-  const isQuotationDetail = pathname.match(/^\/admin\/quotations\/([^\/]+)$/);
-  const isQuotationEdit = pathname.match(/^\/admin\/quotations\/([^\/]+)\/edit$/);
+  const isQuotationDetail = pathname.match(/^\/dashboard\/quotations\/([^\/]+)$/);
+  const isQuotationEdit = pathname.match(/^\/dashboard\/quotations\/([^\/]+)\/edit$/);
   
   // For quotation routes, replace the ID segment with "Quotations" as parent
   if (isQuotationDetail || isQuotationEdit) {
     // Find the "Quotations" item (should be before the ID)
-    const quotationsItem = items.find(item => item.path === "/admin/quotations");
+    const quotationsItem = items.find(item => item.path === "/dashboard/quotations");
     if (quotationsItem) {
       parentItem = quotationsItem;
     } else {
       // If not found, create a parent item pointing to quotations list
-      parentItem = { path: "/admin/quotations", label: "Quotations" };
+      parentItem = { path: "/dashboard/quotations", label: "Quotations" };
     }
     
     // Update current label with quotation number
@@ -188,18 +188,18 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   }
 
   // If we're on a group detail or edit page, use group code
-  const isGroupDetail = pathname.match(/^\/admin\/items\/groups\/([^\/]+)$/);
-  const isGroupEdit = pathname.match(/^\/admin\/items\/groups\/([^\/]+)\/edit$/);
+  const isGroupDetail = pathname.match(/^\/dashboard\/items\/groups\/([^\/]+)$/);
+  const isGroupEdit = pathname.match(/^\/dashboard\/items\/groups\/([^\/]+)\/edit$/);
   
   // For group routes, replace the ID segment with "Groups" as parent
   if (isGroupDetail || isGroupEdit) {
     // Find the "Groups" item (should be before the ID)
-    const groupsItem = items.find(item => item.path === "/admin/items/groups");
+    const groupsItem = items.find(item => item.path === "/dashboard/items/groups");
     if (groupsItem) {
       parentItem = groupsItem;
     } else {
       // If not found, create a parent item pointing to groups list
-      parentItem = { path: "/admin/items/groups", label: "Groups" };
+      parentItem = { path: "/dashboard/items/groups", label: "Groups" };
     }
     
     // Update current label with group code
@@ -215,12 +215,12 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   // For category routes, replace the ID segment with "Categories" as parent
   if (isCategoryDetailMatch || isCategoryEditMatch || isCategoryDetailsPage) {
     // Find the "Categories" item (should be before the ID)
-    const categoriesItem = items.find(item => item.path === "/admin/category");
+    const categoriesItem = items.find(item => item.path === "/dashboard/category");
     if (categoriesItem) {
       parentItem = categoriesItem;
     } else {
       // If not found, create a parent item pointing to categories list
-      parentItem = { path: "/admin/category", label: "Categories" };
+      parentItem = { path: "/dashboard/category", label: "Categories" };
     }
     
     // Update current label with category name
@@ -235,7 +235,7 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   }
 
   // If we're on an item edit page, use item code/description instead of ID
-  const isItemEdit = pathname.match(/^\/admin\/items\/([^\/]+)$/);
+  const isItemEdit = pathname.match(/^\/dashboard\/items\/([^\/]+)$/);
   if (isItemEdit) {
     const segment = isItemEdit[1];
     if (segment !== "groups" && segment !== "units" && segment !== "category" && segment !== "details") {
@@ -248,18 +248,18 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   }
 
   // If we're on a work order detail or edit page, use work order code
-  const isWorkOrderDetail = pathname.match(/^\/admin\/work-orders\/([^\/]+)$/);
-  const isWorkOrderEdit = pathname.match(/^\/admin\/work-orders\/([^\/]+)\/edit$/);
+  const isWorkOrderDetail = pathname.match(/^\/dashboard\/work-orders\/([^\/]+)$/);
+  const isWorkOrderEdit = pathname.match(/^\/dashboard\/work-orders\/([^\/]+)\/edit$/);
   
   // For work order routes, replace the ID segment with "Work Orders" as parent
   if (isWorkOrderDetail || isWorkOrderEdit) {
     // Find the "Work Orders" item (should be before the ID)
-    const workOrdersItem = items.find(item => item.path === "/admin/work-orders");
+    const workOrdersItem = items.find(item => item.path === "/dashboard/work-orders");
     if (workOrdersItem) {
       parentItem = workOrdersItem;
     } else {
       // If not found, create a parent item pointing to work orders list
-      parentItem = { path: "/admin/work-orders", label: "Work Orders" };
+      parentItem = { path: "/dashboard/work-orders", label: "Work Orders" };
     }
     
     // Update current label with work order code
