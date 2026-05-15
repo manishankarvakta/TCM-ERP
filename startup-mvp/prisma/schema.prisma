@@ -1093,9 +1093,12 @@ model EmployeeLoan {
   monthlyInstallment Decimal    @db.Decimal(12, 2)
   remainingBalance   Decimal    @db.Decimal(12, 2)
   issueDate          DateTime   @db.Date
+  tenureMonths       Int
+  purpose            String?
   status             LoanStatus @default(PENDING)
   voucherId          String?
   approvedBy         String?
+  createdBy          String
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
   approver           User?      @relation("LoanApprover", fields: [approvedBy], references: [id])

@@ -20,8 +20,8 @@ export async function getLoans() {
         employee: {
           select: {
             id: true,
-            employeeName: true,
-            employeeId: true,
+            name: true,
+            employeeCode: true,
           }
         }
       },
@@ -32,6 +32,50 @@ export async function getLoans() {
   } catch (error) {
     console.error("Error fetching loans:", error);
     return { success: false, error: "Failed to fetch loans" };
+  }
+}
+
+/**
+ * Get loan by ID with details
+ */
+export async function getLoanById(id: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const loan = await prisma.employeeLoan.findUnique({
+      where: { id },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            name: true,
+            employeeCode: true,
+            designation: true,
+            department: true,
+          }
+        },
+        approver: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        voucher: {
+          select: {
+            id: true,
+            voucherNo: true,
+          }
+        }
+      }
+    });
+
+    if (!loan) return { success: false, error: "Loan not found" };
+
+    return { success: true, loan };
+  } catch (error) {
+    console.error("Error fetching loan details:", error);
+    return { success: false, error: "Failed to fetch loan details" };
   }
 }
 
@@ -54,9 +98,12 @@ export async function createLoan(data: {
     const canCreate = await hasPermission(session.user.id, "hr.loans", "create");
     if (!canCreate) return { success: false, error: "Permission denied" };
 
+    const { startDate, ...rest } = data;
+
     const loan = await prisma.employeeLoan.create({
       data: {
-        ...data,
+        ...rest,
+        issueDate: startDate,
         remainingBalance: data.amount,
         status: "PENDING",
         createdBy: session.user.id,
@@ -84,9 +131,14 @@ export async function updateLoanStatus(loanId: string, status: LoanStatus) {
     const canApprove = await hasPermission(session.user.id, "hr.loans", "approve");
     if (!canApprove) return { success: false, error: "Permission denied" };
 
+    const updateData: any = { status };
+    if (status === "APPROVED" || status === "REJECTED") {
+      updateData.approvedBy = session.user.id;
+    }
+
     const loan = await prisma.employeeLoan.update({
       where: { id: loanId },
-      data: { status }
+      data: updateData
     });
 
     await logItemUpdated(session.user.id, "EMPLOYEE_LOAN", loan.id, `Updated loan status to ${status}`);
