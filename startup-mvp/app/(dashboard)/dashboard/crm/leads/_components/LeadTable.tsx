@@ -60,6 +60,10 @@ interface Lead {
   ownerId: string | null;
   owner?: { id: string; name: string; image: string | null } | null;
   createdAt: Date;
+  categoryId?: string | null;
+  Category?: { id: string; name: string } | null;
+  reference?: string | null;
+  photo?: string | null;
 }
 
 interface LeadTableProps {
@@ -257,6 +261,8 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
               <TableHead>Name</TableHead>
               <TableHead>Contact Info</TableHead>
               <TableHead>Company</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead>Reference</TableHead>
               <TableHead>Owner</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
@@ -266,7 +272,7 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
           <TableBody>
             {leads.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-24 text-center">
+                <TableCell colSpan={11} className="h-24 text-center">
                   {isTrashView ? "Trash is empty." : "No leads found."}
                 </TableCell>
               </TableRow>
@@ -283,9 +289,24 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
                     {lead.leadNumber || "-"}
                   </TableCell>
                   <TableCell className="font-medium">
-                    <Link href={`/dashboard/crm/leads/${lead.id}`} className="hover:underline text-primary">
-                      {lead.name}
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      {lead.photo ? (
+                        <div className="relative w-8 h-8 rounded-full overflow-hidden border bg-muted flex-shrink-0">
+                          <img
+                            src={`/api/files/${lead.photo}`}
+                            alt={lead.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-xs flex-shrink-0">
+                          {lead.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
+                        </div>
+                      )}
+                      <Link href={`/dashboard/crm/leads/${lead.id}`} className="hover:underline text-primary">
+                        {lead.name}
+                      </Link>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col text-sm text-muted-foreground">
@@ -306,6 +327,24 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
                     </div>
                   </TableCell>
                   <TableCell>{lead.company || "-"}</TableCell>
+                  <TableCell>
+                    {lead.Category?.name ? (
+                      <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
+                        {lead.Category.name}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground italic">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {lead.reference ? (
+                      <span className="text-sm font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground border">
+                        {lead.reference}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground italic">-</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                       {lead.owner?.name || <span className="text-muted-foreground italic">Unassigned</span>}
                   </TableCell>

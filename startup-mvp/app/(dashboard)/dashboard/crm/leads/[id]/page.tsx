@@ -19,7 +19,7 @@ import { LeadConversionButton } from "../_components/LeadConversionButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { ArrowLeftIcon, MailIcon, PhoneIcon, BuildingIcon, Clock, Calendar, CheckSquare, FileText, Folder, Hash, Globe, CalendarDays, StickyNote } from "lucide-react";
+import { ArrowLeftIcon, MailIcon, PhoneIcon, BuildingIcon, Clock, Calendar, CheckSquare, FileText, Folder, Hash, Globe, CalendarDays, StickyNote, Layers, Fingerprint } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -242,10 +242,47 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         {/* Sidebar: Details */}
         <div className="space-y-6">
             <Card className="shadow-sm border-slate-200 overflow-hidden">
+                {lead.photo && (
+                  <div className="w-full h-48 bg-muted relative border-b overflow-hidden">
+                    <img
+                      src={`/api/files/${lead.photo}`}
+                      alt={lead.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
                 <CardHeader className="bg-slate-50/50 border-b py-3">
                     <CardTitle className="text-base font-semibold">Lead Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm pt-4">
+                     {lead.Category && (
+                        <div className="flex items-center gap-3">
+                            <div className="bg-slate-100 p-2 rounded">
+                                <Layers className="h-4 w-4 text-slate-600" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Category</p>
+                                <span className="font-semibold text-xs bg-primary/5 text-primary border border-primary/20 px-2 py-0.5 rounded inline-block mt-0.5">
+                                  {lead.Category.name}
+                                </span>
+                            </div>
+                        </div>
+                     )}
+
+                     {lead.reference && (
+                        <div className="pt-4 border-t flex items-center gap-3">
+                            <div className="bg-slate-100 p-2 rounded">
+                                <Fingerprint className="h-4 w-4 text-slate-600" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Reference</p>
+                                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded border text-muted-foreground inline-block mt-0.5">
+                                  {lead.reference}
+                                </span>
+                            </div>
+                        </div>
+                     )}
+
                      {lead.leadNumber && (
                         <div className="flex items-center gap-3">
                             <div className="bg-slate-100 p-2 rounded">

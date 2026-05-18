@@ -124,6 +124,12 @@ export async function getLeads(
               image: true,
             },
           },
+          Category: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       }),
     ]);
@@ -168,6 +174,7 @@ export async function getLeadById(id: string) {
       where: { id },
       include: {
         User: { select: { id: true, name: true, email: true, image: true } },
+        Category: { select: { id: true, name: true } },
       }
     });
 
@@ -203,6 +210,9 @@ export async function createLead(input: {
   facebook?: string;
   ownerId?: string;
   notes?: string;
+  categoryId?: string;
+  reference?: string;
+  photo?: string;
 }) {
   try {
     const session = await auth();
@@ -223,19 +233,27 @@ export async function createLead(input: {
 
     // Dynamically assign fallback email if missing/empty to satisfy unique constraint
     const hasEmail = input.email && input.email.trim() !== "";
+    
+    // Extract last 4 digits of leadNumber
+    const leadNumberParts = leadNumber.split("-");
+    const fourDigits = leadNumberParts[leadNumberParts.length - 1] || "0000";
+    
     const sanitizedEmail = hasEmail 
       ? input.email!.trim() 
-      : `no+${leadNumber.toLowerCase()}@email.com`;
+      : `${fourDigits}XXXX@email.com`;
+
+    const isPlaceholder = sanitizedEmail.endsWith("XXXX@email.com");
+    const checkEmail = hasEmail && !isPlaceholder;
 
     // Check for duplicates (only for real, non-placeholder emails)
     const where: Prisma.LeadWhereInput = { OR: [] };
-    if (hasEmail) where.OR?.push({ email: sanitizedEmail });
+    if (checkEmail) where.OR?.push({ email: sanitizedEmail });
     if (input.phone) where.OR?.push({ phone: input.phone });
 
     if (where.OR && where.OR.length > 0) {
       const existingLead = await prisma.lead.findFirst({ where });
       if (existingLead) {
-        if (hasEmail && existingLead.email === sanitizedEmail) {
+        if (checkEmail && existingLead.email === sanitizedEmail) {
           return { success: false, error: "A lead with this email already exists." };
         }
         if (input.phone && existingLead.phone === input.phone) {
@@ -254,6 +272,9 @@ export async function createLead(input: {
       email: sanitizedEmail,
       website: leadData.website || null,
       facebook: leadData.facebook || null,
+      categoryId: leadData.categoryId || null,
+      reference: leadData.reference || null,
+      photo: leadData.photo || null,
     };
 
     const lead = await prisma.lead.create({
@@ -364,6 +385,9 @@ export async function updateLead(leadId: string, input: {
   source?: string;
   website?: string;
   facebook?: string;
+  categoryId?: string;
+  reference?: string;
+  photo?: string;
 }) {
   try {
     const session = await auth();
@@ -383,22 +407,30 @@ export async function updateLead(leadId: string, input: {
 
     // Dynamically assign fallback email if missing/empty to satisfy unique constraint
     const hasEmail = input.email && input.email.trim() !== "";
+    
+    // Extract last 4 digits of oldLead.leadNumber
+    const leadNumberParts = (oldLead.leadNumber || "").split("-");
+    const fourDigits = leadNumberParts[leadNumberParts.length - 1] || "0000";
+
     const sanitizedEmail = hasEmail 
       ? input.email!.trim() 
-      : `no+${(oldLead.leadNumber || "").toLowerCase()}@email.com`;
+      : `${fourDigits}XXXX@email.com`;
+
+    const isPlaceholder = sanitizedEmail.endsWith("XXXX@email.com");
+    const checkEmail = hasEmail && !isPlaceholder;
 
     // Check for duplicates (excluding current lead, only for real, non-placeholder emails)
     const where: Prisma.LeadWhereInput = { 
       OR: [],
       NOT: { id: leadId }
     };
-    if (hasEmail) where.OR?.push({ email: sanitizedEmail });
+    if (checkEmail) where.OR?.push({ email: sanitizedEmail });
     if (input.phone) where.OR?.push({ phone: input.phone });
 
     if (where.OR && where.OR.length > 0) {
       const existingLead = await prisma.lead.findFirst({ where });
       if (existingLead) {
-        if (hasEmail && existingLead.email === sanitizedEmail) {
+        if (checkEmail && existingLead.email === sanitizedEmail) {
           return { success: false, error: "A lead with this email already exists." };
         }
         if (input.phone && existingLead.phone === input.phone) {
@@ -413,6 +445,9 @@ export async function updateLead(leadId: string, input: {
       email: sanitizedEmail,
       website: input.website === "" ? null : input.website,
       facebook: input.facebook === "" ? null : input.facebook,
+      categoryId: input.categoryId === "" ? null : input.categoryId,
+      reference: input.reference === "" ? null : input.reference,
+      photo: input.photo === "" ? null : input.photo,
     };
 
     const lead = await prisma.lead.update({
@@ -443,6 +478,18 @@ export async function updateLead(leadId: string, input: {
     if (input.source && input.source !== oldLead.source) {
       changes.push(`Source: ${oldLead.source || "None"} -> ${input.source}`);
       structuredChanges.push({ field: "source", from: oldLead.source, to: input.source });
+    }
+    if (input.categoryId !== undefined && input.categoryId !== oldLead.categoryId) {
+      changes.push(`Category: ${oldLead.categoryId || "None"} -> ${input.categoryId}`);
+      structuredChanges.push({ field: "categoryId", from: oldLead.categoryId, to: input.categoryId });
+    }
+    if (input.reference !== undefined && input.reference !== oldLead.reference) {
+      changes.push(`Reference: ${oldLead.reference || "None"} -> ${input.reference}`);
+      structuredChanges.push({ field: "reference", from: oldLead.reference, to: input.reference });
+    }
+    if (input.photo !== undefined && input.photo !== oldLead.photo) {
+      changes.push(`Photo: ${oldLead.photo || "None"} -> ${input.photo}`);
+      structuredChanges.push({ field: "photo", from: oldLead.photo, to: input.photo });
     }
 
     if (changes.length > 0) {
@@ -614,8 +661,10 @@ export async function convertLeadToOpportunity(leadId: string, input: {
     // Transaction to ensure atomic conversion
     const result = await prisma.$transaction(async (tx) => {
       // 1. Create or Find Client (Account)
+      const clientEmail = lead.email || `no+${(lead.leadNumber || lead.id).toLowerCase()}@email.com`;
+
       let client = await tx.client.findFirst({
-        where: { email: lead.email }
+        where: { email: clientEmail }
       });
 
       if (!client) {
@@ -637,7 +686,7 @@ export async function convertLeadToOpportunity(leadId: string, input: {
         client = await tx.client.create({
           data: {
             name: lead.company || lead.name,
-            email: lead.email,
+            email: clientEmail,
             phone: lead.phone,
             company: lead.company,
             clientCode,
@@ -656,7 +705,7 @@ export async function convertLeadToOpportunity(leadId: string, input: {
         data: {
           firstName,
           lastName,
-          email: lead.email,
+          email: clientEmail,
           phone: lead.phone,
           clientId: client.id,
           isPrimary: true,
@@ -955,5 +1004,25 @@ export async function bulkDeletePermanently(leadIds: string[]) {
   } catch (error) {
     console.error("bulkDeletePermanently error:", error);
     return { success: false, error: "Failed to delete leads permanently" };
+  }
+}
+
+/**
+ * Get all active categories
+ */
+export async function getActiveCategories() {
+  try {
+    const categories = await prisma.category.findMany({
+      where: { status: "active" },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+    return { success: true, categories };
+  } catch (error) {
+    console.error("getActiveCategories error:", error);
+    return { success: false, error: "Failed to fetch categories", categories: [] };
   }
 }

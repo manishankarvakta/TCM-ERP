@@ -40,6 +40,10 @@ interface Lead {
   ownerId: string | null;
   owner?: { id: string; name: string; image: string | null } | null;
   createdAt: Date;
+  categoryId?: string | null;
+  Category?: { id: string; name: string } | null;
+  reference?: string | null;
+  photo?: string | null;
 }
 
 interface LeadGridProps {
@@ -63,19 +67,46 @@ export default function LeadGrid({ leads, onEdit, onConvert }: LeadGridProps) {
         <Card key={lead.id} className="group hover:border-primary/50 transition-all shadow-sm">
           <CardHeader className="p-4 pb-2">
             <div className="flex justify-between items-start">
-              <div className="space-y-1">
-                <Link 
-                  href={`/dashboard/crm/leads/${lead.id}`} 
-                  className="font-bold text-lg hover:underline decoration-primary underline-offset-4"
-                >
-                  {lead.name}
-                </Link>
-                <div className="text-[10px] font-mono text-muted-foreground">
-                    {lead.leadNumber}
-                </div>
-                <div className="flex items-center text-xs text-muted-foreground">
-                  <FiBriefcase className="mr-1 h-3 w-3" />
-                  {lead.company || "No Company"}
+              <div className="flex gap-3">
+                {lead.photo ? (
+                  <div className="relative w-12 h-12 rounded-full overflow-hidden border bg-muted flex-shrink-0">
+                    <img
+                      src={`/api/files/${lead.photo}`}
+                      alt={lead.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-sm flex-shrink-0">
+                    {lead.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <Link 
+                    href={`/dashboard/crm/leads/${lead.id}`} 
+                    className="font-bold text-lg hover:underline decoration-primary underline-offset-4"
+                  >
+                    {lead.name}
+                  </Link>
+                  <div className="text-[10px] font-mono text-muted-foreground flex items-center gap-2">
+                      <span>{lead.leadNumber}</span>
+                      {lead.reference && (
+                        <span className="text-[9px] bg-muted px-1 rounded border font-sans text-muted-foreground">
+                          Ref: {lead.reference}
+                        </span>
+                      )}
+                  </div>
+                  <div className="flex items-center text-xs text-muted-foreground gap-2">
+                    <div className="flex items-center">
+                      <FiBriefcase className="mr-1 h-3 w-3" />
+                      {lead.company || "No Company"}
+                    </div>
+                    {lead.Category && (
+                      <Badge variant="outline" className="text-[10px] px-1 py-0 bg-primary/5 text-primary border-primary/20 leading-none">
+                        {lead.Category.name}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
               <DropdownMenu>

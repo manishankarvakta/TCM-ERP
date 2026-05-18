@@ -98,6 +98,7 @@ model Category {
   updatedAt     DateTime        @updatedAt
   CategoryGroup CategoryGroup[]
   ItemCategory  ItemCategory[]
+  Lead          Lead[]
 
   @@index([name])
   @@index([status])
@@ -542,10 +543,16 @@ model Lead {
   User       User       @relation(fields: [ownerId], references: [id])
   Note       Note[]
   Task       Task[]
+  
+  categoryId String?
+  Category   Category?  @relation(fields: [categoryId], references: [id])
+  reference  String?
+  photo      String?
 
   @@index([ownerId])
   @@index([status])
   @@index([isTrash])
+  @@index([categoryId])
 }
 
 model ModuleGroup {

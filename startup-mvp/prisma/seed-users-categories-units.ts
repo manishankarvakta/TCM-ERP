@@ -246,8 +246,32 @@ async function main() {
       console.log(`✅ Upserted unit: ${unit.symbol} - ${unit.details}`);
     }
 
+    // Seed Placeholder Item for Module Group Items
+    console.log("\n📦 Seeding Placeholder Item...");
+    await prisma.item.upsert({
+      where: { id: "cm1placeholderItem" },
+      update: {
+        code: "placeholder",
+        description: "Placeholder Item",
+        unitId: "cmjadhczi0001o08s5u47x58x",
+        unitPrice: "0",
+        costPrice: "0",
+        status: "active",
+      },
+      create: {
+        id: "cm1placeholderItem",
+        code: "placeholder",
+        description: "Placeholder Item",
+        unitId: "cmjadhczi0001o08s5u47x58x",
+        unitPrice: "0",
+        costPrice: "0",
+        status: "active",
+      },
+    });
+    console.log("✅ Upserted placeholder item");
+
     console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("✅ SUCCESS: Users, Categories, and Units seeded!");
+    console.log("✅ SUCCESS: Users, Categories, Units, and Placeholder seeded!");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   } catch (error) {
     console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");

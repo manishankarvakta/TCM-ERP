@@ -1,16 +1,37 @@
 "use client";
 
-import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useState, useEffect } from "react";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FiAlertCircle } from "react-icons/fi";
-import { createLead, updateLead } from "@/app/actions/crm/lead.action";
+import { FiAlertCircle, FiUpload, FiTrash2 } from "react-icons/fi";
+import { createLead, updateLead, getActiveCategories } from "@/app/actions/crm/lead.action";
+import { uploadFileServerSide } from "@/app/actions/files";
 import { type LeadStatus } from "@prisma/client";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+
+const LEAD_SOURCES = [
+  "Website",
+  "Referral",
+  "Cold Call",
+  "LinkedIn",
+  "Partner",
+  "Email Campaign",
+  "Event",
+  "Advertisement",
+  "Other",
+];
 
 const leadSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -22,6 +43,9 @@ const leadSchema = z.object({
   website: z.string().optional().or(z.literal("")),
   facebook: z.string().optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
+  categoryId: z.string().optional().or(z.literal("")),
+  reference: z.string().optional().or(z.literal("")),
+  photo: z.string().optional().or(z.literal("")),
 });
 
 type LeadFormData = z.infer<typeof leadSchema>;
@@ -35,6 +59,18 @@ interface LeadFormProps {
 export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormProps) {
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    async function fetchCategories() {
+      const res = await getActiveCategories();
+      if (res.success) {
+        setCategories(res.categories || []);
+      }
+    }
+    fetchCategories();
+  }, []);
 
   // Initialize form with split name if initialData provided
   const getInitialValues = () => {
@@ -48,6 +84,9 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
       website: "",
       facebook: "",
       notes: "",
+      categoryId: "",
+      reference: "",
+      photo: "",
     };
 
     const nameParts = (initialData.name || "").split(" ");
@@ -62,17 +101,58 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
       website: initialData.website || "",
       facebook: initialData.facebook || "",
       notes: initialData.notes || "",
+      categoryId: initialData.categoryId || "",
+      reference: initialData.reference || "",
+      photo: initialData.photo || "",
     };
   };
 
   const {
     register,
     handleSubmit,
+    control,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<LeadFormData>({
     resolver: zodResolver(leadSchema),
     defaultValues: getInitialValues(),
   });
+
+  const photoValue = watch("photo");
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    setUploading(true);
+    try {
+      const arrayBuffer = await selectedFile.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const fileData = buffer.toString("base64");
+
+      const result = await uploadFileServerSide({
+        path: "leads/photos",
+        name: selectedFile.name,
+        fileData,
+        contentType: selectedFile.type || "application/octet-stream",
+        size: selectedFile.size,
+      });
+
+      if (result.success && result.data) {
+        setValue("photo", result.data.key);
+        toast.success("Photo uploaded successfully");
+      } else {
+        toast.error(`Upload failed: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("Photo upload error:", error);
+      toast.error("An error occurred during photo upload");
+    } finally {
+      setUploading(false);
+      e.target.value = ""; // Reset input
+    }
+  };
 
   const onSubmit = async (data: LeadFormData) => {
     try {
@@ -165,7 +245,95 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
         </div>
         <div className="space-y-2">
           <Label htmlFor="source">Source</Label>
-          <Input id="source" {...register("source")} disabled={loading} placeholder="Website, Referral, etc." />
+          <Controller
+            name="source"
+            control={control}
+            render={({ field }) => (
+              <Select
+                onValueChange={field.onChange}
+                value={field.value || undefined}
+                disabled={loading}
+              >
+                <SelectTrigger id="source">
+                  <SelectValue placeholder="Select source" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAD_SOURCES.map((src) => (
+                    <SelectItem key={src} value={src}>
+                      {src}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="categoryId">Category</Label>
+          <Controller
+            name="categoryId"
+            control={control}
+            render={({ field }) => (
+              <Select
+                onValueChange={field.onChange}
+                value={field.value || undefined}
+                disabled={loading}
+              >
+                <SelectTrigger id="categoryId">
+                  <SelectValue placeholder="Select Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="reference">Reference</Label>
+          <Input id="reference" {...register("reference")} disabled={loading} placeholder="External Lead ID, campaign code, etc." />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Photo</Label>
+        <div className="flex items-center gap-4">
+          {photoValue ? (
+            <div className="relative w-32 h-32 rounded-lg border overflow-hidden group">
+              <img
+                src={`/api/files/${photoValue}`}
+                alt="Lead Photo"
+                className="w-full h-full object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => setValue("photo", "")}
+                className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white"
+                title="Remove Photo"
+              >
+                <FiTrash2 className="h-5 w-5" />
+              </button>
+            </div>
+          ) : (
+            <label className="flex flex-col items-center justify-center w-32 h-32 rounded-lg border border-dashed border-muted-foreground/30 hover:border-primary/50 cursor-pointer bg-muted/20 hover:bg-muted/30 transition-colors">
+              <FiUpload className="h-6 w-6 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground mt-1">Upload Photo</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                disabled={uploading || loading}
+                className="hidden"
+              />
+            </label>
+          )}
+          {uploading && <span className="text-sm text-muted-foreground animate-pulse">Uploading...</span>}
         </div>
       </div>
 
