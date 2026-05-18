@@ -121,9 +121,9 @@ export async function scanBackupDirectory(type: BackupType): Promise<BackupListI
  * @param backupId - Backup identifier
  * @returns Backup item or null if not found
  */
-export async function getBackupDetails(backupId: string): Promise<BackupListItem | null> {
-  // Search in all three directories
-  const types: BackupType[] = ['database', 'files', 'full'];
+export async function getBackupDetails(backupId: string, type?: BackupType): Promise<BackupListItem | null> {
+  // Search in specified or all three directories
+  const types: BackupType[] = type ? [type] : ['database', 'files', 'full'];
 
   for (const type of types) {
     const dir = getBackupTypeDir(type);
@@ -282,8 +282,8 @@ export async function getBackupCounts(): Promise<{
  * @param backupId - Backup identifier
  * @returns File path or null if not found
  */
-export async function findBackupPath(backupId: string): Promise<string | null> {
-  const details = await getBackupDetails(backupId);
+export async function findBackupPath(backupId: string, type?: BackupType): Promise<string | null> {
+  const details = await getBackupDetails(backupId, type);
   return details ? details.filePath : null;
 }
 
@@ -292,8 +292,8 @@ export async function findBackupPath(backupId: string): Promise<string | null> {
  * @param backupId - Backup identifier
  * @returns True if backup exists
  */
-export async function backupExists(backupId: string): Promise<boolean> {
-  const path = await findBackupPath(backupId);
+export async function backupExists(backupId: string, type?: BackupType): Promise<boolean> {
+  const path = await findBackupPath(backupId, type);
   return path !== null;
 }
 

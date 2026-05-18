@@ -52,6 +52,7 @@ export interface PostgresConfig {
   database: string;
   user: string;
   password: string;
+  containerName?: string;
 }
 
 /**
@@ -74,6 +75,7 @@ export function parsePostgresConfig(): PostgresConfig {
       database: url.pathname.slice(1).split('?')[0], // Remove leading / and query params
       user: url.username,
       password: url.password,
+      containerName: process.env.POSTGRES_CONTAINER,
     };
   } catch (error) {
     // Fallback to individual env vars
@@ -83,40 +85,16 @@ export function parsePostgresConfig(): PostgresConfig {
       database: process.env.POSTGRES_DB || 'startup_mvp',
       user: process.env.POSTGRES_USER || 'postgres',
       password: process.env.POSTGRES_PASSWORD || '',
+      containerName: process.env.POSTGRES_CONTAINER,
     };
   }
 }
 
-/**
- * MinIO/S3 configuration
- */
-export interface MinIOConfig {
-  endpoint: string;
-  port: number;
-  accessKey: string;
-  secretKey: string;
-  bucketName: string;
-  useSSL: boolean;
-}
-
-/**
- * Get MinIO configuration from environment variables
- */
-export function getMinIOConfig(): MinIOConfig {
-  return {
-    endpoint: process.env.MINIO_ENDPOINT || 'localhost',
-    port: parseInt(process.env.MINIO_PORT || '9000'),
-    accessKey: process.env.MINIO_ACCESS_KEY || 'minioadmin',
-    secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
-    bucketName: process.env.MINIO_BUCKET_NAME || 'startup-mvp',
-    useSSL: process.env.MINIO_USE_SSL === 'true',
-  };
-}
 
 /**
  * Backup file naming configuration
  */
-export const BACKUP_FILENAME_PATTERN = /^backup-\d{8}-\d{6}\.zip$/;
+export const BACKUP_FILENAME_PATTERN = /^backup-\d{8}-\d{6}\.zip(\.encrypted)?$/;
 
 /**
  * Generate a backup ID with current timestamp
@@ -152,7 +130,7 @@ export function isValidBackupId(id: string): boolean {
  * Extract backup ID from filename
  */
 export function extractBackupId(filename: string): string | null {
-  const match = filename.match(/^(backup-\d{8}-\d{6})\.zip$/);
+  const match = filename.match(/^(backup-\d{8}-\d{6})(\.zip|\.zip\.encrypted)$/);
   return match ? match[1] : null;
 }
 
@@ -212,4 +190,3 @@ export const RESTORE_TIMEOUT = 60 * 60 * 1000;
  * Backup listing cache duration (milliseconds) - 5 seconds
  */
 export const BACKUP_LIST_CACHE_DURATION = 5000;
-

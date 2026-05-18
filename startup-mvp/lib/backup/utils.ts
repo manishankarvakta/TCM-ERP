@@ -69,7 +69,12 @@ export async function cleanupTempFiles(paths: string[]): Promise<void> {
   const results = await Promise.allSettled(
     paths.map(async (filePath) => {
       try {
-        await fs.unlink(filePath);
+        const stats = await fs.stat(filePath);
+        if (stats.isDirectory()) {
+          await fs.rm(filePath, { recursive: true, force: true });
+        } else {
+          await fs.unlink(filePath);
+        }
       } catch (error: any) {
         // Ignore ENOENT errors (file doesn't exist)
         if (error.code !== 'ENOENT') {

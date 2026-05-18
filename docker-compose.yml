@@ -26,52 +26,6 @@ services:
     networks:
       - app-network
 
-  # MinIO Object Storage
-  ts-crm-minio:
-    image: minio/minio:latest
-    container_name: ts-crm-minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      # CORS Configuration for browser uploads
-      MINIO_API_CORS_ALLOW_ORIGIN: "*"
-    ports:
-      - "${MINIO_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
-    volumes:
-      # IMPORTANT: All uploaded files persist across container restarts in ./volumes/minio
-      # This directory is preserved even when containers are recreated
-      - ./volumes/minio:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-    networks:
-      - app-network
-
-  # MinIO Client for bucket initialization
-  ts-crm-minio-setup:
-    image: minio/mc:latest
-    container_name: ts-crm-minio-setup
-    depends_on:
-      ts-crm-minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      sleep 5;
-      /usr/bin/mc alias set myminio http://ts-crm-minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
-      /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-ts-crm-files} || true;
-      /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-ts-crm-files} || true;
-      /usr/bin/mc anonymous set upload myminio/${MINIO_BUCKET_NAME:-ts-crm-files} || true;
-      /usr/bin/mc anonymous set public myminio/${MINIO_BUCKET_NAME:-ts-crm-files} || true;
-      exit 0;
-      "
-    networks:
-      - app-network
-
   # Next.js Application
   ts-crm-app:
     build:
@@ -82,6 +36,8 @@ services:
     ports:
       # Host port defaults to 3000 to avoid clashing with local `npm run dev` (often uses 3000)
       - "${APP_PORT:-3000}:3000"
+    volumes:
+      - ./volumes/uploads:/app/uploads
     environment:
       # Database
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@ts-crm-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
@@ -94,14 +50,8 @@ services:
       AUTH_URL: ${AUTH_URL:-http://localhost:${APP_PORT:-3000}}
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
       
-      # MinIO
-      MINIO_ENDPOINT: ts-crm-minio
-      MINIO_PORT: 9000
-      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-ts-crm-files}
-      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
+      # File Storage
+      UPLOAD_DIR: /app/uploads
       
       # Redis (optional)
       REDIS_URL: ${REDIS_URL:-redis://ts-crm-redis:6379}
@@ -122,8 +72,6 @@ services:
       NODE_ENV: production
     depends_on:
       ts-crm-postgres:
-        condition: service_healthy
-      ts-crm-minio:
         condition: service_healthy
     networks:
       - app-network

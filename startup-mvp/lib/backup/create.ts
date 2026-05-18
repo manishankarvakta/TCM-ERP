@@ -15,7 +15,6 @@ import type { BackupMetadata, BackupCreationOptions } from '@/types/backup';
 import {
   getBackupTypeDir,
   parsePostgresConfig,
-  getMinIOConfig,
   generateBackupFilename,
   extractBackupId,
   METADATA_FILENAME,
@@ -37,8 +36,7 @@ import {
   generateTempFilePath,
   formatBytes,
 } from './utils';
-import { minio, s3 } from '@/lib/minio';
-import { GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { storage } from '@/lib/storage';
 
 const execAsync = promisify(exec);
 
@@ -129,24 +127,13 @@ export async function createDatabaseBackup(
     const { tables, recordCount } = await getDatabaseTableInfo();
     console.log(`[Backup] Found ${tables.length} tables with ${recordCount} total records`);
 
-    // Step 3: Create ZIP archive with database dump and metadata
-    console.log('[Backup] Creating ZIP archive...');
-    
-    // Get preliminary ZIP size (will be close to final)
-    const tempZipPath2 = generateTempFilePath('zip-temp');
-    await createZipArchive(tempZipPath2, async (archive) => {
-      archive.file(tempDumpPath, { name: DATABASE_DUMP_FILENAME });
-    });
-    const preliminarySize = await getFileSize(tempZipPath2);
-    await cleanupTempFiles([tempZipPath2]);
-    
-    // Create final metadata (checksum will be empty, size is estimate)
+    // Step 3: Create final metadata (checksum will be empty, size is estimate)
     const finalMetadata = createMetadata({
       id: backupId, // Use the same ID as the filename
       type: 'database',
       encrypted: options?.encrypt || false,
       description: options?.description,
-      size: preliminarySize + 1024, // Add space for metadata
+      size: dumpSize + 2048, // Estimate size
       checksum: '', // Leave empty - can't checksum a file that includes its own checksum
       database: {
         size: dumpSize,
@@ -156,14 +143,14 @@ export async function createDatabaseBackup(
       },
     });
 
-    await createZipArchive(tempZipPath, async (archive) => {
-      // Add database dump
-      archive.file(tempDumpPath, { name: DATABASE_DUMP_FILENAME });
-      
-      // Add metadata
-      const metadataJson = JSON.stringify(finalMetadata, null, 2);
-      archive.append(metadataJson, { name: METADATA_FILENAME });
-    });
+    const zip = new AdmZip();
+    zip.addLocalFile(tempDumpPath, "", DATABASE_DUMP_FILENAME);
+    
+    // Add metadata
+    const metadataJson = JSON.stringify(finalMetadata, null, 2);
+    zip.addFile(METADATA_FILENAME, Buffer.from(metadataJson, 'utf-8'));
+    
+    zip.writeZip(tempZipPath);
 
     // Step 4: Get final size
     const finalSize = await getFileSize(tempZipPath);
@@ -187,7 +174,7 @@ export async function createDatabaseBackup(
 }
 
 /**
- * Create a files backup from MinIO
+ * Create a files backup from local storage
  * @param options - Backup creation options
  * @returns Backup metadata
  */
@@ -207,64 +194,48 @@ export async function createFilesBackup(
   const tempZipPath = generateTempFilePath('zip');
 
   try {
-    // Step 1: List all objects in MinIO
-    console.log('[Backup] Listing files from MinIO...');
-    const minioConfig = getMinIOConfig();
-    const objects = await listMinIOObjects();
-
-    console.log(`[Backup] Found ${objects.length} files in MinIO`);
-
-    // Step 2: Create ZIP with streaming from MinIO (WITHOUT metadata)
-    console.log('[Backup] Streaming files to ZIP archive...');
+    // Step 1: List all files in local storage
+    console.log('[Backup] Listing files from local storage...');
+    const objects = await storage.listFiles("");
     let totalSize = 0;
 
-    await createZipArchive(tempZipPath, async (archive) => {
-      // Stream each file from MinIO to ZIP
-      for (const objectKey of objects) {
-        try {
-          const command = new GetObjectCommand({
-            Bucket: minioConfig.bucketName,
-            Key: objectKey,
-          });
+    console.log(`[Backup] Found ${objects.length} files in local storage`);
 
-          const response = await s3.send(command);
+    const zip = new AdmZip();
 
-          if (response.Body) {
-            // Stream the file data
-            archive.append(response.Body as any, { name: objectKey });
-            totalSize += response.ContentLength || 0;
-          }
-        } catch (error) {
-          console.warn(`Failed to backup file ${objectKey}:`, error);
-          // Continue with other files
-        }
+    // Add each file from local storage to ZIP
+    for (const objectKey of objects) {
+      if (objectKey.endsWith('/')) continue;
+      try {
+        const fileBuffer = await storage.readFile(objectKey);
+        zip.addFile(objectKey, fileBuffer);
+        totalSize += fileBuffer.length;
+      } catch (error) {
+        console.warn(`Failed to backup file ${objectKey}:`, error);
+        // Continue with other files
       }
-    });
+    }
 
-    // Step 3: Get preliminary ZIP size
-    console.log('[Backup] Getting preliminary size...');
-    const preliminarySize = await getFileSize(tempZipPath);
-
-    // Step 4: Create final metadata (checksum empty - can't checksum file containing its own checksum)
+    // Step 4: Create final metadata (checksum empty)
     const finalMetadata = createMetadata({
       id: backupId, // Use the same ID as the filename
       type: 'files',
       encrypted: options?.encrypt || false,
       description: options?.description,
-      size: preliminarySize + 1024, // Add space for metadata
+      size: totalSize + 2048, // Estimate size
       checksum: '', // Leave empty
       files: {
         count: objects.length,
         totalSize: totalSize,
-        bucketName: minioConfig.bucketName,
+        bucketName: "local",
       },
     });
 
-    // Step 5: Re-open ZIP and add metadata
+    // Step 5: Add metadata to ZIP
     console.log('[Backup] Adding metadata to ZIP...');
-    const zip = new AdmZip(tempZipPath);
     const metadataJson = JSON.stringify(finalMetadata, null, 2);
     zip.addFile(METADATA_FILENAME, Buffer.from(metadataJson, 'utf-8'));
+    
     zip.writeZip(tempZipPath);
 
     // Update with final size
@@ -320,54 +291,37 @@ export async function createFullBackup(
     const { tables, recordCount } = await getDatabaseTableInfo();
     console.log(`[Backup] Found ${tables.length} tables with ${recordCount} total records`);
 
-    // Step 3: List MinIO objects
-    console.log('[Backup] Listing files from MinIO...');
-    const minioConfig = getMinIOConfig();
-    const objects = await listMinIOObjects();
-
-    console.log(`[Backup] Found ${objects.length} files in MinIO`);
-
-    // Step 4: Create ZIP with both database and files (WITHOUT metadata)
-    console.log('[Backup] Creating ZIP archive with database and files...');
+    const objects = await storage.listFiles("");
     let filesSize = 0;
 
-    await createZipArchive(tempZipPath, async (archive) => {
-      // Add database dump
-      archive.file(tempDumpPath, { name: DATABASE_DUMP_FILENAME });
+    console.log(`[Backup] Found ${objects.length} files in local storage`);
 
-      // Stream files from MinIO under files/ directory
-      for (const objectKey of objects) {
-        try {
-          const command = new GetObjectCommand({
-            Bucket: minioConfig.bucketName,
-            Key: objectKey,
-          });
+    const zip = new AdmZip();
 
-          const response = await s3.send(command);
+    // Add database dump
+    zip.addLocalFile(tempDumpPath, "", DATABASE_DUMP_FILENAME);
 
-          if (response.Body) {
-            // Add under files/ directory
-            const zipPath = path.join(FILES_DIRECTORY_NAME, objectKey);
-            archive.append(response.Body as any, { name: zipPath });
-            filesSize += response.ContentLength || 0;
-          }
-        } catch (error) {
-          console.warn(`Failed to backup file ${objectKey}:`, error);
-        }
+    // Add files from local storage under files/ directory
+    for (const objectKey of objects) {
+      if (objectKey.endsWith('/')) continue;
+      try {
+        const fileBuffer = await storage.readFile(objectKey);
+        // Add under files/ directory
+        const zipPath = path.join(FILES_DIRECTORY_NAME, objectKey);
+        zip.addFile(zipPath, fileBuffer);
+        filesSize += fileBuffer.length;
+      } catch (error) {
+        console.warn(`Failed to backup file ${objectKey}:`, error);
       }
-    });
+    }
 
-    // Step 5: Get preliminary ZIP size
-    console.log('[Backup] Getting preliminary size...');
-    const preliminarySize = await getFileSize(tempZipPath);
-
-    // Step 6: Create final metadata (checksum empty - can't checksum file containing its own checksum)
+    // Step 6: Create final metadata (checksum empty)
     const finalMetadata = createMetadata({
       id: backupId, // Use the same ID as the filename
       type: 'full',
       encrypted: options?.encrypt || false,
       description: options?.description,
-      size: preliminarySize + 1024, // Add space for metadata
+      size: dumpSize + filesSize + 2048, // Estimate size
       checksum: '', // Leave empty
       database: {
         size: dumpSize,
@@ -378,15 +332,15 @@ export async function createFullBackup(
       files: {
         count: objects.length,
         totalSize: filesSize,
-        bucketName: minioConfig.bucketName,
+        bucketName: "local",
       },
     });
 
-    // Step 7: Re-open ZIP and add metadata
+    // Step 7: Add metadata to ZIP
     console.log('[Backup] Adding metadata to ZIP...');
-    const zip = new AdmZip(tempZipPath);
     const metadataJson = JSON.stringify(finalMetadata, null, 2);
     zip.addFile(METADATA_FILENAME, Buffer.from(metadataJson, 'utf-8'));
+    
     zip.writeZip(tempZipPath);
 
     // Update with final size
@@ -423,108 +377,135 @@ async function executePgDump(
 ): Promise<void> {
   const config = parsePostgresConfig();
 
-  // Build pg_dump command
+  // Build pg_dump command arguments
   // -Fc = custom format (compressed binary)
-  const args = [
-    `-h ${config.host}`,
-    `-p ${config.port}`,
-    `-U ${config.user}`,
-    `-d ${config.database}`,
+  const pgArgs = [
+    `-h`, config.host,
+    `-p`, config.port.toString(),
+    `-U`, config.user,
+    `-d`, config.database,
     '-Fc', // Custom format
     '--no-owner',
     '--no-acl',
-    '-f', outputPath,
   ];
 
   // Add table filters if specified
   if (options?.includeTables && options.includeTables.length > 0) {
     options.includeTables.forEach((table) => {
-      args.push(`-t ${table}`);
+      pgArgs.push('-t', table);
     });
   }
 
   if (options?.excludeTables && options.excludeTables.length > 0) {
     options.excludeTables.forEach((table) => {
-      args.push(`-T ${table}`);
+      pgArgs.push('-T', table);
     });
   }
 
-  const command = `pg_dump ${args.join(' ')}`;
-
+  // Check if pg_dump is available on the host
+  let useDocker = false;
   try {
-    await execAsync(command, {
-      env: {
-        ...process.env,
-        PGPASSWORD: config.password,
-      },
-      maxBuffer: 100 * 1024 * 1024, // 100MB buffer
+    await execAsync('pg_dump --version');
+    console.log('[Backup] Using host pg_dump...');
+  } catch (error) {
+    if (config.containerName) {
+      console.log(`[Backup] pg_dump not found on host. Falling back to Docker container: ${config.containerName}`);
+      useDocker = true;
+    } else {
+      throw new Error(
+        'pg_dump command not found on host and no POSTGRES_CONTAINER specified in .env. ' +
+        'Please install PostgreSQL client tools or configure a Docker container.'
+      );
+    }
+  }
+
+  if (!useDocker) {
+    // Standard host-based pg_dump
+    const hostArgs = [...pgArgs, '-f', outputPath];
+    const command = `pg_dump ${hostArgs.join(' ')}`;
+    
+    try {
+      await execAsync(command, {
+        env: {
+          ...process.env,
+          PGPASSWORD: config.password,
+        },
+        maxBuffer: 100 * 1024 * 1024, // 100MB buffer
+      });
+    } catch (error: any) {
+      handlePgDumpError(error);
+    }
+  } else {
+    // Docker-based pg_dump
+    // We use spawn and pipe to safely handle binary data on any platform
+    return new Promise((resolve, reject) => {
+      const { spawn } = require('child_process');
+      const fs = require('fs');
+      
+      const fileStream = fs.createWriteStream(outputPath);
+      
+      // For docker exec, we don't use -f because we'll pipe the stdout to the host file
+      // We also don't need -h localhost since we're inside the container
+      const dockerPgArgs = pgArgs.filter(arg => arg !== '-h' && arg !== config.host);
+      
+      const dockerArgs = [
+        'exec',
+        '-i', // Interactive but not TTY
+        '-e', `PGPASSWORD=${config.password}`,
+        config.containerName!,
+        'pg_dump',
+        ...dockerPgArgs
+      ];
+
+      console.log(`[Backup] Executing: docker ${dockerArgs.join(' ')} > ${outputPath}`);
+
+      const child = spawn('docker', dockerArgs);
+      
+      child.stdout.pipe(fileStream);
+
+      let stderr = '';
+      child.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
+
+      child.on('close', (code: number) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`Docker pg_dump failed with code ${code}: ${stderr}`));
+        }
+      });
+
+      child.on('error', (err: Error) => {
+        reject(new Error(`Failed to start Docker process: ${err.message}`));
+      });
     });
-  } catch (error: any) {
-    // Provide helpful error messages
-    if (error.message.includes('command not found') || error.code === 'ENOENT') {
-      throw new Error(
-        'pg_dump command not found. Please install PostgreSQL client tools.'
-      );
-    }
-
-    if (error.message.includes('password authentication failed')) {
-      throw new Error('Database authentication failed. Check DATABASE_URL configuration.');
-    }
-
-    if (error.message.includes('could not connect')) {
-      throw new Error(
-        'Could not connect to database. Ensure PostgreSQL is running and accessible.'
-      );
-    }
-
-    throw new Error(`pg_dump failed: ${error.message}`);
   }
 }
 
 /**
- * List all objects in MinIO bucket
- * @returns Array of object keys
+ * Handle pg_dump errors with helpful messages
  */
-async function listMinIOObjects(): Promise<string[]> {
-  const config = getMinIOConfig();
-  const objects: string[] = [];
-
-  try {
-    const command = new ListObjectsV2Command({
-      Bucket: config.bucketName,
-    });
-
-    let continuationToken: string | undefined;
-
-    do {
-      const response = await s3.send(
-        continuationToken
-          ? new ListObjectsV2Command({
-              Bucket: config.bucketName,
-              ContinuationToken: continuationToken,
-            })
-          : command
-      );
-
-      if (response.Contents) {
-        for (const object of response.Contents) {
-          if (object.Key && !object.Key.endsWith('/')) {
-            // Skip folder markers
-            objects.push(object.Key);
-          }
-        }
-      }
-
-      continuationToken = response.NextContinuationToken;
-    } while (continuationToken);
-
-    return objects;
-  } catch (error) {
+function handlePgDumpError(error: any): never {
+  if (error.message.includes('command not found') || error.code === 'ENOENT') {
     throw new Error(
-      `Failed to list MinIO objects: ${error instanceof Error ? error.message : String(error)}`
+      'pg_dump command not found. Please install PostgreSQL client tools.'
     );
   }
+
+  if (error.message.includes('password authentication failed')) {
+    throw new Error('Database authentication failed. Check DATABASE_URL configuration.');
+  }
+
+  if (error.message.includes('could not connect')) {
+    throw new Error(
+      'Could not connect to database. Ensure PostgreSQL is running and accessible.'
+    );
+  }
+
+  throw new Error(`pg_dump failed: ${error.message}`);
 }
+
 
 /**
  * Create a ZIP archive using archiver with streaming
@@ -539,6 +520,7 @@ async function createZipArchive(
     const output = createWriteStream(outputPath);
     const archive = archiver('zip', {
       zlib: { level: COMPRESSION_CONFIG.level },
+      forceLocalSize: true,
     });
 
     output.on('close', () => {
@@ -574,4 +556,3 @@ async function createZipArchive(
     }
   });
 }
-

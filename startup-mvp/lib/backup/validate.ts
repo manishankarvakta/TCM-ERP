@@ -131,7 +131,7 @@ export async function verifyZipStructure(
     }
 
     // Check for metadata.json
-    const hasMetadata = entries.some((entry) => entry.entryName === METADATA_FILENAME);
+    const hasMetadata = entries.some((entry: any) => entry.entryName === METADATA_FILENAME);
     if (!hasMetadata) {
       errors.push(`Missing ${METADATA_FILENAME} file`);
     }
@@ -141,7 +141,7 @@ export async function verifyZipStructure(
       case 'database':
         // Should contain database.dump
         const hasDatabaseDump = entries.some(
-          (entry) => entry.entryName === DATABASE_DUMP_FILENAME
+          (entry: any) => entry.entryName === DATABASE_DUMP_FILENAME
         );
         if (!hasDatabaseDump) {
           errors.push(`Missing ${DATABASE_DUMP_FILENAME} file for database backup`);
@@ -149,7 +149,7 @@ export async function verifyZipStructure(
         
         // Should not contain files directory
         const hasFilesDir = entries.some(
-          (entry) => entry.entryName.startsWith(FILES_DIRECTORY_NAME + '/')
+          (entry: any) => entry.entryName.startsWith(FILES_DIRECTORY_NAME + '/')
         );
         if (hasFilesDir) {
           warnings.push('Database backup contains files directory (unexpected)');
@@ -159,14 +159,14 @@ export async function verifyZipStructure(
       case 'files':
         // Should contain files (other than metadata)
         const fileEntries = entries.filter(
-          (entry) => entry.entryName !== METADATA_FILENAME && !entry.isDirectory
+          (entry: any) => entry.entryName !== METADATA_FILENAME && !entry.isDirectory
         );
         if (fileEntries.length === 0) {
           warnings.push('Files backup contains no files');
         }
         
         // Should not contain database.dump
-        const hasDb = entries.some((entry) => entry.entryName === DATABASE_DUMP_FILENAME);
+        const hasDb = entries.some((entry: any) => entry.entryName === DATABASE_DUMP_FILENAME);
         if (hasDb) {
           warnings.push('Files backup contains database.dump (unexpected)');
         }
@@ -175,14 +175,14 @@ export async function verifyZipStructure(
       case 'full':
         // Should contain both database.dump and files
         const hasDbDump = entries.some(
-          (entry) => entry.entryName === DATABASE_DUMP_FILENAME
+          (entry: any) => entry.entryName === DATABASE_DUMP_FILENAME
         );
         if (!hasDbDump) {
           errors.push(`Missing ${DATABASE_DUMP_FILENAME} file for full backup`);
         }
 
         const hasFiles = entries.some(
-          (entry) =>
+          (entry: any) =>
             entry.entryName !== METADATA_FILENAME &&
             entry.entryName !== DATABASE_DUMP_FILENAME &&
             !entry.isDirectory

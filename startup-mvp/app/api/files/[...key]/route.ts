@@ -1,49 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
-
-/**
- * Create S3 client for MinIO (lazy initialization to avoid build-time errors)
- */
-function createS3Client() {
-  const endpoint = process.env.MINIO_ENDPOINT || "espacio-minio";
-  const port = process.env.MINIO_PORT || "9000";
-  const useSSL = process.env.MINIO_USE_SSL === "true";
-  const accessKey = process.env.MINIO_ACCESS_KEY || "minioadmin";
-  const secretKey = process.env.MINIO_SECRET_KEY || "minioadmin";
-
-  const protocol = useSSL ? "https" : "http";
-  const endpointUrl = `${protocol}://${endpoint}:${port}`;
-
-  return new S3Client({
-    endpoint: endpointUrl,
-    region: "us-east-1",
-    credentials: {
-      accessKeyId: accessKey,
-      secretAccessKey: secretKey,
-    },
-    forcePathStyle: true,
-  });
-}
+import { storage } from "@/lib/storage";
 
 /**
  * GET /api/files/[...key]
- * Download proxy for MinIO files
- * Allows browser to access files from internal MinIO via server-side proxy
+ * Download proxy for local storage files
+ * Allows browser to access files via server-side proxy
  */
 export async function GET(
   request: NextRequest,
-  props: { params: Promise<{ key?: string[] }> }
+  context: { params: Promise<{ key: string[] }> }
 ) {
   try {
-    const params = await props.params;
+    const { key: keyArray } = await context.params;
 
     // Validate and reconstruct the full key from path segments
-    if (!params?.key || !Array.isArray(params.key) || params.key.length === 0) {
+    if (!keyArray || !Array.isArray(keyArray) || keyArray.length === 0) {
       console.error("Download proxy error: missing or invalid key params", {
         url: request.url,
-        params,
       });
       return NextResponse.json(
         { error: "Invalid file key" },
@@ -51,7 +26,7 @@ export async function GET(
       );
     }
 
-    const key = params.key.join("/");
+    const key = keyArray.join("/");
 
     // Get session
     const session = await auth();
@@ -87,41 +62,20 @@ export async function GET(
       );
     }
 
-    // Get bucket name from environment
-    const bucketName = process.env.MINIO_BUCKET_NAME || "espaciofiles";
-    
-    console.log(`[API] Fetching file: ${key} from bucket: ${bucketName}`);
-
-    // Create S3 client (at runtime, not build time)
-    const s3 = createS3Client();
-
-    // Fetch file from MinIO (internal connection)
-    const command = new GetObjectCommand({
-      Bucket: bucketName,
-      Key: key,
-    });
-
-    const response = await s3.send(command);
-
-    if (!response.Body) {
+    // Check if file exists on disk
+    if (!await storage.exists(key)) {
+      console.error(`File missing on disk: ${key}`);
       return NextResponse.json(
-        { error: "File body not found" },
-        { status: 500 }
+        { error: "File not found on storage" },
+        { status: 404 }
       );
     }
 
-    // Convert stream to buffer
-    const chunks: Uint8Array[] = [];
-    const stream = response.Body as any;
-    
-    for await (const chunk of stream) {
-      chunks.push(chunk);
-    }
-    
-    const buffer = Buffer.concat(chunks);
+    // Read file from local storage
+    const buffer = await storage.readFile(key);
 
     // Return file with appropriate headers
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": file.mimeType || "application/octet-stream",
@@ -131,11 +85,10 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Download proxy error for key:", error);
+    console.error("Download proxy error:", error);
     return NextResponse.json(
       { error: "Failed to download file" },
       { status: 500 }
     );
   }
 }
-

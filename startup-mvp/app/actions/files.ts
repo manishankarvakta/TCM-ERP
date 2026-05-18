@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { minio } from "@/lib/minio";
+import { storage } from "@/lib/storage";
 import { createUserLog } from "@/lib/user-log";
 import { z } from "zod";
 
@@ -114,8 +114,8 @@ export async function uploadFileServerSide(input: {
     // Convert base64 to buffer
     const buffer = Buffer.from(fileData, 'base64');
 
-    // Upload to MinIO internally (no presigned URL needed)
-    await minio.uploadBuffer(storageKey, buffer, contentType);
+    // Save to local storage internally
+    await storage.saveFile(storageKey, buffer);
 
     // Check if file already exists
     const existingFile = await prisma.file.findUnique({
@@ -191,12 +191,9 @@ export async function getUploadPresignedUrl(input: {
     // Build storage key
     const storageKey = buildStorageKey(user.id, path, name);
 
-    // Get presigned URL from MinIO
-    const url = await minio.getPresignedPutUrl(
-      storageKey,
-      contentType,
-      3600 // 1 hour expiration
-    );
+    // NOTE: Presigned URLs are not supported for local filesystem storage.
+    // This is a legacy function and should be avoided.
+    throw new Error("Presigned URLs are not supported with local storage. Please use uploadFileServerSide.");
 
     // Log the action
     await createUserLog({
@@ -208,7 +205,7 @@ export async function getUploadPresignedUrl(input: {
 
     return {
       success: true,
-      data: { url, key: storageKey },
+      data: { url: "", key: storageKey },
     };
   } catch (error) {
     console.error("getUploadPresignedUrl error:", error);
@@ -449,8 +446,8 @@ export async function deleteFile(input: {
       throw new Error("File not found");
     }
 
-    // Delete from MinIO
-    await minio.deleteObject(key);
+    // Delete from local storage
+    await storage.deleteFile(key);
 
     // Delete from database
     await prisma.file.delete({
@@ -506,31 +503,31 @@ export async function copyFile(input: {
       throw new Error("Source file not found");
     }
 
-    // Copy in MinIO
+    // Copy in local storage
     if (sourceFile.isFolder) {
       // For folders, we need to copy all objects recursively
       const sourcePrefix = sourceKey.endsWith("/") ? sourceKey : `${sourceKey}/`;
       const destPrefix = destKey.endsWith("/") ? destKey : `${destKey}/`;
       
       // List all objects in the source folder
-      const objects = await minio.listObjects(sourcePrefix);
+      const objects = await storage.listFiles(sourcePrefix);
       
       // Copy each object
       for (const objectKey of objects) {
         const relativePath = objectKey.replace(sourcePrefix, "");
         const newKey = `${destPrefix}${relativePath}`;
-        await minio.copyObject(objectKey, newKey);
+        await storage.copyFile(objectKey, newKey);
       }
       
       // Copy the folder marker itself if it exists
       try {
-        await minio.copyObject(sourceKey, destKey);
+        await storage.copyFile(sourceKey, destKey);
       } catch {
         // Ignore if folder marker doesn't exist
       }
     } else {
       // For files, just copy the object
-      await minio.copyObject(sourceKey, destKey);
+      await storage.copyFile(sourceKey, destKey);
     }
 
     // Extract destination path and filename
@@ -665,31 +662,31 @@ export async function moveFile(input: {
       throw new Error("Source file not found");
     }
 
-    // Move in MinIO
+    // Move in local storage
     if (sourceFile.isFolder) {
       // For folders, we need to move all objects recursively
       const sourcePrefix = sourceKey.endsWith("/") ? sourceKey : `${sourceKey}/`;
       const destPrefix = destKey.endsWith("/") ? destKey : `${destKey}/`;
       
       // List all objects in the source folder
-      const objects = await minio.listObjects(sourcePrefix);
+      const objects = await storage.listFiles(sourcePrefix);
       
       // Move each object
       for (const objectKey of objects) {
         const relativePath = objectKey.replace(sourcePrefix, "");
         const newKey = `${destPrefix}${relativePath}`;
-        await minio.moveObject(objectKey, newKey);
+        await storage.moveFile(objectKey, newKey);
       }
       
       // Move the folder marker itself if it exists
       try {
-        await minio.moveObject(sourceKey, destKey);
+        await storage.moveFile(sourceKey, destKey);
       } catch {
         // Ignore if folder marker doesn't exist
       }
     } else {
       // For files, just move the object
-      await minio.moveObject(sourceKey, destKey);
+      await storage.moveFile(sourceKey, destKey);
     }
 
     // Extract destination path and filename
@@ -824,8 +821,8 @@ export async function createFolder(input: {
     const normalizedPath = path === "/" ? "" : path.replace(/^\/+/, "").replace(/\/+$/, "");
     const storageKey = `${user.id}/${normalizedPath}${normalizedPath ? "/" : ""}${name}/`;
 
-    // Create folder in MinIO
-    await minio.createFolder(storageKey);
+    // Create folder in local storage
+    await storage.createDirectory(storageKey);
 
     // Create folder record in database
     await prisma.file.create({
@@ -897,15 +894,13 @@ export async function renameFileOrFolder(input: {
       throw new Error("A file or folder with this name already exists");
     }
 
-    // Rename in MinIO
+    // Rename in local storage
     if (file.isFolder) {
-      // For folders, we need to rename the folder and all its contents
-      const oldPath = file.path === "/" ? file.name : `${file.path}/${file.name}`;
-      const newPath = file.path === "/" ? newName : `${file.path}/${newName}`;
-      await minio.renameFolder(oldPath, newPath);
+      // For folders, we need to move the directory
+      await storage.moveFile(key, newStorageKey);
     } else {
-      // For files, just move the object
-      await minio.moveObject(key, newStorageKey);
+      // For files, just move the file
+      await storage.moveFile(key, newStorageKey);
     }
 
     // Delete old record and create new one (since storageKey is unique)
@@ -978,16 +973,8 @@ export async function getDownloadUrl(input: {
       throw new Error("File not found");
     }
 
-    const minioPubliclyAccessible = process.env.MINIO_PUBLICLY_ACCESSIBLE === "true";
-
-    let url: string;
-    if (minioPubliclyAccessible) {
-      // Generate presigned URL pointing to the public MinIO domain
-      url = await minio.getPresignedGetUrl(key, expiresIn);
-    } else {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      url = `${appUrl}/api/files/${key}?download=1`;
-    }
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const url = `${appUrl}/api/files/${key}?download=1`;
 
     // Log the action
     await createUserLog({
@@ -999,7 +986,7 @@ export async function getDownloadUrl(input: {
         name: file.name,
         storageKey: key,
         expiresIn,
-        mode: minioPubliclyAccessible ? "minio" : "proxy",
+        mode: "proxy",
       },
     });
 
@@ -1041,8 +1028,8 @@ export async function getPublicUrl(input: {
     }
 
     // Generate API proxy URL 
-    // We return a relative URL to avoid port mismatch issues (e.g. localhost:3000 vs 3001)
-    const url = `/api/files/${key}`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const url = `${appUrl}/api/files/${key}`;
 
     // Log the action
     await createUserLog({

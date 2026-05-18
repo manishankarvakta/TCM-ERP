@@ -219,15 +219,23 @@ export async function createLead(input: {
       return { success: false, error: "Phone number is required" };
     }
 
-    // Check for duplicates
+    const leadNumber = await generateLeadNumber();
+
+    // Dynamically assign fallback email if missing/empty to satisfy unique constraint
+    const hasEmail = input.email && input.email.trim() !== "";
+    const sanitizedEmail = hasEmail 
+      ? input.email!.trim() 
+      : `no+${leadNumber.toLowerCase()}@email.com`;
+
+    // Check for duplicates (only for real, non-placeholder emails)
     const where: Prisma.LeadWhereInput = { OR: [] };
-    if (input.email) where.OR?.push({ email: input.email });
+    if (hasEmail) where.OR?.push({ email: sanitizedEmail });
     if (input.phone) where.OR?.push({ phone: input.phone });
 
     if (where.OR && where.OR.length > 0) {
       const existingLead = await prisma.lead.findFirst({ where });
       if (existingLead) {
-        if (input.email && existingLead.email === input.email) {
+        if (hasEmail && existingLead.email === sanitizedEmail) {
           return { success: false, error: "A lead with this email already exists." };
         }
         if (input.phone && existingLead.phone === input.phone) {
@@ -240,12 +248,10 @@ export async function createLead(input: {
     const { notes, ownerId: providedOwnerId, ...leadData } = input;
     const ownerId = providedOwnerId || session.user.id;
 
-    const leadNumber = await generateLeadNumber();
-
     // Sanitize data
     const sanitizedData: any = {
       ...leadData,
-      email: leadData.email || null,
+      email: sanitizedEmail,
       website: leadData.website || null,
       facebook: leadData.facebook || null,
     };
@@ -375,18 +381,24 @@ export async function updateLead(leadId: string, input: {
 
     if (!oldLead) return { success: false, error: "Lead not found" };
 
-    // Check for duplicates (excluding current lead)
+    // Dynamically assign fallback email if missing/empty to satisfy unique constraint
+    const hasEmail = input.email && input.email.trim() !== "";
+    const sanitizedEmail = hasEmail 
+      ? input.email!.trim() 
+      : `no+${(oldLead.leadNumber || "").toLowerCase()}@email.com`;
+
+    // Check for duplicates (excluding current lead, only for real, non-placeholder emails)
     const where: Prisma.LeadWhereInput = { 
       OR: [],
       NOT: { id: leadId }
     };
-    if (input.email) where.OR?.push({ email: input.email });
+    if (hasEmail) where.OR?.push({ email: sanitizedEmail });
     if (input.phone) where.OR?.push({ phone: input.phone });
 
     if (where.OR && where.OR.length > 0) {
       const existingLead = await prisma.lead.findFirst({ where });
       if (existingLead) {
-        if (input.email && existingLead.email === input.email) {
+        if (hasEmail && existingLead.email === sanitizedEmail) {
           return { success: false, error: "A lead with this email already exists." };
         }
         if (input.phone && existingLead.phone === input.phone) {
@@ -398,7 +410,7 @@ export async function updateLead(leadId: string, input: {
     // Sanitize data
     const sanitizedInput: any = {
       ...input,
-      email: input.email === "" ? null : input.email,
+      email: sanitizedEmail,
       website: input.website === "" ? null : input.website,
       facebook: input.facebook === "" ? null : input.facebook,
     };

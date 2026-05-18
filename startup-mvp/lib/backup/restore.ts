@@ -12,7 +12,6 @@ import { promisify } from 'util';
 import type { RestoreOptions } from '@/types/backup';
 import {
   parsePostgresConfig,
-  getMinIOConfig,
   METADATA_FILENAME,
   DATABASE_DUMP_FILENAME,
   FILES_DIRECTORY_NAME,
@@ -29,8 +28,7 @@ import {
   generateTempFilePath,
   formatBytes,
 } from './utils';
-import { s3 } from '@/lib/minio';
-import { PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { storage } from '@/lib/storage';
 import { createReadStream } from 'fs';
 
 const execAsync = promisify(exec);
@@ -53,7 +51,7 @@ export async function restoreDatabaseBackup(
     manager.updateStatus(restoreId, 'VALIDATING', 'Validating backup file');
     manager.updateProgress(restoreId, { progress: 0 });
 
-    const backupPath = await findBackupPath(backupId);
+    const backupPath = await findBackupPath(backupId, 'database');
     if (!backupPath) {
       throw new Error(`Backup not found: ${backupId}`);
     }
@@ -80,7 +78,7 @@ export async function restoreDatabaseBackup(
     
     if (options?.createPreRestoreBackup) {
       manager.addLog(restoreId, 'Creating pre-restore backup...');
-      await createDatabaseBackup({ description: 'Pre-restore backup' });
+      await createDatabaseBackup({ type: 'database', description: 'Pre-restore backup' });
       manager.addLog(restoreId, 'Pre-restore backup created');
     }
     
@@ -143,7 +141,7 @@ export async function restoreFilesBackup(
     manager.updateStatus(restoreId, 'VALIDATING', 'Validating backup file');
     manager.updateProgress(restoreId, { progress: 0 });
 
-    const backupPath = await findBackupPath(backupId);
+    const backupPath = await findBackupPath(backupId, 'files');
     if (!backupPath) {
       throw new Error(`Backup not found: ${backupId}`);
     }
@@ -166,9 +164,9 @@ export async function restoreFilesBackup(
     manager.updateStatus(restoreId, 'PREPARING', 'Preparing for restore');
     
     if (options?.clearFiles) {
-      manager.addLog(restoreId, 'Clearing existing files from MinIO...');
-      await clearMinIOBucket();
-      manager.addLog(restoreId, 'MinIO bucket cleared');
+      manager.addLog(restoreId, 'Clearing existing files from local storage...');
+      await clearLocalStorage();
+      manager.addLog(restoreId, 'Local storage cleared');
     }
     
     manager.updateProgress(restoreId, { progress: 20 });
@@ -182,7 +180,7 @@ export async function restoreFilesBackup(
 
     const zip = new AdmZip(backupPath);
     const entries = zip.getEntries().filter(
-      (entry) => !entry.isDirectory && entry.entryName !== METADATA_FILENAME
+      (entry: any) => !entry.isDirectory && entry.entryName !== METADATA_FILENAME
     );
 
     manager.addLog(restoreId, `Found ${entries.length} files to restore`);
@@ -192,24 +190,20 @@ export async function restoreFilesBackup(
     });
 
     // Stage 4: RESTORING_FILES (40-90%)
-    manager.updateStatus(restoreId, 'RESTORING_FILES', 'Uploading files to MinIO');
+    manager.updateStatus(restoreId, 'RESTORING_FILES', 'Restoring files to local storage');
     
-    const minioConfig = getMinIOConfig();
+
     let uploadedCount = 0;
 
     for (const entry of entries) {
       const fileContent = zip.readFile(entry);
       if (!fileContent) continue;
 
-      // Upload to MinIO
+      // Save to local storage
       const key = entry.entryName;
       
       try {
-        await s3.send(new PutObjectCommand({
-          Bucket: minioConfig.bucketName,
-          Key: key,
-          Body: fileContent,
-        }));
+        await storage.saveFile(key, fileContent);
 
         uploadedCount++;
         const progress = 40 + Math.floor((uploadedCount / entries.length) * 50);
@@ -267,7 +261,7 @@ export async function restoreFullBackup(
     manager.updateStatus(restoreId, 'VALIDATING', 'Validating backup file');
     manager.updateProgress(restoreId, { progress: 0 });
 
-    const backupPath = await findBackupPath(backupId);
+    const backupPath = await findBackupPath(backupId, 'full');
     if (!backupPath) {
       throw new Error(`Backup not found: ${backupId}`);
     }
@@ -291,7 +285,7 @@ export async function restoreFullBackup(
     
     if (options?.createPreRestoreBackup) {
       manager.addLog(restoreId, 'Creating pre-restore backup...');
-      await createFullBackup({ description: 'Pre-restore backup' });
+      await createFullBackup({ type: 'full', description: 'Pre-restore backup' });
       manager.addLog(restoreId, 'Pre-restore backup created');
     }
     
@@ -321,13 +315,13 @@ export async function restoreFullBackup(
     manager.addLog(restoreId, 'Starting files restore...');
 
     if (options?.clearFiles) {
-      manager.addLog(restoreId, 'Clearing existing files from MinIO...');
-      await clearMinIOBucket();
+      manager.addLog(restoreId, 'Clearing existing files from local storage...');
+      await clearLocalStorage();
     }
 
     const zip = new AdmZip(backupPath);
     const entries = zip.getEntries().filter(
-      (entry) =>
+      (entry: any) =>
         !entry.isDirectory &&
         entry.entryName !== METADATA_FILENAME &&
         entry.entryName !== DATABASE_DUMP_FILENAME &&
@@ -336,7 +330,7 @@ export async function restoreFullBackup(
 
     manager.addLog(restoreId, `Found ${entries.length} files to restore`);
 
-    const minioConfig = getMinIOConfig();
+
     let uploadedCount = 0;
 
     for (const entry of entries) {
@@ -347,11 +341,7 @@ export async function restoreFullBackup(
       const key = entry.entryName.substring(FILES_DIRECTORY_NAME.length + 1);
       
       try {
-        await s3.send(new PutObjectCommand({
-          Bucket: minioConfig.bucketName,
-          Key: key,
-          Body: fileContent,
-        }));
+        await storage.saveFile(key, fileContent);
 
         uploadedCount++;
         const progress = 55 + Math.floor((uploadedCount / entries.length) * 40);
@@ -487,34 +477,21 @@ async function executePgRestore(
 }
 
 /**
- * Clear all objects from MinIO bucket
+ * Clear all objects from local storage
  */
-async function clearMinIOBucket(): Promise<void> {
-  const config = getMinIOConfig();
-
+async function clearLocalStorage(): Promise<void> {
   try {
-    // List all objects
-    const command = new ListObjectsV2Command({
-      Bucket: config.bucketName,
-    });
-
-    const response = await s3.send(command);
-
-    if (response.Contents && response.Contents.length > 0) {
-      // Delete each object
-      for (const object of response.Contents) {
-        if (object.Key) {
-          await s3.send(new DeleteObjectCommand({
-            Bucket: config.bucketName,
-            Key: object.Key,
-          }));
+    const allObjects = await storage.listFiles("");
+    if (allObjects && allObjects.length > 0) {
+      for (const key of allObjects) {
+        if (!key.endsWith("/")) {
+          await storage.deleteFile(key);
         }
       }
     }
   } catch (error) {
     throw new Error(
-      `Failed to clear MinIO bucket: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to clear local storage: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 }
-
