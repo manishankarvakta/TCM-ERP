@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import EmployeesListClient from "./_components/employees";
+import PageGuard from "@/components/permissions/page-guard";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 
@@ -57,7 +58,8 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
   }
 
   return (
-    <div className="space-y-6">
+    <PageGuard permissionKey="peoples.employees">
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold">Employees</h1>
@@ -123,7 +125,8 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
             />
           </TabsContent>
         </Tabs>
-    </div>
+      </div>
+    </PageGuard>
   );
 }
 

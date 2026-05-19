@@ -43,6 +43,15 @@ export function getPathPermissionKey(pathname: string): string | null {
     "/dashboard/clients": "peoples.clients",
     "/dashboard/suppliers": "peoples.suppliers",
     "/dashboard/employees": "peoples.employees",
+    // HR & Payroll
+    "/dashboard/hr/attendance/devices": "hr.devices",
+    "/dashboard/hr/attendance": "hr.attendance",
+    "/dashboard/hr/shifts": "hr.shifts",
+    "/dashboard/hr/holidays": "hr.holidays",
+    "/dashboard/hr/leave": "hr.leave",
+    "/dashboard/hr/loans": "hr.loans",
+    "/dashboard/hr/payroll": "hr.payroll",
+    "/dashboard/hr/calendar": "hr.calendar",
     // Other modules
     "/dashboard/files": "files",
     "/dashboard/notifications": "notifications",

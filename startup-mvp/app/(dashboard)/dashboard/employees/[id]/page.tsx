@@ -4,6 +4,7 @@ import EmployeeForm from "../_components/employeeForm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import PageGuard from "@/components/permissions/page-guard";
 
 interface EditEmployeePageProps {
   params: Promise<{
@@ -30,21 +31,11 @@ export default async function EditEmployeePage({ params }: EditEmployeePageProps
   const displayName = employee.employeeCode || employee.name;
 
   return (
-    <div className="space-y-6">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm">
-        <Link
-          href="/dashboard/employees"
-          className="text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Employees
-        </Link>
-        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        <span className="font-semibold">Edit {displayName}</span>
+    <PageGuard permissionKey="peoples.employees" requiredOperation="edit">
+      <div className="space-y-6">
+        <EmployeeForm mode="edit" initialData={employee} />
       </div>
-
-      <EmployeeForm mode="edit" initialData={employee} />
-    </div>
+    </PageGuard>
   );
 }
 

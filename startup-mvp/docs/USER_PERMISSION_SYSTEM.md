@@ -620,6 +620,7 @@ Always use protection components instead of manual checks:
 
 ## Additional Resources
 
+- See `docs/HR_PERMISSIONS_NAVIGATION_GUIDE.md` for specific HR & Payroll submodules and routes
 - See `docs/PERMISSION_SYSTEM_IMPLEMENTATION.md` for implementation details
 - See `types/permissions.ts` for complete type definitions
 - See `NAVIGATION_STRUCTURE` in `types/permissions.ts` for navigation configuration

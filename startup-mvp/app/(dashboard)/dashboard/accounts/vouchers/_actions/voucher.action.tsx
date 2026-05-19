@@ -1,23 +1,26 @@
 "use server";
 
+import { determineAccountType } from "@/lib/payment-account-config";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { Prisma } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
 import { createUserLog, LogAction } from "@/lib/user-log";
-import { randomUUID } from "crypto";
+import { isControlAccount } from "./accounting-helpers";
+import { isPeriodLocked } from "../../periods/_actions/period.action";
 
 /**
  * Generate unique voucher number
  * Format: VCH-YYYY-XXXX (e.g., VCH-2025-0001)
  */
-async function generateVoucherNumber(): Promise<string> {
+async function generateVoucherNumber(tx?: Prisma.TransactionClient): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `VCH-${year}-`;
+  const client = tx || prisma;
   
   // Find the highest number for this year
-  const lastVoucher = await prisma.voucher.findFirst({
+  const lastVoucher = await client.voucher.findFirst({
     where: {
       voucherNumber: {
         startsWith: prefix,
@@ -41,12 +44,13 @@ async function generateVoucherNumber(): Promise<string> {
  * Generate unique journal entry number
  * Format: JE-YYYY-XXXX (e.g., JE-2025-0001)
  */
-async function generateJournalEntryNumber(): Promise<string> {
+async function generateJournalEntryNumber(tx?: Prisma.TransactionClient): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `JE-${year}-`;
+  const client = tx || prisma;
   
   // Find the highest number for this year
-  const lastEntry = await prisma.journalEntry.findFirst({
+  const lastEntry = await client.journalEntry.findFirst({
     where: {
       entryNumber: {
         startsWith: prefix,
@@ -433,10 +437,6 @@ export async function getVoucherById(voucherId: string) {
             creditAmount: true,
             description: true,
             chartOfAccountId: true,
-            clientId: true,
-            supplierId: true,
-            userId: true,
-            organizationId: true,
             ChartOfAccount: {
               select: {
                 id: true,
@@ -525,13 +525,21 @@ export async function getVoucherById(voucherId: string) {
 
     // Serialize Decimal fields and map relation names
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { User_Voucher_createdByToUser, VoucherLine, JournalEntry, ...voucherWithoutRelations } = voucher as any;
+    const { User_Voucher_createdByToUser, VoucherLine, JournalEntry, Client, Supplier, User_Voucher_userIdToUser, Organization, ...voucherWithoutRelations } = voucher as any;
     const serializedVoucher = {
       ...voucherWithoutRelations,
       creator: User_Voucher_createdByToUser,
+      client: Client,
+      supplier: Supplier,
+      user: User_Voucher_userIdToUser,
+      organization: Organization,
       voucherLines: (VoucherLine || []).map((line: any) => ({
         ...line,
         chartOfAccount: line.ChartOfAccount,
+        client: line.Client,
+        supplier: line.Supplier,
+        user: line.User,
+        organization: line.Organization,
         debitAmount: Number(line.debitAmount),
         creditAmount: Number(line.creditAmount),
       })),
@@ -572,6 +580,7 @@ export async function createVoucher(input: {
   supplierId?: string;
   userId?: string;
   organizationId?: string;
+  isSystemAction?: boolean;
   lines: Array<{
     lineNumber: number;
     debitAmount: number;
@@ -583,15 +592,11 @@ export async function createVoucher(input: {
     userId?: string;
     organizationId?: string;
   }>;
-}) {
+}, tx?: Prisma.TransactionClient) {
   try {
-    let effectiveUserId = input.userId;
-    if (!effectiveUserId) {
-        const session = await auth();
-        effectiveUserId = session?.user?.id;
-    }
+    const session = await auth();
 
-    if (!effectiveUserId) {
+    if (!session?.user) {
       return {
         success: false,
         error: "Unauthorized",
@@ -599,13 +604,26 @@ export async function createVoucher(input: {
       };
     }
 
-    // Check permission
-    const canCreate = await hasPermission(effectiveUserId, "accounts.vouchers", "create");
+    const client = tx || prisma;
 
-    if (!canCreate) {
+    // Check permission
+    if (!input.isSystemAction) {
+      const canCreate = await hasPermission(session.user.id, "accounts.vouchers", "create");
+
+      if (!canCreate) {
+        return {
+          success: false,
+          error: "You do not have permission to create vouchers",
+          voucher: null,
+        };
+      }
+    }
+
+    // Accounting Period Lock Check
+    if (await isPeriodLocked(input.date || new Date())) {
       return {
         success: false,
-        error: "You do not have permission to create vouchers",
+        error: "Cannot create voucher in a locked accounting period.",
         voucher: null,
       };
     }
@@ -620,17 +638,29 @@ export async function createVoucher(input: {
       };
     }
 
-    // Validate all chart of accounts exist
-    const accountIds = input.lines.map((line) => line.chartOfAccountId);
-    const accounts = await prisma.chartOfAccount.findMany({
+    // Validate all chart of accounts exist and check for control accounts
+    // Filter out undefined/null IDs to prevent Prisma error, and deduplicate for correct count check
+    const rawAccountIds = input.lines.map((line) => line.chartOfAccountId).filter(id => !!id);
+    const uniqueAccountIds = [...new Set(rawAccountIds)];
+
+    const accounts = await client.chartOfAccount.findMany({
       where: {
-        id: { in: accountIds },
+        id: { in: uniqueAccountIds },
         status: "active",
       },
-      select: { id: true },
+      select: { 
+        id: true,
+        code: true,
+        name: true,
+        type: true,
+        isControl: true,
+        CashBankAccount: {
+          select: { id: true, type: true }
+        }
+      },
     });
 
-    if (accounts.length !== accountIds.length) {
+    if (accounts.length !== uniqueAccountIds.length) {
       return {
         success: false,
         error: "One or more chart of accounts are invalid or inactive",
@@ -638,129 +668,353 @@ export async function createVoucher(input: {
       };
     }
 
-    // ---------------------------------------------------------
-    // SECURITY & INTEGRITY CHECKS
-    // ---------------------------------------------------------
-    
-    // 1. Block System Voucher Types
-    const SYSTEM_TYPES = ["SALES", "PURCHASE"];
-    if (SYSTEM_TYPES.includes(input.type)) {
+    // Manual Voucher Type Restrictions
+    const manualAllowedTypes = ["JOURNAL", "PAYMENT", "RECEIPT", "CONTRA"];
+    if (!input.isSystemAction && !manualAllowedTypes.includes(input.type)) {
       return {
         success: false,
-        error: `Cannot manually create ${input.type} vouchers. Please use the Sales or Purchase modules.`,
+        error: `Manual creation of ${input.type} vouchers is prohibited. These are system-reserved types.`,
         voucher: null,
       };
     }
 
-    // 2. Account Restrictions
-    const restrictionCheck = await validateAccountRestrictions(input.type, input.lines);
-    if (!restrictionCheck.valid) {
-        return {
+    // Manual JOURNAL/PAYMENT/RECEIPT restriction for control accounts
+    if (!input.isSystemAction && ["JOURNAL", "PAYMENT", "RECEIPT"].includes(input.type)) {
+      for (const account of accounts) {
+        if (account.isControl) {
+          return {
             success: false,
-            error: restrictionCheck.error,
-            voucher: null
-        };
+            error: `Manual ${input.type} entries to control accounts (AR, AP, Inventory) are prohibited. Please use the appropriate module (Sales, Purchases, etc.)`,
+            voucher: null,
+          };
+        }
+      }
     }
 
-    // ---------------------------------------------------------
+    // CONTRA validation: Only Cash, Bank, or Digital Wallet accounts allowed
+    if (input.type === "CONTRA") {
+      for (const account of accounts) {
+        const accountType = determineAccountType({
+          code: account.code,
+          name: account.name,
+          CashBankAccount: account.CashBankAccount
+            ? { type: account.CashBankAccount.type as "CASH" | "BANK" }
+            : null,
+        });
+
+        if (!accountType) {
+          return {
+            success: false,
+            error: "Contra vouchers can only involve Cash, Bank, or Digital Wallet accounts.",
+            voucher: null,
+          };
+        }
+      }
+    }
+
+    // ===== VOUCHER TYPE-SPECIFIC ACCOUNT VALIDATION =====
+    // These validations apply to MANUAL vouchers only (not isSystemAction)
+    if (!input.isSystemAction) {
+      // Build account lookup map
+      const accountMap = new Map(accounts.map(a => [a.id, a]));
+
+      // PAYMENT: CR must be Cash/Bank/Digital Wallet, DR must not be Revenue
+      if (input.type === "PAYMENT") {
+        for (const line of input.lines) {
+          const account = accountMap.get(line.chartOfAccountId);
+          if (!account) continue;
+
+          // Credit side must be Cash/Bank/Digital Wallet
+          if (Number(line.creditAmount) > 0) {
+            const accountType = determineAccountType({
+              code: account.code,
+              name: account.name,
+              CashBankAccount: account.CashBankAccount 
+                ? { type: account.CashBankAccount.type as "CASH" | "BANK" }
+                : null
+            });
+
+            if (!accountType) {
+              return {
+                success: false,
+                error: "Payment voucher credit lines must be Cash, Bank, or Digital Wallet accounts only.",
+                voucher: null,
+              };
+            }
+          }
+
+          // Debit side: block Revenue accounts
+          if (Number(line.debitAmount) > 0) {
+            if (account.type === "REVENUE") {
+              return {
+                success: false,
+                error: "Payment vouchers cannot debit Revenue accounts.",
+                voucher: null,
+              };
+            }
+          }
+        }
+      }
+
+      // RECEIPT: DR must be Cash/Bank/Digital Wallet, CR must not be Expense
+      if (input.type === "RECEIPT") {
+        for (const line of input.lines) {
+          const account = accountMap.get(line.chartOfAccountId);
+          if (!account) continue;
+
+          // Debit side must be Cash/Bank/Digital Wallet
+          if (Number(line.debitAmount) > 0) {
+            const accountType = determineAccountType({
+              code: account.code,
+              name: account.name,
+              CashBankAccount: account.CashBankAccount 
+                ? { type: account.CashBankAccount.type as "CASH" | "BANK" }
+                : null
+            });
+
+            if (!accountType) {
+              return {
+                success: false,
+                error: "Receipt voucher debit lines must be Cash, Bank, or Digital Wallet accounts only.",
+                voucher: null,
+              };
+            }
+          }
+
+          // Credit side: block Expense accounts
+          if (Number(line.creditAmount) > 0) {
+            if (account.type === "EXPENSE") {
+              return {
+                success: false,
+                error: "Receipt vouchers cannot credit Expense accounts.",
+                voucher: null,
+              };
+            }
+          }
+        }
+      }
+
+      // JOURNAL: Block Cash/Bank/Digital Wallet accounts (use CONTRA, PAYMENT, RECEIPT instead)
+      if (input.type === "JOURNAL") {
+        for (const line of input.lines) {
+          const account = accountMap.get(line.chartOfAccountId);
+          // Check if it's a payment account using strict config
+          const accountType = account ? determineAccountType({
+             code: account.code,
+             name: account.name,
+             CashBankAccount: account.CashBankAccount 
+                ? { type: account.CashBankAccount.type as "CASH" | "BANK" }
+                : null
+          }) : null;
+
+          if (accountType) {
+            return {
+              success: false,
+              error: "Journal entries cannot involve Cash, Bank, or Digital Wallet accounts. Use Contra, Payment, or Receipt vouchers instead.",
+              voucher: null,
+            };
+          }
+        }
+      }
+
+      // CONTRA: Validate accounts allowed + From ≠ To
+      if (input.type === "CONTRA") {
+        const accountIdsUsed = input.lines.map(l => l.chartOfAccountId);
+        const uniqueAccountIds = new Set(accountIdsUsed);
+        if (uniqueAccountIds.size < 2) {
+          return {
+            success: false,
+            error: "Contra voucher must involve at least 2 different accounts.",
+            voucher: null,
+          };
+        }
+      }
+    }
 
     // Generate voucher number
-    const voucherNumber = await generateVoucherNumber();
+    const voucherNumber = await generateVoucherNumber(tx);
 
-    // Create voucher with lines
-    const voucher = await prisma.voucher.create({
-      data: {
-        id: randomUUID(),
-        updatedAt: new Date(),
-        voucherNumber,
-        date: input.date ? (typeof input.date === "string" ? new Date(input.date) : input.date) : new Date(),
-        type: input.type as any,
-        reference: input.reference || null,
-        description: input.description || null,
-        status: "draft",
-        createdBy: effectiveUserId,
-        clientId: input.clientId || null,
-        supplierId: input.supplierId || null,
-        userId: input.userId || null,
-        organizationId: input.organizationId || null,
-        VoucherLine: {
-          create: input.lines.map((line) => ({
-            id: randomUUID(),
-            updatedAt: new Date(),
-            lineNumber: line.lineNumber,
-            debitAmount: new Prisma.Decimal(line.debitAmount || 0),
-            creditAmount: new Prisma.Decimal(line.creditAmount || 0),
-            description: line.description || null,
-            chartOfAccountId: line.chartOfAccountId,
-            clientId: line.clientId || null,
-            supplierId: line.supplierId || null,
-            userId: line.userId || null,
-            organizationId: line.organizationId || null,
-          })) as Prisma.VoucherLineUncheckedCreateWithoutVoucherInput[],
+    // --- OVERPAYMENT GUARD ---
+    if (input.type === "PAYMENT" && input.supplierId) {
+      const totalPaymentAmount = input.lines.reduce((sum, line) => sum + (line.debitAmount || 0), 0);
+      
+      // Calculate current AP balance for this supplier
+      const supplierAccount = await client.chartOfAccount.findFirst({
+        where: {
+          Supplier: { some: { id: input.supplierId } }
         },
-      },
-      include: {
-        User_Voucher_createdByToUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+        select: { id: true }
+      });
+
+      if (supplierAccount) {
+        const balanceResult = await client.journalEntryLine.aggregate({
+          where: { chartOfAccountId: supplierAccount.id },
+          _sum: { debitAmount: true, creditAmount: true }
+        });
+
+        const currentBalance = Number(balanceResult._sum.creditAmount || 0) - Number(balanceResult._sum.debitAmount || 0);
+        
+        if (totalPaymentAmount > currentBalance + 0.01) {
+          return {
+            success: false,
+            error: `Overpayment detected. Current outstanding balance for this supplier is ৳${currentBalance.toFixed(2)}. You are attempting to pay ৳${totalPaymentAmount.toFixed(2)}.`,
+            voucher: null,
+          };
+        }
+      }
+    }
+    // --- END OVERPAYMENT GUARD ---
+
+    // --- OVER-RECEIPT GUARD ---
+    if (input.type === "RECEIPT" && input.clientId) {
+      const totalReceiptAmount = input.lines.reduce((sum, line) => sum + (line.creditAmount || 0), 0);
+      
+      // Calculate current AR balance for this client
+      const clientAccount = await client.chartOfAccount.findFirst({
+        where: {
+          Client: { some: { id: input.clientId } }
+        },
+        select: { id: true }
+      });
+
+      if (clientAccount) {
+        const balanceResult = await client.journalEntryLine.aggregate({
+          where: { chartOfAccountId: clientAccount.id },
+          _sum: { debitAmount: true, creditAmount: true }
+        });
+
+        const currentBalance = Number(balanceResult._sum.debitAmount || 0) - Number(balanceResult._sum.creditAmount || 0);
+        
+        if (totalReceiptAmount > currentBalance + 0.01) {
+          return {
+            success: false,
+            error: `Over-receipt detected. Current outstanding balance for this client is ৳${currentBalance.toFixed(2)}. You are attempting to record a receipt of ৳${totalReceiptAmount.toFixed(2)}.`,
+            voucher: null,
+          };
+        }
+      }
+    }
+    // --- END OVER-RECEIPT GUARD ---
+
+    const performCreate = async (transaction: Prisma.TransactionClient) => {
+      // Create voucher with lines
+      const voucher = await transaction.voucher.create({
+        data: {
+          voucherNumber,
+          date: input.date ? (typeof input.date === "string" ? new Date(input.date) : input.date) : new Date(),
+          type: input.type as any,
+          reference: input.reference || null,
+          description: input.description || null,
+          status: "draft",
+          createdBy: session.user.id,
+          clientId: input.clientId || null,
+          supplierId: input.supplierId || null,
+          userId: input.userId || null,
+          organizationId: input.organizationId || null,
+          VoucherLine: {
+            create: input.lines.map((line) => ({
+              lineNumber: line.lineNumber,
+              debitAmount: new Prisma.Decimal(line.debitAmount || 0),
+              creditAmount: new Prisma.Decimal(line.creditAmount || 0),
+              description: line.description || null,
+              chartOfAccountId: line.chartOfAccountId,
+              clientId: line.clientId || null,
+              supplierId: line.supplierId || null,
+              userId: line.userId || null,
+              organizationId: line.organizationId || null,
+            })),
           },
         },
-        VoucherLine: {
-          include: {
-            ChartOfAccount: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-                type: true,
-              },
+        include: {
+          User_Voucher_createdByToUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
             },
           },
-          orderBy: {
-            lineNumber: "asc",
+          VoucherLine: {
+            include: {
+              ChartOfAccount: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  type: true,
+                },
+              },
+            },
+            orderBy: {
+              lineNumber: "asc",
+            },
+          },
+          Client: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          Supplier: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          Organization: {
+            select: {
+              id: true,
+              name: true,
+            },
           },
         },
-        Client: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        Supplier: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        Organization: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
+      });
 
-    // Log action
-    await createUserLog({
-      userId: effectiveUserId,
-      action: LogAction.ITEM_CREATED,
-      details: `Created voucher: ${voucherNumber}`,
-    });
+      // Log action with detailed audit trail
+      await createUserLog({
+        userId: session.user.id,
+        action: LogAction.ITEM_CREATED,
+        details: `Created voucher: ${voucherNumber} (${input.type}) - Total: ৳${input.lines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0).toFixed(2)}`,
+        metadata: { 
+          voucherId: voucher.id, 
+          voucherNumber, 
+          type: input.type,
+          totalDebit: input.lines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0),
+          totalCredit: input.lines.reduce((sum, line) => sum + Number(line.creditAmount || 0), 0),
+          linesCount: input.lines.length,
+          accounts: input.lines.map(line => ({
+            accountId: line.chartOfAccountId,
+            debit: Number(line.debitAmount || 0),
+            credit: Number(line.creditAmount || 0),
+          })),
+          clientId: input.clientId || null,
+          supplierId: input.supplierId || null,
+        },
+      });
+
+      return voucher;
+    };
+
+    let voucher;
+    if (tx) {
+      voucher = await performCreate(tx);
+    } else {
+      voucher = await prisma.$transaction(async (t) => await performCreate(t));
+    }
 
     // Revalidate paths
     revalidateBothPaths("accounts/vouchers", "page");
 
     // Serialize Decimal fields and map relation names
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { User_Voucher_createdByToUser, VoucherLine, ...voucherWithoutRelations } = voucher as any;
+    const { User_Voucher_createdByToUser, VoucherLine, Client, Supplier, Organization, ...voucherWithoutRelations } = voucher as any;
     const serializedVoucher = {
       ...voucherWithoutRelations,
       creator: User_Voucher_createdByToUser,
+      client: Client,
+      supplier: Supplier,
+      organization: Organization,
       voucherLines: (VoucherLine || []).map((line: any) => ({
         ...line,
         chartOfAccount: line.ChartOfAccount,
@@ -786,7 +1040,7 @@ export async function createVoucher(input: {
 /**
  * Post a draft voucher (creates JournalEntry and locks voucher)
  */
-export async function postVoucher(voucherId: string) {
+export async function postVoucher(voucherId: string, tx?: Prisma.TransactionClient, isSystemAction?: boolean) {
   try {
     const session = await auth();
 
@@ -799,22 +1053,26 @@ export async function postVoucher(voucherId: string) {
       };
     }
 
-    // Check permission - allow update, approve, or edit (for UI consistency)
-    const canUpdate = await hasPermission(session.user.id, "accounts.vouchers", "update");
-    const canApprove = await hasPermission(session.user.id, "accounts.vouchers", "approve");
-    const canEdit = await hasPermission(session.user.id, "accounts.vouchers", "edit");
+    const client = tx || prisma;
 
-    if (!canUpdate && !canApprove && !canEdit) {
-      return {
-        success: false,
-        error: "You do not have permission to post vouchers",
-        voucher: null,
-        journalEntry: null,
-      };
+    // Check permission - allow update, approve, or edit (for UI consistency)
+    if (!isSystemAction) {
+      const canUpdate = await hasPermission(session.user.id, "accounts.vouchers", "update");
+      const canApprove = await hasPermission(session.user.id, "accounts.vouchers", "approve");
+      const canEdit = await hasPermission(session.user.id, "accounts.vouchers", "edit");
+
+      if (!canUpdate && !canApprove && !canEdit) {
+        return {
+          success: false,
+          error: "You do not have permission to post vouchers",
+          voucher: null,
+          journalEntry: null,
+        };
+      }
     }
 
     // Get voucher with lines
-    const voucher = await prisma.voucher.findUnique({
+    const voucher = await client.voucher.findUnique({
       where: { id: voucherId },
       include: {
         VoucherLine: {
@@ -847,6 +1105,16 @@ export async function postVoucher(voucherId: string) {
       };
     }
 
+    // Accounting Period Lock Check
+    if (await isPeriodLocked(voucher.date)) {
+      return {
+        success: false,
+        error: "Cannot post voucher in a locked accounting period.",
+        voucher: null,
+        journalEntry: null,
+      };
+    }
+
     // Validate voucher lines
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const validation = validateVoucherLines(
@@ -866,7 +1134,7 @@ export async function postVoucher(voucherId: string) {
     }
 
     // Check if journal entry already exists
-    const existingJournalEntry = await prisma.journalEntry.findFirst({
+    const existingJournalEntry = await client.journalEntry.findFirst({
       where: { voucherId: voucher.id },
     });
 
@@ -880,14 +1148,12 @@ export async function postVoucher(voucherId: string) {
     }
 
     // Generate journal entry number
-    const entryNumber = await generateJournalEntryNumber();
+    const entryNumber = await generateJournalEntryNumber(tx);
 
-    // Use transaction to ensure atomicity
-    const result = await prisma.$transaction(async (tx) => {
+    const performPost = async (transaction: Prisma.TransactionClient) => {
       // Create JournalEntry
-      const journalEntry = await tx.journalEntry.create({
+      const journalEntry = await transaction.journalEntry.create({
         data: {
-          id: randomUUID(),
           entryNumber,
           date: voucher.date,
           voucherId: voucher.id,
@@ -898,8 +1164,7 @@ export async function postVoucher(voucherId: string) {
           postedAt: new Date(),
           JournalEntryLine: {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            create: (((voucher as any).VoucherLine || []).map((line: any) => ({
-              id: randomUUID(),
+            create: ((voucher as any).VoucherLine || []).map((line: any) => ({
               lineNumber: line.lineNumber,
               debitAmount: line.debitAmount,
               creditAmount: line.creditAmount,
@@ -909,7 +1174,7 @@ export async function postVoucher(voucherId: string) {
               supplierId: line.supplierId || null,
               userId: line.userId || null,
               organizationId: line.organizationId || null,
-            }))) as Prisma.JournalEntryLineUncheckedCreateWithoutJournalEntryInput[],
+            })),
           },
         },
         include: {
@@ -932,7 +1197,7 @@ export async function postVoucher(voucherId: string) {
       });
 
       // Update voucher status
-      const updatedVoucher = await tx.voucher.update({
+      const updatedVoucher = await transaction.voucher.update({
         where: { id: voucher.id },
         data: {
           status: "posted",
@@ -984,15 +1249,44 @@ export async function postVoucher(voucherId: string) {
         },
       });
 
-      return { journalEntry, voucher: updatedVoucher };
-    });
+      // Log action with detailed audit trail
+      const voucherLines = (voucher as any).VoucherLine || [];
+      const postTotalDebit = voucherLines.reduce((sum: number, line: any) => sum + Number(line.debitAmount), 0);
+      const postTotalCredit = voucherLines.reduce((sum: number, line: any) => sum + Number(line.creditAmount), 0);
+      
+      await createUserLog({
+        userId: session.user.id,
+        action: LogAction.ITEM_UPDATED,
+        details: `Posted voucher: ${voucher.voucherNumber} (Journal Entry: ${entryNumber}) - Total: ৳${postTotalDebit.toFixed(2)}`,
+        metadata: { 
+          voucherId: voucher.id, 
+          voucherNumber: voucher.voucherNumber,
+          type: voucher.type,
+          journalEntryId: journalEntry.id,
+          entryNumber, 
+          postedAt: new Date(),
+          totalDebit: postTotalDebit,
+          totalCredit: postTotalCredit,
+          accounts: voucherLines.map((line: any) => ({
+            accountId: line.chartOfAccountId,
+            accountName: line.ChartOfAccount?.name || null,
+            debit: Number(line.debitAmount),
+            credit: Number(line.creditAmount),
+          })),
+          clientId: voucher.clientId,
+          supplierId: voucher.supplierId,
+        },
+      });
 
-    // Log action
-    await createUserLog({
-      userId: session.user.id,
-      action: LogAction.ITEM_UPDATED,
-      details: `Posted voucher: ${voucher.voucherNumber} (Journal Entry: ${entryNumber})`,
-    });
+      return { journalEntry, voucher: updatedVoucher };
+    };
+
+    let result;
+    if (tx) {
+      result = await performPost(tx);
+    } else {
+      result = await prisma.$transaction(async (t) => await performPost(t));
+    }
 
     // Revalidate paths
     revalidateBothPaths("accounts/vouchers", "page");
@@ -1000,7 +1294,7 @@ export async function postVoucher(voucherId: string) {
 
     // Serialize Decimal fields and map relation names
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { User_Voucher_createdByToUser, User_Voucher_postedByIdToUser, VoucherLine, ...voucherWithoutRelations } = (result.voucher as any);
+    const { User_Voucher_createdByToUser, User_Voucher_postedByIdToUser, VoucherLine, JournalEntry, ...voucherWithoutRelations } = (result.voucher as any);
     const serializedVoucher = {
       ...voucherWithoutRelations,
       creator: User_Voucher_createdByToUser,
@@ -1015,8 +1309,9 @@ export async function postVoucher(voucherId: string) {
 
     const serializedJournalEntry = {
       ...result.journalEntry,
-      journalEntryLines: (result.journalEntry as any).JournalEntryLine.map((line: any) => ({
+      journalEntryLines: result.journalEntry.JournalEntryLine.map((line) => ({
         ...line,
+        chartOfAccount: line.ChartOfAccount,
         debitAmount: Number(line.debitAmount),
         creditAmount: Number(line.creditAmount),
       })),
@@ -1326,110 +1621,234 @@ export async function getEmployeesForVoucher() {
 }
 
 /**
- * Validate account restrictions for vouchers based on type and direction
+ * Update a draft voucher
  */
-export async function validateAccountRestrictions(
-  voucherType: string,
-  lines: Array<{ 
-    chartOfAccountId: string; 
-    clientId?: string | null;
-    debitAmount: number;
-    creditAmount: number;
-  }>
-): Promise<{ valid: boolean; error?: string }> {
-    const accountIds = lines.map(line => line.chartOfAccountId);
-    
-    // Fetch account details to check flags and types
-    const usedAccounts = await prisma.chartOfAccount.findMany({
-      where: { id: { in: accountIds } },
-      select: { 
-        id: true, 
-        name: true, 
-        type: true,
-        isControl: true,
-        CashBankAccount: { select: { id: true } }
-      }
+export async function updateVoucher(
+  voucherId: string,
+  input: {
+    date?: Date | string;
+    reference?: string;
+    description?: string;
+    lines: Array<{
+      lineNumber: number;
+      debitAmount: number;
+      creditAmount: number;
+      description?: string;
+      chartOfAccountId: string;
+    }>;
+  }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const canEdit = await hasPermission(session.user.id, "accounts.vouchers", "edit");
+    if (!canEdit) return { success: false, error: "Unauthorized" };
+
+    const voucher = await prisma.voucher.findUnique({
+      where: { id: voucherId },
+      include: { VoucherLine: true },
     });
 
-    const accountMap = new Map(usedAccounts.map(acc => [acc.id, acc]));
-
-    // 1. Basic Type-specific Rules (Directional)
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const account = accountMap.get(line.chartOfAccountId);
-        if (!account) continue;
-
-        const isCredit = Number(line.creditAmount) > 0;
-
-        // Rule: JOURNAL cannot touch AR, Customer Advance, Revenue, Inventory
-        if (voucherType === "JOURNAL") {
-            const blockedNames = ["Accounts Receivable", "Customer Advance", "Inventory"];
-            const isBlockedControl = account.isControl && blockedNames.some(name => account.name.includes(name));
-            const isRevenue = account.type === "REVENUE";
-            
-            if (isBlockedControl || isRevenue) {
-                return {
-                    valid: false,
-                    error: `Line ${i + 1}: JOURNAL vouchers cannot touch ${account.name} accounts. please use their respective modules.`,
-                };
-            }
-        }
-
-        // Rule: SALES vouchers cannot credit Cash directly
-        if (voucherType === "SALES" && isCredit && account.CashBankAccount) {
-            return {
-                valid: false,
-                error: `Line ${i + 1}: SALES vouchers cannot credit Cash/Bank accounts directly.`,
-            };
-        }
-
-        // Rule: RECEIPT vouchers cannot credit Revenue
-        if (voucherType === "RECEIPT" && isCredit && account.type === "REVENUE") {
-            return {
-                valid: false,
-                error: `Line ${i + 1}: RECEIPT vouchers cannot credit Revenue accounts directly. please use Sales module.`,
-            };
-        }
+    if (!voucher) return { success: false, error: "Voucher not found" };
+    if (voucher.status === "posted") {
+      return { success: false, error: "Cannot edit a posted voucher. Reverse it instead." };
     }
 
-    // 2. Control Account & Legacy Restrictions
-    const customerAdvanceAccount = usedAccounts.find(acc => acc.name === "Customer Advance");
-    if (customerAdvanceAccount) {
-        // Enforce sub-ledger (clientId)
-        for (let i = 0; i < lines.length; i++) {
-            if (lines[i].chartOfAccountId === customerAdvanceAccount.id && !lines[i].clientId) {
-                return {
-                    valid: false,
-                    error: `Line ${i + 1}: "Customer Advance" account requires a Client selection for sub-ledger tracking.`,
-                };
-            }
-        }
+    // Accounting Period Lock Check
+    if (await isPeriodLocked(input.date || voucher.date)) {
+      return { success: false, error: "Cannot update voucher in a locked accounting period." };
     }
 
-    // JOURNAL specifically cannot use other Control Accounts 
-    // Manual vouchers (usually JOURNAL) already blocked in createVoucher for SALES/PURCHASE
-    if (voucherType === "JOURNAL") {
-        const otherControlAccounts = usedAccounts.filter(acc => acc.isControl);
-        if (otherControlAccounts.length > 0) {
-            // Already handled by the "touch" rule above for specific names, 
-            // but this is a catch-all for any isControl account in a manual journal.
-            const names = otherControlAccounts.map(a => a.name).join(", ");
-            return {
-                valid: false,
-                error: `Manual JOURNAL vouchers cannot use Control Accounts (${names}).`,
-            };
-        }
+    // Validate lines
+    const validation = validateVoucherLines(input.lines);
+    if (!validation.valid) return { success: false, error: validation.error };
 
-        const cashBankAccounts = usedAccounts.filter(acc => acc.CashBankAccount !== null);
-        if (cashBankAccounts.length > 0) {
-            const names = cashBankAccounts.map(a => a.name).join(", ");
-            return {
-                valid: false,
-                error: `Manual JOURNAL vouchers cannot use Bank/Cash Accounts (${names}).`,
-            };
-        }
+    const updatedVoucher = await prisma.$transaction(async (tx) => {
+      // Delete old lines
+      await tx.voucherLine.deleteMany({ where: { voucherId } });
+
+      // Update voucher and create new lines
+      return tx.voucher.update({
+        where: { id: voucherId },
+        data: {
+          date: input.date ? new Date(input.date) : voucher.date,
+          reference: input.reference ?? voucher.reference,
+          description: input.description ?? voucher.description,
+          VoucherLine: {
+            create: input.lines.map((line) => ({
+              lineNumber: line.lineNumber,
+              debitAmount: new Prisma.Decimal(line.debitAmount),
+              creditAmount: new Prisma.Decimal(line.creditAmount),
+              description: line.description,
+              chartOfAccountId: line.chartOfAccountId,
+            })),
+          },
+        },
+      });
+    });
+
+    // Log action with detailed audit trail
+    const updateTotalDebit = input.lines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0);
+    const updateTotalCredit = input.lines.reduce((sum, line) => sum + Number(line.creditAmount || 0), 0);
+    
+    await createUserLog({
+      userId: session.user.id,
+      action: LogAction.ITEM_UPDATED,
+      details: `Updated voucher: ${voucher.voucherNumber} - Total: ৳${updateTotalDebit.toFixed(2)}`,
+      metadata: { 
+        voucherId, 
+        voucherNumber: voucher.voucherNumber,
+        type: voucher.type,
+        totalDebit: updateTotalDebit,
+        totalCredit: updateTotalCredit,
+        oldLinesCount: voucher.VoucherLine.length,
+        newLinesCount: input.lines.length,
+        accounts: input.lines.map(line => ({
+          accountId: line.chartOfAccountId,
+          debit: Number(line.debitAmount || 0),
+          credit: Number(line.creditAmount || 0),
+        })),
+        clientId: voucher.clientId,
+        supplierId: voucher.supplierId,
+      },
+    });
+
+    revalidateBothPaths("accounts/vouchers");
+    return { success: true, voucher: updatedVoucher };
+  } catch (error) {
+    console.error("updateVoucher error:", error);
+    return { success: false, error: "Failed to update voucher" };
+  }
+}
+
+/**
+ * Delete a draft voucher
+ */
+/**
+ * Cancel/Void a voucher (updates status to cancelled and deletes related journal entry)
+ */
+export async function cancelVoucher(voucherId: string, tx?: Prisma.TransactionClient, isSystemAction?: boolean) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const client = tx || prisma;
+
+    if (!isSystemAction) {
+      const canCancel = await hasPermission(session.user.id, "accounts.vouchers", "delete");
+      if (!canCancel) return { success: false, error: "Unauthorized" };
     }
 
-    return { valid: true };
+    const voucher = await client.voucher.findUnique({
+      where: { id: voucherId },
+      include: { JournalEntry: true },
+    });
+
+    if (!voucher) return { success: false, error: "Voucher not found" };
+    
+    // In a real system, you might want to create a REVERSAL journal instead of deleting.
+    // For this ERP, we follow the pattern of deleting/voiding the JournalEntry to revert impact.
+    
+    await client.$transaction(async (t) => {
+      // 1. Delete associated Journal Entries
+      await t.journalEntryLine.deleteMany({
+        where: { journalEntry: { voucherId: voucher.id } }
+      });
+      await t.journalEntry.deleteMany({
+        where: { voucherId: voucher.id }
+      });
+
+      // 2. Update voucher status to cancelled
+      await t.voucher.update({
+        where: { id: voucherId },
+        data: { status: "cancelled" }
+      });
+    });
+
+    revalidateBothPaths("accounts/vouchers");
+    return { success: true, message: "Voucher cancelled successfully" };
+  } catch (error) {
+    console.error("cancelVoucher error:", error);
+    return { success: false, error: "Failed to cancel voucher" };
+  }
+}
+
+export async function deleteVoucher(voucherId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const canDelete = await hasPermission(session.user.id, "accounts.vouchers", "delete");
+    if (!canDelete) return { success: false, error: "Unauthorized" };
+
+    const voucher = await prisma.voucher.findUnique({
+      where: { id: voucherId },
+      include: {
+        VoucherLine: {
+          include: {
+            ChartOfAccount: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+        PayrollVoucher: true,
+        PayrollPaymentVoucher: true,
+      },
+    });
+
+    if (!voucher) return { success: false, error: "Voucher not found" };
+    if (voucher.status === "posted") {
+      return { success: false, error: "Cannot delete a posted voucher. Cancel/Reverse it instead." };
+    }
+
+    if (voucher.PayrollVoucher || voucher.PayrollPaymentVoucher) {
+      return { 
+        success: false, 
+        error: "This voucher is linked to a Payroll record and cannot be manually deleted. Please void the payroll instead." 
+      };
+    }
+
+    // Accounting Period Lock Check
+    if (await isPeriodLocked(voucher.date)) {
+      return { success: false, error: "Cannot delete voucher in a locked accounting period." };
+    }
+
+    // Calculate totals before deletion for audit log
+    const deleteTotalDebit = voucher.VoucherLine.reduce((sum, line) => sum + Number(line.debitAmount), 0);
+    const deleteTotalCredit = voucher.VoucherLine.reduce((sum, line) => sum + Number(line.creditAmount), 0);
+    const deleteAccounts = voucher.VoucherLine.map(line => ({
+      accountId: line.chartOfAccountId,
+      accountName: line.ChartOfAccount?.name || null,
+      debit: Number(line.debitAmount),
+      credit: Number(line.creditAmount),
+    }));
+
+    await prisma.voucher.delete({ where: { id: voucherId } });
+
+    // Log action with detailed audit trail
+    await createUserLog({
+      userId: session.user.id,
+      action: LogAction.ITEM_DELETED,
+      details: `Deleted voucher: ${voucher.voucherNumber} (${voucher.type}) - Total: ৳${deleteTotalDebit.toFixed(2)}`,
+      metadata: { 
+        voucherId, 
+        voucherNumber: voucher.voucherNumber,
+        type: voucher.type,
+        totalDebit: deleteTotalDebit,
+        totalCredit: deleteTotalCredit,
+        linesCount: voucher.VoucherLine.length,
+        accounts: deleteAccounts,
+        clientId: voucher.clientId,
+        supplierId: voucher.supplierId,
+      },
+    });
+
+    revalidateBothPaths("accounts/vouchers");
+    return { success: true };
+  } catch (error) {
+    console.error("deleteVoucher error:", error);
+    return { success: false, error: "Failed to delete voucher" };
+  }
 }
 

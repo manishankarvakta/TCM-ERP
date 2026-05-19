@@ -15,7 +15,8 @@ export type Module =
   | "tasks"
   | "notes"
   | "docs"
-  | "work-orders";
+  | "work-orders"
+  | "hr";
 
 // Basic operations
 export type BasicOperation = "create" | "read" | "update" | "delete" | "export" | "import";
@@ -32,7 +33,8 @@ export type CustomOperation =
   | "view"
   | "edit"
   | "manage"
-  | "approve";
+  | "post"
+  | "sync";
 
 // Standard operations for pages (as per requirements)
 export type StandardOperation = "create" | "view" | "edit" | "move-to-trash" | "delete-permanently";
@@ -236,6 +238,21 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     label: "Work Orders",
     description: "Manage work orders",
   },
+  hr: {
+    id: "hr",
+    label: "HR & Payroll",
+    description: "Human Resource and Payroll Management",
+    subModules: [
+      { id: "attendance", label: "Attendance", path: "/dashboard/hr/attendance", module: "hr", permissionKey: "hr.attendance" },
+      { id: "shifts", label: "Shifts", path: "/dashboard/hr/shifts", module: "hr", permissionKey: "hr.shifts" },
+      { id: "holidays", label: "Holidays", path: "/dashboard/hr/holidays", module: "hr", permissionKey: "hr.holidays" },
+      { id: "leave", label: "Leave", path: "/dashboard/hr/leave", module: "hr", permissionKey: "hr.leave" },
+      { id: "loans", label: "Loans", path: "/dashboard/hr/loans", module: "hr", permissionKey: "hr.loans" },
+      { id: "payroll", label: "Payroll", path: "/dashboard/hr/payroll", module: "hr", permissionKey: "hr.payroll" },
+      { id: "calendar", label: "Calendar", path: "/dashboard/hr/calendar", module: "hr", permissionKey: "hr.calendar" },
+      { id: "devices", label: "Biometric Devices", path: "/dashboard/hr/attendance/devices", module: "hr", permissionKey: "hr.devices" },
+    ],
+  },
   // analytics: {
   //   id: "analytics",
   //   label: "Analytics",
@@ -360,6 +377,18 @@ export const OPERATIONS: Record<Operation, OperationMetadata> = {
     description: "Permanently delete records",
     category: "custom",
   },
+  post: {
+    id: "post",
+    label: "Post / Process",
+    description: "Post vouchers or process payroll",
+    category: "custom",
+  },
+  sync: {
+    id: "sync",
+    label: "Sync Biometric",
+    description: "Sync biometric log data",
+    category: "custom",
+  },
 };
 
 // Helper function to get all modules
@@ -460,6 +489,60 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         path: "/dashboard/crm/activities",
         label: "Activities",
         operations: ["create", "view", "edit", "delete-permanently"],
+      },
+    ],
+  },
+  {
+    id: "hr",
+    label: "HR & Payroll",
+    pages: [
+      {
+        permissionKey: "hr.attendance",
+        path: "/dashboard/hr/attendance",
+        label: "Attendance",
+        operations: ["view", "create", "edit", "sync"],
+      },
+      {
+        permissionKey: "hr.shifts",
+        path: "/dashboard/hr/shifts",
+        label: "Shifts",
+        operations: ["view", "create", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "hr.holidays",
+        path: "/dashboard/hr/holidays",
+        label: "Holidays",
+        operations: ["view", "create", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "hr.leave",
+        path: "/dashboard/hr/leave",
+        label: "Leave Applications",
+        operations: ["view", "create", "edit", "approve"],
+      },
+      {
+        permissionKey: "hr.loans",
+        path: "/dashboard/hr/loans",
+        label: "Loans",
+        operations: ["view", "create", "edit", "approve"],
+      },
+      {
+        permissionKey: "hr.payroll",
+        path: "/dashboard/hr/payroll",
+        label: "Payroll",
+        operations: ["view", "create", "edit", "post"],
+      },
+      {
+        permissionKey: "hr.calendar",
+        path: "/dashboard/hr/calendar",
+        label: "HR Calendar",
+        operations: ["view"],
+      },
+      {
+        permissionKey: "hr.devices",
+        path: "/dashboard/hr/attendance/devices",
+        label: "Biometric Devices",
+        operations: ["view", "create", "edit", "delete-permanently"],
       },
     ],
   },

@@ -205,6 +205,19 @@ async function seedPermissions() {
       allStandardOps
     ),
     ...createPermissionsForPages(["work-orders"], allStandardOps),
+    ...createPermissionsForPages(
+      [
+        "hr.attendance",
+        "hr.shifts",
+        "hr.holidays",
+        "hr.leave",
+        "hr.loans",
+        "hr.payroll",
+        "hr.calendar",
+        "hr.devices",
+      ],
+      ["view", "create", "edit", "move-to-trash", "delete-permanently", "sync", "approve", "post"]
+    ),
     // NO access to developer settings
   };
 
@@ -252,6 +265,19 @@ async function seedPermissions() {
       ["view", "export"]
     ),
     ...createPermissionsForPages(["work-orders"], ["view", "export"]),
+    ...createPermissionsForPages(
+      [
+        "hr.attendance",
+        "hr.shifts",
+        "hr.holidays",
+        "hr.leave",
+        "hr.loans",
+        "hr.payroll",
+        "hr.calendar",
+        "hr.devices",
+      ],
+      ["view"]
+    ),
     ...createPermissionsForPages(["files"], ["view"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
     // ...createPermissionsForPages(["analytics", "reports"], ["view", "export"]),
@@ -303,6 +329,8 @@ async function seedPermissions() {
     ...createPermissionsForPages(["peoples.users"], ["view"]),
     ...createPermissionsForPages(["files"], ["view"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
+    ...createPermissionsForPages(["hr.payroll", "hr.loans"], ["view", "create", "edit", "approve", "post"]),
+    ...createPermissionsForPages(["hr.calendar"], ["view"]),
     // ...createPermissionsForPages(["analytics", "reports"], ["view", "export"]),
     // Settings - accounts related
     ...createPermissionsForPages(
@@ -591,7 +619,13 @@ async function seedPermissions() {
     });
 
     if (existing) {
-      console.log(`Template "${template.name}" already exists, skipping...`);
+      console.log(`Template "${template.name}" already exists, updating permissions...`);
+      await prisma.permissionTemplate.update({
+        where: { id: existing.id },
+        data: {
+          permissions: template.permissions as any,
+        },
+      });
       continue;
     }
 

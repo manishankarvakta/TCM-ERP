@@ -7,6 +7,7 @@ import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { revalidatePath } from "next/cache";
 import { type Prisma, AccountType } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
+import PageGuard from "@/components/permissions/page-guard";
 
 /**
  * Get paginated list of employees with search
@@ -84,6 +85,24 @@ export async function getEmployees(
           },
         },
         status: true,
+        designation: true,
+        department: true,
+        salary: true,
+        joiningDate: true,
+        gender: true,
+        dateOfBirth: true,
+        nationalId: true,
+        address: true,
+        emergencyContact: true,
+        warehouseId: true,
+        warehouse: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        photo: true,
+        shiftId: true,
         salaryPayableAccount: {
           select: {
             id: true,
@@ -166,6 +185,24 @@ export async function getEmployeeById(employeeId: string) {
           },
         },
         status: true,
+        designation: true,
+        department: true,
+        salary: true,
+        joiningDate: true,
+        gender: true,
+        dateOfBirth: true,
+        nationalId: true,
+        address: true,
+        emergencyContact: true,
+        warehouseId: true,
+        warehouse: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        photo: true,
+        shiftId: true, shift: { select: { id: true, name: true, startTime: true, endTime: true } },
         salaryPayableAccount: {
           select: {
             id: true,
@@ -373,6 +410,18 @@ export async function createEmployee(input: {
   email?: string;
   phone?: string;
   status?: "active" | "inactive";
+  designation?: string;
+  department?: string;
+  salary?: number;
+  joiningDate?: Date;
+  gender?: string;
+  dateOfBirth?: Date;
+  nationalId?: string;
+  address?: any;
+  emergencyContact?: any;
+  warehouseId?: string;
+  photo?: string;
+  shiftId?: string;
 }) {
   try {
     const session = await auth();
@@ -531,7 +580,6 @@ export async function createEmployee(input: {
 
       const salaryPayableCOA = await tx.chartOfAccount.create({
         data: {
-          id: crypto.randomUUID(),
           code: salaryPayableCode,
           name: salaryPayableAccountName,
           type: AccountType.LIABILITY,
@@ -598,7 +646,6 @@ export async function createEmployee(input: {
             
             advanceCOA = await tx.chartOfAccount.create({
               data: {
-                id: crypto.randomUUID(),
                 code: advanceCode,
                 name: advanceAccountName,
                 type: AccountType.ASSET,
@@ -630,6 +677,18 @@ export async function createEmployee(input: {
           email: input.email || null,
           phone: input.phone || null,
           status: input.status || "active",
+          designation: input.designation || null,
+          department: input.department || null,
+          salary: input.salary || null,
+          joiningDate: input.joiningDate || null,
+          gender: input.gender || null,
+          dateOfBirth: input.dateOfBirth || null,
+          nationalId: input.nationalId || null,
+          address: input.address || null,
+          emergencyContact: input.emergencyContact || null,
+          warehouseId: input.warehouseId || null,
+          photo: input.photo || null,
+          shiftId: input.shiftId || null,
           salaryPayableAccountId: salaryPayableCOA.id,
           advanceAccountId: advanceCOA?.id || null,
         },
@@ -641,6 +700,18 @@ export async function createEmployee(input: {
           phone: true,
           userId: true,
           status: true,
+          designation: true,
+          department: true,
+          salary: true,
+          joiningDate: true,
+          gender: true,
+          dateOfBirth: true,
+          nationalId: true,
+          address: true,
+          emergencyContact: true,
+          warehouseId: true,
+          photo: true,
+          shiftId: true,
           salaryPayableAccount: {
             select: {
               id: true,
@@ -709,6 +780,18 @@ export async function updateEmployee(input: {
   phone?: string;
   userId?: string;
   status?: "active" | "inactive";
+  designation?: string;
+  department?: string;
+  salary?: number;
+  joiningDate?: Date;
+  gender?: string;
+  dateOfBirth?: Date;
+  nationalId?: string;
+  address?: any;
+  emergencyContact?: any;
+  warehouseId?: string;
+  photo?: string;
+  shiftId?: string;
 }) {
   try {
     const session = await auth();
@@ -730,8 +813,6 @@ export async function updateEmployee(input: {
         employeeCode: true,
         userId: true,
         status: true,
-        email: true,
-        phone: true,
         salaryPayableAccountId: true,
         advanceAccountId: true,
       },
@@ -874,7 +955,6 @@ export async function updateEmployee(input: {
         const salaryPayableAccountName = `Salary Payable - ${employeeName}`;
         const salaryPayableCOA = await tx.chartOfAccount.create({
           data: {
-            id: crypto.randomUUID(),
             code: salaryPayableCode,
             name: salaryPayableAccountName,
             type: AccountType.LIABILITY,
@@ -933,7 +1013,6 @@ export async function updateEmployee(input: {
               
               const advanceCOA = await tx.chartOfAccount.create({
                 data: {
-                  id: crypto.randomUUID(),
                   code: advanceCode,
                   name: advanceAccountName,
                   type: AccountType.ASSET,
@@ -951,17 +1030,26 @@ export async function updateEmployee(input: {
       }
 
       // Build update data
-      const updateData: any = {
+      const updateData: Prisma.EmployeeUpdateInput = {
         name: input.name !== undefined ? input.name : undefined,
         employeeCode: input.employeeCode !== undefined ? (input.employeeCode || null) : undefined,
         email: input.email !== undefined ? (input.email || null) : undefined,
         phone: input.phone !== undefined ? (input.phone || null) : undefined,
         userId: input.userId !== undefined ? (input.userId || null) : undefined,
+        status: input.status !== undefined ? input.status : undefined,
+        designation: input.designation !== undefined ? (input.designation || null) : undefined,
+        department: input.department !== undefined ? (input.department || null) : undefined,
+        salary: input.salary !== undefined ? (input.salary || null) : undefined,
+        joiningDate: input.joiningDate !== undefined ? (input.joiningDate || null) : undefined,
+        gender: input.gender !== undefined ? (input.gender || null) : undefined,
+        dateOfBirth: input.dateOfBirth !== undefined ? (input.dateOfBirth || null) : undefined,
+        nationalId: input.nationalId !== undefined ? (input.nationalId || null) : undefined,
+        address: input.address !== undefined ? (input.address || null) : undefined,
+        emergencyContact: input.emergencyContact !== undefined ? (input.emergencyContact || null) : undefined,
+        warehouseId: input.warehouseId !== undefined ? (input.warehouseId || null) : undefined,
+        photo: input.photo !== undefined ? (input.photo || null) : undefined,
+        shiftId: input.shiftId !== undefined ? (input.shiftId || null) : undefined,
       };
-
-      if (input.status) {
-        updateData.status = input.status;
-      }
 
       // Add account IDs if they were created
       if (salaryPayableAccountId && salaryPayableAccountId !== existingEmployee.salaryPayableAccountId) {
@@ -983,6 +1071,19 @@ export async function updateEmployee(input: {
           email: true,
           phone: true,
           userId: true,
+          status: true,
+          designation: true,
+          department: true,
+          salary: true,
+          joiningDate: true,
+          gender: true,
+          dateOfBirth: true,
+          nationalId: true,
+          address: true,
+          emergencyContact: true,
+          warehouseId: true,
+          photo: true,
+          shiftId: true,
           user: {
             select: {
               id: true,
@@ -990,7 +1091,6 @@ export async function updateEmployee(input: {
               email: true,
             },
           },
-          status: true,
           salaryPayableAccount: {
             select: {
               id: true,
@@ -1068,7 +1168,6 @@ export async function updateEmployee(input: {
     revalidateBothPaths("employees");
     revalidatePath(`/dashboard/employees/${employee.id}`);
     revalidatePath(`/dashboard/employees/${employee.id}`);
-    revalidatePath(`/dashboard/employees/details?id=${employee.id}`);
 
     return {
       success: true,
