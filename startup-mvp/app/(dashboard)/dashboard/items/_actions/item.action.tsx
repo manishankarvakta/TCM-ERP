@@ -801,3 +801,54 @@ export async function bulkUpdateItemStatus(
 export async function restoreItems(itemIds: string[]) {
   return bulkUpdateItemStatus(itemIds, "active");
 }
+
+/**
+ * Delete items permanently
+ */
+export async function deleteItemsPermanently(itemIds: string[]) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+      };
+    }
+
+    if (itemIds.length === 0) {
+      return {
+        success: false,
+        error: "No items selected",
+      };
+    }
+
+    // First delete many ItemCategory rows as they reference the items
+    await prisma.itemCategory.deleteMany({
+      where: {
+        itemId: { in: itemIds },
+      },
+    });
+
+    // Then delete many Item rows
+    await prisma.item.deleteMany({
+      where: {
+        id: { in: itemIds },
+      },
+    });
+
+    // Revalidate items page
+    revalidateBothPaths("items");
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("deleteItemsPermanently error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to permanently delete items",
+    };
+  }
+}
+
