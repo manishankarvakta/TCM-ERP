@@ -47,6 +47,9 @@ export async function restoreDatabaseBackup(
   const manager = getRestoreManager();
 
   try {
+    // Ensure all backup directories exist (especially TEMP_DIR)
+    await ensureBackupDirectories();
+
     // Stage 1: VALIDATING (0-10%)
     manager.updateStatus(restoreId, 'VALIDATING', 'Validating backup file');
     manager.updateProgress(restoreId, { progress: 0 });
@@ -137,6 +140,9 @@ export async function restoreFilesBackup(
   const manager = getRestoreManager();
 
   try {
+    // Ensure all backup directories exist (especially TEMP_DIR)
+    await ensureBackupDirectories();
+
     // Stage 1: VALIDATING (0-10%)
     manager.updateStatus(restoreId, 'VALIDATING', 'Validating backup file');
     manager.updateProgress(restoreId, { progress: 0 });
@@ -257,6 +263,9 @@ export async function restoreFullBackup(
   const manager = getRestoreManager();
 
   try {
+    // Ensure all backup directories exist (especially TEMP_DIR)
+    await ensureBackupDirectories();
+
     // Stage 1: VALIDATING (0-5%)
     manager.updateStatus(restoreId, 'VALIDATING', 'Validating backup file');
     manager.updateProgress(restoreId, { progress: 0 });
@@ -461,14 +470,24 @@ async function executePgRestore(
     clearInterval(updateInterval);
     manager.updateProgress(restoreId, { progress: progressEnd });
   } catch (error: any) {
-    // Some pg_restore warnings are normal (e.g., objects already exist)
-    // Only fail if it's a critical error
-    if (error.message.includes('command not found') || error.code === 'ENOENT') {
-      throw new Error('pg_restore command not found. Please install PostgreSQL client tools.');
-    }
+    // Distinguish between minor warnings (exit code 1) and fatal errors
+    const isFatal = 
+      error.code !== 1 || 
+      error.message.includes('could not connect') || 
+      error.message.includes('database does not exist') ||
+      error.message.includes('role') ||
+      error.message.includes('FATAL:');
 
-    if (error.message.includes('password authentication failed')) {
-      throw new Error('Database authentication failed.');
+    if (isFatal) {
+      if (error.message.includes('command not found') || error.code === 'ENOENT') {
+        throw new Error('pg_restore command not found. Please install PostgreSQL client tools.');
+      }
+
+      if (error.message.includes('password authentication failed')) {
+        throw new Error('Database authentication failed.');
+      }
+
+      throw error;
     }
 
     // Log warning but don't fail

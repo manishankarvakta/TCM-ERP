@@ -84,6 +84,7 @@ export async function GET(
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="${filename}"`,
+        'Access-Control-Expose-Headers': 'Content-Disposition',
         'Content-Length': stats.size.toString(),
         'Cache-Control': 'no-cache',
       },

@@ -38,6 +38,7 @@ services:
       - "${APP_PORT:-3000}:3000"
     volumes:
       - ./volumes/uploads:/app/uploads
+      - ./volumes/backups:/app/backups
     environment:
       # Database
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@ts-crm-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public

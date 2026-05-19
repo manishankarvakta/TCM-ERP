@@ -64,6 +64,7 @@ interface Lead {
   Category?: { id: string; name: string } | null;
   reference?: string | null;
   photo?: string | null;
+  opportunity?: { id: string; opportunityNumber: string | null; title: string } | null;
 }
 
 interface LeadTableProps {
@@ -257,12 +258,11 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
                   onCheckedChange={toggleSelectAll}
                 />
               </TableHead>
-              <TableHead className="w-[120px]">Lead #</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Contact Info</TableHead>
               <TableHead>Company</TableHead>
               <TableHead>Category</TableHead>
-              <TableHead>Reference</TableHead>
+              <TableHead>Opportunity</TableHead>
               <TableHead>Owner</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
@@ -272,7 +272,7 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
           <TableBody>
             {leads.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="h-24 text-center">
+                <TableCell colSpan={10} className="h-24 text-center">
                   {isTrashView ? "Trash is empty." : "No leads found."}
                 </TableCell>
               </TableRow>
@@ -284,9 +284,6 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
                       checked={selectedIds.has(lead.id)}
                       onCheckedChange={() => toggleSelect(lead.id)}
                     />
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">
-                    {lead.leadNumber || "-"}
                   </TableCell>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-3">
@@ -303,9 +300,16 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
                           {lead.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
                         </div>
                       )}
-                      <Link href={`/dashboard/crm/leads/${lead.id}`} className="hover:underline text-primary">
-                        {lead.name}
-                      </Link>
+                      <div className="flex flex-col">
+                        <Link href={`/dashboard/crm/leads/${lead.id}`} className="hover:underline text-primary">
+                          {lead.name}
+                        </Link>
+                        {lead.leadNumber && (
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {lead.leadNumber}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -337,12 +341,15 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
                     )}
                   </TableCell>
                   <TableCell>
-                    {lead.reference ? (
-                      <span className="text-sm font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground border">
-                        {lead.reference}
-                      </span>
+                    {lead.opportunity ? (
+                      <Link 
+                        href={`/dashboard/crm/opportunities/${lead.opportunity.id}`}
+                        className="font-medium hover:underline text-primary font-mono text-xs"
+                      >
+                        {lead.opportunity.opportunityNumber || lead.opportunity.title || "View"}
+                      </Link>
                     ) : (
-                      <span className="text-muted-foreground italic">-</span>
+                      <span className="text-muted-foreground text-xs italic">-</span>
                     )}
                   </TableCell>
                   <TableCell>

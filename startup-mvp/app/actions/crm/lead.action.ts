@@ -134,10 +134,49 @@ export async function getLeads(
       }),
     ]);
 
-    // Format leads to include owner name more conveniently
+    // Format leads to include owner name more conveniently and fetch connected opportunities for converted leads
+    const convertedLeadIds = leads.filter(l => l.status === "CONVERTED").map(l => l.id);
+    const activities = convertedLeadIds.length > 0 ? await prisma.activity.findMany({
+      where: {
+        contextType: "lead",
+        contextId: { in: convertedLeadIds },
+        type: "LEAD_CONVERTED"
+      }
+    }) : [];
+
+    const oppIdToLeadId: Record<string, string> = {};
+    const oppIds: string[] = [];
+    activities.forEach(act => {
+      const meta = act.metadata as any;
+      if (meta && meta.opportunityId) {
+        oppIds.push(meta.opportunityId);
+        oppIdToLeadId[meta.opportunityId] = act.contextId!;
+      }
+    });
+
+    const opportunities = oppIds.length > 0 ? await prisma.opportunity.findMany({
+      where: {
+        id: { in: oppIds }
+      },
+      select: {
+        id: true,
+        opportunityNumber: true,
+        title: true
+      }
+    }) : [];
+
+    const leadIdToOpp: Record<string, { id: string; opportunityNumber: string | null; title: string }> = {};
+    opportunities.forEach(opp => {
+      const leadId = oppIdToLeadId[opp.id];
+      if (leadId) {
+        leadIdToOpp[leadId] = opp;
+      }
+    });
+
     const formattedLeads = leads.map(lead => ({
       ...lead,
       owner: lead.User,
+      opportunity: leadIdToOpp[lead.id] || null,
     }));
 
     return {

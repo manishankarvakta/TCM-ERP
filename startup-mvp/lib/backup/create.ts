@@ -40,6 +40,19 @@ import { storage } from '@/lib/storage';
 
 const execAsync = promisify(exec);
 
+async function moveFile(src: string, dest: string): Promise<void> {
+  try {
+    await fs.rename(src, dest);
+  } catch (error: any) {
+    if (error.code === 'EXDEV') {
+      await fs.copyFile(src, dest);
+      await fs.unlink(src);
+    } else {
+      throw error;
+    }
+  }
+}
+
 /**
  * Get database table information (names and record counts)
  * @returns Object with tables array and total record count
@@ -157,7 +170,7 @@ export async function createDatabaseBackup(
     finalMetadata.size = finalSize;
 
     // Step 5: Move to final location
-    await fs.rename(tempZipPath, finalPath);
+    await moveFile(tempZipPath, finalPath);
 
     // Cleanup temp files
     await cleanupTempFiles([tempDumpPath]);
@@ -243,7 +256,7 @@ export async function createFilesBackup(
     finalMetadata.size = finalSize;
 
     // Step 6: Move to final location
-    await fs.rename(tempZipPath, finalPath);
+    await moveFile(tempZipPath, finalPath);
 
     console.log(`[Backup] Files backup created successfully: ${filename}`);
     console.log(`[Backup] Total size: ${formatBytes(finalSize)}, Files: ${objects.length}`);
@@ -348,7 +361,7 @@ export async function createFullBackup(
     finalMetadata.size = finalSize;
 
     // Step 8: Move to final location
-    await fs.rename(tempZipPath, finalPath);
+    await moveFile(tempZipPath, finalPath);
 
     // Cleanup temp files
     await cleanupTempFiles([tempDumpPath]);

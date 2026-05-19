@@ -22,50 +22,6 @@ services:
     networks:
       - docker-network
 
-  ts-crm-minio:
-    image: minio/minio
-    container_name: ts-crm-minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
-      MINIO_API_CORS_ALLOW_ORIGIN: ${MINIO_CORS_ORIGIN:-*}
-    expose:
-      - "9000"
-      - "9001"
-   
-    volumes:
-      # ABSOLUTE PATH - All uploaded files stay here forever
-      - /var/lib/ts-crm/minio:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-    networks:
-      - docker-network
-      - dokploy-network
-
-  ts-crm-minio-setup:
-    image: minio/mc:latest
-    container_name: ts-crm-minio-setup
-    depends_on:
-      ts-crm-minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      sleep 5;
-      echo 'Setting up MinIO bucket...';
-      /usr/bin/mc alias set myminio http://ts-crm-minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
-      /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-ts-crm-files} || echo 'Bucket already exists';
-      /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-ts-crm-files} || true;
-      echo 'MinIO bucket setup complete!';
-      exit 0;
-      "
-    networks:
-      - docker-network
-
   ts-crm-app:
     build:
       context: ./startup-mvp
@@ -74,19 +30,22 @@ services:
     restart: unless-stopped
     expose:
       - "3000"
+    volumes:
+      - /var/lib/ts-crm/uploads:/app/uploads
+      - /var/lib/ts-crm/backups:/app/backups
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@ts-crm-postgres:5432/${POSTGRES_DB:-ts-crm}?schema=public
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required}
       NEXTAUTH_URL: ${NEXTAUTH_URL:?NEXTAUTH_URL is required}
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
-      MINIO_PORT: 9000
-      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
-      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-ts-crm-files}
-      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://ts-crm-minio:9000}
-      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-ts-crm-minio}
+      
+      # File Storage
+      UPLOAD_DIR: /app/uploads
+      
+      # Redis
       REDIS_URL: ${REDIS_URL:-redis://ts-crm-redis:6379}
+      
+      # Email Configuration
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-465}
       SMTP_SECURE: ${SMTP_SECURE:-true}
@@ -94,12 +53,12 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
       EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Startup MVP}
+      
+      # App URL
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?NEXT_PUBLIC_APP_URL is required}
       NODE_ENV: production
     depends_on:
       ts-crm-postgres:
-        condition: service_healthy
-      ts-crm-minio:
         condition: service_healthy
     networks:
       - docker-network

@@ -12,6 +12,19 @@ import { validateBackupIntegrity } from '@/lib/backup/validate';
 import { getBackupTypeDir, extractBackupId, BACKUP_CONSTRAINTS } from '@/lib/backup/config';
 import { sanitizeFilename } from '@/lib/backup/utils';
 
+async function moveFile(src: string, dest: string): Promise<void> {
+  try {
+    await fs.rename(src, dest);
+  } catch (error: any) {
+    if (error.code === 'EXDEV') {
+      await fs.copyFile(src, dest);
+      await fs.unlink(src);
+    } else {
+      throw error;
+    }
+  }
+}
+
 export async function POST(request: NextRequest) {
   let tempFilePath: string | null = null;
 
@@ -142,7 +155,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Move to final location
-    await fs.rename(tempFilePath, finalPath);
+    await moveFile(tempFilePath, finalPath);
     tempFilePath = null; // Don't delete in cleanup since it's been moved
 
     console.log(`[API] Backup uploaded successfully: ${finalFilename}`);

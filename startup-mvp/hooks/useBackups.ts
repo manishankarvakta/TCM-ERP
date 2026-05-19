@@ -21,7 +21,7 @@ interface UseBackupsReturn {
   fetchBackups: () => Promise<void>;
   createBackup: (type: BackupType, options?: BackupCreationOptions) => Promise<void>;
   deleteBackup: (backupId: string) => Promise<void>;
-  downloadBackup: (backupId: string) => void;
+  downloadBackup: (backupId: string) => Promise<void>;
   uploadBackup: (file: File) => Promise<void>;
   uploading: boolean;
 }
@@ -124,16 +124,31 @@ export function useBackups(): UseBackupsReturn {
   /**
    * Download a backup file
    */
-  const downloadBackup = useCallback((backupId: string) => {
-    // Create hidden anchor element and trigger download in same page
-    const url = `/api/backup/${backupId}/download`;
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${backupId}.zip`;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadBackup = useCallback(async (backupId: string) => {
+    // Fetch the backup as a Blob to bypass proxy Content-Disposition stripping
+    try {
+      const response = await fetch(`/api/backup/${backupId}/download`);
+      if (!response.ok) {
+        throw new Error(`Failed to download backup: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${backupId}.zip`;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Revoke the object URL to free up browser memory
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to download backup');
+    }
   }, []);
 
   /**
