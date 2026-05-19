@@ -617,12 +617,6 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
       },
       {
-        permissionKey: "quotations.invoices",
-        path: "/dashboard/quotations/invoices",
-        label: "Invoices",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
-      },
-      {
         permissionKey: "quotations.orders",
         path: "/dashboard/quotations/orders",
         label: "Orders",
@@ -633,6 +627,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         path: "/dashboard/quotations/delivery-schedule",
         label: "Delivery Schedule",
         operations: ["view", "edit"],
+      },
+      {
+        permissionKey: "quotations.invoices",
+        path: "/dashboard/quotations/invoices",
+        label: "Invoices",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
     ],
   },

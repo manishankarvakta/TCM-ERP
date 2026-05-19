@@ -84,11 +84,10 @@ export const MENU_TEMPLATE: MenuItemData[] = [
     icon: "FiDollarSign",
     module: "quotations",
     subMenu: [
-      { href: "/dashboard/quotations/orders", label: "Orders", icon: "FiShoppingCart", module: "quotations" },
       { href: "/dashboard/quotations", label: "Quotations", icon: "FiFileText", module: "quotations" },
-      { href: "/dashboard/quotations/invoices", label: "Invoices", icon: "FiDollarSign", module: "quotations" },
+      { href: "/dashboard/quotations/orders", label: "Work Orders", icon: "FiShoppingCart", module: "quotations" },
       { href: "/dashboard/quotations/delivery-schedule", label: "Delivery Schedule", icon: "FiTruck", module: "quotations" },
-      { href: "/dashboard/work-orders", label: "Work Orders", icon: "FiBriefcase", module: "work-orders" },
+      { href: "/dashboard/quotations/invoices", label: "Invoices", icon: "FiDollarSign", module: "quotations" },
     ],
   },
   {

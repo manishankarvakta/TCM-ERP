@@ -28,6 +28,7 @@ import {
   FiArrowUpRight,
   FiFile,
   FiBriefcase,
+  FiTruck,
 } from "react-icons/fi";
 import Logo from "@/components/layout/logo";
 import { SlCalculator } from "react-icons/sl";
@@ -69,9 +70,9 @@ const menuItems: MenuItem[] = [
     icon: FiFileText,
     subMenu: [
       { href: "/dashboard/quotations", label: "Quotations", icon: FiFileText },
-      { href: "/dashboard/quotations/invoices", label: "Invoices", icon: FiDollarSign },
       { href: "/dashboard/quotations/orders", label: "Orders", icon: FiShoppingCart },
-      { href: "/dashboard/work-orders", label: "Work Orders", icon: FiBriefcase },
+      { href: "/dashboard/quotations/delivery-schedule", label: "Delivery Schedule", icon: FiTruck },
+      { href: "/dashboard/quotations/invoices", label: "Invoices", icon: FiDollarSign },
     ],
   },
   { href: "/dashboard/purchases", label: "Purchases", icon: FiShoppingCart },
