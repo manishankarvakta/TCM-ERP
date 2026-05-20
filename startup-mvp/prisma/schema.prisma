@@ -865,6 +865,11 @@ model QuotationItem {
   updatedAt         DateTime         @updatedAt
   no                String?
   discount          Decimal?         @db.Decimal(10, 2)
+  height            Decimal?         @db.Decimal(10, 2)
+  width             Decimal?         @db.Decimal(10, 2)
+  depth             Decimal?         @db.Decimal(10, 2)
+  unitShutter       Decimal?         @db.Decimal(10, 2)
+  totalShutter      Decimal?         @db.Decimal(10, 2)
   OrderItem         OrderItem[]
   CategoryGroup     CategoryGroup?   @relation(fields: [categoryGroupId], references: [id], onDelete: Cascade)
   ItemGroup         ItemGroup?       @relation(fields: [groupId], references: [id], onDelete: Cascade)
