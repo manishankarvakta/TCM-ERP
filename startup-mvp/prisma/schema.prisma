@@ -70,6 +70,7 @@ model Activity {
   @@index([status])
   @@index([priority])
   @@index([type])
+  @@index([type, createdAt(sort: Desc)])
 }
 
 model CashBankAccount {
@@ -336,6 +337,7 @@ model Employee {
   salary                                                         Decimal?           @db.Decimal(12, 2)
   warehouseId                                                    String?
   employmentType                                                 EmploymentType?    @default(PERMANENT)
+  utilizationTarget                                              Float?             @default(80.0)
   shiftId                                                        String?
   attendances                                                    Attendance[]
   attendanceLogs                                                 AttendanceLog[]
@@ -349,6 +351,7 @@ model Employee {
   leaveApps                                                      LeaveApplication[]
   overtimes                                                      Overtime[]
   payrollItems                                                   PayrollItem[]
+  timesheets                                                     Timesheet[]
 
   @@index([userId])
   @@index([status])
@@ -429,6 +432,8 @@ model InvoiceItem {
   quantity         Decimal         @db.Decimal(10, 2)
   unitPrice        Decimal         @db.Decimal(10, 2)
   amount           Decimal         @db.Decimal(12, 2)
+  projectId        String?
+  Project          Project?        @relation(fields: [projectId], references: [id])
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
   DeliveryLedger   DeliveryLedger? @relation(fields: [deliveryLedgerId], references: [id])
@@ -532,6 +537,8 @@ model JournalEntryLine {
   supplierId       String?
   userId           String?
   organizationId   String?
+  projectId        String?
+  Project          Project?       @relation(fields: [projectId], references: [id])
   ChartOfAccount   ChartOfAccount @relation(fields: [chartOfAccountId], references: [id])
   Client           Client?        @relation(fields: [clientId], references: [id])
   JournalEntry     JournalEntry   @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
@@ -545,6 +552,7 @@ model JournalEntryLine {
   @@index([organizationId])
   @@index([supplierId])
   @@index([userId])
+  @@index([projectId])
 }
 
 model Lead {
@@ -794,6 +802,8 @@ model PurchaseItem {
   quantity    Decimal  @db.Decimal(10, 2)
   unitPrice   Decimal  @db.Decimal(10, 2)
   amount      Decimal  @db.Decimal(12, 2)
+  projectId   String?
+  Project     Project? @relation(fields: [projectId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   Item        Item?    @relation(fields: [itemId], references: [id])
@@ -996,6 +1006,7 @@ model User {
   Supplier                                  Supplier[]
   TasksOwned                                Task[]            @relation("TaskOwner")
   TasksAssigned                             Task[]            @relation("TaskAssignee")
+  WatchedTasks                              TaskWatcher[]
   NotesOwned                                Note[]            @relation("NoteOwner")
   DocsOwned                                 Doc[]             @relation("DocOwner")
   ProjectsOwned                             Project[]         @relation("ProjectOwner")
@@ -1016,6 +1027,7 @@ model User {
   createdLeaveTypes                LeaveType[]           @relation("LeaveTypeCreator")
   createdOvertimes                 Overtime[]            @relation("OvertimeCreator")
   approvedPayrolls                 Payroll[]             @relation("PayrollApprover")
+  approvedTimesheets               Timesheet[]           @relation("TimesheetApprover")
   createdPayrolls                  Payroll[]             @relation("PayrollCreator")
   createdShifts                    Shift[]               @relation("ShiftCreator")
   defaultWarehouseId               String?
@@ -1139,6 +1151,8 @@ model VoucherLine {
   supplierId       String?
   userId           String?
   organizationId   String?
+  projectId        String?
+  Project          Project?       @relation(fields: [projectId], references: [id])
   ChartOfAccount   ChartOfAccount @relation(fields: [chartOfAccountId], references: [id])
   Client           Client?        @relation(fields: [clientId], references: [id])
   Organization     Organization?  @relation(fields: [organizationId], references: [id])
@@ -1161,6 +1175,7 @@ model Task {
   status      String    @default("todo")
   priority    String    @default("medium")
   dueDate     DateTime?
+  estimatedHours Float? // [NEW] For Performance Engine Estimation Accuracy
 
   // Polymorphic Relations
   entityType String? // e.g., "lead", "opportunity", "project"
@@ -1193,10 +1208,53 @@ model Task {
   @@index([leadId])
   @@index([opportunityId])
   @@index([projectId])
+  @@index([projectId, status])
+  @@index([projectId, priority])
   @@index([milestoneId])
   @@index([issueId])
   // Timeline optimization index
   @@index([entityType, entityId, createdAt(sort: Desc)], map: "idx_task_entity_created")
+
+  // Enterprise Extensions
+  parentId       String?
+  ParentTask     Task?             @relation("TaskHierarchy", fields: [parentId], references: [id])
+  Subtasks       Task[]            @relation("TaskHierarchy")
+  
+  isRecurring    Boolean           @default(false)
+  recurrenceRule String?
+  
+  Watchers       TaskWatcher[]
+  BlockedBy      TaskDependency[]  @relation("DependentTasks")
+  Blocking       TaskDependency[]  @relation("BlockingTasks")
+  
+  Timesheets     Timesheet[]
+
+  @@index([parentId])
+}
+
+model TaskDependency {
+  id               String   @id @default(cuid())
+  blockingTaskId   String
+  dependentTaskId  String
+  BlockingTask     Task     @relation("BlockingTasks", fields: [blockingTaskId], references: [id], onDelete: Cascade)
+  DependentTask    Task     @relation("DependentTasks", fields: [dependentTaskId], references: [id], onDelete: Cascade)
+  
+  createdAt        DateTime @default(now())
+  
+  @@unique([blockingTaskId, dependentTaskId])
+  @@index([dependentTaskId])
+}
+
+model TaskWatcher {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  Task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([taskId, userId])
 }
 
 model Note {
@@ -1403,6 +1461,7 @@ model Notification {
   @@index([isRead])
   @@index([type])
   @@index([userId])
+  @@index([userId, isRead, createdAt(sort: Desc)])
 }
 
 // --- New System Modules (Events, Analytics) ---
@@ -1496,6 +1555,13 @@ model Project {
   Tasks            Task[]
   Notes            Note[]
   Docs             Doc[]
+  Timesheets       Timesheet[]
+  JournalEntryLines JournalEntryLine[]
+  VoucherLines      VoucherLine[]
+  PurchaseItems     PurchaseItem[]
+  InvoiceItems      InvoiceItem[]
+  PayrollItems      PayrollItem[]
+  ProjectBudgets    ProjectBudget[]
 
   @@index([clientId])
   @@index([opportunityId])
@@ -1520,9 +1586,24 @@ model Milestone {
   Tasks       Task[]
   Notes       Note[]
   Docs        Doc[]
+  
+  BlockedBy   MilestoneDependency[] @relation("DependentMilestones")
+  Blocking    MilestoneDependency[] @relation("BlockingMilestones")
 
   @@index([projectId])
   @@index([status])
+}
+
+model MilestoneDependency {
+  id               String    @id @default(cuid())
+  blockingId       String
+  dependentId      String
+  BlockingMilestone  Milestone @relation("BlockingMilestones", fields: [blockingId], references: [id], onDelete: Cascade)
+  DependentMilestone Milestone @relation("DependentMilestones", fields: [dependentId], references: [id], onDelete: Cascade)
+  
+  createdAt        DateTime  @default(now())
+  
+  @@unique([blockingId, dependentId])
 }
 
 model Issue {
@@ -1533,6 +1614,8 @@ model Issue {
   status      IssueStatus @default(OPEN)
   priority    String      @default("NORMAL")
   type        String      @default("TASK")
+  estimatedHours Float?
+  actualHours    Float?
   milestoneId String
   reporterId  String
   assigneeId  String?
@@ -1544,6 +1627,7 @@ model Issue {
   Tasks       Task[]
   Notes       Note[]
   Docs        Doc[]
+  Timesheets  Timesheet[]
 
   @@index([milestoneId])
   @@index([reporterId])
@@ -1551,12 +1635,52 @@ model Issue {
   @@index([status])
 }
 
+enum TimesheetStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Timesheet {
+  id          String   @id @default(cuid())
+  hours       Decimal  @db.Decimal(5, 2)
+  date        DateTime
+  description String?
+  projectId   String
+  issueId     String?
+  employeeId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  Project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  Issue       Issue?   @relation(fields: [issueId], references: [id], onDelete: SetNull)
+  Employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  status       TimesheetStatus @default(PENDING)
+  isBillable   Boolean         @default(true)
+  taskId       String?
+  Task         Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  approvedById String?
+  ApprovedBy   User?           @relation("TimesheetApprover", fields: [approvedById], references: [id])
+
+  @@index([projectId])
+  @@index([employeeId])
+  @@index([issueId])
+  @@index([taskId])
+  @@index([date])
+  @@index([status])
+  @@index([projectId, taskId])
+  @@index([employeeId, date])
+}
+
 enum ProjectStatus {
+  DRAFT
   PLANNING
   ACTIVE
   ON_HOLD
   COMPLETED
   CANCELLED
+  ARCHIVED
 }
 
 enum MilestoneStatus {
@@ -1824,6 +1948,8 @@ model PayrollItem {
   totalDeduction  Decimal  @default(0) @db.Decimal(12, 2)
   netPay          Decimal  @default(0) @db.Decimal(12, 2)
   status          String   @default("unpaid")
+  projectId       String?
+  Project         Project? @relation(fields: [projectId], references: [id])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   employee        Employee @relation(fields: [employeeId], references: [id])
@@ -1923,6 +2049,20 @@ enum LoanStatus {
   APPROVED
   REJECTED
   CLOSED
+}
+
+model ProjectBudget {
+  id          String   @id @default(cuid())
+  projectId   String
+  category    String   // "LABOR", "MATERIALS", "SOFTWARE", "OTHER"
+  amount      Decimal  @db.Decimal(12, 2)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  Project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@index([projectId])
 }
 
 enum AttendanceSource {

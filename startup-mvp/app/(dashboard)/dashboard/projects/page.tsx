@@ -1,5 +1,6 @@
 import PageGuard from "@/components/permissions/page-guard";
 import ProjectManager from "./_components/ProjectManager";
+import EnterpriseDashboard from "./_components/EnterpriseDashboard";
 
 export default function AdminProjectsPage() {
   return (
@@ -13,6 +14,8 @@ export default function AdminProjectsPage() {
                 Manage your project lifecycle and technical issues across the ecosystem.
             </p>
         </div>
+        
+        <EnterpriseDashboard />
         
         <ProjectManager />
       </div>

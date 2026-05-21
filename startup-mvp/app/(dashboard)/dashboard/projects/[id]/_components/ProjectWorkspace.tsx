@@ -59,6 +59,9 @@ import ProjectForm from "@/components/projects/ProjectForm";
 import MilestoneForm from "@/components/projects/MilestoneForm";
 import IssueForm from "@/components/projects/IssueForm";
 import MissionRoadmapPlanner from "@/components/projects/MissionRoadmapPlanner";
+import ProjectIssuesKanban from "./ProjectIssuesKanban";
+import IssueActivityWrapper from "./IssueActivityWrapper";
+import ProjectAnalytics from "./ProjectAnalytics";
 import { 
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { 
@@ -283,30 +286,7 @@ export default function ProjectWorkspace({ id, permissions = {}, initialData }: 
                 </CardContent>
               </Card>
 
-              <Card className="rounded-xl border border-border/50 shadow-sm bg-card overflow-hidden">
-                <CardHeader className="bg-slate-50/50 border-b py-4">
-                   <div className="flex items-center justify-between">
-                       <CardTitle className="text-base font-semibold">Health Matrix</CardTitle>
-                   </div>
-                </CardHeader>
-                <CardContent className="p-6 space-y-5">
-                    {[
-                        { label: "Operation Timeline", value: 87, color: "bg-primary" },
-                        { label: "Execution Efficiency", value: 94, color: "bg-emerald-500" },
-                        { label: "Structural Integrity", value: 100, color: "bg-blue-500" }
-                    ].map((m, i) => (
-                        <div key={i} className="space-y-2">
-                            <div className="flex justify-between text-xs font-medium text-muted-foreground">
-                                <span>{m.label}</span>
-                                <span className="text-foreground">{m.value}%</span>
-                            </div>
-                            <div className="h-1.5 w-full bg-secondary overflow-hidden rounded-full">
-                                <div className={`h-full ${m.color}`} style={{ width: `${m.value}%` }} />
-                            </div>
-                        </div>
-                    ))}
-                </CardContent>
-              </Card>
+              <ProjectAnalytics project={project} />
             </div>
           </div>
         </TabsContent>
@@ -379,66 +359,17 @@ export default function ProjectWorkspace({ id, permissions = {}, initialData }: 
                     )}
                 </CardHeader>
                 <CardContent className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {project.Milestones?.flatMap((m: any) => m.Issues || []).map((issue: any) => (
-                            <Card key={issue.id} className="group border-border/50 bg-card rounded-xl overflow-hidden shadow-sm">
-                                <CardContent className="p-5">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <Badge variant="outline" className={`font-semibold text-[10px] ${
-                                            issue.priority === 'CRITICAL' ? 'text-rose-500 border-rose-200 bg-rose-50' : 
-                                            issue.priority === 'HIGH' ? 'text-amber-500 border-amber-200 bg-amber-50' : 
-                                            issue.priority === 'NORMAL' ? 'text-blue-500 border-blue-200 bg-blue-50' : 'text-slate-500 border-slate-200 bg-slate-50'
-                                        }`}>
-                                            {issue.priority}
-                                        </Badge>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                                                    <MoreVertical className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                {hasOp("projects.issues", "edit") && (
-                                                  <DropdownMenuItem onClick={() => {
-                                                      setSelectedIssue(issue);
-                                                      setSelectedMilestone(project.Milestones.find((m:any) => m.id === issue.milestoneId));
-                                                      setIsIssueDialogOpen(true);
-                                                  }}>
-                                                      <FiEdit3 className="mr-2 h-4 w-4" /> Modify
-                                                  </DropdownMenuItem>
-                                                )}
-                                                {(hasOp("projects.issues", "delete-permanently") || hasOp("projects.issues", "move-to-trash")) && (
-                                                  <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive" onClick={() => handleDeleteIssue(issue.id)}>
-                                                      <FiTrash2 className="mr-2 h-4 w-4" /> Delete
-                                                  </DropdownMenuItem>
-                                                )}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </div>
-                                    
-                                    <h6 className="text-base font-semibold tracking-tight mb-2 truncate">{issue.title}</h6>
-                                    <p className="text-xs text-muted-foreground line-clamp-2 mb-4 leading-relaxed bg-muted/30 p-3 rounded-lg border border-border/50">
-                                        {issue.description || "Mission details pending technical review."}
-                                    </p>
-                                    
-                                    <div className="flex items-center justify-between pt-4 border-t border-border/40 mt-auto">
-                                        <div className="flex items-center gap-2">
-                                            <Avatar className="h-6 w-6">
-                                                <AvatarImage src={issue.Assignee?.image} />
-                                                <AvatarFallback className="text-[10px] font-semibold">{issue.Assignee?.name?.charAt(0) || "?"}</AvatarFallback>
-                                            </Avatar>
-                                            <span className="text-xs font-medium text-muted-foreground truncate max-w-[100px]">
-                                                {issue.Assignee?.name || "Unassigned"}
-                                            </span>
-                                        </div>
-                                        <Badge variant="secondary" className="text-[10px] font-semibold">
-                                            {issue.status}
-                                        </Badge>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
+                    <ProjectIssuesKanban 
+                        project={project}
+                        onRefresh={fetchProject}
+                        onEditIssue={(issue: any) => {
+                            setSelectedIssue(issue);
+                            setSelectedMilestone(project.Milestones?.find((m: any) => m.id === issue.milestoneId));
+                            setIsIssueDialogOpen(true);
+                        }}
+                        onDeleteIssue={handleDeleteIssue}
+                        hasOp={hasOp}
+                    />
                 </CardContent>
              </Card>
         </TabsContent>
@@ -577,7 +508,7 @@ export default function ProjectWorkspace({ id, permissions = {}, initialData }: 
 
       {/* Issue Dialog */}
       <Dialog open={isIssueDialogOpen} onOpenChange={setIsIssueDialogOpen}>
-          <DialogContent className="sm:max-w-[600px] p-6 rounded-xl bg-background border-border/50 shadow-lg">
+          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto p-6 rounded-xl bg-background border-border/50 shadow-lg">
                 <div className="border-b pb-4 mb-4">
                     <DialogTitle className="text-xl font-bold">Log Defect/Task</DialogTitle>
                     <DialogDescription className="text-sm text-muted-foreground mt-1">
@@ -594,6 +525,10 @@ export default function ProjectWorkspace({ id, permissions = {}, initialData }: 
                         }}
                         onCancel={() => setIsIssueDialogOpen(false)}
                     />
+                    
+                    {selectedIssue?.id && (
+                        <IssueActivityWrapper issueId={selectedIssue.id} users={users} />
+                    )}
                 </div>
           </DialogContent>
       </Dialog>

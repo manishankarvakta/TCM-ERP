@@ -586,3 +586,111 @@ export async function reorderMilestones(projectId: string, sequence: { id: strin
     return { success: false, error: "Failed to reorder milestones" };
   }
 }
+
+/**
+ * Get all milestones across all projects with optional filtering
+ */
+export async function getAllMilestones(status?: string, search?: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    if (!(await checkPermission(session.user.id, "projects.milestones", "read"))) {
+      return { success: false, error: "Permission Denied: projects.milestones.read" };
+    }
+
+    const where: any = {};
+    if (status && status !== "all") {
+      where.status = status;
+    }
+    if (search) {
+      where.title = { contains: search, mode: "insensitive" };
+    }
+
+    const milestones = await prisma.milestone.findMany({
+      where,
+      include: {
+        Project: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+          }
+        },
+        Issues: true,
+      },
+      orderBy: [
+        { dueDate: "asc" },
+        { order: "asc" }
+      ],
+    });
+
+    return { success: true, milestones };
+  } catch (error) {
+    console.error("getAllMilestones error:", error);
+    return { success: false, error: "Failed to fetch milestones" };
+  }
+}
+
+/**
+ * Get all issues across all projects with optional filtering
+ */
+export async function getAllIssues(status?: string, search?: string, priority?: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    if (!(await checkPermission(session.user.id, "projects.issues", "read"))) {
+      return { success: false, error: "Permission Denied: projects.issues.read" };
+    }
+
+    const where: any = {};
+    if (status && status !== "all") {
+      where.status = status;
+    }
+    if (priority && priority !== "all") {
+      where.priority = priority;
+    }
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { issueNumber: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const issues = await prisma.issue.findMany({
+      where,
+      include: {
+        Milestone: {
+          include: {
+            Project: {
+              select: {
+                id: true,
+                title: true,
+              }
+            }
+          }
+        },
+        Assignee: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+          }
+        },
+        Reporter: {
+          select: {
+            id: true,
+            name: true,
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return { success: true, issues };
+  } catch (error) {
+    console.error("getAllIssues error:", error);
+    return { success: false, error: "Failed to fetch issues" };
+  }
+}

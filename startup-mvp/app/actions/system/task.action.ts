@@ -8,6 +8,7 @@ import { checkSystemPermission } from "@/lib/system/permissions";
 import { SystemEntityType } from "@/lib/system/types";
 import { createActivityRecord } from "@/lib/system/activity-ledger";
 import { ActivityType } from "@/lib/system/activity-types";
+import { broadcastProjectEvent, broadcastUserEvent } from "@/lib/system/realtime";
 
 /**
  * Create a new task
@@ -24,6 +25,9 @@ export async function createTask(input: {
   entityType?: string;
   entityId?: string;
   assigneeId?: string;
+  parentId?: string;
+  isRecurring?: boolean;
+  recurrenceRule?: string;
 }) {
   try {
     const session = await auth();
@@ -51,6 +55,9 @@ export async function createTask(input: {
         entityId: entityId,
         userId: session.user.id,
         assigneeId: input.assigneeId,
+        parentId: input.parentId,
+        isRecurring: input.isRecurring,
+        recurrenceRule: input.recurrenceRule,
       } as any,
     });
 
@@ -72,6 +79,14 @@ export async function createTask(input: {
           }
         })
       });
+    }
+
+    // Fire-and-Forget Realtime Broadcast for Project Boards
+    if (entityType === "project" && entityId) {
+        broadcastProjectEvent(entityId, "TASK_UPDATED", { 
+            taskId: task.id, 
+            status: task.status 
+        });
     }
 
     revalidateBothPaths("tasks");
@@ -115,10 +130,46 @@ export async function updateTask(
 
     if (!oldTask) return { success: false, error: "Task not found" };
 
+    // Dependency Blocking Interlock
+    if ((input.status === 'completed' || input.status === 'done') && oldTask.status !== input.status) {
+        const dependencies = await prisma.taskDependency.findMany({
+            where: { dependentTaskId: id },
+            include: { BlockingTask: true }
+        });
+        const activeBlockers = dependencies.filter((d: any) => d.BlockingTask.status !== 'completed' && d.BlockingTask.status !== 'done');
+        if (activeBlockers.length > 0) {
+            return { success: false, error: `Blocked by: ${activeBlockers[0].BlockingTask.title}` };
+        }
+    }
+
     const task = await prisma.task.update({
       where: { id },
       data: input,
     });
+
+    // Unblock notification logic
+    if ((input.status === 'completed' || input.status === 'done') && oldTask.status !== input.status) {
+        // Identify tasks that were waiting on this one
+        const dependents = await prisma.taskDependency.findMany({
+            where: { blockingTaskId: id },
+            include: { DependentTask: true }
+        });
+        
+        for (const dep of dependents) {
+            if (dep.DependentTask.assigneeId) {
+                // Alert the dependent assignee that their blocker is cleared
+                await prisma.notification.create({
+                    data: {
+                        userId: dep.DependentTask.assigneeId,
+                        createdById: session.user.id,
+                        type: "TASK_UNBLOCKED",
+                        title: "Task Unblocked",
+                        message: `The task '${dep.DependentTask.title}' is no longer blocked by '${oldTask.title}'.`,
+                    } as any
+                }).catch(console.error); // Silently catch notification errors
+            }
+        }
+    }
 
     // Structured change tracking
     const changes: any[] = [];
@@ -185,6 +236,16 @@ export async function updateTask(
             // "Call emitSystemEvent with ... Do not alter existing events [logic?]"
             // The instruction says "After successful update... Call emitSystemEvent". 
             // I should replace the manual logging to avoid duplication if emitSystemEvent covers it.
+            
+            // Fire-and-Forget Realtime Broadcast for Kanban Sync
+            if (entityType === "project" && entityId) {
+                const isMoved = input.status !== undefined && input.status !== oldTask.status;
+                broadcastProjectEvent(entityId, isMoved ? "TASK_MOVED" : "TASK_UPDATED", {
+                    taskId: task.id,
+                    status: task.status,
+                    assigneeId: task.assigneeId
+                });
+            }
         }
     }
 
@@ -335,5 +396,56 @@ export async function getTaskById(id: string) {
   } catch (error) {
     console.error("getTaskById error:", error);
     return { success: false, error: "Failed to fetch task" };
+  }
+}
+
+/**
+ * Link a task dependency (Blocker -> Dependent)
+ */
+export async function linkTaskDependency(blockingTaskId: string, dependentTaskId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+    if (!(await checkSystemPermission("system.tasks", "update"))) return { success: false, error: "Permission Denied" };
+
+    if (blockingTaskId === dependentTaskId) return { success: false, error: "Task cannot block itself" };
+
+    await prisma.taskDependency.create({
+      data: {
+        blockingTaskId,
+        dependentTaskId
+      }
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("linkTaskDependency error:", error);
+    return { success: false, error: "Dependency already exists or failed to link" };
+  }
+}
+
+/**
+ * Toggle user as a watcher for a task
+ */
+export async function toggleTaskWatcher(taskId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+    if (!(await checkSystemPermission("system.tasks", "read"))) return { success: false, error: "Permission Denied" };
+
+    const userId = session.user.id;
+    const existing = await prisma.taskWatcher.findUnique({
+      where: { taskId_userId: { taskId, userId } }
+    });
+
+    if (existing) {
+      await prisma.taskWatcher.delete({ where: { taskId_userId: { taskId, userId } } });
+      return { success: true, watching: false };
+    } else {
+      await prisma.taskWatcher.create({ data: { taskId, userId } });
+      return { success: true, watching: true };
+    }
+  } catch (error) {
+    console.error("toggleTaskWatcher error:", error);
+    return { success: false, error: "Failed to toggle watcher" };
   }
 }

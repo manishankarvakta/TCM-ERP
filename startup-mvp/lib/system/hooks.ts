@@ -2,10 +2,11 @@ import { createActivityRecord } from './activity-ledger';
 import { createNotification } from './notifications';
 import { SystemEventPayload } from './types';
 import { ActivityType } from './activity-types';
+import { redis } from '../redis';
 
 /**
  * Unified System Event Emitter
- * Handles logging to timeline and sending notifications in a safe, non-blocking way.
+ * Handles logging to timeline, sending notifications, and publishing realtime Socket events.
  */
 export async function emitSystemEvent(payload: SystemEventPayload) {
   // 1. Log to Timeline (Always)
@@ -24,7 +25,21 @@ export async function emitSystemEvent(payload: SystemEventPayload) {
     // Suppress error to avoid failing the main action
   }
 
-  // 2. Send Notification (If configured)
+  // 2. Broadcast to Realtime Socket.IO Engine via Redis
+  try {
+    const room = `entity:${payload.entityType}:${payload.entityId}`;
+    redis.publish('realtime-events', JSON.stringify({
+      room,
+      event: payload.eventType || 'SYSTEM_EVENT',
+      data: payload
+    })).catch(err => {
+       console.error(`[System] Redis emit failed (silent)`, err);
+    });
+  } catch (error) {
+    console.error(`[System] Failed to broadcast realtime event`, error);
+  }
+
+  // 3. Send Notification (If configured)
   if (payload.notification) {
     try {
         await createNotification({

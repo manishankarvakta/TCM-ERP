@@ -1,13 +1,24 @@
 import PageGuard from "@/components/permissions/page-guard";
+import { getAllMilestones } from "@/app/actions/projects/project.action";
+import MilestonesManager from "./_components/MilestonesManager";
 
-export default function MilestonesPage() {
+export default async function MilestonesPage() {
+  const result = await getAllMilestones("all");
+  const milestones = result.success ? (result.milestones || []) : [];
+
   return (
     <PageGuard permissionKey="projects.milestones">
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">Milestones</h1>
-        <div className="p-8 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground bg-muted/50">
-          <p>Milestones Module - Coming Soon</p>
+      <div className="max-w-[1600px] mx-auto">
+        <div className="flex flex-col gap-1 mb-8">
+          <h1 className="text-4xl font-black tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            Global Milestones
+          </h1>
+          <p className="text-muted-foreground font-medium flex items-center gap-2">
+            Track and monitor critical phases and target delivery dates across all active projects.
+          </p>
         </div>
+
+        <MilestonesManager initialMilestones={milestones as any[]} />
       </div>
     </PageGuard>
   );
