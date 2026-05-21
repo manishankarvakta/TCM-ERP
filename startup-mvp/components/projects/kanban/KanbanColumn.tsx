@@ -9,9 +9,10 @@ interface KanbanColumnProps {
     id: string;
     title: string;
     tasks: any[];
+    onTaskClick?: (taskId: string) => void;
 }
 
-export function KanbanColumn({ id, title, tasks }: KanbanColumnProps) {
+export function KanbanColumn({ id, title, tasks, onTaskClick }: KanbanColumnProps) {
     return (
         <div className="flex flex-col flex-shrink-0 w-80 bg-muted/50 rounded-xl overflow-hidden border border-border/50 h-full max-h-[calc(100vh-12rem)]">
             {/* Column Header */}
@@ -36,7 +37,7 @@ export function KanbanColumn({ id, title, tasks }: KanbanColumnProps) {
                         )}
                     >
                         {tasks.map((task, index) => (
-                            <KanbanCard key={task.id} task={task} index={index} />
+                            <KanbanCard key={task.id} task={task} index={index} onClick={onTaskClick} />
                         ))}
                         {provided.placeholder}
                     </div>

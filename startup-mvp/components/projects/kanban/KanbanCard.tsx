@@ -11,6 +11,7 @@ import { BlockedIndicator } from "../dependencies/BlockedIndicator";
 interface KanbanCardProps {
     task: any;
     index: number;
+    onClick?: (taskId: string) => void;
 }
 
 const priorityColors: Record<string, string> = {
@@ -19,7 +20,7 @@ const priorityColors: Record<string, string> = {
     low: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
 };
 
-export function KanbanCard({ task, index }: KanbanCardProps) {
+export function KanbanCard({ task, index, onClick }: KanbanCardProps) {
     // Determine blocking tasks. Prisma usually includes DependentTasks if fetched.
     const blockingCount = task.DependentTasks ? task.DependentTasks.length : 0;
 
@@ -34,6 +35,7 @@ export function KanbanCard({ task, index }: KanbanCardProps) {
                         "mb-3",
                         snapshot.isDragging && "opacity-80 rotate-2 scale-105 transition-transform shadow-xl"
                     )}
+                    onClick={() => onClick && onClick(task.id)}
                 >
                     <Card className="cursor-grab active:cursor-grabbing hover:border-primary/50 transition-colors">
                         <CardHeader className="p-3 pb-0">

@@ -157,6 +157,8 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     subModules: [
       { id: "projects", label: "Dashboard", path: "/dashboard/projects", module: "projects", permissionKey: "projects.projects" },
       { id: "all", label: "Projects", path: "/dashboard/projects/all", module: "projects", permissionKey: "projects.all" },
+      { id: "tasks", label: "My Tasks", path: "/dashboard/projects/tasks", module: "projects", permissionKey: "projects.tasks" },
+      { id: "kanban", label: "Kanban Board", path: "/dashboard/projects/kanban", module: "projects", permissionKey: "projects.kanban" },
       { id: "milestones", label: "Milestones", path: "/dashboard/projects/milestone", module: "projects", permissionKey: "projects.milestones" },
       { id: "issues", label: "Issues", path: "/dashboard/projects/issues", module: "projects", permissionKey: "projects.issues" },
     ],
@@ -560,6 +562,18 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "projects.all",
         path: "/dashboard/projects/all",
         label: "Projects",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "projects.tasks",
+        path: "/dashboard/projects/tasks",
+        label: "My Tasks",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "projects.kanban",
+        path: "/dashboard/projects/kanban",
+        label: "Kanban Board",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
       {

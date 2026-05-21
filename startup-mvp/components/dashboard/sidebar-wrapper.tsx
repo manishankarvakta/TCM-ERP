@@ -199,10 +199,15 @@ export default async function DashboardSidebarWrapper() {
     }
   }
 
-  // Force allow "settings" for Admin users
-  // This ensures Settings appears even if DB permissions are missing for it
+  // Force allow "settings" and all other routes for Admin users
+  // This ensures new routes appear instantly for Admins even if DB permissions are missing
   if (session.user.role?.toLowerCase() === "admin") {
     accessiblePages.set("settings", true);
+    for (const navItem of NAVIGATION_STRUCTURE) {
+      for (const page of navItem.pages) {
+        accessiblePages.set(page.permissionKey, true);
+      }
+    }
   }
 
   // Filter menu items based on permissions

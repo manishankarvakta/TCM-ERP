@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { DragDropContext, DropResult } from "@hello-pangea/dnd";
 import { KanbanColumn } from "./KanbanColumn";
 import { KanbanFilters } from "./KanbanFilters";
+import { TaskDrawer } from "./TaskDrawer";
 import { updateKanbanTaskStatus } from "@/app/actions/projects/kanban.action";
 import { useProjectSocket } from "@/lib/system/realtime-hooks";
 import { toast } from "sonner";
@@ -27,6 +28,12 @@ export function ProjectKanban({ projectId, initialTasks }: ProjectKanbanProps) {
     const [tasks, setTasks] = useState(initialTasks);
     const [searchQuery, setSearchQuery] = useState("");
     const [priorityFilter, setPriorityFilter] = useState("ALL");
+    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+    // Compute active task for the drawer
+    const selectedTask = useMemo(() => {
+        return selectedTaskId ? tasks.find(t => t.id === selectedTaskId) || null : null;
+    }, [selectedTaskId, tasks]);
 
     // 1. Hook into the Realtime WebSocket layer
     const socket = useProjectSocket(projectId);
@@ -98,10 +105,19 @@ export function ProjectKanban({ projectId, initialTasks }: ProjectKanbanProps) {
                             id={col.id} 
                             title={col.title} 
                             tasks={filteredTasks.filter(t => (t.status || 'todo').toLowerCase() === col.id)} 
+                            onTaskClick={(id) => setSelectedTaskId(id)}
                         />
                     ))}
                 </DragDropContext>
             </div>
+
+            <TaskDrawer 
+                isOpen={!!selectedTask}
+                onClose={() => setSelectedTaskId(null)}
+                task={selectedTask}
+                allTasks={tasks}
+                projectId={projectId}
+            />
         </div>
     );
 }
