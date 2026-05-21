@@ -38,7 +38,7 @@ interface NoteItem {
 
 interface NoteManagerProps {
     entityId: string;
-    entityType: "lead" | "opportunity" | "contact";
+    entityType: "lead" | "opportunity" | "contact" | "project";
     notes: any[];
 }
 

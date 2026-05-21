@@ -109,7 +109,9 @@ export default async function ProjectDetailsPage({ params }: ProjectDetailsPageP
         {/* Workspace handles Tabs and Sidebar */}
         <ProjectWorkspace 
             id={id} 
-            permissions={permissionsResult} 
+            permissions={permissionsResult}
+            userRole={session.user.role || ""}
+            userId={session.user.id}
             initialData={{ 
                 project, 
                 tasks, 

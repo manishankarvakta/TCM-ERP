@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition, useCallback } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { 
     Tabs, 
     TabsContent, 
@@ -62,6 +63,14 @@ import MissionRoadmapPlanner from "@/components/projects/MissionRoadmapPlanner";
 import ProjectIssuesKanban from "./ProjectIssuesKanban";
 import IssueActivityWrapper from "./IssueActivityWrapper";
 import ProjectAnalytics from "./ProjectAnalytics";
+import { ProjectTimeline } from "./ProjectTimeline";
+import { ProjectCalendar } from "./ProjectCalendar";
+import { ProjectTeam } from "./ProjectTeam";
+import { Switch } from "@/components/ui/switch";
+import { AdminProjectOverview } from "./AdminProjectOverview";
+import { MemberProjectOverview } from "./MemberProjectOverview";
+import NoteManager from "@/app/(dashboard)/dashboard/crm/activities/_components/NoteManager";
+import DocManager from "@/app/(dashboard)/dashboard/crm/activities/_components/DocManager";
 import { 
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { 
@@ -76,6 +85,8 @@ import { PartialPermissions, Operation } from "@/types/permissions";
 interface ProjectWorkspaceProps {
   id: string;
   permissions?: PartialPermissions;
+  userRole?: string;
+  userId?: string;
   initialData: {
       project: any;
       tasks: any[];
@@ -87,14 +98,15 @@ interface ProjectWorkspaceProps {
   };
 }
 
-export default function ProjectWorkspace({ id, permissions = {}, initialData }: ProjectWorkspaceProps) {
+export default function ProjectWorkspace({ id, permissions = {}, userRole, userId, initialData }: ProjectWorkspaceProps) {
   const hasOp = useCallback((key: string, op: Operation) => {
+    if (userRole?.toLowerCase() === "admin") return true;
     const perm = permissions[key];
     if (Array.isArray(perm)) {
       return perm.includes(op);
     }
     return false;
-  }, [permissions]);
+  }, [permissions, userRole]);
   
   const [project, setProject] = useState<any>(initialData.project);
   const [loading, setLoading] = useState(false);
@@ -105,8 +117,15 @@ export default function ProjectWorkspace({ id, permissions = {}, initialData }: 
   const events = initialData.events;
   const users = initialData.users;
 
-  const [activeTab, setActiveTab] = useState("overview");
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  // Read initial tab from URL, fallback to first visible tab
+  const getInitialTab = () => searchParams.get("tab") || "overview";
+  const [activeTab, setActiveTab] = useState(getInitialTab);
+  const [isTabSettingsOpen, setIsTabSettingsOpen] = useState(false);
+  const [hiddenTabs, setHiddenTabs] = useState<string[]>([]);
   const [isMilestoneDialogOpen, setIsMilestoneDialogOpen] = useState(false);
   const [isIssueDialogOpen, setIsIssueDialogOpen] = useState(false);
   const [selectedMilestone, setSelectedMilestone] = useState<any>(null);
@@ -131,6 +150,31 @@ export default function ProjectWorkspace({ id, permissions = {}, initialData }: 
   useEffect(() => {
     fetchProject();
   }, [id]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(`project-tabs-${id}`);
+    if (saved) {
+      try {
+        setHiddenTabs(JSON.parse(saved));
+      } catch (e) {}
+    }
+  }, [id]);
+
+  const toggleTabVisibility = (tabId: string) => {
+    setHiddenTabs(prev => {
+      const next = prev.includes(tabId) ? prev.filter(t => t !== tabId) : [...prev, tabId];
+      localStorage.setItem(`project-tabs-${id}`, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  // Sync active tab to URL without adding browser history entries
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", tabId);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   const handleStatusChange = async (status: string) => {
     startTransition(async () => {
@@ -189,26 +233,40 @@ export default function ProjectWorkspace({ id, permissions = {}, initialData }: 
     );
   }
 
+  const availableTabs = [
+    { id: "overview", label: "Overview", icon: FiLayout, permission: "projects.projects" },
+    { id: "timeline", label: "Timeline", icon: FiMap, permission: "projects.timeline" },
+    { id: "kanban", label: "Issues", icon: FiActivity, permission: "projects.issues" },
+    { id: "calendar", label: "Calendar", icon: FiClock, permission: "projects.calendar" },
+    { id: "notes", label: "Notes", icon: FiFileText, permission: "projects.notes" },
+    { id: "docs", label: "Docs", icon: FiBriefcase, permission: "projects.docs" },
+    { id: "files", label: "Files", icon: FiPaperclip, permission: "projects.files" },
+    { id: "activities", label: "Activities", icon: FiMessageSquare, permission: "projects.activities" },
+    { id: "team", label: "Team", icon: FiUsers, permission: "projects.team" }
+  ].filter(tab => hasOp(tab.permission, "view"));
+
+  const visibleTabs = availableTabs.filter(tab => !hiddenTabs.includes(tab.id));
+  // Resolve the active tab: prefer URL param if it's visible, otherwise fall back to first visible
+  const resolvedTab = visibleTabs.find(t => t.id === activeTab)
+    ? activeTab
+    : (visibleTabs[0]?.id ?? "overview");
+
   return (
     <>
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-6 duration-1000">
+    <div className="grid grid-cols-1 gap-6 animate-in fade-in slide-in-from-bottom-6 duration-1000">
       {/* Main Content: Tabs */}
-      <div className="lg:col-span-3 space-y-6">
-      <Tabs defaultValue="overview" onValueChange={setActiveTab} className="w-full">
+      <div className="space-y-6">
+      <Tabs value={resolvedTab} onValueChange={handleTabChange} className="w-full">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border/40 pb-2">
-            <TabsList className="bg-transparent p-0 rounded-none h-auto border-none flex flex-wrap md:inline-flex shadow-none gap-8 overflow-x-auto justify-start w-full">
-        {["overview", "roadmap", "kanban", "files", "activities"].map((tab) => (
+            <TabsList className="bg-transparent p-0 rounded-none h-auto border-none flex shadow-none gap-1 overflow-x-auto justify-start flex-1 w-full md:mr-8">
+        {visibleTabs.map((tab) => (
             <TabsTrigger 
-                key={tab}
-                value={tab} 
-                className="rounded-none bg-transparent border-none px-0 py-3 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary font-semibold capitalize gap-2 hover:text-primary transition-all relative group flex items-center h-12"
+                key={tab.id}
+                value={tab.id} 
+                className="justify-start rounded-none bg-transparent border-none px-4 py-3 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary font-semibold capitalize gap-2 hover:text-primary transition-all relative group flex items-center h-12 whitespace-nowrap"
             >
-                {tab === "overview" && <FiLayout className="h-4 w-4" />}
-                {tab === "roadmap" && <FiMap className="h-4 w-4" />}
-                {tab === "kanban" && <FiActivity className="h-4 w-4" />}
-                {tab === "files" && <FiPaperclip className="h-4 w-4" />}
-                {tab === "activities" && <FiMessageSquare className="h-4 w-4" />}
-                {tab === "roadmap" ? "Roadmap" : tab === "kanban" ? "Issues" : tab}
+                <tab.icon className="h-4 w-4" />
+                {tab.label}
             </TabsTrigger>
         ))}
     </TabsList>
@@ -217,120 +275,23 @@ export default function ProjectWorkspace({ id, permissions = {}, initialData }: 
             <FiActivity className="mr-2 h-3.5 w-3.5 text-primary" /> Sync
         </Button>
          {hasOp("projects.projects", "edit") && (
-            <Button variant="outline" size="sm" className="h-8 px-4 font-semibold hover:bg-muted active:scale-95 shadow-sm text-xs" onClick={() => setIsEditDialogOpen(true)}>
-                <FiEdit3 className="mr-2 h-3.5 w-3.5" /> Edit
+            <Button variant="outline" size="sm" className="h-8 px-4 font-semibold hover:bg-muted active:scale-95 shadow-sm text-xs" onClick={() => setIsTabSettingsOpen(true)}>
+                <FiSettings className="mr-2 h-3.5 w-3.5" /> Options
             </Button>
         )}
     </div>
 </div>
 
         <TabsContent value="overview" className="mt-0 focus-visible:ring-0">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-            <div className="lg:col-span-8 space-y-6">
-              <Card className="rounded-xl border border-border/50 shadow-sm bg-card overflow-hidden">
-                <CardHeader className="bg-slate-50/50 border-b py-4">
-                  <div className="flex items-center justify-between">
-                       <CardTitle className="text-base font-semibold">Mission Scope</CardTitle>
-                       <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-medium">
-                           Active Objectives
-                       </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                    <div className="bg-muted/10 rounded-lg p-4 border border-border/40">
-                        <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">
-                            {project.description || "Mission scope currently being drafted within the centralized workspace. Initial objectives and delivery parameters are pending finalization."}
-                        </p>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        {[
-                            { label: "Budget", value: `$${project.budget?.toLocaleString() || 0}`, icon: <FiTrendingUp className="text-emerald-500 w-4 h-4" /> },
-                            { label: "Phases", value: project.Milestones?.length || 0, icon: <FiMap className="text-primary w-4 h-4" /> },
-                            { label: "Tasks", value: project._count?.Tasks || 0, icon: <FiCheckSquare className="text-blue-500 w-4 h-4" /> },
-                            { label: "Docs", value: project._count?.Docs || 0, icon: <FiFileText className="text-amber-500 w-4 h-4" /> }
-                        ].map((stat, i) => (
-                            <div key={i} className="bg-background rounded-lg p-4 border border-border/50 shadow-sm flex flex-col gap-2">
-                                <div className="flex items-center gap-2">
-                                    <div className="bg-muted rounded p-1.5">{stat.icon}</div>
-                                </div>
-                                <div>
-                                    <p className="text-2xl font-bold tracking-tight">{stat.value}</p>
-                                    <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="lg:col-span-4 space-y-6">
-              <Card className="rounded-xl border border-border/50 shadow-sm bg-card overflow-hidden">
-                <CardHeader className="bg-slate-50/50 border-b py-4">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      Command Center
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                      <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
-                        <AvatarImage src={project.Owner?.image} />
-                        <AvatarFallback className="text-lg font-bold bg-primary/10 text-primary">{project.Owner?.name?.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div className="space-y-1 flex-1">
-                        <h5 className="font-semibold text-base leading-none text-foreground">{project.Owner?.name}</h5>
-                        <p className="text-xs font-medium text-muted-foreground">Project Owner</p>
-                      </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <ProjectAnalytics project={project} />
-            </div>
-          </div>
+          {["admin", "manager", "teamleader"].includes(userRole?.toLowerCase() || "") ? (
+              <AdminProjectOverview project={project} tasks={tasks} />
+          ) : (
+              <MemberProjectOverview project={project} tasks={tasks} userId={userId || ""} events={events} />
+          )}
         </TabsContent>
 
-        <TabsContent value="roadmap" className="mt-0 focus-visible:ring-0">
-          <Card className="rounded-xl border border-border/50 shadow-sm bg-card overflow-hidden">
-            <CardHeader className="bg-slate-50/50 border-b py-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <CardTitle className="text-xl font-bold flex items-center gap-2">
-                      Mission Sequence
-                  </CardTitle>
-                  <CardDescription className="text-sm font-medium text-muted-foreground">
-                      Orchestrated roadmap phases for centralized project execution.
-                  </CardDescription>
-                </div>
-                {hasOp("projects.milestones", "create") && (
-                  <Button 
-                      className="shrink-0"
-                      onClick={() => {
-                          setSelectedMilestone(null);
-                          setIsMilestoneDialogOpen(true);
-                      }}
-                  >
-                      <Plus className="mr-2 h-4 w-4" /> Expand Sequence
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="max-w-5xl mx-auto">
-                <MissionRoadmapPlanner 
-                    projectId={id}
-                    initialMilestones={project.Milestones || []}
-                    onRefresh={fetchProject}
-                    onEdit={(milestone) => {
-                        setSelectedMilestone(milestone);
-                        setIsMilestoneDialogOpen(true);
-                    }}
-                    onDelete={handleDeleteMilestone}
-                />
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="timeline" className="mt-0 focus-visible:ring-0">
+          <ProjectTimeline projectId={id} />
         </TabsContent>
 
         <TabsContent value="kanban" className="mt-0 focus-visible:ring-0">
@@ -399,88 +360,29 @@ export default function ProjectWorkspace({ id, permissions = {}, initialData }: 
                 />
             </Card>
         </TabsContent>
+
+        <TabsContent value="calendar" className="mt-0 focus-visible:ring-0">
+            <ProjectCalendar projectId={id} />
+        </TabsContent>
+
+        <TabsContent value="notes" className="mt-0 focus-visible:ring-0">
+            <div className="bg-card rounded-xl border border-border/50 shadow-sm p-4">
+                <NoteManager entityId={id} entityType="project" notes={notes} />
+            </div>
+        </TabsContent>
+
+        <TabsContent value="docs" className="mt-0 focus-visible:ring-0">
+            <div className="bg-card rounded-xl border border-border/50 shadow-sm p-4">
+                <DocManager entityId={id} entityType="project" docs={docs} />
+            </div>
+        </TabsContent>
+
+        <TabsContent value="team" className="mt-0 focus-visible:ring-0">
+            <ProjectTeam projectId={id} />
+        </TabsContent>
       </Tabs>
       </div>
 
-        {/* Sidebar: Details */}
-        <div className="space-y-6">
-            <Card className="shadow-sm border-slate-200 overflow-hidden">
-                <CardHeader className="bg-slate-50/50 border-b py-3">
-                    <CardTitle className="text-base font-semibold">Project Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 text-sm pt-4">
-                    {project.projectNumber && (
-                        <div className="flex items-center gap-3">
-                            <div className="bg-slate-100 p-2 rounded">
-                                <FiBriefcase className="h-4 w-4 text-slate-600" />
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Project Code</p>
-                                <span className="font-medium">{project.projectNumber}</span>
-                            </div>
-                        </div>
-                    )}
-
-                    {project.Client && (
-                         <div className="pt-4 border-t flex items-center gap-3">
-                            <div className="bg-slate-100 p-2 rounded">
-                                <FiUsers className="h-4 w-4 text-slate-600" />
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Client</p>
-                                <span className="font-medium">{project.Client.name}</span>
-                            </div>
-                         </div>
-                    )}
-
-                    {project.budget !== null && (
-                        <div className="pt-4 border-t flex items-center gap-3">
-                            <div className="bg-slate-100 p-2 rounded">
-                                <FiTrendingUp className="h-4 w-4 text-slate-600" />
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Budget</p>
-                                <span className="font-medium">${project.budget.toLocaleString()}</span>
-                            </div>
-                        </div>
-                    )}
-                    
-                    <div className="pt-4 border-t flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                            {project.Owner?.name?.[0] || "?"}
-                        </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Project Owner</p>
-                            <span className="font-medium">{project.Owner?.name || "Unassigned"}</span>
-                        </div>
-                    </div>
-
-                    <div className="pt-4 border-t space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-slate-100 p-2 rounded">
-                                <FiClock className="h-4 w-4 text-slate-600" />
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Created At</p>
-                                <span className="font-medium">{project.createdAt ? format(new Date(project.createdAt), "PPp") : "-"}</span>
-                            </div>
-                        </div>
-
-                        {project.endDate && (
-                          <div className="flex items-center gap-3">
-                              <div className="bg-rose-100 p-2 rounded text-rose-600">
-                                  <FiMap className="h-4 w-4" />
-                              </div>
-                              <div className="min-w-0">
-                                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Delivery Deadline</p>
-                                  <span className="font-medium">{format(new Date(project.endDate), "PPp")}</span>
-                              </div>
-                          </div>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
       </div>
 
       {/* Milestone Dialog */}
@@ -529,6 +431,32 @@ export default function ProjectWorkspace({ id, permissions = {}, initialData }: 
                     {selectedIssue?.id && (
                         <IssueActivityWrapper issueId={selectedIssue.id} users={users} />
                     )}
+                </div>
+          </DialogContent>
+      </Dialog>
+      {/* Tab Settings Dialog */}
+      <Dialog open={isTabSettingsOpen} onOpenChange={setIsTabSettingsOpen}>
+          <DialogContent className="sm:max-w-[400px] p-6 rounded-xl bg-background border-border/50 shadow-lg">
+                <div className="border-b pb-4 mb-4">
+                    <DialogTitle className="text-xl font-bold">Workspace View Settings</DialogTitle>
+                    <DialogDescription className="text-sm text-muted-foreground mt-1">
+                        Select which of your permitted tabs are visible in this workspace.
+                    </DialogDescription>
+                </div>
+                <div className="bg-card space-y-3">
+                    {availableTabs.map((tab) => (
+                        <div key={tab.id} className="flex items-center justify-between p-3 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors">
+                            <label htmlFor={`tab-${tab.id}`} className="flex items-center gap-2 cursor-pointer font-medium text-sm flex-1">
+                                <tab.icon className="w-4 h-4 text-muted-foreground" />
+                                {tab.label}
+                            </label>
+                            <Switch 
+                                id={`tab-${tab.id}`}
+                                checked={!hiddenTabs.includes(tab.id)}
+                                onCheckedChange={() => toggleTabVisibility(tab.id)}
+                            />
+                        </div>
+                    ))}
                 </div>
           </DialogContent>
       </Dialog>
