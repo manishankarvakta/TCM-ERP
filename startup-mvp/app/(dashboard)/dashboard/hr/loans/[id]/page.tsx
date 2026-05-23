@@ -8,11 +8,13 @@ import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 
-export default async function LoanDetailsPage({ params }: { params: { id: string } }) {
+export default async function LoanDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  
   const session = await auth();
   if (!session?.user) return null;
 
-  const result = await getLoanById(params.id);
+  const result = await getLoanById(id);
   
   if (!result.success || !result.loan) {
     notFound();
