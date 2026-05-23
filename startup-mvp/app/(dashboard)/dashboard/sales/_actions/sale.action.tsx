@@ -191,6 +191,8 @@ export async function getItemsForSale() {
         },
         salesPrice: true,
         itemType: true,
+        featuredImage: true,
+        images: true,
         stocks: {
           select: {
             warehouseId: true,
@@ -212,6 +214,7 @@ export async function getItemsForSale() {
         unit: item.unit?.symbol || "unit",
         unitPrice: item.salesPrice ? Number(item.salesPrice) : 0,
         itemType: item.itemType,
+        imageUrl: item.featuredImage || (Array.isArray(item.images) && item.images.length > 0 ? (item.images[0] as string) : null) || null,
         stocks: item.stocks.map(s => ({
             warehouseId: s.warehouseId,
             quantity: Number(s.quantity)
