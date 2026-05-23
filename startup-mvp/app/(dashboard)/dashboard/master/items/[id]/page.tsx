@@ -56,6 +56,7 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
       RAW_MATERIAL: { label: "Raw Material", variant: "secondary" },
       READY_PRODUCT: { label: "Ready Product", variant: "default" },
       RETAIL: { label: "Retail", variant: "outline" },
+      WHOLESALE: { label: "Wholesale", variant: "secondary" },
     };
     const config = variants[type] || { label: type, variant: "default" as const };
     return <Badge variant={config.variant} className="text-xs">{config.label}</Badge>;

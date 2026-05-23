@@ -599,6 +599,7 @@ model Sale {
   discount      Decimal?   @db.Decimal(5, 2)
   tax           Decimal?   @db.Decimal(5, 2)
   grandTotal    Decimal    @db.Decimal(12, 2)
+  orderType     OrderType  @default(RETAIL)
   isTrash       Boolean    @default(false)
   createdBy     String
   updatedBy     String?
@@ -1266,10 +1267,17 @@ enum SaleStatus {
   CANCELLED
 }
 
+enum OrderType {
+  READY_PRODUCT
+  RETAIL
+  WHOLESALE
+}
+
 enum ItemType {
   RAW_MATERIAL
   READY_PRODUCT
   RETAIL
+  WHOLESALE
 }
 
 enum StockTransactionType {

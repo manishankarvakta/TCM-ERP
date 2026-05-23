@@ -16,6 +16,7 @@ async function generateItemCode(itemType: ItemType): Promise<string> {
     RAW_MATERIAL: "RM",
     READY_PRODUCT: "RP",
     RETAIL: "RT",
+    WHOLESALE: "WS",
   }[itemType];
   
   const year = new Date().getFullYear();
@@ -532,6 +533,14 @@ export async function createItem(input: {
       return {
         success: false,
         error: "Sales price is required for Ready Products and Retail items",
+        item: null,
+      };
+    }
+
+    if (input.itemType === "WHOLESALE" && (!input.wholesalePrice || input.wholesalePrice <= 0)) {
+      return {
+        success: false,
+        error: "Wholesale price is required for Wholesale items",
         item: null,
       };
     }

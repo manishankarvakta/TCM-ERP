@@ -195,6 +195,7 @@ export default function ItemsListClient({
       RAW_MATERIAL: { label: "Raw Material", variant: "secondary" },
       READY_PRODUCT: { label: "Ready Product", variant: "default" },
       RETAIL: { label: "Retail", variant: "outline" },
+      WHOLESALE: { label: "Wholesale", variant: "secondary" },
     };
     const config = variants[type];
     return <Badge variant={config.variant}>{config.label}</Badge>;
@@ -222,6 +223,7 @@ export default function ItemsListClient({
               <SelectItem value="RAW_MATERIAL">Raw Material</SelectItem>
               <SelectItem value="READY_PRODUCT">Ready Product</SelectItem>
               <SelectItem value="RETAIL">Retail</SelectItem>
+              <SelectItem value="WHOLESALE">Wholesale</SelectItem>
             </SelectContent>
           </Select>
         )}

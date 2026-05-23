@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted, createUserLog, LogAction } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
-import { SaleStatus, Prisma, ItemType } from "@prisma/client";
+import { SaleStatus, Prisma, ItemType, OrderType } from "@prisma/client";
 import * as z from "zod";
 import { updateStockOnSale } from "@/app/(dashboard)/dashboard/inventory/stock/_actions/stock.action";
 import { createVoucher, postVoucher } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
@@ -23,6 +23,7 @@ const saleSchema = z.object({
   warehouseId: z.string().min(1, "Warehouse is required"),
   date: z.coerce.date(),
   status: z.nativeEnum(SaleStatus),
+  orderType: z.enum(["RETAIL", "READY_PRODUCT", "WHOLESALE"]).optional().default("RETAIL"),
   notes: z.string().optional().nullable(),
   attachmentUrl: z
     .string()
@@ -168,16 +169,13 @@ export async function getItemsForSale() {
       return { success: false, error: "Unauthorized", items: [] };
     }
 
-    // Only get READY_PRODUCT and RETAIL items with salesPrice
+    // Only get READY_PRODUCT, RETAIL and WHOLESALE items
     const items = await prisma.item.findMany({
       where: {
         status: "active",
         isTrash: false,
         itemType: {
-          in: [ItemType.READY_PRODUCT, ItemType.RETAIL],
-        },
-        salesPrice: {
-          not: null,
+          in: [ItemType.READY_PRODUCT, ItemType.RETAIL, ItemType.WHOLESALE],
         },
       },
       select: {
@@ -189,7 +187,13 @@ export async function getItemsForSale() {
                 symbol: true
             }
         },
+        category: {
+            select: {
+                name: true
+            }
+        },
         salesPrice: true,
+        wholesalePrice: true,
         itemType: true,
         featuredImage: true,
         images: true,
@@ -212,7 +216,9 @@ export async function getItemsForSale() {
         code: item.code,
         description: item.name,
         unit: item.unit?.symbol || "unit",
+        category: item.category?.name || null,
         unitPrice: item.salesPrice ? Number(item.salesPrice) : 0,
+        wholesalePrice: item.wholesalePrice ? Number(item.wholesalePrice) : 0,
         itemType: item.itemType,
         imageUrl: item.featuredImage || (Array.isArray(item.images) && item.images.length > 0 ? (item.images[0] as string) : null) || null,
         stocks: item.stocks.map(s => ({
@@ -804,6 +810,7 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
           warehouseId: validated.warehouseId,
           date: validated.date,
           status: validated.status,
+          orderType: validated.orderType,
           notes: validated.notes || null,
           attachmentUrl: validated.attachmentUrl || null,
           subTotal: new Prisma.Decimal(subTotal),
@@ -947,6 +954,7 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
           warehouseId: validated.warehouseId,
           date: validated.date,
           status: validated.status,
+          orderType: validated.orderType,
           notes: validated.notes || null,
           attachmentUrl: validated.attachmentUrl || null,
           subTotal: new Prisma.Decimal(subTotal),

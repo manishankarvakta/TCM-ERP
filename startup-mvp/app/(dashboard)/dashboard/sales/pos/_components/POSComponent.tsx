@@ -4,12 +4,12 @@ import React, { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, Plus, Minus, Trash2, ShoppingCart, CheckCircle2 } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingCart, CheckCircle2, X } from "lucide-react";
 import { createSale } from "../../_actions/sale.action";
 import { useRouter } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
 
-type ItemType = "READY_PRODUCT" | "RETAIL";
+type ItemType = "READY_PRODUCT" | "RETAIL" | "WHOLESALE";
 
 interface Item {
   id: string;
@@ -17,7 +17,9 @@ interface Item {
   description: string;
   unit: string;
   unitPrice: number;
+  wholesalePrice?: number;
   itemType: ItemType;
+  category?: string | null;
   imageUrl: string | null;
   stocks: { warehouseId: string; quantity: number }[];
 }
@@ -50,7 +52,8 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
   const { toast } = useToastContext();
   
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState<"ALL" | ItemType>("ALL");
+  const [filterType, setFilterType] = useState<string>("ALL");
+  const [orderType, setOrderType] = useState<"RETAIL" | "WHOLESALE">("RETAIL");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>(warehouses[0]?.id || "");
@@ -61,13 +64,19 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
   const [isProcessing, setIsProcessing] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
+  const categories = useMemo(() => {
+    const cats = Array.from(new Set(items.map((i) => i.category).filter(Boolean))) as string[];
+    return cats.sort();
+  }, [items]);
+
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       const matchesSearch = item.description.toLowerCase().includes(searchQuery.toLowerCase()) || item.code.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesType = filterType === "ALL" || item.itemType === filterType;
-      return matchesSearch && matchesType;
+      const matchesCategory = filterType === "ALL" || item.category === filterType;
+      const matchesOrderType = item.itemType === orderType;
+      return matchesSearch && matchesCategory && matchesOrderType;
     });
-  }, [items, searchQuery, filterType]);
+  }, [items, searchQuery, filterType, orderType]);
 
   const subTotal = cart.reduce((sum, item) => sum + item.unitPrice * item.cartQuantity, 0);
   const tax = subTotal * 0.10; // 10% tax example, can be adjusted
@@ -75,12 +84,15 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
   const dueAmount = grandTotal - paidAmount;
 
   const handleAddToCart = (item: Item) => {
+    const priceToUse = orderType === "WHOLESALE" ? (item.wholesalePrice || item.unitPrice) : item.unitPrice;
+    const itemToAdd = { ...item, unitPrice: priceToUse };
+
     setCart((prev) => {
-      const existing = prev.find((i) => i.id === item.id);
+      const existing = prev.find((i) => i.id === itemToAdd.id);
       if (existing) {
-        return prev.map((i) => (i.id === item.id ? { ...i, cartQuantity: i.cartQuantity + 1 } : i));
+        return prev.map((i) => (i.id === itemToAdd.id ? { ...i, cartQuantity: i.cartQuantity + 1 } : i));
       }
-      return [...prev, { ...item, cartQuantity: 1 }];
+      return [...prev, { ...itemToAdd, cartQuantity: 1 }];
     });
   };
 
@@ -140,11 +152,14 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
         amount: item.unitPrice * item.cartQuantity,
       }));
 
+      // Ignore orderType TS error for now if it doesn't match Prisma exactly due to fresh schema sync
+      // The backend accepts "RETAIL" | "READY_PRODUCT"
       const res = await createSale({
         clientId: selectedClientId,
         warehouseId: selectedWarehouseId,
         date: new Date(),
         status: "COMPLETED",
+        orderType: orderType as any,
         notes: `POS Sale - Paid via ${paymentMethod}`,
         tax: tax,
         discount: 0,
@@ -184,49 +199,57 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
   };
 
   return (
-    <div className="flex h-[calc(100vh-100px)] bg-background -mx-4 -mt-4">
+    <div className="fixed inset-0 z-50 flex bg-background">
       {/* Left Side: Product Catalog */}
-      <div className="flex-1 flex flex-col p-6 overflow-hidden border-r border-border">
+      <div className="flex-1 flex flex-col p-6 overflow-hidden bg-background">
         {/* Header & Controls */}
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-foreground">Product</h1>
-          <div className="relative w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search products..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-background text-foreground"
-            />
+          <h1 className="text-2xl font-bold text-foreground">Product Catalog</h1>
+          <div className="flex items-center gap-4">
+            <div className="relative w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search products..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-muted border-none text-foreground"
+              />
+            </div>
+            <Button 
+              variant="outline" 
+              className="border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
+              onClick={() => router.push('/dashboard/sales')}
+            >
+              <X className="w-4 h-4 mr-2" /> Exit POS
+            </Button>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="flex gap-4 mb-6 border-b border-border pb-4">
+        <div className="flex gap-4 mb-6 border-b border-border pb-4 overflow-x-auto whitespace-nowrap no-scrollbar">
           <button 
             className={`px-4 py-2 text-sm font-medium transition-colors ${filterType === "ALL" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
             onClick={() => setFilterType("ALL")}
           >
             All Items
           </button>
-          <button 
-            className={`px-4 py-2 text-sm font-medium transition-colors ${filterType === "READY_PRODUCT" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
-            onClick={() => setFilterType("READY_PRODUCT")}
-          >
-            Ready Product
-          </button>
-          <button 
-            className={`px-4 py-2 text-sm font-medium transition-colors ${filterType === "RETAIL" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
-            onClick={() => setFilterType("RETAIL")}
-          >
-            Retail
-          </button>
+          {categories.map((cat) => (
+            <button 
+              key={cat}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${filterType === cat ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
+              onClick={() => setFilterType(cat)}
+            >
+              {cat}
+            </button>
+          ))}
         </div>
 
         {/* Product Grid */}
         <div className="flex-1 overflow-y-auto pr-2 pb-10">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredItems.map((item) => (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {filteredItems.map((item) => {
+              const displayPrice = orderType === "WHOLESALE" ? (item.wholesalePrice || item.unitPrice) : item.unitPrice;
+              return (
               <div key={item.id} className="bg-card text-card-foreground rounded-xl border border-border p-4 hover:shadow-md transition-shadow flex flex-col justify-between h-full">
                 <div>
                    <div className="aspect-square bg-muted rounded-lg mb-3 flex items-center justify-center text-muted-foreground overflow-hidden relative">
@@ -237,7 +260,7 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
                       )}
                    </div>
                    <h3 className="font-semibold text-sm line-clamp-2 mb-1 text-foreground" title={item.description}>{item.description}</h3>
-                   <div className="text-lg font-bold text-foreground mb-3">${item.unitPrice.toFixed(2)}</div>
+                   <div className="text-lg font-bold text-foreground mb-3">${displayPrice.toFixed(2)}</div>
                 </div>
                 <Button 
                   className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-full" 
@@ -246,7 +269,7 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
                   <Plus className="w-4 h-4 mr-2" /> Add
                 </Button>
               </div>
-            ))}
+            )})}
             {filteredItems.length === 0 && (
               <div className="col-span-full py-20 text-center text-muted-foreground">
                 No products found.
@@ -257,13 +280,24 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
       </div>
 
       {/* Right Side: Cart / Order Details */}
-      <div className="w-[400px] flex flex-col bg-card text-card-foreground border-l border-border shadow-sm z-10">
+      <div className="w-[450px] flex flex-col bg-card text-card-foreground border-l border-border shadow-md z-10 relative">
         <div className="p-6 flex-1 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-foreground">Order Details</h2>
-            <span className="bg-muted text-muted-foreground px-3 py-1 rounded-full text-xs font-medium">
-              POS Mode
-            </span>
+            <div className="flex bg-muted p-1 rounded-lg">
+              <button 
+                onClick={() => { if (orderType !== "RETAIL") { setOrderType("RETAIL"); setCart([]); } }}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${orderType === "RETAIL" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Retail
+              </button>
+              <button 
+                onClick={() => { if (orderType !== "WHOLESALE") { setOrderType("WHOLESALE"); setCart([]); } }}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${orderType === "WHOLESALE" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Wholesale
+              </button>
+            </div>
           </div>
 
           {/* Customer Info */}
@@ -336,6 +370,12 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
                           <Plus className="w-3 h-3" />
                         </button>
                       </div>
+                      <button 
+                        className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors shrink-0"
+                        onClick={() => handleRemoveItem(item.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   ))
                 )}
@@ -384,7 +424,7 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
           ) : (
             <>
               <DialogHeader>
-                <DialogTitle className="text-xl font-bold border-b border-border pb-4 text-foreground">Confirm Order</DialogTitle>
+                <DialogTitle className="text-xl font-bold border-b border-border pb-4 text-foreground">Confirm Order ({orderType.replace('_', ' ')})</DialogTitle>
               </DialogHeader>
               
               <div className="py-4 space-y-6">

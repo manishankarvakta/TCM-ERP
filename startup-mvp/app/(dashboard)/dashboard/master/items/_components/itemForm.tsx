@@ -27,7 +27,7 @@ import { Badge } from "@/components/ui/badge";
 const itemFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
-  itemType: z.enum(["RAW_MATERIAL", "READY_PRODUCT", "RETAIL"]),
+  itemType: z.enum(["RAW_MATERIAL", "READY_PRODUCT", "RETAIL", "WHOLESALE"]),
   categoryId: z.string().optional().nullable(),
   unitId: z.string().min(1, "Unit is required"),
   costPrice: z.number().min(0, "Cost price must be >= 0"),
@@ -327,7 +327,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                       <Label htmlFor="name">Item Name *</Label>
                       <Input
                         id="name"
-                        placeholder="e.g., Basmati Rice, Ready T-Shirt"
+                        placeholder="e.g.,T-Shirt"
                         {...register("name")}
                         disabled={loading}
                       />
@@ -348,6 +348,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                               <SelectItem value="RAW_MATERIAL">Raw Material</SelectItem>
                               <SelectItem value="READY_PRODUCT">Ready Product</SelectItem>
                               <SelectItem value="RETAIL">Retail</SelectItem>
+                              <SelectItem value="WHOLESALE">Wholesale</SelectItem>
                             </SelectContent>
                           </Select>
                         )}
