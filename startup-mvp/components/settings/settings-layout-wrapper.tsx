@@ -80,8 +80,8 @@ export default function SettingsLayoutWrapper({
 
   // Detect if we're in admin or dashboard route
   const isDashboardRoute = pathname?.startsWith("/dashboard/settings");
-  const basePath = isDashboardRoute ? "/dashboard/settings" : "/admin/settings";
-  const exitPath = isDashboardRoute ? "/dashboard" : "/admin";
+  const basePath = isDashboardRoute ? "/dashboard/settings" : "/dashboard/settings";
+  const exitPath = isDashboardRoute ? "/dashboard" : "/dashboard";
 
   const handleSectionChange = (section: SettingsSection) => {
     startTransition(() => {
@@ -124,7 +124,7 @@ export default function SettingsLayoutWrapper({
             ],
         },
         { id: "backup" as SettingsSection, label: "Backup", icon: LucideDatabaseBackup, active: activeSection === "backup" },
-        { id: "permissions" as SettingsSection, label: "Permissions", icon: Building2, active: pathname === "/admin/settings?section=permissions" ||  pathname === "/admin/settings/permissions/templates/" },
+        { id: "permissions" as SettingsSection, label: "Permissions", icon: Building2, active: pathname === "/dashboard/settings?section=permissions" ||  pathname === "/dashboard/settings/permissions/templates/" },
         
       ],
     },
@@ -236,7 +236,7 @@ export default function SettingsLayoutWrapper({
                                   ) => {
                                     // Handle permissions sub-menu with links
                                     if (item.id === "permissions") {
-                                      const usersPath = isDashboardRoute ? "/dashboard/users" : "/admin/users";
+                                      const usersPath = isDashboardRoute ? "/dashboard/users" : "/dashboard/users";
                                       let href = `${basePath}?section=permissions`;
                                       if (child.id === "permissions-templates") {
                                         href = `${basePath}/permissions/templates`;

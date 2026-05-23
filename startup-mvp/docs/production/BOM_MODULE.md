@@ -42,7 +42,7 @@ model BOM {
   code              String   @unique // Auto-generated: BOM-2026-0001
   name              String
   description       String?
-  itemId            String   // Finished Good item
+  itemId            String   // Ready Product item
   quantityPerUnit   Decimal  @db.Decimal(12, 2) // Quantity of FG produced
   status            String   @default("active") // active, inactive, trash
   isTrash           Boolean  @default(false)
@@ -88,7 +88,7 @@ model BOMItem {
 - **code**: Auto-generated unique identifier (format: `BOM-YYYY-NNNN`)
 - **name**: Human-readable BOM name (e.g., "Chicken Biryani Recipe")
 - **description**: Optional detailed description
-- **itemId**: Reference to the finished good item (must be `FINISHED_GOOD` type)
+- **itemId**: Reference to the finished good item (must be `READY_PRODUCT` type)
 - **quantityPerUnit**: Quantity of finished goods produced when this BOM is executed (e.g., 1.0 for full portion, 0.5 for half portion)
 - **status**: Current status (`active`, `inactive`, `trash`)
 - **isTrash**: Soft delete flag
@@ -100,7 +100,7 @@ model BOMItem {
 - **quantityRequired**: Quantity of raw material needed per unit of finished good
 
 ### Relationships
-- **BOM → Item (Finished Good)**: Many-to-one relationship (Restrict delete)
+- **BOM → Item (Ready Product)**: Many-to-one relationship (Restrict delete)
 - **BOM → User (Creator)**: Many-to-one relationship (Cascade delete)
 - **BOM → BOMItem**: One-to-many relationship (Cascade delete)
 - **BOMItem → Item (Raw Material)**: Many-to-one relationship (Restrict delete)
@@ -246,7 +246,7 @@ export async function createBOM(input: {
 ```
 
 **Validations**:
-- Finished good item must exist and be `FINISHED_GOOD` type
+- Finished good item must exist and be `READY_PRODUCT` type
 - All raw material items must exist and be `RAW_MATERIAL` type
 - No duplicate raw materials in items array
 - At least one BOM item required
@@ -479,7 +479,7 @@ const canView = await hasPermission(userId, "production.boms", "view");
 ## Integration Points
 
 ### Item Master Integration
-- **Finished Goods**: BOMs link to `Item` with `itemType = FINISHED_GOOD`
+- **Ready Products**: BOMs link to `Item` with `itemType = READY_PRODUCT`
 - **Raw Materials**: BOM items link to `Item` with `itemType = RAW_MATERIAL`
 - **Validation**: Server actions validate item types before creating/updating
 
@@ -536,7 +536,7 @@ totalCost = sum(bomItem.quantityRequired × bomItem.item.costPrice)
 - **trash**: BOM is soft-deleted (can be restored)
 
 ### Validation Rules
-1. Finished good must be `FINISHED_GOOD` type
+1. Finished good must be `READY_PRODUCT` type
 2. Raw materials must be `RAW_MATERIAL` type
 3. No duplicate raw materials in same BOM
 4. All quantities must be positive numbers

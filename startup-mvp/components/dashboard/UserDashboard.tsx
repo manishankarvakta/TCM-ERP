@@ -79,7 +79,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
             </div>
           </div>
           <p className="text-sm text-muted-foreground mt-1 font-bold italic tracking-tight">
-            Bhagyakul Biryani House • Kitchen & Front Desk Operations
+            FashionFlow Garments Ltd • Production & Sales Operations
           </p>
         </div>
       </div>

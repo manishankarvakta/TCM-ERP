@@ -84,6 +84,7 @@ export async function getClients(
         country: true,
         company: true,
         image: true,
+        openingBalance: true,
         status: true,
         createdBy: true,
         createdByUser: {
@@ -167,6 +168,7 @@ export async function getClientById(clientId: string) {
         country: true,
         company: true,
         image: true,
+        openingBalance: true,
         status: true,
         createdBy: true,
         createdByUser: {
@@ -323,6 +325,7 @@ export async function createClient(input: {
   country?: string;
   company?: string;
   image?: string;
+  openingBalance?: number;
   status?: "active" | "inactive";
 }) {
   try {
@@ -476,6 +479,7 @@ export async function createClient(input: {
           country: input.country || null,
           company: input.company || null,
           image: input.image || null,
+          openingBalance: input.openingBalance || 0,
           status: input.status || "active",
           createdBy: session.user.id,
           chartOfAccountId: chartOfAccount.id,
@@ -492,6 +496,7 @@ export async function createClient(input: {
           country: true,
           company: true,
           image: true,
+        openingBalance: true,
           status: true,
           createdAt: true,
           updatedAt: true,
@@ -549,6 +554,7 @@ export async function updateClient(input: {
   country?: string;
   company?: string;
   image?: string;
+  openingBalance?: number;
   status?: "active" | "inactive";
 }) {
   try {
@@ -577,6 +583,7 @@ export async function updateClient(input: {
         country: true,
         company: true,
         image: true,
+        openingBalance: true,
         status: true,
         chartOfAccountId: true,
       },
@@ -736,6 +743,7 @@ export async function updateClient(input: {
         country: input.country !== undefined ? (input.country || null) : undefined,
         company: input.company !== undefined ? (input.company || null) : undefined,
         image: input.image !== undefined ? (input.image || null) : undefined,
+        openingBalance: input.openingBalance !== undefined ? input.openingBalance : undefined,
       };
 
       if (input.status) {
@@ -768,6 +776,7 @@ export async function updateClient(input: {
           country: true,
           company: true,
           image: true,
+        openingBalance: true,
           status: true,
           createdAt: true,
           updatedAt: true,

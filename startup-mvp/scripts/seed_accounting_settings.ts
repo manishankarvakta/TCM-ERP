@@ -8,7 +8,7 @@ async function seedSettings() {
 
   // 1. Ensure Accounts Exist
   const accountsData = [
-    { code: "1010", name: "Finished Goods Inventory", type: "ASSET", accountGroup: "Current Assets" },
+    { code: "1010", name: "Ready Products Inventory", type: "ASSET", accountGroup: "Current Assets" },
     { code: "1020", name: "Raw Material Inventory", type: "ASSET", accountGroup: "Current Assets" },
     { code: "4010", name: "Inventory Adjustment Gain", type: "REVENUE", accountGroup: "Other Income" },
     { code: "5010", name: "Inventory Adjustment Loss", type: "EXPENSE", accountGroup: "Direct Expenses" },
@@ -62,20 +62,20 @@ async function seedSettings() {
       revenueAccountId: accountIds["Sales Revenue"],
       receivableAccountId: "",
       cogsAccountId: accountIds["Cost of Goods Sold"],
-      finishedGoodsInventoryAccountId: accountIds["Finished Goods Inventory"],
+      finishedGoodsInventoryAccountId: accountIds["Ready Products Inventory"],
     },
     production: {
        // Placeholder IDs if we don't have WIP accounts yet
       consumptionWipAccountId: accountIds["Raw Material Inventory"], 
       consumptionRawMaterialInventoryId: accountIds["Raw Material Inventory"],
-      completionFinishedGoodsInventoryId: accountIds["Finished Goods Inventory"],
-      completionWipAccountId: accountIds["Finished Goods Inventory"],
+      completionFinishedGoodsInventoryId: accountIds["Ready Products Inventory"],
+      completionWipAccountId: accountIds["Ready Products Inventory"],
     },
     inventoryAdjustment: {
-      positiveFgInventoryId: accountIds["Finished Goods Inventory"],
+      positiveFgInventoryId: accountIds["Ready Products Inventory"],
       positiveRmInventoryId: accountIds["Raw Material Inventory"],
       positiveAdjustmentGainId: accountIds["Inventory Adjustment Gain"],
-      negativeFgInventoryId: accountIds["Finished Goods Inventory"],
+      negativeFgInventoryId: accountIds["Ready Products Inventory"],
       negativeRmInventoryId: accountIds["Raw Material Inventory"],
       negativeAdjustmentExpenseId: accountIds["Inventory Adjustment Loss"],
     },

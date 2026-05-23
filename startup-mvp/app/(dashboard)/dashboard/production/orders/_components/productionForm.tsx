@@ -405,7 +405,7 @@ export default function ProductionForm({
           <Input
             id="quantity"
             type="number"
-            step="0.01"
+            step="1"
             min="0.01"
             {...register("quantity")}
             disabled={loading}

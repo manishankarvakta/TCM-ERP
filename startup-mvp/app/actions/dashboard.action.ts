@@ -262,7 +262,7 @@ export async function getSalesDashboardData() {
       })
     ]);
 
-    // Top selling biryani items today
+    // Top selling garment items today
     const topItems = await prisma.saleItem.groupBy({
       by: ['itemId'],
       where: { sale: { date: { gte: start, lte: end }, status: SaleStatus.COMPLETED, isTrash: false } },

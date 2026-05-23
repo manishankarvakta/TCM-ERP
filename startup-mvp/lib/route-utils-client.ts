@@ -5,18 +5,17 @@
  * @returns "/admin" for admin users, "/dashboard" for regular users
  */
 export function getBasePathFromRole(userRole?: string | null): string {
-  const isAdmin = userRole?.toLowerCase() === "admin";
-  return isAdmin ? "/admin" : "/dashboard";
+  return "/dashboard";
 }
 
 /**
  * Get the base path from the current pathname
  * Client-side function that determines base path from URL
  * @param pathname - Current pathname (from usePathname hook)
- * @returns "/admin" if path starts with "/admin", "/dashboard" otherwise
+ * @returns "/dashboard"
  */
 export function getBasePathFromPathname(pathname: string): string {
-  return pathname.startsWith("/admin") ? "/admin" : "/dashboard";
+  return "/dashboard";
 }
 
 /**

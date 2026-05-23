@@ -321,7 +321,7 @@ export async function getRevenueByItem(filters: {
 
         // Get COGS from accounting entries (for finished goods)
         let totalCOGS = 0;
-        if (group.itemType === ItemType.FINISHED_GOOD) {
+        if (group.itemType === ItemType.READY_PRODUCT) {
           // Find all sales for this item and get their vouchers
           const sales = await prisma.sale.findMany({
             where: {

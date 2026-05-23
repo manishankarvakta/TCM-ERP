@@ -21,7 +21,7 @@ The accounting module serves as the central financial brain of the ERP, adhering
 | :--- | :--- |
 | **Purchase** | Linked to `PurchaseStatus`. Generates AP and Inventory entries. |
 | **Sale** | Linked to `SaleStatus`. Generates AR, Revenue, and COGS entries. |
-| **ProductionOrder** | Complex lifecycle. Generates WIP moves and Finished Goods capitalization. |
+| **ProductionOrder** | Complex lifecycle. Generates WIP moves and Ready Products capitalization. |
 | **InventoryAdjustment** | Handles stock discrepancies. Generates Gain/Loss entries. |
 | **Employee** | Holds configuration for `Salary Payable` and `Advance` accounts. |
 
@@ -42,7 +42,7 @@ The accounting module serves as the central financial brain of the ERP, adhering
 
 **Pre-requisites**:
 *   Client must have a linked Ledger OR a default Receivable account must be set.
-*   Items must be `FINISHED_GOOD` or `RETAIL`.
+*   Items must be `READY_PRODUCT` or `RETAIL`.
 
 ### 3.2 Purchase Module
 **Automated Event**: Purchase marked as `RECEIVED`.
@@ -54,7 +54,7 @@ The accounting module serves as the central financial brain of the ERP, adhering
 
 **Item Type Handling**:
 *   **Raw Materials**: Debits `production.consumptionRawMaterialInventoryId`
-*   **Finished Goods**: Debits `production.completionFinishedGoodsInventoryId`
+*   **Ready Products**: Debits `production.completionFinishedGoodsInventoryId`
 *   **Retail/Other**: Debits `purchase.inventoryAccountId`
 
 ### 3.3 Production Module (Manufacturing)
@@ -67,9 +67,9 @@ Production follows a multi-stage accounting process to track Work-In-Progress (W
     *   **Cr** Raw Material Inventory (Settings: `production.consumptionRawMaterialInventoryId`)
 
 **Stage 2: Production Completion (Status: `COMPLETED`)**
-*   **Action**: Finished Goods are produced from WIP.
+*   **Action**: Ready Products are produced from WIP.
 *   **Entry**:
-    *   **Dr** Finished Goods Inventory (Settings: `production.completionFinishedGoodsInventoryId`)
+    *   **Dr** Ready Products Inventory (Settings: `production.completionFinishedGoodsInventoryId`)
     *   **Cr** WIP Asset (Settings: `production.completionWipAccountId`)
 
 **Cancellation (Reversal)**

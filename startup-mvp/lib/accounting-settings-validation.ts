@@ -116,12 +116,12 @@ export async function validateOperationAccountSettings(
   if (settings.sales.finishedGoodsInventoryAccountId) {
     validationRules.push({
       accountId: settings.sales.finishedGoodsInventoryAccountId,
-      fieldName: "Sales Finished Goods Inventory",
+      fieldName: "Sales Ready Products Inventory",
       expectedType: AccountType.ASSET,
       required: true,
     });
   } else {
-    throw new AccountNotConfiguredError("Sales Finished Goods Inventory");
+    throw new AccountNotConfiguredError("Sales Ready Products Inventory");
   }
 
   // Production validation rules
@@ -150,12 +150,12 @@ export async function validateOperationAccountSettings(
   if (settings.production.completionFinishedGoodsInventoryId) {
     validationRules.push({
       accountId: settings.production.completionFinishedGoodsInventoryId,
-      fieldName: "Production Finished Goods Inventory",
+      fieldName: "Production Ready Products Inventory",
       expectedType: AccountType.ASSET,
       required: true,
     });
   } else {
-    throw new AccountNotConfiguredError("Production Finished Goods Inventory");
+    throw new AccountNotConfiguredError("Production Ready Products Inventory");
   }
 
   if (settings.production.completionWipAccountId) {
@@ -173,12 +173,12 @@ export async function validateOperationAccountSettings(
   if (settings.inventoryAdjustment.positiveFgInventoryId) {
     validationRules.push({
       accountId: settings.inventoryAdjustment.positiveFgInventoryId,
-      fieldName: "Pos. Adj. Finished Goods",
+      fieldName: "Pos. Adj. Ready Products",
       expectedType: AccountType.ASSET,
       required: true,
     });
   } else {
-    throw new AccountNotConfiguredError("Positive Adjustment Finished Goods Inventory");
+    throw new AccountNotConfiguredError("Positive Adjustment Ready Products Inventory");
   }
 
   if (settings.inventoryAdjustment.positiveRmInventoryId) {
@@ -206,12 +206,12 @@ export async function validateOperationAccountSettings(
   if (settings.inventoryAdjustment.negativeFgInventoryId) {
     validationRules.push({
       accountId: settings.inventoryAdjustment.negativeFgInventoryId,
-      fieldName: "Neg. Adj. Finished Goods",
+      fieldName: "Neg. Adj. Ready Products",
       expectedType: AccountType.ASSET,
       required: true,
     });
   } else {
-    throw new AccountNotConfiguredError("Negative Adjustment Finished Goods Inventory");
+    throw new AccountNotConfiguredError("Negative Adjustment Ready Products Inventory");
   }
 
   if (settings.inventoryAdjustment.negativeRmInventoryId) {

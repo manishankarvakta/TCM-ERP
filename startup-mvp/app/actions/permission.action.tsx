@@ -165,7 +165,7 @@ export async function createPermissionTemplate(input: {
       details: `Created permission template: ${input.name}`,
     });
 
-    nextRevalidatePath("/admin/settings/permissions/templates");
+    nextRevalidatePath("/dashboard/settings/permissions/templates");
     return {
       success: true,
       template: {
@@ -270,7 +270,7 @@ export async function updatePermissionTemplate(
       details: `Updated permission template: ${template.name}`,
     });
 
-    nextRevalidatePath("/admin/settings/permissions/templates");
+    nextRevalidatePath("/dashboard/settings/permissions/templates");
     return {
       success: true,
       template: {
@@ -339,7 +339,7 @@ export async function deletePermissionTemplate(templateId: string) {
       details: `Deleted permission template: ${template.name}`,
     });
 
-    nextRevalidatePath("/admin/settings/permissions/templates");
+    nextRevalidatePath("/dashboard/settings/permissions/templates");
     return {
       success: true,
     };
@@ -517,7 +517,7 @@ export async function updateUserPermissionsAction(
       revalidateBothPaths('', 'page');
 
       // Revalidate admin permissions page
-      nextRevalidatePath(`/admin/settings/permissions/users/${userId}`);
+      nextRevalidatePath(`/dashboard/settings/permissions/users/${userId}`);
     }
 
     return result;
@@ -602,7 +602,7 @@ export async function resetUserPermissionsToTemplate(
       revalidateTag(`permissions-${userId}`);
       revalidateBothPaths('', 'layout');
       revalidateBothPaths('', 'page');
-      nextRevalidatePath(`/admin/settings/permissions/users/${userId}`);
+      nextRevalidatePath(`/dashboard/settings/permissions/users/${userId}`);
     }
 
     return {

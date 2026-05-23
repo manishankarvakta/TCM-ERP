@@ -532,7 +532,7 @@ async function createPurchaseAccountingVoucher(
       Array<{ quantity: number; unitPrice: number; totalCost: number; description: string }>
     > = {
       RAW_MATERIAL: [],
-      FINISHED_GOOD: [],
+      READY_PRODUCT: [],
       RETAIL: [],
     };
 
@@ -553,7 +553,7 @@ async function createPurchaseAccountingVoucher(
 
     // Check if we need production accounts (for RM or FG)
     const hasRawMaterials = itemsByType.RAW_MATERIAL.length > 0;
-    const hasFinishedGoods = itemsByType.FINISHED_GOOD.length > 0;
+    const hasFinishedGoods = itemsByType.READY_PRODUCT.length > 0;
 
     if (hasRawMaterials || hasFinishedGoods) {
       try {
@@ -561,7 +561,7 @@ async function createPurchaseAccountingVoucher(
       } catch (error) {
         return {
           success: false,
-          error: "Production accounting settings are not configured, but this purchase contains Raw Materials or Finished Goods. Please configure Production accounts in Settings.",
+          error: "Production accounting settings are not configured, but this purchase contains Raw Materials or Ready Products. Please configure Production accounts in Settings.",
         };
       }
     }
@@ -581,7 +581,7 @@ async function createPurchaseAccountingVoucher(
 
     // Calculate total cost for all items
     const totalRawMaterialCost = itemsByType.RAW_MATERIAL.reduce((sum, item) => sum + item.totalCost, 0);
-    const totalFGCost = itemsByType.FINISHED_GOOD.reduce((sum, item) => sum + item.totalCost, 0);
+    const totalFGCost = itemsByType.READY_PRODUCT.reduce((sum, item) => sum + item.totalCost, 0);
     const totalRetailCost = itemsByType.RETAIL.reduce((sum, item) => sum + item.totalCost, 0);
     const totalItemsCost = totalRawMaterialCost + totalFGCost + totalRetailCost;
 
@@ -604,7 +604,7 @@ async function createPurchaseAccountingVoucher(
         lineNumber: lineNumber++,
         debitAmount: totalFGCost,
         creditAmount: 0,
-        description: `Finished Goods Inventory - ${purchase.purchaseNumber}`,
+        description: `Ready Products Inventory - ${purchase.purchaseNumber}`,
         chartOfAccountId: productionAccounts.completionFinishedGoodsInventoryId,
       });
       totalInventoryDebit += totalFGCost;
@@ -1039,6 +1039,14 @@ export async function bulkUpdatePurchaseStatus(
 
         // Update stock and create accounting vouchers if status is RECEIVED
         if (status === "RECEIVED") {
+          // Pre-validate that accounting settings are configured before starting process
+          const { getPurchaseAccounts } = await import("@/lib/accounting-settings");
+          try {
+            await getPurchaseAccounts();
+          } catch (error) {
+            throw error; // Re-throw to be caught by the outer catch block
+          }
+
           for (const purchaseId of purchaseIds) {
             const stockResult = await updateStockOnPurchase(purchaseId, undefined, tx);
             if (!stockResult.success) throw new Error(stockResult.error || "Failed to update stock");

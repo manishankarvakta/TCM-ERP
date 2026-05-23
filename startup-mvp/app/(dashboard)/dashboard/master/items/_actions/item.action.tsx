@@ -14,7 +14,7 @@ import { type Prisma, ItemType } from "@prisma/client";
 async function generateItemCode(itemType: ItemType): Promise<string> {
   const prefix = {
     RAW_MATERIAL: "RM",
-    FINISHED_GOOD: "FG",
+    READY_PRODUCT: "RP",
     RETAIL: "RT",
   }[itemType];
   
@@ -213,8 +213,14 @@ export async function getItems(
         unitId: true,
         costPrice: true,
         salesPrice: true,
+        wholesalePrice: true,
+        discount: true,
         trackInventory: true,
-        image: true,
+        images: true,
+        featuredImage: true,
+        sizes: true,
+        colors: true,
+        isEnableEcom: true,
         status: true,
         isTrash: true,
         createdAt: true,
@@ -303,8 +309,14 @@ export async function getItemById(itemId: string) {
         unitId: true,
         costPrice: true,
         salesPrice: true,
+        wholesalePrice: true,
+        discount: true,
         trackInventory: true,
-        image: true,
+        images: true,
+        featuredImage: true,
+        sizes: true,
+        colors: true,
+        isEnableEcom: true,
         status: true,
         isTrash: true,
         createdAt: true,
@@ -342,6 +354,7 @@ export async function getItemById(itemId: string) {
       };
     }
 
+    console.log("getItemById - Item:", item.id, "Sizes:", item.sizes, "Colors:", item.colors);
     return {
       success: true,
       item,
@@ -483,8 +496,14 @@ export async function createItem(input: {
   unitId: string;
   costPrice: number;
   salesPrice?: number | null;
+  wholesalePrice?: number | null;
+  discount?: number | null;
   trackInventory?: boolean;
-  image?: string | null;
+  images?: string[] | null;
+  featuredImage?: string | null;
+  sizes?: string[];
+  colors?: string[];
+  isEnableEcom?: boolean;
   status?: "active" | "inactive";
 }) {
   try {
@@ -508,11 +527,11 @@ export async function createItem(input: {
       };
     }
 
-    // Validate: salesPrice required if itemType = FINISHED_GOOD or RETAIL
-    if ((input.itemType === "FINISHED_GOOD" || input.itemType === "RETAIL") && (!input.salesPrice || input.salesPrice <= 0)) {
+    // Validate: salesPrice required if itemType = READY_PRODUCT or RETAIL
+    if ((input.itemType === "READY_PRODUCT" || input.itemType === "RETAIL") && (!input.salesPrice || input.salesPrice <= 0)) {
       return {
         success: false,
-        error: "Sales price is required for Finished Goods and Retail items",
+        error: "Sales price is required for Ready Products and Retail items",
         item: null,
       };
     }
@@ -546,6 +565,8 @@ export async function createItem(input: {
     // Generate code
     const code = await generateItemCode(input.itemType);
 
+    console.log("Creating Item - Sizes:", input.sizes, "Colors:", input.colors);
+
     // Create item
     const item = await prisma.item.create({
       data: {
@@ -557,8 +578,14 @@ export async function createItem(input: {
         unitId: input.unitId,
         costPrice: input.costPrice,
         salesPrice: input.salesPrice || null,
+        wholesalePrice: input.wholesalePrice || null,
+        discount: input.discount || null,
         trackInventory: input.trackInventory ?? false,
-        image: input.image || null,
+        images: input.images || [],
+        featuredImage: input.featuredImage || null,
+        sizes: input.sizes || [],
+        colors: input.colors || [],
+        isEnableEcom: input.isEnableEcom ?? false,
         status: input.status || "active",
         isTrash: false,
         createdBy: session.user.id,
@@ -573,8 +600,14 @@ export async function createItem(input: {
         unitId: true,
         costPrice: true,
         salesPrice: true,
+        wholesalePrice: true,
+        discount: true,
         trackInventory: true,
-        image: true,
+        images: true,
+        sizes: true,
+        colors: true,
+        isEnableEcom: true,
+        featuredImage: true,
         status: true,
         createdAt: true,
         category: {
@@ -644,8 +677,14 @@ export async function updateItem(input: {
   unitId: string;
   costPrice: number;
   salesPrice?: number | null;
+  wholesalePrice?: number | null;
+  discount?: number | null;
   trackInventory?: boolean;
-  image?: string | null;
+  images?: string[] | null;
+  featuredImage?: string | null;
+  sizes?: string[];
+  colors?: string[];
+  isEnableEcom?: boolean;
   status?: "active" | "inactive";
 }) {
   try {
@@ -681,8 +720,14 @@ export async function updateItem(input: {
         unitId: true,
         costPrice: true,
         salesPrice: true,
+        wholesalePrice: true,
+        discount: true,
         trackInventory: true,
-        image: true,
+        images: true,
+        sizes: true,
+        colors: true,
+        isEnableEcom: true,
+        featuredImage: true,
         status: true,
       },
     });
@@ -695,11 +740,11 @@ export async function updateItem(input: {
       };
     }
 
-    // Validate: salesPrice required if itemType = FINISHED_GOOD or RETAIL
-    if ((input.itemType === "FINISHED_GOOD" || input.itemType === "RETAIL") && (!input.salesPrice || input.salesPrice <= 0)) {
+    // Validate: salesPrice required if itemType = READY_PRODUCT or RETAIL
+    if ((input.itemType === "READY_PRODUCT" || input.itemType === "RETAIL") && (!input.salesPrice || input.salesPrice <= 0)) {
       return {
         success: false,
-        error: "Sales price is required for Finished Goods and Retail items",
+        error: "Sales price is required for Ready Products and Retail items",
         item: null,
       };
     }
@@ -739,13 +784,24 @@ export async function updateItem(input: {
       unitId: input.unitId,
       costPrice: input.costPrice,
       salesPrice: input.salesPrice || null,
+      wholesalePrice: input.wholesalePrice || null,
+      discount: input.discount || null,
       trackInventory: input.trackInventory ?? false,
-      image: input.image || null,
+      images: input.images || [],
+      featuredImage: input.featuredImage || null,
+      sizes: input.sizes ? { set: input.sizes } : { set: [] },
+      colors: input.colors ? { set: input.colors } : { set: [] },
+      isEnableEcom: input.isEnableEcom ?? false,
     };
 
     if (input.status !== undefined) {
       updateData.status = input.status;
     }
+
+    // Debug logging
+    console.log("Updating Item ID:", input.id);
+    console.log("Input Sizes:", input.sizes);
+    console.log("Input Colors:", input.colors);
 
     // Update item
     const item = await prisma.item.update({
@@ -761,8 +817,13 @@ export async function updateItem(input: {
         unitId: true,
         costPrice: true,
         salesPrice: true,
+        wholesalePrice: true,
+        discount: true,
         trackInventory: true,
-        image: true,
+        images: true,
+        sizes: true,
+        colors: true,
+        isEnableEcom: true,
         status: true,
         createdAt: true,
         updatedAt: true,
@@ -792,7 +853,9 @@ export async function updateItem(input: {
     if (Number(input.costPrice) !== Number(existingItem.costPrice)) changes.push("costPrice");
     if ((input.salesPrice || null) !== (existingItem.salesPrice || null)) changes.push("salesPrice");
     if ((input.trackInventory ?? false) !== existingItem.trackInventory) changes.push("trackInventory");
-    if (input.image !== existingItem.image) changes.push("image");
+    if (JSON.stringify(input.images || []) !== JSON.stringify(existingItem.images || [])) changes.push("images");
+    if (JSON.stringify(input.sizes || []) !== JSON.stringify(existingItem.sizes || [])) changes.push("sizes");
+    if (JSON.stringify(input.colors || []) !== JSON.stringify(existingItem.colors || [])) changes.push("colors");
     if (input.status !== undefined && input.status !== existingItem.status) changes.push("status");
 
     await logItemUpdated(

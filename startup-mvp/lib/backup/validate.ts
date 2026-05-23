@@ -239,25 +239,9 @@ export async function quickValidate(zipPath: string): Promise<boolean> {
  */
 export async function isCorrupted(zipPath: string): Promise<boolean> {
   try {
-    // Try to open the ZIP
     const zip = new AdmZip(zipPath);
     const entries = zip.getEntries();
-
-    // If we can't get entries, it's corrupted
-    if (!entries) {
-      return true;
-    }
-
-    // Try to read at least one entry
-    if (entries.length > 0) {
-      try {
-        zip.readAsText(entries[0]);
-      } catch {
-        return true;
-      }
-    }
-
-    return false;
+    return !entries || entries.length === 0;
   } catch {
     return true;
   }

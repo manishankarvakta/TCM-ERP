@@ -99,7 +99,7 @@ export default async function BOMDetailPage({ params }: BOMDetailPageProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Finished Good</CardTitle>
+              <CardTitle>Ready Product</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>

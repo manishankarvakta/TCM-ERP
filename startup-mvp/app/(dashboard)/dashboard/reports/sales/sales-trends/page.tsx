@@ -52,7 +52,7 @@ export default async function SalesTrendsPage({
   ]);
 
   const itemTypeOptions = [
-    { value: "FINISHED_GOOD", label: "Finished Good" },
+    { value: "READY_PRODUCT", label: "Ready Product" },
     { value: "RETAIL", label: "Retail" },
   ];
 

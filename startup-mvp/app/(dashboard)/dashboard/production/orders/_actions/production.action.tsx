@@ -1297,7 +1297,7 @@ export async function completeProductionOrder(id: string) {
                 lineNumber: 1,
                 debitAmount: totalRawMaterialCost,
                 creditAmount: 0,
-                description: `Finished Goods Inventory - ${order.code}`,
+                description: `Ready Products Inventory - ${order.code}`,
                 chartOfAccountId: productionAccounts.completionFinishedGoodsInventoryId,
               },
               {
@@ -1340,7 +1340,7 @@ export async function completeProductionOrder(id: string) {
             throw new Error(`Failed to create accounting voucher: ${voucherResult.error}`);
           }
         } else {
-          throw new Error("Missing control accounts for production completion (WIP or Finished Goods Inventory)");
+          throw new Error("Missing control accounts for production completion (WIP or Ready Products Inventory)");
         }
       } else {
         // Update order status if no cost to move

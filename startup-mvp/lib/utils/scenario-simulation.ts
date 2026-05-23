@@ -66,14 +66,14 @@ async function getStockQty(itemName: string): Promise<number> {
  */
 async function auditState(step: string) {
   const rmInv = await getBalance("Raw Material Inventory");
-  const fgInv = await getBalance("Finished Goods Inventory");
+  const fgInv = await getBalance("Ready Products Inventory");
   const wip = await getBalance("Work In Progress");
   const ap = await getBalance("Accounts Payable");
   const ar = await getBalance("Accounts Receivable");
   const cash = await getBalance("Cash on Hand");
   
-  const rmQty = await getStockQty("Basmati Rice");
-  const fgQty = await getStockQty("Chicken Biryani");
+  const rmQty = await getStockQty("Cotton Single Jersey Fabric");
+  const fgQty = await getStockQty("Basic Crew Neck T-shirt");
 
   console.log(`\n--- Step: ${step} ---`);
   console.log(`GL Balances: RM: ${rmInv}, FG: ${fgInv}, WIP: ${wip}, AP: ${ap}, AR: ${ar}, Cash: ${cash}`);
@@ -90,8 +90,8 @@ export async function runScenario() {
   const supplier = await prisma.supplier.findFirst();
   const client = await prisma.client.findFirst();
   const warehouse = await prisma.warehouse.findFirst();
-  const rmItem = await prisma.item.findFirst({ where: { name: { contains: "Basmati Rice" } } });
-  const fgItem = await prisma.item.findFirst({ where: { name: { contains: "Chicken Biryani (Full)" } } });
+  const rmItem = await prisma.item.findFirst({ where: { name: { contains: "Cotton Single Jersey Fabric" } } });
+  const fgItem = await prisma.item.findFirst({ where: { name: { contains: "Basic Crew Neck T-shirt" } } });
   const bom = await prisma.bOM.findFirst({ where: { itemId: fgItem?.id } });
 
   if (!supplier || !client || !warehouse || !rmItem || !fgItem || !bom) {
@@ -109,10 +109,10 @@ export async function runScenario() {
     status: PurchaseStatus.RECEIVED,
     items: [{
       itemId: rmItem.id,
-      description: "Basmati Rice",
+      description: "Cotton Single Jersey Fabric",
       quantity: 100,
-      unitPrice: 120,
-      amount: 12000
+      unitPrice: 450,
+      amount: 45000
     }]
   });
   if (!purchaseResult.success) throw new Error(purchaseResult.error);
@@ -170,10 +170,10 @@ export async function runScenario() {
     status: SaleStatus.COMPLETED,
     items: [{
       itemId: fgItem.id,
-      description: "Chicken Biryani (Full)",
+      description: "Basic Crew Neck T-shirt",
       quantity: 5,
-      unitPrice: 320,
-      amount: 1600
+      unitPrice: 350,
+      amount: 1750
     }]
   });
   // Note: completeSale might need to be called manually if createSale doesn't auto-complete

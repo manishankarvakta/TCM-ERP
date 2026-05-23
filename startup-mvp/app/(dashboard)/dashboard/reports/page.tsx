@@ -89,6 +89,33 @@ export default function ReportsPage() {
         },
       ],
     },
+    {
+      title: "HR & Payroll Reports",
+      description: "Attendance, salary sheets, and employee analytics",
+      icon: FiUsers,
+      reports: [
+        {
+          title: "Attendance Summary",
+          description: "Daily and monthly attendance tracking",
+          href: "/dashboard/reports/hr/attendance",
+        },
+        {
+          title: "Payroll Summary",
+          description: "Salary sheets and disbursement overview",
+          href: "/dashboard/reports/hr/payroll",
+        },
+        {
+          title: "Employee Joining Report",
+          description: "Detailed list of new hires and staff movements",
+          href: "/dashboard/reports/hr/employee-joining",
+        },
+        {
+          title: "Leave Balance Report",
+          description: "Current leave availability and usage history",
+          href: "/dashboard/reports/hr/leave-balance",
+        },
+      ],
+    },
   ];
 
   return (

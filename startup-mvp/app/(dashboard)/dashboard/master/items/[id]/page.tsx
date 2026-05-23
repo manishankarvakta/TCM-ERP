@@ -22,7 +22,9 @@ import {
   FiXCircle,
   FiImage,
   FiLayers,
-  FiBox
+  FiBox,
+  FiShoppingCart,
+  FiMaximize2
 } from "react-icons/fi";
 import { hasPermission } from "@/lib/permissions";
 import { auth } from "@/lib/auth";
@@ -41,7 +43,7 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
     redirect("/dashboard/master/items");
   }
 
-  const item = result.item;
+  const item = result.item as any; // Cast to any to handle new fields in TS until generate finishes
   const stockResult = await getItemStock(id);
   const stock = stockResult.success ? stockResult.stock : null;
   
@@ -52,7 +54,7 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
   const getItemTypeBadge = (type: string) => {
     const variants: Record<string, { label: string; variant: "default" | "secondary" | "outline" }> = {
       RAW_MATERIAL: { label: "Raw Material", variant: "secondary" },
-      FINISHED_GOOD: { label: "Finished Good", variant: "default" },
+      READY_PRODUCT: { label: "Ready Product", variant: "default" },
       RETAIL: { label: "Retail", variant: "outline" },
     };
     const config = variants[type] || { label: type, variant: "default" as const };
@@ -60,7 +62,7 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
   };
 
   const formatPrice = (price: any) => {
-    if (!price) return "-";
+    if (price === null || price === undefined) return "-";
     return `৳${Number(price).toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
@@ -162,6 +164,24 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
                     </p>
                   </div>
 
+                  {item.sizes && item.sizes.length > 0 && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Available Sizes</label>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {item.sizes.map((s: string) => <Badge key={s} variant="outline">{s}</Badge>)}
+                      </div>
+                    </div>
+                  )}
+
+                  {item.colors && item.colors.length > 0 && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Available Colors</label>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {item.colors.map((c: string) => <Badge key={c} variant="outline" className="bg-muted/50">{c}</Badge>)}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Unit</label>
                     <p className="text-sm">
@@ -172,88 +192,9 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
                       </span>
                     </p>
                   </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Inventory Tracking</label>
-                    <div className="mt-1">
-                      {item.trackInventory ? (
-                        <Badge variant="default" className="gap-1">
-                          <FiCheckCircle className="h-3 w-3" />
-                          Enabled
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="gap-1">
-                          <FiXCircle className="h-3 w-3" />
-                          Disabled
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
                 </div>
               </CardContent>
             </Card>
-
-            {/* Stock Information Card */}
-            {item.trackInventory && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <FiBox className="h-5 w-5 text-muted-foreground" />
-                    <CardTitle>Stock Information</CardTitle>
-                  </div>
-                  <CardDescription>Current inventory levels and valuation</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {stock && stock.message ? (
-                    <div className="text-sm text-muted-foreground p-4 bg-muted rounded-lg">
-                      {stock.message}
-                    </div>
-                  ) : stock && stock.quantity !== null ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Stock</label>
-                        <div className="flex items-baseline gap-2">
-                          <p className="text-2xl font-bold text-foreground">
-                            {Number(stock.quantity).toLocaleString("en-BD", { 
-                              minimumFractionDigits: 2, 
-                              maximumFractionDigits: 2 
-                            })}
-                          </p>
-                          <span className="text-sm text-muted-foreground">{item.unit.symbol}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">Available quantity</p>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Average Cost</label>
-                        <p className="text-lg font-bold text-foreground">{formatPrice(stock.averageCost)}</p>
-                        <p className="text-xs text-muted-foreground">Per unit cost</p>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Value</label>
-                        <p className="text-lg font-bold text-primary">{formatPrice(stock.totalValue)}</p>
-                        <p className="text-xs text-muted-foreground">Stock valuation</p>
-                      </div>
-
-                      {stock.lastUpdated && (
-                        <div className="space-y-1 md:col-span-3">
-                          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Last Purchase</label>
-                          <div className="flex items-center gap-2">
-                            <FiClock className="h-3 w-3 text-muted-foreground" />
-                            <p className="text-sm">{format(new Date(stock.lastUpdated), "PPp")}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground p-4 bg-muted rounded-lg">
-                      No stock data available. Stock will be calculated from purchase transactions.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
 
             {/* Pricing Card */}
             <Card>
@@ -262,24 +203,38 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
                   <FiDollarSign className="h-5 w-5 text-muted-foreground" />
                   <CardTitle>Pricing Information</CardTitle>
                 </div>
-                <CardDescription>Cost and sales pricing details</CardDescription>
+                <CardDescription>Cost, wholesale, and sales pricing</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Cost Price</label>
                     <p className="text-lg font-bold text-foreground">{formatPrice(item.costPrice)}</p>
-                    <p className="text-xs text-muted-foreground">Purchase/cost price per unit</p>
+                    <p className="text-xs text-muted-foreground">Purchase/production cost</p>
                   </div>
 
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sales Price</label>
                     <p className="text-lg font-bold text-primary">{formatPrice(item.salesPrice)}</p>
-                    <p className="text-xs text-muted-foreground">Selling price per unit</p>
+                    <p className="text-xs text-muted-foreground">Retail selling price</p>
                   </div>
 
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Wholesale Price</label>
+                    <p className="text-lg font-bold text-blue-600">{formatPrice(item.wholesalePrice)}</p>
+                    <p className="text-xs text-muted-foreground">Bulk purchase price</p>
+                  </div>
+
+                  {item.discount && Number(item.discount) > 0 && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Discount</label>
+                      <p className="text-lg font-bold text-destructive">{formatPrice(item.discount)}</p>
+                      <p className="text-xs text-muted-foreground">Active discount amount</p>
+                    </div>
+                  )}
+
                   {profitMargin !== null && (
-                    <div className="space-y-1 md:col-span-2">
+                    <div className="space-y-1 lg:col-span-2">
                       <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Profit Margin</label>
                       <div className="flex items-center gap-2">
                         <p className="text-lg font-bold text-green-600">{profitMargin}%</p>
@@ -294,122 +249,137 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
               </CardContent>
             </Card>
 
-            {/* Image Section */}
-            {item.image && (
+            {/* Photos Section */}
+            {item.images && item.images.length > 0 && (
               <Card>
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <FiImage className="h-5 w-5 text-muted-foreground" />
-                    <CardTitle>Item Image</CardTitle>
+                    <CardTitle>Item Photos</CardTitle>
+                  </div>
+                  <CardDescription>Product images and gallery</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {item.images.map((img: string, i: number) => (
+                      <div key={i} className="relative aspect-square rounded-lg overflow-hidden border group">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={img} alt={`Item ${i}`} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <a href={img} target="_blank" rel="noreferrer" className="text-white p-2 rounded-full bg-primary/80">
+                            <FiMaximize2 className="h-4 w-4" />
+                          </a>
+                        </div>
+                        {item.featuredImage === img && (
+                          <div className="absolute top-2 left-2 px-2 py-0.5 bg-primary text-[10px] text-white rounded font-bold shadow-md">
+                            FEATURED
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Stock Information Card */}
+            {item.trackInventory && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <FiBox className="h-5 w-5 text-muted-foreground" />
+                    <CardTitle>Stock Information</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="relative w-full max-w-md aspect-video rounded-lg overflow-hidden border bg-muted">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <a
-                    href={item.image}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm text-primary hover:underline mt-3"
-                  >
-                    <FiImage className="h-3 w-3" />
-                    View full image
-                  </a>
+                  {stock && stock.message ? (
+                    <div className="text-sm text-muted-foreground p-4 bg-muted rounded-lg">{stock.message}</div>
+                  ) : stock && stock.quantity !== null ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Stock</label>
+                        <div className="flex items-baseline gap-2">
+                          <p className="text-2xl font-bold">{Number(stock.quantity).toLocaleString()}</p>
+                          <span className="text-sm text-muted-foreground">{item.unit.symbol}</span>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Average Cost</label>
+                        <p className="text-lg font-bold">{formatPrice(stock.averageCost)}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Value</label>
+                        <p className="text-lg font-bold text-primary">{formatPrice(stock.totalValue)}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground p-4 bg-muted rounded-lg">No stock data available.</div>
+                  )}
                 </CardContent>
               </Card>
             )}
           </div>
 
-          {/* Right Column - Sidebar (1 column) */}
+          {/* Right Column - Sidebar */}
           <div className="space-y-6">
-            {/* Status Card */}
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <FiCheckCircle className="h-5 w-5 text-muted-foreground" />
-                  <CardTitle>Status</CardTitle>
+                  <CardTitle>Status & E-com</CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Status</label>
                   <div>
-                    {item.status === "trash" ? (
-                      <Badge variant="destructive" className="gap-1">
-                        <FiXCircle className="h-3 w-3" />
-                        Trash
-                      </Badge>
-                    ) : item.status === "inactive" ? (
-                      <Badge variant="secondary" className="gap-1">
-                        <FiXCircle className="h-3 w-3" />
-                        Inactive
-                      </Badge>
+                    {item.status === "active" ? (
+                      <Badge variant="default" className="gap-1"><FiCheckCircle className="h-3 w-3" /> Active</Badge>
                     ) : (
-                      <Badge variant="default" className="gap-1">
-                        <FiCheckCircle className="h-3 w-3" />
-                        Active
-                      </Badge>
+                      <Badge variant="secondary" className="gap-1"><FiXCircle className="h-3 w-3" /> {item.status}</Badge>
                     )}
                   </div>
                 </div>
                 <Separator />
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Inventory Tracking</label>
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">E-commerce Visibility</label>
                   <div>
-                    {item.trackInventory ? (
-                      <Badge variant="default" className="gap-1">
-                        <FiCheckCircle className="h-3 w-3" />
-                        Tracked
+                    {item.isEnableEcom ? (
+                      <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700 text-white border-0">
+                        <FiShoppingCart className="h-3 w-3" /> Enabled
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="gap-1">
-                        <FiXCircle className="h-3 w-3" />
-                        Not Tracked
-                      </Badge>
+                      <Badge variant="secondary" className="gap-1"><FiXCircle className="h-3 w-3" /> Disabled</Badge>
                     )}
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Metadata Card */}
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <FiClock className="h-5 w-5 text-muted-foreground" />
                   <CardTitle>Metadata</CardTitle>
                 </div>
-                <CardDescription>Creation and update information</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Created By</label>
                   <div className="flex items-center gap-2">
                     <FiUser className="h-3 w-3 text-muted-foreground" />
-                    <p className="text-sm">{item.creator.name || item.creator.email}</p>
+                    <p className="text-sm">{item.creator?.name || item.creator?.email}</p>
                   </div>
                 </div>
                 <Separator />
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Created At</label>
-                  <div className="flex items-center gap-2">
-                    <FiClock className="h-3 w-3 text-muted-foreground" />
-                    <p className="text-sm">{format(new Date(item.createdAt), "PPp")}</p>
-                  </div>
+                  <p className="text-sm">{format(new Date(item.createdAt), "PPp")}</p>
                 </div>
                 <Separator />
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Last Updated</label>
-                  <div className="flex items-center gap-2">
-                    <FiClock className="h-3 w-3 text-muted-foreground" />
-                    <p className="text-sm">{format(new Date(item.updatedAt), "PPp")}</p>
-                  </div>
+                  <p className="text-sm">{format(new Date(item.updatedAt), "PPp")}</p>
                 </div>
               </CardContent>
             </Card>

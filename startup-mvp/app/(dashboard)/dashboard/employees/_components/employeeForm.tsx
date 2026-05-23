@@ -16,9 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FiAlertCircle } from "react-icons/fi";
+import { FiAlertCircle, FiUser, FiMapPin, FiPhone, FiBriefcase, FiDollarSign, FiCalendar, FiCreditCard, FiUpload } from "react-icons/fi";
 import { createEmployee, updateEmployee } from "../_actions/employee.action";
+import { getWarehouses } from "../../master/warehouses/_actions/warehouse.action";
+import { getShifts } from "../../hr/shifts/_actions/shift.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
+import { useEffect } from "react";
+import MediaSelector from "@/components/MediaSelector";
 import { useToast } from "@/hooks/use-toast";
 
 const employeeFormSchema = z.object({
@@ -26,6 +30,28 @@ const employeeFormSchema = z.object({
   email: z.union([z.string().email("Invalid email address"), z.literal("")]).optional(),
   phone: z.string().optional().or(z.literal("")),
   status: z.enum(["active", "inactive"]),
+  designation: z.string().optional().or(z.literal("")),
+  department: z.string().optional().or(z.literal("")),
+  salary: z.coerce.number().optional().or(z.literal(0)),
+  joiningDate: z.string().optional().or(z.literal("")),
+  gender: z.string().optional().or(z.literal("")),
+  dateOfBirth: z.string().optional().or(z.literal("")),
+  nationalId: z.string().optional().or(z.literal("")),
+  address: z.object({
+    country: z.string().optional().or(z.literal("")),
+    state: z.string().optional().or(z.literal("")),
+    city: z.string().optional().or(z.literal("")),
+    street: z.string().optional().or(z.literal("")),
+    zipCode: z.string().optional().or(z.literal("")),
+  }).optional(),
+  emergencyContact: z.object({
+    name: z.string().optional().or(z.literal("")),
+    relation: z.string().optional().or(z.literal("")),
+    phone: z.string().optional().or(z.literal("")),
+  }).optional(),
+  warehouseId: z.string().optional().or(z.literal("")),
+  photo: z.string().optional().or(z.literal("")),
+  shiftId: z.string().optional().or(z.literal("")),
 });
 
 type EmployeeFormData = z.infer<typeof employeeFormSchema>;
@@ -45,6 +71,18 @@ interface EmployeeFormProps {
       email: string;
     } | null;
     status: string;
+    designation: string | null;
+    department: string | null;
+    salary: any;
+    joiningDate: Date | null;
+    gender: string | null;
+    dateOfBirth: Date | null;
+    nationalId: string | null;
+    address: any;
+    emergencyContact: any;
+    warehouseId: string | null;
+    photo: string | null;
+    shiftId: string | null;
     salaryPayableAccount: {
       id: string;
       code: string;
@@ -83,14 +121,76 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           email: initialData.email || "",
           phone: initialData.phone || "",
           status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
+          designation: initialData.designation || "",
+          department: initialData.department || "",
+          salary: initialData.salary ? Number(initialData.salary) : 0,
+          joiningDate: initialData.joiningDate ? new Date(initialData.joiningDate).toISOString().split("T")[0] : "",
+          gender: initialData.gender || "",
+          dateOfBirth: initialData.dateOfBirth ? new Date(initialData.dateOfBirth).toISOString().split("T")[0] : "",
+          nationalId: initialData.nationalId || "",
+          address: initialData.address || {
+            country: "",
+            state: "",
+            city: "",
+            street: "",
+            zipCode: "",
+          },
+          emergencyContact: initialData.emergencyContact || {
+            name: "",
+            relation: "",
+            phone: "",
+          },
+          warehouseId: initialData.warehouseId || "",
+          photo: initialData.photo || "",
+          shiftId: initialData.shiftId || "",
         }
       : {
           name: "",
           email: "",
           phone: "",
           status: "active",
+          designation: "",
+          department: "",
+          salary: 0,
+          joiningDate: "",
+          gender: "",
+          dateOfBirth: "",
+          nationalId: "",
+          address: {
+            country: "",
+            state: "",
+            city: "",
+            street: "",
+            zipCode: "",
+          },
+          emergencyContact: {
+            name: "",
+            relation: "",
+            phone: "",
+          },
+          warehouseId: "",
+          photo: "",
+          shiftId: "",
         },
   });
+
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [shifts, setShifts] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function fetchData() {
+      const warehouseResult = await getWarehouses(1, 100);
+      if (warehouseResult.success) {
+        setWarehouses(warehouseResult.warehouses);
+      }
+      
+      const shiftResult = await getShifts(1, 100, "", "active");
+      if (shiftResult.success) {
+        setShifts(shiftResult.shifts);
+      }
+    }
+    fetchData();
+  }, []);
 
 
   const onSubmit = async (data: EmployeeFormData) => {
@@ -100,10 +200,9 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
 
       if (mode === "create") {
         const result = await createEmployee({
-          name: data.name,
-          email: data.email || undefined,
-          phone: data.phone || undefined,
-          status: data.status,
+          ...data,
+          joiningDate: data.joiningDate ? new Date(data.joiningDate) : undefined,
+          dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
         });
 
         if (!result.success || !result.employee) {
@@ -119,11 +218,10 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
         router.push(`${basePath}/employees`);
       } else if (mode === "edit" && initialData) {
         const result = await updateEmployee({
+          ...data,
           id: initialData.id,
-          name: data.name,
-          email: data.email || undefined,
-          phone: data.phone || undefined,
-          status: data.status,
+          joiningDate: data.joiningDate ? new Date(data.joiningDate) : undefined,
+          dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
         });
 
         if (!result.success) {
@@ -161,15 +259,15 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           </CardTitle>
           <CardDescription>
             {mode === "create"
-              ? "Enter employee details to create a new employee"
-              : "Update employee information. Accounting-linked fields cannot be edited directly."}
+              ? "Fill in the details to onboard a new employee"
+              : "Review and update employee professional and personal information"}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)}>
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              {/* Left Column - Form Fields (3 parts) */}
-              <div className="lg:col-span-3 space-y-4">
+            <div className="space-y-6">
+              {/* Form Fields */}
+              <div className="space-y-6">
                 {error && (
                   <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive border border-destructive/20">
                     <FiAlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
@@ -177,142 +275,340 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                   </div>
                 )}
 
-                {/* Read-only Accounting Fields */}
-                {mode === "edit" && initialData && (
-                  <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
-                    <h3 className="text-sm font-medium text-muted-foreground">Accounting Information (Read-only)</h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Employee Code</Label>
-                        <div className="text-sm font-medium">
-                          {initialData.employeeCode || "-"}
+                {/* Personal Information */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b pb-2">
+                    <FiUser className="text-primary" />
+                    <h3 className="font-semibold">Personal Information</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-[7fr_3fr] gap-8">
+                    {/* Left Side - 70% Input Fields */}
+                    <div className="space-y-4">
+                      {/* Row 1: Name and Phone */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="name">Full Name *</Label>
+                          <Input
+                            id="name"
+                            type="text"
+                            placeholder="John Doe"
+                            {...register("name")}
+                            disabled={loading}
+                          />
+                          {errors.name && (
+                            <p className="text-sm text-destructive">{errors.name.message}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="phone">Phone</Label>
+                          <Input
+                            id="phone"
+                            type="tel"
+                            placeholder="+1 234 567 8900"
+                            {...register("phone")}
+                            disabled={loading}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Row 2: Email and National ID */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="email">Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="john@example.com"
+                            {...register("email")}
+                            disabled={loading}
+                          />
+                          {errors.email && (
+                            <p className="text-sm text-destructive">{errors.email.message}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="nationalId">National ID / Passport</Label>
+                          <div className="relative">
+                            <FiCreditCard className="absolute left-3 top-3 text-muted-foreground" />
+                            <Input
+                              id="nationalId"
+                              className="pl-10"
+                              placeholder="1234567890"
+                              {...register("nationalId")}
+                              disabled={loading}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Row 3: Gender and Date of Birth */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="gender">Gender</Label>
+                          <Select
+                            defaultValue={watch("gender") || ""}
+                            onValueChange={(value) => setValue("gender", value)}
+                            disabled={loading}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select gender" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Male">Male</SelectItem>
+                              <SelectItem value="Female">Female</SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                          <Input
+                            id="dateOfBirth"
+                            type="date"
+                            {...register("dateOfBirth")}
+                            disabled={loading}
+                          />
                         </div>
                       </div>
                     </div>
 
-                    {initialData.salaryPayableAccount && (
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Salary Payable Account</Label>
-                        <div className="text-sm font-medium">
-                          {initialData.salaryPayableAccount.code} - {initialData.salaryPayableAccount.name}
-                        </div>
+                    {/* Right Side - 30% Image Upload */}
+                    <div className="space-y-2">
+                      <Label htmlFor="photo">Employee Photo</Label>
+                      <div className="rounded-lg border bg-muted/30 p-4 h-full flex flex-col justify-center">
+                        <MediaSelector
+                          label=""
+                          value={watch("photo") || ""}
+                          onChange={(url) => setValue("photo", url || "")}
+                          allowedTypes={["image/*"]}
+                          previewStyle="square"
+                        />
+                        <p className="text-[10px] text-muted-foreground text-center mt-2 uppercase tracking-tighter">
+                          Upload professional portrait
+                        </p>
                       </div>
-                    )}
-
-                    {initialData.advanceAccount && (
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Advance Account</Label>
-                        <div className="text-sm font-medium">
-                          {initialData.advanceAccount.code} - {initialData.advanceAccount.name}
-                        </div>
-                      </div>
-                    )}
-
-                    <p className="text-xs text-muted-foreground mt-2">
-                      These fields are managed automatically and cannot be edited directly.
-                    </p>
-                  </div>
-                )}
-
-                {/* Editable Fields */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Name *</Label>
-                    <Input
-                      id="name"
-                      type="text"
-                      placeholder="John Doe"
-                      {...register("name")}
-                      disabled={loading}
-                    />
-                    {errors.name && (
-                      <p className="text-sm text-destructive">{errors.name.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="john@example.com"
-                      {...register("email")}
-                      disabled={loading}
-                    />
-                    {errors.email && (
-                      <p className="text-sm text-destructive">{errors.email.message}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="+1 234 567 8900"
-                      {...register("phone")}
-                      disabled={loading}
-                    />
-                    {errors.phone && (
-                      <p className="text-sm text-destructive">{errors.phone.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="status">Status</Label>
-                    <Select
-                      defaultValue={initialData?.status === "trash" ? "active" : initialData?.status || "active"}
-                      onValueChange={(value) => setValue("status", value as "active" | "inactive")}
-                      disabled={loading}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {errors.status && (
-                      <p className="text-sm text-destructive">{errors.status.message}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column - Info (1 part) */}
-              <div className="lg:col-span-1">
-                <div className="space-y-2">
-                  <Label>Employee Information</Label>
-                  <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Status:</span>{" "}
-                      <span className="font-medium capitalize">
-                        {watch("status") || initialData?.status || "active"}
-                      </span>
                     </div>
-                    {mode === "edit" && initialData && (
-                      <>
-                        <div>
-                          <span className="text-muted-foreground">Created:</span>{" "}
-                          <span className="font-medium">
-                            {new Date(initialData.createdAt || new Date()).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Last Updated:</span>{" "}
-                          <span className="font-medium">
-                            {new Date(initialData.updatedAt || new Date()).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </>
-                    )}
+                  </div>
+                </div>
+
+                {/* Job Information */}
+                <div className="space-y-4 pt-4">
+                  <div className="flex items-center gap-2 border-b pb-2">
+                    <FiBriefcase className="text-primary" />
+                    <h3 className="font-semibold">Job Information</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="designation">Designation</Label>
+                      <Input
+                        id="designation"
+                        placeholder="Software Engineer"
+                        {...register("designation")}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="department">Department</Label>
+                      <Input
+                        id="department"
+                        placeholder="IT"
+                        {...register("department")}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="salary">Monthly Salary</Label>
+                      <div className="relative">
+                        <FiDollarSign className="absolute left-3 top-3 text-muted-foreground" />
+                        <Input
+                          id="salary"
+                          type="number"
+                          className="pl-10"
+                          placeholder="45000"
+                          {...register("salary")}
+                          disabled={loading}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="joiningDate">Joining Date</Label>
+                      <div className="relative">
+                        <FiCalendar className="absolute left-3 top-3 text-muted-foreground" />
+                        <Input
+                          id="joiningDate"
+                          type="date"
+                          className="pl-10"
+                          {...register("joiningDate")}
+                          disabled={loading}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="warehouseId">Assigned Warehouse</Label>
+                      <Select
+                        defaultValue={watch("warehouseId") || ""}
+                        onValueChange={(value) => setValue("warehouseId", value)}
+                        disabled={loading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select warehouse" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {warehouses.map((w) => (
+                            <SelectItem key={w.id} value={w.id}>
+                              {w.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="status">Employment Status</Label>
+                      <Select
+                        defaultValue={watch("status") || "active"}
+                        onValueChange={(value) => setValue("status", value as "active" | "inactive")}
+                        disabled={loading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="shiftId">Assigned Shift</Label>
+                      <Select
+                        defaultValue={watch("shiftId") || ""}
+                        onValueChange={(value) => setValue("shiftId", value)}
+                        disabled={loading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select shift" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {shifts.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.name} ({s.startTime} - {s.endTime})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Address Information */}
+                <div className="space-y-4 pt-4">
+                  <div className="flex items-center gap-2 border-b pb-2">
+                    <FiMapPin className="text-primary" />
+                    <h3 className="font-semibold">Address Information</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="address.street">Street Address</Label>
+                      <Input
+                        id="address.street"
+                        placeholder="Mirpur DOHS"
+                        {...register("address.street")}
+                        disabled={loading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="address.city">City</Label>
+                      <Input
+                        id="address.city"
+                        placeholder="Dhaka"
+                        {...register("address.city")}
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="address.state">State / Province</Label>
+                      <Input
+                        id="address.state"
+                        placeholder="Dhaka"
+                        {...register("address.state")}
+                        disabled={loading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="address.zipCode">Zip Code</Label>
+                      <Input
+                        id="address.zipCode"
+                        placeholder="1216"
+                        {...register("address.zipCode")}
+                        disabled={loading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="address.country">Country</Label>
+                      <Input
+                        id="address.country"
+                        placeholder="Bangladesh"
+                        {...register("address.country")}
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Emergency Contact */}
+                <div className="space-y-4 pt-4">
+                  <div className="flex items-center gap-2 border-b pb-2">
+                    <FiPhone className="text-primary" />
+                    <h3 className="font-semibold">Emergency Contact</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="emergencyContact.name">Contact Name</Label>
+                      <Input
+                        id="emergencyContact.name"
+                        placeholder="Abdul Karim"
+                        {...register("emergencyContact.name")}
+                        disabled={loading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="emergencyContact.relation">Relation</Label>
+                      <Input
+                        id="emergencyContact.relation"
+                        placeholder="Father"
+                        {...register("emergencyContact.relation")}
+                        disabled={loading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="emergencyContact.phone">Contact Phone</Label>
+                      <Input
+                        id="emergencyContact.phone"
+                        placeholder="01811223344"
+                        {...register("emergencyContact.phone")}
+                        disabled={loading}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
+
             </div>
 
             <div className="flex justify-end gap-4 mt-6">

@@ -15,9 +15,9 @@ Navigate to **Settings > Accounting > Purchase**.
 
 ### Production Settings
 Navigate to **Settings > Accounting > Production**.
-*Required if you purchase Raw Materials or Finished Goods directly.*
+*Required if you purchase Raw Materials or Ready Products directly.*
 - **Raw Material Inventory**: Asset account for RM (e.g., "Inventory Asset - Raw Material").
-- **Finished Goods Inventory**: Asset account for FG (e.g., "Inventory Asset - Finished Goods").
+- **Ready Products Inventory**: Asset account for FG (e.g., "Inventory Asset - Ready Products").
 
 ### Inventory Adjustment Settings
 Navigate to **Settings > Accounting > Inventory Adjustment**.
@@ -73,5 +73,5 @@ Damaged or missing goods.
 - **Fix**: Go to **Contacts > Suppliers**, edit the supplier, and select a Ledger. OR Go to **Settings > Accounting** and set a default Payable account.
 
 **Error: "Production accounting settings are not configured"**
-- **Cause**: You are buying items marked as "Raw Material" or "Finished Good" but haven't mapped the specific inventory accounts.
+- **Cause**: You are buying items marked as "Raw Material" or "Ready Product" but haven't mapped the specific inventory accounts.
 - **Fix**: Go to **Settings > Accounting > Production** and map the accounts.

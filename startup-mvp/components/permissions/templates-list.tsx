@@ -74,7 +74,7 @@ export default function PermissionTemplatesList({
         <CardContent className="flex flex-col items-center justify-center py-12">
           <p className="text-muted-foreground mb-4">No templates found</p>
           <Button asChild>
-            <Link href="/admin/settings/permissions/templates/new">
+            <Link href="/dashboard/settings/permissions/templates/new">
               <FiPlus className="mr-2 h-4 w-4" />
               Create First Template
             </Link>
@@ -112,7 +112,7 @@ export default function PermissionTemplatesList({
                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link href={`/admin/settings/permissions/templates/${template.id}/edit`}>
+                      <Link href={`/dashboard/settings/permissions/templates/${template.id}/edit`}>
                         <FiEdit className="mr-2 h-4 w-4" />
                         Edit
                       </Link>

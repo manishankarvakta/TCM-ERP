@@ -551,7 +551,7 @@ export default function SaleForm({
       <Card>
         <CardHeader>
           <CardTitle>Items</CardTitle>
-          <CardDescription>Add items to this sale (Finished Goods and Retail only)</CardDescription>
+          <CardDescription>Add items to this sale (Ready Products and Retail only)</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
@@ -738,7 +738,7 @@ export default function SaleForm({
                         <div className="flex items-center justify-end gap-1">
                           <Input
                             type="number"
-                            step="0.01"
+                            step="1"
                             className="text-right w-24 text-center"
                             {...register(`items.${index}.quantity`, { 
                               valueAsNumber: true,
@@ -765,7 +765,7 @@ export default function SaleForm({
                       <td className="px-3 py-2 align-top text-right">
                         <Input
                           type="number"
-                          step="0.01"
+                          step="1"
                           className="text-right"
                           {...register(`items.${index}.unitPrice`, { 
                             valueAsNumber: true,
@@ -786,7 +786,7 @@ export default function SaleForm({
                       <td className="px-3 py-2 align-top text-right">
                         <Input
                           type="number"
-                          step="0.01"
+                          step="1"
                           className="text-right"
                           value={currentItem.amount || 0}
                           disabled
@@ -832,7 +832,7 @@ export default function SaleForm({
               <Input
                 id="discount"
                 type="number"
-                step="0.01"
+                step="1"
                 {...register("discount", { valueAsNumber: true })}
                 disabled={loading}
               />
@@ -843,7 +843,7 @@ export default function SaleForm({
                 <Input
                   id="tax"
                   type="number"
-                  step="0.01"
+                  step="1"
                   {...register("tax", { 
                     valueAsNumber: true,
                     onChange: (e) => {

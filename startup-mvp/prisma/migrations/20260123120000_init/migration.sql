@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "ItemType" AS ENUM ('RAW_MATERIAL', 'FINISHED_GOOD', 'RETAIL');
+CREATE TYPE "ItemType" AS ENUM ('RAW_MATERIAL', 'READY_PRODUCT', 'RETAIL');
 
 -- AlterTable: Add new columns to Item (nullable first, will be backfilled)
 ALTER TABLE "Item" 

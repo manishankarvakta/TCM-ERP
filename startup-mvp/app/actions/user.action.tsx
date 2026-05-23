@@ -358,7 +358,8 @@ export async function getUsers(
           role: true,
           image: true,
         status: true,
-          inchargeId: true,
+        isActive: true,
+        inchargeId: true,
           incharge: {
             select: {
               id: true,
@@ -471,7 +472,7 @@ export async function deleteUser(userId: string) {
     await logUserDeleted(userId, session.user.id, userToDelete.email || undefined);
 
     // Revalidate users page for both admin and dashboard
-    nextRevalidatePath("/admin/users");
+    nextRevalidatePath("/dashboard/users");
 
     return {
       success: true,
@@ -591,6 +592,14 @@ export async function getUserById(userId: string) {
         },
         createdAt: true,
         updatedAt: true,
+        defaultWarehouseId: true,
+        defaultWarehouse: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
         _count: {
           select: {
             userLogs: true,
@@ -687,6 +696,8 @@ export async function createUser(input: {
   role: "user" | "admin";
   image?: string;
   inchargeId?: string;
+  defaultWarehouseId?: string;
+  status?: "active" | "inactive";
 }) {
   try {
     const session = await auth();
@@ -734,6 +745,9 @@ export async function createUser(input: {
         role: input.role,
         image: input.image || null,
         inchargeId: input.inchargeId || null,
+        defaultWarehouseId: input.defaultWarehouseId || null,
+        status: input.status || "active",
+        isActive: input.isActive || "enabled",
       },
       select: {
         id: true,
@@ -741,6 +755,8 @@ export async function createUser(input: {
         email: true,
         role: true,
         image: true,
+        status: true,
+        isActive: true,
         createdAt: true,
       },
     });
@@ -749,7 +765,7 @@ export async function createUser(input: {
     await logUserCreated(user.id, session.user.id, user.email);
 
     // Revalidate users page for both admin and dashboard
-    nextRevalidatePath("/admin/users");
+    nextRevalidatePath("/dashboard/users");
 
     return {
       success: true,
@@ -776,6 +792,8 @@ export async function updateUser(input: {
   role: "user" | "admin";
   image?: string;
   inchargeId?: string;
+  defaultWarehouseId?: string;
+  status?: "active" | "inactive";
 }) {
   try {
     const session = await auth();
@@ -835,12 +853,23 @@ export async function updateUser(input: {
       image?: string | null;
       password?: string;
       inchargeId?: string | null;
+      defaultWarehouseId?: string | null;
     } = {
       name: input.name,
       email: input.email,
       role: input.role,
       image: input.image || null,
     };
+
+    // Handle defaultWarehouseId
+    if (input.defaultWarehouseId !== undefined) {
+      updateData.defaultWarehouseId = input.defaultWarehouseId && input.defaultWarehouseId.length > 0 ? input.defaultWarehouseId : null;
+    }
+
+    // Handle status
+    if (input.status !== undefined) {
+      updateData.status = input.status;
+    }
 
     // Handle inchargeId (can be undefined, null, or empty string)
     if (input.inchargeId !== undefined) {
@@ -862,6 +891,8 @@ export async function updateUser(input: {
         email: true,
         role: true,
         image: true,
+        status: true,
+        isActive: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -910,8 +941,8 @@ export async function updateUser(input: {
     }
 
     // Revalidate users page for both admin and dashboard
-    nextRevalidatePath("/admin/users");
-    nextRevalidatePath(`/admin/users/${user.id}`);
+    nextRevalidatePath("/dashboard/users");
+    nextRevalidatePath(`/dashboard/users/${user.id}`);
 
     return {
       success: true,
@@ -979,7 +1010,7 @@ export async function bulkUpdateUserStatus(
     });
 
     // Revalidate users page for both admin and dashboard
-    nextRevalidatePath("/admin/users");
+    nextRevalidatePath("/dashboard/users");
 
     return {
       success: true,
@@ -1040,7 +1071,7 @@ export async function deleteUsersPermanently(userIds: string[]) {
     });
 
     // Revalidate users page for both admin and dashboard
-    nextRevalidatePath("/admin/users");
+    nextRevalidatePath("/dashboard/users");
     
     return {
       success: true,
@@ -1057,4 +1088,59 @@ export async function deleteUsersPermanently(userIds: string[]) {
 /**
  * Export getUserLogs from user-log for convenience
  */
+/**
+ * Toggle user active status (Enable/Disable login)
+ */
+export async function toggleUserActiveStatus(userId: string) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+      };
+    }
+
+    // Only admins can toggle status
+    const userRole = session.user.role?.toLowerCase();
+    if (userRole !== "admin") {
+      return {
+        success: false,
+        error: "Forbidden: Admin access required",
+      };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isActive: true },
+    });
+
+    if (!user) {
+      return {
+        success: false,
+        error: "User not found",
+      };
+    }
+
+    const nextStatus = user.isActive === "enabled" ? "disabled" : "enabled";
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { isActive: nextStatus },
+    });
+
+    return {
+      success: true,
+      isActive: nextStatus,
+    };
+  } catch (error) {
+    console.error("toggleUserActiveStatus error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to toggle status",
+    };
+  }
+}
+
 export { getUserLogs };

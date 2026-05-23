@@ -31,6 +31,12 @@ import {
   isEncryptedBackup as checkIsEncryptedBackup,
   type BackupEncryptionMetadata,
 } from "./backup-metadata";
+import { createMetadata } from "./backup/metadata";
+import { METADATA_FILENAME, FILES_DIRECTORY_NAME } from "./backup/config";
+import { 
+  type BackupMetadata as UnifiedMetadata,
+  type BackupType as UnifiedBackupType 
+} from "@/types/backup";
 
 /**
  * Backup types
@@ -285,30 +291,57 @@ export async function createDatabaseBackup(operationId?: string): Promise<string
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer
     });
 
-    updateProgress(opId, { stage: "Database backup completed" });
+    updateProgress(opId, { stage: "Database backup completed, creating ZIP archive..." });
 
-    // Verify backup file was created
-    try {
-      await fs.access(filePath);
-    } catch (error) {
-      failProgress(opId, "Backup file was not created");
-      throw new Error(`Backup file was not created: ${filePath}`);
-    }
+    // Create a ZIP with metadata
+    const zip = new JSZip();
+    const dbDumpContent = await fs.readFile(filePath);
+    zip.file("database.dump", dbDumpContent);
+
+    // Create unified metadata
+    const backupId = filename.replace(".dump", "");
+    const unifiedMetadata = createMetadata({
+      id: backupId,
+      type: "database",
+      size: dbDumpContent.length,
+      encrypted: isEncryptionEnabled(),
+      database: {
+        size: dbDumpContent.length,
+        format: 'custom',
+        tables: [], // We don't have table list here easily
+      }
+    });
+
+    zip.file(METADATA_FILENAME, JSON.stringify(unifiedMetadata, null, 2));
+
+    // Generate ZIP buffer
+    const zipBuffer = await zip.generateAsync({
+      type: "nodebuffer",
+      compression: "DEFLATE",
+      compressionOptions: { level: 6 },
+    });
+
+    // Update filename to .zip
+    const zipFilename = filename.replace(".dump", ".zip");
+    const zipPath = filePath.replace(".dump", ".zip");
+
+    // Write ZIP file
+    await fs.writeFile(zipPath, zipBuffer);
+
+    // Clean up temporary dump file
+    await fs.unlink(filePath);
 
     // Encrypt backup if encryption is enabled
-    let finalPath = filePath;
+    let finalPath = zipPath;
     if (isEncryptionEnabled()) {
       try {
         updateProgress(opId, { stage: "Encrypting backup..." });
         
-        // Read the backup file
-        const backupBuffer = await fs.readFile(filePath);
-        
-        // Encrypt the backup
-        const encryptionResult = await encryptBackupFile(backupBuffer);
+        // Encrypt the final ZIP buffer (which includes metadata)
+        const encryptionResult = await encryptBackupFile(finalZipBuffer);
         
         // Create encrypted file path
-        const encryptedPath = getEncryptedBackupPath(filePath);
+        const encryptedPath = getEncryptedBackupPath(zipPath);
         
         // Write encrypted data (IV, salt, auth tag will be stored in metadata)
         // Format: encrypted data + auth tag (for easier handling)
@@ -320,7 +353,7 @@ export async function createDatabaseBackup(operationId?: string): Promise<string
         
         // Save encryption metadata
         const metadata: BackupEncryptionMetadata = {
-          filename,
+          filename: zipFilename,
           type: "database",
           encrypted: true,
           encryptionVersion: 1,
@@ -335,8 +368,8 @@ export async function createDatabaseBackup(operationId?: string): Promise<string
         };
         await saveBackupMetadata(metadata);
         
-        // Delete original unencrypted file (security: only keep encrypted version)
-        await fs.unlink(filePath);
+        // Delete original unencrypted file
+        await fs.unlink(zipPath);
         
         finalPath = encryptedPath;
         updateProgress(opId, { stage: "Backup encrypted successfully" });
@@ -393,6 +426,7 @@ export async function createFilesBackup(): Promise<string> {
 
   // Add each file to ZIP
   let fileCount = 0;
+  let allFilesSize = 0;
   for (const objectKey of allObjects) {
     // Skip folder markers (empty objects ending with /)
     if (objectKey.endsWith("/")) {
@@ -405,6 +439,7 @@ export async function createFilesBackup(): Promise<string> {
       // Add file to ZIP preserving folder structure
       zip.file(objectKey, fileBuffer);
       fileCount++;
+      allFilesSize += fileBuffer.length;
     } catch (error) {
       console.error(`Error adding file ${objectKey} to backup:`, error);
       // Continue with other files
@@ -418,15 +453,36 @@ export async function createFilesBackup(): Promise<string> {
     compressionOptions: { level: 6 },
   });
 
+  // Create unified metadata and add to ZIP
+  const backupId = filename.replace(".zip", "");
+  const unifiedMetadata = createMetadata({
+    id: backupId,
+    type: "files",
+    size: zipBuffer.length,
+    encrypted: isEncryptionEnabled(),
+    files: {
+      count: fileCount,
+      totalSize: allFilesSize,
+    }
+  });
+
+  // Re-zip with metadata
+  zip.file(METADATA_FILENAME, JSON.stringify(unifiedMetadata, null, 2));
+  const finalZipBuffer = await zip.generateAsync({
+    type: "nodebuffer",
+    compression: "DEFLATE",
+    compressionOptions: { level: 6 },
+  });
+
   // Write to file
-  await fs.writeFile(filePath, zipBuffer);
+  await fs.writeFile(filePath, finalZipBuffer);
 
   // Encrypt backup if encryption is enabled
   let finalPath = filePath;
   if (isEncryptionEnabled()) {
     try {
       // Encrypt the backup
-      const encryptionResult = await encryptBackupFile(zipBuffer);
+      const encryptionResult = await encryptBackupFile(finalZipBuffer);
       
       // Create encrypted file path
       const encryptedPath = getEncryptedBackupPath(filePath);
@@ -478,19 +534,78 @@ export async function createFullBackup(): Promise<string> {
 
   const zip = new JSZip();
 
-  // Create database backup
+  // Add database backup
   console.log("Creating database backup...");
-  const dbBackupPath = await createDatabaseBackup();
-  const dbBackupContent = await fs.readFile(dbBackupPath);
+  // We need the raw .dump file for the full backup, but createDatabaseBackup now creates a .zip
+  // So we'll run the dump logic locally here or extract it
+  const dbConfig = parseDatabaseUrl();
+  const tempDumpPath = path.join(getBackupTypeDir("database"), `temp_${filename}.dump`);
+  const pgDumpCommand = [
+    "pg_dump",
+    `--host=${dbConfig.host}`,
+    `--port=${dbConfig.port}`,
+    `--username=${dbConfig.user}`,
+    `--dbname=${dbConfig.database}`,
+    "--format=custom",
+    "--no-owner",
+    "--no-acl",
+    "--file", tempDumpPath,
+  ];
+  const env = { ...process.env, PGPASSWORD: dbConfig.password };
+  const { execFile } = await import("child_process");
+  const { promisify } = await import("util");
+  const execFileAsync = promisify(execFile);
+  await execFileAsync("pg_dump", pgDumpCommand.slice(1), { env });
+  
+  const dbBackupContent = await fs.readFile(tempDumpPath);
   zip.file("database.dump", dbBackupContent);
+  await fs.unlink(tempDumpPath);
 
-  // Create files backup
-  console.log("Creating files backup...");
-  const filesBackupPath = await createFilesBackup();
-  const filesBackupContent = await fs.readFile(filesBackupPath);
-  zip.file("files.zip", filesBackupContent);
+  // Add files from local storage under files/ directory
+  console.log("Adding files to full backup...");
+  const allFiles = await storage.listFiles("");
+  let fileCount = 0;
+  let allFilesSize = 0;
+  for (const objectKey of allFiles) {
+    if (objectKey.endsWith("/")) continue;
+    try {
+      const fileBuffer = await storage.readFile(objectKey);
+      zip.file(path.join(FILES_DIRECTORY_NAME, objectKey), fileBuffer);
+      fileCount++;
+      allFilesSize += fileBuffer.length;
+    } catch (error) {
+      console.error(`Error adding file ${objectKey} to full backup:`, error);
+    }
+  }
 
-  // Generate ZIP file
+  // Generate initial ZIP buffer to get size
+  const initialZipBuffer = await zip.generateAsync({
+    type: "nodebuffer",
+    compression: "DEFLATE",
+    compressionOptions: { level: 6 },
+  });
+
+  // Create unified metadata and add to ZIP
+  const backupId = filename.replace(".zip", "");
+  const unifiedMetadata = createMetadata({
+    id: backupId,
+    type: "full",
+    size: initialZipBuffer.length,
+    encrypted: isEncryptionEnabled(),
+    database: {
+      size: dbBackupContent.length,
+      format: 'custom',
+      tables: [],
+    },
+    files: {
+      count: fileCount,
+      totalSize: allFilesSize,
+    }
+  });
+
+  zip.file(METADATA_FILENAME, JSON.stringify(unifiedMetadata, null, 2));
+
+  // Generate final ZIP file
   const zipBuffer = await zip.generateAsync({
     type: "nodebuffer",
     compression: "DEFLATE",

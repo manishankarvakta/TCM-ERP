@@ -233,7 +233,7 @@ export default function BOMForm({
                 <Label htmlFor="name">BOM Name *</Label>
                 <Input
                   id="name"
-                  placeholder="e.g., Chicken Biryani Recipe"
+                  placeholder="e.g., Classic White T-shirt Recipe"
                   {...register("name")}
                   disabled={loading}
                 />
@@ -243,7 +243,7 @@ export default function BOMForm({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="itemId">Finished Good *</Label>
+                <Label htmlFor="itemId">Ready Product *</Label>
                 <Controller
                   name="itemId"
                   control={control}
@@ -276,7 +276,7 @@ export default function BOMForm({
                 <Input
                   id="quantityPerUnit"
                   type="number"
-                  step="0.01"
+                  step="1"
                   placeholder="e.g., 10"
                   {...register("quantityPerUnit", { valueAsNumber: true })}
                   disabled={loading}
@@ -399,7 +399,7 @@ export default function BOMForm({
                           <div className="flex items-center gap-2">
                             <Input
                               type="number"
-                              step="0.01"
+                              step="1"
                               placeholder="0.00"
                               {...register(`items.${index}.quantityRequired`, {
                                 valueAsNumber: true,

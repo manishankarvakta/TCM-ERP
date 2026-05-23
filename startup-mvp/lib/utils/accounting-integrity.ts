@@ -147,7 +147,7 @@ export async function checkInventoryIntegrity(): Promise<IntegrityResult> {
   // 2. Calculate GL Inventory Balances
   const inventoryAccounts = [
     "Raw Material Inventory",
-    "Finished Goods Inventory",
+    "Ready Products Inventory",
     "Retail Inventory",
     "Inventory Stock"
   ];

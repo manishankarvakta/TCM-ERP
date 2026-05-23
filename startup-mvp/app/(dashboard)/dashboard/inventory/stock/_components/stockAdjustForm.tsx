@@ -289,7 +289,7 @@ export default function StockAdjustForm() {
                 <Input
                   id="quantity"
                   type="number"
-                  step="0.01"
+                  step="1"
                   placeholder="e.g., 10 (increase) or -5 (decrease)"
                   {...register("quantity", { valueAsNumber: true })}
                   disabled={loading || loadingStock}

@@ -47,63 +47,63 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { href: "/admin", label: "Dashboard", icon: FiHome },
+  { href: "/dashboard", label: "Dashboard", icon: FiHome },
   {
     label: "Items",
     icon: FiArchive,
     subMenu: [
-      { href: "/admin/items/groups", label: "Groups", icon: FiLayers },
-      { href: "/admin/items", label: "All Items", icon: FiPackage },
-      { href: "/admin/items/category", label: "Categories", icon: MdOutlineCategory },
-      { href: "/admin/items/units", label: "Units", icon: FiLayers },
+      { href: "/dashboard/items/groups", label: "Groups", icon: FiLayers },
+      { href: "/dashboard/items", label: "All Items", icon: FiPackage },
+      { href: "/dashboard/items/category", label: "Categories", icon: MdOutlineCategory },
+      { href: "/dashboard/items/units", label: "Units", icon: FiLayers },
     ],
   },
   {
     label: "Quotations",
     icon: FiFileText,
     subMenu: [
-      { href: "/admin/quotations", label: "Quotations", icon: FiFileText },
-      { href: "/admin/quotations/invoices", label: "Invoices", icon: FiDollarSign },
-      { href: "/admin/quotations/orders", label: "Orders", icon: FiShoppingCart },
-      { href: "/admin/work-orders", label: "Work Orders", icon: FiBriefcase },
+      { href: "/dashboard/quotations", label: "Quotations", icon: FiFileText },
+      { href: "/dashboard/quotations/invoices", label: "Invoices", icon: FiDollarSign },
+      { href: "/dashboard/quotations/orders", label: "Orders", icon: FiShoppingCart },
+      { href: "/dashboard/work-orders", label: "Work Orders", icon: FiBriefcase },
     ],
   },
-  { href: "/admin/purchases", label: "Purchases", icon: FiShoppingCart },
+  { href: "/dashboard/purchases", label: "Purchases", icon: FiShoppingCart },
   {
     label: "Accounts",
     icon: SlCalculator,
     subMenu: [
-      { href: "/admin/accounts/chart-of-accounts", label: "Chart of Accounts", icon: FiBarChart },
-      { href: "/admin/accounts/ledgers", label: "Ledgers", icon: FiBook },
-      { href: "/admin/accounts/vouchers", label: "Vouchers", icon: FiFile },
-      { href: "/admin/accounts/trial-balance", label: "Trial Balance", icon: FiActivity },
-      { href: "/admin/accounts/balance-sheet", label: "Balance Sheet", icon: FiFileText },
-      { href: "/admin/accounts/profit-loss", label: "Profit & Loss", icon: FiTrendingUp },
-      { href: "/admin/accounts/cash-bank", label: "Cash & Bank", icon: FiCreditCard },
-      { href: "/admin/accounts/accounts-receivable", label: "Accounts Receivable", icon: FiArrowDownRight },
-      { href: "/admin/accounts/accounts-payable", label: "Accounts Payable", icon: FiArrowUpRight },
+      { href: "/dashboard/accounts/chart-of-accounts", label: "Chart of Accounts", icon: FiBarChart },
+      { href: "/dashboard/accounts/ledgers", label: "Ledgers", icon: FiBook },
+      { href: "/dashboard/accounts/vouchers", label: "Vouchers", icon: FiFile },
+      { href: "/dashboard/accounts/trial-balance", label: "Trial Balance", icon: FiActivity },
+      { href: "/dashboard/accounts/balance-sheet", label: "Balance Sheet", icon: FiFileText },
+      { href: "/dashboard/accounts/profit-loss", label: "Profit & Loss", icon: FiTrendingUp },
+      { href: "/dashboard/accounts/cash-bank", label: "Cash & Bank", icon: FiCreditCard },
+      { href: "/dashboard/accounts/accounts-receivable", label: "Accounts Receivable", icon: FiArrowDownRight },
+      { href: "/dashboard/accounts/accounts-payable", label: "Accounts Payable", icon: FiArrowUpRight },
     ],
   },
   {
     label: "Peoples",
     icon: FiUsers,
     subMenu: [
-      { href: "/admin/users", label: "Users", icon: FiUser },
-      { href: "/admin/clients", label: "Clients", icon: FiUser },
-      { href: "/admin/suppliers", label: "Suppliers", icon: FiUser },
-      { href: "/admin/employees", label: "Employees", icon: FiUser },
+      { href: "/dashboard/users", label: "Users", icon: FiUser },
+      { href: "/dashboard/clients", label: "Clients", icon: FiUser },
+      { href: "/dashboard/suppliers", label: "Suppliers", icon: FiUser },
+      { href: "/dashboard/employees", label: "Employees", icon: FiUser },
     ],
   },
   
-  { href: "/admin/files", label: "Files", icon: FiFolder },
-  { href: "/admin/notifications", label: "Notifications", icon: FiBell },
-  { href: "/admin/analytics", label: "Analytics", icon: FiBarChart },
-  { href: "/admin/reports", label: "Reports", icon: FiFileText },
+  { href: "/dashboard/files", label: "Files", icon: FiFolder },
+  { href: "/dashboard/notifications", label: "Notifications", icon: FiBell },
+  { href: "/dashboard/analytics", label: "Analytics", icon: FiBarChart },
+  { href: "/dashboard/reports", label: "Reports", icon: FiFileText },
 ];
 
 const bottomMenuItems = [
-  { href: "/admin/profile", label: "Profile", icon: FiUser },
-  { href: "/admin/settings", label: "Settings", icon: FiSettings },
+  { href: "/dashboard/profile", label: "Profile", icon: FiUser },
+  { href: "/dashboard/settings", label: "Settings", icon: FiSettings },
 ];
 
 export default function AdminSidebar() {
@@ -191,7 +191,7 @@ export default function AdminSidebar() {
                       {item.subMenu.map((subItem) => {
                         const SubIcon = subItem.icon;
                         // Only exact match for sub-menu items to avoid false positives
-                        // e.g., /admin/items should not be active when on /admin/items/units
+                        // e.g., /dashboard/items should not be active when on /dashboard/items/units
                         const isActive = pathname === subItem.href;
                         return (
                           <Link
@@ -220,7 +220,7 @@ export default function AdminSidebar() {
             // For exact match or check if pathname starts with href
             // Special handling for /admin to only match exactly
             const isActive = pathname === item.href || 
-              (item.href !== "/admin" && pathname?.startsWith(item.href + "/"));
+              (item.href !== "/dashboard" && pathname?.startsWith(item.href + "/"));
             return (
               <Link
                 key={item.href}

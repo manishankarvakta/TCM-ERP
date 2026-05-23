@@ -36,7 +36,7 @@ async function testPhase1_PreCheck() {
   // 1.1 Verify Chart of Accounts
   const requiredAccounts = [
     { code: "1620", name: "Raw Material Inventory" },
-    { code: "1630", name: "Finished Goods Inventory" },
+    { code: "1630", name: "Ready Products Inventory" },
     { code: "1640", name: "Retail Inventory" },
     { code: "1410", name: "Accounts Receivable" },
     { code: "2110", name: "Accounts Payable" },
@@ -170,7 +170,7 @@ async function testPhase2_PurchaseAccounting() {
 
           // Verify item-type based accounting
           const inventoryAccounts = lines.filter((line) =>
-            ["Raw Material Inventory", "Finished Goods Inventory", "Retail Inventory"].includes(line.ChartOfAccount.name)
+            ["Raw Material Inventory", "Ready Products Inventory", "Retail Inventory"].includes(line.ChartOfAccount.name)
           );
           const apAccount = lines.find((line) => line.ChartOfAccount.name.includes("Accounts Payable"));
 
@@ -250,11 +250,11 @@ async function testPhase3_ProductionAccounting() {
           }
 
           // Verify cost movement (FG Inventory Debit, Raw Material Inventory Credit)
-          const fgLine = lines.find((line) => line.ChartOfAccount.name.includes("Finished Goods Inventory"));
+          const fgLine = lines.find((line) => line.ChartOfAccount.name.includes("Ready Products Inventory"));
           const rmLine = lines.find((line) => line.ChartOfAccount.name.includes("Raw Material Inventory"));
 
           if (fgLine && rmLine && Math.abs(Number(fgLine.debitAmount) - Number(rmLine.creditAmount)) < 0.01) {
-            logResult("Phase 3", `Production ${production.code} Accounting`, true, "Cost correctly moved from Raw Material to Finished Goods Inventory");
+            logResult("Phase 3", `Production ${production.code} Accounting`, true, "Cost correctly moved from Raw Material to Ready Products Inventory");
           } else {
             logResult("Phase 3", `Production ${production.code} Accounting`, false, "Incorrect accounting entries");
           }
@@ -327,7 +327,7 @@ async function testPhase4_SalesAccounting() {
           const arLine = lines.find((line) => line.ChartOfAccount.name.includes("Accounts Receivable"));
           const salesLine = lines.find((line) => line.ChartOfAccount.name.includes("Sales Revenue"));
           const cogsLine = lines.find((line) => line.ChartOfAccount.name.includes("Cost of Goods Sold"));
-          const fgLine = lines.find((line) => line.ChartOfAccount.name.includes("Finished Goods Inventory"));
+          const fgLine = lines.find((line) => line.ChartOfAccount.name.includes("Ready Products Inventory"));
 
           if (arLine && salesLine) {
             logResult("Phase 4", `Sale ${sale.saleNumber} Accounting`, true, "AR and Sales Revenue entries found");

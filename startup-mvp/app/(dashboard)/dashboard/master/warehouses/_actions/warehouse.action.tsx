@@ -613,3 +613,47 @@ export async function bulkUpdateWarehouseStatus(
     };
   }
 }
+
+/**
+ * Get active warehouses for dropdown selection
+ */
+export async function getActiveWarehouses() {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        warehouses: [],
+      };
+    }
+
+    const warehouses = await prisma.warehouse.findMany({
+      where: {
+        status: "active",
+        isTrash: false,
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return {
+      success: true,
+      warehouses,
+    };
+  } catch (error) {
+    console.error("getActiveWarehouses error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch warehouses",
+      warehouses: [],
+    };
+  }
+}

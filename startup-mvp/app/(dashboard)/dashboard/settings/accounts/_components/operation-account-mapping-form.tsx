@@ -7,18 +7,12 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { FiAlertCircle, FiSave, FiInfo } from "react-icons/fi";
 import { getAccountingOperationSettingsAction, updateAccountingOperationSettings } from "../../_actions/accounting-settings.action";
 import { getChartOfAccounts } from "../../../accounts/chart-of-accounts/_actions/chart-of-accounts.action";
 import type { AccountingOperationSettings } from "@/types/accounting-settings";
 import { AccountType } from "@prisma/client";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const operationSettingsSchema = z.object({
   // Purchase
@@ -67,6 +61,7 @@ export default function OperationAccountMappingForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [isGlobal, setIsGlobal] = useState(false);
 
   const {
     control,
@@ -98,9 +93,10 @@ export default function OperationAccountMappingForm() {
 
         // Fetch existing settings
         const settingsResult = await getAccountingOperationSettingsAction();
-        if (settingsResult.success && settingsResult.settings) {
-          const s = settingsResult.settings;
-          reset({
+          if (settingsResult.success && settingsResult.settings) {
+            const s = settingsResult.settings;
+            setIsGlobal(settingsResult.isGlobal || false);
+            reset({
             purchaseInventoryAccountId: s.purchase.inventoryAccountId,
             salesRevenueAccountId: s.sales.revenueAccountId,
             salesCogsAccountId: s.sales.cogsAccountId,
@@ -130,7 +126,8 @@ export default function OperationAccountMappingForm() {
     };
 
     loadData();
-  }, [reset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -176,8 +173,8 @@ export default function OperationAccountMappingForm() {
           toAccountId: data.contraToAccountId || "",
         },
       };
-
-      const result = await updateAccountingOperationSettings(settings);
+      
+      const result = await updateAccountingOperationSettings(settings, isGlobal);
 
       if (!result.success) {
         throw new Error(result.error || "Failed to save settings");
@@ -192,73 +189,54 @@ export default function OperationAccountMappingForm() {
     }
   };
 
-  const DynamicLabel = ({ label, value }: { label: string; value: string }) => (
-    <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 py-2 border-b border-dashed border-muted-foreground/20">
-      <span className="text-sm font-medium">{label}</span>
-      <span className="md:col-span-2 text-sm text-muted-foreground italic flex items-center gap-2">
-        <FiInfo className="h-3 w-3" /> {value}
-      </span>
-    </div>
-  );
+  const onAutofill = () => {
+    const findAccount = (keywords: string[], type: AccountType) => {
+      return accounts.find(
+        (acc) =>
+          acc.type === type &&
+          keywords.some((kw) => acc.name.toLowerCase().includes(kw.toLowerCase()))
+      )?.id || "";
+    };
 
-  const AccountSelector = ({
-    name,
-    label,
-    types,
-    required = true,
-  }: {
-    name: keyof FormData;
-    label: string;
-    types: AccountType[];
-    required?: boolean;
-  }) => {
-    const filteredAccounts = accounts.filter((acc) => types.includes(acc.type));
-    const fieldError = errors[name];
-
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4">
-        <Label htmlFor={name} className="font-medium text-sm">
-          {label} {required && <span className="text-destructive">*</span>}
-        </Label>
-        <div className="md:col-span-2 space-y-1">
-          <Controller
-            name={name}
-            control={control}
-            render={({ field }) => (
-              <Select
-                value={field.value as string}
-                onValueChange={field.onChange}
-                disabled={loadingAccounts}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select account..." />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {filteredAccounts.map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.code} - {account.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-          {fieldError && (
-            <p className="text-xs text-destructive">{fieldError.message}</p>
-          )}
-        </div>
-      </div>
-    );
+    reset({
+      purchaseInventoryAccountId: findAccount(["Inventory", "Stock"], AccountType.ASSET),
+      salesRevenueAccountId: findAccount(["Revenue", "Sales Income", "Income"], AccountType.REVENUE),
+      salesCogsAccountId: findAccount(["COGS", "Cost of Goods Sold", "Cost of Sales"], AccountType.EXPENSE),
+      salesFinishedGoodsInventoryAccountId: findAccount(["Finished Goods", "Ready Product", "Inventory"], AccountType.ASSET),
+      productionConsumptionWipAccountId: findAccount(["WIP", "Work in Progress"], AccountType.ASSET),
+      productionConsumptionRawMaterialInventoryId: findAccount(["Raw Material", "Inventory"], AccountType.ASSET),
+      productionCompletionFinishedGoodsInventoryId: findAccount(["Finished Goods", "Ready Product", "Inventory"], AccountType.ASSET),
+      productionCompletionWipAccountId: findAccount(["WIP", "Work in Progress"], AccountType.ASSET),
+      inventoryAdjustmentPositiveFgId: findAccount(["Finished Goods", "Ready Product", "Inventory"], AccountType.ASSET),
+      inventoryAdjustmentPositiveRmId: findAccount(["Raw Material", "Inventory"], AccountType.ASSET),
+      inventoryAdjustmentPositiveGainId: findAccount(["Adjustment Gain", "Other Income"], AccountType.REVENUE),
+      inventoryAdjustmentNegativeFgId: findAccount(["Finished Goods", "Ready Product", "Inventory"], AccountType.ASSET),
+      inventoryAdjustmentNegativeRmId: findAccount(["Raw Material", "Inventory"], AccountType.ASSET),
+      inventoryAdjustmentNegativeExpenseId: findAccount(["Adjustment Expense", "Other Expense"], AccountType.EXPENSE),
+      paymentCashAccountId: findAccount(["Cash", "Bank", "Primary"], AccountType.ASSET),
+      receiptCashAccountId: findAccount(["Cash", "Bank", "Primary"], AccountType.ASSET),
+    });
+    setSuccess("Suggested accounts populated based on name matching!");
+    setTimeout(() => setSuccess(""), 3000);
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-2 rounded-lg bg-blue-50 p-4 text-sm text-blue-800 border border-blue-200">
         <FiInfo className="mt-0.5 h-4 w-4 flex-shrink-0" />
-        <div>
+        <div className="flex-1">
           <p className="font-medium">Information</p>
           <p className="mt-1">Define the default chart of accounts for automated bookkeeping. Star marked (*) fields are configurable.</p>
         </div>
+        <Button 
+          type="button" 
+          variant="outline" 
+          size="sm" 
+          onClick={onAutofill}
+          className="shrink-0 border-blue-300 text-blue-700 hover:bg-blue-100"
+        >
+          Auto-suggest Accounts
+        </Button>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 pb-10">
@@ -273,6 +251,10 @@ export default function OperationAccountMappingForm() {
               name="purchaseInventoryAccountId"
               label="DR - Inventory Account"
               types={[AccountType.ASSET]}
+              accounts={accounts}
+              loadingAccounts={loadingAccounts}
+              control={control}
+              errors={errors}
             />
             <DynamicLabel label="CR - Account Payable" value="Dynamic selected from Supplier Account" />
           </div>
@@ -291,6 +273,10 @@ export default function OperationAccountMappingForm() {
                 name="salesRevenueAccountId"
                 label="CR - Sales Revenue"
                 types={[AccountType.REVENUE]}
+                accounts={accounts}
+                loadingAccounts={loadingAccounts}
+                control={control}
+                errors={errors}
               />
               <DynamicLabel label="DR - Account Receivable" value="Dynamic selected from Client Account" />
             </div>
@@ -301,11 +287,19 @@ export default function OperationAccountMappingForm() {
                 name="salesCogsAccountId"
                 label="DR - Cost of Goods Sold"
                 types={[AccountType.EXPENSE]}
+                accounts={accounts}
+                loadingAccounts={loadingAccounts}
+                control={control}
+                errors={errors}
               />
               <AccountSelector
                 name="salesFinishedGoodsInventoryAccountId"
-                label="CR - Finished Goods Inventory"
+                label="CR - Ready Products Inventory"
                 types={[AccountType.ASSET]}
+                accounts={accounts}
+                loadingAccounts={loadingAccounts}
+                control={control}
+                errors={errors}
               />
             </div>
           </div>
@@ -324,11 +318,19 @@ export default function OperationAccountMappingForm() {
                 name="productionConsumptionWipAccountId"
                 label="DR - Work In Progress (WIP)"
                 types={[AccountType.ASSET]}
+                accounts={accounts}
+                loadingAccounts={loadingAccounts}
+                control={control}
+                errors={errors}
               />
               <AccountSelector
                 name="productionConsumptionRawMaterialInventoryId"
                 label="CR - Raw Material Inventory"
                 types={[AccountType.ASSET]}
+                accounts={accounts}
+                loadingAccounts={loadingAccounts}
+                control={control}
+                errors={errors}
               />
             </div>
 
@@ -336,13 +338,21 @@ export default function OperationAccountMappingForm() {
               <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-2">Production Completion</p>
               <AccountSelector
                 name="productionCompletionFinishedGoodsInventoryId"
-                label="DR - Finished Goods Inventory"
+                label="DR - Ready Products Inventory"
                 types={[AccountType.ASSET]}
+                accounts={accounts}
+                loadingAccounts={loadingAccounts}
+                control={control}
+                errors={errors}
               />
               <AccountSelector
                 name="productionCompletionWipAccountId"
                 label="CR - Work In Progress (WIP)"
                 types={[AccountType.ASSET]}
+                accounts={accounts}
+                loadingAccounts={loadingAccounts}
+                control={control}
+                errors={errors}
               />
             </div>
           </div>
@@ -360,18 +370,30 @@ export default function OperationAccountMappingForm() {
               <div className="space-y-4">
                 <AccountSelector
                   name="inventoryAdjustmentPositiveFgId"
-                  label="DR - Finished Goods"
+                  label="DR - Ready Products"
                   types={[AccountType.ASSET]}
+                  accounts={accounts}
+                  loadingAccounts={loadingAccounts}
+                  control={control}
+                  errors={errors}
                 />
                 <AccountSelector
                   name="inventoryAdjustmentPositiveRmId"
                   label="DR - Raw material"
                   types={[AccountType.ASSET]}
+                  accounts={accounts}
+                  loadingAccounts={loadingAccounts}
+                  control={control}
+                  errors={errors}
                 />
                 <AccountSelector
                   name="inventoryAdjustmentPositiveGainId"
                   label="CR - Adjustment Gain"
                   types={[AccountType.REVENUE, AccountType.EQUITY]}
+                  accounts={accounts}
+                  loadingAccounts={loadingAccounts}
+                  control={control}
+                  errors={errors}
                 />
               </div>
             </div>
@@ -381,25 +403,49 @@ export default function OperationAccountMappingForm() {
               <div className="space-y-4">
                 <AccountSelector
                   name="inventoryAdjustmentNegativeFgId"
-                  label="CR - Finished Goods"
+                  label="CR - Ready Products"
                   types={[AccountType.ASSET]}
+                  accounts={accounts}
+                  loadingAccounts={loadingAccounts}
+                  control={control}
+                  errors={errors}
                 />
                 <AccountSelector
                   name="inventoryAdjustmentNegativeRmId"
                   label="CR - Raw material"
                   types={[AccountType.ASSET]}
+                  accounts={accounts}
+                  loadingAccounts={loadingAccounts}
+                  control={control}
+                  errors={errors}
                 />
                 <AccountSelector
                   name="inventoryAdjustmentNegativeExpenseId"
                   label="DR - Adjustment Expense"
                   types={[AccountType.EXPENSE]}
+                  accounts={accounts}
+                  loadingAccounts={loadingAccounts}
+                  control={control}
+                  errors={errors}
                 />
               </div>
             </div>
           </div>
         </section>
 
-        <div className="pt-6 border-t flex justify-end">
+        <div className="pt-6 border-t flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="isGlobal"
+              checked={isGlobal}
+              onChange={(e) => setIsGlobal(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <Label htmlFor="isGlobal" className="text-sm cursor-pointer font-normal">
+              Apply these settings globally (for all users)
+            </Label>
+          </div>
           <Button type="submit" size="lg" className="w-full md:w-auto" disabled={loading}>
             <FiSave className="mr-2" /> Save Accounting Mappings
           </Button>
@@ -424,3 +470,71 @@ export default function OperationAccountMappingForm() {
     </div>
   );
 }
+
+// Helper components moved outside to prevent unmounting during re-renders
+const DynamicLabel = ({ label, value }: { label: string; value: string }) => (
+  <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 py-2 border-b border-dashed border-muted-foreground/20">
+    <span className="text-sm font-medium">{label}</span>
+    <span className="md:col-span-2 text-sm text-muted-foreground italic flex items-center gap-2">
+      <FiInfo className="h-3 w-3" /> {value}
+    </span>
+  </div>
+);
+
+interface AccountSelectorProps {
+  name: keyof FormData;
+  label: string;
+  types: AccountType[];
+  required?: boolean;
+  accounts: Account[];
+  loadingAccounts: boolean;
+  control: any;
+  errors: any;
+}
+
+const AccountSelector = ({
+  name,
+  label,
+  types,
+  required = true,
+  accounts,
+  loadingAccounts,
+  control,
+  errors,
+}: AccountSelectorProps) => {
+  const filteredOptions = accounts
+    .filter((acc) => types.includes(acc.type))
+    .map((acc) => ({
+      label: `${acc.code} - ${acc.name}`,
+      value: acc.id,
+      description: acc.type,
+    }));
+  const fieldError = errors[name];
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4">
+      <Label htmlFor={name} className="font-medium text-sm">
+        {label} {required && <span className="text-destructive">*</span>}
+      </Label>
+      <div className="md:col-span-2 space-y-1">
+        <Controller
+          name={name}
+          control={control}
+          render={({ field }) => (
+            <SearchableSelect
+              options={filteredOptions}
+              value={field.value as string}
+              onValueChange={field.onChange}
+              disabled={loadingAccounts}
+              placeholder="Select account..."
+              searchPlaceholder="Search accounts..."
+            />
+          )}
+        />
+        {fieldError && (
+          <p className="text-xs text-destructive">{fieldError.message}</p>
+        )}
+      </div>
+    </div>
+  );
+};

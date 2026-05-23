@@ -55,7 +55,7 @@ const result = await createSale({
   status: "DRAFT",
   items: [
     {
-      itemId: "item-id", // Must be FINISHED_GOOD or RETAIL
+      itemId: "item-id", // Must be READY_PRODUCT or RETAIL
       description: "Item description",
       quantity: 2,
       unitPrice: 100,

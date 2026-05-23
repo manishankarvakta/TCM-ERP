@@ -48,7 +48,7 @@ The Production module manages manufacturing and production processes, including 
 ## Key Concepts
 
 ### BOM Structure
-- **Finished Good**: The item being produced
+- **Ready Product**: The item being produced
 - **Quantity Per Unit**: How many finished goods are produced (e.g., 1.0 for full, 0.5 for half)
 - **Raw Materials**: Items needed to produce the finished good
 - **Quantity Required**: Amount of raw material needed per unit

@@ -694,7 +694,7 @@ export default function PurchaseForm({
                           <div className="flex items-center justify-end gap-1">
                             <Input
                               type="number"
-                              step="0.01"
+                              step="1"
                               className="text-center w-40"
                               {...register(`items.${index}.quantity`, {
                                 valueAsNumber: true,
@@ -712,7 +712,7 @@ export default function PurchaseForm({
                         <td className="px-3 py-2 align-top text-right">
                           <Input
                             type="number"
-                            step="0.01"
+                            step="1"
                             className="text-right"
                             {...register(`items.${index}.unitPrice`, {
                               valueAsNumber: true,
@@ -728,7 +728,7 @@ export default function PurchaseForm({
                         <td className="px-3 py-2 align-top text-right">
                           <Input
                             type="number"
-                            step="0.01"
+                            step="1"
                             className="text-right"
                             {...register(`items.${index}.amount`, { valueAsNumber: true })}
                             disabled
@@ -766,7 +766,7 @@ export default function PurchaseForm({
                 <Input
                   id="discount"
                   type="number"
-                  step="0.01"
+                  step="1"
                   {...register("discount", { valueAsNumber: true })}
                   disabled={loading}
                 />
@@ -776,7 +776,7 @@ export default function PurchaseForm({
                 <Input
                   id="tax"
                   type="number"
-                  step="0.01"
+                  step="1"
                   {...register("tax", { valueAsNumber: true })}
                   disabled={loading}
                 />

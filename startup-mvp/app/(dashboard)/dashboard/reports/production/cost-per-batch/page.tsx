@@ -39,7 +39,7 @@ export default async function CostPerBatchPage({
     prisma.item.findMany({
       where: {
         isTrash: false,
-        itemType: "FINISHED_GOOD",
+        itemType: "READY_PRODUCT",
       },
       select: { id: true, code: true, name: true },
       orderBy: { code: "asc" },

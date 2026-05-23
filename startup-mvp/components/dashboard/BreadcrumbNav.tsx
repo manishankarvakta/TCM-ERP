@@ -15,6 +15,8 @@ import { getCategoryById } from "@/app/(dashboard)/dashboard/master/categories/_
 import { getUnitById } from "@/app/(dashboard)/dashboard/master/units/_actions/unit.action";
 import { getVoucherById } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
 import { getAdjustment } from "@/app/(dashboard)/dashboard/inventory/adjustments/_actions/adjustment.action";
+import { getSaleById } from "@/app/(dashboard)/dashboard/sales/_actions/sale.action";
+import { getEmployeeById } from "@/app/(dashboard)/dashboard/employees/_actions/employee.action";
 
 // Map route paths to display names
 const routeMap: Record<string, string> = {
@@ -108,6 +110,8 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [unitSymbol, setUnitSymbol] = useState<string | null>(null);
   const [voucherNumber, setVoucherNumber] = useState<string | null>(null);
   const [adjustmentNumber, setAdjustmentNumber] = useState<string | null>(null);
+  const [saleNumber, setSaleNumber] = useState<string | null>(null);
+  const [employeeCode, setEmployeeCode] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
 
   // Check if we're on an inventory adjustment detail page
@@ -173,6 +177,18 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   // Check if we're on a voucher detail page
   const isVoucherDetailMatch = pathname.match(/^\/dashboard\/accounts\/vouchers\/([^\/]+)$/);
   const voucherId = isVoucherDetailMatch?.[1] || null;
+
+  // Check if we're on a sale detail, edit, or view page
+  const isSaleDetailMatch = pathname.match(/^\/dashboard\/sales\/([^\/]+)$/);
+  const isSaleEditMatch = pathname.match(/^\/dashboard\/sales\/([^\/]+)\/edit$/);
+  const isSaleViewMatch = pathname.match(/^\/dashboard\/sales\/([^\/]+)\/view$/);
+  const saleId = isSaleDetailMatch?.[1] || isSaleEditMatch?.[1] || isSaleViewMatch?.[1] || null;
+  
+  // Check if we're on an employee detail or edit page
+  const isEmployeeDetailMatch = pathname.match(/^\/dashboard\/employees\/([^\/]+)$/);
+  const isEmployeeEditMatch = pathname.match(/^\/dashboard\/employees\/([^\/]+)\/edit$/);
+  const isEmployeeDetailsPageMatch = pathname.match(/^\/dashboard\/employees\/details$/);
+  const employeeId = isEmployeeDetailMatch?.[1] || isEmployeeEditMatch?.[1] || (isEmployeeDetailsPageMatch ? searchParams.get("id") : null);
 
   // Fetch warehouse name when on warehouse detail/edit page
   useEffect(() => {
@@ -405,6 +421,46 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
       cancelled = true;
     };
   }, [voucherId]);
+
+  // Fetch sale number when on sale detail/edit/view page
+  useEffect(() => {
+    if (!saleId) return;
+    
+    let cancelled = false;
+    async function fetchSaleNumber() {
+      try {
+        const result = await getSaleById(saleId!);
+        if (!cancelled && result.success && result.sale) {
+          setSaleNumber(result.sale.saleNumber);
+        }
+      } catch (error) {
+        if (!cancelled) console.error("Error fetching sale number:", error);
+      }
+    }
+    fetchSaleNumber();
+    return () => { cancelled = true; };
+  }, [saleId]);
+
+  // Fetch employee code when on employee detail/edit page
+  useEffect(() => {
+    if (!employeeId || employeeId === "add" || employeeId === "details") {
+      return;
+    }
+    
+    let cancelled = false;
+    async function fetchEmployeeCode() {
+      try {
+        const result = await getEmployeeById(employeeId!);
+        if (!cancelled && result.success && result.employee) {
+          setEmployeeCode(result.employee.employeeCode);
+        }
+      } catch (error) {
+        if (!cancelled) console.error("Error fetching employee code:", error);
+      }
+    }
+    fetchEmployeeCode();
+    return () => { cancelled = true; };
+  }, [employeeId]);
 
   // If we're at the root dashboard, show just "Dashboard"
   if (pathname === "/dashboard" || items.length === 1) {
@@ -657,6 +713,40 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     } else {
       // Show loading state or default while fetching
       currentLabel = "Voucher Details";
+    }
+  }
+
+  // If we're on a sale detail, edit, or view page, use sale number instead of ID
+  if (isSaleDetailMatch || isSaleEditMatch || isSaleViewMatch) {
+    const salesItem = items.find(item => item.path === "/dashboard/sales");
+    if (salesItem) {
+      parentItem = salesItem;
+    } else {
+      parentItem = { path: "/dashboard/sales", label: "Sales" };
+    }
+    
+    if (saleNumber) {
+      currentLabel = isSaleEditMatch ? `Edit ${saleNumber}` : saleNumber;
+    } else {
+      currentLabel = isSaleEditMatch ? "Edit Sale" : "Sale Details";
+    }
+  }
+
+  // If we're on an employee detail or edit page, use employee code instead of ID
+  if (isEmployeeDetailMatch || isEmployeeEditMatch || isEmployeeDetailsPageMatch) {
+    const employeesItem = items.find(item => item.path === "/dashboard/employees");
+    if (employeesItem) {
+      parentItem = employeesItem;
+    } else {
+      parentItem = { path: "/dashboard/employees", label: "Employees" };
+    }
+    
+    if (employeeCode) {
+      currentLabel = isEmployeeEditMatch ? `Edit ${employeeCode}` : employeeCode;
+    } else if (isEmployeeDetailsPageMatch) {
+      currentLabel = employeeCode || "Employee Details";
+    } else {
+      currentLabel = isEmployeeEditMatch ? "Edit Employee" : "Employee Details";
     }
   }
 

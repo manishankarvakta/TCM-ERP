@@ -1073,15 +1073,17 @@ export async function restoreBackup(
         console.warn("Full backup does not contain database.dump");
       }
 
-      // Extract files.zip and restore files (time travel)
+      // Extract files and restore files (time travel)
       const filesZip = zip.file("files.zip");
-      if (filesZip) {
-              await updateProgress(opId, {
+      const filesFolder = zip.folder("files");
+      
+      if (filesZip || (filesFolder && Object.keys(zip.files).some(k => k.startsWith("files/")))) {
+        await updateProgress(opId, {
           stage: "Preparing files for time travel restore...",
           progress: 55,
         });
 
-        // Time travel: Delete all existing files from MinIO before restoring
+        // Time travel: Delete all existing files from local storage before restoring
         try {
           const allObjects = await storage.listFiles("");
           let deletedCount = 0;
@@ -1114,10 +1116,19 @@ export async function restoreBackup(
           progress: 60,
         });
         
-        const filesZipBuffer = await filesZip.async("nodebuffer");
-        const filesZipArchive = await JSZip.loadAsync(filesZipBuffer);
+        let fileEntries: [string, any][] = [];
+        
+        if (filesZip) {
+          const filesZipBuffer = await filesZip.async("nodebuffer");
+          const filesZipArchive = await JSZip.loadAsync(filesZipBuffer);
+          fileEntries = Object.entries(filesZipArchive.files).filter(([, file]) => !file.dir);
+        } else {
+          // New format: files are in the "files/" directory of the main ZIP
+          fileEntries = Object.entries(zip.files)
+            .filter(([path, file]) => path.startsWith("files/") && !file.dir)
+            .map(([path, file]) => [path.replace(/^files\//, ""), file]);
+        }
 
-        const fileEntries = Object.entries(filesZipArchive.files).filter(([, file]) => !file.dir);
         const totalFiles = fileEntries.length;
 
         await updateProgress(opId, { 

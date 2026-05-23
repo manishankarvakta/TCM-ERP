@@ -31,46 +31,7 @@ import {
 export async function getAccountingOperationSettings(): Promise<AccountingOperationSettings> {
   try {
     const session = await auth();
-    
-    // Default structure with empty strings (not undefined)
-    const defaultSettings: AccountingOperationSettings = {
-      purchase: {
-        inventoryAccountId: "",
-        payableAccountId: "",
-      },
-      sales: {
-        revenueAccountId: "",
-        receivableAccountId: "",
-        cogsAccountId: "",
-        finishedGoodsInventoryAccountId: "",
-      },
-      production: {
-        consumptionWipAccountId: "",
-        consumptionRawMaterialInventoryId: "",
-        completionFinishedGoodsInventoryId: "",
-        completionWipAccountId: "",
-      },
-      inventoryAdjustment: {
-        positiveFgInventoryId: "",
-        positiveRmInventoryId: "",
-        positiveAdjustmentGainId: "",
-        negativeFgInventoryId: "",
-        negativeRmInventoryId: "",
-        negativeAdjustmentExpenseId: "",
-      },
-      payment: {
-        cashAccountId: "",
-        payableAccountId: "",
-      },
-      receipt: {
-        cashAccountId: "",
-        receivableAccountId: "",
-      },
-      contra: {
-        fromAccountId: "",
-        toAccountId: "",
-      },
-    };
+    const defaultSettings = createDefaultSettings();
 
     if (!session?.user) {
       return defaultSettings;
@@ -120,47 +81,110 @@ export async function getAccountingOperationSettings(): Promise<AccountingOperat
 
     return defaultSettings;
   } catch (error) {
-    console.error("getAccountingOperationSettings error:", error);
-    // Return defaults on error
-    return {
-      purchase: {
-        inventoryAccountId: "",
-        payableAccountId: "",
-      },
-      sales: {
-        revenueAccountId: "",
-        receivableAccountId: "",
-        cogsAccountId: "",
-        finishedGoodsInventoryAccountId: "",
-      },
-      production: {
-        consumptionWipAccountId: "",
-        consumptionRawMaterialInventoryId: "",
-        completionFinishedGoodsInventoryId: "",
-        completionWipAccountId: "",
-      },
-      inventoryAdjustment: {
-        positiveFgInventoryId: "",
-        positiveRmInventoryId: "",
-        positiveAdjustmentGainId: "",
-        negativeFgInventoryId: "",
-        negativeRmInventoryId: "",
-        negativeAdjustmentExpenseId: "",
-      },
-      payment: {
-        cashAccountId: "",
-        payableAccountId: "",
-      },
-      receipt: {
-        cashAccountId: "",
-        receivableAccountId: "",
-      },
-      contra: {
-        fromAccountId: "",
-        toAccountId: "",
-      },
-    };
   }
+}
+
+/**
+ * Get accounting operation settings with metadata (isGlobal, etc.)
+ */
+export async function getAccountingOperationSettingsFull(): Promise<{ settings: AccountingOperationSettings; isGlobal: boolean } | null> {
+  try {
+    const session = await auth();
+    if (!session?.user) return null;
+
+    // Try user-specific settings first
+    const userSetting = await prisma.settings.findFirst({
+      where: {
+        code: ACCOUNTING_OPERATIONS_KEY,
+        userId: session.user.id,
+        isActive: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    if (userSetting && userSetting.settings) {
+      const defaultSettings = createDefaultSettings();
+      return {
+        settings: mergeWithDefaults(userSetting.settings as Partial<AccountingOperationSettings>, defaultSettings),
+        isGlobal: userSetting.isGlobal,
+      };
+    }
+
+    // Fallback to global settings
+    const globalSetting = await prisma.settings.findFirst({
+      where: {
+        code: ACCOUNTING_OPERATIONS_KEY,
+        userId: null,
+        isGlobal: true,
+        isActive: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    if (globalSetting && globalSetting.settings) {
+      const defaultSettings = createDefaultSettings();
+      return {
+        settings: mergeWithDefaults(globalSetting.settings as Partial<AccountingOperationSettings>, defaultSettings),
+        isGlobal: true,
+      };
+    }
+
+    return {
+      settings: createDefaultSettings(),
+      isGlobal: false,
+    };
+  } catch (error) {
+    console.error("getAccountingOperationSettingsFull error:", error);
+    return null;
+  }
+}
+
+/**
+ * Helper to create default settings structure
+ */
+function createDefaultSettings(): AccountingOperationSettings {
+  return {
+    purchase: {
+      inventoryAccountId: "",
+      payableAccountId: "",
+    },
+    sales: {
+      revenueAccountId: "",
+      receivableAccountId: "",
+      cogsAccountId: "",
+      finishedGoodsInventoryAccountId: "",
+    },
+    production: {
+      consumptionWipAccountId: "",
+      consumptionRawMaterialInventoryId: "",
+      completionFinishedGoodsInventoryId: "",
+      completionWipAccountId: "",
+    },
+    inventoryAdjustment: {
+      positiveFgInventoryId: "",
+      positiveRmInventoryId: "",
+      positiveAdjustmentGainId: "",
+      negativeFgInventoryId: "",
+      negativeRmInventoryId: "",
+      negativeAdjustmentExpenseId: "",
+    },
+    payment: {
+      cashAccountId: "",
+      payableAccountId: "",
+    },
+    receipt: {
+      cashAccountId: "",
+      receivableAccountId: "",
+    },
+    contra: {
+      fromAccountId: "",
+      toAccountId: "",
+    },
+  };
 }
 
 /**
@@ -402,7 +426,7 @@ export async function getSalesAccounts(): Promise<SalesAccounts> {
     }
   }
 
-  // Validate Finished Goods Inventory account (optional - only if configured)
+  // Validate Ready Products Inventory account (optional - only if configured)
   if (settings.sales.finishedGoodsInventoryAccountId) {
     const fgAccount = accountMap.get(settings.sales.finishedGoodsInventoryAccountId);
     if (!fgAccount) {
@@ -414,7 +438,7 @@ export async function getSalesAccounts(): Promise<SalesAccounts> {
         fgAccount.name,
         "ASSET" as any,
         fgAccount.type as any,
-        "Sales Finished Goods Inventory"
+        "Sales Ready Products Inventory"
       );
     }
   }

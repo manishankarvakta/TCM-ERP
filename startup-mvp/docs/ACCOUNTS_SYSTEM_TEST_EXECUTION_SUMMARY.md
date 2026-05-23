@@ -22,7 +22,7 @@ The accounts system integration has been **fully implemented** and is **ready fo
 
 **Verified Accounts**:
 - ✅ Raw Material Inventory (1620) - Active
-- ✅ Finished Goods Inventory (1630) - Active
+- ✅ Ready Products Inventory (1630) - Active
 - ✅ Retail Inventory (1640) - Active
 - ✅ Accounts Receivable (1410) - Active
 - ✅ Accounts Payable (2110) - Active
@@ -74,7 +74,7 @@ The accounts system integration has been **fully implemented** and is **ready fo
 2. Voucher auto-created with type PURCHASE
 3. Journal entries:
    - RAW_MATERIAL → Debit Raw Material Inventory, Credit AP
-   - FINISHED_GOOD → Debit Finished Goods Inventory, Credit AP
+   - READY_PRODUCT → Debit Ready Products Inventory, Credit AP
    - RETAIL → Debit Retail Inventory, Credit AP
 4. Voucher automatically posted
 5. Voucher linked to purchase
@@ -101,7 +101,7 @@ The accounts system integration has been **fully implemented** and is **ready fo
 1. Production order completed
 2. Voucher auto-created with type JOURNAL
 3. Journal entries:
-   - Debit: Finished Goods Inventory = raw material cost
+   - Debit: Ready Products Inventory = raw material cost
    - Credit: Raw Material Inventory = raw material cost
 4. Voucher automatically posted
 5. Voucher linked to production order
@@ -115,7 +115,7 @@ The accounts system integration has been **fully implemented** and is **ready fo
 **Implementation Verified**:
 - ✅ Accounting voucher creation in `completeSale()`
 - ✅ Creates AR, Sales Revenue entries
-- ✅ Creates COGS, FG Inventory entries (for FINISHED_GOOD items)
+- ✅ Creates COGS, FG Inventory entries (for READY_PRODUCT items)
 - ✅ Automatically posts voucher
 - ✅ Links voucher to sale
 
@@ -131,7 +131,7 @@ The accounts system integration has been **fully implemented** and is **ready fo
    - Debit: Accounts Receivable = grandTotal
    - Credit: Sales Revenue = grandTotal
    - Debit: COGS = quantity × costPrice (for FG items)
-   - Credit: Finished Goods Inventory = quantity × costPrice (for FG items)
+   - Credit: Ready Products Inventory = quantity × costPrice (for FG items)
 4. Voucher automatically posted
 5. Voucher linked to sale
 
@@ -206,7 +206,7 @@ The accounts system integration has been **fully implemented** and is **ready fo
 
 **Production Accounting**:
 - Function: Integrated in `completeProductionOrder()` in `production.action.tsx`
-- Logic: Moves cost from Raw Material to Finished Goods Inventory
+- Logic: Moves cost from Raw Material to Ready Products Inventory
 - Safety: Uses transactions, error handling, logging
 
 **Sales Accounting**:
@@ -234,7 +234,7 @@ To complete end-to-end testing, perform these manual tests:
 - [ ] Mark as RECEIVED
 - [ ] Verify voucher created and posted
 - [ ] Verify journal entries correct
-- [ ] Repeat for FINISHED_GOOD and RETAIL items
+- [ ] Repeat for READY_PRODUCT and RETAIL items
 
 ### Production Testing
 - [ ] Create production order
@@ -244,7 +244,7 @@ To complete end-to-end testing, perform these manual tests:
 - [ ] Verify stock updated
 
 ### Sales Testing
-- [ ] Create new sale with FINISHED_GOOD item
+- [ ] Create new sale with READY_PRODUCT item
 - [ ] Complete sale
 - [ ] Verify voucher created and posted
 - [ ] Verify AR, Sales Revenue, COGS entries

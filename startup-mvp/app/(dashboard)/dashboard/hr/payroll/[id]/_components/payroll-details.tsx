@@ -1,0 +1,362 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FiCheck, FiFileText, FiSend } from "react-icons/fi";
+import { useToast } from "@/hooks/use-toast";
+import { updatePayrollStatus, postPayroll, disbursePayroll } from "@/app/(dashboard)/dashboard/hr/payroll/_actions/payroll.action";
+import { format } from "date-fns";
+
+interface PayrollDetailsClientProps {
+  payroll: any;
+  expenseAccounts: { id: string; code: string; name: string }[];
+  cashBankAccounts: { id: string; code: string; name: string }[];
+  permissions: {
+    canEdit: boolean;
+    canApprove: boolean;
+    canPost: boolean;
+  };
+}
+
+export default function PayrollDetailsClient({
+  payroll,
+  expenseAccounts,
+  cashBankAccounts,
+  permissions,
+}: PayrollDetailsClientProps) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
+  const [postModalOpen, setPostModalOpen] = useState(false);
+  const [disburseModalOpen, setDisburseModalOpen] = useState(false);
+  const [selectedExpenseAccount, setSelectedExpenseAccount] = useState<string>("");
+  const [selectedCashBankAccount, setSelectedCashBankAccount] = useState<string>("");
+
+  const formatCurrency = (amount: any) => {
+    return `৳${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const getMonthName = (monthNumber: number) => {
+    const date = new Date();
+    date.setMonth(monthNumber - 1);
+    return date.toLocaleString('default', { month: 'long' });
+  };
+
+  const handleApprove = () => {
+    startTransition(async () => {
+      const result = await updatePayrollStatus(payroll.id, "APPROVED");
+      if (result.success) {
+        toast({ title: "Success", description: "Payroll approved successfully" });
+        router.refresh();
+      } else {
+        toast({ title: "Error", description: result.error || "Failed to approve", variant: "destructive" });
+      }
+    });
+  };
+
+  const handlePost = () => {
+    if (!selectedExpenseAccount) {
+      toast({ title: "Error", description: "Please select a salary expense account", variant: "destructive" });
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await postPayroll(payroll.id, selectedExpenseAccount);
+      if (result.success) {
+        setPostModalOpen(false);
+        toast({ title: "Success", description: "Payroll posted to accounting successfully!" });
+        router.refresh();
+      } else {
+        toast({ title: "Error", description: result.error || "Failed to post", variant: "destructive" });
+      }
+    });
+  };
+
+  const handleDisburse = () => {
+    if (!selectedCashBankAccount) {
+      toast({ title: "Error", description: "Please select a Cash/Bank account", variant: "destructive" });
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await disbursePayroll(payroll.id, selectedCashBankAccount);
+      if (result.success) {
+        setDisburseModalOpen(false);
+        toast({ title: "Success", description: "Payroll disbursed successfully!" });
+        router.refresh();
+      } else {
+        toast({ title: "Error", description: result.error || "Failed to disburse", variant: "destructive" });
+      }
+    });
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "DRAFT":
+        return <Badge variant="secondary" className="bg-amber-100 text-amber-800">Draft</Badge>;
+      case "APPROVED":
+        return <Badge className="bg-blue-500">Approved</Badge>;
+      case "POSTED":
+        return payroll.paymentVchId 
+          ? <Badge className="bg-purple-500 hover:bg-purple-600">Disbursed (Paid)</Badge>
+          : <Badge className="bg-emerald-500 hover:bg-emerald-600">Posted (Accrued)</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold flex items-center gap-3">
+            {payroll.payrollNumber}
+            {getStatusBadge(payroll.status)}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Salary for {getMonthName(payroll.month)} {payroll.year} • Generated by {payroll.creator?.name} on {format(new Date(payroll.createdAt), "PPP")}
+          </p>
+        </div>
+        
+        <div className="flex gap-2">
+          {payroll.status === "DRAFT" && permissions.canApprove && (
+            <Button onClick={handleApprove} disabled={isPending}>
+              <FiCheck className="mr-2 h-4 w-4" />
+              Approve Payroll
+            </Button>
+          )}
+          
+          {payroll.status === "APPROVED" && permissions.canPost && (
+            <Button onClick={() => setPostModalOpen(true)} disabled={isPending} className="bg-emerald-600 hover:bg-emerald-700">
+              <FiSend className="mr-2 h-4 w-4" />
+              Post to Accounting
+            </Button>
+          )}
+
+          {payroll.status === "POSTED" && !payroll.paymentVchId && permissions.canPost && (
+            <Button onClick={() => setDisburseModalOpen(true)} disabled={isPending} className="bg-purple-600 hover:bg-purple-700">
+              <FiSend className="mr-2 h-4 w-4" />
+              Disburse Salary
+            </Button>
+          )}
+
+          {payroll.status === "POSTED" && payroll.voucherId && (
+            <Button variant="outline" asChild>
+              <a href={`/dashboard/accounts/vouchers/${payroll.voucherId}`}>
+                <FiFileText className="mr-2 h-4 w-4" />
+                Accrual Voucher
+              </a>
+            </Button>
+          )}
+
+          {payroll.status === "POSTED" && payroll.paymentVchId && (
+            <Button variant="outline" asChild>
+              <a href={`/dashboard/accounts/vouchers/${payroll.paymentVchId}`}>
+                <FiFileText className="mr-2 h-4 w-4" />
+                Payment Voucher
+              </a>
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Employees</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{payroll.items.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Gross Pay</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">
+              {formatCurrency(payroll.items.reduce((sum: number, item: any) => sum + Number(item.grossPay), 0))}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Deductions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-destructive">
+              {formatCurrency(payroll.items.reduce((sum: number, item: any) => sum + Number(item.totalDeduction), 0))}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-primary/5 border-primary/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-primary">Total Net Payable</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">
+              {formatCurrency(payroll.totalAmount)}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Salary Breakdown</CardTitle>
+          <CardDescription>Detailed view of earnings and deductions per employee.</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[250px]">Employee</TableHead>
+                  <TableHead className="text-right">Basic</TableHead>
+                  <TableHead className="text-right">OT Pay</TableHead>
+                  <TableHead className="text-right font-semibold text-primary bg-primary/5">Gross</TableHead>
+                  <TableHead className="text-right">Absent Ded.</TableHead>
+                  <TableHead className="text-right">Loan Ded.</TableHead>
+                  <TableHead className="text-right font-semibold text-destructive bg-destructive/5">Total Ded.</TableHead>
+                  <TableHead className="text-right font-bold text-primary bg-primary/10">Net Pay</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payroll.items.map((item: any) => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <div className="font-medium">{item.employee.name}</div>
+                      <div className="text-xs text-muted-foreground">{item.employee.employeeCode || "N/A"} • {item.employee.designation || "No Desig."}</div>
+                    </TableCell>
+                    <TableCell className="text-right">{formatCurrency(item.basic)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(item.otAmount)}</TableCell>
+                    <TableCell className="text-right font-semibold text-primary bg-primary/5">{formatCurrency(item.grossPay)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(item.absentDeduction)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(item.loanDeduction)}</TableCell>
+                    <TableCell className="text-right font-semibold text-destructive bg-destructive/5">{formatCurrency(item.totalDeduction)}</TableCell>
+                    <TableCell className="text-right font-bold text-primary bg-primary/10">{formatCurrency(item.netPay)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={postModalOpen} onOpenChange={setPostModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Post Payroll to Accounting</DialogTitle>
+            <DialogDescription>
+              This will lock the payroll and generate a Journal Entry. The system will automatically credit each employee's Salary Payable account and Advance Account (for loans).
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Salary Expense Account *</Label>
+              <Select value={selectedExpenseAccount} onValueChange={setSelectedExpenseAccount} disabled={isPending}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select account to debit" />
+                </SelectTrigger>
+                <SelectContent>
+                  {expenseAccounts.map(acc => (
+                    <SelectItem key={acc.id} value={acc.id}>
+                      [{acc.code}] {acc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                This account will be debited for the total salary expense.
+              </p>
+            </div>
+
+            <div className="bg-muted p-3 rounded-md text-sm">
+              <div className="flex justify-between font-medium mb-1">
+                <span>Total Debit:</span>
+                <span>{formatCurrency(payroll.items.reduce((sum: number, item: any) => sum + Number(item.netPay) + Number(item.loanDeduction), 0))}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">The debit exactly matches the sum of all net payments and loan deductions credited.</p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPostModalOpen(false)} disabled={isPending}>Cancel</Button>
+            <Button onClick={handlePost} disabled={isPending || !selectedExpenseAccount} className="bg-emerald-600 hover:bg-emerald-700">
+              {isPending ? "Posting..." : "Confirm & Post"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={disburseModalOpen} onOpenChange={setDisburseModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Disburse Salary</DialogTitle>
+            <DialogDescription>
+              This will generate a Payment Voucher. The system will debit each employee's Salary Payable account and credit the selected Cash/Bank account.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Source Cash/Bank Account *</Label>
+              <Select value={selectedCashBankAccount} onValueChange={setSelectedCashBankAccount} disabled={isPending}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select account to credit" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cashBankAccounts.map(acc => (
+                    <SelectItem key={acc.id} value={acc.id}>
+                      [{acc.code}] {acc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                This account will be credited to fund the payroll disbursement.
+              </p>
+            </div>
+
+            <div className="bg-muted p-3 rounded-md text-sm">
+              <div className="flex justify-between font-medium mb-1">
+                <span>Total Payment:</span>
+                <span className="text-destructive">{formatCurrency(payroll.items.reduce((sum: number, item: any) => sum + Number(item.netPay), 0))}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">This is the total net cash that will leave your selected bank account.</p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDisburseModalOpen(false)} disabled={isPending}>Cancel</Button>
+            <Button onClick={handleDisburse} disabled={isPending || !selectedCashBankAccount} className="bg-purple-600 hover:bg-purple-700">
+              {isPending ? "Processing..." : "Confirm & Pay"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
