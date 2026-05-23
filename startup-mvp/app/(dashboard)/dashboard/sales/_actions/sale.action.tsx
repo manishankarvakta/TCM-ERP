@@ -13,9 +13,9 @@ import { AccountType, VoucherType } from "@prisma/client";
 const saleItemSchema = z.object({
   itemId: z.string().min(1, "Item is required"),
   description: z.string().min(1, "Description is required"),
-  quantity: z.coerce.number().positive("Quantity must be greater than 0"),
+  quantity: z.coerce.number().refine(val => val !== 0, "Quantity cannot be zero"),
   unitPrice: z.coerce.number().min(0, "Unit price must be 0 or greater"),
-  amount: z.coerce.number().min(0, "Amount must be 0 or greater"),
+  amount: z.coerce.number(),
 });
 
 const saleSchema = z.object({

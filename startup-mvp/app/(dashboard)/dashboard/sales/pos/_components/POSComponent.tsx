@@ -54,6 +54,9 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<string>("ALL");
   const [orderType, setOrderType] = useState<"RETAIL" | "WHOLESALE">("RETAIL");
+  const [discountAmount, setDiscountAmount] = useState<number>(0);
+  const [taxPercent, setTaxPercent] = useState<number>(0);
+  const [isReturnMode, setIsReturnMode] = useState<boolean>(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>(warehouses[0]?.id || "");
@@ -79,20 +82,27 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
   }, [items, searchQuery, filterType, orderType]);
 
   const subTotal = cart.reduce((sum, item) => sum + item.unitPrice * item.cartQuantity, 0);
-  const tax = subTotal * 0.10; // 10% tax example, can be adjusted
-  const grandTotal = subTotal + tax;
+  const tax = (subTotal - discountAmount) * (taxPercent / 100);
+  const grandTotal = subTotal + tax - discountAmount;
   const dueAmount = grandTotal - paidAmount;
 
   const handleAddToCart = (item: Item) => {
     const priceToUse = orderType === "WHOLESALE" ? (item.wholesalePrice || item.unitPrice) : item.unitPrice;
+    const delta = isReturnMode ? -1 : 1;
     const itemToAdd = { ...item, unitPrice: priceToUse };
 
     setCart((prev) => {
       const existing = prev.find((i) => i.id === itemToAdd.id);
       if (existing) {
-        return prev.map((i) => (i.id === itemToAdd.id ? { ...i, cartQuantity: i.cartQuantity + 1 } : i));
+        return prev.map((i) => {
+          if (i.id === itemToAdd.id) {
+            const newQ = i.cartQuantity + delta;
+            return { ...i, cartQuantity: newQ };
+          }
+          return i;
+        }).filter((i) => i.cartQuantity !== 0);
       }
-      return [...prev, { ...itemToAdd, cartQuantity: 1 }];
+      return [...prev, { ...itemToAdd, cartQuantity: delta }];
     });
   };
 
@@ -101,10 +111,10 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
       return prev.map((i) => {
         if (i.id === itemId) {
           const newQ = i.cartQuantity + delta;
-          return newQ > 0 ? { ...i, cartQuantity: newQ } : i;
+          return { ...i, cartQuantity: newQ };
         }
         return i;
-      }).filter((i) => i.cartQuantity > 0);
+      }).filter((i) => i.cartQuantity !== 0);
     });
   };
 
@@ -162,7 +172,7 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
         orderType: orderType as any,
         notes: `POS Sale - Paid via ${paymentMethod}`,
         tax: tax,
-        discount: 0,
+        discount: discountAmount,
         items: saleItems,
       });
 
@@ -177,7 +187,7 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
         setTimeout(() => {
           setSuccessMsg("");
           setIsConfirmModalOpen(false);
-          router.refresh();
+          router.push("/dashboard/sales");
         }, 2000);
       } else {
         toast({
@@ -260,7 +270,7 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
                       )}
                    </div>
                    <h3 className="font-semibold text-sm line-clamp-2 mb-1 text-foreground" title={item.description}>{item.description}</h3>
-                   <div className="text-lg font-bold text-foreground mb-3">${displayPrice.toFixed(2)}</div>
+                   <div className="text-lg font-bold text-foreground mb-3">৳{displayPrice.toFixed(2)}</div>
                 </div>
                 <Button 
                   className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-full" 
@@ -283,20 +293,24 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
       <div className="w-[450px] flex flex-col bg-card text-card-foreground border-l border-border shadow-md z-10 relative">
         <div className="p-6 flex-1 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-foreground">Order Details</h2>
-            <div className="flex bg-muted p-1 rounded-lg">
-              <button 
-                onClick={() => { if (orderType !== "RETAIL") { setOrderType("RETAIL"); setCart([]); } }}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${orderType === "RETAIL" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                Retail
-              </button>
-              <button 
-                onClick={() => { if (orderType !== "WHOLESALE") { setOrderType("WHOLESALE"); setCart([]); } }}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${orderType === "WHOLESALE" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                Wholesale
-              </button>
+            <h2 className="text-xl font-bold text-foreground shrink-0">Ordr Details</h2>
+            
+            <div className="flex items-center gap-2">
+                             
+               <div className="flex bg-muted p-1 rounded-lg">
+                  <button 
+                    onClick={() => { if (orderType !== "RETAIL") { setOrderType("RETAIL"); setCart([]); setDiscountAmount(0); setIsReturnMode(false); } }}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${orderType === "RETAIL" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Retail
+                  </button>
+                  <button 
+                    onClick={() => { if (orderType !== "WHOLESALE") { setOrderType("WHOLESALE"); setCart([]); setDiscountAmount(0); setIsReturnMode(false); } }}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${orderType === "WHOLESALE" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Wholesale
+                  </button>
+               </div>
             </div>
           </div>
 
@@ -353,7 +367,7 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-foreground truncate">{item.description}</p>
-                        <p className="text-sm font-bold text-foreground mt-1">${item.unitPrice.toFixed(2)}</p>
+                        <p className="text-sm font-bold text-foreground mt-1">৳{item.unitPrice.toFixed(2)}</p>
                       </div>
                       <div className="flex items-center gap-2 bg-muted rounded-full border border-border px-1 py-1">
                         <button 
@@ -388,15 +402,35 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
             <div className="bg-muted rounded-xl p-4 space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Item ({cart.length})</span>
-                <span className="font-medium text-foreground">${subTotal.toFixed(2)}</span>
+                <span className="font-medium text-foreground">৳{subTotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Tax (10%)</span>
-                <span className="font-medium text-foreground">${tax.toFixed(2)}</span>
+              <div className="flex items-center justify-between text-base">
+                <span className="text-muted-foreground font-medium">Discount</span>
+                <div className="flex items-center gap-2 w-32">
+                  <span className="text-muted-foreground font-medium">৳</span>
+                  <Input 
+                    type="number" 
+                    value={discountAmount || ""} 
+                    onChange={(e) => setDiscountAmount(Number(e.target.value) || 0)}
+                    className="h-10 px-3 text-right text-base font-medium"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-base">
+                <span className="text-muted-foreground font-medium">Tax (%)</span>
+                <div className="flex items-center gap-2 w-32">
+                  <Input 
+                    type="number" 
+                    value={taxPercent || ""} 
+                    onChange={(e) => setTaxPercent(Number(e.target.value) || 0)}
+                    className="h-10 px-3 text-right text-base font-medium"
+                  />
+                  <span className="text-muted-foreground font-medium">%</span>
+                </div>
               </div>
               <div className="border-t border-border border-dashed pt-3 flex justify-between items-center">
                 <span className="font-bold text-foreground">Total</span>
-                <span className="text-xl font-black text-foreground">${grandTotal.toFixed(2)}</span>
+                <span className="text-xl font-black text-foreground">৳{grandTotal.toFixed(2)}</span>
               </div>
             </div>
 
@@ -414,44 +448,86 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
 
       {/* Confirmation Modal */}
       <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-4xl p-0 overflow-hidden">
           {successMsg ? (
-             <div className="py-12 flex flex-col items-center justify-center text-center">
+             <div className="py-12 flex flex-col items-center justify-center text-center p-6">
                 <CheckCircle2 className="w-16 h-16 text-green-500 mb-4" />
                 <h2 className="text-2xl font-bold text-foreground mb-2">Success!</h2>
                 <p className="text-muted-foreground">{successMsg}</p>
              </div>
           ) : (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-xl font-bold border-b border-border pb-4 text-foreground">Confirm Order ({orderType.replace('_', ' ')})</DialogTitle>
-              </DialogHeader>
-              
-              <div className="py-4 space-y-6">
-                <div className="bg-muted p-4 rounded-lg space-y-2 text-sm text-foreground">
-                   <div className="flex justify-between">
-                     <span className="text-muted-foreground">Customer:</span>
-                     <span className="font-medium">{clients.find(c => c.id === selectedClientId)?.name || "Unknown"}</span>
-                   </div>
-                   <div className="flex justify-between">
-                     <span className="text-muted-foreground">Total Items:</span>
-                     <span className="font-medium">{cart.reduce((s, i) => s + i.cartQuantity, 0)} items</span>
-                   </div>
-                   <div className="border-t border-border border-dashed my-2 pt-2 flex justify-between">
+            <div className="flex flex-col md:flex-row h-full max-h-[85vh]">
+              {/* Left Side: Order Details */}
+              <div className="flex-1 bg-muted/30 p-6 overflow-y-auto border-r border-border">
+                <DialogHeader className="mb-4">
+                  <DialogTitle className="text-xl font-bold text-foreground">Confirm Order ({orderType.replace('_', ' ')})</DialogTitle>
+                </DialogHeader>
+                
+                <div className="bg-background rounded-lg border border-border p-4 mb-4 text-sm">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-muted-foreground mb-1">Customer</p>
+                      <p className="font-medium">{clients.find(c => c.id === selectedClientId)?.name || "Unknown"}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground mb-1">Warehouse</p>
+                      <p className="font-medium">{warehouses.find(w => w.id === selectedWarehouseId)?.name || "Unknown"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-background rounded-lg border border-border overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50 text-muted-foreground">
+                      <tr>
+                        <th className="text-left py-2 px-3 font-medium">Item</th>
+                        <th className="text-center py-2 px-3 font-medium">Qty</th>
+                        <th className="text-right py-2 px-3 font-medium">Price</th>
+                        <th className="text-right py-2 px-3 font-medium">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {cart.map((item) => (
+                        <tr key={item.id} className={item.cartQuantity < 0 ? "bg-destructive/5" : ""}>
+                          <td className="py-2 px-3">
+                            <p className="font-medium text-foreground truncate max-w-[150px]" title={item.description}>{item.description}</p>
+                            <p className="text-[10px] text-muted-foreground">{item.code}</p>
+                          </td>
+                          <td className={`text-center py-2 px-3 font-medium ${item.cartQuantity < 0 ? "text-destructive" : ""}`}>{item.cartQuantity}</td>
+                          <td className="text-right py-2 px-3">৳{item.unitPrice.toFixed(2)}</td>
+                          <td className={`text-right py-2 px-3 font-medium ${item.cartQuantity < 0 ? "text-destructive" : ""}`}>৳{(item.cartQuantity * item.unitPrice).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Right Side: Payment & Summary */}
+              <div className="w-full md:w-[350px] bg-background p-6 flex flex-col">
+                <div className="space-y-3 mb-6 flex-1">
+                   <h3 className="font-bold text-foreground mb-4">Payment Summary</h3>
+                   <div className="flex justify-between text-sm">
                      <span className="text-muted-foreground">Subtotal:</span>
-                     <span className="font-medium">${subTotal.toFixed(2)}</span>
+                     <span className="font-medium">৳{subTotal.toFixed(2)}</span>
                    </div>
-                   <div className="flex justify-between">
-                     <span className="text-muted-foreground">Tax:</span>
-                     <span className="font-medium">${tax.toFixed(2)}</span>
+                   {discountAmount > 0 && (
+                     <div className="flex justify-between text-sm text-green-600">
+                       <span>Discount:</span>
+                       <span>-৳{discountAmount.toFixed(2)}</span>
+                     </div>
+                   )}
+                   <div className="flex justify-between text-sm">
+                     <span className="text-muted-foreground">Tax ({taxPercent}%):</span>
+                     <span className="font-medium">৳{tax.toFixed(2)}</span>
                    </div>
-                   <div className="flex justify-between text-base font-bold pt-2">
+                   <div className="border-t border-border border-dashed my-3 pt-3 flex justify-between text-lg font-bold text-foreground">
                      <span>Grand Total:</span>
-                     <span>${grandTotal.toFixed(2)}</span>
+                     <span>৳{grandTotal.toFixed(2)}</span>
                    </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-4 mb-6">
                   <div>
                     <label className="text-sm font-medium mb-1 block text-foreground">Payment Method</label>
                     <select 
@@ -465,36 +541,33 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
                     </select>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
-                     <div>
-                       <label className="text-sm font-medium mb-1 block text-foreground">Paid Amount</label>
-                       <Input 
-                         type="number" 
-                         min={0}
-                         value={paidAmount}
-                         onChange={(e) => setPaidAmount(Number(e.target.value))}
-                         className="text-lg font-bold bg-background text-foreground"
-                       />
-                     </div>
-                     <div>
-                       <label className="text-sm font-medium mb-1 block text-foreground">Due/Change</label>
-                       <div className={`h-10 flex items-center px-3 rounded-md border text-lg font-bold ${dueAmount > 0 ? 'text-destructive bg-destructive/10' : 'text-green-600 bg-green-500/10'}`}>
-                         ${Math.abs(dueAmount).toFixed(2)} {dueAmount < 0 && '(Change)'}
-                       </div>
-                     </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block text-foreground">Paid Amount</label>
+                    <Input 
+                      type="number" 
+                      value={paidAmount}
+                      onChange={(e) => setPaidAmount(Number(e.target.value))}
+                      className="text-lg font-bold bg-background text-foreground h-12"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block text-foreground">Due / Change</label>
+                    <div className={`h-12 flex items-center px-4 rounded-md border text-xl font-bold ${dueAmount > 0 ? 'text-destructive bg-destructive/10' : 'text-green-600 bg-green-500/10'}`}>
+                      ৳{Math.abs(dueAmount).toFixed(2)} {dueAmount <= 0 && '(Change)'}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <DialogFooter className="border-t border-border pt-4">
-                <Button variant="outline" onClick={() => setIsConfirmModalOpen(false)} disabled={isProcessing}>
-                  Cancel
-                </Button>
-                <Button onClick={handleConfirmOrder} disabled={isProcessing} className="bg-primary text-primary-foreground px-8">
-                  {isProcessing ? "Processing..." : "Confirm & Pay"}
-                </Button>
-              </DialogFooter>
-            </>
+                <div className="flex gap-3 mt-auto">
+                  <Button variant="outline" className="flex-1" onClick={() => setIsConfirmModalOpen(false)} disabled={isProcessing}>
+                    Cancel
+                  </Button>
+                  <Button className="flex-1 bg-primary text-primary-foreground" onClick={handleConfirmOrder} disabled={isProcessing}>
+                    {isProcessing ? "Processing..." : "Confirm & Pay"}
+                  </Button>
+                </div>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
