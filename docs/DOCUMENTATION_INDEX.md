@@ -38,8 +38,7 @@
 - **APPLICATION_STRUCTURE.md** - Complete application structure overview
 - **APPLICATION_STATUS_REPORT.md** - Current status of all modules (may be outdated)
 - **EMPLOYEE_USER_ANALYSIS.md** - Employee/User model analysis
-
-#### Quotations
+- **HR_SYSTEM_DEVELOPMENT_DOCS.md** - HR System Developer Reference (Architecture, Database Schema, Workflows, Accounting/Voucher Posting and Amortization)
 - **QUOTATION_SYSTEM_DEV_DOCS.md** - Quotation system development documentation (⚠️ DEPRECATED - Module Removed)
 
 #### Module Cleanup
