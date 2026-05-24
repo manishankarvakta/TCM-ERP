@@ -1,5 +1,5 @@
 import React from "react";
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import PrintButton from "./PrintButton";
 
@@ -32,7 +32,7 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
       <PrintButton />
       
       <div className="text-center mb-6">
-        <h1 className="text-xl font-bold">TCM Model Pharmacy</h1>
+        <h1 className="text-xl font-bold">Ferrari Fashion</h1>
         <p className="text-xs">BIN 004601696-0102 | Mushak 6.3</p>
         <p className="font-bold mt-1 text-sm">
           {isReturn ? "Return Invoice No:" : "Invoice No:"} {sale.saleNumber}
@@ -48,7 +48,7 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
         <div className="text-right">
           <p>Date: {sale.createdAt.toLocaleDateString()}</p>
           <p>Time: {sale.createdAt.toLocaleTimeString()}</p>
-          <p>Outlet: TCM Model Pharmacy</p>
+          <p>Outlet: Ferrari Fashion</p>
         </div>
       </div>
 
@@ -111,20 +111,6 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
           <span>Net Amount:</span>
           <span className="border border-black px-1">{Math.abs(sale.grandTotal.toNumber()).toFixed(2)}</span>
         </div>
-      </div>
-
-      <div className="text-[10px] mt-4 leading-tight">
-        <p>বিঃদ্রঃ</p>
-        <p>১. তাপ সংবেদনশীল সকল ঔষধ, সুগার টেস্ট স্ট্রিপ এবং ঔষধের কাটা পাতা অফেরতযোগ্য।</p>
-        <p>২. ঔষধ ক্রয়ের সময় নিজ দায়িত্বে ঔষধের পরিমাণ এবং মেয়াদ উত্তীর্ণ তারিখ দেখে নিন।</p>
-        <p>৩. ক্রয় কৃত পণ্য ৪৮ ঘন্টার মধ্যে পরিবর্তনযোগ্য এবং সেলস স্লিপ সাথে আনতে হবে।</p>
-      </div>
-
-      <div className="text-center text-[10px] mt-4">
-        <p>********************ধন্যবাদ********************</p>
-        <p>www.tcm-bd.com</p>
-        <p className="font-bold text-xs mt-1">Hot Line: 01742225636</p>
-        <p className="italic">Thank you for shopping with us.</p>
       </div>
     </div>
   );

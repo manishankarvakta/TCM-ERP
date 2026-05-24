@@ -1689,7 +1689,7 @@ export async function getSaleByInvoiceNumber(invoiceNumber: string) {
       },
       include: {
         client: { select: { name: true, phone: true } },
-        createdBy_User: { select: { name: true } },
+        createdByUser: { select: { name: true } },
         items: {
           include: {
             item: { select: { name: true, code: true } }
@@ -1708,7 +1708,7 @@ export async function getSaleByInvoiceNumber(invoiceNumber: string) {
         date: sale.date,
         clientId: sale.clientId,
         clientName: sale.client?.name || sale.client?.phone || "Walkway Customer",
-        billerName: sale.createdBy_User?.name || "System",
+        billerName: sale.createdByUser?.name || "System",
         grandTotal: Number(sale.grandTotal),
         tax: Number(sale.tax || 0),
         discount: Number(sale.discount || 0),

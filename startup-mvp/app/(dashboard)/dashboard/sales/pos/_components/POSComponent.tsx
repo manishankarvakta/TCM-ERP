@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, Plus, Minus, Trash2, ShoppingCart, CheckCircle2, X, Undo2, Hand, RefreshCcw, Printer } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingCart, CheckCircle2, X, Undo2, Hand, RefreshCcw, Printer, Check } from "lucide-react";
 import { createSale, getSalesByClient, getLastSaleId } from "../../_actions/sale.action";
 import { useRouter } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
@@ -67,6 +67,7 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
   const [isProcessing, setIsProcessing] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [heldCarts, setHeldCarts] = useState<CartItem[][]>([]);
+  const [completedSaleData, setCompletedSaleData] = useState<{ id: string, change: number, saleNumber: string } | null>(null);
   // Invoice Return Modal State
   const [isInvoiceReturnModalOpen, setIsInvoiceReturnModalOpen] = useState(false);
   const [invoiceReturnNumber, setInvoiceReturnNumber] = useState("");
@@ -417,15 +418,18 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
           title: "Success",
           description: `Order ${res.sale?.saleNumber} processed successfully!`,
         });
+        
+        if (res.sale) {
+          setCompletedSaleData({
+            id: res.sale.id,
+            change: dueAmount < 0 ? Math.abs(dueAmount) : 0,
+            saleNumber: res.sale.saleNumber
+          });
+        }
+        
         setCart([]);
         setSearchQuery("");
-        if (res.sale?.id) {
-           window.open(`/print/invoice/${res.sale.id}`, '_blank');
-        }
-        setTimeout(() => {
-          setSuccessMsg("");
-          setIsConfirmModalOpen(false);
-        }, 2000);
+        // Do not close modal yet, wait for user to click Close or Print
       } else {
         toast({
           title: "Error processing sale",
@@ -743,14 +747,59 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
       </div>
 
       {/* Confirmation Modal */}
-      <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
-        <DialogContent className="sm:max-w-4xl p-0 overflow-hidden">
-          {successMsg ? (
-             <div className="py-12 flex flex-col items-center justify-center text-center p-6">
-                <CheckCircle2 className="w-16 h-16 text-green-500 mb-4" />
-                <h2 className="text-2xl font-bold text-foreground mb-2">Success!</h2>
-                <p className="text-muted-foreground">{successMsg}</p>
-             </div>
+      <Dialog 
+        open={isConfirmModalOpen} 
+        onOpenChange={(open) => {
+          setIsConfirmModalOpen(open);
+          if (!open) {
+            setCompletedSaleData(null);
+            setSuccessMsg("");
+          }
+        }}
+      >
+        <DialogContent 
+          className={completedSaleData ? "sm:max-w-md p-0 overflow-hidden" : "sm:max-w-4xl p-0 overflow-hidden"}
+          onKeyDown={(e) => {
+            if (completedSaleData && e.key === "Enter") {
+              setIsConfirmModalOpen(false);
+              setCompletedSaleData(null);
+            }
+          }}
+        >
+          {completedSaleData ? (
+            <div className="p-8 flex flex-col items-center justify-center text-center bg-background">
+              <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
+                <Check className="w-8 h-8" />
+              </div>
+              <h2 className="text-2xl font-bold mb-2 text-foreground">Sale Completed!</h2>
+              <p className="text-muted-foreground mb-6">Invoice Number: {completedSaleData.saleNumber}</p>
+              
+              <div className="bg-muted w-full rounded-lg p-6 mb-8 border border-border">
+                <div className="text-sm text-muted-foreground mb-1 uppercase tracking-wider font-semibold">Change Amount</div>
+                <div className="text-5xl font-bold text-green-600">৳{completedSaleData.change.toFixed(2)}</div>
+              </div>
+
+              <div className="flex gap-4 w-full">
+                <Button 
+                  variant="outline" 
+                  className="flex-1 h-12 text-lg font-semibold" 
+                  onClick={() => { setIsConfirmModalOpen(false); setCompletedSaleData(null); }}
+                  autoFocus
+                >
+                  Close (Enter)
+                </Button>
+                <Button 
+                  className="flex-1 h-12 text-lg font-semibold bg-[#ffb000] text-black hover:bg-[#ffb000]/90" 
+                  onClick={() => {
+                    window.open(`/print/invoice/${completedSaleData.id}`, '_blank');
+                    setIsConfirmModalOpen(false);
+                    setCompletedSaleData(null);
+                  }}
+                >
+                  Print <Printer className="ml-2 w-5 h-5" />
+                </Button>
+              </div>
+            </div>
           ) : (
             <div className="flex flex-col md:flex-row h-full max-h-[85vh]">
               {/* Left Side: Order Details */}
