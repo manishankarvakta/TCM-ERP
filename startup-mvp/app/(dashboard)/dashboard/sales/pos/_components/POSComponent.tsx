@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, Plus, Minus, Trash2, ShoppingCart, CheckCircle2, X } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingCart, CheckCircle2, X, Undo2, Hand, RefreshCcw, Printer } from "lucide-react";
 import { createSale } from "../../_actions/sale.action";
 import { useRouter } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
@@ -66,6 +66,7 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
   const [paidAmount, setPaidAmount] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+  const [heldCarts, setHeldCarts] = useState<CartItem[][]>([]);
 
   const categories = useMemo(() => {
     const cats = Array.from(new Set(items.map((i) => i.category).filter(Boolean))) as string[];
@@ -285,6 +286,61 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
                 No products found.
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Bottom Actions */}
+        <div className="mt-2 pt-4 border-t border-border shrink-0 overflow-x-auto pb-2">
+          <div className="flex items-center w-fit mx-auto rounded-md overflow-hidden border border-border">
+            <button 
+              className="flex items-center justify-center gap-2 h-12 px-6 bg-background text-foreground hover:bg-muted transition-colors border-r border-border min-w-[120px]"
+              onClick={() => { setCart([]); setDiscountAmount(0); }}
+            >
+              Void <Undo2 className="w-4 h-4" />
+            </button>
+            
+            <button 
+              className={`flex items-center justify-center gap-2 h-12 px-6 transition-colors min-w-[120px] ${isReturnMode ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : 'bg-[#1f2937] text-white hover:bg-[#1f2937]/90'}`}
+              onClick={() => setIsReturnMode(!isReturnMode)}
+            >
+              {isReturnMode ? "Cancel Return" : "Return"} <Undo2 className="w-4 h-4" />
+            </button>
+
+            <button 
+              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#ffb000] text-black hover:bg-[#ffb000]/90 transition-colors min-w-[120px]"
+              onClick={() => {
+                if(cart.length > 0) {
+                  setHeldCarts([...heldCarts, cart]);
+                  setCart([]);
+                  toast({ title: "Cart Held", description: "Current cart has been put on hold." });
+                } else if (heldCarts.length > 0) {
+                  const lastHeld = heldCarts[heldCarts.length - 1];
+                  setCart(lastHeld);
+                  setHeldCarts(heldCarts.slice(0, -1));
+                  toast({ title: "Cart Restored", description: "Held cart has been restored." });
+                } else {
+                  toast({ title: "Hold", description: "No cart to hold or restore." });
+                }
+              }}
+            >
+              {heldCarts.length > 0 && cart.length === 0 ? "Resume" : "Hold"} 
+              {heldCarts.length > 0 && <span className="ml-1 bg-black text-[#ffb000] rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">{heldCarts.length}</span>}
+              <Hand className="w-4 h-4" />
+            </button>
+
+            <button 
+              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#0f8c5a] text-white hover:bg-[#0f8c5a]/90 transition-colors min-w-[120px]"
+              onClick={() => window.location.reload()}
+            >
+              Refresh <RefreshCcw className="w-4 h-4" />
+            </button>
+
+            <button 
+              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#136bfb] text-white hover:bg-[#136bfb]/90 transition-colors min-w-[120px]"
+              onClick={() => router.push('/dashboard/sales')}
+            >
+              Last Bill <Printer className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
