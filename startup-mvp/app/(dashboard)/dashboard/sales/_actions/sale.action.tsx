@@ -103,6 +103,29 @@ export async function getClientsForSale() {
       return { success: false, error: "Unauthorized", clients: [] };
     }
 
+    let defaultClient = await prisma.client.findFirst({
+      where: { name: { equals: "Walkway Customer", mode: "insensitive" } },
+      select: { id: true, name: true, email: true, company: true }
+    });
+
+    if (!defaultClient) {
+      const newClient = await prisma.client.create({
+        data: {
+          name: "Walkway Customer",
+          email: "walkway@customer.local",
+          phone: "00000000000",
+          status: "active",
+          createdBy: session.user.id
+        }
+      });
+      defaultClient = {
+        id: newClient.id,
+        name: newClient.name,
+        email: newClient.email,
+        company: newClient.company
+      };
+    }
+
     const clients = await prisma.client.findMany({
       where: {
         status: "active",
@@ -118,7 +141,13 @@ export async function getClientsForSale() {
       },
     });
 
-    return { success: true, clients };
+    // Make sure Walkway Customer is at the top or at least exists
+    const clientList = clients.filter(c => c.id !== defaultClient?.id);
+    if (defaultClient) {
+      clientList.unshift(defaultClient);
+    }
+
+    return { success: true, clients: clientList };
   } catch (error) {
     console.error("getClientsForSale error:", error);
     return {
@@ -398,7 +427,7 @@ async function createSaleAccountingVoucher(
         const costPrice = Number(item.item.costPrice);
         const itemCOGS = quantity * costPrice;
         
-        if (itemCOGS > 0) {
+        if (itemCOGS !== 0) {
            let inventoryAccountId: string | null = null;
            // Prefer Sales settings for inventory if available (e.g. general FG or retail)
            // If detailed granular tracking specific to production types is needed, check item type
@@ -444,7 +473,10 @@ async function createSaleAccountingVoucher(
 
     let lineNumber = 1;
 
-    // 1. Debit: Accounts Receivable
+    const isReturn = totalSaleAmount < 0;
+    const absTotalSaleAmount = Math.abs(totalSaleAmount);
+
+    // 1. Accounts Receivable
     const receivableAccountId = sale.client.chartOfAccountId || salesAccounts.receivableAccountId;
     if (!receivableAccountId) {
          return { success: false, error: "No Accounts Receivable ledger found for client and no default configured." };
@@ -452,18 +484,18 @@ async function createSaleAccountingVoucher(
 
     voucherLines.push({
       lineNumber: lineNumber++,
-      debitAmount: totalSaleAmount,
-      creditAmount: 0,
+      debitAmount: isReturn ? 0 : absTotalSaleAmount,
+      creditAmount: isReturn ? absTotalSaleAmount : 0,
       description: `Accounts Receivable - ${sale.saleNumber} - ${sale.client.name}`,
       chartOfAccountId: receivableAccountId,
       clientId: sale.clientId,
     });
 
-    // 2. Credit: Sales Revenue
+    // 2. Sales Revenue
     voucherLines.push({
       lineNumber: lineNumber++,
-      debitAmount: 0,
-      creditAmount: totalSaleAmount,
+      debitAmount: isReturn ? absTotalSaleAmount : 0,
+      creditAmount: isReturn ? 0 : absTotalSaleAmount,
       description: `Sales Revenue - ${sale.saleNumber}`,
       chartOfAccountId: salesAccounts.revenueAccountId,
     });
@@ -471,22 +503,24 @@ async function createSaleAccountingVoucher(
     // 3. COGS & Inventory
     if (salesAccounts.cogsAccountId) {
       for (const [invAccountId, data] of Object.entries(cogsByAccount)) {
-        // Debit COGS
+        const absAmount = Math.abs(data.amount);
+        
+        // COGS
         voucherLines.push({
           lineNumber: lineNumber++,
           chartOfAccountId: salesAccounts.cogsAccountId,
-          debitAmount: data.amount,
-          creditAmount: 0,
+          debitAmount: isReturn ? 0 : absAmount,
+          creditAmount: isReturn ? absAmount : 0,
           description: `${data.description} (${sale.saleNumber})`,
         });
 
-        // Credit Inventory
+        // Inventory
         voucherLines.push({
           lineNumber: lineNumber++,
           chartOfAccountId: invAccountId,
-          debitAmount: 0,
-          creditAmount: data.amount,
-          description: `Inventory reduction for ${sale.saleNumber}`,
+          debitAmount: isReturn ? absAmount : 0,
+          creditAmount: isReturn ? 0 : absAmount,
+          description: isReturn ? `Inventory restock for ${sale.saleNumber}` : `Inventory reduction for ${sale.saleNumber}`,
         });
       }
     }
@@ -1492,8 +1526,205 @@ export async function cancelSale(saleId: string) {
     console.error("cancelSale error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to cancel sale",
-      sale: null,
     };
+  }
+}
+
+export async function getSalesByClient(clientId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", sales: [] };
+    }
+
+    const sales = await prisma.sale.findMany({
+      where: {
+        clientId,
+        status: "COMPLETED",
+        isTrash: false,
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        saleNumber: true,
+        date: true,
+        grandTotal: true,
+        items: {
+          select: {
+            id: true,
+            itemId: true,
+            description: true,
+            quantity: true,
+            unitPrice: true,
+            item: {
+               select: {
+                  id: true,
+                  code: true,
+                  featuredImage: true,
+               }
+            }
+          }
+        }
+      }
+    });
+
+    return {
+      success: true,
+      sales: sales.map(s => ({
+        ...s,
+        grandTotal: Number(s.grandTotal),
+        items: s.items.map(i => ({
+           ...i,
+           quantity: Number(i.quantity),
+           unitPrice: Number(i.unitPrice),
+           imageUrl: i.item?.featuredImage || null,
+           code: i.item?.code || ""
+        }))
+      }))
+    };
+  } catch (error) {
+    console.error("getSalesByClient error:", error);
+    return { success: false, error: "Failed to fetch sales", sales: [] };
+  }
+}
+
+export async function getLastSaleId() {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, id: null };
+    
+    const lastSale = await prisma.sale.findFirst({
+      where: { createdBy: session.user.id },
+      orderBy: { createdAt: "desc" },
+      select: { id: true }
+    });
+    
+    return { success: true, id: lastSale?.id || null };
+  } catch (error) {
+    return { success: false, id: null };
+  }
+}
+
+export async function searchSoldProductsForReturn(query: string, clientId?: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, items: [] };
+
+    const whereClause: any = {
+      sale: {
+        status: "COMPLETED",
+        isTrash: false,
+        ...(clientId ? { clientId } : {})
+      }
+    };
+
+    if (query) {
+      whereClause.item = {
+        OR: [
+          { name: { contains: query, mode: "insensitive" } },
+          { code: { contains: query, mode: "insensitive" } },
+          { description: { contains: query, mode: "insensitive" } },
+        ]
+      };
+    }
+
+    const soldItems = await prisma.saleItem.findMany({
+      where: whereClause,
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: {
+        sale: {
+          select: {
+            saleNumber: true,
+            date: true,
+            client: { select: { name: true, phone: true } }
+          }
+        },
+        item: {
+          select: {
+            name: true,
+            code: true,
+            category: { select: { name: true } },
+            costPrice: true,
+            salesPrice: true,
+          }
+        }
+      }
+    });
+
+    return {
+      success: true,
+      items: soldItems.map(si => ({
+        id: si.id,
+        saleId: si.saleId,
+        saleNumber: si.sale.saleNumber,
+        date: si.sale.date,
+        clientName: si.sale.client?.name || "Walkway Customer",
+        itemId: si.itemId,
+        productName: si.item.name || si.description,
+        productCode: si.item.code,
+        group: si.item.category?.name || "N/A",
+        tp: Number(si.item.costPrice || 0),
+        mrp: Number(si.unitPrice), // sale price at that time
+        soldQuantity: Number(si.quantity),
+        discount: 0, // SaleItem doesn't store line discount currently
+      }))
+    };
+  } catch (error) {
+    console.error("searchSoldProductsForReturn error:", error);
+    return { success: false, items: [] };
+  }
+}
+
+export async function getSaleByInvoiceNumber(invoiceNumber: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const sale = await prisma.sale.findFirst({
+      where: {
+        saleNumber: invoiceNumber,
+        status: "COMPLETED",
+        isTrash: false,
+      },
+      include: {
+        client: { select: { name: true, phone: true } },
+        createdBy_User: { select: { name: true } },
+        items: {
+          include: {
+            item: { select: { name: true, code: true } }
+          }
+        }
+      }
+    });
+
+    if (!sale) return { success: false, error: "Invoice not found or already voided" };
+
+    return {
+      success: true,
+      sale: {
+        id: sale.id,
+        saleNumber: sale.saleNumber,
+        date: sale.date,
+        clientId: sale.clientId,
+        clientName: sale.client?.name || sale.client?.phone || "Walkway Customer",
+        billerName: sale.createdBy_User?.name || "System",
+        grandTotal: Number(sale.grandTotal),
+        tax: Number(sale.tax || 0),
+        discount: Number(sale.discount || 0),
+        items: sale.items.map(i => ({
+          id: i.id,
+          itemId: i.itemId,
+          productName: i.item?.name || i.description,
+          price: Number(i.unitPrice),
+          quantity: Number(i.quantity),
+          vat: 0,
+          subTotal: Number(i.amount),
+        }))
+      }
+    };
+  } catch (error) {
+    console.error("getSaleByInvoiceNumber error:", error);
+    return { success: false, error: "Failed to load invoice" };
   }
 }

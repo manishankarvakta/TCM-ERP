@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Search, Plus, Minus, Trash2, ShoppingCart, CheckCircle2, X, Undo2, Hand, RefreshCcw, Printer } from "lucide-react";
-import { createSale } from "../../_actions/sale.action";
+import { createSale, getSalesByClient, getLastSaleId } from "../../_actions/sale.action";
 import { useRouter } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
 
@@ -58,7 +58,7 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
   const [taxPercent, setTaxPercent] = useState<number>(0);
   const [isReturnMode, setIsReturnMode] = useState<boolean>(false);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState<string>("");
+  const [selectedClientId, setSelectedClientId] = useState<string>(clients.find(c => c.name?.toLowerCase() === "walkway customer")?.id || clients[0]?.id || "");
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>(warehouses[0]?.id || "");
   
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -67,6 +67,240 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
   const [isProcessing, setIsProcessing] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [heldCarts, setHeldCarts] = useState<CartItem[][]>([]);
+  // Invoice Return Modal State
+  const [isInvoiceReturnModalOpen, setIsInvoiceReturnModalOpen] = useState(false);
+  const [invoiceReturnNumber, setInvoiceReturnNumber] = useState("");
+  const [invoiceReturnData, setInvoiceReturnData] = useState<any>(null);
+  const [invoiceReturnItems, setInvoiceReturnItems] = useState<any[]>([]);
+  const [isSearchingInvoice, setIsSearchingInvoice] = useState(false);
+
+  const handleOpenInvoiceReturnModal = () => {
+    setIsInvoiceReturnModalOpen(true);
+    setInvoiceReturnNumber("");
+    setInvoiceReturnData(null);
+    setInvoiceReturnItems([]);
+  };
+
+  const handleSearchInvoiceReturn = async () => {
+    if (!invoiceReturnNumber) return;
+    setIsSearchingInvoice(true);
+    // @ts-ignore
+    const { getSaleByInvoiceNumber } = await import("../../_actions/sale.action");
+    const res = await getSaleByInvoiceNumber(invoiceReturnNumber);
+    if (res.success && res.sale) {
+      setInvoiceReturnData(res.sale);
+      setInvoiceReturnItems(res.sale.items.map((i: any) => ({
+        ...i,
+        selected: false,
+        qtyToReturn: 0
+      })));
+    } else {
+      toast({ title: "Error", description: res.error || "Invoice not found", variant: "destructive" });
+    }
+    setIsSearchingInvoice(false);
+  };
+
+  const handleToggleInvoiceReturnItem = (id: string, checked: boolean) => {
+    setInvoiceReturnItems(prev => prev.map(item => {
+      if (item.id === id) {
+        return { ...item, selected: checked, qtyToReturn: checked ? 1 : 0 };
+      }
+      return item;
+    }));
+  };
+
+  const handleUpdateInvoiceReturnQty = (id: string, qty: number) => {
+    setInvoiceReturnItems(prev => prev.map(item => {
+      if (item.id === id) {
+        let newQty = Math.max(1, qty);
+        newQty = Math.min(newQty, item.quantity); // Cannot exceed sold quantity
+        return { ...item, qtyToReturn: newQty, selected: true };
+      }
+      return item;
+    }));
+  };
+
+  const handleProcessInvoiceReturn = async () => {
+    const itemsToReturn = invoiceReturnItems.filter(i => i.selected && i.qtyToReturn > 0);
+    if (itemsToReturn.length === 0) return;
+    if (!selectedWarehouseId) {
+      toast({ title: "Warning", description: "Select warehouse first", variant: "destructive" });
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const clientIdToUse = invoiceReturnData?.clientId || selectedClientId || warehouses[0]?.id; // Fallback
+
+      const saleItems = itemsToReturn.map((item) => ({
+        itemId: item.itemId,
+        description: item.productName,
+        quantity: -item.qtyToReturn, // Negative for return
+        unitPrice: item.price,
+        amount: - (item.price * item.qtyToReturn),
+      }));
+
+      const { createSale } = await import("../../_actions/sale.action");
+      const res = await createSale({
+        clientId: clientIdToUse,
+        warehouseId: selectedWarehouseId,
+        date: new Date(),
+        status: "COMPLETED",
+        orderType: orderType as any,
+        notes: `Return for Invoice: ${invoiceReturnData?.saleNumber}`,
+        tax: 0,
+        discount: 0,
+        items: saleItems,
+      });
+
+      if (res.success) {
+        toast({ title: "Success", description: "Return invoice created successfully" });
+        setIsInvoiceReturnModalOpen(false);
+        if (res.sale?.id) {
+           window.open(`/print/invoice/${res.sale.id}`, '_blank');
+        }
+      } else {
+        toast({ title: "Error", description: res.error, variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to process return", variant: "destructive" });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Void Return Modal State
+  const [isVoidReturnModalOpen, setIsVoidReturnModalOpen] = useState(false);
+  const [voidReturnSearchQuery, setVoidReturnSearchQuery] = useState("");
+  const [voidReturnClientId, setVoidReturnClientId] = useState<string>("");
+  const [voidReturnSearchResults, setVoidReturnSearchResults] = useState<any[]>([]);
+  const [isSearchingVoidReturn, setIsSearchingVoidReturn] = useState(false);
+  const [voidReturnCart, setVoidReturnCart] = useState<any[]>([]);
+
+  const handleOpenVoidReturnModal = () => {
+    setIsVoidReturnModalOpen(true);
+    setVoidReturnSearchQuery("");
+    setVoidReturnClientId("");
+    setVoidReturnSearchResults([]);
+    setVoidReturnCart([]);
+  };
+
+  const handleSearchVoidReturn = async (query: string, clientId: string) => {
+    setVoidReturnSearchQuery(query);
+    setVoidReturnClientId(clientId);
+    
+    if (!query && !clientId) {
+      setVoidReturnSearchResults([]);
+      return;
+    }
+    
+    setIsSearchingVoidReturn(true);
+    // @ts-ignore
+    const { searchSoldProductsForReturn } = await import("../../_actions/sale.action");
+    const res = await searchSoldProductsForReturn(query, clientId);
+    if (res.success) {
+      setVoidReturnSearchResults(res.items || []);
+    }
+    setIsSearchingVoidReturn(false);
+  };
+
+  const handleAddVoidReturnItem = (item: any) => {
+    if (voidReturnCart.find(i => i.id === item.id)) return; // prevent duplicate
+    setVoidReturnCart([...voidReturnCart, { ...item, qtyToReturn: 1 }]);
+    setVoidReturnSearchQuery("");
+    setVoidReturnSearchResults([]);
+  };
+
+  const handleUpdateVoidReturnQty = (id: string, qty: number) => {
+    setVoidReturnCart(prev => prev.map(item => {
+      if (item.id === id) {
+        let newQty = Math.max(1, qty);
+        newQty = Math.min(newQty, item.soldQuantity); // Cannot exceed sold quantity
+        return { ...item, qtyToReturn: newQty };
+      }
+      return item;
+    }));
+  };
+
+  const handleRemoveVoidReturnItem = (id: string) => {
+    setVoidReturnCart(prev => prev.filter(i => i.id !== id));
+  };
+
+  const handleProcessVoidReturn = async () => {
+    if (voidReturnCart.length === 0) return;
+    if (!selectedWarehouseId) {
+      toast({ title: "Warning", description: "Select warehouse first", variant: "destructive" });
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const clientIdToUse = voidReturnClientId || selectedClientId || warehouses[0]?.id; // Fallback
+
+      const saleItems = voidReturnCart.map((item) => ({
+        itemId: item.itemId,
+        description: item.productName,
+        quantity: -item.qtyToReturn, // Negative for return
+        unitPrice: item.mrp,
+        amount: - (item.mrp * item.qtyToReturn),
+      }));
+
+      const res = await createSale({
+        clientId: clientIdToUse,
+        warehouseId: selectedWarehouseId,
+        date: new Date(),
+        status: "COMPLETED",
+        orderType: orderType as any,
+        notes: `Void Return (Refs: ${Array.from(new Set(voidReturnCart.map(i => i.saleNumber))).join(', ')})`,
+        tax: 0,
+        discount: 0,
+        items: saleItems,
+      });
+
+      if (res.success) {
+        toast({ title: "Success", description: "Return created successfully" });
+        setIsVoidReturnModalOpen(false);
+        if (res.sale?.id) {
+           window.open(`/print/invoice/${res.sale.id}`, '_blank');
+        }
+      } else {
+        toast({ title: "Error", description: res.error, variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to process return", variant: "destructive" });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handlePrintLastBill = async () => {
+    const res = await getLastSaleId();
+    if (res.success && res.id) {
+      window.open(`/print/invoice/${res.id}`, '_blank');
+    } else {
+      toast({ title: "Info", description: "No previous bill found." });
+    }
+  };
+
+  const handleRefreshPOS = () => {
+    setSearchQuery("");
+    setFilterType("ALL");
+    setOrderType("RETAIL");
+    setDiscountAmount(0);
+    setTaxPercent(0);
+    setIsReturnMode(false);
+    setCart([]);
+    setSelectedClientId(clients.find(c => c.name?.toLowerCase() === "walkway customer")?.id || clients[0]?.id || "");
+    setSelectedWarehouseId(warehouses[0]?.id || "");
+    setPaymentMethod("CASH");
+    setPaidAmount(0);
+    // keeping held carts could be optional, but we will clear it if they press hard refresh button
+    // setHeldCarts([]); // Actually, let's keep held carts in case they didn't mean to clear them.
+    toast({ title: "Refreshed", description: "Order details have been cleared." });
+  };
+
+
+
 
   const categories = useMemo(() => {
     const cats = Array.from(new Set(items.map((i) => i.category).filter(Boolean))) as string[];
@@ -185,10 +419,12 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
         });
         setCart([]);
         setSearchQuery("");
+        if (res.sale?.id) {
+           window.open(`/print/invoice/${res.sale.id}`, '_blank');
+        }
         setTimeout(() => {
           setSuccessMsg("");
           setIsConfirmModalOpen(false);
-          router.push("/dashboard/sales");
         }, 2000);
       } else {
         toast({
@@ -292,19 +528,23 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
         {/* Bottom Actions */}
         <div className="mt-2 pt-4 border-t border-border shrink-0 overflow-x-auto pb-2">
           <div className="flex items-center w-fit mx-auto rounded-md overflow-hidden border border-border">
+
+            <button 
+              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#1f2937] text-white hover:bg-[#1f2937]/90 transition-colors min-w-[120px]"
+              onClick={handleOpenVoidReturnModal}
+            >
+              Void Return <Undo2 className="w-4 h-4" />
+            </button>
+
+
             <button 
               className="flex items-center justify-center gap-2 h-12 px-6 bg-background text-foreground hover:bg-muted transition-colors border-r border-border min-w-[120px]"
-              onClick={() => { setCart([]); setDiscountAmount(0); }}
+              onClick={handleOpenInvoiceReturnModal}
             >
-              Void <Undo2 className="w-4 h-4" />
+              Return <Undo2 className="w-4 h-4" />
             </button>
             
-            <button 
-              className={`flex items-center justify-center gap-2 h-12 px-6 transition-colors min-w-[120px] ${isReturnMode ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : 'bg-[#1f2937] text-white hover:bg-[#1f2937]/90'}`}
-              onClick={() => setIsReturnMode(!isReturnMode)}
-            >
-              {isReturnMode ? "Cancel Return" : "Return"} <Undo2 className="w-4 h-4" />
-            </button>
+            
 
             <button 
               className="flex items-center justify-center gap-2 h-12 px-6 bg-[#ffb000] text-black hover:bg-[#ffb000]/90 transition-colors min-w-[120px]"
@@ -330,14 +570,14 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
 
             <button 
               className="flex items-center justify-center gap-2 h-12 px-6 bg-[#0f8c5a] text-white hover:bg-[#0f8c5a]/90 transition-colors min-w-[120px]"
-              onClick={() => window.location.reload()}
+              onClick={handleRefreshPOS}
             >
               Refresh <RefreshCcw className="w-4 h-4" />
             </button>
 
             <button 
-              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#136bfb] text-white hover:bg-[#136bfb]/90 transition-colors min-w-[120px]"
-              onClick={() => router.push('/dashboard/sales')}
+              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#136bfb] text-white hover:bg-[#136bfb]/90 transition-colors min-w-[120px] rounded-r-md"
+              onClick={handlePrintLastBill}
             >
               Last Bill <Printer className="w-4 h-4" />
             </button>
@@ -625,6 +865,314 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Void Return Modal */}
+      <Dialog open={isVoidReturnModalOpen} onOpenChange={setIsVoidReturnModalOpen}>
+        <DialogContent className="sm:max-w-5xl overflow-hidden p-0 flex flex-col h-[85vh]">
+          <DialogHeader className="p-4 border-b border-border shrink-0 flex flex-row items-center justify-between">
+            <DialogTitle className="text-xl font-bold text-foreground">
+              Void Return
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-background">
+             {/* Top Search Bar */}
+             <div className="flex gap-4">
+               <div className="flex-1 relative">
+                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                 <Input 
+                   placeholder="Search product to return..."
+                   value={voidReturnSearchQuery}
+                   onChange={(e) => handleSearchVoidReturn(e.target.value, voidReturnClientId)}
+                   className="pl-9 bg-muted"
+                 />
+                 {voidReturnSearchResults.length > 0 && (
+                   <div className="absolute top-full left-0 right-0 mt-1 bg-background border border-border rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
+                     {voidReturnSearchResults.map(item => (
+                       <div 
+                         key={item.id} 
+                         className="p-3 hover:bg-muted cursor-pointer border-b border-border last:border-0"
+                         onClick={() => handleAddVoidReturnItem(item)}
+                       >
+                         <div className="flex justify-between items-center">
+                           <span className="font-medium text-foreground">{item.productName} ({item.productCode})</span>
+                           <span className="text-sm font-bold text-foreground">৳{item.mrp.toFixed(2)}</span>
+                         </div>
+                         <div className="text-xs text-muted-foreground mt-1 flex justify-between">
+                           <span>Invoice: {item.saleNumber} | {new Date(item.date).toLocaleDateString()}</span>
+                           <span>Sold Qty: {item.soldQuantity}</span>
+                         </div>
+                       </div>
+                     ))}
+                   </div>
+                 )}
+               </div>
+               <div className="w-64">
+                 <select 
+                   className="w-full h-10 rounded-md border border-input bg-muted px-3 py-2 text-sm text-foreground"
+                   value={voidReturnClientId}
+                   onChange={(e) => handleSearchVoidReturn(voidReturnSearchQuery, e.target.value)}
+                 >
+                   <option value="">All Customers...</option>
+                   {clients.map(c => (
+                     <option key={c.id} value={c.id}>{c.name || c.email}</option>
+                   ))}
+                 </select>
+               </div>
+             </div>
+
+             {/* Table */}
+             <div className="border border-border rounded-md overflow-hidden bg-background">
+               <table className="w-full text-sm">
+                 <thead className="bg-muted text-muted-foreground">
+                   <tr>
+                     <th className="py-2 px-3 text-left">#</th>
+                     <th className="py-2 px-3 text-left">Product</th>
+                     <th className="py-2 px-3 text-left">Group</th>
+                     <th className="py-2 px-3 text-right">TP</th>
+                     <th className="py-2 px-3 text-right">MRP</th>
+                     <th className="py-2 px-3 text-center w-28">Quantity</th>
+                     <th className="py-2 px-3 text-right">Price</th>
+                     <th className="py-2 px-3 text-right">Discount</th>
+                     <th className="py-2 px-3 text-right">Total</th>
+                     <th className="py-2 px-3 text-right">Sub-Total</th>
+                     <th className="py-2 px-3 text-center"></th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y divide-border">
+                   {voidReturnCart.length === 0 ? (
+                     <tr>
+                       <td colSpan={11} className="py-8 text-center text-muted-foreground">
+                         Search and select a product to return.
+                       </td>
+                     </tr>
+                   ) : voidReturnCart.map((item, index) => {
+                     const total = item.qtyToReturn * item.mrp;
+                     return (
+                       <tr key={item.id} className="hover:bg-muted/30">
+                         <td className="py-2 px-3 font-medium">{index + 1}</td>
+                         <td className="py-2 px-3">
+                           <div className="font-medium text-foreground">{item.productName}</div>
+                           <div className="text-[10px] text-muted-foreground">Inv: {item.saleNumber} | Sold: {item.soldQuantity}</div>
+                         </td>
+                         <td className="py-2 px-3 text-muted-foreground">{item.group}</td>
+                         <td className="py-2 px-3 text-right">{item.tp.toFixed(2)}</td>
+                         <td className="py-2 px-3 text-right">{item.mrp.toFixed(2)}</td>
+                         <td className="py-2 px-3">
+                           <Input 
+                             type="number"
+                             min={1}
+                             max={item.soldQuantity}
+                             value={item.qtyToReturn || ""}
+                             onChange={(e) => handleUpdateVoidReturnQty(item.id, Number(e.target.value))}
+                             className="h-8 text-center w-full"
+                           />
+                         </td>
+                         <td className="py-2 px-3 text-right">0.00</td>
+                         <td className="py-2 px-3 text-right">
+                           <div className="flex items-center justify-end gap-1">
+                             <Input className="h-8 w-16 text-right" value={item.discount || ""} disabled /> <span className="text-muted-foreground">%</span>
+                           </div>
+                         </td>
+                         <td className="py-2 px-3 text-right text-foreground font-medium">{total.toFixed(2)}</td>
+                         <td className="py-2 px-3 text-right text-foreground font-medium">{total.toFixed(2)}</td>
+                         <td className="py-2 px-3 text-center">
+                           <button onClick={() => handleRemoveVoidReturnItem(item.id)} className="text-muted-foreground hover:text-destructive">
+                             <X className="w-4 h-4" />
+                           </button>
+                         </td>
+                       </tr>
+                     );
+                   })}
+                 </tbody>
+               </table>
+             </div>
+
+             {/* Summary */}
+             <div className="flex justify-between items-center text-sm font-bold bg-muted/30 p-4 border border-border rounded-md text-foreground">
+               <div>Item No: {voidReturnCart.length}</div>
+               <div>Total: -{voidReturnCart.reduce((a, b) => a + (b.qtyToReturn * b.mrp), 0).toFixed(2)}</div>
+               <div>Gross Total: -{voidReturnCart.reduce((a, b) => a + (b.qtyToReturn * b.mrp), 0).toFixed(2)}</div>
+               <div>Round Total: -{Math.round(voidReturnCart.reduce((a, b) => a + (b.qtyToReturn * b.mrp), 0))}</div>
+             </div>
+             
+             <div className="flex justify-between items-center py-4 px-2">
+                <div className="font-bold text-lg text-foreground">
+                  Return Amount: {Math.round(voidReturnCart.reduce((a, b) => a + (b.qtyToReturn * b.mrp), 0))}
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setIsVoidReturnModalOpen(false)}>Close</Button>
+                  <Button 
+                    className="bg-[#1f2937] text-white hover:bg-black"
+                    onClick={handleProcessVoidReturn}
+                    disabled={isProcessing || voidReturnCart.length === 0}
+                  >
+                    {isProcessing ? "Processing..." : "Create Return"}
+                  </Button>
+                </div>
+             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Invoice Return Modal */}
+      <Dialog open={isInvoiceReturnModalOpen} onOpenChange={setIsInvoiceReturnModalOpen}>
+        <DialogContent className="sm:max-w-4xl overflow-hidden p-0 flex flex-col h-[85vh]">
+          <DialogHeader className="p-4 border-b border-border shrink-0 flex flex-row items-center justify-between">
+            <DialogTitle className="text-xl font-bold text-foreground">
+              Return Product | Invoice No: {invoiceReturnData?.saleNumber || "---"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-background">
+             {/* Scan Invoice */}
+             <div className="flex items-center gap-4 bg-muted/30 p-4 border border-border rounded-md">
+               <span className="font-semibold whitespace-nowrap text-foreground">Scan Invoice</span>
+               <div className="flex-1 relative">
+                 <Input 
+                   placeholder="Scan Invoice here or paste number"
+                   value={invoiceReturnNumber}
+                   onChange={(e) => setInvoiceReturnNumber(e.target.value)}
+                   onKeyDown={(e) => {
+                     if (e.key === "Enter") {
+                       handleSearchInvoiceReturn();
+                     }
+                   }}
+                   className="bg-background text-foreground pr-24"
+                 />
+                 <Button 
+                   size="sm" 
+                   onClick={handleSearchInvoiceReturn} 
+                   className="absolute right-1 top-1 bottom-1 h-auto"
+                   disabled={isSearchingInvoice || !invoiceReturnNumber}
+                 >
+                   Load
+                 </Button>
+               </div>
+             </div>
+
+             {/* Invoice Info Details */}
+             {invoiceReturnData && (
+               <>
+                 <div className="grid grid-cols-4 gap-4 text-sm mt-4 border-b border-border pb-4 text-foreground">
+                   <div>
+                     <span className="font-bold">Client:</span> {invoiceReturnData.clientName}
+                   </div>
+                   <div>
+                     <span className="font-bold">Biller:</span> {invoiceReturnData.billerName}
+                   </div>
+                   <div>
+                     <span className="font-bold">Date:</span> {new Date(invoiceReturnData.date).toLocaleDateString()}
+                   </div>
+                   <div>
+                     <span className="font-bold">Old:</span> 0
+                   </div>
+                   
+                   <div>
+                     <span className="font-bold">Item No:</span> {invoiceReturnData.items.length}
+                   </div>
+                   <div>
+                     <span className="font-bold">Total:</span> {invoiceReturnData.grandTotal.toFixed(2)}
+                   </div>
+                   <div>
+                     <span className="font-bold">Vat:</span> {invoiceReturnData.tax.toFixed(2)}
+                   </div>
+                   <div>
+                     <span className="font-bold">Round Total:</span> {Math.round(invoiceReturnData.grandTotal)}
+                   </div>
+                 </div>
+
+                 {/* Table */}
+                 <div className="border border-border rounded-md overflow-hidden bg-background">
+                   <table className="w-full text-sm">
+                     <thead className="bg-muted text-muted-foreground">
+                       <tr>
+                         <th className="py-2 px-3 text-left w-10">#</th>
+                         <th className="py-2 px-3 text-left">Product</th>
+                         <th className="py-2 px-3 text-left">Price</th>
+                         <th className="py-2 px-3 text-center w-28">Quantity</th>
+                         <th className="py-2 px-3 text-right">Vat</th>
+                         <th className="py-2 px-3 text-right">Sub-Total</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y divide-border">
+                       {invoiceReturnItems.map((item) => {
+                         const subTotal = item.qtyToReturn * item.price;
+                         return (
+                           <tr key={item.id} className="hover:bg-muted/30">
+                             <td className="py-2 px-3">
+                               <Checkbox 
+                                 checked={item.selected}
+                                 onCheckedChange={(c) => handleToggleInvoiceReturnItem(item.id, c as boolean)}
+                               />
+                             </td>
+                             <td className="py-2 px-3 font-medium text-foreground">
+                               {item.productName}
+                             </td>
+                             <td className="py-2 px-3 text-foreground">{item.price.toFixed(2)}</td>
+                             <td className="py-2 px-3">
+                               <Input 
+                                 type="number"
+                                 min={1}
+                                 max={item.quantity}
+                                 value={item.qtyToReturn || ""}
+                                 onChange={(e) => handleUpdateInvoiceReturnQty(item.id, Number(e.target.value))}
+                                 disabled={!item.selected}
+                                 className="h-8 text-center w-full"
+                               />
+                               <div className="text-[10px] text-center text-muted-foreground mt-1">Sold: {item.quantity}</div>
+                             </td>
+                             <td className="py-2 px-3 text-right text-foreground">{item.vat.toFixed(2)}</td>
+                             <td className="py-2 px-3 text-right text-foreground font-medium">{subTotal.toFixed(2)}</td>
+                           </tr>
+                         );
+                       })}
+                     </tbody>
+                   </table>
+                 </div>
+
+                 {/* Return Info Summary */}
+                 <div className="mt-4">
+                   <h3 className="font-bold text-foreground mb-2">Return Info</h3>
+                   <div className="flex justify-between items-center text-sm border-t border-border pt-4 pb-2 text-foreground font-bold">
+                     <div>
+                       Item No: {invoiceReturnItems.filter(i => i.selected && i.qtyToReturn > 0).length}
+                     </div>
+                     <div>
+                       Total: {invoiceReturnItems.reduce((a, b) => a + (b.qtyToReturn * b.price), 0).toFixed(2)}
+                     </div>
+                     <div>
+                       Vat: 0.00
+                     </div>
+                     <div>
+                       GrossTotalRound: {Math.round(invoiceReturnItems.reduce((a, b) => a + (b.qtyToReturn * b.price), 0)).toFixed(2)}
+                     </div>
+                     <div>
+                       Point: 0
+                     </div>
+                   </div>
+                 </div>
+
+                 <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-border">
+                   <Button variant="outline" onClick={() => setIsInvoiceReturnModalOpen(false)}>Cancel</Button>
+                   <Button 
+                     className="bg-[#1f2937] text-white hover:bg-black"
+                     onClick={handleProcessInvoiceReturn}
+                     disabled={isProcessing || invoiceReturnItems.filter(i => i.selected && i.qtyToReturn > 0).length === 0}
+                   >
+                     {isProcessing ? "Processing..." : "Create Return"}
+                   </Button>
+                 </div>
+               </>
+             )}
+             
+             {!invoiceReturnData && (
+                <div className="text-center py-20 text-muted-foreground">
+                   Scan or enter an invoice number to load return data.
+                </div>
+             )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

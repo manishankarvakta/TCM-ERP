@@ -26,6 +26,7 @@ import {
   FiX,
   FiMoreVertical,
   FiRotateCw,
+  FiCopy,
 } from "react-icons/fi";
 import {
   deleteSale,
@@ -335,7 +336,19 @@ export default function SalesListClient({
                       />
                     </TableCell>
                     <TableCell className="font-medium">
-                      {sale.saleNumber}
+                      <div className="flex items-center gap-2">
+                        {sale.saleNumber}
+                        <button 
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={() => {
+                            navigator.clipboard.writeText(sale.saleNumber);
+                            toast({ title: "Copied", description: "Invoice number copied to clipboard" });
+                          }}
+                          title="Copy Invoice Number"
+                        >
+                          <FiCopy className="w-4 h-4" />
+                        </button>
+                      </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {sale.client.name || sale.client.email}
