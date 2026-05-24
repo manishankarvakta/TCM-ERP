@@ -4,9 +4,9 @@
 
 services:
   # PostgreSQL Database
-  bhagyakul-postgres:
+  ffERP-postgres:
     image: postgres:16-alpine
-    container_name: bhagyakul-postgres
+    container_name: ffERP-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgresUser}
@@ -27,17 +27,17 @@ services:
       - docker-network
 
   # Next.js Application
-  bhagyakul-app:
+  ffERP-app:
     build:
       context: ./startup-mvp
       dockerfile: Dockerfile
-    container_name: bhagyakul-app
+    container_name: ffERP-app
     restart: unless-stopped
     expose:
       - "3000"
     environment:
       # Database
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgresUser}:${POSTGRES_PASSWORD:-postgresPass}@bhagyakul-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgresUser}:${POSTGRES_PASSWORD:-postgresPass}@ffERP-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
       
       # NextAuth
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-I5p97Jpv0Xr7Zz7Ay8W6+O2eLmBR6N2gllGrZO01Szo=}
@@ -45,7 +45,7 @@ services:
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
       
       # Redis (optional)
-      REDIS_URL: ${REDIS_URL:-redis://bhagyakul-redis:6379}
+      REDIS_URL: ${REDIS_URL:-redis://ffERP-redis:6379}
       
       # Email Configuration
       SMTP_HOST: ${SMTP_HOST:-}
@@ -64,16 +64,16 @@ services:
     volumes:
       - ./volumes/uploads:/app/uploads
     depends_on:
-      bhagyakul-postgres:
+      ffERP-postgres:
         condition: service_healthy
     networks:
       - docker-network
       - dokploy-network
     
   # Redis (optional, if you're using it)
-  bhagyakul-redis:
+  ffERP-redis:
     image: redis:7-alpine
-    container_name: bhagyakul-redis
+    container_name: ffERP-redis
     restart: unless-stopped
     ports:
       - "${REDIS_PORT:-6379}:6379"
