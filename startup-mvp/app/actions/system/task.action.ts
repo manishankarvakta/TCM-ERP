@@ -28,6 +28,9 @@ export async function createTask(input: {
   parentId?: string;
   isRecurring?: boolean;
   recurrenceRule?: string;
+  projectId?: string;
+  milestoneId?: string;
+  issueId?: string;
 }) {
   try {
     const session = await auth();
@@ -51,6 +54,9 @@ export async function createTask(input: {
         contactId: input.contactId,
         opportunityId: input.opportunityId,
         leadId: input.leadId,
+        projectId: input.projectId,
+        milestoneId: input.milestoneId,
+        issueId: input.issueId,
         entityType: entityType,
         entityId: entityId,
         userId: session.user.id,
@@ -90,6 +96,9 @@ export async function createTask(input: {
     }
 
     revalidateBothPaths("tasks");
+    if (task.projectId) {
+      revalidateBothPaths(`projects/${task.projectId}`);
+    }
     return { success: true, task };
   } catch (error) {
     console.error("createTask error:", error);
@@ -250,6 +259,9 @@ export async function updateTask(
     }
 
     revalidateBothPaths("tasks");
+    if (task.projectId) {
+      revalidateBothPaths(`projects/${task.projectId}`);
+    }
     return { success: true, task };
   } catch (error) {
     console.error("updateTask error:", error);
@@ -295,6 +307,9 @@ export async function deleteTask(id: string) {
     }
 
     revalidateBothPaths("tasks");
+    if (task && task.projectId) {
+      revalidateBothPaths(`projects/${task.projectId}`);
+    }
     return { success: true };
   } catch (error) {
     console.error("deleteTask error:", error);

@@ -66,6 +66,7 @@ import ProjectAnalytics from "./ProjectAnalytics";
 import { ProjectTimeline } from "./ProjectTimeline";
 import { ProjectCalendar } from "./ProjectCalendar";
 import { ProjectTeam } from "./ProjectTeam";
+import { ClickUpItemModal } from "@/components/projects/shared/ClickUpItemModal";
 import { Switch } from "@/components/ui/switch";
 import { AdminProjectOverview } from "./AdminProjectOverview";
 import { MemberProjectOverview } from "./MemberProjectOverview";
@@ -101,9 +102,12 @@ interface ProjectWorkspaceProps {
 export default function ProjectWorkspace({ id, permissions = {}, userRole, userId, initialData }: ProjectWorkspaceProps) {
   const hasOp = useCallback((key: string, op: Operation) => {
     if (userRole?.toLowerCase() === "admin") return true;
-    const perm = permissions[key];
+    const perm = permissions[key] as any;
     if (Array.isArray(perm)) {
       return perm.includes(op);
+    }
+    if (perm && typeof perm === "object" && Array.isArray(perm.operations)) {
+      return perm.operations.includes(op);
     }
     return false;
   }, [permissions, userRole]);
@@ -322,6 +326,7 @@ export default function ProjectWorkspace({ id, permissions = {}, userRole, userI
                 <CardContent className="p-6">
                     <ProjectIssuesKanban 
                         project={project}
+                        users={users}
                         onRefresh={fetchProject}
                         onEditIssue={(issue: any) => {
                             setSelectedIssue(issue);
@@ -378,7 +383,13 @@ export default function ProjectWorkspace({ id, permissions = {}, userRole, userI
         </TabsContent>
 
         <TabsContent value="team" className="mt-0 focus-visible:ring-0">
-            <ProjectTeam projectId={id} />
+            <ProjectTeam 
+                projectId={id} 
+                project={project}
+                tasks={tasks}
+                users={users}
+                onRefresh={fetchProject}
+            />
         </TabsContent>
       </Tabs>
       </div>
@@ -408,32 +419,17 @@ export default function ProjectWorkspace({ id, permissions = {}, userRole, userI
           </DialogContent>
       </Dialog>
 
-      {/* Issue Dialog */}
-      <Dialog open={isIssueDialogOpen} onOpenChange={setIsIssueDialogOpen}>
-          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto p-6 rounded-xl bg-background border-border/50 shadow-lg">
-                <div className="border-b pb-4 mb-4">
-                    <DialogTitle className="text-xl font-bold">Log Defect/Task</DialogTitle>
-                    <DialogDescription className="text-sm text-muted-foreground mt-1">
-                        Synchronize a technical issue or strategic task into the mission sequence.
-                    </DialogDescription>
-                </div>
-                <div className="bg-card">
-                    <IssueForm 
-                        milestoneId={selectedMilestone?.id}
-                        initialData={selectedIssue}
-                        onSuccess={() => {
-                            setIsIssueDialogOpen(false);
-                            fetchProject();
-                        }}
-                        onCancel={() => setIsIssueDialogOpen(false)}
-                    />
-                    
-                    {selectedIssue?.id && (
-                        <IssueActivityWrapper issueId={selectedIssue.id} users={users} />
-                    )}
-                </div>
-          </DialogContent>
-      </Dialog>
+      {/* Unified ClickUp-Style Issue Dialog */}
+      {isIssueDialogOpen && (
+          <ClickUpItemModal 
+              isOpen={isIssueDialogOpen}
+              onClose={() => setIsIssueDialogOpen(false)}
+              entityType="issue"
+              initialData={selectedIssue || { title: "New Issue", milestoneId: selectedMilestone?.id }}
+              users={users}
+              onRefresh={fetchProject}
+          />
+      )}
       {/* Tab Settings Dialog */}
       <Dialog open={isTabSettingsOpen} onOpenChange={setIsTabSettingsOpen}>
           <DialogContent className="sm:max-w-[400px] p-6 rounded-xl bg-background border-border/50 shadow-lg">

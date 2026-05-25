@@ -246,7 +246,18 @@ export async function getProjectById(id: string) {
             include: {
                 Issues: {
                     include: {
-                        Assignee: { select: { id: true, name: true, image: true } }
+                        Assignee: { select: { id: true, name: true, image: true } },
+                        Tasks: {
+                            where: { parentId: null },
+                            include: {
+                                Assignee: { select: { id: true, name: true, image: true } },
+                                Subtasks: {
+                                    include: {
+                                        Assignee: { select: { id: true, name: true, image: true } }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -692,5 +703,201 @@ export async function getAllIssues(status?: string, search?: string, priority?: 
   } catch (error) {
     console.error("getAllIssues error:", error);
     return { success: false, error: "Failed to fetch issues" };
+  }
+}
+
+/**
+ * Fetch project Gantt chart data (Milestones -> Issues -> Tasks -> Subtasks)
+ */
+export async function getProjectGanttData(projectId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      console.log("[DEBUG GANTT] No session user found");
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const hasPermissionResult = await checkPermission(session.user.id, "projects.timeline", "read");
+    console.log(`[DEBUG GANTT] User: ${session.user.name} (${session.user.email}), ID: ${session.user.id}, Role: ${session.user.role}`);
+    console.log(`[DEBUG GANTT] checkPermission("projects.timeline", "read") result: ${hasPermissionResult}`);
+
+    if (!hasPermissionResult) {
+      return { success: false, error: "Permission Denied: projects.timeline.read" };
+    }
+
+    const milestones = await prisma.milestone.findMany({
+      where: { projectId },
+      orderBy: { order: "asc" }
+    });
+
+    const milestoneIds = milestones.map(m => m.id);
+    const issues = await prisma.issue.findMany({
+      where: { milestoneId: { in: milestoneIds } },
+      include: {
+        Assignee: { select: { id: true, name: true, image: true } }
+      },
+      orderBy: { createdAt: "asc" }
+    });
+
+    const tasks = await prisma.task.findMany({
+      where: { projectId },
+      include: {
+        Assignee: { select: { id: true, name: true, image: true } },
+        BlockedBy: { select: { blockingTaskId: true } }
+      },
+      orderBy: { createdAt: "asc" }
+    });
+
+    // Group tasks
+    const subtaskMap: Record<string, typeof tasks> = {};
+    const rootTasksByIssueId: Record<string, typeof tasks> = {};
+
+    tasks.forEach(task => {
+      if (task.parentId) {
+        if (!subtaskMap[task.parentId]) subtaskMap[task.parentId] = [];
+        subtaskMap[task.parentId].push(task);
+      } else if (task.issueId) {
+        if (!rootTasksByIssueId[task.issueId]) rootTasksByIssueId[task.issueId] = [];
+        rootTasksByIssueId[task.issueId].push(task);
+      }
+    });
+
+    const mapSubtask = (st: typeof tasks[number]) => {
+      const startDate = st.createdAt.toISOString();
+      const endDate = (st.dueDate || new Date(st.createdAt.getTime() + 1 * 24 * 60 * 60 * 1000)).toISOString();
+      
+      let progress = 0;
+      if (st.status === "COMPLETED" || st.status === "done" || st.status === "completed") {
+        progress = 100;
+      } else if (st.status === "in-progress" || st.status === "IN_PROGRESS") {
+        progress = 50;
+      }
+
+      return {
+        id: st.id,
+        title: st.title,
+        type: "subtask",
+        startDate,
+        endDate,
+        progress,
+        dependencies: st.BlockedBy.map((d: { blockingTaskId: string }) => d.blockingTaskId),
+        children: [],
+        isExpanded: false,
+        assignee: st.Assignee ? { id: st.Assignee.id, name: st.Assignee.name, image: st.Assignee.image } : undefined,
+        status: st.status,
+        priority: st.priority,
+        description: st.description
+      };
+    };
+
+    const mapTask = (t: typeof tasks[number]) => {
+      const children = (subtaskMap[t.id] || []).map(st => mapSubtask(st));
+      const startDate = t.createdAt.toISOString();
+      const endDate = (t.dueDate || new Date(t.createdAt.getTime() + 2 * 24 * 60 * 60 * 1000)).toISOString();
+
+      let progress = 0;
+      if (t.status === "COMPLETED" || t.status === "done" || t.status === "completed") {
+        progress = 100;
+      } else if (t.status === "in-progress" || t.status === "IN_PROGRESS") {
+        progress = 50;
+      }
+
+      return {
+        id: t.id,
+        title: t.title,
+        type: "task",
+        startDate,
+        endDate,
+        progress,
+        dependencies: t.BlockedBy.map((d: { blockingTaskId: string }) => d.blockingTaskId),
+        children,
+        isExpanded: false,
+        assignee: t.Assignee ? { id: t.Assignee.id, name: t.Assignee.name, image: t.Assignee.image } : undefined,
+        status: t.status,
+        priority: t.priority,
+        description: t.description
+      };
+    };
+
+    const mapIssue = (issue: typeof issues[number]) => {
+      const rootTasks = rootTasksByIssueId[issue.id] || [];
+      const children = rootTasks.map(t => mapTask(t));
+
+      let startDateVal = issue.createdAt;
+      let endDateVal = new Date(issue.createdAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      if (children.length > 0) {
+        const startTimes = children.map(c => new Date(c.startDate).getTime());
+        const endTimes = children.map(c => new Date(c.endDate).getTime());
+        startDateVal = new Date(Math.min(...startTimes));
+        endDateVal = new Date(Math.max(...endTimes));
+      }
+
+      let progress = 0;
+      if (issue.status === "COMPLETED") {
+        progress = 100;
+      } else if (children.length > 0) {
+        const totalProgress = children.reduce((sum, c) => sum + c.progress, 0);
+        progress = Math.round(totalProgress / children.length);
+      } else if (issue.status === "IN_PROGRESS") {
+        progress = 50;
+      }
+
+      return {
+        id: issue.id,
+        title: `Issue: ${issue.title}`,
+        type: "issue",
+        startDate: startDateVal.toISOString(),
+        endDate: endDateVal.toISOString(),
+        progress,
+        dependencies: [],
+        children,
+        isExpanded: true,
+        assignee: issue.Assignee ? { id: issue.Assignee.id, name: issue.Assignee.name, image: issue.Assignee.image } : undefined,
+        status: issue.status,
+        priority: issue.priority,
+        description: issue.description
+      };
+    };
+
+    const mappedData = milestones.map(m => {
+      const milestoneIssues = issues.filter(i => i.milestoneId === m.id);
+      const children = milestoneIssues.map(i => mapIssue(i));
+
+      let startDateVal = m.createdAt;
+      let endDateVal = m.dueDate || new Date(m.createdAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      if (children.length > 0) {
+        const startTimes = children.map(c => new Date(c.startDate).getTime());
+        const endTimes = children.map(c => new Date(c.endDate).getTime());
+        startDateVal = new Date(Math.min(...startTimes));
+        endDateVal = new Date(Math.max(...endTimes));
+      }
+
+      let progress = 0;
+      if (children.length > 0) {
+        const totalProgress = children.reduce((sum, c) => sum + c.progress, 0);
+        progress = Math.round(totalProgress / children.length);
+      }
+
+      return {
+        id: m.id,
+        title: `Milestone: ${m.title}`,
+        type: "milestone",
+        startDate: startDateVal.toISOString(),
+        endDate: endDateVal.toISOString(),
+        progress,
+        dependencies: [],
+        children,
+        isExpanded: true,
+        status: m.status,
+        description: m.description
+      };
+    });
+
+    return { success: true, data: mappedData };
+  } catch (error) {
+    console.error("getProjectGanttData error:", error);
+    return { success: false, error: "Failed to fetch Gantt timeline data" };
   }
 }

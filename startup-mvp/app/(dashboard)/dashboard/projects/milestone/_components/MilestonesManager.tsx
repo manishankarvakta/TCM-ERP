@@ -9,12 +9,23 @@ import {
     Calendar, 
     Briefcase, 
     RotateCw,
-    X
+    X,
+    LayoutGrid,
+    List
 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { getAllMilestones } from "@/app/actions/projects/project.action";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import Link from "next/link";
+import { ClickUpItemModal } from "@/components/projects/shared/ClickUpItemModal";
 
 interface Milestone {
   id: string;
@@ -39,7 +50,10 @@ export default function MilestonesManager({ initialMilestones }: MilestonesManag
   const [milestones, setMilestones] = useState<Milestone[]>(initialMilestones);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [view, setView] = useState<"list" | "grid">("list");
   const [isPending, startTransition] = useTransition();
+  const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleSync = async () => {
     startTransition(async () => {
@@ -103,6 +117,24 @@ export default function MilestonesManager({ initialMilestones }: MilestonesManag
               {status === "all" ? "All Phases" : status.toLowerCase().replace("_", " ")}
             </Button>
           ))}
+          <div className="flex items-center ml-2 border border-border/60 rounded-full p-0.5 bg-muted/20">
+            <Button
+              variant={view === "list" ? "default" : "ghost"}
+              size="icon"
+              onClick={() => setView("list")}
+              className={`h-8 w-8 rounded-full ${view === "list" ? 'shadow-sm' : 'text-muted-foreground'}`}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={view === "grid" ? "default" : "ghost"}
+              size="icon"
+              onClick={() => setView("grid")}
+              className={`h-8 w-8 rounded-full ${view === "grid" ? 'shadow-sm' : 'text-muted-foreground'}`}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          </div>
           <Button
             variant="ghost"
             size="icon"
@@ -115,7 +147,7 @@ export default function MilestonesManager({ initialMilestones }: MilestonesManag
         </div>
       </div>
 
-      {/* Grid or Empty State */}
+      {/* List/Grid or Empty State */}
       {filteredMilestones.length === 0 ? (
         <div className="py-24 text-center border-2 border-dashed rounded-[2rem] bg-muted/20 border-border/80 group">
           <Calendar className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
@@ -124,8 +156,8 @@ export default function MilestonesManager({ initialMilestones }: MilestonesManag
             Try adjusting your search criteria or filter configuration to discover registered roadmap phases.
           </p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      ) : view === "grid" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredMilestones.map((milestone) => (
             <Card key={milestone.id} className="hover:shadow-lg transition-all border-border/50 bg-card rounded-2xl overflow-hidden group">
               <CardContent className="p-0">
@@ -142,7 +174,13 @@ export default function MilestonesManager({ initialMilestones }: MilestonesManag
                   </div>
 
                   {/* Milestone Title */}
-                  <h4 className="text-lg font-bold tracking-tight mb-2 group-hover:text-primary transition-colors">
+                  <h4 
+                    className="text-lg font-bold tracking-tight mb-2 group-hover:text-primary transition-colors cursor-pointer hover:underline"
+                    onClick={() => {
+                      setSelectedMilestone(milestone);
+                      setIsModalOpen(true);
+                    }}
+                  >
                     {milestone.title}
                   </h4>
 
@@ -172,6 +210,77 @@ export default function MilestonesManager({ initialMilestones }: MilestonesManag
             </Card>
           ))}
         </div>
+      ) : (
+        <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+          <Table>
+            <TableHeader className="bg-muted/30">
+              <TableRow>
+                <TableHead className="w-[30%]">Milestone</TableHead>
+                <TableHead className="w-[20%]">Project</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Due Date</TableHead>
+                <TableHead className="text-right">Issues</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredMilestones.map((milestone) => (
+                <TableRow key={milestone.id} className="group hover:bg-muted/30 transition-colors">
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <span 
+                        className="font-semibold cursor-pointer hover:text-primary hover:underline transition-colors w-fit"
+                        onClick={() => {
+                          setSelectedMilestone(milestone);
+                          setIsModalOpen(true);
+                        }}
+                      >
+                        {milestone.title}
+                      </span>
+                      <span className="text-xs text-muted-foreground line-clamp-1">{milestone.description || "No details provided"}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Link 
+                      href={`/dashboard/projects/${milestone.Project?.id}`} 
+                      className="text-xs font-medium text-muted-foreground hover:text-primary flex items-center gap-1.5 truncate"
+                    >
+                      <Briefcase className="w-3.5 h-3.5" />
+                      {milestone.Project?.title || "Independent"}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    {getStatusBadge(milestone.status)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {milestone.dueDate ? format(new Date(milestone.dueDate), 'MMM d, yyyy') : '-'}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Badge variant="secondary" className="font-mono text-xs">
+                      {milestone.Issues?.length || 0}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Modal for viewing/editing milestone */}
+      {isModalOpen && selectedMilestone && (
+        <ClickUpItemModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedMilestone(null);
+          }}
+          entityType="milestone"
+          initialData={selectedMilestone}
+          onRefresh={handleSync}
+        />
       )}
     </div>
   );

@@ -1,120 +1,106 @@
-import React, { useMemo } from "react";
+"use client";
+
+import React, { useState, useEffect, useCallback } from "react";
 import { GanttChart } from "./gantt/GanttChart";
 import { GanttNode } from "./gantt/types";
-import { addDays, subDays } from "date-fns";
+import { getProjectGanttData } from "@/app/actions/projects/project.action";
+import { Skeleton } from "@/components/ui/skeleton";
+import { FiCalendar } from "react-icons/fi";
+
+interface SerializedGanttNode {
+    id: string;
+    title: string;
+    type: "milestone" | "issue" | "task" | "subtask";
+    startDate: string;
+    endDate: string;
+    progress: number;
+    dependencies: string[];
+    children?: SerializedGanttNode[];
+    isExpanded?: boolean;
+    assignee?: { name: string; image: string | null };
+    status: string;
+}
 
 interface ProjectTimelineProps {
     projectId: string;
 }
 
-// Temporary Mock Data Generator to demonstrate the 4-level deep hierarchy and dependencies
-const generateMockHierarchy = (): GanttNode[] => {
-    const today = new Date();
-    
-    return [
-        {
-            id: "m1",
-            title: "Milestone 1: Foundation",
-            type: "milestone",
-            startDate: subDays(today, 5),
-            endDate: addDays(today, 10),
-            progress: 60,
-            dependencies: [],
-            isExpanded: true,
-            children: [
-                {
-                    id: "i1",
-                    title: "Issue: Setup Environment",
-                    type: "issue",
-                    startDate: subDays(today, 5),
-                    endDate: addDays(today, 2),
-                    progress: 80,
-                    dependencies: [],
-                    isExpanded: true,
-                    assignee: { name: "John Doe" },
-                    children: [
-                        {
-                            id: "t1",
-                            title: "Task: Docker Configuration",
-                            type: "task",
-                            startDate: subDays(today, 5),
-                            endDate: subDays(today, 1),
-                            progress: 100,
-                            dependencies: [],
-                            isExpanded: false,
-                            children: []
-                        },
-                        {
-                            id: "t2",
-                            title: "Task: CI/CD Pipeline",
-                            type: "task",
-                            startDate: today,
-                            endDate: addDays(today, 2),
-                            progress: 30,
-                            dependencies: ["t1"], // Depends on Docker Config
-                            isExpanded: true,
-                            children: [
-                                {
-                                    id: "st1",
-                                    title: "Subtask: Github Actions",
-                                    type: "subtask",
-                                    startDate: today,
-                                    endDate: addDays(today, 1),
-                                    progress: 50,
-                                    dependencies: [],
-                                    isExpanded: false,
-                                    children: []
-                                }
-                            ]
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            id: "m2",
-            title: "Milestone 2: Frontend Implementation",
-            type: "milestone",
-            startDate: addDays(today, 3),
-            endDate: addDays(today, 20),
-            progress: 0,
-            dependencies: ["m1"], // Depends on Milestone 1
-            isExpanded: true,
-            children: [
-                {
-                    id: "t3",
-                    title: "Task: Dashboard Layout",
-                    type: "task",
-                    startDate: addDays(today, 3),
-                    endDate: addDays(today, 8),
-                    progress: 0,
-                    dependencies: [],
-                    isExpanded: false,
-                    assignee: { name: "Alice Smith" },
-                    children: []
-                },
-                {
-                    id: "t4",
-                    title: "Task: Gantt Chart Component",
-                    type: "task",
-                    startDate: addDays(today, 8),
-                    endDate: addDays(today, 15),
-                    progress: 0,
-                    dependencies: ["t3"], // Depends on Dashboard Layout
-                    isExpanded: false,
-                    children: []
-                }
-            ]
-        }
-    ];
+const parseDatesInTree = (nodes: SerializedGanttNode[]): GanttNode[] => {
+    return nodes.map(node => ({
+        ...node,
+        startDate: new Date(node.startDate),
+        endDate: new Date(node.endDate),
+        children: node.children ? parseDatesInTree(node.children) : []
+    }));
 };
 
 export function ProjectTimeline({ projectId }: ProjectTimelineProps) {
-    const data = useMemo(() => generateMockHierarchy(), []);
+    const [data, setData] = useState<GanttNode[]>([]);
+
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const loadGanttData = useCallback(async (showSkeleton = true) => {
+        try {
+            if (showSkeleton) setLoading(true);
+            const res = await getProjectGanttData(projectId);
+            if (res.success && res.data) {
+                setData(parseDatesInTree(res.data));
+                setError(null);
+            } else {
+                setError(res.error || "Failed to load timeline");
+            }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "An unexpected error occurred";
+            setError(message);
+        } finally {
+            if (showSkeleton) setLoading(false);
+        }
+    }, [projectId]);
+
+    useEffect(() => {
+        loadGanttData(true);
+    }, [loadGanttData]);
+
+    if (loading) {
+        return (
+            <div className="space-y-4 animate-in fade-in duration-500">
+                <div className="flex items-center justify-between p-4 border border-border/50 rounded-xl bg-card">
+                    <Skeleton className="h-6 w-32" />
+                    <Skeleton className="h-6 w-48" />
+                </div>
+                <Skeleton className="h-[400px] w-full rounded-xl" />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-destructive/50 rounded-xl bg-destructive/5">
+                <p className="text-sm font-semibold text-destructive">{error}</p>
+            </div>
+        );
+    }
+
+    if (data.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center p-16 text-center border border-dashed border-border rounded-xl bg-card space-y-4">
+                <div className="p-4 bg-slate-50 rounded-full text-muted-foreground">
+                    <FiCalendar className="w-8 h-8" />
+                </div>
+                <div className="space-y-1">
+                    <h4 className="font-semibold text-base">No timeline data available</h4>
+                    <p className="text-sm text-muted-foreground max-w-sm">
+                        Create milestones and project issues to populate the interactive Gantt chart schedule.
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <GanttChart initialData={data} />
+            <GanttChart initialData={data} onRefresh={() => loadGanttData(false)} />
         </div>
     );
 }

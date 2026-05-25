@@ -14,11 +14,22 @@ import { toast } from "sonner";
 import {
     MoreVertical, Edit3, Trash2, ChevronRight, ChevronDown,
     CheckSquare, AlertCircle, Target, CornerDownRight,
-    LayoutList, LayoutGrid, Circle, Clock, User
+    LayoutList, LayoutGrid, Circle, Clock, User, Plus
 } from "lucide-react";
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from "@/components/ui/select";
+import { FiInfo, FiActivity, FiAlertCircle, FiUser, FiCalendar } from "react-icons/fi";
+import { createTask } from "@/app/actions/system/task.action";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,6 +40,7 @@ interface Task {
     priority: string;
     dueDate?: string;
     Assignee?: { id: string; name: string; image?: string };
+    Subtasks?: Task[];
 }
 
 interface Issue {
@@ -56,6 +68,7 @@ interface Milestone {
 
 interface ProjectIssuesKanbanProps {
     project: any;
+    users?: any[];
     onRefresh: () => void;
     onEditIssue: (issue: any) => void;
     onDeleteIssue: (id: string) => void;
@@ -87,13 +100,42 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
     CLOSED:      <CheckSquare className="w-3.5 h-3.5 text-gray-400" />,
 };
 
+const getStatusIcon = (status: string) => {
+    if (!status) return <Circle className="w-3.5 h-3.5 text-slate-400" />;
+    const key = status.toUpperCase().replace(/[-\s]/g, "_");
+    const normalizedKey = key === "TODO" ? "OPEN" : key === "DONE" ? "COMPLETED" : key;
+    return STATUS_ICON[normalizedKey] || <Circle className="w-3.5 h-3.5 text-slate-400" />;
+};
+
+const getPriorityStyle = (priority: string) => {
+    if (!priority) return PRIORITY_STYLES.NORMAL;
+    const key = priority.toUpperCase();
+    const normalizedKey = key === "MEDIUM" ? "NORMAL" : key;
+    return PRIORITY_STYLES[normalizedKey] || PRIORITY_STYLES.NORMAL;
+};
+
 // ─── Board View ───────────────────────────────────────────────────────────────
 
 function BoardCard({ issue, onEdit, onDelete, hasOp }: { issue: Issue; onEdit: (i: any) => void; onDelete: (id: string) => void; hasOp: (k: string, op: any) => boolean }) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: issue.id });
     const style = transform ? { transform: `translate3d(${transform.x}px,${transform.y}px,0)`, zIndex: 50 } : undefined;
-    const completedTasks = issue.Tasks?.filter(t => t.status === "COMPLETED").length ?? 0;
-    const totalTasks = issue.Tasks?.length ?? 0;
+    
+    // Calculate total and completed tasks including subtasks
+    let completedTasks = 0;
+    let totalTasks = 0;
+    issue.Tasks?.forEach(t => {
+        totalTasks++;
+        if (t.status === "COMPLETED" || t.status === "completed" || t.status === "done") {
+            completedTasks++;
+        }
+        t.Subtasks?.forEach(st => {
+            totalTasks++;
+            if (st.status === "COMPLETED" || st.status === "completed" || st.status === "done") {
+                completedTasks++;
+            }
+        });
+    });
+    
     const taskProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
     return (
@@ -140,7 +182,7 @@ function BoardCard({ issue, onEdit, onDelete, hasOp }: { issue: Issue; onEdit: (
             {totalTasks > 0 && (
                 <div className="space-y-1">
                     <div className="flex justify-between text-[10px] font-medium text-muted-foreground">
-                        <span>Tasks</span>
+                        <span>Tasks & Subtasks</span>
                         <span>{completedTasks}/{totalTasks}</span>
                     </div>
                     <Progress value={taskProgress} className="h-1 [&>div]:bg-primary" />
@@ -149,7 +191,7 @@ function BoardCard({ issue, onEdit, onDelete, hasOp }: { issue: Issue; onEdit: (
 
             {/* Footer */}
             <div className="flex items-center justify-between pt-2 border-t border-border/40">
-                <Badge variant="outline" className={`text-[10px] font-semibold px-2 py-0.5 ${PRIORITY_STYLES[issue.priority] ?? ""}`}>
+                <Badge variant="outline" className={`text-[10px] font-semibold px-2 py-0.5 ${getPriorityStyle(issue.priority)}`}>
                     {issue.priority}
                 </Badge>
                 <div className="flex items-center gap-1.5">
@@ -200,25 +242,74 @@ function BoardLane({ lane, issues, onEdit, onDelete, hasOp }: { lane: typeof LAN
 
 // ─── List View ────────────────────────────────────────────────────────────────
 
-function TaskRow({ task }: { task: Task }) {
+function SubtaskRow({ subtask }: { subtask: Task }) {
     return (
-        <div className="flex items-center gap-3 py-2.5 px-4 pl-20 border-b border-border/30 last:border-0 hover:bg-muted/20 transition-colors">
-            <CornerDownRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
-            <CheckSquare className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-            <span className="text-sm flex-1 truncate text-muted-foreground">{task.title}</span>
+        <div className="flex items-center gap-3 py-2 px-4 pl-28 border-b border-border/30 last:border-0 hover:bg-muted/20 transition-colors">
+            <CornerDownRight className="w-3.5 h-3.5 text-muted-foreground/30 shrink-0 ml-4" />
+            <CheckSquare className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="text-sm flex-1 truncate text-muted-foreground/80">{subtask.title}</span>
             <div className="flex items-center gap-2 shrink-0">
-                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${PRIORITY_STYLES[task.priority] ?? ""}`}>
-                    {task.priority}
+                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getPriorityStyle(subtask.priority)}`}>
+                    {subtask.priority}
                 </Badge>
-                {STATUS_ICON[task.status]}
-                {task.Assignee && (
+                {getStatusIcon(subtask.status)}
+                {subtask.Assignee && (
                     <Avatar className="h-5 w-5">
-                        <AvatarImage src={task.Assignee.image} />
-                        <AvatarFallback className="text-[8px] bg-primary/10 text-primary">{task.Assignee.name.charAt(0)}</AvatarFallback>
+                        <AvatarImage src={subtask.Assignee.image} />
+                        <AvatarFallback className="text-[8px] bg-primary/10 text-primary">{subtask.Assignee.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                 )}
             </div>
         </div>
+    );
+}
+
+function TaskRow({ task }: { task: Task }) {
+    const [expanded, setExpanded] = useState(false);
+    const hasSubtasks = task.Subtasks && task.Subtasks.length > 0;
+
+    return (
+        <>
+            <div 
+                className="flex items-center gap-3 py-2.5 px-4 pl-20 border-b border-border/30 last:border-0 hover:bg-muted/20 transition-colors cursor-pointer group"
+                onClick={(e) => {
+                    if (hasSubtasks) {
+                        e.stopPropagation();
+                        setExpanded(v => !v);
+                    }
+                }}
+            >
+                {hasSubtasks ? (
+                    expanded
+                        ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                ) : (
+                    <CornerDownRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+                )}
+                <CheckSquare className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <span className="text-sm flex-1 truncate text-muted-foreground font-semibold">{task.title}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                    {hasSubtasks && (
+                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+                            {task.Subtasks?.length} subtasks
+                        </Badge>
+                    )}
+                    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getPriorityStyle(task.priority)}`}>
+                        {task.priority}
+                    </Badge>
+                    {getStatusIcon(task.status)}
+                    {task.Assignee && (
+                        <Avatar className="h-5 w-5">
+                            <AvatarImage src={task.Assignee.image} />
+                            <AvatarFallback className="text-[8px] bg-primary/10 text-primary">{task.Assignee.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                    )}
+                </div>
+            </div>
+            {expanded && hasSubtasks && task.Subtasks?.map(subtask => (
+                <SubtaskRow key={subtask.id} subtask={subtask} />
+            ))}
+        </>
     );
 }
 
@@ -248,7 +339,7 @@ function IssueRow({ issue, onEdit, onDelete, hasOp }: { issue: Issue; onEdit: (i
                 <span className="text-sm font-semibold flex-1 truncate">{issue.title}</span>
 
                 <div className="flex items-center gap-2 shrink-0 opacity-80 group-hover:opacity-100">
-                    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${PRIORITY_STYLES[issue.priority] ?? ""}`}>
+                    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getPriorityStyle(issue.priority)}`}>
                         {issue.priority}
                     </Badge>
                     {lane && (

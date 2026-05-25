@@ -6,8 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FiCpu, FiActivity, FiTrash2, FiEdit2, FiLink } from "react-icons/fi";
 import { deleteBiometricDevice } from "../../_actions/device.action";
+import { syncDeviceAttendance } from "@/app/actions/hr/biometric.action";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
+import { RefreshCw } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +28,7 @@ interface DeviceListProps {
 
 export default function DeviceList({ devices }: DeviceListProps) {
   const { toast } = useToast();
+  const [syncingId, setSyncingId] = React.useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
     const result = await deleteBiometricDevice(id);
@@ -34,6 +37,18 @@ export default function DeviceList({ devices }: DeviceListProps) {
     } else {
       toast({ title: "Error", description: result.error, variant: "destructive" });
     }
+  };
+
+  const handleSync = async (id: string) => {
+    setSyncingId(id);
+    toast({ title: "Syncing...", description: "Connecting to device to pull attendance logs..." });
+    const result = await syncDeviceAttendance(id);
+    if (result.success) {
+      toast({ title: "Sync Complete!", description: `Successfully pulled ${result.count} new attendance logs.` });
+    } else {
+      toast({ title: "Sync Failed", description: result.error, variant: "destructive" });
+    }
+    setSyncingId(null);
   };
 
   return (
@@ -84,9 +99,19 @@ export default function DeviceList({ devices }: DeviceListProps) {
                 </div>
 
                 <div className="flex items-center gap-2 pt-4 border-t mt-4">
-                  <Link href={`/dashboard/hr/attendance/devices/${device.id}`} className="flex-1">
-                    <Button variant="outline" size="sm" className="w-full">
-                      <FiEdit2 className="mr-2 h-4 w-4" /> Edit
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1"
+                    onClick={() => handleSync(device.id)}
+                    disabled={syncingId === device.id}
+                  >
+                    {syncingId === device.id ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <FiActivity className="mr-2 h-4 w-4" />} 
+                    Sync Logs
+                  </Button>
+                  <Link href={`/dashboard/hr/attendance/devices/${device.id}`}>
+                    <Button variant="outline" size="sm" className="px-3">
+                      <FiEdit2 className="h-4 w-4" />
                     </Button>
                   </Link>
                   <AlertDialog>

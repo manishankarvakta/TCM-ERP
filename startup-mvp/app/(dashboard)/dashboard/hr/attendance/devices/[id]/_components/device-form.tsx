@@ -13,6 +13,8 @@ import { upsertBiometricDevice } from "../../../_actions/device.action";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { FiSave, FiChevronLeft } from "react-icons/fi";
+import { Wifi, RefreshCw } from "lucide-react";
+import { testDeviceConnection } from "@/app/actions/hr/biometric.action";
 
 const deviceSchema = z.object({
   id: z.string().optional(),
@@ -34,6 +36,8 @@ interface DeviceFormProps {
 export default function DeviceForm({ initialData }: DeviceFormProps) {
   const { toast } = useToast();
   const router = useRouter();
+  const [isTesting, setIsTesting] = React.useState(false);
+  const [testResult, setTestResult] = React.useState<{status: 'idle' | 'testing' | 'success' | 'error', message: string}>({ status: 'idle', message: '' });
 
   const form = useForm<z.infer<typeof deviceSchema>>({
     resolver: zodResolver(deviceSchema) as any,
@@ -54,6 +58,37 @@ export default function DeviceForm({ initialData }: DeviceFormProps) {
     } else {
       toast({ title: "Error", description: result.error, variant: "destructive" });
     }
+  };
+
+  const handleTestConnection = async () => {
+    const ip = form.getValues("ipAddress");
+    const port = form.getValues("port");
+    
+    if (!ip) {
+      toast({ title: "Error", description: "Please enter an IP Address first", variant: "destructive" });
+      setTestResult({ status: 'error', message: 'Please enter an IP Address' });
+      return;
+    }
+    
+    setIsTesting(true);
+    setTestResult({ status: 'testing', message: `Pinging ${ip}:${port}... Please wait (up to 10s)` });
+    toast({ title: "Connecting...", description: `Pinging ${ip}:${port}` });
+    
+    try {
+      const res = await testDeviceConnection(ip, Number(port));
+      
+      if (res.success) {
+        setTestResult({ status: 'success', message: res.message || 'Connected successfully!' });
+        toast({ title: "Success!", description: res.message });
+      } else {
+        setTestResult({ status: 'error', message: res.message || 'Connection timeout.' });
+        toast({ title: "Connection Failed", description: res.message, variant: "destructive" });
+      }
+    } catch (err: any) {
+      setTestResult({ status: 'error', message: err.message || 'Internal error' });
+    }
+    
+    setIsTesting(false);
   };
 
   return (
@@ -148,35 +183,57 @@ export default function DeviceForm({ initialData }: DeviceFormProps) {
             </div>
 
             {form.watch("connectionType") === "IP" && (
-              <div className="grid gap-4 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="ipAddress"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>IP Address</FormLabel>
-                      <FormControl>
-                        <Input placeholder="192.168.1.100" {...field} />
-                      </FormControl>
-                      <FormDescription>Static IP of the device</FormDescription>
-                      <FormMessage />
-                    </FormItem>
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                <div className="flex flex-col items-end gap-2">
+                  <div className="flex items-center justify-between w-full">
+                    <h3 className="text-sm font-medium">Network Settings</h3>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleTestConnection}
+                      disabled={isTesting}
+                    >
+                      {isTesting ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Wifi className="w-4 h-4 mr-2" />}
+                      Check Connection
+                    </Button>
+                  </div>
+                  {testResult.status !== 'idle' && (
+                    <span className={`text-xs font-medium ${testResult.status === 'success' ? 'text-green-600' : testResult.status === 'error' ? 'text-red-500' : 'text-yellow-600'}`}>
+                      {testResult.message}
+                    </span>
                   )}
-                />
-                <FormField
-                  control={form.control}
-                  name="port"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Port</FormLabel>
-                      <FormControl>
-                        <Input type="number" {...field} />
-                      </FormControl>
-                      <FormDescription>Default: 4370</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="ipAddress"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>IP Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="192.168.1.100" {...field} />
+                        </FormControl>
+                        <FormDescription>Static IP of the device</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="port"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Port</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} />
+                        </FormControl>
+                        <FormDescription>Default: 4370</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
             )}
 

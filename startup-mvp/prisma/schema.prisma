@@ -1174,6 +1174,7 @@ model Task {
   description String?
   status      String    @default("todo")
   priority    String    @default("medium")
+  startDate   DateTime?
   dueDate     DateTime?
   estimatedHours Float? // [NEW] For Performance Engine Estimation Accuracy
 
@@ -1228,6 +1229,9 @@ model Task {
   Blocking       TaskDependency[]  @relation("BlockingTasks")
   
   Timesheets     Timesheet[]
+
+  tags           Tag[]
+  Checklists     Checklist[]
 
   @@index([parentId])
 }
@@ -1576,6 +1580,7 @@ model Milestone {
   title       String
   description String?
   status      MilestoneStatus @default(PLANNED)
+  startDate   DateTime?
   dueDate     DateTime?
   order       Int             @default(0)
   projectId   String
@@ -1586,6 +1591,9 @@ model Milestone {
   Tasks       Task[]
   Notes       Note[]
   Docs        Doc[]
+  
+  tags        Tag[]
+  Checklists  Checklist[]
   
   BlockedBy   MilestoneDependency[] @relation("DependentMilestones")
   Blocking    MilestoneDependency[] @relation("BlockingMilestones")
@@ -1614,6 +1622,7 @@ model Issue {
   status      IssueStatus @default(OPEN)
   priority    String      @default("NORMAL")
   type        String      @default("TASK")
+  startDate   DateTime?
   estimatedHours Float?
   actualHours    Float?
   milestoneId String
@@ -1628,6 +1637,9 @@ model Issue {
   Notes       Note[]
   Docs        Doc[]
   Timesheets  Timesheet[]
+
+  tags        Tag[]
+  Checklists  Checklist[]
 
   @@index([milestoneId])
   @@index([reporterId])
@@ -2071,4 +2083,46 @@ enum AttendanceSource {
   MOBILE
   BIOMETRIC
   API
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String?
+  
+  Tasks       Task[]
+  Issues      Issue[]
+  Milestones  Milestone[]
+  
+  createdAt DateTime @default(now())
+}
+
+model Checklist {
+  id          String   @id @default(cuid())
+  title       String   @default("Checklist")
+  
+  entityType  String
+  entityId    String
+  
+  Items       ChecklistItem[]
+  
+  Task        Task?       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId      String?
+  Issue       Issue?      @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  issueId     String?
+  Milestone   Milestone?  @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  milestoneId String?
+  
+  createdAt   DateTime @default(now())
+}
+
+model ChecklistItem {
+  id          String   @id @default(cuid())
+  checklistId String
+  content     String
+  isCompleted Boolean  @default(false)
+  order       Int      @default(0)
+  
+  Checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
 }

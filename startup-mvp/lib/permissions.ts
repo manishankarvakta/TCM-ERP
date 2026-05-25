@@ -15,6 +15,7 @@ import {
   convertToEnhancedPermissions,
   NAVIGATION_STRUCTURE,
 } from "@/types/permissions";
+import { mapOperation } from "./permission-utils";
 
 /**
  * Get user's merged permissions (template + user overrides)
@@ -78,23 +79,16 @@ export async function getUserPermissions(
 export async function getUserPermissionsEnhanced(
   userId: string
 ): Promise<Partial<EnhancedPermissions>> {
-  // Use cached version with user-specific tag for efficient revalidation
-  const getCachedPermissions = unstable_cache(
-    async (uid: string) => {
-      const permissions = await getUserPermissions(uid);
-      if (isEnhancedPermissions(permissions)) {
-        return permissions;
-      }
-      return convertToEnhancedPermissions(permissions as Partial<Permissions>);
-    },
-    [`permissions-enhanced-${userId}`],
-    {
-      tags: [`permissions-${userId}`],
-      revalidate: 3600, // Revalidate after 1 hour as fallback
+  try {
+    const permissions = await getUserPermissions(userId);
+    if (isEnhancedPermissions(permissions)) {
+      return permissions;
     }
-  );
-
-  return getCachedPermissions(userId);
+    return convertToEnhancedPermissions(permissions as Partial<Permissions>);
+  } catch (error) {
+    console.error("Error getting enhanced permissions:", error);
+    return {};
+  }
 }
 
 /**
@@ -115,9 +109,12 @@ export async function hasPermission(
       permissions = await getUserPermissions(userId);
     }
 
+    // Get equivalent operations for checking (e.g. read maps to view)
+    const allowedOps = mapOperation(operation);
+
     // Check direct permission
     const pagePermission = permissions[permissionKey] as PagePermission | undefined;
-    if (pagePermission?.operations?.includes(operation)) {
+    if (pagePermission?.operations?.some(op => allowedOps.includes(op))) {
       return true;
     }
 
@@ -128,7 +125,7 @@ export async function hasPermission(
       );
       const hasSubModulePermission = subModuleKeys.some((key) => {
         const p = permissions[key] as PagePermission | undefined;
-        return p?.operations?.includes(operation);
+        return p?.operations?.some(op => allowedOps.includes(op));
       });
       if (hasSubModulePermission) return true;
     }
@@ -137,7 +134,7 @@ export async function hasPermission(
     if (permissionKey.includes(".")) {
       const [parentModule] = permissionKey.split(".");
       const parentPermission = permissions[parentModule] as PagePermission | undefined;
-      if (parentPermission?.operations?.includes(operation)) {
+      if (parentPermission?.operations?.some(op => allowedOps.includes(op))) {
         return true;
       }
     }
@@ -629,7 +626,11 @@ export async function checkPermission(
     select: { role: true },
   });
 
-  // Even admins need explicit permissions per requirements
+  // Admin bypass to match UI and PageGuard logic
+  if (user?.role?.toLowerCase() === "admin") {
+    return true;
+  }
+
   return hasPermission(userId, permissionKey, operation);
 }
 

@@ -1,12 +1,18 @@
 import type { Operation } from "@/types/permissions";
-import { getEquivalentOperations } from "@/types/permissions";
 
 /**
  * Map operation to equivalent operations for backward compatibility
  */
 export function mapOperation(operation: Operation): Operation[] {
-  return getEquivalentOperations(operation);
+  const ops: Operation[] = [operation];
+  if (operation === "read") ops.push("view");
+  if (operation === "view") ops.push("read");
+  if (operation === "update") ops.push("edit");
+  if (operation === "edit") ops.push("update");
+  if (operation === "delete") ops.push("move-to-trash", "delete-permanently");
+  return ops;
 }
+
 
 /**
  * Map URL path to permission key

@@ -3,7 +3,7 @@ import { GanttNode } from "./types";
 
 interface GanttDependenciesProps {
     data: GanttNode[];
-    getBarStyles: (start: Date, end: Date) => { left: string; width: string };
+    getBarStyles: (start: Date, end: Date) => { left: number; width: number };
     totalDays: number;
     dayWidth: number;
 }
@@ -22,7 +22,6 @@ const getVisibleNodes = (nodes: GanttNode[], result: GanttNode[] = []): GanttNod
 export function GanttDependencies({ data, getBarStyles, totalDays, dayWidth }: GanttDependenciesProps) {
     const visibleNodes = useMemo(() => getVisibleNodes(data), [data]);
     const ROW_HEIGHT = 48; // h-12 in Tailwind is 48px
-    const HEADER_HEIGHT = 0; // Relative to the container that wraps rows
 
     // Find all links: node depends on X => line from X to node
     const links = useMemo(() => {
@@ -40,12 +39,9 @@ export function GanttDependencies({ data, getBarStyles, totalDays, dayWidth }: G
                 const sourceStyles = getBarStyles(sourceNode.startDate, sourceNode.endDate);
                 const targetStyles = getBarStyles(node.startDate, node.endDate);
 
-                // Convert percentages to pixels based on total width
-                const totalWidth = totalDays * dayWidth;
-                const sourceLeftPx = (parseFloat(sourceStyles.left) / 100) * totalWidth;
-                const sourceWidthPx = (parseFloat(sourceStyles.width) / 100) * totalWidth;
-                
-                const targetLeftPx = (parseFloat(targetStyles.left) / 100) * totalWidth;
+                const sourceLeftPx = sourceStyles.left;
+                const sourceWidthPx = sourceStyles.width;
+                const targetLeftPx = targetStyles.left;
 
                 const startX = sourceLeftPx + sourceWidthPx;
                 const startY = (sourceIndex * ROW_HEIGHT) + (ROW_HEIGHT / 2);

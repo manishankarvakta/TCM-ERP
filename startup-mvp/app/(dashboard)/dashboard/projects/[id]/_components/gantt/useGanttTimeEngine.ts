@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { GanttNode } from "./types";
 import { differenceInDays, addDays, startOfDay, endOfDay, format } from "date-fns";
 
-export function useGanttTimeEngine(data: GanttNode[]) {
+export function useGanttTimeEngine(data: GanttNode[], dayWidth: number) {
     // Recursively find min and max dates
     const { minDate, maxDate } = useMemo(() => {
         let min = new Date(8640000000000000); // Max possible date
@@ -72,20 +72,22 @@ export function useGanttTimeEngine(data: GanttNode[]) {
         return arr;
     }, [days]);
 
-    // Helper to calculate CSS left and width percentages
-    const getBarStyles = (startDate: Date, endDate: Date) => {
-        // Clamp dates
-        const start = startDate < minDate ? minDate : startDate;
-        const end = endDate > maxDate ? maxDate : endDate;
-        
-        const leftOffsetDays = differenceInDays(start, minDate);
-        const durationDays = differenceInDays(end, start) + 1; // inclusive
+    // Helper to calculate CSS left and width in pixels
+    const getBarStyles = useMemo(() => {
+        return (startDate: Date, endDate: Date) => {
+            // Clamp dates
+            const start = startDate < minDate ? minDate : startDate;
+            const end = endDate > maxDate ? maxDate : endDate;
+            
+            const leftOffsetDays = differenceInDays(start, minDate);
+            const durationDays = differenceInDays(end, start) + 1; // inclusive
 
-        return {
-            left: `${(leftOffsetDays / totalDays) * 100}%`,
-            width: `${(durationDays / totalDays) * 100}%`
+            return {
+                left: leftOffsetDays * dayWidth,
+                width: durationDays * dayWidth
+            };
         };
-    };
+    }, [minDate, maxDate, dayWidth]);
 
     return {
         minDate,
