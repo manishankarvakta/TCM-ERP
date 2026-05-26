@@ -8,6 +8,7 @@ import { Search, Plus, Minus, Trash2, ShoppingCart, CheckCircle2, X, Undo2, Hand
 import { createSale, getSalesByClient, getLastSaleId } from "../../_actions/sale.action";
 import { useRouter } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type ItemType = "READY_PRODUCT" | "RETAIL" | "WHOLESALE";
 
@@ -82,12 +83,13 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
     setInvoiceReturnItems([]);
   };
 
-  const handleSearchInvoiceReturn = async () => {
-    if (!invoiceReturnNumber) return;
+  const handleSearchInvoiceReturn = async (query?: string | React.MouseEvent | React.KeyboardEvent) => {
+    const searchVal = typeof query === "string" ? query.trim() : invoiceReturnNumber.trim();
+    if (!searchVal) return;
     setIsSearchingInvoice(true);
     // @ts-ignore
     const { getSaleByInvoiceNumber } = await import("../../_actions/sale.action");
-    const res = await getSaleByInvoiceNumber(invoiceReturnNumber);
+    const res = await getSaleByInvoiceNumber(searchVal);
     if (res.success && res.sale) {
       setInvoiceReturnData(res.sale);
       setInvoiceReturnItems(res.sale.items.map((i: any) => ({
@@ -1083,6 +1085,12 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
                    placeholder="Scan Invoice here or paste number"
                    value={invoiceReturnNumber}
                    onChange={(e) => setInvoiceReturnNumber(e.target.value)}
+                   onPaste={(e) => {
+                     const pastedText = e.clipboardData.getData('text');
+                     if (pastedText) {
+                       setTimeout(() => handleSearchInvoiceReturn(pastedText), 0);
+                     }
+                   }}
                    onKeyDown={(e) => {
                      if (e.key === "Enter") {
                        handleSearchInvoiceReturn();
@@ -1090,14 +1098,14 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
                    }}
                    className="bg-background text-foreground pr-24"
                  />
-                 <Button 
+                 {/* <Button 
                    size="sm" 
                    onClick={handleSearchInvoiceReturn} 
                    className="absolute right-1 top-1 bottom-1 h-auto"
                    disabled={isSearchingInvoice || !invoiceReturnNumber}
                  >
                    Load
-                 </Button>
+                 </Button> */}
                </div>
              </div>
 
@@ -1151,7 +1159,7 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
                          return (
                            <tr key={item.id} className="hover:bg-muted/30">
                              <td className="py-2 px-3">
-                               <Checkbox 
+                               <Checkbox
                                  checked={item.selected}
                                  onCheckedChange={(c) => handleToggleInvoiceReturnItem(item.id, c as boolean)}
                                />
