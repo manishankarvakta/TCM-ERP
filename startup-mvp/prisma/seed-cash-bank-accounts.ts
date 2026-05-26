@@ -104,6 +104,7 @@ async function main() {
         type: account.type,
         status: "active",
         createdBy: creator.id,
+        updatedAt: new Date(),
       },
     });
 

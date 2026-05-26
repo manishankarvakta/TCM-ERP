@@ -338,7 +338,7 @@ export async function createDatabaseBackup(operationId?: string): Promise<string
         updateProgress(opId, { stage: "Encrypting backup..." });
         
         // Encrypt the final ZIP buffer (which includes metadata)
-        const encryptionResult = await encryptBackupFile(finalZipBuffer);
+        const encryptionResult = await encryptBackupFile(zipBuffer);
         
         // Create encrypted file path
         const encryptedPath = getEncryptedBackupPath(zipPath);

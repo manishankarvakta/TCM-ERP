@@ -21,6 +21,7 @@ export async function reconcileInventoryQty(): Promise<ReconciliationResult[]> {
   const stocks = await prisma.stock.findMany({
     include: {
       item: { select: { name: true, code: true } },
+      variant: { include: { item: { select: { name: true, code: true } } } },
       warehouse: { select: { name: true } },
     },
   });
@@ -31,6 +32,7 @@ export async function reconcileInventoryQty(): Promise<ReconciliationResult[]> {
     const ledgerSum = await prisma.stockLedger.aggregate({
       where: {
         itemId: stock.itemId,
+        variantId: stock.variantId,
         warehouseId: stock.warehouseId,
       },
       _sum: {
@@ -42,8 +44,12 @@ export async function reconcileInventoryQty(): Promise<ReconciliationResult[]> {
     const actualQty = Number(ledgerSum._sum.quantity || 0);
     const difference = expectedQty - actualQty;
 
+    const parentItem = stock.item || stock.variant?.item;
+    const itemName = parentItem ? parentItem.name : "Unknown Item";
+    const variantSuffix = stock.variant ? ` (${stock.variant.color} / ${stock.variant.size})` : "";
+
     results.push({
-      testName: `Stock Qty: ${stock.item.name} (${stock.warehouse.name})`,
+      testName: `Stock Qty: ${itemName}${variantSuffix} (${stock.warehouse.name})`,
       expected: expectedQty,
       actual: actualQty,
       difference,
@@ -61,11 +67,15 @@ export async function reconcileInventoryQty(): Promise<ReconciliationResult[]> {
 export async function reconcileInventoryValue(): Promise<ReconciliationResult> {
   // Physical Value
   const stocks = await prisma.stock.findMany({
-    include: { item: { select: { costPrice: true } } },
+    include: { 
+      item: { select: { costPrice: true } },
+      variant: { include: { item: { select: { costPrice: true } } } },
+    },
   });
 
   const physicalValue = stocks.reduce((sum, s) => {
-    return sum + Number(s.quantity) * Number(s.item.costPrice || 0);
+    const parentItem = s.item || s.variant?.item;
+    return sum + Number(s.quantity) * Number(parentItem?.costPrice || 0);
   }, 0);
 
   // GL Balance

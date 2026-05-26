@@ -9,9 +9,10 @@ export default async function CashBankPage() {
   const userId = session?.user?.id;
 
   // Check permissions on server side
-  const [result, canView] = await Promise.all([
+  const [result, canCreate, canEdit] = await Promise.all([
     getCashBankAccounts(),
-    userId ? hasPermission(userId, "accounts.cash-bank", "view") : false,
+    userId ? hasPermission(userId, "accounts.cash-bank", "create") : false,
+    userId ? hasPermission(userId, "accounts.cash-bank", "edit") : false,
   ]);
 
   // Handle errors
@@ -47,6 +48,10 @@ export default async function CashBankPage() {
           cashAccounts={result.accounts?.cash || []}
           bankAccounts={result.accounts?.bank || []}
           walletAccounts={result.accounts?.wallets || []}
+          permissions={{
+            create: canCreate,
+            edit: canEdit,
+          }}
         />
       </div>
     </PageGuard>

@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { listFolder, deleteFile, copyFile, moveFile, getDownloadUrl, createFolder, renameFileOrFolder } from "@/app/actions/files";
+import { listFolder, deleteFile, copyFile, moveFile, getDownloadUrl, createFolder, renameFileOrFolder, addExternalFile } from "@/app/actions/files";
 import FileGrid from "@/components/files/FileGrid";
 import FileList from "@/components/files/FileList";
 import Breadcrumb from "@/components/files/Breadcrumb";
 import UploadDialog from "@/components/files/UploadDialog";
 import FilePreviewDialog from "@/components/files/FilePreviewDialog";
-import { Grid, List, Search, Upload, FolderPlus } from "lucide-react";
+import { Grid, List, Search, Upload, FolderPlus, Link } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,6 +69,9 @@ export default function FilesPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<FileItem | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [externalLinkDialogOpen, setExternalLinkDialogOpen] = useState(false);
+  const [externalLinkName, setExternalLinkName] = useState("");
+  const [externalLinkUrl, setExternalLinkUrl] = useState("");
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
@@ -422,6 +425,43 @@ export default function FilesPage() {
     }
   };
 
+  const handleAddExternalLink = async () => {
+    if (!externalLinkName.trim() || !externalLinkUrl.trim()) return;
+
+    try {
+      const result = await addExternalFile({
+        path: currentPath,
+        name: externalLinkName.trim(),
+        externalUrl: externalLinkUrl.trim(),
+        mimeType: "image/jpeg", // Default to image/jpeg
+      });
+
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "External link added successfully",
+        });
+        setExternalLinkName("");
+        setExternalLinkUrl("");
+        setExternalLinkDialogOpen(false);
+        loadFiles();
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to add external link",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Add external link error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add external link",
+        variant: "destructive",
+      });
+    }
+  };
+
 
   return (
     <div className="flex h-full flex-col">
@@ -491,6 +531,13 @@ export default function FilesPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setExternalLinkDialogOpen(true)}
+            >
+              <Link className="mr-2 h-4 w-4" />
+              Add Link
+            </Button>
             <Button
               variant="outline"
               onClick={() => setFolderDialogOpen(true)}
@@ -752,6 +799,51 @@ export default function FilesPage() {
             </Button>
             <Button onClick={handleCreateFolder}>
               Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add External Link Dialog */}
+      <Dialog open={externalLinkDialogOpen} onOpenChange={setExternalLinkDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add External Photo Link</DialogTitle>
+            <DialogDescription>
+              Enter a name and external image URL to display in the file manager.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="external-name">Photo Name</Label>
+              <Input
+                id="external-name"
+                value={externalLinkName}
+                onChange={(e) => setExternalLinkName(e.target.value)}
+                placeholder="Google Logo"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="external-url">Photo URL</Label>
+              <Input
+                id="external-url"
+                value={externalLinkUrl}
+                onChange={(e) => setExternalLinkUrl(e.target.value)}
+                placeholder="https://example.com/photo.jpg"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleAddExternalLink();
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExternalLinkDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddExternalLink} disabled={!externalLinkName.trim() || !externalLinkUrl.trim()}>
+              Add Link
             </Button>
           </DialogFooter>
         </DialogContent>

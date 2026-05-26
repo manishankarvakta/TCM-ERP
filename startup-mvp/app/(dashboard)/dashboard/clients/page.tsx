@@ -23,6 +23,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   const search = params.search || "";
   const tab = params.tab || "all";
 
+  // Note: Clients retrieval includes clientType ('regular' / 'wholesale') for list table display
   const session = await auth();
   const userId = session?.user?.id;
 

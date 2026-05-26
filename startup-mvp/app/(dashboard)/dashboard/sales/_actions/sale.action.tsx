@@ -12,6 +12,7 @@ import { AccountType, VoucherType } from "@prisma/client";
 
 const saleItemSchema = z.object({
   itemId: z.string().min(1, "Item is required"),
+  variantId: z.string().optional().nullable(),
   description: z.string().min(1, "Description is required"),
   quantity: z.coerce.number().refine(val => val !== 0, "Quantity cannot be zero"),
   unitPrice: z.coerce.number().min(0, "Unit price must be 0 or greater"),
@@ -34,6 +35,8 @@ const saleSchema = z.object({
   discount: z.coerce.number().min(0).optional().nullable(),
   tax: z.coerce.number().min(0).optional().nullable(),
   items: z.array(saleItemSchema).min(1, "At least one item is required"),
+  couponCode: z.string().optional().nullable(),
+  paymentMethod: z.string().optional().nullable(),
 });
 
 const updateSaleSchema = saleSchema.extend({
@@ -112,6 +115,8 @@ export async function getClientsForSale() {
         name: true,
         email: true,
         company: true,
+        clientCode: true,
+        clientType: true,
       },
       orderBy: {
         createdAt: "desc",
@@ -162,6 +167,81 @@ export async function getWarehousesForSale() {
   }
 }
 
+export async function getPaymentAccountsForPOS() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", accounts: [] };
+    }
+    const accounts = await prisma.chartOfAccount.findMany({
+      where: {
+        type: "ASSET",
+        status: "active",
+        isControl: false,
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        CashBankAccount: {
+          select: {
+            type: true,
+            isVisible: true,
+            warehouses: {
+              select: {
+                id: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        code: "asc",
+      },
+    });
+
+    const isWalletName = (name: string) => {
+      const n = name.toLowerCase();
+      return n.includes("bkash") || n.includes("nagad") || n.includes("rocket") || n.includes("upay") || n.includes("wallet");
+    };
+
+    const formatted = accounts
+      .map((acc) => {
+        // Determine account type: WALLET, CASH, BANK
+        let type: "CASH" | "BANK" | "WALLET" | null = null;
+        if (isWalletName(acc.name)) {
+          type = "WALLET";
+        } else if (acc.CashBankAccount?.type) {
+          type = acc.CashBankAccount.type as "CASH" | "BANK";
+        } else {
+          if (acc.name.toLowerCase().includes("cash")) {
+            type = "CASH";
+          } else if (acc.name.toLowerCase().includes("bank") || acc.name.toLowerCase().includes("card")) {
+            type = "BANK";
+          }
+        }
+
+        const warehouseIds = acc.CashBankAccount?.warehouses?.map(w => w.id) || [];
+        const isVisible = acc.CashBankAccount ? acc.CashBankAccount.isVisible : true;
+
+        return {
+          id: acc.id,
+          code: acc.code,
+          name: acc.name,
+          type: type,
+          warehouseIds: warehouseIds,
+          isVisible: isVisible,
+        };
+      })
+      .filter((acc) => (acc.type === "CASH" || acc.type === "BANK" || acc.type === "WALLET") && acc.isVisible);
+
+    return { success: true, accounts: formatted };
+  } catch (error) {
+    console.error("getPaymentAccountsForPOS error:", error);
+    return { success: false, error: "Failed to fetch payment accounts", accounts: [] };
+  }
+}
+
 export async function getItemsForSale() {
   try {
     const session = await auth();
@@ -182,6 +262,7 @@ export async function getItemsForSale() {
         id: true,
         code: true,
         name: true,
+        description: true,
         unit: {
             select: {
                 symbol: true
@@ -197,10 +278,23 @@ export async function getItemsForSale() {
         itemType: true,
         featuredImage: true,
         images: true,
+        isVatEnabled: true,
+        vatPercentage: true,
         stocks: {
           select: {
             warehouseId: true,
             quantity: true,
+          },
+        },
+        variants: {
+          select: {
+            id: true,
+            sku: true,
+            barcode: true,
+            size: true,
+            color: true,
+            costPrice: true,
+            salesPrice: true,
           },
         },
       },
@@ -214,17 +308,30 @@ export async function getItemsForSale() {
       items: items.map((item) => ({
         id: item.id,
         code: item.code,
+        name: item.name,
         description: item.name,
+        itemDescription: item.description || "",
         unit: item.unit?.symbol || "unit",
         category: item.category?.name || null,
         unitPrice: item.salesPrice ? Number(item.salesPrice) : 0,
         wholesalePrice: item.wholesalePrice ? Number(item.wholesalePrice) : 0,
         itemType: item.itemType,
         imageUrl: item.featuredImage || (Array.isArray(item.images) && item.images.length > 0 ? (item.images[0] as string) : null) || null,
+        isVatEnabled: item.isVatEnabled || false,
+        vatPercentage: item.vatPercentage ? Number(item.vatPercentage) : 0,
         stocks: item.stocks.map(s => ({
             warehouseId: s.warehouseId,
             quantity: Number(s.quantity)
         })),
+        variants: (item as any).variants ? ((item as any).variants as any[]).map((v) => ({
+          id: v.id,
+          sku: v.sku,
+          barcode: v.barcode,
+          size: v.size,
+          color: v.color,
+          costPrice: v.costPrice ? Number(v.costPrice) : null,
+          salesPrice: v.salesPrice ? Number(v.salesPrice) : null,
+        })) : [],
       })),
     };
   } catch (error) {
@@ -233,6 +340,64 @@ export async function getItemsForSale() {
       success: false,
       error: error instanceof Error ? error.message : "Failed to fetch items",
       items: [],
+    };
+  }
+}
+
+/**
+ * Validate and apply a coupon code from the database.
+ * Returns the discount amount for the given subtotal if coupon is valid.
+ */
+export async function validateCoupon(
+  code: string,
+  subTotal: number
+): Promise<{ success: boolean; discountAmount?: number; message?: string; couponId?: string; error?: string }> {
+  try {
+    if (!code || !code.trim()) {
+      return { success: false, error: "No coupon code provided" };
+    }
+
+    const coupon = await prisma.coupon.findUnique({
+      where: { code: code.trim().toUpperCase() },
+    });
+
+    if (!coupon) {
+      return { success: false, error: "Invalid coupon code. Please check and try again." };
+    }
+
+    if (coupon.status !== "ACTIVE") {
+      return { success: false, error: "This coupon is no longer active." };
+    }
+
+    if (coupon.expiryDate && coupon.expiryDate < new Date()) {
+      return { success: false, error: "This coupon has expired." };
+    }
+
+    const value = Number(coupon.value);
+    let discountAmount = 0;
+    let message = "";
+
+    if (coupon.discountType === "PERCENTAGE") {
+      discountAmount = Math.round(subTotal * (value / 100));
+      message = `${value}% discount applied! You save ৳${discountAmount.toFixed(2)}`;
+    } else if (coupon.discountType === "FLAT") {
+      discountAmount = Math.min(value, subTotal);
+      message = `Flat ৳${value} discount applied!`;
+    } else {
+      return { success: false, error: "Unknown coupon type." };
+    }
+
+    return {
+      success: true,
+      discountAmount,
+      message,
+      couponId: coupon.id,
+    };
+  } catch (error) {
+    console.error("validateCoupon error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to validate coupon",
     };
   }
 }
@@ -293,8 +458,77 @@ async function validateSaleAccounts(
       };
     }
 
-    const hasClientAccount = !!clientData.chartOfAccountId;
+    let hasClientAccount = !!clientData.chartOfAccountId;
     const hasDefaultReceivableAccount = !!salesAccounts.receivableAccountId;
+
+    if (!hasClientAccount) {
+      // Let's dynamically create the Chart of Account for this customer
+      try {
+        const arParent = await client.chartOfAccount.findFirst({
+          where: {
+            name: { contains: "Accounts Receivable", mode: "insensitive" },
+            status: "active",
+            type: AccountType.ASSET,
+          },
+          select: { id: true }
+        });
+        
+        if (arParent) {
+          const year = new Date().getFullYear();
+          const prefix = `AR-${year}-`;
+          
+          const lastAccount = await client.chartOfAccount.findFirst({
+            where: { code: { startsWith: prefix } },
+            orderBy: { code: "desc" },
+            select: { code: true },
+          });
+
+          let nextNumber = 1;
+          if (lastAccount) {
+            const lastNumberStr = lastAccount.code.split("-").pop() || "0";
+            const lastNumber = parseInt(lastNumberStr, 10);
+            if (!isNaN(lastNumber)) {
+              nextNumber = lastNumber + 1;
+            }
+          }
+          const accountCode = `${prefix}${nextNumber.toString().padStart(4, "0")}`;
+          const customerName = clientData.name || clientData.email;
+          const accountName = `AR - ${customerName}`;
+          const coaId = `coa_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+
+          // Get a valid user ID for createdBy
+          const firstUser = await client.user.findFirst({
+            where: { status: "active" },
+            select: { id: true }
+          });
+          const createdByUserId = firstUser?.id || "system"; // Fallback, but firstUser.id will exist
+
+          // Create the ChartOfAccount
+          const newCoa = await client.chartOfAccount.create({
+            data: {
+              id: coaId,
+              code: accountCode,
+              name: accountName,
+              type: AccountType.ASSET,
+              parentId: arParent.id,
+              description: `Accounts Receivable account for customer: ${customerName}`,
+              status: "active",
+              createdBy: createdByUserId,
+            }
+          });
+
+          // Link to client
+          await client.client.update({
+            where: { id: clientId },
+            data: { chartOfAccountId: newCoa.id }
+          });
+          
+          hasClientAccount = true;
+        }
+      } catch (err) {
+        console.error("Failed to dynamically generate ChartOfAccount for client:", err);
+      }
+    }
 
     if (!hasClientAccount && !hasDefaultReceivableAccount) {
       return {
@@ -322,7 +556,8 @@ async function validateSaleAccounts(
  */
 async function createSaleAccountingVoucher(
   saleId: string,
-  tx?: Prisma.TransactionClient
+  tx?: Prisma.TransactionClient,
+  paymentMethod?: string
 ): Promise<{ success: boolean; error?: string; voucherId?: string }> {
   try {
     const session = await auth();
@@ -404,10 +639,10 @@ async function createSaleAccountingVoucher(
            // If detailed granular tracking specific to production types is needed, check item type
            
            if (item.item.itemType === ItemType.READY_PRODUCT) {
-             inventoryAccountId = productionAccounts?.completionFinishedGoodsInventoryId || salesAccounts.finishedGoodsInventoryAccountId;
+             inventoryAccountId = productionAccounts?.completionFinishedGoodsInventoryId || salesAccounts.finishedGoodsInventoryAccountId || null;
            } else if (item.item.itemType === ItemType.RETAIL) {
              // For retail, reuse FG or specific retail if we add it later
-             inventoryAccountId = salesAccounts.finishedGoodsInventoryAccountId || productionAccounts?.completionFinishedGoodsInventoryId;
+             inventoryAccountId = salesAccounts.finishedGoodsInventoryAccountId || productionAccounts?.completionFinishedGoodsInventoryId || null;
            }
 
            // Fallback
@@ -444,19 +679,95 @@ async function createSaleAccountingVoucher(
 
     let lineNumber = 1;
 
-    // 1. Debit: Accounts Receivable
-    const receivableAccountId = sale.client.chartOfAccountId || salesAccounts.receivableAccountId;
-    if (!receivableAccountId) {
-         return { success: false, error: "No Accounts Receivable ledger found for client and no default configured." };
+    // 1. Debit: Cash/Bank or Accounts Receivable depending on payment method
+    let debitAccountId: string | null = null;
+    let debitDescription = "";
+    let debitClientId: string | undefined = undefined;
+
+    // Check if paymentMethod is a direct ChartOfAccount CUID (typically starts with 'c')
+    if (paymentMethod && paymentMethod.startsWith("c")) {
+      const directAcct = await client.chartOfAccount.findUnique({
+        where: { id: paymentMethod, status: "active" },
+        select: { id: true, name: true }
+      });
+      if (directAcct) {
+        debitAccountId = directAcct.id;
+        debitDescription = `Payment Received via ${directAcct.name} - ${sale.saleNumber} - ${sale.client.name}`;
+      }
+    }
+
+    if (!debitAccountId) {
+      const normalizedMethod = (paymentMethod || "").toUpperCase();
+      if (normalizedMethod === "CASH") {
+        // Try to use configured receipt cash account (Cash in Hand / Cash register)
+        try {
+          const allSettings = await (await import("@/lib/accounting-settings")).getAccountingOperationSettings();
+          if (allSettings?.receipt?.cashAccountId) {
+            debitAccountId = allSettings.receipt.cashAccountId;
+            debitDescription = `Cash Received - ${sale.saleNumber} - ${sale.client.name}`;
+          }
+        } catch (_) {}
+        // Fallback: search for a "Cash" ASSET account by name
+        if (!debitAccountId) {
+          const cashAcct = await client.chartOfAccount.findFirst({
+            where: {
+              name: { contains: "Cash", mode: "insensitive" },
+              type: "ASSET",
+              status: "active",
+            },
+            select: { id: true },
+          });
+          if (cashAcct) {
+            debitAccountId = cashAcct.id;
+            debitDescription = `Cash Received - ${sale.saleNumber} - ${sale.client.name}`;
+          }
+        }
+      } else if (normalizedMethod === "CARD" || normalizedMethod === "MOBILE" || normalizedMethod === "BANK") {
+        // Try to use configured bank account
+        try {
+          const allSettings = await (await import("@/lib/accounting-settings")).getAccountingOperationSettings();
+          // Check contra from-account (often a Bank account)
+          if (allSettings?.contra?.fromAccountId) {
+            debitAccountId = allSettings.contra.fromAccountId;
+            debitDescription = `Bank/Card Received - ${sale.saleNumber} - ${sale.client.name}`;
+          }
+        } catch (_) {}
+        // Fallback: search for a "Bank" ASSET account by name
+        if (!debitAccountId) {
+          const bankAcct = await client.chartOfAccount.findFirst({
+            where: {
+              name: { contains: "Bank", mode: "insensitive" },
+              type: "ASSET",
+              status: "active",
+            },
+            select: { id: true },
+          });
+          if (bankAcct) {
+            debitAccountId = bankAcct.id;
+            debitDescription = `Bank Received - ${sale.saleNumber} - ${sale.client.name}`;
+          }
+        }
+      }
+    }
+
+    // Fallback to Accounts Receivable if no direct payment account was resolved
+    if (!debitAccountId) {
+      const receivableAccountId = sale.client.chartOfAccountId || salesAccounts.receivableAccountId;
+      if (!receivableAccountId) {
+        return { success: false, error: "No Cash/Bank or Accounts Receivable ledger found. Please configure sales accounts." };
+      }
+      debitAccountId = receivableAccountId;
+      debitDescription = `Accounts Receivable - ${sale.saleNumber} - ${sale.client.name}`;
+      debitClientId = sale.clientId;
     }
 
     voucherLines.push({
       lineNumber: lineNumber++,
       debitAmount: totalSaleAmount,
       creditAmount: 0,
-      description: `Accounts Receivable - ${sale.saleNumber} - ${sale.client.name}`,
-      chartOfAccountId: receivableAccountId,
-      clientId: sale.clientId,
+      description: debitDescription,
+      chartOfAccountId: debitAccountId,
+      clientId: debitClientId,
     });
 
     // 2. Credit: Sales Revenue
@@ -798,10 +1109,106 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
         throw new Error("Unable to generate unique sale number. Please try again.");
       }
 
-      const subTotal = validated.items.reduce((sum, item) => sum + item.amount, 0);
+      // Fetch client info to check if they are classified as wholesale client
+      const client = await tx.client.findUnique({
+        where: { id: validated.clientId },
+        select: { name: true, email: true, company: true, clientCode: true }
+      });
+
+      const isWholesaleClient = client
+        ? !!(
+            client.company?.toLowerCase().includes("wholesale") ||
+            client.name?.toLowerCase().includes("wholesale") ||
+            client.email?.toLowerCase().includes("wholesale") ||
+            client.clientCode?.toLowerCase().includes("wholesale")
+          )
+        : false;
+
+      // Apply custom client discounts if orderType is WHOLESALE or customer is classified as wholesale client
+      let itemsToCreate = validated.items;
+      let calculatedSubTotal = 0;
+
+      if (validated.orderType === "WHOLESALE" || isWholesaleClient) {
+        // Fetch client discounts
+        const clientDiscounts = await tx.clientItemDiscount.findMany({
+          where: { clientId: validated.clientId }
+        });
+
+        const itemIds = validated.items.map(i => i.itemId);
+        const variantIds = validated.items.map(i => i.variantId).filter(Boolean) as string[];
+
+        const dbItems = await tx.item.findMany({
+          where: { id: { in: itemIds } },
+          select: { id: true, wholesalePrice: true, salesPrice: true }
+        });
+
+        const dbVariants = variantIds.length > 0 ? await tx.productVariant.findMany({
+          where: { id: { in: variantIds } },
+          select: { id: true, salesPrice: true }
+        }) : [];
+
+        itemsToCreate = validated.items.map((item) => {
+          const itemDb = dbItems.find(i => i.id === item.itemId);
+          const variantDb = item.variantId ? dbVariants.find(v => v.id === item.variantId) : null;
+          
+          const baseItemPrice = itemDb 
+            ? (itemDb.wholesalePrice !== null ? Number(itemDb.wholesalePrice) : Number(itemDb.salesPrice || 0)) 
+            : item.unitPrice;
+          const basePrice = (variantDb && variantDb.salesPrice !== null) 
+            ? Number(variantDb.salesPrice) 
+            : baseItemPrice;
+
+          let discountRecord = null;
+          if (item.variantId) {
+            discountRecord = clientDiscounts.find(
+              d => d.variantId === item.variantId
+            );
+          }
+          if (!discountRecord) {
+            discountRecord = clientDiscounts.find(
+              d => d.itemId === item.itemId && !d.variantId
+            );
+          }
+
+          let finalUnitPrice = basePrice;
+          if (discountRecord) {
+            let discountApplied = 0;
+            if (discountRecord.discountType === "PERCENTAGE") {
+              discountApplied = basePrice * (Number(discountRecord.discountValue) / 100);
+            } else if (discountRecord.discountType === "FLAT") {
+              discountApplied = Number(discountRecord.discountValue);
+            }
+            finalUnitPrice = Math.max(0, basePrice - discountApplied);
+          }
+
+          const amount = item.quantity * finalUnitPrice;
+          calculatedSubTotal += amount;
+
+          return {
+            ...item,
+            unitPrice: finalUnitPrice,
+            amount,
+          };
+        });
+      } else {
+        calculatedSubTotal = validated.items.reduce((sum, item) => sum + item.amount, 0);
+      }
+
       const discount = validated.discount ?? 0;
       const tax = validated.tax ?? 0;
-      const grandTotal = subTotal - discount + tax;
+      const grandTotal = calculatedSubTotal - discount + tax;
+
+      // Resolve coupon if a code was passed
+      let resolvedCouponId: string | null = null;
+      if (validated.couponCode) {
+        const dbCoupon = await tx.coupon.findUnique({
+          where: { code: validated.couponCode.trim().toUpperCase() },
+          select: { id: true, status: true, expiryDate: true },
+        });
+        if (dbCoupon && dbCoupon.status === "ACTIVE" && (!dbCoupon.expiryDate || dbCoupon.expiryDate >= new Date())) {
+          resolvedCouponId = dbCoupon.id;
+        }
+      }
 
       const sale = await tx.sale.create({
         data: {
@@ -811,15 +1218,16 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
           date: validated.date,
           status: validated.status,
           orderType: validated.orderType,
-          notes: validated.notes || null,
+          notes: validated.notes || `POS Sale - Paid via ${validated.paymentMethod || 'CASH'}`,
           attachmentUrl: validated.attachmentUrl || null,
-          subTotal: new Prisma.Decimal(subTotal),
+          subTotal: new Prisma.Decimal(calculatedSubTotal),
           discount: discount ? new Prisma.Decimal(discount) : null,
           tax: tax ? new Prisma.Decimal(tax) : null,
           grandTotal: new Prisma.Decimal(grandTotal),
           createdBy: userId,
+          ...(resolvedCouponId ? { couponId: resolvedCouponId } : {}),
           items: {
-            create: validated.items.map((item) => ({
+            create: itemsToCreate.map((item) => ({
               itemId: item.itemId,
               description: item.description,
               quantity: new Prisma.Decimal(item.quantity),
@@ -841,11 +1249,11 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
       // Automatically complete sale if status is COMPLETED
       // Automatically complete sale if status is COMPLETED
       if (sale.status === SaleStatus.COMPLETED) {
-        const stockItems = validated.items.map(i => ({ itemId: i.itemId, quantity: i.quantity }));
+        const stockItems = itemsToCreate.map(i => ({ itemId: i.itemId, variantId: i.variantId || undefined, quantity: i.quantity }));
         const stockResult = await updateStockOnSale(sale.id, validated.warehouseId, stockItems, tx);
         if (!stockResult.success) throw new Error(stockResult.error || "Failed to update stock");
         
-        const voucherResult = await createSaleAccountingVoucher(sale.id, tx);
+        const voucherResult = await createSaleAccountingVoucher(sale.id, tx, validated.paymentMethod || undefined);
         if (!voucherResult.success) throw new Error(voucherResult.error || "Failed to create accounting voucher");
         
         // Re-fetch sale to get updated fields (completedAt, voucherId)
@@ -864,6 +1272,10 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
 
       return sale;
     });
+
+    if (!result) {
+      return { success: false, error: "Sale was created but could not be retrieved", sale: null };
+    }
 
     await logItemCreated(
       session.user.id,
@@ -923,10 +1335,8 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
       };
     }
 
-    const subTotal = validated.items.reduce((sum, item) => sum + item.amount, 0);
     const discount = validated.discount ?? 0;
     const tax = validated.tax ?? 0;
-    const grandTotal = subTotal - discount + tax;
 
     // Validate accounts if transitioning to COMPLETED (Only DRAFT can be edited, so this implies DRAFT -> COMPLETED)
     const isTransitioningToCompleted = validated.status === "COMPLETED";
@@ -947,6 +1357,93 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
         where: { saleId: validated.id },
       });
 
+      // Fetch client info to check if they are classified as wholesale client
+      const client = await tx.client.findUnique({
+        where: { id: validated.clientId },
+        select: { name: true, email: true, company: true, clientCode: true }
+      });
+
+      const isWholesaleClient = client
+        ? !!(
+            client.company?.toLowerCase().includes("wholesale") ||
+            client.name?.toLowerCase().includes("wholesale") ||
+            client.email?.toLowerCase().includes("wholesale") ||
+            client.clientCode?.toLowerCase().includes("wholesale")
+          )
+        : false;
+
+      // Apply custom client discounts if orderType is WHOLESALE or customer is classified as wholesale client
+      let itemsToCreate = validated.items;
+      let calculatedSubTotal = 0;
+
+      if (validated.orderType === "WHOLESALE" || isWholesaleClient) {
+        // Fetch client discounts
+        const clientDiscounts = await tx.clientItemDiscount.findMany({
+          where: { clientId: validated.clientId }
+        });
+
+        const itemIds = validated.items.map(i => i.itemId);
+        const variantIds = validated.items.map(i => i.variantId).filter(Boolean) as string[];
+
+        const dbItems = await tx.item.findMany({
+          where: { id: { in: itemIds } },
+          select: { id: true, wholesalePrice: true, salesPrice: true }
+        });
+
+        const dbVariants = variantIds.length > 0 ? await tx.productVariant.findMany({
+          where: { id: { in: variantIds } },
+          select: { id: true, salesPrice: true }
+        }) : [];
+
+        itemsToCreate = validated.items.map((item) => {
+          const itemDb = dbItems.find(i => i.id === item.itemId);
+          const variantDb = item.variantId ? dbVariants.find(v => v.id === item.variantId) : null;
+          
+          const baseItemPrice = itemDb 
+            ? (itemDb.wholesalePrice !== null ? Number(itemDb.wholesalePrice) : Number(itemDb.salesPrice || 0)) 
+            : item.unitPrice;
+          const basePrice = (variantDb && variantDb.salesPrice !== null) 
+            ? Number(variantDb.salesPrice) 
+            : baseItemPrice;
+
+          let discountRecord = null;
+          if (item.variantId) {
+            discountRecord = clientDiscounts.find(
+              d => d.variantId === item.variantId
+            );
+          }
+          if (!discountRecord) {
+            discountRecord = clientDiscounts.find(
+              d => d.itemId === item.itemId && !d.variantId
+            );
+          }
+
+          let finalUnitPrice = basePrice;
+          if (discountRecord) {
+            let discountApplied = 0;
+            if (discountRecord.discountType === "PERCENTAGE") {
+              discountApplied = basePrice * (Number(discountRecord.discountValue) / 100);
+            } else if (discountRecord.discountType === "FLAT") {
+              discountApplied = Number(discountRecord.discountValue);
+            }
+            finalUnitPrice = Math.max(0, basePrice - discountApplied);
+          }
+
+          const amount = item.quantity * finalUnitPrice;
+          calculatedSubTotal += amount;
+
+          return {
+            ...item,
+            unitPrice: finalUnitPrice,
+            amount,
+          };
+        });
+      } else {
+        calculatedSubTotal = validated.items.reduce((sum, item) => sum + item.amount, 0);
+      }
+
+      const calculatedGrandTotal = calculatedSubTotal - discount + tax;
+
       const updatedSale = await tx.sale.update({
         where: { id: validated.id },
         data: {
@@ -957,13 +1454,13 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
           orderType: validated.orderType,
           notes: validated.notes || null,
           attachmentUrl: validated.attachmentUrl || null,
-          subTotal: new Prisma.Decimal(subTotal),
+          subTotal: new Prisma.Decimal(calculatedSubTotal),
           discount: discount ? new Prisma.Decimal(discount) : null,
           tax: tax ? new Prisma.Decimal(tax) : null,
-          grandTotal: new Prisma.Decimal(grandTotal),
+          grandTotal: new Prisma.Decimal(calculatedGrandTotal),
           updatedBy: userId,
           items: {
-            create: validated.items.map((item) => ({
+            create: itemsToCreate.map((item) => ({
               itemId: item.itemId,
               description: item.description,
               quantity: new Prisma.Decimal(item.quantity),
@@ -984,7 +1481,7 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
 
       // Update stock and create voucher if transitioning to COMPLETED
       if (isTransitioningToCompleted) {
-         const stockItems = validated.items.map(i => ({ itemId: i.itemId, quantity: i.quantity }));
+         const stockItems = itemsToCreate.map(i => ({ itemId: i.itemId, variantId: i.variantId || undefined, quantity: i.quantity }));
          const stockResult = await updateStockOnSale(updatedSale.id, validated.warehouseId, stockItems, tx);
          if (!stockResult.success) throw new Error(stockResult.error || "Failed to update stock");
          
@@ -1494,6 +1991,49 @@ export async function cancelSale(saleId: string) {
       success: false,
       error: error instanceof Error ? error.message : "Failed to cancel sale",
       sale: null,
+    };
+  }
+}
+
+/**
+ * Get item/variant discounts for a specific client
+ */
+export async function getClientItemDiscounts(clientId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", discounts: [] };
+    }
+
+    const discounts = await prisma.clientItemDiscount.findMany({
+      where: {
+        clientId,
+      },
+      select: {
+        id: true,
+        itemId: true,
+        variantId: true,
+        discountType: true,
+        discountValue: true,
+      },
+    });
+
+    return {
+      success: true,
+      discounts: discounts.map((d) => ({
+        id: d.id,
+        itemId: d.itemId,
+        variantId: d.variantId,
+        discountType: d.discountType,
+        discountValue: Number(d.discountValue),
+      })),
+    };
+  } catch (error) {
+    console.error("getClientItemDiscounts error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch client discounts",
+      discounts: [],
     };
   }
 }

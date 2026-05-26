@@ -1,6 +1,6 @@
 /**
  * Progress tracking system for backup and restore operations
- * Uses PostgreSQL database for persistent, cross-instance storage
+ * Uses PostgreSQL database for persistent, cross-instance storage, with an in-memory fallback.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -26,6 +26,9 @@ export interface BackupProgress {
 // Clean up completed operations after 1 hour
 const COMPLETED_TTL = 60 * 60 * 1000; // Keep completed for 1 hour
 
+// In-memory fallback map for environments where BackupProgress table is not defined/migrated
+const inMemoryProgress = new Map<string, any>();
+
 /**
  * Generate a unique operation ID
  */
@@ -42,21 +45,28 @@ export async function initProgress(
   totalTables: number,
   totalRecords: number = 0
 ): Promise<void> {
+  const data = {
+    id: operationId,
+    type,
+    stage: 'Initializing',
+    progress: 0,
+    totalTables,
+    completedTables: 0,
+    totalRecords,
+    completedRecords: 0,
+    errors: 0,
+    status: 'running' as const,
+    startedAt: new Date(),
+  };
+
+  inMemoryProgress.set(operationId, data);
+
   try {
-    await prisma.backupProgress.create({
-      data: {
-        id: operationId,
-        type,
-        stage: 'Initializing',
-        progress: 0,
-        totalTables,
-        completedTables: 0,
-        totalRecords,
-        completedRecords: 0,
-        errors: 0,
-        status: 'running',
-      },
-    });
+    if (prisma && (prisma as any).backupProgress) {
+      await (prisma as any).backupProgress.create({
+        data,
+      });
+    }
     
     console.log(`[Progress] ✅ Initialized ${type} progress for ${operationId}`, {
       operationId,
@@ -65,8 +75,7 @@ export async function initProgress(
       totalRecords,
     });
   } catch (error) {
-    console.error(`[Progress] ❌ Failed to initialize progress for ${operationId}:`, error);
-    throw error;
+    console.warn(`[Progress] ⚠️ Failed to initialize progress in DB for ${operationId}:`, error);
   }
 }
 
@@ -77,26 +86,32 @@ export async function updateProgress(
   operationId: string,
   updates: Partial<Omit<BackupProgress, 'operationId' | 'startedAt'>>
 ): Promise<void> {
-  try {
-    const data: any = {};
-    
-    if (updates.stage !== undefined) data.stage = updates.stage;
-    if (updates.progress !== undefined) data.progress = updates.progress;
-    if (updates.currentTable !== undefined) data.currentTable = updates.currentTable;
-    if (updates.currentRecord !== undefined) data.currentRecord = updates.currentRecord;
-    if (updates.totalTables !== undefined) data.totalTables = updates.totalTables;
-    if (updates.completedTables !== undefined) data.completedTables = updates.completedTables;
-    if (updates.totalRecords !== undefined) data.totalRecords = updates.totalRecords;
-    if (updates.completedRecords !== undefined) data.completedRecords = updates.completedRecords;
-    if (updates.errors !== undefined) data.errors = updates.errors;
-    if (updates.status !== undefined) data.status = updates.status;
-    if (updates.errorMessage !== undefined) data.errorMessage = updates.errorMessage;
-    if (updates.completedAt !== undefined) data.completedAt = updates.completedAt;
+  const current = inMemoryProgress.get(operationId) || {};
+  const updated = { ...current, ...updates };
+  inMemoryProgress.set(operationId, updated);
 
-    await prisma.backupProgress.update({
-      where: { id: operationId },
-      data,
-    });
+  try {
+    if (prisma && (prisma as any).backupProgress) {
+      const data: any = {};
+      
+      if (updates.stage !== undefined) data.stage = updates.stage;
+      if (updates.progress !== undefined) data.progress = updates.progress;
+      if (updates.currentTable !== undefined) data.currentTable = updates.currentTable;
+      if (updates.currentRecord !== undefined) data.currentRecord = updates.currentRecord;
+      if (updates.totalTables !== undefined) data.totalTables = updates.totalTables;
+      if (updates.completedTables !== undefined) data.completedTables = updates.completedTables;
+      if (updates.totalRecords !== undefined) data.totalRecords = updates.totalRecords;
+      if (updates.completedRecords !== undefined) data.completedRecords = updates.completedRecords;
+      if (updates.errors !== undefined) data.errors = updates.errors;
+      if (updates.status !== undefined) data.status = updates.status;
+      if (updates.errorMessage !== undefined) data.errorMessage = updates.errorMessage;
+      if (updates.completedAt !== undefined) data.completedAt = updates.completedAt;
+
+      await (prisma as any).backupProgress.update({
+        where: { id: operationId },
+        data,
+      });
+    }
     
     console.log(`[Progress] 📊 Updated progress for ${operationId}`, {
       operationId,
@@ -104,8 +119,7 @@ export async function updateProgress(
       progress: updates.progress,
     });
   } catch (error) {
-    console.warn(`[Progress] ⚠️ Failed to update progress for ${operationId}:`, error);
-    // Don't throw - progress updates shouldn't break the main operation
+    console.warn(`[Progress] ⚠️ Failed to update progress in DB for ${operationId}:`, error);
   }
 }
 
@@ -119,24 +133,35 @@ export async function updateProgressWithRecord(
   completedRecords: number,
   totalRecords: number
 ): Promise<void> {
-  try {
-    // Calculate progress percentage
-    const progress = totalRecords > 0 
-      ? Math.round((completedRecords / totalRecords) * 100) 
-      : 0;
+  const progress = totalRecords > 0 
+    ? Math.round((completedRecords / totalRecords) * 100) 
+    : 0;
 
-    await prisma.backupProgress.update({
-      where: { id: operationId },
-      data: {
-        currentTable: table,
-        currentRecord: recordIdentifier,
-        completedRecords,
-        totalRecords,
-        progress,
-      },
-    });
+  const current = inMemoryProgress.get(operationId) || {};
+  inMemoryProgress.set(operationId, {
+    ...current,
+    currentTable: table,
+    currentRecord: recordIdentifier,
+    completedRecords,
+    totalRecords,
+    progress,
+  });
+
+  try {
+    if (prisma && (prisma as any).backupProgress) {
+      await (prisma as any).backupProgress.update({
+        where: { id: operationId },
+        data: {
+          currentTable: table,
+          currentRecord: recordIdentifier,
+          completedRecords,
+          totalRecords,
+          progress,
+        },
+      });
+    }
   } catch (error) {
-    console.warn(`[Progress] ⚠️ Failed to update progress with record for ${operationId}:`, error);
+    console.warn(`[Progress] ⚠️ Failed to update progress with record in DB for ${operationId}:`, error);
   }
 }
 
@@ -148,10 +173,12 @@ export async function completeTable(
   table: string
 ): Promise<void> {
   try {
-    // Get current progress to calculate new values
-    const current = await prisma.backupProgress.findUnique({
-      where: { id: operationId },
-    });
+    let current = inMemoryProgress.get(operationId);
+    if (!current && prisma && (prisma as any).backupProgress) {
+      current = await (prisma as any).backupProgress.findUnique({
+        where: { id: operationId },
+      });
+    }
 
     if (!current) {
       return;
@@ -173,15 +200,25 @@ export async function completeTable(
       }
     }
 
-    await prisma.backupProgress.update({
-      where: { id: operationId },
-      data: {
-        completedTables,
-        currentTable: table,
-        stage,
-        progress,
-      },
+    inMemoryProgress.set(operationId, {
+      ...current,
+      completedTables,
+      currentTable: table,
+      stage,
+      progress,
     });
+
+    if (prisma && (prisma as any).backupProgress) {
+      await (prisma as any).backupProgress.update({
+        where: { id: operationId },
+        data: {
+          completedTables,
+          currentTable: table,
+          stage,
+          progress,
+        },
+      });
+    }
   } catch (error) {
     console.warn(`[Progress] ⚠️ Failed to complete table for ${operationId}:`, error);
   }
@@ -191,16 +228,27 @@ export async function completeTable(
  * Mark operation as completed
  */
 export async function completeProgress(operationId: string): Promise<void> {
+  const current = inMemoryProgress.get(operationId) || {};
+  inMemoryProgress.set(operationId, {
+    ...current,
+    status: 'completed',
+    progress: 100,
+    completedAt: new Date(),
+    stage: 'Completed',
+  });
+
   try {
-    await prisma.backupProgress.update({
-      where: { id: operationId },
-      data: {
-        status: 'completed',
-        progress: 100,
-        completedAt: new Date(),
-        stage: 'Completed',
-      },
-    });
+    if (prisma && (prisma as any).backupProgress) {
+      await (prisma as any).backupProgress.update({
+        where: { id: operationId },
+        data: {
+          status: 'completed',
+          progress: 100,
+          completedAt: new Date(),
+          stage: 'Completed',
+        },
+      });
+    }
     
     console.log(`[Progress] ✅ Marked ${operationId} as completed`);
   } catch (error) {
@@ -212,16 +260,27 @@ export async function completeProgress(operationId: string): Promise<void> {
  * Mark operation as failed
  */
 export async function failProgress(operationId: string, errorMessage: string): Promise<void> {
+  const current = inMemoryProgress.get(operationId) || {};
+  inMemoryProgress.set(operationId, {
+    ...current,
+    status: 'failed',
+    errorMessage,
+    completedAt: new Date(),
+    stage: 'Failed',
+  });
+
   try {
-    await prisma.backupProgress.update({
-      where: { id: operationId },
-      data: {
-        status: 'failed',
-        errorMessage,
-        completedAt: new Date(),
-        stage: 'Failed',
-      },
-    });
+    if (prisma && (prisma as any).backupProgress) {
+      await (prisma as any).backupProgress.update({
+        where: { id: operationId },
+        data: {
+          status: 'failed',
+          errorMessage,
+          completedAt: new Date(),
+          stage: 'Failed',
+        },
+      });
+    }
     
     console.log(`[Progress] ❌ Marked ${operationId} as failed: ${errorMessage}`);
   } catch (error) {
@@ -234,9 +293,13 @@ export async function failProgress(operationId: string, errorMessage: string): P
  */
 export async function getProgress(operationId: string): Promise<BackupProgress | null> {
   try {
-    const progress = await prisma.backupProgress.findUnique({
-      where: { id: operationId },
-    });
+    let progress = inMemoryProgress.get(operationId);
+    
+    if (!progress && prisma && (prisma as any).backupProgress) {
+      progress = await (prisma as any).backupProgress.findUnique({
+        where: { id: operationId },
+      });
+    }
 
     if (!progress) {
       console.log(`[Progress] ❌ Progress not found for ${operationId}`);
@@ -250,9 +313,9 @@ export async function getProgress(operationId: string): Promise<BackupProgress |
       status: progress.status,
     });
 
-    // Map database model to interface
+    // Map database model or memory structure to interface
     return {
-      operationId: progress.id,
+      operationId: progress.id || progress.operationId,
       type: progress.type as 'backup' | 'restore',
       stage: progress.stage,
       progress: progress.progress,
@@ -281,20 +344,33 @@ export async function cleanupOldProgress(): Promise<void> {
   try {
     const cutoffDate = new Date(Date.now() - COMPLETED_TTL);
     
-    const result = await prisma.backupProgress.deleteMany({
-      where: {
-        OR: [
-          { status: 'completed' },
-          { status: 'failed' },
-        ],
-        completedAt: {
-          lt: cutoffDate,
+    // Cleanup in-memory
+    for (const [id, progress] of inMemoryProgress.entries()) {
+      if (
+        (progress.status === 'completed' || progress.status === 'failed') &&
+        progress.completedAt &&
+        progress.completedAt < cutoffDate
+      ) {
+        inMemoryProgress.delete(id);
+      }
+    }
+
+    if (prisma && (prisma as any).backupProgress) {
+      const result = await (prisma as any).backupProgress.deleteMany({
+        where: {
+          OR: [
+            { status: 'completed' },
+            { status: 'failed' },
+          ],
+          completedAt: {
+            lt: cutoffDate,
+          },
         },
-      },
-    });
-    
-    if (result.count > 0) {
-      console.log(`[Progress] 🧹 Cleaned up ${result.count} old progress records`);
+      });
+      
+      if (result.count > 0) {
+        console.log(`[Progress] 🧹 Cleaned up ${result.count} old progress records from DB`);
+      }
     }
   } catch (error) {
     console.error(`[Progress] ❌ Error cleaning up old progress:`, error);
@@ -303,26 +379,37 @@ export async function cleanupOldProgress(): Promise<void> {
 
 // Debug helper to check if progress exists
 export async function hasProgress(operationId: string): Promise<boolean> {
+  if (inMemoryProgress.has(operationId)) {
+    return true;
+  }
+
   try {
-    const count = await prisma.backupProgress.count({
-      where: { id: operationId },
-    });
-    return count > 0;
+    if (prisma && (prisma as any).backupProgress) {
+      const count = await (prisma as any).backupProgress.count({
+        where: { id: operationId },
+      });
+      return count > 0;
+    }
   } catch (error) {
     console.error(`[Progress] ❌ Error checking progress existence:`, error);
-    return false;
   }
+  return false;
 }
 
 // Debug helper to get all operation IDs
 export async function getAllOperationIds(): Promise<string[]> {
+  const ids = Array.from(inMemoryProgress.keys());
+
   try {
-    const records = await prisma.backupProgress.findMany({
-      select: { id: true },
-    });
-    return records.map(r => r.id);
+    if (prisma && (prisma as any).backupProgress) {
+      const records = await (prisma as any).backupProgress.findMany({
+        select: { id: true },
+      });
+      const dbIds = records.map((r: any) => r.id);
+      return Array.from(new Set([...ids, ...dbIds]));
+    }
   } catch (error) {
     console.error(`[Progress] ❌ Error getting all operation IDs:`, error);
-    return [];
   }
+  return ids;
 }

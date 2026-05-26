@@ -137,11 +137,15 @@ export async function checkAPIntegrity(): Promise<IntegrityResult> {
 export async function checkInventoryIntegrity(): Promise<IntegrityResult> {
   // 1. Calculate Physical Stock Value (Sub-ledger)
   const stocks = await prisma.stock.findMany({
-    include: { item: { select: { costPrice: true } } }
+    include: { 
+      item: { select: { costPrice: true } },
+      variant: { include: { item: { select: { costPrice: true } } } }
+    }
   });
 
   const physicalTotal = stocks.reduce((sum, stock) => {
-    return sum + (Number(stock.quantity) * Number(stock.item.costPrice || 0));
+    const parentItem = stock.item || stock.variant?.item;
+    return sum + (Number(stock.quantity) * Number(parentItem?.costPrice || 0));
   }, 0);
 
   // 2. Calculate GL Inventory Balances

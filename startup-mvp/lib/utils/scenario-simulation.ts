@@ -168,6 +168,7 @@ export async function runScenario() {
     warehouseId: warehouse.id,
     date: new Date(),
     status: SaleStatus.COMPLETED,
+    orderType: "RETAIL",
     items: [{
       itemId: fgItem.id,
       description: "Basic Crew Neck T-shirt",
@@ -178,7 +179,7 @@ export async function runScenario() {
   });
   // Note: completeSale might need to be called manually if createSale doesn't auto-complete
   if (saleResult.success && saleResult.sale) {
-    await completeSale(saleResult.sale.id);
+    await completeSale((saleResult.sale as any).id);
   }
   await auditState("Sell FG");
 

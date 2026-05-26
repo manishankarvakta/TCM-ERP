@@ -88,7 +88,7 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
           </TabsList>
           <TabsContent value="all" className="mt-4">
             <ItemsListClient
-              initialItems={result.items || []}
+              initialItems={(result.items as any) || []}
               initialPagination={result.pagination || {
                 page: 1,
                 limit: 10,
@@ -102,7 +102,7 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
           </TabsContent>
           <TabsContent value="trash" className="mt-4">
             <ItemsListClient
-              initialItems={result.items || []}
+              initialItems={(result.items as any) || []}
               initialPagination={result.pagination || {
                 page: 1,
                 limit: 10,

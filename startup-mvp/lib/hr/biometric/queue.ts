@@ -33,3 +33,7 @@ export type BiometricJobData = {
   employeeId?: string;
   chunkSize?: number;
 };
+
+// Import worker to register it when queue is loaded
+import "./worker";
+

@@ -108,6 +108,21 @@ export default async function ClientDetailsPage({ searchParams }: ClientDetailsP
                 </div>
 
                 <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Client Type</label>
+                  <div>
+                    {client.clientType?.toLowerCase() === "wholesale" ? (
+                      <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 border-none capitalize">
+                        Wholesale
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="capitalize">
+                        Regular
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Created By</label>
                   <p className="text-sm">{client.createdByUser.name || client.createdByUser.email}</p>
                 </div>
@@ -155,6 +170,66 @@ export default async function ClientDetailsPage({ searchParams }: ClientDetailsP
           </div>
         </CardContent>
       </Card>
+
+      {client.clientType?.toLowerCase() === "wholesale" && (
+        <Card className="mt-6 border-primary/20 bg-primary/[0.01]">
+          <CardHeader>
+            <CardTitle>Wholesale Discounts</CardTitle>
+            <CardDescription>Item-level or variant-level discounts configured for this client</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!client.itemDiscounts || client.itemDiscounts.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground text-sm">
+                No custom item-level or variant-level discounts configured for this client.
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden bg-background">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-muted text-muted-foreground text-xs uppercase font-medium border-b">
+                    <tr>
+                      <th className="px-4 py-3">Type</th>
+                      <th className="px-4 py-3">Item / SKU</th>
+                      <th className="px-4 py-3">Discount Type</th>
+                      <th className="px-4 py-3 text-right">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {client.itemDiscounts.map((discount: any) => {
+                      const isVariant = !!discount.variantId;
+                      const name = isVariant
+                        ? `${discount.variant.item?.name || "Unknown Item"} (${discount.variant.color || ""} - ${discount.variant.size || ""})`
+                        : (discount.item?.name || "Unknown Item");
+                      const code = isVariant ? discount.variant.sku : (discount.item?.code || "-");
+
+                      return (
+                        <tr key={discount.id} className="hover:bg-muted/50 transition-colors">
+                          <td className="px-4 py-3">
+                            <Badge variant={isVariant ? "outline" : "secondary"} className="text-xs">
+                              {isVariant ? "Variant" : "Item"}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 font-medium">
+                            <div>{name}</div>
+                            <div className="text-xs text-muted-foreground">Code: {code}</div>
+                          </td>
+                          <td className="px-4 py-3 capitalize">
+                            {discount.discountType.toLowerCase()}
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold text-primary">
+                            {discount.discountType.toLowerCase() === "percentage"
+                              ? `${Number(discount.discountValue)}%`
+                              : `$${Number(discount.discountValue).toFixed(2)}`}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

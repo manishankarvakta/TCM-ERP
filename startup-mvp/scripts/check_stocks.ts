@@ -17,12 +17,18 @@ async function checkStocks() {
 
   const stocks = await prisma.stock.findMany({
       where: { warehouseId: warehouse.id },
-      include: { item: true }
+      include: { 
+        item: true,
+        variant: { include: { item: true } }
+      }
   });
 
   console.log(`Found ${stocks.length} stock records.`);
   stocks.forEach(s => {
-      console.log(`Item: ${s.item.name}, Qty: ${s.quantity}`);
+      const parentItem = s.item || s.variant?.item;
+      const itemName = parentItem ? parentItem.name : "Unknown Item";
+      const variantSuffix = s.variant ? ` (${s.variant.color} / ${s.variant.size})` : "";
+      console.log(`Item: ${itemName}${variantSuffix}, Qty: ${s.quantity}`);
   });
 }
 

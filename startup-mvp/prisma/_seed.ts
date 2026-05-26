@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { seedPOSDefaults } from "./seed-pos-defaults";
 
 const prisma = new PrismaClient();
 
@@ -76,6 +77,9 @@ async function main() {
   }
 
   console.log(`✅ Done. Seeded ${units.length} unit(s). Creator: ${creator.email ?? creator.id}`);
+
+  // Seed POS defaults (walkway customer, retail & wholesale items)
+  await seedPOSDefaults();
 }
 
 main()

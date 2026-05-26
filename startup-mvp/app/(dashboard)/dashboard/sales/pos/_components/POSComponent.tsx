@@ -1,20 +1,39 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Search, Plus, Minus, Trash2, ShoppingCart, CheckCircle2, X } from "lucide-react";
-import { createSale } from "../../_actions/sale.action";
-import { useRouter } from "next/navigation";
+import { createSale, getClientItemDiscounts, validateCoupon } from "../../_actions/sale.action";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
+import { createClient } from "@/app/(dashboard)/dashboard/clients/_actions/client.action";
+import { ItemType } from "@prisma/client";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-type ItemType = "READY_PRODUCT" | "RETAIL" | "WHOLESALE";
+interface ItemVariant {
+  id: string;
+  sku: string;
+  barcode: string | null;
+  size: string;
+  color: string;
+  costPrice?: number | null;
+  salesPrice?: number | null;
+}
 
 interface Item {
   id: string;
   code: string;
   description: string;
+  name?: string;
+  itemDescription?: string;
   unit: string;
   unitPrice: number;
   wholesalePrice?: number;
@@ -22,6 +41,9 @@ interface Item {
   category?: string | null;
   imageUrl: string | null;
   stocks: { warehouseId: string; quantity: number }[];
+  variants?: ItemVariant[];
+  isVatEnabled?: boolean;
+  vatPercentage?: number;
 }
 
 interface Client {
@@ -29,6 +51,8 @@ interface Client {
   name: string | null;
   email: string;
   company: string | null;
+  clientCode?: string | null;
+  clientType?: string | null;
 }
 
 interface Warehouse {
@@ -39,21 +63,39 @@ interface Warehouse {
 
 interface CartItem extends Item {
   cartQuantity: number;
+  variantId?: string;
+  variantSku?: string;
+  size?: string;
+  color?: string;
+  cartKey: string;
 }
 
 interface POSComponentProps {
   items: Item[];
   clients: Client[];
   warehouses: Warehouse[];
+  paymentAccounts?: Array<{
+    id: string;
+    code: string;
+    name: string;
+    type: "CASH" | "BANK" | "WALLET" | null;
+    warehouseIds?: string[];
+  }>;
 }
 
-export default function POSComponent({ items, clients, warehouses }: POSComponentProps) {
+export default function POSComponent({ items, clients: initialClients, warehouses, paymentAccounts = [] }: POSComponentProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToastContext();
   
+  const [clients, setClients] = useState<Client[]>(initialClients);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<string>("ALL");
-  const [orderType, setOrderType] = useState<"RETAIL" | "WHOLESALE">("RETAIL");
+  
+  // URL mode sync
+  const initialMode = (searchParams.get("mode") as "RETAIL" | "WHOLESALE") || "RETAIL";
+  const [orderType, setOrderType] = useState<"RETAIL" | "WHOLESALE">(initialMode);
+  
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [taxPercent, setTaxPercent] = useState<number>(0);
   const [isReturnMode, setIsReturnMode] = useState<boolean>(false);
@@ -66,50 +108,310 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
   const [paidAmount, setPaidAmount] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+  const [clientDiscounts, setClientDiscounts] = useState<any[]>([]);
+
+  // Filter payment methods based on selected warehouse
+  const filteredPaymentAccounts = useMemo(() => {
+    return paymentAccounts.filter(acc => {
+      // If the account has no linked warehouses, it is available globally
+      if (!acc.warehouseIds || acc.warehouseIds.length === 0) {
+        return true;
+      }
+      // Otherwise it must match the selected warehouse
+      return acc.warehouseIds.includes(selectedWarehouseId);
+    });
+  }, [paymentAccounts, selectedWarehouseId]);
+
+  // Sync default payment option when filtered list changes
+  useEffect(() => {
+    if (isConfirmModalOpen && filteredPaymentAccounts.length > 0) {
+      const activeOption = filteredPaymentAccounts.find(acc => acc.id === paymentMethod);
+      if (!activeOption) {
+        const firstCash = filteredPaymentAccounts.find(acc => acc.type === "CASH");
+        setPaymentMethod(firstCash ? firstCash.id : filteredPaymentAccounts[0].id);
+      }
+    }
+  }, [filteredPaymentAccounts, isConfirmModalOpen]);
+
+  // Promo Code / Coupon states
+  const [promoCode, setPromoCode] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+  const [promoDiscountMsg, setPromoDiscountMsg] = useState("");
+
+  // Sale completion flow
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+  const [isChangeDialogOpen, setIsChangeDialogOpen] = useState(false);
+  const [completedSaleNumber, setCompletedSaleNumber] = useState('');
+  const [changeAmount, setChangeAmount] = useState(0);
+
+  // Walkway customer
+  const [walkwayCustomerId, setWalkwayCustomerId] = useState<string>('');
+
+  // Add Customer modal states
+  const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
+  const [newCustomerLoading, setNewCustomerLoading] = useState(false);
+  const [newCustomerData, setNewCustomerData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    company: "",
+    address: ""
+  });
+
+  // Sync state mode to URL search parameter
+  const updateOrderMode = (mode: "RETAIL" | "WHOLESALE") => {
+    setOrderType(mode);
+    setCart([]);
+    setDiscountAmount(0);
+    setIsReturnMode(false);
+    
+    const params = new URLSearchParams(window.location.search);
+    params.set("mode", mode);
+    router.replace(`?${params.toString()}`);
+  };
+
+  const getItemDiscount = (item: CartItem | Item, variantId?: string) => {
+    const vId = variantId || (item as CartItem).variantId;
+    if (vId) {
+      const variantDiscount = clientDiscounts.find(
+        (d) => d.variantId === vId
+      );
+      if (variantDiscount) return variantDiscount;
+    }
+    return clientDiscounts.find(
+      (d) => d.itemId === item.id && !d.variantId
+    );
+  };
+
+  const getBasePrice = (item: CartItem | Item, currentOrderType: "RETAIL" | "WHOLESALE") => {
+    if ("variantId" in item && item.variantId && item.variants) {
+      const variant = item.variants.find(v => v.id === item.variantId);
+      if (variant) {
+        if (variant.salesPrice !== null && variant.salesPrice !== undefined) {
+          return Number(variant.salesPrice);
+        }
+      }
+    }
+    return currentOrderType === "WHOLESALE" ? (item.wholesalePrice || item.unitPrice) : item.unitPrice;
+  };
+
+  const getDiscountedPrice = (item: CartItem, basePrice: number, discounts: any[]) => {
+    const discount = getItemDiscount(item);
+    if (!discount) return basePrice;
+
+    if (discount.discountType === "PERCENTAGE") {
+      const factor = Math.max(0, 1 - (discount.discountValue / 100));
+      return basePrice * factor;
+    } else if (discount.discountType === "FLAT") {
+      return Math.max(0, basePrice - discount.discountValue);
+    }
+    return basePrice;
+  };
+
+  // Set walkway customer as default on mount and sync URL mode
+  useEffect(() => {
+    const walkway = clients.find(c =>
+      c.name?.toLowerCase().includes('walkway') ||
+      c.email?.toLowerCase().includes('walkway')
+    );
+    if (walkway) {
+      setWalkwayCustomerId(walkway.id);
+      setSelectedClientId(walkway.id);
+    }
+  }, [clients]);
+
+  useEffect(() => {
+    if (!selectedClientId) {
+      setClientDiscounts([]);
+      return;
+    }
+    const client = clients.find((c) => c.id === selectedClientId);
+    const isWholesale = client
+      ? !!(
+          client.company?.toLowerCase().includes("wholesale") ||
+          client.name?.toLowerCase().includes("wholesale") ||
+          client.email?.toLowerCase().includes("wholesale") ||
+          client.clientCode?.toLowerCase().includes("wholesale") ||
+          client.clientType === 'wholesale'
+        )
+      : false;
+
+    const newMode = isWholesale ? "WHOLESALE" : "RETAIL";
+    if (newMode !== orderType) {
+      updateOrderMode(newMode);
+    }
+
+    if (isWholesale) {
+      getClientItemDiscounts(selectedClientId).then((res) => {
+        if (res.success && res.discounts) {
+          setClientDiscounts(res.discounts);
+          toast({
+            title: "Wholesale Customer Selected",
+            description: `Loaded ${res.discounts.length} custom discounts for ${client?.name || client?.email}.`,
+          });
+        } else {
+          setClientDiscounts([]);
+        }
+      });
+    } else {
+      setClientDiscounts([]);
+    }
+  }, [selectedClientId]);
+
+  useEffect(() => {
+    setCart((prevCart) => {
+      let changed = false;
+      const newCart = prevCart.map((item) => {
+        const basePrice = getBasePrice(item, orderType);
+        const finalPrice = getDiscountedPrice(item, basePrice, clientDiscounts);
+        if (item.unitPrice !== finalPrice) {
+          changed = true;
+          return { ...item, unitPrice: finalPrice };
+        }
+        return item;
+      });
+      return changed ? newCart : prevCart;
+    });
+  }, [clientDiscounts, orderType]);
+
+  // Variant Add Dialog States
+  const [selectedItemForVariants, setSelectedItemForVariants] = useState<Item | null>(null);
 
   const categories = useMemo(() => {
-    const cats = Array.from(new Set(items.map((i) => i.category).filter(Boolean))) as string[];
+    // Show only raw material or product type categories in POS
+    // Here we filter items based on the active mode (RETAIL / READY_PRODUCT items vs WHOLESALE items)
+    const relevantItems = items.filter(item =>
+      orderType === 'RETAIL'
+        ? (item.itemType === 'RETAIL' || item.itemType === 'READY_PRODUCT')
+        : item.itemType === 'WHOLESALE'
+    );
+    const cats = Array.from(new Set(relevantItems.map((i) => i.category).filter(Boolean))) as string[];
     return cats.sort();
-  }, [items]);
+  }, [items, orderType]);
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      const matchesSearch = item.description.toLowerCase().includes(searchQuery.toLowerCase()) || item.code.toLowerCase().includes(searchQuery.toLowerCase());
+      const q = searchQuery.toLowerCase().trim();
+      let matchesSearch = true;
+      if (q) {
+        const matchesCode = item.code?.toLowerCase().includes(q);
+        const matchesDescription = item.description?.toLowerCase().includes(q);
+        const matchesDbDescription = item.itemDescription?.toLowerCase().includes(q);
+        const matchesName = item.name?.toLowerCase().includes(q);
+        const matchesVariant = item.variants?.some(v => 
+          (v.sku && v.sku.toLowerCase().includes(q)) || 
+          (v.barcode && v.barcode.toLowerCase().includes(q))
+        ) || false;
+
+        matchesSearch = matchesCode || matchesDescription || matchesDbDescription || matchesName || matchesVariant;
+      }
+
       const matchesCategory = filterType === "ALL" || item.category === filterType;
-      const matchesOrderType = item.itemType === orderType;
+      const matchesOrderType = orderType === "RETAIL"
+        ? (item.itemType === "RETAIL" || item.itemType === "READY_PRODUCT")
+        : item.itemType === "WHOLESALE";
       return matchesSearch && matchesCategory && matchesOrderType;
     });
   }, [items, searchQuery, filterType, orderType]);
 
   const subTotal = cart.reduce((sum, item) => sum + item.unitPrice * item.cartQuantity, 0);
-  const tax = (subTotal - discountAmount) * (taxPercent / 100);
+  const itemVatTotal = cart.reduce((sum, item) => {
+    if (item.isVatEnabled && item.vatPercentage) {
+      return sum + (item.unitPrice * item.cartQuantity) * (item.vatPercentage / 100);
+    }
+    return sum;
+  }, 0);
+  const tax = itemVatTotal + (subTotal - discountAmount) * (taxPercent / 100);
   const grandTotal = subTotal + tax - discountAmount;
   const dueAmount = grandTotal - paidAmount;
 
   const handleAddToCart = (item: Item) => {
-    const priceToUse = orderType === "WHOLESALE" ? (item.wholesalePrice || item.unitPrice) : item.unitPrice;
+    if (item.variants && item.variants.length > 0) {
+      setSelectedItemForVariants(item);
+      return;
+    }
+
+    const basePrice = orderType === "WHOLESALE" ? (item.wholesalePrice || item.unitPrice) : item.unitPrice;
+    let priceToUse = basePrice;
+    const discount = getItemDiscount(item);
+    if (discount) {
+      if (discount.discountType === "PERCENTAGE") {
+        priceToUse = basePrice * Math.max(0, 1 - (discount.discountValue / 100));
+      } else if (discount.discountType === "FLAT") {
+        priceToUse = Math.max(0, basePrice - discount.discountValue);
+      }
+    }
+
     const delta = isReturnMode ? -1 : 1;
-    const itemToAdd = { ...item, unitPrice: priceToUse };
+    const cartKey = item.id;
+    const itemToAdd: CartItem = { 
+      ...item, 
+      unitPrice: priceToUse,
+      cartKey,
+      cartQuantity: delta
+    };
 
     setCart((prev) => {
-      const existing = prev.find((i) => i.id === itemToAdd.id);
+      const existing = prev.find((i) => i.cartKey === cartKey);
       if (existing) {
         return prev.map((i) => {
-          if (i.id === itemToAdd.id) {
+          if (i.cartKey === cartKey) {
             const newQ = i.cartQuantity + delta;
             return { ...i, cartQuantity: newQ };
           }
           return i;
         }).filter((i) => i.cartQuantity !== 0);
       }
-      return [...prev, { ...itemToAdd, cartQuantity: delta }];
+      return [...prev, itemToAdd];
     });
   };
 
-  const handleUpdateQuantity = (itemId: string, delta: number) => {
+  const handleVariantAddToCart = (item: Item, variant: ItemVariant, quantity: number = 1) => {
+    const basePrice = orderType === "WHOLESALE" ? (item.wholesalePrice || item.unitPrice) : item.unitPrice;
+    const basePriceToUse = variant.salesPrice !== null && variant.salesPrice !== undefined ? Number(variant.salesPrice) : basePrice;
+    let priceToUse = basePriceToUse;
+    const discount = getItemDiscount(item, variant.id);
+    if (discount) {
+      if (discount.discountType === "PERCENTAGE") {
+        priceToUse = basePriceToUse * Math.max(0, 1 - (discount.discountValue / 100));
+      } else if (discount.discountType === "FLAT") {
+        priceToUse = Math.max(0, basePriceToUse - discount.discountValue);
+      }
+    }
+
+    const delta = isReturnMode ? -quantity : quantity;
+    const cartKey = `${item.id}-${variant.id}`;
+
+    const itemToAdd: CartItem = {
+      ...item,
+      unitPrice: priceToUse,
+      variantId: variant.id,
+      variantSku: variant.sku,
+      size: variant.size,
+      color: variant.color,
+      cartKey,
+      cartQuantity: delta
+    };
+
+    setCart((prev) => {
+      const existing = prev.find((i) => i.cartKey === cartKey);
+      if (existing) {
+        return prev.map((i) => {
+          if (i.cartKey === cartKey) {
+            const newQ = i.cartQuantity + delta;
+            return { ...i, cartQuantity: newQ };
+          }
+          return i;
+        }).filter((i) => i.cartQuantity !== 0);
+      }
+      return [...prev, itemToAdd];
+    });
+  };
+
+  const handleUpdateQuantity = (cartKey: string, delta: number) => {
     setCart((prev) => {
       return prev.map((i) => {
-        if (i.id === itemId) {
+        if (i.cartKey === cartKey) {
           const newQ = i.cartQuantity + delta;
           return { ...i, cartQuantity: newQ };
         }
@@ -118,8 +420,185 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
     });
   };
 
-  const handleRemoveItem = (itemId: string) => {
-    setCart((prev) => prev.filter((i) => i.id !== itemId));
+  const handleRemoveItem = (cartKey: string) => {
+    setCart((prev) => prev.filter((i) => i.cartKey !== cartKey));
+  };
+
+  const handleBarcodeScan = (barcode: string) => {
+    for (const item of items) {
+      if (item.variants) {
+        const matchedVariant = item.variants.find(
+          v => v.barcode === barcode || v.sku === barcode
+        );
+        if (matchedVariant) {
+          toast({
+            title: "SKU Scanned",
+            description: `Added: ${item.description} (${matchedVariant.color} / ${matchedVariant.size})`,
+          });
+          handleVariantAddToCart(item, matchedVariant);
+          return;
+        }
+      }
+    }
+
+    const matchedItem = items.find(i => i.code === barcode);
+    if (matchedItem) {
+      toast({
+        title: "Product Scanned",
+        description: `Added: ${matchedItem.description}`,
+      });
+      handleAddToCart(matchedItem);
+      return;
+    }
+
+    toast({
+      title: "Barcode Not Found",
+      description: `Could not find product matching: ${barcode}`,
+      variant: "destructive"
+    });
+  };
+  
+  // Exact match search auto-add to cart
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query) return;
+
+    // Check variants first (SKU, Barcode)
+    for (const item of items) {
+      if (item.variants) {
+        const matchedVariant = item.variants.find(
+          v => v.barcode === query || v.sku === query
+        );
+        if (matchedVariant) {
+          const matchesOrderType = orderType === "RETAIL"
+            ? (item.itemType === "RETAIL" || item.itemType === "READY_PRODUCT")
+            : item.itemType === "WHOLESALE";
+          if (matchesOrderType) {
+            toast({
+              title: "SKU Found",
+              description: `Added: ${item.description} (${matchedVariant.color} / ${matchedVariant.size})`,
+            });
+            handleVariantAddToCart(item, matchedVariant);
+            setSearchQuery("");
+            return;
+          }
+        }
+      }
+    }
+
+    // Check parent items (Code)
+    const matchedItem = items.find(i => i.code === query);
+    if (matchedItem) {
+      const matchesOrderType = orderType === "RETAIL"
+        ? (matchedItem.itemType === "RETAIL" || matchedItem.itemType === "READY_PRODUCT")
+        : matchedItem.itemType === "WHOLESALE";
+      if (matchesOrderType) {
+        toast({
+          title: "Product Found",
+          description: `Added: ${matchedItem.description}`,
+        });
+        handleAddToCart(matchedItem);
+        setSearchQuery("");
+        return;
+      }
+    }
+  }, [searchQuery, items, orderType]);
+
+  useEffect(() => {
+    let buffer = "";
+    let lastKeyTime = Date.now();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT")) {
+        return;
+      }
+
+      const currentTime = Date.now();
+      
+      if (currentTime - lastKeyTime > 150) {
+        buffer = "";
+      }
+
+      lastKeyTime = currentTime;
+
+      if (e.key === "Shift" || e.key === "Control" || e.key === "Alt" || e.key === "Meta") {
+        return;
+      }
+
+      if (e.key === "Enter") {
+        if (buffer.trim()) {
+          handleBarcodeScan(buffer.trim());
+          buffer = "";
+          e.preventDefault();
+        }
+      } else {
+        if (e.key.length === 1) {
+          buffer += e.key;
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [items, orderType, isReturnMode]);
+
+  const handleNewSale = () => {
+    setIsChangeDialogOpen(false);
+    setCart([]);
+    setSearchQuery('');
+    setDiscountAmount(0);
+    setTaxPercent(0);
+    setPaidAmount(0);
+    setSuccessMsg('');
+    setCompletedSaleNumber('');
+    setChangeAmount(0);
+    setPromoCode('');
+    setAppliedPromo(null);
+    setPromoDiscountMsg('');
+    if (walkwayCustomerId) {
+      setSelectedClientId(walkwayCustomerId);
+    }
+  };
+
+  const handleApplyPromo = async () => {
+    const code = promoCode.trim().toUpperCase();
+    if (!code) return;
+
+    toast({
+      title: "Validating Coupon...",
+      description: "Please wait while we verify your coupon code.",
+    });
+
+    const result = await validateCoupon(code, subTotal);
+    if (result.success && result.discountAmount !== undefined) {
+      setDiscountAmount(result.discountAmount);
+      setAppliedPromo(code);
+      setPromoDiscountMsg(result.message || `Coupon applied!`);
+      toast({
+        title: "✅ Coupon Applied!",
+        description: result.message || `Discount of ৳${result.discountAmount.toFixed(2)} applied.`,
+      });
+    } else {
+      toast({
+        title: "Invalid Coupon",
+        description: result.error || "The coupon code you entered is invalid.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setDiscountAmount(0);
+    setAppliedPromo(null);
+    setPromoDiscountMsg("");
+    setPromoCode("");
+    toast({
+      title: "Promo Removed",
+      description: "Coupon code has been removed."
+    });
   };
 
   const handleProcessTransaction = () => {
@@ -131,13 +610,17 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
       });
       return;
     }
-    if (!selectedClientId) {
+    const effectiveClientId = selectedClientId || walkwayCustomerId;
+    if (!effectiveClientId) {
       toast({
         title: "Warning",
         description: "Customer selection is required to process transaction.",
         variant: "destructive"
       });
       return;
+    }
+    if (!selectedClientId && walkwayCustomerId) {
+      setSelectedClientId(walkwayCustomerId);
     }
     if (!selectedWarehouseId) {
       toast({
@@ -156,14 +639,13 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
     try {
       const saleItems = cart.map((item) => ({
         itemId: item.id,
-        description: item.description,
+        variantId: item.variantId || null,
+        description: item.variantSku ? `${item.description} (${item.color} / ${item.size})` : item.description,
         quantity: item.cartQuantity,
         unitPrice: item.unitPrice,
         amount: item.unitPrice * item.cartQuantity,
       }));
 
-      // Ignore orderType TS error for now if it doesn't match Prisma exactly due to fresh schema sync
-      // The backend accepts "RETAIL" | "READY_PRODUCT"
       const res = await createSale({
         clientId: selectedClientId,
         warehouseId: selectedWarehouseId,
@@ -174,21 +656,21 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
         tax: tax,
         discount: discountAmount,
         items: saleItems,
+        couponCode: appliedPromo || undefined,
+        paymentMethod: paymentMethod,
       });
 
       if (res.success) {
-        setSuccessMsg(`Order ${res.sale?.saleNumber} processed successfully!`);
+        const saleNum = (res.sale as any)?.saleNumber || '';
+        setCompletedSaleNumber(saleNum);
+        setChangeAmount(paidAmount - grandTotal);
         toast({
           title: "Success",
-          description: `Order ${res.sale?.saleNumber} processed successfully!`,
+          description: `Order ${saleNum} processed successfully!`,
         });
         setCart([]);
-        setSearchQuery("");
-        setTimeout(() => {
-          setSuccessMsg("");
-          setIsConfirmModalOpen(false);
-          router.push("/dashboard/sales");
-        }, 2000);
+        setIsConfirmModalOpen(false);
+        setIsPrintDialogOpen(true);
       } else {
         toast({
           title: "Error processing sale",
@@ -208,13 +690,97 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
     }
   };
 
+  const handleAddCustomerSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCustomerData.email) return;
+
+    setNewCustomerLoading(true);
+    try {
+      const res = await createClient({
+        name: newCustomerData.name,
+        email: newCustomerData.email,
+        phone: newCustomerData.phone,
+        company: newCustomerData.company,
+        address: newCustomerData.address,
+        status: "active"
+      });
+
+      if (res.success && res.client) {
+        toast({
+          title: "Success",
+          description: "New client registered successfully!"
+        });
+        setClients(prev => [res.client as Client, ...prev]);
+        setSelectedClientId(res.client.id);
+        setIsAddCustomerOpen(false);
+        setNewCustomerData({
+          name: "",
+          email: "",
+          phone: "",
+          company: "",
+          address: ""
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: res.error || "Failed to create client",
+          variant: "destructive"
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Unexpected Error",
+        description: "Failed to register new client.",
+        variant: "destructive"
+      });
+    } finally {
+      setNewCustomerLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isChangeDialogOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleNewSale();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isChangeDialogOpen]);
+
   return (
     <div className="fixed inset-0 z-50 flex bg-background">
-      {/* Left Side: Product Catalog */}
       <div className="flex-1 flex flex-col p-6 overflow-hidden bg-background">
-        {/* Header & Controls */}
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-foreground">Product Catalog</h1>
+          <div className="flex items-center gap-6">
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              Product Catalog
+              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                orderType === "RETAIL"
+                  ? "bg-blue-500/10 text-blue-600"
+                  : "bg-orange-500/10 text-orange-600"
+              }`}>
+                {orderType === "RETAIL" ? "🛍️ Retail" : "🏭 Wholesale"}
+              </span>
+            </h1>
+            <div className="flex items-center gap-2">
+              <Select value={selectedWarehouseId} onValueChange={setSelectedWarehouseId}>
+                <SelectTrigger className="w-[180px] bg-muted border-none text-foreground font-medium h-10 shadow-none focus:ring-0 focus:ring-offset-0">
+                  <SelectValue placeholder="Select warehouse" />
+                </SelectTrigger>
+                <SelectContent>
+                  {warehouses.map((w) => (
+                    <SelectItem key={w.id} value={w.id}>
+                      {w.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <div className="flex items-center gap-4">
             <div className="relative w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -222,12 +788,12 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
                 placeholder="Search products..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-muted border-none text-foreground"
+                className="pl-10 bg-muted border-none text-foreground h-10"
               />
             </div>
             <Button 
               variant="outline" 
-              className="border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
+              className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors h-10"
               onClick={() => router.push('/dashboard/sales')}
             >
               <X className="w-4 h-4 mr-2" /> Exit POS
@@ -235,7 +801,6 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
           </div>
         </div>
 
-        {/* Filters */}
         <div className="flex gap-4 mb-6 border-b border-border pb-4 overflow-x-auto whitespace-nowrap no-scrollbar">
           <button 
             className={`px-4 py-2 text-sm font-medium transition-colors ${filterType === "ALL" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
@@ -254,11 +819,21 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
           ))}
         </div>
 
-        {/* Product Grid */}
         <div className="flex-1 overflow-y-auto pr-2 pb-10">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {filteredItems.map((item) => {
               const displayPrice = orderType === "WHOLESALE" ? (item.wholesalePrice || item.unitPrice) : item.unitPrice;
+              const discount = getItemDiscount(item);
+              let finalPrice = displayPrice;
+              if (discount) {
+                if (discount.discountType === "PERCENTAGE") {
+                  finalPrice = displayPrice * Math.max(0, 1 - (discount.discountValue / 100));
+                } else if (discount.discountType === "FLAT") {
+                  finalPrice = Math.max(0, displayPrice - discount.discountValue);
+                }
+              }
+              const hasDiscount = finalPrice !== displayPrice;
+              
               return (
               <div key={item.id} className="bg-card text-card-foreground rounded-xl border border-border p-4 hover:shadow-md transition-shadow flex flex-col justify-between h-full">
                 <div>
@@ -270,85 +845,93 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
                       )}
                    </div>
                    <h3 className="font-semibold text-sm line-clamp-2 mb-1 text-foreground" title={item.description}>{item.description}</h3>
-                   <div className="text-lg font-bold text-foreground mb-3">৳{displayPrice.toFixed(2)}</div>
+                   <div className="text-lg font-bold text-foreground mb-3 flex flex-wrap items-center gap-1.5">
+                      <span>৳{finalPrice.toFixed(2)}</span>
+                      {hasDiscount && (
+                        <>
+                          <span className="text-xs text-muted-foreground line-through font-normal">৳{displayPrice.toFixed(2)}</span>
+                          <span className="text-[10px] font-semibold text-green-600 bg-green-500/10 px-1 py-0.2 rounded font-normal">
+                            {discount.discountType === "PERCENTAGE" ? `${discount.discountValue}% Off` : `৳${discount.discountValue} Off`}
+                          </span>
+                        </>
+                      )}
+                   </div>
                 </div>
-                <Button 
-                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-full" 
-                  onClick={() => handleAddToCart(item)}
-                >
-                  <Plus className="w-4 h-4 mr-2" /> Add
-                </Button>
+                {item.variants && item.variants.length > 0 ? (
+                  <Button 
+                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-full text-xs" 
+                    onClick={() => handleAddToCart(item)}
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Add SKU
+                  </Button>
+                ) : (
+                  <Button 
+                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-full" 
+                    onClick={() => handleAddToCart(item)}
+                  >
+                    <Plus className="w-4 h-4 mr-2" /> Add
+                  </Button>
+                )}
               </div>
             )})}
-            {filteredItems.length === 0 && (
-              <div className="col-span-full py-20 text-center text-muted-foreground">
-                No products found.
-              </div>
-            )}
           </div>
         </div>
       </div>
 
-      {/* Right Side: Cart / Order Details */}
       <div className="w-[450px] flex flex-col bg-card text-card-foreground border-l border-border shadow-md z-10 relative">
-        <div className="p-6 flex-1 flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-foreground shrink-0">Ordr Details</h2>
-            
-            <div className="flex items-center gap-2">
-                             
-               <div className="flex bg-muted p-1 rounded-lg">
-                  <button 
-                    onClick={() => { if (orderType !== "RETAIL") { setOrderType("RETAIL"); setCart([]); setDiscountAmount(0); setIsReturnMode(false); } }}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${orderType === "RETAIL" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    Retail
-                  </button>
-                  <button 
-                    onClick={() => { if (orderType !== "WHOLESALE") { setOrderType("WHOLESALE"); setCart([]); setDiscountAmount(0); setIsReturnMode(false); } }}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${orderType === "WHOLESALE" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    Wholesale
-                  </button>
-               </div>
+        <div className="p-4 flex-1 flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between mb-3 gap-2">
+            <h2 className="text-xl font-bold text-foreground shrink-0">Order Details</h2>
+            <div className="flex bg-muted p-0.5 rounded-lg">
+                <button 
+                  onClick={() => { if (orderType !== "RETAIL") updateOrderMode("RETAIL"); }}
+                  className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${orderType === "RETAIL" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Retail
+                </button>
+                <button 
+                  onClick={() => { if (orderType !== "WHOLESALE") updateOrderMode("WHOLESALE"); }}
+                  className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${orderType === "WHOLESALE" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Wholesale
+                </button>
             </div>
           </div>
 
-          {/* Customer Info */}
-          <div className="space-y-4 mb-6">
+          <div className="space-y-2 mb-4">
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
-                Customer Information <span className="text-destructive text-sm">*</span>
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
+                Customer <span className="text-destructive">*</span>
+                {selectedClientId && clients.find(c => c.id === selectedClientId)?.clientType === 'wholesale' && (
+                  <span className="ml-1 px-1 py-0.5 text-[9px] bg-amber-500/15 text-amber-600 rounded font-bold font-sans">WS</span>
+                )}
               </label>
-              <select 
-                className="w-full flex h-10 items-center justify-between rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                value={selectedClientId}
-                onChange={(e) => setSelectedClientId(e.target.value)}
-              >
-                <option value="">Select Customer...</option>
-                {clients.map(c => (
-                  <option key={c.id} value={c.id}>{c.name || c.email}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
-                 Warehouse <span className="text-destructive text-sm">*</span>
-               </label>
-               <select 
-                className="w-full flex h-10 items-center justify-between rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                value={selectedWarehouseId}
-                onChange={(e) => setSelectedWarehouseId(e.target.value)}
-              >
-                {warehouses.map(w => (
-                  <option key={w.id} value={w.id}>{w.name}</option>
-                ))}
-              </select>
+              <div className="flex gap-2">
+                <select 
+                  className="flex-1 flex h-9 items-center justify-between rounded-md border border-input bg-background text-foreground px-2 py-1 text-xs ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  value={selectedClientId}
+                  onChange={(e) => setSelectedClientId(e.target.value)}
+                >
+                  <option value="">Select Customer...</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name || c.email}{c.clientType === 'wholesale' ? ' [WS]' : ''}
+                    </option>
+                  ))}
+                </select>
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsAddCustomerOpen(true)}
+                  className="h-9 px-2 text-xs flex gap-1 font-semibold border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add
+                </Button>
+              </div>
             </div>
           </div>
 
-          {/* Cart Items */}
-          <div className="flex-1 overflow-y-auto -mx-6 px-6 border-y border-border">
+          <div className="flex-1 overflow-y-auto -mx-4 px-4 border-y border-border">
              <div className="py-4 space-y-4">
                 {cart.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-muted-foreground py-10">
@@ -357,7 +940,7 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
                   </div>
                 ) : (
                   cart.map((item) => (
-                    <div key={item.id} className="flex items-center gap-3">
+                    <div key={item.cartKey} className="flex items-center gap-3">
                       <div className="w-12 h-12 bg-muted rounded-md shrink-0 flex items-center justify-center relative overflow-hidden">
                          {item.imageUrl ? (
                            <img src={item.imageUrl} alt={item.description} className="object-cover w-full h-full" />
@@ -367,26 +950,32 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-foreground truncate">{item.description}</p>
-                        <p className="text-sm font-bold text-foreground mt-1">৳{item.unitPrice.toFixed(2)}</p>
+                        {item.variantSku && (
+                          <div className="flex gap-1 mt-0.5">
+                            <span className="text-[9px] px-1.5 py-0.2 bg-muted border border-border text-foreground rounded font-medium">{item.color}</span>
+                            <span className="text-[9px] px-1.5 py-0.2 bg-muted border border-border text-foreground rounded font-medium">{item.size}</span>
+                          </div>
+                        )}
+                        <p className="text-sm font-bold text-foreground">৳{item.unitPrice.toFixed(2)}</p>
                       </div>
                       <div className="flex items-center gap-2 bg-muted rounded-full border border-border px-1 py-1">
                         <button 
                           className="w-6 h-6 flex items-center justify-center bg-background rounded-full border border-border shadow-sm text-muted-foreground hover:text-foreground"
-                          onClick={() => handleUpdateQuantity(item.id, -1)}
+                          onClick={() => handleUpdateQuantity(item.cartKey, -1)}
                         >
                           <Minus className="w-3 h-3" />
                         </button>
                         <span className="text-sm font-medium w-4 text-center text-foreground">{item.cartQuantity}</span>
                         <button 
                           className="w-6 h-6 flex items-center justify-center bg-background rounded-full border border-border shadow-sm text-muted-foreground hover:text-foreground"
-                          onClick={() => handleUpdateQuantity(item.id, 1)}
+                          onClick={() => handleUpdateQuantity(item.cartKey, 1)}
                         >
                           <Plus className="w-3 h-3" />
                         </button>
                       </div>
                       <button 
                         className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors shrink-0"
-                        onClick={() => handleRemoveItem(item.id)}
+                        onClick={() => handleRemoveItem(item.cartKey)}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -396,46 +985,21 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
              </div>
           </div>
 
-          {/* Order Summary */}
-          <div className="pt-6">
-            <h3 className="text-sm font-bold text-foreground mb-4">Order Summary</h3>
-            <div className="bg-muted rounded-xl p-4 space-y-3">
+          <div className="pt-3">
+            <h3 className="text-sm font-bold text-foreground mb-2">Order Summary</h3>
+            <div className="bg-muted rounded-xl p-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Item ({cart.length})</span>
                 <span className="font-medium text-foreground">৳{subTotal.toFixed(2)}</span>
               </div>
-              <div className="flex items-center justify-between text-base">
-                <span className="text-muted-foreground font-medium">Discount</span>
-                <div className="flex items-center gap-2 w-32">
-                  <span className="text-muted-foreground font-medium">৳</span>
-                  <Input 
-                    type="number" 
-                    value={discountAmount || ""} 
-                    onChange={(e) => setDiscountAmount(Number(e.target.value) || 0)}
-                    className="h-10 px-3 text-right text-base font-medium"
-                  />
-                </div>
-              </div>
-              <div className="flex items-center justify-between text-base">
-                <span className="text-muted-foreground font-medium">Tax (%)</span>
-                <div className="flex items-center gap-2 w-32">
-                  <Input 
-                    type="number" 
-                    value={taxPercent || ""} 
-                    onChange={(e) => setTaxPercent(Number(e.target.value) || 0)}
-                    className="h-10 px-3 text-right text-base font-medium"
-                  />
-                  <span className="text-muted-foreground font-medium">%</span>
-                </div>
-              </div>
-              <div className="border-t border-border border-dashed pt-3 flex justify-between items-center">
+              <div className="border-t border-border border-dashed pt-2 flex justify-between items-center">
                 <span className="font-bold text-foreground">Total</span>
-                <span className="text-xl font-black text-foreground">৳{grandTotal.toFixed(2)}</span>
+                <span className="text-lg font-black text-foreground">৳{grandTotal.toFixed(2)}</span>
               </div>
             </div>
 
             <Button 
-              className="w-full mt-6 h-14 text-lg font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
+              className="w-full mt-3 h-12 text-base font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
               size="lg"
               onClick={handleProcessTransaction}
               disabled={cart.length === 0}
@@ -446,129 +1010,437 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
         </div>
       </div>
 
-      {/* Confirmation Modal */}
       <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
-        <DialogContent className="sm:max-w-4xl p-0 overflow-hidden">
-          {successMsg ? (
-             <div className="py-12 flex flex-col items-center justify-center text-center p-6">
-                <CheckCircle2 className="w-16 h-16 text-green-500 mb-4" />
-                <h2 className="text-2xl font-bold text-foreground mb-2">Success!</h2>
-                <p className="text-muted-foreground">{successMsg}</p>
-             </div>
-          ) : (
-            <div className="flex flex-col md:flex-row h-full max-h-[85vh]">
-              {/* Left Side: Order Details */}
-              <div className="flex-1 bg-muted/30 p-6 overflow-y-auto border-r border-border">
-                <DialogHeader className="mb-4">
-                  <DialogTitle className="text-xl font-bold text-foreground">Confirm Order ({orderType.replace('_', ' ')})</DialogTitle>
-                </DialogHeader>
-                
-                <div className="bg-background rounded-lg border border-border p-4 mb-4 text-sm">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-muted-foreground mb-1">Customer</p>
-                      <p className="font-medium">{clients.find(c => c.id === selectedClientId)?.name || "Unknown"}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground mb-1">Warehouse</p>
-                      <p className="font-medium">{warehouses.find(w => w.id === selectedWarehouseId)?.name || "Unknown"}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-background rounded-lg border border-border overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/50 text-muted-foreground">
-                      <tr>
-                        <th className="text-left py-2 px-3 font-medium">Item</th>
-                        <th className="text-center py-2 px-3 font-medium">Qty</th>
-                        <th className="text-right py-2 px-3 font-medium">Price</th>
-                        <th className="text-right py-2 px-3 font-medium">Total</th>
+        <DialogContent className="sm:max-w-6xl p-0 overflow-hidden bg-card text-card-foreground border border-border">
+          <div className="flex flex-col md:flex-row h-full max-h-[85vh]">
+            {/* Left side: Order Items Summary list */}
+            <div className="flex-1 bg-muted/20 p-6 overflow-y-auto border-r border-border">
+              <DialogHeader className="mb-4">
+                <DialogTitle className="text-xl font-bold text-foreground">Confirm Order Items</DialogTitle>
+              </DialogHeader>
+              <div className="bg-background rounded-xl border border-border overflow-hidden shadow-sm">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 text-muted-foreground border-b border-border">
+                    <tr>
+                      <th className="text-left py-3 px-4 font-semibold w-10"></th>
+                      <th className="text-left py-3 px-4 font-semibold">Item</th>
+                      <th className="text-center py-3 px-4 font-semibold w-16">Qty</th>
+                      <th className="text-right py-3 px-4 font-semibold">Price</th>
+                      <th className="text-right py-3 px-4 font-semibold">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {cart.map((item) => (
+                      <tr key={item.cartKey} className="hover:bg-muted/10 transition-colors">
+                        <td className="py-2 px-4">
+                          <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0">
+                            {item.imageUrl ? (
+                              <img src={item.imageUrl} alt={item.description} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-[9px] text-muted-foreground text-center px-0.5 truncate">{item.code}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-2 px-4">
+                          <span className="font-semibold text-foreground">{item.description}</span>
+                          {item.variantSku && (
+                            <div className="flex gap-1 mt-1">
+                              <span className="text-[9px] px-1.5 py-0.5 bg-muted border border-border text-foreground rounded font-medium">{item.color}</span>
+                              <span className="text-[9px] px-1.5 py-0.5 bg-muted border border-border text-foreground rounded font-medium">{item.size}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="text-center py-3 px-4 text-muted-foreground font-medium">{item.cartQuantity}</td>
+                        <td className="text-right py-3 px-4 text-muted-foreground">৳{item.unitPrice.toFixed(2)}</td>
+                        <td className="text-right py-3 px-4 font-bold text-foreground">৳{(item.cartQuantity * item.unitPrice).toFixed(2)}</td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {cart.map((item) => (
-                        <tr key={item.id} className={item.cartQuantity < 0 ? "bg-destructive/5" : ""}>
-                          <td className="py-2 px-3">
-                            <p className="font-medium text-foreground truncate max-w-[150px]" title={item.description}>{item.description}</p>
-                            <p className="text-[10px] text-muted-foreground">{item.code}</p>
-                          </td>
-                          <td className={`text-center py-2 px-3 font-medium ${item.cartQuantity < 0 ? "text-destructive" : ""}`}>{item.cartQuantity}</td>
-                          <td className="text-right py-2 px-3">৳{item.unitPrice.toFixed(2)}</td>
-                          <td className={`text-right py-2 px-3 font-medium ${item.cartQuantity < 0 ? "text-destructive" : ""}`}>৳{(item.cartQuantity * item.unitPrice).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+            </div>
 
-              {/* Right Side: Payment & Summary */}
-              <div className="w-full md:w-[350px] bg-background p-6 flex flex-col">
-                <div className="space-y-3 mb-6 flex-1">
-                   <h3 className="font-bold text-foreground mb-4">Payment Summary</h3>
-                   <div className="flex justify-between text-sm">
-                     <span className="text-muted-foreground">Subtotal:</span>
-                     <span className="font-medium">৳{subTotal.toFixed(2)}</span>
-                   </div>
-                   {discountAmount > 0 && (
-                     <div className="flex justify-between text-sm text-green-600">
-                       <span>Discount:</span>
-                       <span>-৳{discountAmount.toFixed(2)}</span>
-                     </div>
-                   )}
-                   <div className="flex justify-between text-sm">
-                     <span className="text-muted-foreground">Tax ({taxPercent}%):</span>
-                     <span className="font-medium">৳{tax.toFixed(2)}</span>
-                   </div>
-                   <div className="border-t border-border border-dashed my-3 pt-3 flex justify-between text-lg font-bold text-foreground">
-                     <span>Grand Total:</span>
-                     <span>৳{grandTotal.toFixed(2)}</span>
-                   </div>
+            {/* Right side: Payment Details, Promo Codes, Paid Amount, Balance Displays */}
+            <div className="w-full md:w-[400px] bg-background p-6 flex flex-col justify-between border-t md:border-t-0 border-border">
+              <div className="space-y-4 overflow-y-auto pr-1">
+                {/* Coupon Code Section */}
+                <div className="bg-muted/40 p-3.5 rounded-xl border border-border">
+                  <label className="text-xs font-bold uppercase tracking-wide text-muted-foreground block mb-2">🎟️ Promo / Coupon Code</label>
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="Enter coupon code..." 
+                      value={promoCode}
+                      onChange={(e) => setPromoCode(e.target.value)}
+                      disabled={!!appliedPromo}
+                      className="h-9 text-xs bg-background"
+                    />
+                    {appliedPromo ? (
+                      <Button 
+                        type="button" 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={handleRemovePromo}
+                        className="h-9 px-3 shrink-0"
+                      >
+                        Remove
+                      </Button>
+                    ) : (
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleApplyPromo}
+                        className="h-9 px-3 shrink-0 border-primary/30 text-primary hover:bg-primary/10"
+                      >
+                        Apply
+                      </Button>
+                    )}
+                  </div>
+                  {appliedPromo && (
+                    <div className="mt-2 flex items-center justify-between text-[11px] text-green-600 bg-green-500/10 border border-green-500/20 px-2 py-1 rounded">
+                      <span className="font-bold">Code: {appliedPromo}</span>
+                      <span>{promoDiscountMsg}</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-4 mb-6">
+                {/* Additional Manual Discount & Tax */}
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-sm font-medium mb-1 block text-foreground">Payment Method</label>
-                    <select 
-                      className="flex h-10 w-full rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm ring-offset-background"
-                      value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                    >
-                      <option value="CASH">Cash</option>
-                      <option value="CARD">Credit/Debit Card</option>
-                      <option value="MOBILE">Mobile Banking</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium mb-1 block text-foreground">Paid Amount</label>
+                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-1 block">Flat Discount (৳)</label>
                     <Input 
                       type="number" 
-                      value={paidAmount}
-                      onChange={(e) => setPaidAmount(Number(e.target.value))}
-                      className="text-lg font-bold bg-background text-foreground h-12"
+                      value={discountAmount || ""}
+                      onChange={(e) => {
+                        setDiscountAmount(Number(e.target.value) || 0);
+                        if (appliedPromo) {
+                          setAppliedPromo(null);
+                          setPromoDiscountMsg("");
+                        }
+                      }}
+                      placeholder="Discount ৳"
+                      className="h-9 text-xs bg-background"
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium mb-1 block text-foreground">Due / Change</label>
-                    <div className={`h-12 flex items-center px-4 rounded-md border text-xl font-bold ${dueAmount > 0 ? 'text-destructive bg-destructive/10' : 'text-green-600 bg-green-500/10'}`}>
-                      ৳{Math.abs(dueAmount).toFixed(2)} {dueAmount <= 0 && '(Change)'}
+                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-1 block">Tax Percent (%)</label>
+                    <Input 
+                      type="number" 
+                      value={taxPercent || ""}
+                      onChange={(e) => setTaxPercent(Number(e.target.value) || 0)}
+                      placeholder="Tax %"
+                      className="h-9 text-xs bg-background"
+                    />
+                  </div>
+                </div>
+
+                {/* Payment Method Select Dropdown */}
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground block mb-2">💳 Payment Method</label>
+                  <Select value={paymentMethod} onValueChange={(val) => setPaymentMethod(val)}>
+                    <SelectTrigger className="h-10 text-xs bg-background border-border">
+                      <SelectValue placeholder="Select payment method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredPaymentAccounts.filter(acc => acc.type === "CASH").length > 0 && (
+                        <>
+                          <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/30">
+                            Cash Accounts
+                          </div>
+                          {filteredPaymentAccounts
+                            .filter(acc => acc.type === "CASH")
+                            .map((acc) => (
+                              <SelectItem key={acc.id} value={acc.id} className="text-xs">
+                                💵 {acc.code} - {acc.name}
+                              </SelectItem>
+                            ))}
+                        </>
+                      )}
+                      {filteredPaymentAccounts.filter(acc => acc.type === "BANK").length > 0 && (
+                        <>
+                          <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/30 mt-1">
+                            Bank / Card List
+                          </div>
+                          {filteredPaymentAccounts
+                            .filter(acc => acc.type === "BANK")
+                            .map((acc) => (
+                              <SelectItem key={acc.id} value={acc.id} className="text-xs">
+                                💳 {acc.code} - {acc.name}
+                              </SelectItem>
+                            ))}
+                        </>
+                      )}
+                      {filteredPaymentAccounts.filter(acc => acc.type === "WALLET").length > 0 && (
+                        <>
+                          <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/30 mt-1">
+                            Digital Accounts / Wallets
+                          </div>
+                          {filteredPaymentAccounts
+                            .filter(acc => acc.type === "WALLET")
+                            .map((acc) => (
+                              <SelectItem key={acc.id} value={acc.id} className="text-xs">
+                                📱 {acc.code} - {acc.name}
+                              </SelectItem>
+                            ))}
+                        </>
+                      )}
+                      {filteredPaymentAccounts.length === 0 && (
+                        <>
+                          <SelectItem value="CASH" className="text-xs">💵 Cash (Default)</SelectItem>
+                          <SelectItem value="CARD" className="text-xs">💳 Card (Default)</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Paid Amount & Quick cash helpers */}
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground block mb-1">💵 Paid Amount</label>
+                  <div className="relative mb-2">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">৳</span>
+                    <Input 
+                      type="number" 
+                      value={paidAmount}
+                      onChange={(e) => setPaidAmount(Number(e.target.value) || 0)}
+                      className="text-lg font-bold pl-7 bg-background"
+                    />
+                  </div>
+                  
+                  {/* Quick Cash Payment Shortcuts */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide block">Quick Cash Shortcuts</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[50, 100, 500, 1000].map((amt) => (
+                        <Button
+                          key={amt}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs font-medium px-2.5 border-border bg-muted/20 hover:bg-muted"
+                          onClick={() => setPaidAmount((prev) => prev + amt)}
+                        >
+                          +৳{amt}
+                        </Button>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs font-semibold px-2.5 border-primary/20 text-primary hover:bg-primary/10"
+                        onClick={() => setPaidAmount(grandTotal)}
+                      >
+                        Exact
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs font-semibold px-2.5 border-destructive/20 text-destructive hover:bg-destructive/10"
+                        onClick={() => setPaidAmount(0)}
+                      >
+                        Clear
+                      </Button>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex gap-3 mt-auto">
-                  <Button variant="outline" className="flex-1" onClick={() => setIsConfirmModalOpen(false)} disabled={isProcessing}>
-                    Cancel
-                  </Button>
-                  <Button className="flex-1 bg-primary text-primary-foreground" onClick={handleConfirmOrder} disabled={isProcessing}>
-                    {isProcessing ? "Processing..." : "Confirm & Pay"}
-                  </Button>
+                {/* Real-time Change / Due Displays */}
+                <div className="pt-2">
+                  {paidAmount >= grandTotal ? (
+                    <div className="bg-green-500/10 border border-green-500/20 text-green-600 rounded-xl p-3 flex justify-between items-center shadow-sm">
+                      <span className="text-xs font-bold uppercase tracking-wide">Change to Return:</span>
+                      <span className="text-lg font-black">৳{(paidAmount - grandTotal).toFixed(2)}</span>
+                    </div>
+                  ) : (
+                    <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 rounded-xl p-3 flex justify-between items-center shadow-sm">
+                      <span className="text-xs font-bold uppercase tracking-wide">Remaining Due:</span>
+                      <span className="text-lg font-black">৳{(grandTotal - paidAmount).toFixed(2)}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Price Summary Breakdown */}
+                <div className="pt-3 border-t border-border space-y-1.5">
+                  <div className="flex justify-between text-xs font-semibold text-muted-foreground">
+                    <span>Subtotal:</span>
+                    <span>৳{subTotal.toFixed(2)}</span>
+                  </div>
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-xs font-semibold text-green-600">
+                      <span>Discount:</span>
+                      <span>-৳{discountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {tax > 0 && (
+                    <div className="flex justify-between text-xs font-semibold text-muted-foreground">
+                      <span>Tax:</span>
+                      <span>৳{tax.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-base font-extrabold text-foreground pt-1.5 border-t border-dashed border-border">
+                    <span>Grand Total:</span>
+                    <span>৳{grandTotal.toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 mt-4 pt-4 border-t border-border">
+                <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setIsConfirmModalOpen(false)}>Cancel</Button>
+                <Button 
+                  className={`flex-1 rounded-xl text-white font-semibold transition-all ${
+                    paidAmount >= grandTotal 
+                      ? 'bg-green-600 hover:bg-green-700 shadow-md shadow-green-500/15' 
+                      : 'bg-amber-600 hover:bg-amber-700 shadow-md shadow-amber-500/15'
+                  }`} 
+                  onClick={handleConfirmOrder} 
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? "Processing..." : paidAmount >= grandTotal ? "Confirm & Pay" : "Confirm (Part Paid)"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-center">🎉 Sale Created!</DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-4">
+            <p className="text-2xl font-bold mb-6">{completedSaleNumber}</p>
+            <div className="flex gap-3">
+              <Button className="flex-1" onClick={() => { setIsPrintDialogOpen(false); setIsChangeDialogOpen(true); }}>Done</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isChangeDialogOpen} onOpenChange={(open) => { if (!open) handleNewSale(); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-center text-foreground">💵 Change Amount</DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-6">
+            <div className={`text-5xl font-black mb-2 ${changeAmount >= 0 ? 'text-green-500' : 'text-destructive'}`}>
+              ৳{Math.abs(changeAmount).toFixed(2)}
+            </div>
+            <Button className="w-full h-12 text-base" onClick={handleNewSale}>New Sale (Press Enter)</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedItemForVariants} onOpenChange={(open) => !open && setSelectedItemForVariants(null)}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Select SKUs (Add Multiple)</DialogTitle>
+          </DialogHeader>
+          {selectedItemForVariants && (
+            <div className="space-y-4">
+              <div className="max-h-[350px] overflow-y-auto space-y-2 pr-1 divide-y divide-border">
+                {selectedItemForVariants.variants?.map((v) => (
+                  <div key={v.id} className="flex items-center justify-between py-3 first:pt-0">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-muted rounded-md overflow-hidden relative flex items-center justify-center text-[10px] text-muted-foreground font-semibold">
+                        {selectedItemForVariants.imageUrl ? (
+                          <img src={selectedItemForVariants.imageUrl} alt={v.sku} className="object-cover w-full h-full" />
+                        ) : (
+                          <span>{v.sku.slice(-4)}</span>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm text-foreground">{v.color} / {v.size}</p>
+                        <p className="text-xs text-muted-foreground">SKU: {v.sku}</p>
+                      </div>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="border-primary/20 hover:bg-primary hover:text-primary-foreground transition-all rounded-full flex gap-1"
+                      onClick={() => {
+                        handleVariantAddToCart(selectedItemForVariants, v);
+                        toast({
+                          title: "SKU Added",
+                          description: `Added ${v.color} / ${v.size} to cart.`
+                        });
+                      }}
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <DialogFooter className="pt-2 border-t">
+                <Button variant="secondary" onClick={() => setSelectedItemForVariants(null)}>
+                  Close (Esc)
+                </Button>
+              </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAddCustomerOpen} onOpenChange={setIsAddCustomerOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>👥 Add New Customer</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddCustomerSubmit} className="space-y-4">
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Name</label>
+              <Input 
+                value={newCustomerData.name}
+                onChange={e => setNewCustomerData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Walkin Customer"
+                required
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Email *</label>
+              <Input 
+                type="email"
+                value={newCustomerData.email}
+                onChange={e => setNewCustomerData(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="customer@domain.com"
+                required
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Phone</label>
+              <Input 
+                value={newCustomerData.phone}
+                onChange={e => setNewCustomerData(prev => ({ ...prev, phone: e.target.value }))}
+                placeholder="+8801XXXXXXXXX"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Company</label>
+              <Input 
+                value={newCustomerData.company}
+                onChange={e => setNewCustomerData(prev => ({ ...prev, company: e.target.value }))}
+                placeholder="Company Name"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Address</label>
+              <Input 
+                value={newCustomerData.address}
+                onChange={e => setNewCustomerData(prev => ({ ...prev, address: e.target.value }))}
+                placeholder="Dhaka, Bangladesh"
+              />
+            </div>
+            <DialogFooter className="pt-2 border-t">
+              <Button type="button" variant="outline" onClick={() => setIsAddCustomerOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={newCustomerLoading}>
+                {newCustomerLoading ? "Saving..." : "Save Customer"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

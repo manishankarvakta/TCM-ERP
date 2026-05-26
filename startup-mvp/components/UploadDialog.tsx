@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Upload, X, Check, Cloud, Image as ImageIcon, FileText, Video, Music, Search, File, Folder, Archive, Code, FileSpreadsheet, Presentation } from "lucide-react";
+import { Upload, X, Check, Cloud, Image as ImageIcon, FileText, Video, Music, Search, File, Folder, Archive, Code, FileSpreadsheet, Presentation, Link as LinkIcon } from "lucide-react";
 import { uploadFileServerSide, getPublicUrl, listFolder } from "@/app/actions/files";
 import { useToast } from "@/hooks/use-toast";
 import { formatBytes } from "@/lib/utils";
@@ -77,6 +77,7 @@ export default function UploadDialog({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<"upload" | "browse" | null>(null);
   const [fileUrls, setFileUrls] = useState<Map<string, string>>(new Map());
+  const [externalUrl, setExternalUrl] = useState("");
 
   const getFileIcon = (file: File) => {
     const mimeType = file.type;
@@ -503,13 +504,14 @@ export default function UploadDialog({
       setActiveTab("upload");
       setPreviewUrl(null);
       setPreviewType(null);
+      setExternalUrl("");
       onClose();
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Media Library</DialogTitle>
           <DialogDescription>
@@ -518,9 +520,10 @@ export default function UploadDialog({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="upload">Upload</TabsTrigger>
             <TabsTrigger value="browse">Browse Media</TabsTrigger>
+            <TabsTrigger value="url">External URL</TabsTrigger>
           </TabsList>
 
           <TabsContent value="upload" className="mt-4 border-0">
@@ -821,6 +824,66 @@ export default function UploadDialog({
                       </Card>
                     );
                   })}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="url" className="mt-4 border-0">
+            <div className="space-y-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium">External Image/Media URL</label>
+                <div className="flex gap-2">
+                  <div className="relative w-full">
+                    <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="https://example.com/image.jpg" 
+                      value={externalUrl}
+                      onChange={(e) => {
+                        setExternalUrl(e.target.value);
+                        setSelectedFileUrl(e.target.value);
+                      }}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Paste a direct link to an image or media file hosted elsewhere.
+                </p>
+              </div>
+              
+              {externalUrl && (
+                <div className="mt-4 rounded-lg border p-4">
+                  <h3 className="text-sm font-medium mb-2">Preview</h3>
+                  <div className="flex items-center justify-center min-h-[200px] max-h-[300px] bg-muted rounded-lg overflow-hidden border">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img 
+                      key={externalUrl}
+                      src={externalUrl} 
+                      alt="External preview" 
+                      className="max-w-full max-h-full object-contain"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.style.display = "none";
+                        const parent = target.parentElement;
+                        if (parent && !parent.querySelector("p")) {
+                           let msg = document.createElement("p");
+                           msg.className = "text-sm text-muted-foreground p-4 text-center";
+                           msg.textContent = "Preview not available or invalid URL";
+                           parent.appendChild(msg);
+                        }
+                      }}
+                      onLoad={(e) => {
+                        const target = e.currentTarget;
+                        target.style.display = "block";
+                        const parent = target.parentElement;
+                        if (parent) {
+                          const p = parent.querySelector("p");
+                          if (p) p.remove();
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               )}
             </div>

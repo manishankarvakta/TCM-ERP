@@ -47,8 +47,8 @@ import Webhooks from "./_components/Webhooks";
 import { SlEnvolopeLetter } from "react-icons/sl";
 import CoverLetter from "./_components/coverLetter/CoverLetter";
 import TOS from "./_components/Tos";
-import Inventory from "../dashboard/settings/_components/Inventory";
-import Production from "../dashboard/settings/_components/Production";
+import Inventory from "./_components/Inventory";
+import Production from "./_components/Production";
 import Accounting from "./_components/Accounting";
 
 

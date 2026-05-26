@@ -130,7 +130,8 @@ export async function getAdminInventorySnapshot() {
     const snapshot = {
       [ItemType.RAW_MATERIAL]: 0,
       [ItemType.READY_PRODUCT]: 0,
-      [ItemType.RETAIL]: 0
+      [ItemType.RETAIL]: 0,
+      [ItemType.WHOLESALE]: 0
     };
 
     stocks.forEach(s => {

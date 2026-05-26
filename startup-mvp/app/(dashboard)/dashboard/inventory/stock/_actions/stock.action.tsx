@@ -219,7 +219,7 @@ export async function updateStockOnProduction(
 export async function updateStockOnSale(
   saleId: string,
   warehouseId: string,
-  items: Array<{ itemId: string; quantity: number }>,
+  items: Array<{ itemId: string; variantId?: string; quantity: number }>,
   tx?: Prisma.TransactionClient
 ) {
   try {
@@ -240,7 +240,14 @@ export async function updateStockOnSale(
         if (!stockItem || !stockItem.trackInventory) continue;
 
         // Update Stock (decrease)
-        const existingStock = await transaction.stock.findUnique({
+        const existingStock = item.variantId ? await transaction.stock.findUnique({
+          where: {
+            variantId_warehouseId: {
+              variantId: item.variantId,
+              warehouseId: warehouseId,
+            },
+          },
+        }) : await transaction.stock.findUnique({
           where: {
             itemId_warehouseId: {
               itemId: item.itemId,
@@ -259,12 +266,23 @@ export async function updateStockOnSale(
               lastUpdated: new Date(),
             },
           });
+        } else if (item.variantId) {
+          // If a stock record doesn't exist yet for this variant and warehouse, create it with negative quantity
+          await transaction.stock.create({
+            data: {
+              variantId: item.variantId,
+              warehouseId: warehouseId,
+              quantity: -item.quantity,
+              reservedQuantity: 0,
+            }
+          });
         }
 
         // Create StockLedger entry
         await transaction.stockLedger.create({
           data: {
-            itemId: item.itemId,
+            itemId: item.variantId ? null : item.itemId,
+            variantId: item.variantId || null,
             warehouseId: warehouseId,
             transactionType: StockTransactionType.OUT,
             quantity: -item.quantity, // Negative for OUT
@@ -909,6 +927,24 @@ export async function getStocks(
             },
           },
         },
+        variant: {
+          include: {
+            item: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                images: true,
+                featuredImage: true,
+                unit: {
+                  select: {
+                    symbol: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         warehouse: {
           select: {
             id: true,
@@ -924,12 +960,43 @@ export async function getStocks(
 
     const totalPages = Math.ceil(total / limit);
 
-    // Convert Decimal to number for client components
-    const serializedStocks = stocks.map((stock) => ({
-      ...stock,
-      quantity: Number(stock.quantity),
-      reservedQuantity: Number(stock.reservedQuantity),
-    }));
+    // Convert Decimal to number for client components, and dynamically resolve variant/item details
+    const serializedStocks = stocks.map((stock) => {
+      const parentItem = stock.item || stock.variant?.item;
+      const unit = parentItem?.unit;
+      const name = parentItem ? parentItem.name : "Unknown Item";
+      const code = stock.variant ? stock.variant.sku : (parentItem ? parentItem.code : "N/A");
+      const featuredImage = stock.variant?.image || parentItem?.featuredImage;
+      const images = parentItem?.images;
+
+      return {
+        ...stock,
+        quantity: Number(stock.quantity),
+        reservedQuantity: Number(stock.reservedQuantity),
+        item: parentItem ? {
+          id: parentItem.id,
+          name,
+          code,
+          images,
+          featuredImage,
+          unit: unit || { symbol: "pcs" },
+          variant: stock.variant ? {
+            id: stock.variant.id,
+            sku: stock.variant.sku,
+            size: stock.variant.size,
+            color: stock.variant.color,
+          } : null,
+        } : {
+          id: "",
+          name: "Unknown Item",
+          code: "N/A",
+          images: [],
+          featuredImage: null,
+          unit: { symbol: "pcs" },
+          variant: null,
+        }
+      };
+    });
 
     return {
       success: true,

@@ -6,6 +6,7 @@ import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { revalidatePath } from "next/cache";
 import { type Prisma, AccountType } from "@prisma/client";
+import { createVoucher, postVoucher } from "../../accounts/vouchers/_actions/voucher.action";
 
 /**
  * Get paginated list of suppliers with search
@@ -497,6 +498,52 @@ export async function createSupplier(input: {
           updatedAt: true,
         },
       });
+
+      // Handle opening balance if provided
+      if (input.openingBalance && input.openingBalance > 0) {
+        // Find Owner's Capital account (code "3110")
+        const capitalAccount = await tx.chartOfAccount.findUnique({
+          where: { code: "3110" },
+          select: { id: true },
+        });
+
+        if (!capitalAccount) {
+          throw new Error("Owner's Capital account (Code 3110) not found. Please ensure Chart of Accounts is seeded.");
+        }
+
+        const voucherResult = await createVoucher({
+          date: new Date(),
+          type: "JOURNAL",
+          reference: "OPENING-BALANCE",
+          description: `Opening Balance for Supplier: ${input.name || input.email}`,
+          isSystemAction: true,
+          lines: [
+            {
+              lineNumber: 1,
+              debitAmount: input.openingBalance,
+              creditAmount: 0,
+              description: "Opening Balance Debit Offset",
+              chartOfAccountId: capitalAccount.id,
+            },
+            {
+              lineNumber: 2,
+              debitAmount: 0,
+              creditAmount: input.openingBalance,
+              description: "Opening Balance Credit",
+              chartOfAccountId: chartOfAccount.id,
+            },
+          ],
+        }, tx);
+
+        if (!voucherResult.success || !voucherResult.voucher) {
+          throw new Error(voucherResult.error || "Failed to create opening balance voucher");
+        }
+
+        const postResult = await postVoucher(voucherResult.voucher.id, tx, true);
+        if (!postResult.success) {
+          throw new Error(postResult.error || "Failed to post opening balance voucher");
+        }
+      }
 
       return { supplier, chartOfAccount };
     });

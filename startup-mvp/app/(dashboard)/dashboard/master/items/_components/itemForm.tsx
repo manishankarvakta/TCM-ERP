@@ -23,6 +23,21 @@ import { createItem, updateItem, getActiveCategories, getActiveUnits } from "../
 import { ItemType } from "@prisma/client";
 import MediaSelector from "@/components/MediaSelector";
 import { Badge } from "@/components/ui/badge";
+import UploadDialog from "@/components/UploadDialog";
+import { Image as ImageIcon, X } from "lucide-react";
+
+interface VariantState {
+  id?: string;
+  sku: string;
+  barcode: string;
+  size: string;
+  color: string;
+  costPrice: number | null;
+  salesPrice: number | null;
+  initialStock: number;
+  enabled: boolean;
+  image?: string | null;
+}
 
 const itemFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -41,8 +56,10 @@ const itemFormSchema = z.object({
   colors: z.array(z.string()).default([]),
   isEnableEcom: z.boolean().default(false),
   status: z.enum(["active", "inactive"]),
+  isVatEnabled: z.boolean().default(false),
+  vatPercentage: z.number().min(0, "VAT percentage must be >= 0").default(0),
+  barcode: z.string().optional().nullable(),
 }).refine((data) => {
-  // Sales price required for READY_PRODUCT and RETAIL
   if ((data.itemType === "READY_PRODUCT" || data.itemType === "RETAIL") && (!data.salesPrice || data.salesPrice <= 0)) {
     return false;
   }
@@ -75,6 +92,20 @@ interface ItemFormProps {
     colors: string[];
     isEnableEcom: boolean;
     status: string;
+    isVatEnabled?: boolean;
+    vatPercentage?: number;
+    barcode?: string | null;
+    variants?: Array<{
+      id?: string;
+      sku: string;
+      barcode?: string | null;
+      size: string;
+      color: string;
+      costPrice?: number | null;
+      salesPrice?: number | null;
+      initialStock?: number;
+      image?: string | null;
+    }>;
   };
 }
 
@@ -102,6 +133,29 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
   const [sizeInput, setSizeInput] = useState("");
   const [colorInput, setColorInput] = useState("");
 
+  // Variant upload dialog state
+  const [isVariantUploadOpen, setIsVariantUploadOpen] = useState(false);
+  const [activeVariantIdx, setActiveVariantIdx] = useState<number | null>(null);
+
+  // SKU matrix state
+  const [variants, setVariants] = useState<VariantState[]>(() => {
+    if (initialData?.variants) {
+      return initialData.variants.map((v) => ({
+        id: v.id,
+        sku: v.sku,
+        barcode: v.barcode || "",
+        size: v.size,
+        color: v.color,
+        costPrice: v.costPrice ?? null,
+        salesPrice: v.salesPrice ?? null,
+        initialStock: v.initialStock ?? 0,
+        enabled: true,
+        image: v.image || "",
+      }));
+    }
+    return [];
+  });
+
   const {
     register,
     handleSubmit,
@@ -109,7 +163,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
     control,
     watch,
     setValue,
-  } = useForm<ItemFormData>({
+  } = useForm<any>({
     resolver: zodResolver(itemFormSchema),
     defaultValues: initialData
       ? {
@@ -131,6 +185,9 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           status: (initialData.status === "active" || initialData.status === "inactive") 
             ? initialData.status as "active" | "inactive"
             : "active",
+          isVatEnabled: initialData.isVatEnabled || false,
+          vatPercentage: initialData.vatPercentage ? Number(initialData.vatPercentage) : 0,
+          barcode: initialData.barcode || "",
         }
       : {
           name: "",
@@ -149,6 +206,9 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           colors: [],
           isEnableEcom: false,
           status: "active",
+          isVatEnabled: false,
+          vatPercentage: 0,
+          barcode: "",
         },
   });
 
@@ -157,11 +217,61 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
   const watchedFeaturedImage = watch("featuredImage");
   const watchedSizes = watch("sizes") || [];
   const watchedColors = watch("colors") || [];
+  const watchedIsVatEnabled = watch("isVatEnabled") || false;
   
   // Debug validation errors
   if (Object.keys(errors).length > 0) {
     console.log("Form Errors:", errors);
   }
+
+  // Permute variations into SKU variants state when sizes or colors change
+  useEffect(() => {
+    if ((!watchedSizes || watchedSizes.length === 0) && (!watchedColors || watchedColors.length === 0)) {
+      setVariants([]);
+      return;
+    }
+
+    const activeSizes = watchedSizes && watchedSizes.length > 0 ? watchedSizes : ["ALL"];
+    const activeColors = watchedColors && watchedColors.length > 0 ? watchedColors : ["ALL"];
+
+    const newVariants: VariantState[] = [];
+    const namePrefix = (watch("name") || "ITEM").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+
+    activeColors.forEach((color: string) => {
+      activeSizes.forEach((size: string) => {
+        const existing = variants.find(
+          (v) => v.color === color && v.size === size
+        );
+
+        if (existing) {
+          newVariants.push(existing);
+        } else {
+          const colorCode = color === "ALL" ? "GEN" : color.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3);
+          const sizeCode = size === "ALL" ? "GEN" : size.toUpperCase().replace(/[^A-Z0-9]/g, "");
+          const generatedSku = `${namePrefix}-${colorCode}-${sizeCode}`;
+
+          newVariants.push({
+            sku: generatedSku,
+            barcode: "",
+            size: size,
+            color: color,
+            costPrice: null,
+            salesPrice: null,
+            initialStock: 0,
+            enabled: true,
+            image: "",
+          });
+        }
+      });
+    });
+
+    const hasChanged = JSON.stringify(newVariants.map(v => ({ color: v.color, size: v.size, sku: v.sku }))) !==
+                      JSON.stringify(variants.map(v => ({ color: v.color, size: v.size, sku: v.sku })));
+
+    if (hasChanged) {
+      setVariants(newVariants);
+    }
+  }, [watchedSizes, watchedColors, watch("name")]);
 
   // Fetch categories and units
   useEffect(() => {
@@ -213,6 +323,20 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
         colors: data.colors,
         isEnableEcom: data.isEnableEcom,
         status: data.status,
+        isVatEnabled: data.isVatEnabled,
+        vatPercentage: data.vatPercentage,
+        barcode: data.barcode || undefined,
+        variants: variants.filter(v => v.enabled).map((v) => ({
+          id: v.id,
+          sku: v.sku,
+          barcode: v.barcode || null,
+          size: v.size,
+          color: v.color,
+          costPrice: v.costPrice,
+          salesPrice: v.salesPrice,
+          initialStock: v.initialStock || 0,
+          image: v.image || null,
+        })),
       };
 
       if (mode === "create") {
@@ -322,7 +446,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
               <div className="grid grid-cols-1 lg:grid-cols-6 gap-6">
                 <div className="lg:col-span-4 space-y-4">
                   {/* Basic Info */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Item Name *</Label>
                       <Input
@@ -331,7 +455,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                         {...register("name")}
                         disabled={loading}
                       />
-                      {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+                      {errors.name?.message && <p className="text-sm text-destructive">{String(errors.name.message)}</p>}
                     </div>
 
                     <div className="space-y-2">
@@ -353,7 +477,18 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                           </Select>
                         )}
                       />
-                      {errors.itemType && <p className="text-sm text-destructive">{errors.itemType.message}</p>}
+                      {errors.itemType?.message && <p className="text-sm text-destructive">{String(errors.itemType.message)}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="barcode">Base Barcode (Optional)</Label>
+                      <Input
+                        id="barcode"
+                        placeholder="Auto-generated if empty"
+                        {...register("barcode")}
+                        disabled={loading}
+                      />
+                      {errors.barcode?.message && <p className="text-sm text-destructive">{String(errors.barcode.message)}</p>}
                     </div>
                   </div>
 
@@ -430,7 +565,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                           <Button type="button" variant="outline" size="icon" onClick={addSize}><FiPlus /></Button>
                         </div>
                         <div className="flex flex-wrap gap-1 mt-2">
-                          {watchedSizes.map((s, i) => (
+                          {watchedSizes.map((s: string, i: number) => (
                             <Badge key={i} variant="secondary" className="gap-1">
                               {s} <FiTrash2 className="h-3 w-3 cursor-pointer" onClick={() => removeSize(i)} />
                             </Badge>
@@ -450,7 +585,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                           <Button type="button" variant="outline" size="icon" onClick={addColor}><FiPlus /></Button>
                         </div>
                         <div className="flex flex-wrap gap-1 mt-2">
-                          {watchedColors.map((c, i) => (
+                          {watchedColors.map((c: string, i: number) => (
                             <Badge key={i} variant="secondary" className="gap-1">
                               {c} <FiTrash2 className="h-3 w-3 cursor-pointer" onClick={() => removeColor(i)} />
                             </Badge>
@@ -459,6 +594,196 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                       </div>
                     </div>
                   </div>
+
+                  {/* 2D SKU Variant Matrix Grid */}
+                  {variants.length > 0 && (
+                    <div className="space-y-4 border-t pt-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-primary font-semibold">
+                          <FiPlus className="h-4 w-4" />
+                          <h3>SKU Variant Matrix ({variants.filter(v => v.enabled).length} Active)</h3>
+                        </div>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => {
+                            const baseCost = Number(watch("costPrice")) || 0;
+                            const baseSales = Number(watch("salesPrice")) || 0;
+                            setVariants(prev => prev.map(v => ({
+                              ...v,
+                              costPrice: v.costPrice === null ? baseCost : v.costPrice,
+                              salesPrice: v.salesPrice === null ? baseSales : v.salesPrice,
+                            })));
+                          }}
+                        >
+                          Copy Base Pricing to Empty Variants
+                        </Button>
+                      </div>
+                      <div className="overflow-x-auto rounded-lg border border-border">
+                        <table className="w-full text-sm text-left text-muted-foreground border-collapse">
+                          <thead className="text-xs uppercase bg-muted/50 text-foreground font-semibold border-b border-border">
+                            <tr>
+                              <th className="p-3 w-12 text-center">Active</th>
+                              <th className="p-3 w-16 text-center">Photo</th>
+                              <th className="p-3">Color</th>
+                              <th className="p-3">Size</th>
+                              <th className="p-3">SKU Code</th>
+                              <th className="p-3">Barcode</th>
+                              <th className="p-3">Cost Price</th>
+                              <th className="p-3">Sales Price</th>
+                              {mode === "create" && <th className="p-3">Init Stock</th>}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {variants.map((v, idx) => (
+                              <tr key={idx} className={`hover:bg-muted/10 transition-colors ${!v.enabled ? "opacity-40" : ""}`}>
+                                <td className="p-3 text-center">
+                                  <Checkbox 
+                                    checked={v.enabled} 
+                                    onCheckedChange={(checked) => {
+                                      setVariants(prev => {
+                                        const updated = [...prev];
+                                        updated[idx].enabled = !!checked;
+                                        return updated;
+                                      });
+                                    }}
+                                  />
+                                </td>
+                                <td className="p-3 text-center">
+                                  {v.image ? (
+                                    <div className="relative group w-10 h-10 rounded border border-border overflow-hidden mx-auto bg-muted">
+                                      <img 
+                                        src={v.image} 
+                                        alt={`${v.color}-${v.size}`} 
+                                        className="w-full h-full object-cover cursor-pointer"
+                                        onClick={() => {
+                                          if (v.enabled) {
+                                            setActiveVariantIdx(idx);
+                                            setIsVariantUploadOpen(true);
+                                          }
+                                        }}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setVariants(prev => {
+                                            const updated = [...prev];
+                                            updated[idx].image = "";
+                                            return updated;
+                                          });
+                                        }}
+                                        className="absolute top-0 right-0 p-0.5 bg-destructive text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                      >
+                                        <X size={10} />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      disabled={!v.enabled}
+                                      onClick={() => {
+                                        setActiveVariantIdx(idx);
+                                        setIsVariantUploadOpen(true);
+                                      }}
+                                      className="w-10 h-10 rounded border-2 border-dashed border-muted-foreground/20 hover:border-primary flex items-center justify-center text-muted-foreground hover:text-primary transition-colors mx-auto bg-muted/30"
+                                      title="Upload variant photo"
+                                    >
+                                      <ImageIcon className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                </td>
+                                <td className="p-3 font-medium text-foreground">{v.color}</td>
+                                <td className="p-3 font-medium text-foreground">{v.size}</td>
+                                <td className="p-3">
+                                  <Input 
+                                    value={v.sku} 
+                                    disabled={!v.enabled}
+                                    onChange={(e) => {
+                                      setVariants(prev => {
+                                        const updated = [...prev];
+                                        updated[idx].sku = e.target.value;
+                                        return updated;
+                                      });
+                                    }}
+                                    className="h-8 font-mono text-xs max-w-[180px]"
+                                  />
+                                </td>
+                                <td className="p-3">
+                                  <Input 
+                                    value={v.barcode} 
+                                    placeholder="Auto-generated"
+                                    disabled={!v.enabled}
+                                    onChange={(e) => {
+                                      setVariants(prev => {
+                                        const updated = [...prev];
+                                        updated[idx].barcode = e.target.value;
+                                        return updated;
+                                      });
+                                    }}
+                                    className="h-8 font-mono text-xs max-w-[180px]"
+                                  />
+                                </td>
+                                <td className="p-3">
+                                  <Input 
+                                    type="number"
+                                    placeholder="Use Base"
+                                    disabled={!v.enabled}
+                                    value={v.costPrice !== null ? v.costPrice : ""}
+                                    onChange={(e) => {
+                                      const val = e.target.value === "" ? null : Number(e.target.value);
+                                      setVariants(prev => {
+                                        const updated = [...prev];
+                                        updated[idx].costPrice = val;
+                                        return updated;
+                                      });
+                                    }}
+                                    className="h-8 max-w-[100px]"
+                                  />
+                                </td>
+                                <td className="p-3">
+                                  <Input 
+                                    type="number"
+                                    placeholder="Use Base"
+                                    disabled={!v.enabled}
+                                    value={v.salesPrice !== null ? v.salesPrice : ""}
+                                    onChange={(e) => {
+                                      const val = e.target.value === "" ? null : Number(e.target.value);
+                                      setVariants(prev => {
+                                        const updated = [...prev];
+                                        updated[idx].salesPrice = val;
+                                        return updated;
+                                      });
+                                    }}
+                                    className="h-8 max-w-[100px]"
+                                  />
+                                </td>
+                                {mode === "create" && (
+                                  <td className="p-3">
+                                    <Input 
+                                      type="number"
+                                      disabled={!v.enabled}
+                                      value={v.initialStock || ""}
+                                      onChange={(e) => {
+                                        const val = Number(e.target.value) || 0;
+                                        setVariants(prev => {
+                                          const updated = [...prev];
+                                          updated[idx].initialStock = val;
+                                          return updated;
+                                        });
+                                      }}
+                                      className="h-8 max-w-[80px]"
+                                    />
+                                  </td>
+                                )}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Pricing */}
                   <div className="space-y-4 border-t pt-4">
@@ -556,6 +881,52 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                     </div>
                   </div>
 
+                  {/* VAT / Tax Settings */}
+                  <div className="space-y-4 border-t pt-4">
+                    <div className="flex items-center gap-2 text-primary font-semibold">
+                      <FiPlus className="h-4 w-4" />
+                      <h3>VAT & Tax Information</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded-lg bg-muted/20">
+                      <div className="flex items-center space-x-2 py-2">
+                        <Controller
+                          name="isVatEnabled"
+                          control={control}
+                          render={({ field }) => (
+                            <Checkbox 
+                              id="isVatEnabled" 
+                              checked={field.value} 
+                              onCheckedChange={(checked) => {
+                                field.onChange(checked);
+                                if (!checked) {
+                                  setValue("vatPercentage", 0);
+                                }
+                              }} 
+                              disabled={loading} 
+                            />
+                          )}
+                        />
+                        <Label htmlFor="isVatEnabled" className="cursor-pointer font-medium">Enable VAT for this item</Label>
+                      </div>
+
+                      {watchedIsVatEnabled && (
+                        <div className="space-y-2">
+                          <Label htmlFor="vatPercentage">VAT Percentage (%)</Label>
+                          <Input
+                            id="vatPercentage"
+                            type="number"
+                            step="0.01"
+                            placeholder="e.g. 5, 12, 18"
+                            {...register("vatPercentage", { valueAsNumber: true })}
+                            disabled={loading}
+                            className="max-w-[200px]"
+                          />
+                          {errors.vatPercentage?.message && <p className="text-sm text-destructive">{String(errors.vatPercentage.message)}</p>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="flex items-center gap-3 pt-4">
                     <Button type="submit" disabled={loading}>
                       {loading ? "Saving..." : mode === "create" ? "Create Item" : "Update Item"}
@@ -570,7 +941,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                 <div className="lg:col-span-2 space-y-4">
                   <Label>Item Photos (Multiple)</Label>
                   <div className="grid grid-cols-2 gap-2">
-                    {watchedImages.map((img, i) => (
+                    {watchedImages.map((img: string, i: number) => (
                       <div key={i} className="relative group aspect-square rounded-lg border overflow-hidden">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={img} alt={`Item ${i}`} className="w-full h-full object-cover" />
@@ -623,6 +994,27 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           </form>
         </CardContent>
       </Card>
+      {isVariantUploadOpen && activeVariantIdx !== null && (
+        <UploadDialog
+          isOpen={isVariantUploadOpen}
+          onClose={() => {
+            setIsVariantUploadOpen(false);
+            setActiveVariantIdx(null);
+          }}
+          onSelect={(url) => {
+            if (activeVariantIdx !== null) {
+              setVariants(prev => {
+                const updated = [...prev];
+                updated[activeVariantIdx].image = url;
+                return updated;
+              });
+            }
+            setIsVariantUploadOpen(false);
+            setActiveVariantIdx(null);
+          }}
+          allowedTypes={["image/*"]}
+        />
+      )}
     </div>
   );
 }

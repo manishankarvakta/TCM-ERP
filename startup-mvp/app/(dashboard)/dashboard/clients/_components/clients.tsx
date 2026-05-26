@@ -53,6 +53,7 @@ interface Client {
   company: string | null;
   image: string | null;
   status: string;
+  clientType?: string | null;
   createdBy: string;
   createdByUser: {
     id: string;
@@ -353,6 +354,7 @@ export default function ClientsListClient({
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Company</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created At</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -361,7 +363,7 @@ export default function ClientsListClient({
           <TableBody>
             {initialClients.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed clients found" : "No clients found"}
                 </TableCell>
               </TableRow>
@@ -394,6 +396,17 @@ export default function ClientsListClient({
                     <TableCell className="text-muted-foreground">{client.email}</TableCell>
                     <TableCell className="text-muted-foreground">{client.phone || "-"}</TableCell>
                     <TableCell className="text-muted-foreground">{client.company || "-"}</TableCell>
+                    <TableCell>
+                      {client.clientType?.toLowerCase() === "wholesale" ? (
+                        <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800">
+                          Wholesale
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground">
+                          Regular
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {clientStatus === "trash" ? (
                         <Badge variant="destructive">Trash</Badge>

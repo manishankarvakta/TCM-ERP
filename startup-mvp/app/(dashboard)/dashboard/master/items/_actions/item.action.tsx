@@ -44,6 +44,76 @@ async function generateItemCode(itemType: ItemType): Promise<string> {
 }
 
 /**
+ * Generate a unique EAN-13 barcode starting with prefix '200'
+ */
+async function generateUniqueBarcode(): Promise<string> {
+  let unique = false;
+  let barcode = "";
+  while (!unique) {
+    const randomDigits = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+    const prefix = "200"; // Local use prefix
+    const candidate = prefix + randomDigits;
+    
+    // EAN-13 checksum
+    let sum = 0;
+    for (let i = 0; i < 12; i++) {
+      const digit = parseInt(candidate[i]);
+      sum += i % 2 === 0 ? digit : digit * 3;
+    }
+    const checksum = (10 - (sum % 10)) % 10;
+    barcode = candidate + checksum;
+
+    // Check collision in database
+    const existing = await prisma.productVariant.findFirst({
+      where: { barcode },
+      select: { id: true }
+    });
+    if (!existing) {
+      unique = true;
+    }
+  }
+  return barcode;
+}
+
+/**
+ * Generate a unique EAN-13 barcode for an Item (not variant)
+ * Uses prefix '200' for local internal use
+ */
+async function generateUniqueItemBarcode(): Promise<string> {
+  let unique = false;
+  let barcode = "";
+  while (!unique) {
+    const randomDigits = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+    const prefix = "200";
+    const candidate = prefix + randomDigits;
+
+    // EAN-13 checksum
+    let sum = 0;
+    for (let i = 0; i < 12; i++) {
+      const digit = parseInt(candidate[i]);
+      sum += i % 2 === 0 ? digit : digit * 3;
+    }
+    const checksum = (10 - (sum % 10)) % 10;
+    barcode = candidate + checksum;
+
+    // Check collision in Item table
+    const existingItem = await prisma.item.findFirst({
+      where: { barcode },
+      select: { id: true }
+    });
+    // Also check variant barcodes to avoid cross-collision
+    const existingVariant = await prisma.productVariant.findFirst({
+      where: { barcode },
+      select: { id: true }
+    });
+    if (!existingItem && !existingVariant) {
+      unique = true;
+    }
+  }
+  return barcode;
+}
+
+/**
  * Get active categories for dropdown
  */
 export async function getActiveCategories() {
@@ -222,6 +292,7 @@ export async function getItems(
         sizes: true,
         colors: true,
         isEnableEcom: true,
+        barcode: true,
         status: true,
         isTrash: true,
         createdAt: true,
@@ -318,11 +389,14 @@ export async function getItemById(itemId: string) {
         sizes: true,
         colors: true,
         isEnableEcom: true,
+        barcode: true,
         status: true,
         isTrash: true,
         createdAt: true,
         updatedAt: true,
         createdBy: true,
+        isVatEnabled: true,
+        vatPercentage: true,
         category: {
           select: {
             id: true,
@@ -344,6 +418,18 @@ export async function getItemById(itemId: string) {
             email: true,
           },
         },
+        variants: {
+          select: {
+            id: true,
+            sku: true,
+            barcode: true,
+            size: true,
+            color: true,
+            costPrice: true,
+            salesPrice: true,
+            image: true,
+          },
+        },
       },
     });
 
@@ -356,9 +442,25 @@ export async function getItemById(itemId: string) {
     }
 
     console.log("getItemById - Item:", item.id, "Sizes:", item.sizes, "Colors:", item.colors);
+
+    // Map Prisma Decimal fields to numbers to prevent Next.js Client serialization errors
+    const serializedItem = {
+      ...item,
+      costPrice: Number(item.costPrice),
+      salesPrice: item.salesPrice ? Number(item.salesPrice) : null,
+      wholesalePrice: item.wholesalePrice ? Number(item.wholesalePrice) : null,
+      discount: item.discount ? Number(item.discount) : null,
+      vatPercentage: item.vatPercentage ? Number(item.vatPercentage) : 0,
+      variants: item.variants ? item.variants.map((v) => ({
+        ...v,
+        costPrice: v.costPrice ? Number(v.costPrice) : null,
+        salesPrice: v.salesPrice ? Number(v.salesPrice) : null,
+      })) : [],
+    };
+
     return {
       success: true,
-      item,
+      item: serializedItem,
     };
   } catch (error) {
     console.error("getItemById error:", error);
@@ -506,6 +608,19 @@ export async function createItem(input: {
   colors?: string[];
   isEnableEcom?: boolean;
   status?: "active" | "inactive";
+  isVatEnabled?: boolean;
+  vatPercentage?: number;
+  barcode?: string | null;
+  variants?: Array<{
+    sku: string;
+    barcode?: string | null;
+    size: string;
+    color: string;
+    costPrice?: number | null;
+    salesPrice?: number | null;
+    initialStock?: number;
+    image?: string | null;
+  }>;
 }) {
   try {
     const session = await auth();
@@ -574,6 +689,30 @@ export async function createItem(input: {
     // Generate code
     const code = await generateItemCode(input.itemType);
 
+    // Handle item base barcode
+    let finalBarcode = input.barcode;
+    if (!finalBarcode) {
+      finalBarcode = await generateUniqueItemBarcode();
+    } else {
+      // Check collision in Item table
+      const existingItem = await prisma.item.findFirst({
+        where: { barcode: finalBarcode },
+        select: { id: true }
+      });
+      // Also check variant barcodes to avoid cross-collision
+      const existingVariant = await prisma.productVariant.findFirst({
+        where: { barcode: finalBarcode },
+        select: { id: true }
+      });
+      if (existingItem || existingVariant) {
+        return {
+          success: false,
+          error: `Barcode '${finalBarcode}' is already assigned to another item or variant.`,
+          item: null,
+        };
+      }
+    }
+
     console.log("Creating Item - Sizes:", input.sizes, "Colors:", input.colors);
 
     // Create item
@@ -596,8 +735,22 @@ export async function createItem(input: {
         colors: input.colors || [],
         isEnableEcom: input.isEnableEcom ?? false,
         status: input.status || "active",
+        isVatEnabled: input.isVatEnabled ?? false,
+        vatPercentage: input.vatPercentage ?? 0,
+        barcode: finalBarcode,
         isTrash: false,
         createdBy: session.user.id,
+        variants: input.variants && input.variants.length > 0 ? {
+          create: await Promise.all(input.variants.map(async (v) => ({
+            sku: v.sku,
+            barcode: v.barcode || await generateUniqueBarcode(),
+            size: v.size,
+            color: v.color,
+            costPrice: v.costPrice || null,
+            salesPrice: v.salesPrice || null,
+            image: v.image || null,
+          }))),
+        } : undefined,
       },
       select: {
         id: true,
@@ -616,6 +769,7 @@ export async function createItem(input: {
         sizes: true,
         colors: true,
         isEnableEcom: true,
+        barcode: true,
         featuredImage: true,
         status: true,
         createdAt: true,
@@ -632,8 +786,43 @@ export async function createItem(input: {
             details: true,
           },
         },
+        variants: {
+          select: {
+            id: true,
+            sku: true,
+            barcode: true,
+            size: true,
+            color: true,
+          }
+        }
       },
     });
+
+    // Seed initial stock for variants if specified and trackInventory is active
+    if (input.variants && input.variants.length > 0 && input.trackInventory) {
+      // Find the first active warehouse
+      const warehouse = await prisma.warehouse.findFirst({
+        where: { isTrash: false, status: "active" },
+        select: { id: true }
+      });
+      if (warehouse) {
+        for (const v of input.variants) {
+          if (v.initialStock && v.initialStock > 0) {
+            // Find created variant ID
+            const createdVar = item.variants.find(cv => cv.sku === v.sku);
+            if (createdVar) {
+              await prisma.stock.create({
+                data: {
+                  variantId: createdVar.id,
+                  warehouseId: warehouse.id,
+                  quantity: v.initialStock,
+                }
+              });
+            }
+          }
+        }
+      }
+    }
 
     // Log item creation
     await logItemCreated(
@@ -695,6 +884,20 @@ export async function updateItem(input: {
   colors?: string[];
   isEnableEcom?: boolean;
   status?: "active" | "inactive";
+  isVatEnabled?: boolean;
+  vatPercentage?: number;
+  barcode?: string | null;
+  variants?: Array<{
+    id?: string;
+    sku: string;
+    barcode?: string | null;
+    size: string;
+    color: string;
+    costPrice?: number | null;
+    salesPrice?: number | null;
+    initialStock?: number;
+    image?: string | null;
+  }>;
 }) {
   try {
     const session = await auth();
@@ -738,6 +941,7 @@ export async function updateItem(input: {
         isEnableEcom: true,
         featuredImage: true,
         status: true,
+        barcode: true,
       },
     });
 
@@ -784,13 +988,37 @@ export async function updateItem(input: {
       };
     }
 
+    // Handle item base barcode
+    let finalBarcode = input.barcode;
+    if (!finalBarcode) {
+      finalBarcode = existingItem.barcode || await generateUniqueItemBarcode();
+    } else if (finalBarcode !== existingItem.barcode) {
+      // Check collision in Item table
+      const collisionItem = await prisma.item.findFirst({
+        where: { barcode: finalBarcode, id: { not: input.id } },
+        select: { id: true }
+      });
+      // Also check variant barcodes to avoid cross-collision
+      const collisionVariant = await prisma.productVariant.findFirst({
+        where: { barcode: finalBarcode },
+        select: { id: true }
+      });
+      if (collisionItem || collisionVariant) {
+        return {
+          success: false,
+          error: `Barcode '${finalBarcode}' is already assigned to another item or variant.`,
+          item: null,
+        };
+      }
+    }
+
     // Prepare update data
     const updateData: Prisma.ItemUpdateInput = {
       name: input.name,
       description: input.description || null,
       itemType: input.itemType,
-      categoryId: input.categoryId || null,
-      unitId: input.unitId,
+      category: input.categoryId ? { connect: { id: input.categoryId } } : { disconnect: true },
+      unit: { connect: { id: input.unitId } },
       costPrice: input.costPrice,
       salesPrice: input.salesPrice || null,
       wholesalePrice: input.wholesalePrice || null,
@@ -801,10 +1029,74 @@ export async function updateItem(input: {
       sizes: input.sizes ? { set: input.sizes } : { set: [] },
       colors: input.colors ? { set: input.colors } : { set: [] },
       isEnableEcom: input.isEnableEcom ?? false,
+      isVatEnabled: input.isVatEnabled ?? false,
+      vatPercentage: input.vatPercentage ?? 0,
+      barcode: finalBarcode,
     };
 
     if (input.status !== undefined) {
       updateData.status = input.status;
+    }
+
+    // Process variants updates/creations
+    if (input.variants) {
+      // 1. Delete variants that are no longer present
+      const activeVariantIds = input.variants.map(v => v.id).filter(Boolean) as string[];
+      await prisma.productVariant.deleteMany({
+        where: {
+          itemId: input.id,
+          id: { notIn: activeVariantIds }
+        }
+      });
+
+      // 2. Upsert remaining variants
+      const warehouse = await prisma.warehouse.findFirst({
+        where: { isTrash: false, status: "active" },
+        select: { id: true }
+      });
+
+      for (const v of input.variants) {
+        if (v.id) {
+          // Update
+          await prisma.productVariant.update({
+            where: { id: v.id },
+            data: {
+              sku: v.sku,
+              barcode: v.barcode || await generateUniqueBarcode(),
+              size: v.size,
+              color: v.color,
+              costPrice: v.costPrice || null,
+              salesPrice: v.salesPrice || null,
+              image: v.image || null,
+            }
+          });
+        } else {
+          // Create
+          const createdVar = await prisma.productVariant.create({
+            data: {
+              sku: v.sku,
+              barcode: v.barcode || await generateUniqueBarcode(),
+              size: v.size,
+              color: v.color,
+              costPrice: v.costPrice || null,
+              salesPrice: v.salesPrice || null,
+              image: v.image || null,
+              itemId: input.id,
+            }
+          });
+          
+          // Seed stock
+          if (v.initialStock && v.initialStock > 0 && warehouse && input.trackInventory) {
+            await prisma.stock.create({
+              data: {
+                variantId: createdVar.id,
+                warehouseId: warehouse.id,
+                quantity: v.initialStock,
+              }
+            });
+          }
+        }
+      }
     }
 
     // Debug logging

@@ -40,6 +40,12 @@ interface Stock {
     unit: {
       symbol: string;
     };
+    variant?: {
+      id: string;
+      sku: string;
+      size: string;
+      color: string;
+    } | null;
   };
   warehouse: {
     id: string;
@@ -249,13 +255,20 @@ export default function StocksListClient({
                         <div>
                           <Link
                             href={`/dashboard/master/items/${stock.item.id}`}
-                            className="font-medium hover:underline block leading-tight"
+                            className="font-medium hover:underline block leading-tight text-foreground"
                           >
                             {stock.item.name}
                           </Link>
-                          <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
-                            {stock.item.code}
-                          </p>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                            <span className="text-[11px] text-muted-foreground font-mono">
+                              {stock.item.code}
+                            </span>
+                            {stock.item.variant && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted border border-border text-muted-foreground font-sans">
+                                {stock.item.variant.color} / {stock.item.variant.size}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </TableCell>

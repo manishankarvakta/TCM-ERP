@@ -263,8 +263,8 @@ export async function decryptBackupFile(
     if (error instanceof Error) {
       if (error.message.includes("Unsupported state") || error.message.includes("bad decrypt")) {
         throw new Error(
-          "Decryption failed: Invalid encryption key or corrupted data. " +
-          "The backup may have been encrypted with a different key."
+          "Decryption failed: Invalid encryption key or corrupted/tampered data. " +
+          "The backup may have been encrypted with a different key or authentication failed."
         );
       }
       if (error.message.includes("auth tag")) {

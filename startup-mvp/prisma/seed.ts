@@ -92,6 +92,8 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
   }
 
   const categories = [
+    { name: "Raw Material", description: "All raw material types (Fabrics, trims, threads, labels)" },
+    { name: "Product", description: "All finished product types (T-shirts, shirts, pants, jeans)" },
     { name: "Fabrics", description: "All types of fabrics (Cotton, Polyester, Denim)" },
     { name: "Trimmings & Accessories", description: "Buttons, Zippers, Thread, Labels" },
     { name: "Packaging Materials", description: "Poly bags, Cartons, Hangers" },
@@ -411,6 +413,165 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
 
   console.log(`✅ Seeded ${warehouses.length} warehouses`);
 
+  // Seed Walkway Customer (default POS customer)
+  console.log("\n🌱 Seeding Walkway Customer...");
+  
+  // If WALK-001 or WHL-001 is already taken by some other customer, let's update their clientCode to something unique first
+  const conflictWalkway = await prisma.client.findFirst({
+    where: { clientCode: "WALK-001", email: { not: "walkway@system.local" } }
+  });
+  if (conflictWalkway) {
+    await prisma.client.update({
+      where: { id: conflictWalkway.id },
+      data: { clientCode: `CLI-CONFL-${Date.now().toString().slice(-4)}` }
+    });
+  }
+
+  const conflictWholesale = await prisma.client.findFirst({
+    where: { clientCode: "WHL-001", email: { not: "wholesale@fashionbulk.com" } }
+  });
+  if (conflictWholesale) {
+    await prisma.client.update({
+      where: { id: conflictWholesale.id },
+      data: { clientCode: `CLI-CONFL-${Date.now().toString().slice(-4)}` }
+    });
+  }
+
+  const walkwayCustomer = await prisma.client.upsert({
+    where: { email: "walkway@system.local" },
+    update: {
+      name: "Walkway Customer",
+      clientType: "walkway",
+      status: "active",
+      clientCode: "WALK-001",
+    },
+    create: {
+      name: "Walkway Customer",
+      email: "walkway@system.local",
+      clientType: "walkway",
+      clientCode: "WALK-001",
+      status: "active",
+      createdBy: admin.id,
+    },
+  });
+  console.log(`✅ Seeded Walkway Customer: ${walkwayCustomer.id}`);
+
+  // Seed sample wholesale client
+  await prisma.client.upsert({
+    where: { email: "wholesale@fashionbulk.com" },
+    update: {
+      name: "Fashion Bulk Trading",
+      clientType: "wholesale",
+      company: "Fashion Bulk Trading Ltd",
+      status: "active",
+      clientCode: "WHL-001",
+    },
+    create: {
+      name: "Fashion Bulk Trading",
+      email: "wholesale@fashionbulk.com",
+      clientType: "wholesale",
+      company: "Fashion Bulk Trading Ltd",
+      clientCode: "WHL-001",
+      status: "active",
+      createdBy: admin.id,
+    },
+  });
+  console.log("✅ Seeded sample wholesale client");
+
+  // Seed Wholesale Items
+  console.log("\n🌱 Seeding Wholesale items...");
+  const wholesaleItems = [
+    {
+      code: `WS-${year}-0001`,
+      name: "Basic T-Shirt Bulk Pack",
+      description: "100% Cotton, Wholesale Bulk - Min 12pcs",
+      itemType: "WHOLESALE" as ItemType,
+      categoryId: catTops.id,
+      unitId: pcs.id,
+      costPrice: tk(80),
+      salesPrice: tk(200),
+      wholesalePrice: tk(150),
+      trackInventory: true,
+      sizes: ["S", "M", "L", "XL"],
+      colors: ["White", "Black"],
+    },
+    {
+      code: `WS-${year}-0002`,
+      name: "Polo Shirt Wholesale",
+      description: "Cotton Pique, Wholesale Pack",
+      itemType: "WHOLESALE" as ItemType,
+      categoryId: catTops.id,
+      unitId: pcs.id,
+      costPrice: tk(200),
+      salesPrice: tk(500),
+      wholesalePrice: tk(380),
+      trackInventory: true,
+      sizes: ["M", "L", "XL"],
+      colors: ["Navy", "White"],
+    },
+    {
+      code: `WS-${year}-0003`,
+      name: "Denim Jeans Wholesale",
+      description: "Slim Fit Denim, Wholesale Pricing",
+      itemType: "WHOLESALE" as ItemType,
+      categoryId: catBottoms.id,
+      unitId: pcs.id,
+      costPrice: tk(350),
+      salesPrice: tk(900),
+      wholesalePrice: tk(700),
+      trackInventory: true,
+      sizes: ["30", "32", "34", "36"],
+      colors: ["Indigo Blue"],
+    },
+    {
+      code: `WS-${year}-0004`,
+      name: "Cotton Socks Wholesale (6-Pack)",
+      description: "Combed Cotton, Wholesale 6-pack",
+      itemType: "WHOLESALE" as ItemType,
+      categoryId: catAccessories.id,
+      unitId: pack.id,
+      costPrice: tk(200),
+      salesPrice: tk(500),
+      wholesalePrice: tk(380),
+      trackInventory: true,
+    },
+  ];
+
+  for (const it of wholesaleItems) {
+    await prisma.item.upsert({
+      where: { code: it.code },
+      update: {
+        name: it.name,
+        description: it.description,
+        itemType: it.itemType,
+        categoryId: it.categoryId,
+        unitId: it.unitId,
+        costPrice: it.costPrice,
+        salesPrice: it.salesPrice,
+        wholesalePrice: it.wholesalePrice,
+        trackInventory: it.trackInventory,
+        status: "active",
+        isTrash: false,
+      },
+      create: {
+        code: it.code,
+        name: it.name,
+        description: it.description,
+        itemType: it.itemType,
+        categoryId: it.categoryId,
+        unitId: it.unitId,
+        costPrice: it.costPrice,
+        salesPrice: it.salesPrice,
+        wholesalePrice: it.wholesalePrice,
+        trackInventory: it.trackInventory,
+        status: "active",
+        isTrash: false,
+        createdBy: admin.id,
+      },
+    });
+  }
+  console.log(`✅ Seeded ${wholesaleItems.length} wholesale items`);
+
   // Register ModuleOperation rows for inventory.warehouses
   const warehouseOperations = [
     { operation: "view", label: "View Warehouses" },
@@ -704,9 +865,13 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
 
   // Delete all existing BOM and BOMItem records
   console.log("\n🗑️  Deleting existing BOM data...");
-  const deletedBOMItems = await prisma.bOMItem.deleteMany({});
-  const deletedBOMs = await prisma.bOM.deleteMany({});
-  console.log(`✅ Deleted ${deletedBOMs.count} BOMs and ${deletedBOMItems.count} BOM items`);
+  try {
+    const deletedBOMItems = await prisma.bOMItem.deleteMany({});
+    const deletedBOMs = await prisma.bOM.deleteMany({});
+    console.log(`✅ Deleted ${deletedBOMs.count} BOMs and ${deletedBOMItems.count} BOM items`);
+  } catch (err) {
+    console.log("⚠️ Could not delete some BOM data due to constraints, skipping deletion step.");
+  }
 
   // Seed BOM data
   console.log("\n🌱 Seeding BOM data...");
@@ -820,9 +985,13 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
 
   // Delete all existing Purchase and PurchaseItem records
   console.log("\n🗑️  Deleting existing purchase data...");
-  const deletedPurchaseItems = await prisma.purchaseItem.deleteMany({});
-  const deletedPurchases = await prisma.purchase.deleteMany({});
-  console.log(`✅ Deleted ${deletedPurchases.count} purchases and ${deletedPurchaseItems.count} purchase items`);
+  try {
+    const deletedPurchaseItems = await prisma.purchaseItem.deleteMany({});
+    const deletedPurchases = await prisma.purchase.deleteMany({});
+    console.log(`✅ Deleted ${deletedPurchases.count} purchases and ${deletedPurchaseItems.count} purchase items`);
+  } catch (err) {
+    console.log("⚠️ Could not delete some purchase data due to constraints, skipping deletion step.");
+  }
 
   // Seed Purchase data
   console.log("\n🌱 Seeding purchase data...");
@@ -1037,9 +1206,13 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
 
   // Delete all existing Sale and SaleItem records
   console.log("\n🗑️  Deleting existing sales data...");
-  const deletedSaleItems = await prisma.saleItem.deleteMany({});
-  const deletedSales = await prisma.sale.deleteMany({});
-  console.log(`✅ Deleted ${deletedSales.count} sales and ${deletedSaleItems.count} sale items`);
+  try {
+    const deletedSaleItems = await prisma.saleItem.deleteMany({});
+    const deletedSales = await prisma.sale.deleteMany({});
+    console.log(`✅ Deleted ${deletedSales.count} sales and ${deletedSaleItems.count} sale items`);
+  } catch (err) {
+    console.log("⚠️ Could not delete some sales data due to constraints, skipping deletion step.");
+  }
 
   // Seed Sales data
   console.log("\n🌱 Seeding sales data...");

@@ -206,6 +206,12 @@ export default function ItemsListClient({
     return `৳${Number(price).toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
+  const handlePageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", page.toString());
+    router.push(`/dashboard/master/items?${params.toString()}`);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
@@ -334,8 +340,8 @@ export default function ItemsListClient({
         <div className="flex items-center justify-between pt-2">
           <p className="text-xs text-muted-foreground">Showing {initialItems.length} of {initialPagination.total} items</p>
           <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" onClick={() => handleSearch(search)} disabled={initialPagination.page === 1}>Prev</Button>
-            <Button variant="outline" size="sm" onClick={() => handleSearch(search)} disabled={initialPagination.page === initialPagination.totalPages}>Next</Button>
+            <Button variant="outline" size="sm" onClick={() => handlePageChange(initialPagination.page - 1)} disabled={initialPagination.page === 1}>Prev</Button>
+            <Button variant="outline" size="sm" onClick={() => handlePageChange(initialPagination.page + 1)} disabled={initialPagination.page === initialPagination.totalPages}>Next</Button>
           </div>
         </div>
       )}

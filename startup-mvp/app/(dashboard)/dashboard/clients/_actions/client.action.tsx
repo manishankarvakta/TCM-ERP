@@ -7,6 +7,7 @@ import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { revalidatePath } from "next/cache";
 import { type Prisma, AccountType } from "@prisma/client";
 import { randomBytes } from "crypto";
+import { createVoucher, postVoucher } from "../../accounts/vouchers/_actions/voucher.action";
 
 /**
  * Get paginated list of clients with search
@@ -87,6 +88,7 @@ export async function getClients(
         openingBalance: true,
         status: true,
         createdBy: true,
+        clientType: true,
         createdByUser: {
           select: {
             id: true,
@@ -170,6 +172,39 @@ export async function getClientById(clientId: string) {
         image: true,
         openingBalance: true,
         status: true,
+        clientType: true,
+        itemDiscounts: {
+          select: {
+            id: true,
+            discountType: true,
+            discountValue: true,
+            itemId: true,
+            variantId: true,
+            item: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                salesPrice: true,
+              },
+            },
+            variant: {
+              select: {
+                id: true,
+                sku: true,
+                size: true,
+                color: true,
+                salesPrice: true,
+                item: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         createdBy: true,
         createdByUser: {
           select: {
@@ -327,6 +362,9 @@ export async function createClient(input: {
   image?: string;
   openingBalance?: number;
   status?: "active" | "inactive";
+  clientType?: string;
+  itemDiscounts?: any;
+  discounts?: any[];
 }) {
   try {
     const session = await auth();
@@ -354,6 +392,7 @@ export async function createClient(input: {
 
     // Use transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
+      const discountsToUse = input.itemDiscounts || (input as any).discounts;
       // Generate unique client code
       let clientCode = await generateClientCode(tx);
       
@@ -483,6 +522,17 @@ export async function createClient(input: {
           status: input.status || "active",
           createdBy: session.user.id,
           chartOfAccountId: chartOfAccount.id,
+          clientType: input.clientType || "regular",
+          itemDiscounts: Array.isArray(discountsToUse) && discountsToUse.length > 0
+            ? {
+                create: discountsToUse.map((discount: any) => ({
+                  itemId: discount.itemId || null,
+                  variantId: discount.variantId || null,
+                  discountType: (discount.discountType || "PERCENTAGE").toUpperCase(),
+                  discountValue: discount.discountValue,
+                })),
+              }
+            : undefined,
         },
         select: {
           id: true,
@@ -496,12 +546,68 @@ export async function createClient(input: {
           country: true,
           company: true,
           image: true,
-        openingBalance: true,
+          openingBalance: true,
           status: true,
           createdAt: true,
           updatedAt: true,
+          clientType: true,
+          itemDiscounts: {
+            select: {
+              id: true,
+              itemId: true,
+              variantId: true,
+              discountType: true,
+              discountValue: true,
+            }
+          },
         },
       });
+
+      // Handle opening balance if provided
+      if (input.openingBalance && input.openingBalance > 0) {
+        // Find Owner's Capital account (code "3110")
+        const capitalAccount = await tx.chartOfAccount.findUnique({
+          where: { code: "3110" },
+          select: { id: true },
+        });
+
+        if (!capitalAccount) {
+          throw new Error("Owner's Capital account (Code 3110) not found. Please ensure Chart of Accounts is seeded.");
+        }
+
+        const voucherResult = await createVoucher({
+          date: new Date(),
+          type: "JOURNAL",
+          reference: "OPENING-BALANCE",
+          description: `Opening Balance for Customer: ${input.name || input.email}`,
+          isSystemAction: true,
+          lines: [
+            {
+              lineNumber: 1,
+              debitAmount: input.openingBalance,
+              creditAmount: 0,
+              description: "Opening Balance Debit",
+              chartOfAccountId: chartOfAccount.id,
+            },
+            {
+              lineNumber: 2,
+              debitAmount: 0,
+              creditAmount: input.openingBalance,
+              description: "Opening Balance Credit Offset",
+              chartOfAccountId: capitalAccount.id,
+            },
+          ],
+        }, tx);
+
+        if (!voucherResult.success || !voucherResult.voucher) {
+          throw new Error(voucherResult.error || "Failed to create opening balance voucher");
+        }
+
+        const postResult = await postVoucher(voucherResult.voucher.id, tx, true);
+        if (!postResult.success) {
+          throw new Error(postResult.error || "Failed to post opening balance voucher");
+        }
+      }
 
       return { client, chartOfAccount };
     });
@@ -556,6 +662,9 @@ export async function updateClient(input: {
   image?: string;
   openingBalance?: number;
   status?: "active" | "inactive";
+  clientType?: string;
+  itemDiscounts?: any;
+  discounts?: any[];
 }) {
   try {
     const session = await auth();
@@ -574,6 +683,7 @@ export async function updateClient(input: {
       select: {
         id: true,
         name: true,
+        clientCode: true,
         email: true,
         phone: true,
         address: true,
@@ -586,6 +696,8 @@ export async function updateClient(input: {
         openingBalance: true,
         status: true,
         chartOfAccountId: true,
+        clientType: true,
+        itemDiscounts: true,
       },
     });
 
@@ -614,6 +726,7 @@ export async function updateClient(input: {
 
     // Use transaction to ensure atomicity when creating missing account
     const result = await prisma.$transaction(async (tx) => {
+      const discountsToUse = input.itemDiscounts !== undefined ? input.itemDiscounts : (input as any).discounts;
       const clientName = input.name !== undefined ? (input.name || input.email) : (existingClient.name || existingClient.email);
       let chartOfAccountId = existingClient.chartOfAccountId;
       
@@ -712,11 +825,11 @@ export async function updateClient(input: {
         // Create Chart of Account for customer
         const accountName = `AR - ${clientName}`;
         // Generate a unique ID for ChartOfAccount (since schema doesn't have @default(cuid()))
-        const chartOfAccountId = `coa_${Date.now()}_${randomBytes(8).toString("hex")}`;
+        const coaId = `coa_${Date.now()}_${randomBytes(8).toString("hex")}`;
         
         const chartOfAccount = await tx.chartOfAccount.create({
           data: {
-            id: chartOfAccountId,
+            id: coaId,
             code: accountCode,
             name: accountName,
             type: AccountType.ASSET,
@@ -744,6 +857,7 @@ export async function updateClient(input: {
         company: input.company !== undefined ? (input.company || null) : undefined,
         image: input.image !== undefined ? (input.image || null) : undefined,
         openingBalance: input.openingBalance !== undefined ? input.openingBalance : undefined,
+        clientType: input.clientType !== undefined ? input.clientType : undefined,
       };
 
       if (input.status) {
@@ -755,9 +869,30 @@ export async function updateClient(input: {
         updateData.clientCode = clientCode;
       }
 
-      // Add chartOfAccountId if it was created
+      // Add ChartOfAccount if it was created
       if (chartOfAccountId && chartOfAccountId !== existingClient.chartOfAccountId) {
-        updateData.chartOfAccountId = chartOfAccountId;
+        updateData.ChartOfAccount = { connect: { id: chartOfAccountId } };
+      }
+
+      // Handle client discounts if provided
+      if (discountsToUse !== undefined) {
+        // Delete all existing discounts for this client
+        await tx.clientItemDiscount.deleteMany({
+          where: { clientId: input.id },
+        });
+
+        // Insert new discounts if any
+        if (Array.isArray(discountsToUse) && discountsToUse.length > 0) {
+          await tx.clientItemDiscount.createMany({
+            data: discountsToUse.map((discount: any) => ({
+              clientId: input.id,
+              itemId: discount.itemId || null,
+              variantId: discount.variantId || null,
+              discountType: (discount.discountType || "PERCENTAGE").toUpperCase(),
+              discountValue: discount.discountValue,
+            })),
+          });
+        }
       }
 
       // Update client
@@ -776,10 +911,20 @@ export async function updateClient(input: {
           country: true,
           company: true,
           image: true,
-        openingBalance: true,
+          openingBalance: true,
           status: true,
           createdAt: true,
           updatedAt: true,
+          clientType: true,
+          itemDiscounts: {
+            select: {
+              id: true,
+              itemId: true,
+              variantId: true,
+              discountType: true,
+              discountValue: true,
+            }
+          },
         },
       });
 

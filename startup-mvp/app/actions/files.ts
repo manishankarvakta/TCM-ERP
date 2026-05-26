@@ -380,15 +380,18 @@ export async function deleteFile(input: {
     // Get file info for logging
     const file = await prisma.file.findUnique({
       where: { storageKey: key },
-      select: { id: true, name: true, path: true },
+      select: { id: true, name: true, path: true, metadata: true },
     });
 
     if (!file) {
       throw new Error("File not found");
     }
 
-    // Delete from local storage
-    await storage.deleteFile(key);
+    // Delete from local storage (only if not external)
+    const isExternal = file.metadata && typeof file.metadata === "object" && (file.metadata as Record<string, any>).isExternal;
+    if (!isExternal) {
+      await storage.deleteFile(key);
+    }
 
     // Delete from database
     await prisma.file.delete({
@@ -437,12 +440,15 @@ export async function copyFile(input: {
     // Get source file info
     const sourceFile = await prisma.file.findUnique({
       where: { storageKey: sourceKey },
-      select: { name: true, path: true, size: true, mimeType: true, isFolder: true },
+      select: { name: true, path: true, size: true, mimeType: true, isFolder: true, metadata: true },
     });
 
     if (!sourceFile) {
       throw new Error("Source file not found");
     }
+
+    // Check if external file
+    const isExternal = sourceFile.metadata && typeof sourceFile.metadata === "object" && (sourceFile.metadata as Record<string, any>).isExternal;
 
     // Copy in local storage
     if (sourceFile.isFolder) {
@@ -467,8 +473,10 @@ export async function copyFile(input: {
         // Ignore if folder marker doesn't exist
       }
     } else {
-      // For files, just copy the object
-      await storage.copyFile(sourceKey, destKey);
+      // For files, just copy the object (if not external)
+      if (!isExternal) {
+        await storage.copyFile(sourceKey, destKey);
+      }
     }
 
     // Extract destination path and filename
@@ -507,6 +515,7 @@ export async function copyFile(input: {
             size: sourceFileRecord.size,
             mimeType: sourceFileRecord.mimeType,
             isFolder: sourceFileRecord.isFolder,
+            metadata: sourceFileRecord.metadata || undefined,
           },
         });
       }
@@ -534,6 +543,7 @@ export async function copyFile(input: {
           size: sourceFile.size,
           mimeType: sourceFile.mimeType,
           isFolder: false,
+          metadata: sourceFile.metadata || undefined,
         },
       });
     }
@@ -596,12 +606,15 @@ export async function moveFile(input: {
     // Get source file info
     const sourceFile = await prisma.file.findUnique({
       where: { storageKey: sourceKey },
-      select: { id: true, name: true, path: true, size: true, mimeType: true, isFolder: true },
+      select: { id: true, name: true, path: true, size: true, mimeType: true, isFolder: true, metadata: true },
     });
 
     if (!sourceFile) {
       throw new Error("Source file not found");
     }
+
+    // Check if external file
+    const isExternal = sourceFile.metadata && typeof sourceFile.metadata === "object" && (sourceFile.metadata as Record<string, any>).isExternal;
 
     // Move in local storage
     if (sourceFile.isFolder) {
@@ -626,8 +639,10 @@ export async function moveFile(input: {
         // Ignore if folder marker doesn't exist
       }
     } else {
-      // For files, just move the object
-      await storage.moveFile(sourceKey, destKey);
+      // For files, just move the object (if not external)
+      if (!isExternal) {
+        await storage.moveFile(sourceKey, destKey);
+      }
     }
 
     // Extract destination path and filename
@@ -672,6 +687,7 @@ export async function moveFile(input: {
             size: sourceFileRecord.size,
             mimeType: sourceFileRecord.mimeType,
             isFolder: sourceFileRecord.isFolder,
+            metadata: sourceFileRecord.metadata || undefined,
           },
         });
       }
@@ -707,6 +723,7 @@ export async function moveFile(input: {
           size: sourceFile.size,
           mimeType: sourceFile.mimeType,
           isFolder: false,
+          metadata: sourceFile.metadata || undefined,
         },
       });
     }
@@ -907,11 +924,22 @@ export async function getDownloadUrl(input: {
     // Get file info for logging
     const file = await prisma.file.findUnique({
       where: { storageKey: key },
-      select: { name: true, path: true },
+      select: { name: true, path: true, metadata: true },
     });
 
     if (!file) {
       throw new Error("File not found");
+    }
+
+    // Check if external file
+    if (file.metadata && typeof file.metadata === "object") {
+      const meta = file.metadata as Record<string, any>;
+      if (meta.isExternal && meta.externalUrl) {
+        return {
+          success: true,
+          data: { url: meta.externalUrl },
+        };
+      }
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -961,11 +989,22 @@ export async function getPublicUrl(input: {
     // Get file info for logging
     const file = await prisma.file.findUnique({
       where: { storageKey: key },
-      select: { name: true, path: true },
+      select: { name: true, path: true, metadata: true },
     });
 
     if (!file) {
       throw new Error("File not found");
+    }
+
+    // Check if external file
+    if (file.metadata && typeof file.metadata === "object") {
+      const meta = file.metadata as Record<string, any>;
+      if (meta.isExternal && meta.externalUrl) {
+        return {
+          success: true,
+          data: { url: meta.externalUrl },
+        };
+      }
     }
 
     // Generate API proxy URL (goes through Next.js, which fetches from local storage internally)
@@ -992,4 +1031,64 @@ export async function getPublicUrl(input: {
     };
   }
 }
+
+/**
+ * Add an external photo or link to the file manager
+ */
+export async function addExternalFile(input: {
+  path: string;
+  name: string;
+  externalUrl: string;
+  mimeType?: string;
+  size?: number;
+}): Promise<ActionResult<{ fileId: string; key: string }>> {
+  try {
+    const user = await getAuthenticatedUser();
+    const { path, name, externalUrl, mimeType = "image/jpeg", size = 0 } = input;
+
+    // Generate a unique storageKey starting with user.id/ to satisfy ownership checks
+    const uniqueId = Math.random().toString(36).substring(2, 9);
+    const normalizedPath = path === "/" ? "" : path.replace(/^\/+/, "").replace(/\/+$/, "");
+    const storageKey = `${user.id}/${normalizedPath}${normalizedPath ? "/" : ""}external-${uniqueId}-${name}`;
+
+    // Create record in DB with external metadata flag
+    const dbFile = await prisma.file.create({
+      data: {
+        ownerId: user.id,
+        name,
+        path: normalizedPath || "/",
+        storageKey,
+        size,
+        mimeType,
+        isFolder: false,
+        metadata: {
+          isExternal: true,
+          externalUrl,
+        },
+      },
+    });
+
+    // Log the action
+    await createUserLog({
+      userId: user.id,
+      action: "EXTERNAL_FILE_ADDED",
+      details: `External file added: ${name} pointing to ${externalUrl}`,
+      metadata: { fileId: dbFile.id, path: normalizedPath || "/", name, externalUrl },
+    });
+
+    revalidatePath("/", "layout");
+
+    return {
+      success: true,
+      data: { fileId: dbFile.id, key: storageKey },
+    };
+  } catch (error) {
+    console.error("addExternalFile error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to add external file",
+    };
+  }
+}
+
 

@@ -46,6 +46,19 @@ export default async function EditItemPage({ params }: EditItemPageProps) {
             colors: item.colors as string[],
             isEnableEcom: item.isEnableEcom,
             status: item.status as "active" | "inactive",
+            isVatEnabled: item.isVatEnabled,
+            vatPercentage: item.vatPercentage ? Number(item.vatPercentage) : 0,
+            barcode: item.barcode,
+            variants: item.variants ? (item.variants as any[]).map((v) => ({
+              id: v.id,
+              sku: v.sku,
+              barcode: v.barcode,
+              size: v.size,
+              color: v.color,
+              costPrice: v.costPrice ? Number(v.costPrice) : null,
+              salesPrice: v.salesPrice ? Number(v.salesPrice) : null,
+              image: v.image,
+            })) : [],
           }}
         />
       </div>

@@ -28,7 +28,7 @@ import {
 import { FiAlertCircle, FiPlus, FiTrash2, FiUserPlus, FiSearch } from "react-icons/fi";
 import { createSale, updateSale } from "../_actions/sale.action";
 import { createClient } from "@/app/(dashboard)/dashboard/clients/_actions/client.action";
-import { SaleStatus } from "@prisma/client";
+import { SaleStatus, OrderType } from "@prisma/client";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -59,6 +59,7 @@ const saleFormSchema = z.object({
   warehouseId: z.string().min(1, "Warehouse is required"),
   date: z.coerce.date(),
   status: z.nativeEnum(SaleStatus),
+  orderType: z.nativeEnum(OrderType),
   notes: z.string().optional().nullable(),
   attachmentUrl: z.string().url("Invalid URL").optional().nullable().or(z.literal("")),
   discount: z.coerce.number().min(0).optional().nullable(),
@@ -100,6 +101,7 @@ interface SaleFormProps {
     saleNumber: string;
     date: Date;
     status: SaleStatus;
+    orderType?: OrderType | null;
     notes: string | null;
     attachmentUrl: string | null;
     discount: number | null;
@@ -186,6 +188,7 @@ export default function SaleForm({
           warehouseId: initialData.warehouse.id,
           date: defaultDate,
           status: initialData.status,
+          orderType: initialData.orderType || OrderType.RETAIL,
           notes: initialData.notes || "",
           attachmentUrl: initialData.attachmentUrl || "",
           discount: initialData.discount ?? 0,
@@ -197,6 +200,7 @@ export default function SaleForm({
           warehouseId: warehouses.length > 0 ? warehouses[0].id : "",
           date: defaultDate,
           status: "DRAFT",
+          orderType: OrderType.RETAIL,
           notes: "",
           attachmentUrl: "",
           discount: 0,
@@ -533,6 +537,27 @@ export default function SaleForm({
                 )}
               />
               {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="orderType">Order Type *</Label>
+              <Controller
+                name="orderType"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="RETAIL">Retail</SelectItem>
+                      <SelectItem value="READY_PRODUCT">Ready Product</SelectItem>
+                      <SelectItem value="WHOLESALE">Wholesale</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.orderType && <p className="text-sm text-destructive">{errors.orderType.message}</p>}
             </div>
           </div>
 
