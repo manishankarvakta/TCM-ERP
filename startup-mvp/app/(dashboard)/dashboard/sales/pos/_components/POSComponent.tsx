@@ -160,7 +160,7 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
         toast({ title: "Success", description: "Return invoice created successfully" });
         setIsInvoiceReturnModalOpen(false);
         if (res.sale?.id) {
-           window.open(`/print/invoice/${res.sale.id}`, '_blank');
+           router.push(`/print/invoice/${res.sale.id}`);
         }
       } else {
         toast({ title: "Error", description: res.error, variant: "destructive" });
@@ -264,7 +264,7 @@ export default function POSComponent({ items, clients, warehouses }: POSComponen
         toast({ title: "Success", description: "Return created successfully" });
         setIsVoidReturnModalOpen(false);
         if (res.sale?.id) {
-           window.open(`/print/invoice/${res.sale.id}`, '_blank');
+           router.push(`/print/invoice/${res.sale.id}`);
         }
       } else {
         toast({ title: "Error", description: res.error, variant: "destructive" });
