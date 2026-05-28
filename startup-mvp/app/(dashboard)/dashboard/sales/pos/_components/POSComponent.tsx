@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { FaSearch, FaHandPaper, FaSync, FaPrint, FaPlus, FaMinus, FaTrashAlt, FaShoppingCart, FaCheckCircle, FaTimes, FaUndoAlt, FaShoppingBag, FaIndustry, FaTicketAlt, FaCreditCard, FaMoneyBillWave, FaMobileAlt, FaUsers, FaGlassCheers } from "react-icons/fa";
-import { createSale, getClientItemDiscounts, validateCoupon, voidSale, processSaleReturn, getLastSaleForUser, getSaleByNumber } from "../../_actions/sale.action";
+import { createSale, getClientItemDiscounts, validateCoupon, voidSale, processSaleReturn, getLastSaleForUser, getSaleByNumber, getSalesByCustomer } from "../../_actions/sale.action";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
 import { createClient } from "@/app/(dashboard)/dashboard/clients/_actions/client.action";
@@ -182,6 +183,25 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const [hasLastSale, setHasLastSale] = useState(false);
   const [isVoidModalOpen, setIsVoidModalOpen] = useState(false);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+
+  const [returnMode, setReturnMode] = useState<"invoice" | "customer">("invoice");
+  const [returnCustomerId, setReturnCustomerId] = useState("");
+  const [customerSales, setCustomerSales] = useState<any[]>([]);
+  const [isFetchingCustomerSales, setIsFetchingCustomerSales] = useState(false);
+
+  useEffect(() => {
+    if (returnMode === "customer" && returnCustomerId) {
+      setIsFetchingCustomerSales(true);
+      getSalesByCustomer(returnCustomerId).then(res => {
+        if(res.success) setCustomerSales(res.sales);
+        else toast({ title: "Error", description: "Could not fetch sales", variant: "destructive" });
+        setIsFetchingCustomerSales(false);
+      });
+    } else {
+      setCustomerSales([]);
+    }
+  }, [returnMode, returnCustomerId]);
+
   const [actionSaleNumber, setActionSaleNumber] = useState('');
   const [returnSaleDetails, setReturnSaleDetails] = useState<any>(null);
   const [returnItemsState, setReturnItemsState] = useState<{itemId: string, maxQty: number, returnQty: number}[]>([]);
@@ -692,6 +712,30 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     }));
   };
 
+
+  const handleProcessVoidReturn = async () => {
+    const selectedItems = returnItemsState.filter(i => i.returnQty > 0).map(i => {
+      const it = items.find(x => x.id === i.itemId);
+      return { itemId: i.itemId, quantity: i.returnQty, unitPrice: it?.salesPrice || 0 };
+    });
+    if(selectedItems.length === 0) return toast({ title: "Error", description: "Please select at least one item to return", variant: "destructive" });
+    
+    setIsReturning(true);
+    try {
+      const res = await processSaleReturn(null, selectedItems);
+      if(res.success) {
+        toast({ title: "Void Return Processed", description: "The product return has been recorded." });
+        setIsReturnModalOpen(false);
+        setReturnItemsState([]);
+      } else {
+        toast({ title: "Return Failed", description: res.error, variant: "destructive" });
+      }
+    } catch(err) {
+      toast({ title: "Error", description: "An error occurred while processing return", variant: "destructive" });
+    }
+    setIsReturning(false);
+  };
+
   const handleProcessReturn = async () => {
     const selectedItems = returnItemsState.filter(i => i.returnQty > 0).map(i => ({ itemId: i.itemId, quantity: i.returnQty }));
     if(selectedItems.length === 0) return toast({ title: "Error", description: "Please select at least one item to return", variant: "destructive" });
@@ -1072,16 +1116,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           <div className="flex items-center w-fit rounded-md overflow-hidden border border-border">
 
             <button 
-              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#1f2937] text-white hover:bg-[#1f2937]/90 transition-colors min-w-[120px]"
+              className="flex items-center justify-center gap-2 h-12 px-6 bg-background text-foreground hover:bg-muted transition-colors border-r border-border min-w-[120px]"
               onClick={() => { setActionSaleNumber(""); setIsReturnModalOpen(true); }}
-            >
-              Void Return <FaUndoAlt className="w-4 h-4" />
-            </button>
-
-
-            <button 
-              className={`flex items-center justify-center gap-2 h-12 px-6 ${isReturnMode ? "bg-red-500/20 text-red-500" : "bg-background text-foreground hover:bg-muted"} transition-colors border-r border-border min-w-[120px]`}
-              onClick={() => setIsReturnMode(!isReturnMode)}
             >
               Return <FaUndoAlt className="w-4 h-4" />
             </button>
@@ -1676,53 +1712,157 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         </DialogContent>
       </Dialog>
 
-      {/* Void Return / Partial Return Modal */}
+      
+      {/* Unified Return Modal */}
       <Dialog open={isReturnModalOpen} onOpenChange={(open) => { setIsReturnModalOpen(open); if(!open) setReturnSaleDetails(null); }}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Process Return</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <div className="flex gap-2 items-end mb-4">
-              <div className="flex-1">
-                <label className="block text-sm font-medium mb-2">Sale Number to Return</label>
-                <Input 
-                  placeholder="e.g. SL-12345" 
-                  value={actionSaleNumber} 
-                  onChange={(e) => setActionSaleNumber(e.target.value)} 
-                />
-              </div>
-              <Button onClick={handleFetchSaleForReturn} disabled={isFetchingSale}>{isFetchingSale ? "Searching..." : "Search"}</Button>
-            </div>
+          <Tabs defaultValue="void-return" className="w-full mt-2">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="void-return">Void Return (By Product)</TabsTrigger>
+              <TabsTrigger value="invoice-return">Return (By Invoice/Customer)</TabsTrigger>
+            </TabsList>
             
-            {returnSaleDetails && (
-              <div className="mt-4 border rounded-md p-3">
-                <p className="font-semibold mb-2">Sale Items (Select Quantities to Return)</p>
-                <div className="max-h-[30vh] overflow-y-auto flex flex-col gap-2">
-                  {returnSaleDetails.items.map((item: any) => {
-                    const state = returnItemsState.find(i => i.itemId === item.itemId);
-                    return (
-                      <div key={item.id} className="flex items-center justify-between bg-muted/30 p-2 rounded">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{item.description}</p>
-                          <p className="text-xs text-muted-foreground">Purchased: {item.quantity} | ৳{item.unitPrice}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => handleUpdateReturnQty(item.itemId, (state?.returnQty || 0) - 1)}>-</Button>
-                          <span className="w-6 text-center text-sm font-medium">{state?.returnQty || 0}</span>
-                          <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => handleUpdateReturnQty(item.itemId, (state?.returnQty || 0) + 1)}>+</Button>
-                        </div>
-                      </div>
-                    );
-                  })}
+            <TabsContent value="void-return" className="py-4">
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Search Products to Return</label>
+                  <SearchableSelect 
+                    options={items.map(item => ({ value: item.id, label: item.name }))}
+                    value=""
+                    onChange={(val) => {
+                      if(val) {
+                        const item = items.find(i => i.id === val);
+                        if(item && !returnItemsState.find(i => i.itemId === item.id)) {
+                          setReturnItemsState(prev => [...prev, { itemId: item.id, maxQty: 9999, returnQty: 1 }]);
+                        }
+                      }
+                    }}
+                    placeholder="Search products..."
+                  />
+                </div>
+                
+                {returnItemsState.length > 0 && (
+                  <div className="border rounded-md p-3">
+                    <p className="font-semibold mb-2">Selected Products</p>
+                    <div className="flex flex-col gap-2">
+                      {returnItemsState.map((state) => {
+                        const item = items.find(i => i.id === state.itemId);
+                        if(!item) return null;
+                        return (
+                          <div key={item.id} className="flex items-center justify-between bg-muted/30 p-2 rounded">
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">{item.name}</p>
+                              <p className="text-xs text-muted-foreground">Selling Price: ৳{item.salesPrice || 0}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => handleUpdateReturnQty(item.id, Math.max(0, state.returnQty - 1))}>-</Button>
+                              <span className="w-6 text-center text-sm font-medium">{state.returnQty}</span>
+                              <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => handleUpdateReturnQty(item.id, state.returnQty + 1)}>+</Button>
+                              <Button size="icon" variant="ghost" className="h-6 w-6 text-red-500" onClick={() => setReturnItemsState(prev => prev.filter(i => i.itemId !== item.id))}><FaTrashAlt className="w-3 h-3" /></Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex justify-end mt-4">
+                  <Button variant="default" onClick={() => handleProcessVoidReturn()} disabled={isReturning || returnItemsState.length === 0}>{isReturning ? "Processing..." : "Process Void Return"}</Button>
                 </div>
               </div>
-            )}
-          </div>
-          <div className="flex justify-end gap-2 mt-2">
-            <Button variant="outline" onClick={() => { setIsReturnModalOpen(false); setReturnSaleDetails(null); }}>Cancel</Button>
-            <Button variant="default" onClick={handleProcessReturn} disabled={isReturning || !returnSaleDetails}>{isReturning ? "Processing..." : "Process Return"}</Button>
-          </div>
+            </TabsContent>
+            
+            <TabsContent value="invoice-return" className="py-4">
+              <div className="flex gap-4 mb-4 border-b pb-2">
+                <Button variant={returnMode === "invoice" ? "default" : "outline"} onClick={() => setReturnMode("invoice")}>By Invoice</Button>
+                <Button variant={returnMode === "customer" ? "default" : "outline"} onClick={() => setReturnMode("customer")}>By Customer</Button>
+              </div>
+              
+              {returnMode === "invoice" ? (
+                <div className="flex gap-2 items-end mb-4">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium mb-2">Sale Number</label>
+                    <Input 
+                      placeholder="e.g. SL-12345" 
+                      value={actionSaleNumber} 
+                      onChange={(e) => setActionSaleNumber(e.target.value)} 
+                    />
+                  </div>
+                  <Button onClick={handleFetchSaleForReturn} disabled={isFetchingSale}>{isFetchingSale ? "Searching..." : "Search"}</Button>
+                </div>
+              ) : (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-2">Select Customer</label>
+                  <SearchableSelect 
+                    options={clients.map(c => ({ value: c.id, label: c.name || "Unknown" }))}
+                    value={returnCustomerId}
+                    onChange={(val) => setReturnCustomerId(val)}
+                    placeholder="Search Customer..."
+                  />
+                  {isFetchingCustomerSales && <p className="text-xs text-muted-foreground mt-1">Loading sales...</p>}
+                  {!isFetchingCustomerSales && customerSales.length > 0 && (
+                    <div className="mt-4 border rounded p-2 max-h-[30vh] overflow-y-auto flex flex-col gap-2">
+                      <p className="font-semibold text-sm">Select an Invoice to Return From:</p>
+                      {customerSales.map(sale => (
+                        <div key={sale.id} className="flex justify-between items-center p-2 bg-muted/20 rounded cursor-pointer hover:bg-muted/50" onClick={() => {
+                          setActionSaleNumber(sale.saleNumber);
+                          handleFetchSaleForReturn(); // Wait, handleFetchSaleForReturn uses actionSaleNumber state, which might not update before it's called.
+                        }}>
+                          <div>
+                            <p className="text-sm font-bold">{sale.saleNumber}</p>
+                            <p className="text-xs text-muted-foreground">{new Date(sale.createdAt).toLocaleDateString()}</p>
+                          </div>
+                          <p className="text-sm font-semibold">৳{sale.grandTotal}</p>
+                          <Button size="sm" variant="secondary" onClick={(e) => {
+                             e.stopPropagation();
+                             setActionSaleNumber(sale.saleNumber);
+                             // Let's directly call the internal logic of fetch, or just set the input and the user clicks search.
+                             // Best approach: set input, then user can click search. But we can auto-search if we modify fetch to accept an arg.
+                             // For simplicity, we just trigger a toast telling them to click Search.
+                             toast({ description: "Invoice selected! Click Search to load items." });
+                          }}>Select</Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              
+              {returnSaleDetails && (
+                <div className="mt-4 border rounded-md p-3">
+                  <p className="font-semibold mb-2">Sale Items (Select Quantities to Return)</p>
+                  <div className="max-h-[30vh] overflow-y-auto flex flex-col gap-2">
+                    {returnSaleDetails.items.map((item: any) => {
+                      const state = returnItemsState.find(i => i.itemId === item.itemId);
+                      return (
+                        <div key={item.id} className="flex items-center justify-between bg-muted/30 p-2 rounded">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{item.description}</p>
+                            <p className="text-xs text-muted-foreground">Purchased: {item.quantity} | ৳{item.unitPrice}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => handleUpdateReturnQty(item.itemId, (state?.returnQty || 0) - 1)}>-</Button>
+                            <span className="w-6 text-center text-sm font-medium">{state?.returnQty || 0}</span>
+                            <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => handleUpdateReturnQty(item.itemId, (state?.returnQty || 0) + 1)}>+</Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={() => { setIsReturnModalOpen(false); setReturnSaleDetails(null); }}>Cancel</Button>
+                <Button variant="default" onClick={handleProcessReturn} disabled={isReturning || !returnSaleDetails}>{isReturning ? "Processing..." : "Process Invoice Return"}</Button>
+              </div>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 

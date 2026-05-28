@@ -2319,53 +2319,96 @@ export async function voidSale(saleId: string) {
   }
 }
 
-export async function processSaleReturn(saleId: string, returnItems: { itemId: string, quantity: number }[]) {
+export async function processSaleReturn(saleId: string | null, returnItems: { itemId: string, quantity: number, unitPrice?: number }[]) {
   try {
     const session = await auth();
     if (!session?.user) {
       return { success: false, error: "Unauthorized" };
     }
 
-    const sale = await prisma.sale.findUnique({
-      where: { id: saleId },
-      include: {
-        items: {
-          include: { item: { select: { trackInventory: true } } }
-        },
-        client: true
-      }
-    });
+    let originalSale: any = null;
+    let clientId: string | null = null;
+    let warehouseId: string | null = null;
 
-    if (!sale) return { success: false, error: "Sale not found" };
+    if (saleId) {
+      originalSale = await prisma.sale.findUnique({
+        where: { id: saleId },
+        include: {
+          items: {
+            include: { item: { select: { trackInventory: true } } }
+          },
+          client: true
+        }
+      });
+      if (!originalSale) return { success: false, error: "Sale not found" };
+      clientId = originalSale.clientId;
+      warehouseId = originalSale.warehouseId;
+    } else {
+      // Find default warehouse
+      const defaultWarehouse = await prisma.warehouse.findFirst({
+        where: { status: "active", isTrash: false },
+        orderBy: { name: "asc" }
+      });
+      if (!defaultWarehouse) return { success: false, error: "No warehouse found for return" };
+      warehouseId = defaultWarehouse.id;
+      
+      // Find default client
+      const defaultClient = await prisma.client.findFirst({
+        where: { name: { equals: "Walkway Customer", mode: "insensitive" } }
+      });
+      if (defaultClient) {
+         clientId = defaultClient.id;
+      }
+    }
 
     const returnSaleData = await prisma.$transaction(async (tx) => {
       let totalRefund = 0;
       const newSaleItems = [];
 
       for (const ret of returnItems) {
-        const originalItem = sale.items.find(i => i.itemId === ret.itemId);
-        if (!originalItem) throw new Error(`Item ${ret.itemId} not found in sale`);
-        
-        if (ret.quantity > Number(originalItem.quantity)) {
-          throw new Error(`Return quantity exceeds sale quantity for item ${ret.itemId}`);
+        let itemUnitPrice = ret.unitPrice || 0;
+        let trackInventory = false;
+        let itemDescription = "Void Return Item";
+
+        if (originalSale) {
+          const originalItem = originalSale.items.find((i: any) => i.itemId === ret.itemId);
+          if (!originalItem) throw new Error(`Item ${ret.itemId} not found in sale`);
+          
+          if (ret.quantity > Number(originalItem.quantity)) {
+            throw new Error(`Return quantity exceeds sale quantity for item ${ret.itemId}`);
+          }
+          itemUnitPrice = Number(originalItem.unitPrice);
+          trackInventory = originalItem.item?.trackInventory || false;
+          itemDescription = originalItem.description;
+        } else {
+          // Look up item from database
+          const dbItem = await tx.item.findUnique({
+            where: { id: ret.itemId }
+          });
+          if (!dbItem) throw new Error(`Item ${ret.itemId} not found in database`);
+          if (!ret.unitPrice) {
+            itemUnitPrice = Number(dbItem.salesPrice || 0);
+          }
+          trackInventory = dbItem.trackInventory;
+          itemDescription = dbItem.name;
         }
 
-        const refundAmount = Number(originalItem.unitPrice) * ret.quantity;
+        const refundAmount = itemUnitPrice * ret.quantity;
         totalRefund += refundAmount;
 
         newSaleItems.push({
           itemId: ret.itemId,
-          description: `Return: ${originalItem.description}`,
+          description: `Return: ${itemDescription}`,
           quantity: -ret.quantity,
-          unitPrice: Number(originalItem.unitPrice),
+          unitPrice: itemUnitPrice,
           amount: -refundAmount
         });
 
         // Restore stock
-        if (originalItem.item?.trackInventory) {
+        if (trackInventory && warehouseId) {
           const existingStock = await tx.stock.findUnique({
             where: {
-              itemId_warehouseId: { itemId: ret.itemId, warehouseId: sale.warehouseId }
+              itemId_warehouseId: { itemId: ret.itemId, warehouseId: warehouseId }
             }
           });
 
@@ -2378,35 +2421,40 @@ export async function processSaleReturn(saleId: string, returnItems: { itemId: s
             await tx.stock.create({
               data: {
                 itemId: ret.itemId,
-                warehouseId: sale.warehouseId,
+                warehouseId: warehouseId,
                 quantity: ret.quantity
               }
             });
           }
 
+          const refId = originalSale ? originalSale.id : "VOID_RETURN";
+          const refNotes = originalSale ? `Return for sale ${originalSale.saleNumber}` : "Standalone Void Return";
+
           await tx.stockLedger.create({
             data: {
               itemId: ret.itemId,
-              warehouseId: sale.warehouseId,
+              warehouseId: warehouseId,
               transactionType: "IN",
               quantity: ret.quantity,
               referenceType: "SALE_RETURN",
-              referenceId: sale.id,
-              notes: `Return for sale ${sale.saleNumber}`,
+              referenceId: refId,
+              notes: refNotes,
               createdBy: session.user.id
             }
           });
         }
       }
 
+      const refSaleNumber = originalSale ? originalSale.saleNumber : `VOID-${Date.now().toString().slice(-4)}`;
+
       const returnSale = await tx.sale.create({
         data: {
-          saleNumber: `RET-${sale.saleNumber}-${Date.now().toString().slice(-4)}`,
-          clientId: sale.clientId,
-          warehouseId: sale.warehouseId,
+          saleNumber: `RET-${refSaleNumber}-${Date.now().toString().slice(-4)}`,
+          clientId: clientId!,
+          warehouseId: warehouseId!,
           date: new Date(),
           status: "COMPLETED",
-          orderType: sale.orderType,
+          orderType: originalSale ? originalSale.orderType : "RETAIL",
           subTotal: -totalRefund,
           grandTotal: -totalRefund,
           createdBy: session.user.id,
@@ -2416,7 +2464,14 @@ export async function processSaleReturn(saleId: string, returnItems: { itemId: s
         }
       });
 
-      let arAccountId = sale.client?.chartOfAccountId;
+      let arAccountId = null;
+      if (originalSale && originalSale.client?.chartOfAccountId) {
+         arAccountId = originalSale.client.chartOfAccountId;
+      } else if (clientId) {
+         const dbClient = await tx.client.findUnique({ where: { id: clientId } });
+         arAccountId = dbClient?.chartOfAccountId || null;
+      }
+
       if (!arAccountId) {
         try {
           const { getSalesAccounts } = await import("@/lib/accounting-settings");
@@ -2440,13 +2495,13 @@ export async function processSaleReturn(saleId: string, returnItems: { itemId: s
           type: "PAYMENT",
           reference: returnSale.saleNumber,
           description: `Refund for sale return ${returnSale.saleNumber}`,
-          clientId: sale.clientId,
+          clientId: clientId || undefined,
           isSystemAction: true,
           lines: [
             {
               lineNumber: 1,
               chartOfAccountId: debitAccountId,
-              clientId: sale.clientId,
+              clientId: clientId || undefined,
               debitAmount: totalRefund,
               creditAmount: 0,
               description: `Sales Return`
@@ -2454,7 +2509,7 @@ export async function processSaleReturn(saleId: string, returnItems: { itemId: s
             {
               lineNumber: 2,
               chartOfAccountId: creditAccountId,
-              clientId: sale.clientId,
+              clientId: clientId || undefined,
               debitAmount: 0,
               creditAmount: totalRefund,
               description: `Refund for Sales Return`
@@ -2475,6 +2530,45 @@ export async function processSaleReturn(saleId: string, returnItems: { itemId: s
   } catch (error) {
     console.error("processSaleReturn error:", error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to process sale return" };
+  }
+}
+
+export async function getSalesByCustomer(customerId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const sales = await prisma.sale.findMany({
+      where: {
+        clientId: customerId,
+        status: "COMPLETED",
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        id: true,
+        saleNumber: true,
+        createdAt: true,
+        grandTotal: true,
+      },
+    });
+
+    return {
+      success: true,
+      sales: sales.map((sale) => ({
+        ...sale,
+        grandTotal: Number(sale.grandTotal),
+      })),
+    };
+  } catch (error) {
+    console.error("getSalesByCustomer error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch sales",
+    };
   }
 }
 

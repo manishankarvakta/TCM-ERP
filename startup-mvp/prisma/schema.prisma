@@ -603,6 +603,7 @@ model PurchaseItem {
   id          String   @id @default(cuid())
   purchaseId  String
   itemId      String?
+  variantId   String?
   description String
   quantity    Decimal  @db.Decimal(10, 2)
   unitPrice   Decimal  @db.Decimal(10, 2)
@@ -610,10 +611,12 @@ model PurchaseItem {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   item        Item?    @relation(fields: [itemId], references: [id])
+  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
   purchase    Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
 
   @@index([purchaseId])
   @@index([itemId])
+  @@index([variantId])
 }
 
 model Sale {
@@ -1452,6 +1455,7 @@ model ProductVariant {
   item            Item                 @relation(fields: [itemId], references: [id], onDelete: Cascade)
   stocks          Stock[]
   stockLedgers    StockLedger[]
+  purchaseItems   PurchaseItem[]
   clientDiscounts ClientItemDiscount[]
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
