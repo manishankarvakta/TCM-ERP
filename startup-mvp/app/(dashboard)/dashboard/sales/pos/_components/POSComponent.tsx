@@ -942,7 +942,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
         {/* Bottom Actions */}
         <div className="mt-2 pt-4 border-t border-border shrink-0 overflow-x-auto pb-2">
-          <div className="flex items-center w-fit mx-auto rounded-md overflow-hidden border border-border">
+          <div className="flex items-center w-fit rounded-md overflow-hidden border border-border">
 
             <button 
               className="flex items-center justify-center gap-2 h-12 px-6 bg-[#1f2937] text-white hover:bg-[#1f2937]/90 transition-colors min-w-[120px]"
