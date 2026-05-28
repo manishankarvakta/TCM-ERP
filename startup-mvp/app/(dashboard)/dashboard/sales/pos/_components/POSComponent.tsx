@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { FaSearch, FaHandPaper, FaSync, FaPrint, FaPlus, FaMinus, FaTrashAlt, FaShoppingCart, FaCheckCircle, FaTimes, FaUndoAlt, FaShoppingBag, FaIndustry, FaTicketAlt, FaCreditCard, FaMoneyBillWave, FaMobileAlt, FaUsers, FaGlassCheers } from "react-icons/fa";
-import { createSale, getClientItemDiscounts, validateCoupon, voidSale, processSaleReturn } from "../../_actions/sale.action";
+import { createSale, getClientItemDiscounts, validateCoupon, voidSale, processSaleReturn, getLastSaleForUser, getSaleByNumber } from "../../_actions/sale.action";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
 import { createClient } from "@/app/(dashboard)/dashboard/clients/_actions/client.action";
@@ -145,6 +145,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
   // Sync default payment option when filtered list changes
 
+
+  useEffect(() => {
+    getLastSaleForUser().then(res => setHasLastSale(!!res)).catch(() => setHasLastSale(false));
+  }, []);
+
   useEffect(() => {
     const saved = localStorage.getItem('pos_held_carts');
     if (saved) {
@@ -174,9 +179,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   // Sale completion flow
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [isHeldCartsModalOpen, setIsHeldCartsModalOpen] = useState(false);
+  const [hasLastSale, setHasLastSale] = useState(false);
   const [isVoidModalOpen, setIsVoidModalOpen] = useState(false);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [actionSaleNumber, setActionSaleNumber] = useState('');
+  const [returnSaleDetails, setReturnSaleDetails] = useState<any>(null);
+  const [returnItemsState, setReturnItemsState] = useState<{itemId: string, maxQty: number, returnQty: number}[]>([]);
+  const [isFetchingSale, setIsFetchingSale] = useState(false);
   const [isVoiding, setIsVoiding] = useState(false);
   const [isReturning, setIsReturning] = useState(false);
   const [isChangeDialogOpen, setIsChangeDialogOpen] = useState(false);
@@ -624,6 +633,20 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
 
 
+
+  const handlePrintLastBill = async () => {
+    try {
+      const res = await getLastSaleForUser();
+      if (res?.success && res.saleId) {
+        window.open(`/print/invoice/${res.saleId}`, '_blank');
+      } else {
+        toast({ title: "No Last Bill", description: "Could not find a recent sale for your account.", variant: "destructive" });
+      }
+    } catch(err) {
+      toast({ title: "Error", description: "Failed to fetch last bill.", variant: "destructive" });
+    }
+  };
+
   const handleVoidSale = async () => {
     if(!actionSaleNumber) return toast({ title: "Error", description: "Sale Number is required", variant: "destructive" });
     setIsVoiding(true);
@@ -642,16 +665,45 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setIsVoiding(false);
   };
 
-  const handleProcessReturn = async () => {
+  
+  const handleFetchSaleForReturn = async () => {
     if(!actionSaleNumber) return toast({ title: "Error", description: "Sale Number is required", variant: "destructive" });
+    setIsFetchingSale(true);
+    try {
+      const res = await getSaleByNumber(actionSaleNumber);
+      if (res.success && res.sale) {
+        setReturnSaleDetails(res.sale);
+        setReturnItemsState(res.sale.items.map((i: any) => ({ itemId: i.itemId, maxQty: Number(i.quantity), returnQty: 0 })));
+      } else {
+        toast({ title: "Not Found", description: res.error || "Sale not found", variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to fetch sale details", variant: "destructive" });
+    }
+    setIsFetchingSale(false);
+  };
+
+  const handleUpdateReturnQty = (itemId: string, qty: number) => {
+    setReturnItemsState(prev => prev.map(i => {
+      if (i.itemId === itemId) {
+        return { ...i, returnQty: Math.min(Math.max(0, qty), i.maxQty) };
+      }
+      return i;
+    }));
+  };
+
+  const handleProcessReturn = async () => {
+    const selectedItems = returnItemsState.filter(i => i.returnQty > 0).map(i => ({ itemId: i.itemId, quantity: i.returnQty }));
+    if(selectedItems.length === 0) return toast({ title: "Error", description: "Please select at least one item to return", variant: "destructive" });
+    
     setIsReturning(true);
     try {
-      // In MVP, a full return (simplification)
-      const res = await processSaleReturn(actionSaleNumber, []);
+      const res = await processSaleReturn(actionSaleNumber, selectedItems);
       if(res.success) {
         toast({ title: "Return Processed", description: "The invoice return has been recorded." });
         setIsReturnModalOpen(false);
         setActionSaleNumber('');
+        setReturnSaleDetails(null);
       } else {
         toast({ title: "Return Failed", description: res.error, variant: "destructive" });
       }
@@ -660,6 +712,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     }
     setIsReturning(false);
   };
+
 
   const handleHoldCart = () => {
     if (cart.length === 0) {

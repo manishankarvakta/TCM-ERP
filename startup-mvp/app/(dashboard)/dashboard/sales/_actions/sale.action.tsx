@@ -790,10 +790,14 @@ async function createSaleAccountingVoucher(
       debitClientId = sale.clientId;
     }
 
+    const isReturn = Number(totalSaleAmount) < 0;
+    const absTotalSaleAmount = Math.abs(Number(totalSaleAmount));
+
+    // 1. Payment/Receivable
     voucherLines.push({
       lineNumber: lineNumber++,
-      debitAmount: totalSaleAmount,
-      creditAmount: 0,
+      debitAmount: isReturn ? 0 : absTotalSaleAmount,
+      creditAmount: isReturn ? absTotalSaleAmount : 0,
       description: debitDescription,
       chartOfAccountId: debitAccountId,
       clientId: debitClientId,
@@ -1076,6 +1080,120 @@ export async function getSaleById(saleId: string) {
     };
   } catch (error) {
     console.error("getSaleById error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch sale",
+      sale: null,
+    };
+  }
+}
+
+export async function getSaleByNumber(saleNumber: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", sale: null };
+    }
+
+    const sale = await prisma.sale.findUnique({
+      where: { saleNumber },
+      select: {
+        id: true,
+        saleNumber: true,
+        date: true,
+        status: true,
+        notes: true,
+        attachmentUrl: true,
+        subTotal: true,
+        discount: true,
+        tax: true,
+        grandTotal: true,
+        isTrash: true,
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            company: true,
+            phone: true,
+          },
+        },
+        warehouse: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+        items: {
+          select: {
+            id: true,
+            itemId: true,
+            description: true,
+            quantity: true,
+            unitPrice: true,
+            amount: true,
+            item: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                unit: {
+                  select: {
+                    symbol: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        createdByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        createdAt: true,
+        updatedAt: true,
+        completedAt: true,
+      },
+    });
+
+    if (!sale) {
+      return { success: false, error: "Sale not found", sale: null };
+    }
+
+    return {
+      success: true,
+      sale: {
+        id: sale.id,
+        saleNumber: sale.saleNumber,
+        date: sale.date,
+        status: sale.status,
+        notes: sale.notes,
+        attachmentUrl: sale.attachmentUrl,
+        subTotal: Number(sale.subTotal),
+        discount: sale.discount ? Number(sale.discount) : null,
+        tax: sale.tax ? Number(sale.tax) : null,
+        grandTotal: Number(sale.grandTotal),
+        isTrash: sale.isTrash,
+        client: sale.client,
+        warehouse: sale.warehouse,
+        createdByUser: sale.createdByUser,
+        createdAt: sale.createdAt,
+        updatedAt: sale.updatedAt,
+        completedAt: sale.completedAt,
+        items: sale.items.map((item) => ({
+          ...item,
+          quantity: Number(item.quantity),
+          unitPrice: Number(item.unitPrice),
+          amount: Number(item.amount),
+        })),
+      },
+    };
+  } catch (error) {
+    console.error("getSaleByNumber error:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to fetch sale",
@@ -2087,6 +2205,308 @@ export async function getClientItemDiscounts(clientId: string) {
       success: false,
       error: error instanceof Error ? error.message : "Failed to fetch client discounts",
       discounts: [],
+    };
+  }
+}
+
+export async function voidSale(saleId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const sale = await prisma.sale.findUnique({
+      where: { id: saleId },
+      include: {
+        items: {
+          include: { item: { select: { trackInventory: true } } }
+        },
+        voucher: {
+          include: { VoucherLine: true }
+        }
+      }
+    });
+
+    if (!sale) return { success: false, error: "Sale not found" };
+    if (sale.status === "CANCELLED") return { success: false, error: "Sale is already cancelled" };
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Update sale status
+      await tx.sale.update({
+        where: { id: saleId },
+        data: {
+          status: "CANCELLED",
+          updatedBy: session.user.id
+        }
+      });
+
+      // 2. Restore inventory stock
+      for (const item of sale.items) {
+        if (!item.item?.trackInventory) continue;
+        const quantity = Number(item.quantity);
+
+        const existingStock = await tx.stock.findUnique({
+          where: {
+            itemId_warehouseId: { itemId: item.itemId, warehouseId: sale.warehouseId }
+          }
+        });
+
+        if (existingStock) {
+          await tx.stock.update({
+            where: { id: existingStock.id },
+            data: { quantity: Number(existingStock.quantity) + quantity }
+          });
+        } else {
+          await tx.stock.create({
+            data: {
+              itemId: item.itemId,
+              warehouseId: sale.warehouseId,
+              quantity: quantity
+            }
+          });
+        }
+
+        await tx.stockLedger.create({
+          data: {
+            itemId: item.itemId,
+            warehouseId: sale.warehouseId,
+            transactionType: "IN",
+            quantity: quantity,
+            referenceType: "SALE_VOID",
+            referenceId: sale.id,
+            notes: `Sale voided for ${sale.saleNumber}`,
+            createdBy: session.user.id
+          }
+        });
+      }
+
+      // 3. Reverse financial impact
+      if (sale.voucherId && sale.voucher) {
+        const lines = sale.voucher.VoucherLine.map((line, index) => ({
+          lineNumber: index + 1,
+          chartOfAccountId: line.chartOfAccountId,
+          clientId: line.clientId || undefined,
+          supplierId: line.supplierId || undefined,
+          userId: line.userId || undefined,
+          organizationId: line.organizationId || undefined,
+          debitAmount: Number(line.creditAmount),
+          creditAmount: Number(line.debitAmount),
+          description: `Reversal for voided sale: ${line.description || sale.saleNumber}`
+        }));
+
+        const voucherResult = await createVoucher({
+          date: new Date(),
+          type: "JOURNAL",
+          reference: sale.saleNumber,
+          description: `Reversal for voided sale ${sale.saleNumber}`,
+          clientId: sale.clientId,
+          isSystemAction: true,
+          lines
+        }, tx);
+
+        if (voucherResult.success && voucherResult.voucher) {
+          await postVoucher(voucherResult.voucher.id, tx, true);
+        }
+      }
+    });
+
+    revalidateBothPaths("sales");
+    return { success: true };
+  } catch (error) {
+    console.error("voidSale error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to void sale" };
+  }
+}
+
+export async function processSaleReturn(saleId: string, returnItems: { itemId: string, quantity: number }[]) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const sale = await prisma.sale.findUnique({
+      where: { id: saleId },
+      include: {
+        items: {
+          include: { item: { select: { trackInventory: true } } }
+        },
+        client: true
+      }
+    });
+
+    if (!sale) return { success: false, error: "Sale not found" };
+
+    const returnSaleData = await prisma.$transaction(async (tx) => {
+      let totalRefund = 0;
+      const newSaleItems = [];
+
+      for (const ret of returnItems) {
+        const originalItem = sale.items.find(i => i.itemId === ret.itemId);
+        if (!originalItem) throw new Error(`Item ${ret.itemId} not found in sale`);
+        
+        if (ret.quantity > Number(originalItem.quantity)) {
+          throw new Error(`Return quantity exceeds sale quantity for item ${ret.itemId}`);
+        }
+
+        const refundAmount = Number(originalItem.unitPrice) * ret.quantity;
+        totalRefund += refundAmount;
+
+        newSaleItems.push({
+          itemId: ret.itemId,
+          description: `Return: ${originalItem.description}`,
+          quantity: -ret.quantity,
+          unitPrice: Number(originalItem.unitPrice),
+          amount: -refundAmount
+        });
+
+        // Restore stock
+        if (originalItem.item?.trackInventory) {
+          const existingStock = await tx.stock.findUnique({
+            where: {
+              itemId_warehouseId: { itemId: ret.itemId, warehouseId: sale.warehouseId }
+            }
+          });
+
+          if (existingStock) {
+            await tx.stock.update({
+              where: { id: existingStock.id },
+              data: { quantity: Number(existingStock.quantity) + ret.quantity }
+            });
+          } else {
+            await tx.stock.create({
+              data: {
+                itemId: ret.itemId,
+                warehouseId: sale.warehouseId,
+                quantity: ret.quantity
+              }
+            });
+          }
+
+          await tx.stockLedger.create({
+            data: {
+              itemId: ret.itemId,
+              warehouseId: sale.warehouseId,
+              transactionType: "IN",
+              quantity: ret.quantity,
+              referenceType: "SALE_RETURN",
+              referenceId: sale.id,
+              notes: `Return for sale ${sale.saleNumber}`,
+              createdBy: session.user.id
+            }
+          });
+        }
+      }
+
+      const returnSale = await tx.sale.create({
+        data: {
+          saleNumber: `RET-${sale.saleNumber}-${Date.now().toString().slice(-4)}`,
+          clientId: sale.clientId,
+          warehouseId: sale.warehouseId,
+          date: new Date(),
+          status: "COMPLETED",
+          orderType: sale.orderType,
+          subTotal: -totalRefund,
+          grandTotal: -totalRefund,
+          createdBy: session.user.id,
+          items: {
+            create: newSaleItems
+          }
+        }
+      });
+
+      let arAccountId = sale.client?.chartOfAccountId;
+      if (!arAccountId) {
+        try {
+          const { getSalesAccounts } = await import("@/lib/accounting-settings");
+          const salesAccounts = await getSalesAccounts();
+          arAccountId = salesAccounts.receivableAccountId;
+        } catch (e) {
+          console.warn("Could not load sales accounts", e);
+        }
+      }
+
+      if (arAccountId) {
+        const cashAccount = await tx.chartOfAccount.findFirst({
+          where: { name: { contains: "Cash", mode: "insensitive" }, type: "ASSET", status: "active" }
+        });
+
+        const debitAccountId = arAccountId; 
+        const creditAccountId = cashAccount ? cashAccount.id : arAccountId;
+
+        const voucherResult = await createVoucher({
+          date: new Date(),
+          type: "PAYMENT",
+          reference: returnSale.saleNumber,
+          description: `Refund for sale return ${returnSale.saleNumber}`,
+          clientId: sale.clientId,
+          isSystemAction: true,
+          lines: [
+            {
+              lineNumber: 1,
+              chartOfAccountId: debitAccountId,
+              clientId: sale.clientId,
+              debitAmount: totalRefund,
+              creditAmount: 0,
+              description: `Sales Return`
+            },
+            {
+              lineNumber: 2,
+              chartOfAccountId: creditAccountId,
+              clientId: sale.clientId,
+              debitAmount: 0,
+              creditAmount: totalRefund,
+              description: `Refund for Sales Return`
+            }
+          ]
+        }, tx);
+
+        if (voucherResult.success && voucherResult.voucher) {
+          await postVoucher(voucherResult.voucher.id, tx, true);
+        }
+      }
+
+      return returnSale;
+    });
+
+    revalidateBothPaths("sales");
+    return { success: true, returnSale: returnSaleData };
+  } catch (error) {
+    console.error("processSaleReturn error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to process sale return" };
+  }
+}
+
+export async function getLastSaleForUser() {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const lastSale = await prisma.sale.findFirst({
+      where: {
+        createdBy: session.user.id,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!lastSale) {
+      return { success: true, saleId: null };
+    }
+
+    return { success: true, saleId: lastSale.id };
+  } catch (error) {
+    console.error("getLastSaleForUser error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch the last sale",
     };
   }
 }
