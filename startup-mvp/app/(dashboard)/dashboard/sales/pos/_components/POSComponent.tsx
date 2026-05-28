@@ -88,6 +88,14 @@ interface POSComponentProps {
 }
 
 export default function POSComponent({ items, clients: initialClients, warehouses, paymentAccounts = [] }: POSComponentProps) {
+  const handleOpenVoidReturnModal = () => {
+    toast.error("Void Return is temporarily disabled while we update the wholesale pricing logic.");
+  };
+
+  const handleOpenInvoiceReturnModal = () => {
+    toast.error("Invoice Return is temporarily disabled while we update the wholesale pricing logic.");
+  };
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToastContext();
