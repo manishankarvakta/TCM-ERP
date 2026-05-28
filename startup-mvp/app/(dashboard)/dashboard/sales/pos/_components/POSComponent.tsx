@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { FaSearch, FaHandPaper, FaSync, FaPrint, FaPlus, FaMinus, FaTrashAlt, FaShoppingCart, FaCheckCircle, FaTimes, FaUndoAlt, FaShoppingBag, FaIndustry, FaTicketAlt, FaCreditCard, FaMoneyBillWave, FaMobileAlt, FaUsers, FaGlassCheers } from "react-icons/fa";
-import { createSale, getClientItemDiscounts, validateCoupon } from "../../_actions/sale.action";
+import { createSale, getClientItemDiscounts, validateCoupon, voidSale, processSaleReturn } from "../../_actions/sale.action";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
 import { createClient } from "@/app/(dashboard)/dashboard/clients/_actions/client.action";
@@ -120,6 +120,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const [taxPercent, setTaxPercent] = useState<number>(0);
   const [isReturnMode, setIsReturnMode] = useState<boolean>(false);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [heldCarts, setHeldCarts] = useState<{ id: string, cart: CartItem[], clientId: string, amount: number }[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>(clients.find(c => c.name?.toLowerCase() === "walkway customer")?.id || clients[0]?.id || "");
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>(warehouses[0]?.id || "");
   
@@ -143,6 +144,18 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   }, [paymentAccounts, selectedWarehouseId]);
 
   // Sync default payment option when filtered list changes
+
+  useEffect(() => {
+    const saved = localStorage.getItem('pos_held_carts');
+    if (saved) {
+      try { setHeldCarts(JSON.parse(saved)); } catch (e) {}
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('pos_held_carts', JSON.stringify(heldCarts));
+  }, [heldCarts]);
+
   useEffect(() => {
     if (isConfirmModalOpen && filteredPaymentAccounts.length > 0) {
       const activeOption = filteredPaymentAccounts.find(acc => acc.id === paymentMethod);
@@ -160,6 +173,12 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
   // Sale completion flow
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+  const [isHeldCartsModalOpen, setIsHeldCartsModalOpen] = useState(false);
+  const [isVoidModalOpen, setIsVoidModalOpen] = useState(false);
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const [actionSaleNumber, setActionSaleNumber] = useState('');
+  const [isVoiding, setIsVoiding] = useState(false);
+  const [isReturning, setIsReturning] = useState(false);
   const [isChangeDialogOpen, setIsChangeDialogOpen] = useState(false);
   const [completedSaleNumber, setCompletedSaleNumber] = useState('');
   const [changeAmount, setChangeAmount] = useState(0);
@@ -603,6 +622,61 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     };
   }, [items, orderType, isReturnMode]);
 
+
+
+  const handleVoidSale = async () => {
+    if(!actionSaleNumber) return toast({ title: "Error", description: "Sale Number is required", variant: "destructive" });
+    setIsVoiding(true);
+    try {
+      const res = await voidSale(actionSaleNumber);
+      if(res.success) {
+        toast({ title: "Sale Voided", description: "The transaction has been successfully voided." });
+        setIsVoidModalOpen(false);
+        setActionSaleNumber('');
+      } else {
+        toast({ title: "Void Failed", description: res.error, variant: "destructive" });
+      }
+    } catch(err) {
+      toast({ title: "Error", description: "An error occurred while voiding", variant: "destructive" });
+    }
+    setIsVoiding(false);
+  };
+
+  const handleProcessReturn = async () => {
+    if(!actionSaleNumber) return toast({ title: "Error", description: "Sale Number is required", variant: "destructive" });
+    setIsReturning(true);
+    try {
+      // In MVP, a full return (simplification)
+      const res = await processSaleReturn(actionSaleNumber, []);
+      if(res.success) {
+        toast({ title: "Return Processed", description: "The invoice return has been recorded." });
+        setIsReturnModalOpen(false);
+        setActionSaleNumber('');
+      } else {
+        toast({ title: "Return Failed", description: res.error, variant: "destructive" });
+      }
+    } catch(err) {
+      toast({ title: "Error", description: "An error occurred while processing return", variant: "destructive" });
+    }
+    setIsReturning(false);
+  };
+
+  const handleHoldCart = () => {
+    if (cart.length === 0) {
+      toast({ title: "Cart is empty", description: "Nothing to hold.", variant: "destructive" });
+      return;
+    }
+    const newHeldCart = {
+      id: new Date().getTime().toString(),
+      cart: [...cart],
+      clientId: selectedClientId,
+      amount: grandTotal
+    };
+    setHeldCarts([...heldCarts, newHeldCart]);
+    handleNewSale(); // clear screen
+    toast({ title: "Cart Held", description: "Current transaction put on hold." });
+  };
+
   const handleNewSale = () => {
     setIsChangeDialogOpen(false);
     setCart([]);
@@ -963,23 +1037,25 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
             <button 
               className="flex items-center justify-center gap-2 h-12 px-6 bg-[#ffb000] text-black hover:bg-[#ffb000]/90 transition-colors min-w-[120px]"
-              onClick={() => toast({ title: "Hold feature disabled temporarily" })}
+              onClick={() => { if(cart.length > 0) handleHoldCart(); else if(heldCarts.length > 0) setIsHeldCartsModalOpen(true); else toast({title: "Hold", description:"No carts held."}) }}
             >
               "Hold" 
+              
+              {heldCarts.length > 0 && <span className="ml-1 bg-black text-[#ffb000] rounded-full w-5 h-5 flex items-center justify-center text-[10px]">{heldCarts.length}</span>} 
               
               <FaHandPaper className="w-4 h-4" />
             </button>
 
             <button 
               className="flex items-center justify-center gap-2 h-12 px-6 bg-[#0f8c5a] text-white hover:bg-[#0f8c5a]/90 transition-colors min-w-[120px]"
-              onClick={() => toast({ title: "Refresh POS disabled temporarily" })}
+              onClick={() => { handleNewSale(); toast({ title: "Refreshed", description: "POS reset successfully" }); }}
             >
               Refresh <FaSync className="w-4 h-4" />
             </button>
 
             <button 
               className="flex items-center justify-center gap-2 h-12 px-6 bg-[#136bfb] text-white hover:bg-[#136bfb]/90 transition-colors min-w-[120px] rounded-r-md"
-              onClick={() => toast({ title: "Print last bill disabled temporarily" })}
+              onClick={() => { if(completedSaleNumber) { setIsPrintDialogOpen(true); } else { toast({ title: "No Last Bill", description: "You haven\'t completed a sale in this session.", variant: "destructive" }); } }}
             >
               Last Bill <FaPrint className="w-4 h-4" />
             </button>
