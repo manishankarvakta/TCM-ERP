@@ -112,7 +112,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const [taxPercent, setTaxPercent] = useState<number>(0);
   const [isReturnMode, setIsReturnMode] = useState<boolean>(false);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState<string>("");
+  const [selectedClientId, setSelectedClientId] = useState<string>(clients.find(c => c.name?.toLowerCase() === "walkway customer")?.id || clients[0]?.id || "");
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>(warehouses[0]?.id || "");
   
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -718,6 +718,15 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           title: "Success",
           description: `Order ${saleNum} processed successfully!`,
         });
+        
+        if (res.sale) {
+          setCompletedSaleData({
+            id: res.sale.id,
+            change: dueAmount < 0 ? Math.abs(dueAmount) : 0,
+            saleNumber: res.sale.saleNumber
+          });
+        }
+        
         setCart([]);
         setIsConfirmModalOpen(false);
         setIsPrintDialogOpen(true);
@@ -924,6 +933,65 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 )}
               </div>
             )})}
+          </div>
+        </div>
+
+        {/* Bottom Actions */}
+        <div className="mt-2 pt-4 border-t border-border shrink-0 overflow-x-auto pb-2">
+          <div className="flex items-center w-fit mx-auto rounded-md overflow-hidden border border-border">
+
+            <button 
+              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#1f2937] text-white hover:bg-[#1f2937]/90 transition-colors min-w-[120px]"
+              onClick={handleOpenVoidReturnModal}
+            >
+              Void Return <Undo2 className="w-4 h-4" />
+            </button>
+
+
+            <button 
+              className="flex items-center justify-center gap-2 h-12 px-6 bg-background text-foreground hover:bg-muted transition-colors border-r border-border min-w-[120px]"
+              onClick={handleOpenInvoiceReturnModal}
+            >
+              Return <Undo2 className="w-4 h-4" />
+            </button>
+            
+            
+
+            <button 
+              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#ffb000] text-black hover:bg-[#ffb000]/90 transition-colors min-w-[120px]"
+              onClick={() => {
+                if(cart.length > 0) {
+                  setHeldCarts([...heldCarts, cart]);
+                  setCart([]);
+                  toast({ title: "Cart Held", description: "Current cart has been put on hold." });
+                } else if (heldCarts.length > 0) {
+                  const lastHeld = heldCarts[heldCarts.length - 1];
+                  setCart(lastHeld);
+                  setHeldCarts(heldCarts.slice(0, -1));
+                  toast({ title: "Cart Restored", description: "Held cart has been restored." });
+                } else {
+                  toast({ title: "Hold", description: "No cart to hold or restore." });
+                }
+              }}
+            >
+              {heldCarts.length > 0 && cart.length === 0 ? "Resume" : "Hold"} 
+              {heldCarts.length > 0 && <span className="ml-1 bg-black text-[#ffb000] rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">{heldCarts.length}</span>}
+              <Hand className="w-4 h-4" />
+            </button>
+
+            <button 
+              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#0f8c5a] text-white hover:bg-[#0f8c5a]/90 transition-colors min-w-[120px]"
+              onClick={handleRefreshPOS}
+            >
+              Refresh <RefreshCcw className="w-4 h-4" />
+            </button>
+
+            <button 
+              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#136bfb] text-white hover:bg-[#136bfb]/90 transition-colors min-w-[120px] rounded-r-md"
+              onClick={handlePrintLastBill}
+            >
+              Last Bill <Printer className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>

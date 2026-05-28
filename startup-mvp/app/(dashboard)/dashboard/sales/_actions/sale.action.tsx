@@ -106,6 +106,29 @@ export async function getClientsForSale() {
       return { success: false, error: "Unauthorized", clients: [] };
     }
 
+    let defaultClient = await prisma.client.findFirst({
+      where: { name: { equals: "Walkway Customer", mode: "insensitive" } },
+      select: { id: true, name: true, email: true, company: true }
+    });
+
+    if (!defaultClient) {
+      const newClient = await prisma.client.create({
+        data: {
+          name: "Walkway Customer",
+          email: "walkway@customer.local",
+          phone: "00000000000",
+          status: "active",
+          createdBy: session.user.id
+        }
+      });
+      defaultClient = {
+        id: newClient.id,
+        name: newClient.name,
+        email: newClient.email,
+        company: newClient.company
+      };
+    }
+
     const clients = await prisma.client.findMany({
       where: {
         status: "active",
@@ -123,7 +146,13 @@ export async function getClientsForSale() {
       },
     });
 
-    return { success: true, clients };
+    // Make sure Walkway Customer is at the top or at least exists
+    const clientList = clients.filter(c => c.id !== defaultClient?.id);
+    if (defaultClient) {
+      clientList.unshift(defaultClient);
+    }
+
+    return { success: true, clients: clientList };
   } catch (error) {
     console.error("getClientsForSale error:", error);
     return {
@@ -633,7 +662,7 @@ async function createSaleAccountingVoucher(
         const costPrice = Number(item.item.costPrice);
         const itemCOGS = quantity * costPrice;
         
-        if (itemCOGS > 0) {
+        if (itemCOGS !== 0) {
            let inventoryAccountId: string | null = null;
            // Prefer Sales settings for inventory if available (e.g. general FG or retail)
            // If detailed granular tracking specific to production types is needed, check item type
@@ -770,11 +799,11 @@ async function createSaleAccountingVoucher(
       clientId: debitClientId,
     });
 
-    // 2. Credit: Sales Revenue
+    // 2. Sales Revenue
     voucherLines.push({
       lineNumber: lineNumber++,
-      debitAmount: 0,
-      creditAmount: totalSaleAmount,
+      debitAmount: isReturn ? absTotalSaleAmount : 0,
+      creditAmount: isReturn ? 0 : absTotalSaleAmount,
       description: `Sales Revenue - ${sale.saleNumber}`,
       chartOfAccountId: salesAccounts.revenueAccountId,
     });
@@ -782,22 +811,24 @@ async function createSaleAccountingVoucher(
     // 3. COGS & Inventory
     if (salesAccounts.cogsAccountId) {
       for (const [invAccountId, data] of Object.entries(cogsByAccount)) {
-        // Debit COGS
+        const absAmount = Math.abs(data.amount);
+        
+        // COGS
         voucherLines.push({
           lineNumber: lineNumber++,
           chartOfAccountId: salesAccounts.cogsAccountId,
-          debitAmount: data.amount,
-          creditAmount: 0,
+          debitAmount: isReturn ? 0 : absAmount,
+          creditAmount: isReturn ? absAmount : 0,
           description: `${data.description} (${sale.saleNumber})`,
         });
 
-        // Credit Inventory
+        // Inventory
         voucherLines.push({
           lineNumber: lineNumber++,
           chartOfAccountId: invAccountId,
-          debitAmount: 0,
-          creditAmount: data.amount,
-          description: `Inventory reduction for ${sale.saleNumber}`,
+          debitAmount: isReturn ? absAmount : 0,
+          creditAmount: isReturn ? 0 : absAmount,
+          description: isReturn ? `Inventory restock for ${sale.saleNumber}` : `Inventory reduction for ${sale.saleNumber}`,
         });
       }
     }
@@ -2013,8 +2044,6 @@ export async function cancelSale(saleId: string) {
     console.error("cancelSale error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to cancel sale",
-      sale: null,
     };
   }
 }
