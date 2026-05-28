@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, Plus, Minus, Trash2, ShoppingCart, CheckCircle2, X, Undo2 } from "lucide-react";
+import { FaSearch, FaPlus, FaMinus, FaTrashAlt, FaShoppingCart, FaCheckCircle, FaTimes, FaUndoAlt, FaShoppingBag, FaIndustry, FaTicketAlt, FaCreditCard, FaMoneyBillWave, FaMobileAlt, FaUsers, FaGlassCheers } from "react-icons/fa";
 import { createSale, getClientItemDiscounts, validateCoupon } from "../../_actions/sale.action";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
@@ -636,7 +636,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       setAppliedPromo(code);
       setPromoDiscountMsg(result.message || `Coupon applied!`);
       toast({
-        title: "✅ Coupon Applied!",
+        title: <span className="flex items-center gap-2"><FaCheckCircle /> Coupon Applied!</span>,
         description: result.message || `Discount of ৳${result.discountAmount.toFixed(2)} applied.`,
       });
     } else {
@@ -830,7 +830,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                   ? "bg-blue-500/10 text-blue-600"
                   : "bg-orange-500/10 text-orange-600"
               }`}>
-                {orderType === "RETAIL" ? "🛍️ Retail" : "🏭 Wholesale"}
+                {orderType === "RETAIL" ? (<span className="flex items-center gap-1"><FaShoppingBag /> Retail</span>) : (<span className="flex items-center gap-1"><FaIndustry /> Wholesale</span>)}
               </span>
             </h1>
             <div className="flex items-center gap-2">
@@ -850,7 +850,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           </div>
           <div className="flex items-center gap-4">
             <div className="relative w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="Search products..." 
                 value={searchQuery}
@@ -863,7 +863,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
               className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors h-10"
               onClick={() => router.push('/dashboard/sales')}
             >
-              <X className="w-4 h-4 mr-2" /> Exit POS
+              <FaTimes className="w-4 h-4 mr-2" /> Exit POS
             </Button>
           </div>
         </div>
@@ -929,14 +929,14 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                     className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-full text-xs" 
                     onClick={() => handleAddToCart(item)}
                   >
-                    <Plus className="w-3.5 h-3.5 mr-1" /> Add SKU
+                    <FaPlus className="w-3.5 h-3.5 mr-1" /> Add SKU
                   </Button>
                 ) : (
                   <Button 
                     className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-full" 
                     onClick={() => handleAddToCart(item)}
                   >
-                    <Plus className="w-4 h-4 mr-2" /> Add
+                    <FaPlus className="w-4 h-4 mr-2" /> Add
                   </Button>
                 )}
               </div>
@@ -952,7 +952,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
               className="flex items-center justify-center gap-2 h-12 px-6 bg-[#1f2937] text-white hover:bg-[#1f2937]/90 transition-colors min-w-[120px]"
               onClick={handleOpenVoidReturnModal}
             >
-              Void Return <Undo2 className="w-4 h-4" />
+              Void Return <FaUndoAlt className="w-4 h-4" />
             </button>
 
 
@@ -960,7 +960,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
               className="flex items-center justify-center gap-2 h-12 px-6 bg-background text-foreground hover:bg-muted transition-colors border-r border-border min-w-[120px]"
               onClick={handleOpenInvoiceReturnModal}
             >
-              Return <Undo2 className="w-4 h-4" />
+              Return <FaUndoAlt className="w-4 h-4" />
             </button>
             
             
@@ -1049,7 +1049,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                   onClick={() => setIsAddCustomerOpen(true)}
                   className="h-9 px-2 text-xs flex gap-1 font-semibold border-primary/30 text-primary hover:bg-primary/10 shrink-0"
                 >
-                  <Plus className="w-3.5 h-3.5" /> Add
+                  <FaPlus className="w-3.5 h-3.5" /> Add
                 </Button>
               </div>
             </div>
@@ -1059,7 +1059,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
              <div className="py-4 space-y-4">
                 {cart.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-muted-foreground py-10">
-                    <ShoppingCart className="w-12 h-12 mb-4 opacity-50" />
+                    <FaShoppingCart className="w-12 h-12 mb-4 opacity-50" />
                     <p>Your cart is empty</p>
                   </div>
                 ) : (
@@ -1087,21 +1087,21 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                           className="w-6 h-6 flex items-center justify-center bg-background rounded-full border border-border shadow-sm text-muted-foreground hover:text-foreground"
                           onClick={() => handleUpdateQuantity(item.cartKey, -1)}
                         >
-                          <Minus className="w-3 h-3" />
+                          <FaMinus className="w-3 h-3" />
                         </button>
                         <span className="text-sm font-medium w-4 text-center text-foreground">{item.cartQuantity}</span>
                         <button 
                           className="w-6 h-6 flex items-center justify-center bg-background rounded-full border border-border shadow-sm text-muted-foreground hover:text-foreground"
                           onClick={() => handleUpdateQuantity(item.cartKey, 1)}
                         >
-                          <Plus className="w-3 h-3" />
+                          <FaPlus className="w-3 h-3" />
                         </button>
                       </div>
                       <button 
                         className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors shrink-0"
                         onClick={() => handleRemoveItem(item.cartKey)}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <FaTrashAlt className="w-4 h-4" />
                       </button>
                     </div>
                   ))
@@ -1189,7 +1189,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
               <div className="space-y-4 overflow-y-auto pr-1">
                 {/* Coupon Code Section */}
                 <div className="bg-muted/40 p-3.5 rounded-xl border border-border">
-                  <label className="text-xs font-bold uppercase tracking-wide text-muted-foreground block mb-2">🎟️ Promo / Coupon Code</label>
+                  <label className="text-xs font-bold uppercase tracking-wide text-muted-foreground block mb-2"><span className="flex items-center gap-2"><FaTicketAlt /> Promo / Coupon Code</span></label>
                   <div className="flex gap-2">
                     <Input 
                       placeholder="Enter coupon code..." 
@@ -1254,7 +1254,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
                 {/* Payment Method Select Dropdown */}
                 <div>
-                  <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground block mb-2">💳 Payment Method</label>
+                  <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground block mb-2"><span className="flex items-center gap-2"><FaCreditCard /> Payment Method</span></label>
                   <Select value={paymentMethod} onValueChange={(val) => setPaymentMethod(val)}>
                     <SelectTrigger className="h-10 text-xs bg-background border-border">
                       <SelectValue placeholder="Select payment method" />
@@ -1269,7 +1269,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                             .filter(acc => acc.type === "CASH")
                             .map((acc) => (
                               <SelectItem key={acc.id} value={acc.id} className="text-xs">
-                                💵 {acc.code} - {acc.name}
+                                <span className="flex items-center gap-2"><FaMoneyBillWave /> {acc.code}</span> - {acc.name}
                               </SelectItem>
                             ))}
                         </>
@@ -1283,7 +1283,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                             .filter(acc => acc.type === "BANK")
                             .map((acc) => (
                               <SelectItem key={acc.id} value={acc.id} className="text-xs">
-                                💳 {acc.code} - {acc.name}
+                                <span className="flex items-center gap-2"><FaCreditCard /> {acc.code}</span> - {acc.name}
                               </SelectItem>
                             ))}
                         </>
@@ -1297,15 +1297,15 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                             .filter(acc => acc.type === "WALLET")
                             .map((acc) => (
                               <SelectItem key={acc.id} value={acc.id} className="text-xs">
-                                📱 {acc.code} - {acc.name}
+                                <span className="flex items-center gap-2"><FaMobileAlt /> {acc.code}</span> - {acc.name}
                               </SelectItem>
                             ))}
                         </>
                       )}
                       {filteredPaymentAccounts.length === 0 && (
                         <>
-                          <SelectItem value="CASH" className="text-xs">💵 Cash (Default)</SelectItem>
-                          <SelectItem value="CARD" className="text-xs">💳 Card (Default)</SelectItem>
+                          <SelectItem value="CASH" className="text-xs"><span className="flex items-center gap-2"><FaMoneyBillWave /> Cash (Default)</span></SelectItem>
+                          <SelectItem value="CARD" className="text-xs"><span className="flex items-center gap-2"><FaCreditCard /> Card (Default)</span></SelectItem>
                         </>
                       )}
                     </SelectContent>
@@ -1314,7 +1314,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
                 {/* Paid Amount & Quick cash helpers */}
                 <div>
-                  <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground block mb-1">💵 Paid Amount</label>
+                  <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground block mb-1"><span className="flex items-center gap-2"><FaMoneyBillWave /> Paid Amount</span></label>
                   <div className="relative mb-2">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">৳</span>
                     <Input 
@@ -1426,7 +1426,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-center">🎉 Sale Created!</DialogTitle>
+            <DialogTitle className="text-center"><span className="flex items-center gap-2 justify-center"><FaGlassCheers /> Sale Created!</span></DialogTitle>
           </DialogHeader>
           <div className="text-center py-4">
             <p className="text-2xl font-bold mb-6">{completedSaleNumber}</p>
@@ -1440,7 +1440,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       <Dialog open={isChangeDialogOpen} onOpenChange={(open) => { if (!open) handleNewSale(); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-center text-foreground">💵 Change Amount</DialogTitle>
+            <DialogTitle className="text-center text-foreground"><span className="flex items-center gap-2 justify-center"><FaMoneyBillWave /> Change Amount</span></DialogTitle>
           </DialogHeader>
           <div className="text-center py-6">
             <div className={`text-5xl font-black mb-2 ${changeAmount >= 0 ? 'text-green-500' : 'text-destructive'}`}>
@@ -1487,7 +1487,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                         });
                       }}
                     >
-                      <Plus className="w-3.5 h-3.5" /> Add
+                      <FaPlus className="w-3.5 h-3.5" /> Add
                     </Button>
                   </div>
                 ))}
@@ -1505,7 +1505,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       <Dialog open={isAddCustomerOpen} onOpenChange={setIsAddCustomerOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>👥 Add New Customer</DialogTitle>
+            <DialogTitle><span className="flex items-center gap-2"><FaUsers /> Add New Customer</span></DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAddCustomerSubmit} className="space-y-4">
             <div>
