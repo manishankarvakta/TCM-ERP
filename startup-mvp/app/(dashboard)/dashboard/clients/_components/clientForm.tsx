@@ -198,7 +198,8 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
         setLoadingItems(true);
         const result = await getItemsForSale();
         if (result.success && result.items) {
-          setItems(result.items);
+          const wholesaleItems = result.items.filter((item: any) => item.itemType === "WHOLESALE");
+          setItems(wholesaleItems);
         }
       } catch (err) {
         console.error("Failed to load items for wholesale form:", err);
