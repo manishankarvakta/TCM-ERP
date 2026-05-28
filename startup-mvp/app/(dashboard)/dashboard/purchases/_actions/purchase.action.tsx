@@ -142,7 +142,7 @@ export async function getItemsForPurchase() {
         status: "active",
         isTrash: false,
         itemType: {
-          in: [ItemType.RAW_MATERIAL, ItemType.RETAIL],
+          in: [ItemType.RAW_MATERIAL, ItemType.READY_PRODUCT, ItemType.RETAIL],
         },
       },
       select: {

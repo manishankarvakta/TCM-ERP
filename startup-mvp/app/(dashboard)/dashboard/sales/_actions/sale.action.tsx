@@ -1139,24 +1139,36 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
 
         const dbItems = await tx.item.findMany({
           where: { id: { in: itemIds } },
-          select: { id: true, wholesalePrice: true, salesPrice: true }
+          select: { id: true, wholesalePrice: true, wholesaleDiscountAmount: true, salesPrice: true }
         });
 
         const dbVariants = variantIds.length > 0 ? await tx.productVariant.findMany({
           where: { id: { in: variantIds } },
-          select: { id: true, salesPrice: true }
+          select: { id: true, salesPrice: true, wholesalePrice: true, wholesaleDiscountAmount: true }
         }) : [];
 
         itemsToCreate = validated.items.map((item) => {
           const itemDb = dbItems.find(i => i.id === item.itemId);
           const variantDb = item.variantId ? dbVariants.find(v => v.id === item.variantId) : null;
           
-          const baseItemPrice = itemDb 
-            ? (itemDb.wholesalePrice !== null ? Number(itemDb.wholesalePrice) : Number(itemDb.salesPrice || 0)) 
-            : item.unitPrice;
-          const basePrice = (variantDb && variantDb.salesPrice !== null) 
-            ? Number(variantDb.salesPrice) 
-            : baseItemPrice;
+          let basePrice = item.unitPrice;
+          if (variantDb) {
+            if (variantDb.wholesalePrice !== null) {
+              basePrice = Number(variantDb.wholesalePrice);
+            } else if (variantDb.wholesaleDiscountAmount !== null) {
+              basePrice = Number(variantDb.salesPrice || itemDb?.salesPrice || 0) - Number(variantDb.wholesaleDiscountAmount);
+            } else if (variantDb.salesPrice !== null) {
+              basePrice = Number(variantDb.salesPrice);
+            }
+          } else if (itemDb) {
+            if (itemDb.wholesalePrice !== null) {
+              basePrice = Number(itemDb.wholesalePrice);
+            } else if (itemDb.wholesaleDiscountAmount !== null) {
+              basePrice = Number(itemDb.salesPrice || 0) - Number(itemDb.wholesaleDiscountAmount);
+            } else if (itemDb.salesPrice !== null) {
+              basePrice = Number(itemDb.salesPrice);
+            }
+          }
 
           let discountRecord = null;
           if (item.variantId) {
@@ -1387,24 +1399,36 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
 
         const dbItems = await tx.item.findMany({
           where: { id: { in: itemIds } },
-          select: { id: true, wholesalePrice: true, salesPrice: true }
+          select: { id: true, wholesalePrice: true, wholesaleDiscountAmount: true, salesPrice: true }
         });
 
         const dbVariants = variantIds.length > 0 ? await tx.productVariant.findMany({
           where: { id: { in: variantIds } },
-          select: { id: true, salesPrice: true }
+          select: { id: true, salesPrice: true, wholesalePrice: true, wholesaleDiscountAmount: true }
         }) : [];
 
         itemsToCreate = validated.items.map((item) => {
           const itemDb = dbItems.find(i => i.id === item.itemId);
           const variantDb = item.variantId ? dbVariants.find(v => v.id === item.variantId) : null;
           
-          const baseItemPrice = itemDb 
-            ? (itemDb.wholesalePrice !== null ? Number(itemDb.wholesalePrice) : Number(itemDb.salesPrice || 0)) 
-            : item.unitPrice;
-          const basePrice = (variantDb && variantDb.salesPrice !== null) 
-            ? Number(variantDb.salesPrice) 
-            : baseItemPrice;
+          let basePrice = item.unitPrice;
+          if (variantDb) {
+            if (variantDb.wholesalePrice !== null) {
+              basePrice = Number(variantDb.wholesalePrice);
+            } else if (variantDb.wholesaleDiscountAmount !== null) {
+              basePrice = Number(variantDb.salesPrice || itemDb?.salesPrice || 0) - Number(variantDb.wholesaleDiscountAmount);
+            } else if (variantDb.salesPrice !== null) {
+              basePrice = Number(variantDb.salesPrice);
+            }
+          } else if (itemDb) {
+            if (itemDb.wholesalePrice !== null) {
+              basePrice = Number(itemDb.wholesalePrice);
+            } else if (itemDb.wholesaleDiscountAmount !== null) {
+              basePrice = Number(itemDb.salesPrice || 0) - Number(itemDb.wholesaleDiscountAmount);
+            } else if (itemDb.salesPrice !== null) {
+              basePrice = Number(itemDb.salesPrice);
+            }
+          }
 
           let discountRecord = null;
           if (item.variantId) {

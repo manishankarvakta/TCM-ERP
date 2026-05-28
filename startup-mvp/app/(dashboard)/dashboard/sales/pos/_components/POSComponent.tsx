@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface ItemVariant {
   id: string;
@@ -26,6 +27,8 @@ interface ItemVariant {
   color: string;
   costPrice?: number | null;
   salesPrice?: number | null;
+  wholesalePrice?: number | null;
+  wholesaleDiscountAmount?: number | null;
 }
 
 interface Item {
@@ -37,6 +40,7 @@ interface Item {
   unit: string;
   unitPrice: number;
   wholesalePrice?: number;
+  wholesaleDiscountAmount?: number;
   itemType: ItemType;
   category?: string | null;
   imageUrl: string | null;
@@ -89,6 +93,14 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const { toast } = useToastContext();
   
   const [clients, setClients] = useState<Client[]>(initialClients);
+  
+  const clientOptions = useMemo(() => {
+    return clients.map(c => ({
+      value: c.id,
+      label: c.name || c.email || "Unnamed Customer",
+      description: c.clientType === 'wholesale' ? "Wholesale" : undefined
+    }));
+  }, [clients]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<string>("ALL");
   
@@ -187,12 +199,30 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     if ("variantId" in item && item.variantId && item.variants) {
       const variant = item.variants.find(v => v.id === item.variantId);
       if (variant) {
+        if (currentOrderType === "WHOLESALE") {
+          if (variant.wholesalePrice !== null && variant.wholesalePrice !== undefined) {
+            return Number(variant.wholesalePrice);
+          }
+          if (variant.wholesaleDiscountAmount !== null && variant.wholesaleDiscountAmount !== undefined) {
+            return Number(variant.salesPrice || item.unitPrice) - Number(variant.wholesaleDiscountAmount);
+          }
+        }
         if (variant.salesPrice !== null && variant.salesPrice !== undefined) {
           return Number(variant.salesPrice);
         }
       }
     }
-    return currentOrderType === "WHOLESALE" ? (item.wholesalePrice || item.unitPrice) : item.unitPrice;
+    
+    if (currentOrderType === "WHOLESALE") {
+      if (item.wholesalePrice !== null && item.wholesalePrice !== undefined) {
+        return Number(item.wholesalePrice);
+      }
+      if (item.wholesaleDiscountAmount !== null && item.wholesaleDiscountAmount !== undefined) {
+        return item.unitPrice - Number(item.wholesaleDiscountAmount);
+      }
+    }
+    
+    return item.unitPrice;
   };
 
   const getDiscountedPrice = (item: CartItem, basePrice: number, discounts: any[]) => {
@@ -331,7 +361,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       return;
     }
 
-    const basePrice = orderType === "WHOLESALE" ? (item.wholesalePrice || item.unitPrice) : item.unitPrice;
+    const basePrice = getBasePrice(item, orderType);
     let priceToUse = basePrice;
     const discount = getItemDiscount(item);
     if (discount) {
@@ -367,8 +397,24 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   };
 
   const handleVariantAddToCart = (item: Item, variant: ItemVariant, quantity: number = 1) => {
-    const basePrice = orderType === "WHOLESALE" ? (item.wholesalePrice || item.unitPrice) : item.unitPrice;
-    const basePriceToUse = variant.salesPrice !== null && variant.salesPrice !== undefined ? Number(variant.salesPrice) : basePrice;
+    let basePriceToUse = item.unitPrice;
+    if (orderType === "WHOLESALE") {
+      if (variant.wholesalePrice !== null && variant.wholesalePrice !== undefined) {
+        basePriceToUse = Number(variant.wholesalePrice);
+      } else if (variant.wholesaleDiscountAmount !== null && variant.wholesaleDiscountAmount !== undefined) {
+        basePriceToUse = Number(variant.salesPrice || item.unitPrice) - Number(variant.wholesaleDiscountAmount);
+      } else if (item.wholesalePrice !== null && item.wholesalePrice !== undefined) {
+        basePriceToUse = Number(item.wholesalePrice);
+      } else if (item.wholesaleDiscountAmount !== null && item.wholesaleDiscountAmount !== undefined) {
+        basePriceToUse = item.unitPrice - Number(item.wholesaleDiscountAmount);
+      } else if (variant.salesPrice !== null && variant.salesPrice !== undefined) {
+        basePriceToUse = Number(variant.salesPrice);
+      }
+    } else {
+      if (variant.salesPrice !== null && variant.salesPrice !== undefined) {
+        basePriceToUse = Number(variant.salesPrice);
+      }
+    }
     let priceToUse = basePriceToUse;
     const discount = getItemDiscount(item, variant.id);
     if (discount) {
@@ -434,6 +480,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           toast({
             title: "SKU Scanned",
             description: `Added: ${item.description} (${matchedVariant.color} / ${matchedVariant.size})`,
+            duration: 1200,
           });
           handleVariantAddToCart(item, matchedVariant);
           return;
@@ -446,6 +493,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       toast({
         title: "Product Scanned",
         description: `Added: ${matchedItem.description}`,
+        duration: 1200,
       });
       handleAddToCart(matchedItem);
       return;
@@ -477,6 +525,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
             toast({
               title: "SKU Found",
               description: `Added: ${item.description} (${matchedVariant.color} / ${matchedVariant.size})`,
+              duration: 1200,
             });
             handleVariantAddToCart(item, matchedVariant);
             setSearchQuery("");
@@ -496,6 +545,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         toast({
           title: "Product Found",
           description: `Added: ${matchedItem.description}`,
+          duration: 1200,
         });
         handleAddToCart(matchedItem);
         setSearchQuery("");
@@ -907,23 +957,21 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 )}
               </label>
               <div className="flex gap-2">
-                <select 
-                  className="flex-1 flex h-9 items-center justify-between rounded-md border border-input bg-background text-foreground px-2 py-1 text-xs ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                  value={selectedClientId}
-                  onChange={(e) => setSelectedClientId(e.target.value)}
-                >
-                  <option value="">Select Customer...</option>
-                  {clients.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name || c.email}{c.clientType === 'wholesale' ? ' [WS]' : ''}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex-1 min-w-0">
+                  <SearchableSelect
+                    options={clientOptions}
+                    value={selectedClientId || null}
+                    onValueChange={(val) => setSelectedClientId(val || "")}
+                    placeholder="Select Customer..."
+                    searchPlaceholder="Search customer..."
+                    className="w-full h-9 text-xs"
+                  />
+                </div>
                 <Button 
                   size="sm"
                   variant="outline"
                   onClick={() => setIsAddCustomerOpen(true)}
-                  className="h-9 px-2 text-xs flex gap-1 font-semibold border-primary/30 text-primary hover:bg-primary/10"
+                  className="h-9 px-2 text-xs flex gap-1 font-semibold border-primary/30 text-primary hover:bg-primary/10 shrink-0"
                 >
                   <Plus className="w-3.5 h-3.5" /> Add
                 </Button>
@@ -1123,14 +1171,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-1 block">Tax Percent (%)</label>
-                    <Input 
-                      type="number" 
-                      value={taxPercent || ""}
-                      onChange={(e) => setTaxPercent(Number(e.target.value) || 0)}
-                      placeholder="Tax %"
-                      className="h-9 text-xs bg-background"
-                    />
+                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-1 block">Tax</label>
+                                        <div className="text-sm font-medium text-foreground">৳{tax.toFixed(2)}</div>
                   </div>
                 </div>
 
@@ -1364,7 +1406,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                         handleVariantAddToCart(selectedItemForVariants, v);
                         toast({
                           title: "SKU Added",
-                          description: `Added ${v.color} / ${v.size} to cart.`
+                          description: `Added ${v.color} / ${v.size} to cart.`,
+                          duration: 1200,
                         });
                       }}
                     >

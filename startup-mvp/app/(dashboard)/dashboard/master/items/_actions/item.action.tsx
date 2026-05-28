@@ -285,6 +285,7 @@ export async function getItems(
         costPrice: true,
         salesPrice: true,
         wholesalePrice: true,
+        wholesaleDiscountAmount: true,
         discount: true,
         trackInventory: true,
         images: true,
@@ -382,6 +383,7 @@ export async function getItemById(itemId: string) {
         costPrice: true,
         salesPrice: true,
         wholesalePrice: true,
+        wholesaleDiscountAmount: true,
         discount: true,
         trackInventory: true,
         images: true,
@@ -449,12 +451,15 @@ export async function getItemById(itemId: string) {
       costPrice: Number(item.costPrice),
       salesPrice: item.salesPrice ? Number(item.salesPrice) : null,
       wholesalePrice: item.wholesalePrice ? Number(item.wholesalePrice) : null,
+      wholesaleDiscountAmount: item.wholesaleDiscountAmount ? Number(item.wholesaleDiscountAmount) : null,
       discount: item.discount ? Number(item.discount) : null,
       vatPercentage: item.vatPercentage ? Number(item.vatPercentage) : 0,
       variants: item.variants ? item.variants.map((v) => ({
         ...v,
         costPrice: v.costPrice ? Number(v.costPrice) : null,
         salesPrice: v.salesPrice ? Number(v.salesPrice) : null,
+        wholesalePrice: v.wholesalePrice ? Number(v.wholesalePrice) : null,
+        wholesaleDiscountAmount: v.wholesaleDiscountAmount ? Number(v.wholesaleDiscountAmount) : null,
       })) : [],
     };
 
@@ -600,6 +605,7 @@ export async function createItem(input: {
   costPrice: number;
   salesPrice?: number | null;
   wholesalePrice?: number | null;
+  wholesaleDiscountAmount?: number | null;
   discount?: number | null;
   trackInventory?: boolean;
   images?: string[] | null;
@@ -618,6 +624,8 @@ export async function createItem(input: {
     color: string;
     costPrice?: number | null;
     salesPrice?: number | null;
+    wholesalePrice?: number | null;
+    wholesaleDiscountAmount?: number | null;
     initialStock?: number;
     image?: string | null;
   }>;
@@ -727,6 +735,7 @@ export async function createItem(input: {
         costPrice: input.costPrice,
         salesPrice: input.salesPrice || null,
         wholesalePrice: input.wholesalePrice || null,
+        wholesaleDiscountAmount: input.wholesaleDiscountAmount || null,
         discount: input.discount || null,
         trackInventory: input.trackInventory ?? false,
         images: input.images || [],
@@ -748,6 +757,8 @@ export async function createItem(input: {
             color: v.color,
             costPrice: v.costPrice || null,
             salesPrice: v.salesPrice || null,
+            wholesalePrice: v.wholesalePrice || null,
+            wholesaleDiscountAmount: v.wholesaleDiscountAmount || null,
             image: v.image || null,
           }))),
         } : undefined,
@@ -763,6 +774,7 @@ export async function createItem(input: {
         costPrice: true,
         salesPrice: true,
         wholesalePrice: true,
+        wholesaleDiscountAmount: true,
         discount: true,
         trackInventory: true,
         images: true,
@@ -876,6 +888,7 @@ export async function updateItem(input: {
   costPrice: number;
   salesPrice?: number | null;
   wholesalePrice?: number | null;
+  wholesaleDiscountAmount?: number | null;
   discount?: number | null;
   trackInventory?: boolean;
   images?: string[] | null;
@@ -895,6 +908,8 @@ export async function updateItem(input: {
     color: string;
     costPrice?: number | null;
     salesPrice?: number | null;
+    wholesalePrice?: number | null;
+    wholesaleDiscountAmount?: number | null;
     initialStock?: number;
     image?: string | null;
   }>;
@@ -933,6 +948,7 @@ export async function updateItem(input: {
         costPrice: true,
         salesPrice: true,
         wholesalePrice: true,
+        wholesaleDiscountAmount: true,
         discount: true,
         trackInventory: true,
         images: true,
@@ -1022,6 +1038,7 @@ export async function updateItem(input: {
       costPrice: input.costPrice,
       salesPrice: input.salesPrice || null,
       wholesalePrice: input.wholesalePrice || null,
+      wholesaleDiscountAmount: input.wholesaleDiscountAmount || null,
       discount: input.discount || null,
       trackInventory: input.trackInventory ?? false,
       images: input.images || [],
@@ -1067,6 +1084,8 @@ export async function updateItem(input: {
               color: v.color,
               costPrice: v.costPrice || null,
               salesPrice: v.salesPrice || null,
+              wholesalePrice: v.wholesalePrice || null,
+              wholesaleDiscountAmount: v.wholesaleDiscountAmount || null,
               image: v.image || null,
             }
           });
@@ -1080,6 +1099,8 @@ export async function updateItem(input: {
               color: v.color,
               costPrice: v.costPrice || null,
               salesPrice: v.salesPrice || null,
+              wholesalePrice: v.wholesalePrice || null,
+              wholesaleDiscountAmount: v.wholesaleDiscountAmount || null,
               image: v.image || null,
               itemId: input.id,
             }
@@ -1119,6 +1140,7 @@ export async function updateItem(input: {
         costPrice: true,
         salesPrice: true,
         wholesalePrice: true,
+        wholesaleDiscountAmount: true,
         discount: true,
         trackInventory: true,
         images: true,

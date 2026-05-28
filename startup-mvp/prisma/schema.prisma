@@ -300,6 +300,7 @@ model Item {
   isEnableEcom            Boolean                   @default(false)
   sizes                   String[]
   wholesalePrice          Decimal?                  @db.Decimal(12, 2)
+  wholesaleDiscountAmount Decimal?                  @db.Decimal(12, 2)
   featuredImage           String?
   bomAsFinishedGood       BOM[]                     @relation("BOMFinishedGood")
   bomAsRawMaterial        BOMItem[]                 @relation("BOMRawMaterial")
@@ -1443,8 +1444,10 @@ model ProductVariant {
   size         String
   color        String
   costPrice    Decimal?      @db.Decimal(12, 2)
-  salesPrice   Decimal?      @db.Decimal(12, 2)
-  image        String?
+  salesPrice              Decimal?      @db.Decimal(12, 2)
+  wholesalePrice          Decimal?      @db.Decimal(12, 2)
+  wholesaleDiscountAmount Decimal?      @db.Decimal(12, 2)
+  image                   String?
   itemId          String
   item            Item                 @relation(fields: [itemId], references: [id], onDelete: Cascade)
   stocks          Stock[]

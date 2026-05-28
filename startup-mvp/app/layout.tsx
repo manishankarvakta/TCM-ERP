@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ui/providers/theme-provider";
 import StoreProvider from "@/components/ui/providers/store-provider";
 import { ToastProvider } from "@/components/ui/providers/toast-provider";
+import { Toaster } from "@/components/ui/sonner";
 // import { ThemeProvider } from "@/components/ui/providers/theme-provider";
 
 // Font fallbacks for offline builds
@@ -39,6 +40,7 @@ export default function RootLayout({
             <StoreProvider>
               <ToastProvider>
                 {children}
+                <Toaster />
               </ToastProvider>
             </StoreProvider>
           </ThemeProvider>

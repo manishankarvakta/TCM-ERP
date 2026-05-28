@@ -34,6 +34,8 @@ interface VariantState {
   color: string;
   costPrice: number | null;
   salesPrice: number | null;
+  wholesalePrice: number | null;
+  wholesaleDiscountAmount: number | null;
   initialStock: number;
   enabled: boolean;
   image?: string | null;
@@ -48,6 +50,7 @@ const itemFormSchema = z.object({
   costPrice: z.number().min(0, "Cost price must be >= 0"),
   salesPrice: z.number().min(0, "Sales price must be >= 0").optional().nullable(),
   wholesalePrice: z.number().min(0, "Wholesale price must be >= 0").optional().nullable(),
+  wholesaleDiscountAmount: z.number().min(0, "Wholesale discount amount must be >= 0").optional().nullable(),
   discount: z.number().min(0, "Discount must be >= 0").optional().nullable(),
   trackInventory: z.boolean().default(false),
   images: z.array(z.string()).default([]),
@@ -84,6 +87,7 @@ interface ItemFormProps {
     costPrice: number;
     salesPrice: number | null;
     wholesalePrice: number | null;
+    wholesaleDiscountAmount: number | null;
     discount: number | null;
     trackInventory: boolean;
     images: string[] | null;
@@ -103,6 +107,8 @@ interface ItemFormProps {
       color: string;
       costPrice?: number | null;
       salesPrice?: number | null;
+      wholesalePrice?: number | null;
+      wholesaleDiscountAmount?: number | null;
       initialStock?: number;
       image?: string | null;
     }>;
@@ -148,6 +154,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
         color: v.color,
         costPrice: v.costPrice ?? null,
         salesPrice: v.salesPrice ?? null,
+        wholesalePrice: v.wholesalePrice ?? null,
+        wholesaleDiscountAmount: v.wholesaleDiscountAmount ?? null,
         initialStock: v.initialStock ?? 0,
         enabled: true,
         image: v.image || "",
@@ -175,6 +183,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           costPrice: Number(initialData.costPrice),
           salesPrice: initialData.salesPrice ? Number(initialData.salesPrice) : null,
           wholesalePrice: initialData.wholesalePrice ? Number(initialData.wholesalePrice) : null,
+          wholesaleDiscountAmount: initialData.wholesaleDiscountAmount ? Number(initialData.wholesaleDiscountAmount) : null,
           discount: initialData.discount ? Number(initialData.discount) : null,
           trackInventory: initialData.trackInventory,
           images: initialData.images || [],
@@ -198,6 +207,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           costPrice: 0,
           salesPrice: null,
           wholesalePrice: null,
+          wholesaleDiscountAmount: null,
           discount: null,
           trackInventory: false,
           images: [],
@@ -257,6 +267,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
             color: color,
             costPrice: null,
             salesPrice: null,
+            wholesalePrice: null,
+            wholesaleDiscountAmount: null,
             initialStock: 0,
             enabled: true,
             image: "",
@@ -315,6 +327,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
         costPrice: data.costPrice,
         salesPrice: data.salesPrice || null,
         wholesalePrice: data.wholesalePrice || null,
+        wholesaleDiscountAmount: data.wholesaleDiscountAmount || null,
         discount: data.discount || null,
         trackInventory: data.trackInventory,
         images: data.images,
@@ -334,6 +347,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           color: v.color,
           costPrice: v.costPrice,
           salesPrice: v.salesPrice,
+          wholesalePrice: v.wholesalePrice,
+          wholesaleDiscountAmount: v.wholesaleDiscountAmount,
           initialStock: v.initialStock || 0,
           image: v.image || null,
         })),
@@ -632,6 +647,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                               <th className="p-3">Barcode</th>
                               <th className="p-3">Cost Price</th>
                               <th className="p-3">Sales Price</th>
+                              <th className="p-3">WS Price</th>
+                              <th className="p-3">WS Disc. Amount</th>
                               {mode === "create" && <th className="p-3">Init Stock</th>}
                             </tr>
                           </thead>
@@ -759,6 +776,40 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                                     className="h-8 max-w-[100px]"
                                   />
                                 </td>
+                                <td className="p-3">
+                                  <Input 
+                                    type="number"
+                                    placeholder="Use Base"
+                                    disabled={!v.enabled}
+                                    value={v.wholesalePrice !== null ? v.wholesalePrice : ""}
+                                    onChange={(e) => {
+                                      const val = e.target.value === "" ? null : Number(e.target.value);
+                                      setVariants(prev => {
+                                        const updated = [...prev];
+                                        updated[idx].wholesalePrice = val;
+                                        return updated;
+                                      });
+                                    }}
+                                    className="h-8 max-w-[100px]"
+                                  />
+                                </td>
+                                <td className="p-3">
+                                  <Input 
+                                    type="number"
+                                    placeholder="Use Base"
+                                    disabled={!v.enabled}
+                                    value={v.wholesaleDiscountAmount !== null ? v.wholesaleDiscountAmount : ""}
+                                    onChange={(e) => {
+                                      const val = e.target.value === "" ? null : Number(e.target.value);
+                                      setVariants(prev => {
+                                        const updated = [...prev];
+                                        updated[idx].wholesaleDiscountAmount = val;
+                                        return updated;
+                                      });
+                                    }}
+                                    className="h-8 max-w-[100px]"
+                                  />
+                                </td>
                                 {mode === "create" && (
                                   <td className="p-3">
                                     <Input 
@@ -791,7 +842,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                       <FiPlus className="h-4 w-4" />
                       <h3>Pricing Information</h3>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="costPrice">Cost Price *</Label>
                         <Input
@@ -826,7 +877,18 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="discount">Discount</Label>
+                        <Label htmlFor="wholesaleDiscountAmount">WS Discount Amt.</Label>
+                        <Input
+                          id="wholesaleDiscountAmount"
+                          type="number"
+                          step="1"
+                          {...register("wholesaleDiscountAmount", { valueAsNumber: true })}
+                          disabled={loading}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="discount">Retail Discount</Label>
                         <Input
                           id="discount"
                           type="number"

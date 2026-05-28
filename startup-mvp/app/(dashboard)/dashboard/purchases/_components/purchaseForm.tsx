@@ -35,6 +35,17 @@ import { getWarehouseStocks } from "../../inventory/stock/_actions/stock.action"
 import { PurchaseStatus } from "@prisma/client";
 import { format } from "date-fns";
 import MediaSelector from "@/components/MediaSelector";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import SupplierDialog from "./supplierDialog";
+import { useToast } from "@/hooks/use-toast";
+import { Toaster } from "@/components/ui/toast";
 
 const purchaseItemSchema = z.object({
   itemId: z.string().optional().nullable(),
@@ -122,18 +133,25 @@ export default function PurchaseForm({
   const [supplierSearch, setSupplierSearch] = useState("");
   const [itemSearch, setItemSearch] = useState("");
   const [stockMap, setStockMap] = useState<Record<string, number>>({});
+  const [localSuppliers, setLocalSuppliers] = useState(suppliers);
+  const [isSupplierDialogOpen, setIsSupplierDialogOpen] = useState(false);
+  const { toasts, closeToast } = useToast();
+
+  useEffect(() => {
+    setLocalSuppliers(suppliers);
+  }, [suppliers]);
 
   const filteredSuppliers = useMemo(() => {
-    if (!supplierSearch) return suppliers;
+    if (!supplierSearch) return localSuppliers;
     const searchLower = supplierSearch.toLowerCase();
-    return suppliers.filter(
+    return localSuppliers.filter(
       (s) =>
         (s.name?.toLowerCase().includes(searchLower) || false) ||
         s.email.toLowerCase().includes(searchLower) ||
         (s.company?.toLowerCase().includes(searchLower) || false) ||
         (s.supplierCode?.toLowerCase().includes(searchLower) || false)
     );
-  }, [suppliers, supplierSearch]);
+  }, [localSuppliers, supplierSearch]);
 
   const filteredItemsForSelect = useMemo(() => {
     if (!itemSearch) return items;
@@ -320,6 +338,7 @@ export default function PurchaseForm({
   };
 
   return (
+    <>
     <div className="w-full">
       <Card>
         <CardHeader>
@@ -345,7 +364,33 @@ export default function PurchaseForm({
               <div className="lg:col-span-5 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="supplierId">Supplier *</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="supplierId">Supplier *</Label>
+                      <Dialog open={isSupplierDialogOpen} onOpenChange={setIsSupplierDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button variant="link" size="sm" className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700">
+                            + Add Supplier
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px]">
+                          <DialogHeader>
+                            <DialogTitle>Create New Supplier</DialogTitle>
+                            <DialogDescription>
+                              Fill in the details below. The supplier will be available instantly.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <SupplierDialog
+                            onCancel={() => setIsSupplierDialogOpen(false)}
+                            onCreated={(newSupplier) => {
+                              setLocalSuppliers(prev => [newSupplier, ...prev]);
+                              // ensure form selects it immediately
+                              setValue("supplierId", newSupplier.id, { shouldValidate: true, shouldDirty: true });
+                              setIsSupplierDialogOpen(false);
+                            }}
+                          />
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                     <Controller
                       name="supplierId"
                       control={control}
@@ -806,6 +851,8 @@ export default function PurchaseForm({
         </CardContent>
       </Card>
     </div>
+    <Toaster toasts={toasts} onClose={closeToast} />
+    </>
   );
 }
 

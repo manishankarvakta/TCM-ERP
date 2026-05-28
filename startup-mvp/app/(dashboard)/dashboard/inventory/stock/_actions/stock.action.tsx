@@ -1130,6 +1130,24 @@ export async function getStockLedger(
             },
           },
         },
+        variant: {
+          include: {
+            item: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                images: true,
+                featuredImage: true,
+                unit: {
+                  select: {
+                    symbol: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         warehouse: {
           select: {
             id: true,
@@ -1152,11 +1170,35 @@ export async function getStockLedger(
 
     const totalPages = Math.ceil(total / limit);
 
-    // Convert Decimal to number for client components
-    const serializedEntries = entries.map((entry) => ({
-      ...entry,
-      quantity: Number(entry.quantity),
-    }));
+    // Convert Decimal to number for client components, and dynamically resolve variant/item details
+    const serializedEntries = entries.map((entry) => {
+      const parentItem = entry.item || entry.variant?.item;
+      const unit = parentItem?.unit;
+      const name = parentItem ? parentItem.name : "Unknown Item";
+      const code = entry.variant ? entry.variant.sku : (parentItem ? parentItem.code : "N/A");
+      const featuredImage = entry.variant?.image || parentItem?.featuredImage || null;
+      const images = parentItem?.images || null;
+
+      return {
+        ...entry,
+        quantity: Number(entry.quantity),
+        item: parentItem ? {
+          id: parentItem.id,
+          name,
+          code,
+          images,
+          featuredImage,
+          unit: unit || { symbol: "pcs" },
+        } : {
+          id: entry.itemId || "",
+          name: "Unknown Item",
+          code: "N/A",
+          images: [],
+          featuredImage: null,
+          unit: { symbol: "pcs" },
+        }
+      };
+    });
 
     return {
       success: true,
