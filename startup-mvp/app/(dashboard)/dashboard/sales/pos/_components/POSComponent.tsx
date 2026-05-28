@@ -89,11 +89,11 @@ interface POSComponentProps {
 
 export default function POSComponent({ items, clients: initialClients, warehouses, paymentAccounts = [] }: POSComponentProps) {
   const handleOpenVoidReturnModal = () => {
-    toast({ variant: "destructive", title: "Disabled", description: "Temporarily disabled while we are updating wholesale price logic." });
+    toast({ variant: "destructive", title: "Error", description: "Void Return is temporarily disabled while we update the wholesale pricing logic." });
   };
 
   const handleOpenInvoiceReturnModal = () => {
-    toast({ variant: "destructive", title: "Disabled", description: "Temporarily disabled while we are updating wholesale price logic." });
+    toast({ variant: "destructive", title: "Error", description: "Invoice Return is temporarily disabled while we update the wholesale pricing logic." });
   };
 
   const router = useRouter();
@@ -634,9 +634,18 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
 
 
-  const handlePrintLastBill = () => {
-    toast({ variant: "destructive", title: "Disabled", description: "Temporarily disabled while we are updating wholesale price logic." });
-  }
+  const handlePrintLastBill = async () => {
+    try {
+      const res = await getLastSaleForUser();
+      if (res?.success && res.saleId) {
+        window.open(`/print/invoice/${res.saleId}`, '_blank');
+      } else {
+        toast({ title: "No Last Bill", description: "Could not find a recent sale for your account.", variant: "destructive" });
+      }
+    } catch(err) {
+      toast({ title: "Error", description: "Failed to fetch last bill.", variant: "destructive" });
+    }
+  };
 
   const handleVoidSale = async () => {
     if(!actionSaleNumber) return toast({ title: "Error", description: "Sale Number is required", variant: "destructive" });
