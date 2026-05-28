@@ -17,6 +17,8 @@ import { getVoucherById } from "@/app/(dashboard)/dashboard/accounts/vouchers/_a
 import { getAdjustment } from "@/app/(dashboard)/dashboard/inventory/adjustments/_actions/adjustment.action";
 import { getSaleById } from "@/app/(dashboard)/dashboard/sales/_actions/sale.action";
 import { getEmployeeById } from "@/app/(dashboard)/dashboard/employees/_actions/employee.action";
+import { getClientById } from "@/app/(dashboard)/dashboard/clients/_actions/client.action";
+
 
 // Map route paths to display names
 const routeMap: Record<string, string> = {
@@ -112,6 +114,7 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [adjustmentNumber, setAdjustmentNumber] = useState<string | null>(null);
   const [saleNumber, setSaleNumber] = useState<string | null>(null);
   const [employeeCode, setEmployeeCode] = useState<string | null>(null);
+  const [clientCode, setClientCode] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
 
   // Check if we're on an inventory adjustment detail page
@@ -189,6 +192,12 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const isEmployeeEditMatch = pathname.match(/^\/dashboard\/employees\/([^\/]+)\/edit$/);
   const isEmployeeDetailsPageMatch = pathname.match(/^\/dashboard\/employees\/details$/);
   const employeeId = isEmployeeDetailMatch?.[1] || isEmployeeEditMatch?.[1] || (isEmployeeDetailsPageMatch ? searchParams.get("id") : null);
+
+  // Check if we're on a client detail or edit page
+  const isClientDetailMatch = pathname.match(/^\/dashboard\/clients\/([^\/]+)$/);
+  const isClientEditMatch = pathname.match(/^\/dashboard\/clients\/([^\/]+)\/edit$/);
+  const isClientDetailsPageMatch = pathname.match(/^\/dashboard\/clients\/details$/);
+  const clientId = isClientDetailMatch?.[1] || isClientEditMatch?.[1] || (isClientDetailsPageMatch ? searchParams.get("id") : null);
 
   // Fetch warehouse name when on warehouse detail/edit page
   useEffect(() => {
@@ -461,6 +470,27 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     fetchEmployeeCode();
     return () => { cancelled = true; };
   }, [employeeId]);
+
+  // Fetch client code when on client detail/edit page
+  useEffect(() => {
+    if (!clientId || clientId === "add" || clientId === "details") {
+      return;
+    }
+    
+    let cancelled = false;
+    async function fetchClientCode() {
+      try {
+        const result = await getClientById(clientId!);
+        if (!cancelled && result.success && result.client) {
+          setClientCode(result.client.clientCode);
+        }
+      } catch (error) {
+        if (!cancelled) console.error("Error fetching client code:", error);
+      }
+    }
+    fetchClientCode();
+    return () => { cancelled = true; };
+  }, [clientId]);
 
   // If we're at the root dashboard, show just "Dashboard"
   if (pathname === "/dashboard" || items.length === 1) {
@@ -747,6 +777,24 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
       currentLabel = employeeCode || "Employee Details";
     } else {
       currentLabel = isEmployeeEditMatch ? "Edit Employee" : "Employee Details";
+    }
+  }
+
+  // If we're on a client detail or edit page, use client code instead of ID
+  if (isClientDetailMatch || isClientEditMatch || isClientDetailsPageMatch) {
+    const clientsItem = items.find(item => item.path === "/dashboard/clients");
+    if (clientsItem) {
+      parentItem = clientsItem;
+    } else {
+      parentItem = { path: "/dashboard/clients", label: "Clients" };
+    }
+    
+    if (clientCode) {
+      currentLabel = isClientEditMatch ? `Edit ${clientCode}` : clientCode;
+    } else if (isClientDetailsPageMatch) {
+      currentLabel = clientCode || "Client Details";
+    } else {
+      currentLabel = isClientEditMatch ? "Edit Client" : "Client Details";
     }
   }
 
