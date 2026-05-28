@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { FaSearch, FaPlus, FaMinus, FaTrashAlt, FaShoppingCart, FaCheckCircle, FaTimes, FaUndoAlt, FaShoppingBag, FaIndustry, FaTicketAlt, FaCreditCard, FaMoneyBillWave, FaMobileAlt, FaUsers, FaGlassCheers } from "react-icons/fa";
+import { FaSearch, FaHandPaper, FaSync, FaPrint, FaPlus, FaMinus, FaTrashAlt, FaShoppingCart, FaCheckCircle, FaTimes, FaUndoAlt, FaShoppingBag, FaIndustry, FaTicketAlt, FaCreditCard, FaMoneyBillWave, FaMobileAlt, FaUsers, FaGlassCheers } from "react-icons/fa";
 import { createSale, getClientItemDiscounts, validateCoupon } from "../../_actions/sale.action";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
@@ -89,11 +89,11 @@ interface POSComponentProps {
 
 export default function POSComponent({ items, clients: initialClients, warehouses, paymentAccounts = [] }: POSComponentProps) {
   const handleOpenVoidReturnModal = () => {
-    toast.error("Void Return is temporarily disabled while we update the wholesale pricing logic.");
+    toast({ variant: "destructive", title: "Error", description: "Void Return is temporarily disabled while we update the wholesale pricing logic." });
   };
 
   const handleOpenInvoiceReturnModal = () => {
-    toast.error("Invoice Return is temporarily disabled while we update the wholesale pricing logic.");
+    toast({ variant: "destructive", title: "Error", description: "Invoice Return is temporarily disabled while we update the wholesale pricing logic." });
   };
 
   const router = useRouter();
@@ -636,7 +636,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       setAppliedPromo(code);
       setPromoDiscountMsg(result.message || `Coupon applied!`);
       toast({
-        title: <span className="flex items-center gap-2"><FaCheckCircle /> Coupon Applied!</span>,
+        title: "Coupon Applied!",
         description: result.message || `Discount of ৳${result.discountAmount.toFixed(2)} applied.`,
       });
     } else {
@@ -728,11 +728,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         });
         
         if (res.sale) {
-          setCompletedSaleData({
-            id: res.sale.id,
-            change: dueAmount < 0 ? Math.abs(dueAmount) : 0,
-            saleNumber: res.sale.saleNumber
-          });
+          setCompletedSaleNumber(res.sale.saleNumber);
         }
         
         setCart([]);
@@ -967,38 +963,25 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
             <button 
               className="flex items-center justify-center gap-2 h-12 px-6 bg-[#ffb000] text-black hover:bg-[#ffb000]/90 transition-colors min-w-[120px]"
-              onClick={() => {
-                if(cart.length > 0) {
-                  setHeldCarts([...heldCarts, cart]);
-                  setCart([]);
-                  toast({ title: "Cart Held", description: "Current cart has been put on hold." });
-                } else if (heldCarts.length > 0) {
-                  const lastHeld = heldCarts[heldCarts.length - 1];
-                  setCart(lastHeld);
-                  setHeldCarts(heldCarts.slice(0, -1));
-                  toast({ title: "Cart Restored", description: "Held cart has been restored." });
-                } else {
-                  toast({ title: "Hold", description: "No cart to hold or restore." });
-                }
-              }}
+              onClick={() => toast({ title: "Hold feature disabled temporarily" })}
             >
-              {heldCarts.length > 0 && cart.length === 0 ? "Resume" : "Hold"} 
-              {heldCarts.length > 0 && <span className="ml-1 bg-black text-[#ffb000] rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">{heldCarts.length}</span>}
-              <Hand className="w-4 h-4" />
+              "Hold" 
+              
+              <FaHandPaper className="w-4 h-4" />
             </button>
 
             <button 
               className="flex items-center justify-center gap-2 h-12 px-6 bg-[#0f8c5a] text-white hover:bg-[#0f8c5a]/90 transition-colors min-w-[120px]"
-              onClick={handleRefreshPOS}
+              onClick={() => toast({ title: "Refresh POS disabled temporarily" })}
             >
-              Refresh <RefreshCcw className="w-4 h-4" />
+              Refresh <FaSync className="w-4 h-4" />
             </button>
 
             <button 
               className="flex items-center justify-center gap-2 h-12 px-6 bg-[#136bfb] text-white hover:bg-[#136bfb]/90 transition-colors min-w-[120px] rounded-r-md"
-              onClick={handlePrintLastBill}
+              onClick={() => toast({ title: "Print last bill disabled temporarily" })}
             >
-              Last Bill <Printer className="w-4 h-4" />
+              Last Bill <FaPrint className="w-4 h-4" />
             </button>
           </div>
         </div>
