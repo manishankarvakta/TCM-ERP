@@ -698,7 +698,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     
     setIsReturning(true);
     try {
-      const res = await processSaleReturn(actionSaleNumber, selectedItems);
+      const res = await processSaleReturn(returnSaleDetails.id, selectedItems);
       if(res.success) {
         toast({ title: "Return Processed", description: "The invoice return has been recorded." });
         setIsReturnModalOpen(false);
