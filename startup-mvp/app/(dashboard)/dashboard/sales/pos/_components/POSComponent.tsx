@@ -1675,6 +1675,57 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Void Return / Partial Return Modal */}
+      <Dialog open={isReturnModalOpen} onOpenChange={(open) => { setIsReturnModalOpen(open); if(!open) setReturnSaleDetails(null); }}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Process Return</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="flex gap-2 items-end mb-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Sale Number to Return</label>
+                <Input 
+                  placeholder="e.g. SL-12345" 
+                  value={actionSaleNumber} 
+                  onChange={(e) => setActionSaleNumber(e.target.value)} 
+                />
+              </div>
+              <Button onClick={handleFetchSaleForReturn} disabled={isFetchingSale}>{isFetchingSale ? "Searching..." : "Search"}</Button>
+            </div>
+            
+            {returnSaleDetails && (
+              <div className="mt-4 border rounded-md p-3">
+                <p className="font-semibold mb-2">Sale Items (Select Quantities to Return)</p>
+                <div className="max-h-[30vh] overflow-y-auto flex flex-col gap-2">
+                  {returnSaleDetails.items.map((item: any) => {
+                    const state = returnItemsState.find(i => i.itemId === item.itemId);
+                    return (
+                      <div key={item.id} className="flex items-center justify-between bg-muted/30 p-2 rounded">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{item.description}</p>
+                          <p className="text-xs text-muted-foreground">Purchased: {item.quantity} | ৳{item.unitPrice}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => handleUpdateReturnQty(item.itemId, (state?.returnQty || 0) - 1)}>-</Button>
+                          <span className="w-6 text-center text-sm font-medium">{state?.returnQty || 0}</span>
+                          <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => handleUpdateReturnQty(item.itemId, (state?.returnQty || 0) + 1)}>+</Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="outline" onClick={() => { setIsReturnModalOpen(false); setReturnSaleDetails(null); }}>Cancel</Button>
+            <Button variant="default" onClick={handleProcessReturn} disabled={isReturning || !returnSaleDetails}>{isReturning ? "Processing..." : "Process Return"}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
