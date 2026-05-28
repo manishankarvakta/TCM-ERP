@@ -1073,15 +1073,15 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
             <button 
               className="flex items-center justify-center gap-2 h-12 px-6 bg-[#1f2937] text-white hover:bg-[#1f2937]/90 transition-colors min-w-[120px]"
-              onClick={handleOpenVoidReturnModal}
+              onClick={() => { setActionSaleNumber(""); setIsReturnModalOpen(true); }}
             >
               Void Return <FaUndoAlt className="w-4 h-4" />
             </button>
 
 
             <button 
-              className="flex items-center justify-center gap-2 h-12 px-6 bg-background text-foreground hover:bg-muted transition-colors border-r border-border min-w-[120px]"
-              onClick={handleOpenInvoiceReturnModal}
+              className={`flex items-center justify-center gap-2 h-12 px-6 ${isReturnMode ? "bg-red-500/20 text-red-500" : "bg-background text-foreground hover:bg-muted"} transition-colors border-r border-border min-w-[120px]`}
+              onClick={() => setIsReturnMode(!isReturnMode)}
             >
               Return <FaUndoAlt className="w-4 h-4" />
             </button>
@@ -1107,8 +1107,9 @@ export default function POSComponent({ items, clients: initialClients, warehouse
             </button>
 
             <button 
-              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#136bfb] text-white hover:bg-[#136bfb]/90 transition-colors min-w-[120px] rounded-r-md"
-              onClick={() => { if(completedSaleNumber) { setIsPrintDialogOpen(true); } else { toast({ title: "No Last Bill", description: "You haven\'t completed a sale in this session.", variant: "destructive" }); } }}
+              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#136bfb] text-white hover:bg-[#136bfb]/90 transition-colors min-w-[120px] rounded-r-md disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handlePrintLastBill}
+              disabled={!hasLastSale && !completedSaleNumber}
             >
               Last Bill <FaPrint className="w-4 h-4" />
             </button>
