@@ -198,7 +198,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
   const [actionSaleNumber, setActionSaleNumber] = useState('');
   const [returnSaleDetails, setReturnSaleDetails] = useState<any>(null);
-  const [returnItemsState, setReturnItemsState] = useState<{itemId: string, maxQty: number, returnQty: number}[]>([]);
+  const [returnItemsState, setReturnItemsState] = useState<{itemId: string, variantId?: string, maxQty: number, returnQty: number}[]>([]);
+  const [barcodeInput, setBarcodeInput] = useState('');
   const [isFetchingSale, setIsFetchingSale] = useState(false);
   const [isVoiding, setIsVoiding] = useState(false);
   const [isReturning, setIsReturning] = useState(false);
@@ -680,6 +681,74 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   };
 
   
+  const handleBarcodeReturnScan = (query: string) => {
+    if (!query.trim()) return;
+    const q = query.trim().toLowerCase();
+    
+    let matchedVariant: any = null;
+    let matchedItem: any = null;
+    
+    for (const item of items) {
+      if (item.variants && item.variants.length > 0) {
+        const v = item.variants.find(
+          (varItem) =>
+            varItem.sku.toLowerCase() === q ||
+            (varItem.barcode && varItem.barcode.toLowerCase() === q)
+        );
+        if (v) {
+          matchedVariant = v;
+          matchedItem = item;
+          break;
+        }
+      }
+      if (item.code.toLowerCase() === q) {
+        matchedItem = item;
+        break;
+      }
+    }
+    
+    if (matchedVariant && matchedItem) {
+      const exists = returnItemsState.find(
+        (i) => i.itemId === matchedItem.id && i.variantId === matchedVariant.id
+      );
+      if (exists) {
+        handleUpdateReturnQty(matchedItem.id, exists.returnQty + 1, matchedVariant.id);
+      } else {
+        setReturnItemsState((prev) => [
+          ...prev,
+          {
+            itemId: matchedItem.id,
+            variantId: matchedVariant.id,
+            maxQty: 9999,
+            returnQty: 1,
+          },
+        ]);
+      }
+      setBarcodeInput("");
+      toast({ title: "Product Found", description: `${matchedItem.name} - ${matchedVariant.color} / ${matchedVariant.size} added to return list.` });
+    } else if (matchedItem) {
+      const exists = returnItemsState.find(
+        (i) => i.itemId === matchedItem.id && !i.variantId
+      );
+      if (exists) {
+        handleUpdateReturnQty(matchedItem.id, exists.returnQty + 1);
+      } else {
+        setReturnItemsState((prev) => [
+          ...prev,
+          {
+            itemId: matchedItem.id,
+            maxQty: 9999,
+            returnQty: 1,
+          },
+        ]);
+      }
+      setBarcodeInput("");
+      toast({ title: "Product Found", description: `${matchedItem.name} added to return list.` });
+    } else {
+      toast({ title: "Not Found", description: `No product or variant found matching: ${query}`, variant: "destructive" });
+    }
+  };
+
   const handleFetchSaleForReturn = async (saleNum?: string) => {
     const saleNumberToFetch = saleNum || actionSaleNumber;
     if(!saleNumberToFetch) return toast({ title: "Error", description: "Sale Number is required", variant: "destructive" });
@@ -688,7 +757,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       const res = await getSaleByNumber(saleNumberToFetch);
       if (res.success && res.sale) {
         setReturnSaleDetails(res.sale);
-        setReturnItemsState(res.sale.items.map((i: any) => ({ itemId: i.itemId, maxQty: Number(i.quantity), returnQty: 0 })));
+        setReturnItemsState(res.sale.items.map((i: any) => ({ itemId: i.itemId, variantId: i.variantId || undefined, maxQty: Number(i.quantity), returnQty: 0 })));
       } else {
         toast({ title: "Not Found", description: res.error || "Sale not found", variant: "destructive" });
       }
@@ -698,9 +767,9 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setIsFetchingSale(false);
   };
 
-  const handleUpdateReturnQty = (itemId: string, qty: number) => {
+  const handleUpdateReturnQty = (itemId: string, qty: number, variantId?: string) => {
     setReturnItemsState(prev => prev.map(i => {
-      if (i.itemId === itemId) {
+      if (i.itemId === itemId && (variantId ? i.variantId === variantId : !i.variantId)) {
         return { ...i, returnQty: Math.min(Math.max(0, qty), i.maxQty) };
       }
       return i;
@@ -711,7 +780,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const handleProcessVoidReturn = async () => {
     const selectedItems = returnItemsState.filter(i => i.returnQty > 0).map(i => {
       const it = items.find(x => x.id === i.itemId);
-      return { itemId: i.itemId, quantity: i.returnQty, unitPrice: it?.unitPrice || 0 };
+      const variant = i.variantId ? it?.variants?.find(v => v.id === i.variantId) : null;
+      return { 
+        itemId: i.itemId, 
+        variantId: i.variantId || undefined, 
+        quantity: i.returnQty, 
+        unitPrice: variant ? (variant.salesPrice || it?.unitPrice || 0) : (it?.unitPrice || 0) 
+      };
     });
     if(selectedItems.length === 0) return toast({ title: "Error", description: "Please select at least one item to return", variant: "destructive" });
     
@@ -732,7 +807,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   };
 
   const handleProcessReturn = async () => {
-    const selectedItems = returnItemsState.filter(i => i.returnQty > 0).map(i => ({ itemId: i.itemId, quantity: i.returnQty }));
+    const selectedItems = returnItemsState.filter(i => i.returnQty > 0).map(i => ({ 
+      itemId: i.itemId, 
+      variantId: i.variantId || undefined, 
+      quantity: i.returnQty 
+    }));
     if(selectedItems.length === 0) return toast({ title: "Error", description: "Please select at least one item to return", variant: "destructive" });
     
     setIsReturning(true);
@@ -1709,54 +1788,107 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
       
       {/* Unified Return Modal */}
-      <Dialog open={isReturnModalOpen} onOpenChange={(open) => { setIsReturnModalOpen(open); if(!open) setReturnSaleDetails(null); }}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Process Return</DialogTitle>
-          </DialogHeader>
-          <Tabs defaultValue="void-return" className="w-full mt-2">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="void-return">Void Return (By Product)</TabsTrigger>
-              <TabsTrigger value="invoice-return">Return (By Invoice/Customer)</TabsTrigger>
-            </TabsList>
+      <Dialog open={isReturnModalOpen} onOpenChange={(open) => { setIsReturnModalOpen(open); if(!open) { setReturnSaleDetails(null); setReturnItemsState([]); setBarcodeInput(""); } }}>
+        <DialogContent className="sm:max-w-6xl max-h-[85vh] overflow-y-auto">
+          <Tabs defaultValue="void-return" className="w-full">
+            <DialogHeader className="flex flex-row items-center justify-between border-b pb-4 mb-4">
+              <DialogTitle className="text-xl font-bold tracking-tight">Process Return</DialogTitle>
+              <TabsList className="flex items-center gap-1 bg-muted p-1 rounded-lg">
+                <TabsTrigger value="void-return" className="font-semibold text-xs py-1.5 px-3 data-[state=active]:bg-background data-[state=active]:text-foreground rounded-md shadow-sm">Void Return (By Product)</TabsTrigger>
+                <TabsTrigger value="invoice-return" className="font-semibold text-xs py-1.5 px-3 data-[state=active]:bg-background data-[state=active]:text-foreground rounded-md shadow-sm">Return (By Invoice/Customer)</TabsTrigger>
+              </TabsList>
+            </DialogHeader>
             
-            <TabsContent value="void-return" className="py-4">
+            <TabsContent value="void-return" className="py-2">
               <div className="flex flex-col gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Search Products to Return</label>
-                  <SearchableSelect 
-                    options={items.map(item => ({ value: item.id, label: item.name || item.description }))}
-                    value=""
-                    onValueChange={(val) => {
-                      if(val) {
-                        const item = items.find(i => i.id === val);
-                        if(item && !returnItemsState.find(i => i.itemId === item.id)) {
-                          setReturnItemsState(prev => [...prev, { itemId: item.id, maxQty: 9999, returnQty: 1 }]);
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex flex-col">
+                    <label className="block text-sm font-semibold mb-2">Search Products to Return</label>
+                    <SearchableSelect 
+                      options={items.flatMap(item => {
+                        if (item.variants && item.variants.length > 0) {
+                          return item.variants.map(v => ({
+                            value: `${item.id}:${v.id}`,
+                            label: `${item.name || item.description} - ${v.color} / ${v.size} (${v.sku})`
+                          }));
+                        } else {
+                          return [{
+                            value: item.id,
+                            label: item.name || item.description
+                          }];
                         }
-                      }
-                    }}
-                    placeholder="Search products..."
-                  />
+                      })}
+                      value=""
+                      onValueChange={(val) => {
+                        if(val) {
+                          const [itemId, variantId] = val.split(':');
+                          const item = items.find(i => i.id === itemId);
+                          if(item) {
+                            const exists = returnItemsState.find(i => i.itemId === itemId && (variantId ? i.variantId === variantId : !i.variantId));
+                            if(!exists) {
+                              setReturnItemsState(prev => [...prev, { itemId, variantId, maxQty: 9999, returnQty: 1 }]);
+                            } else {
+                              handleUpdateReturnQty(itemId, exists.returnQty + 1, variantId);
+                            }
+                          }
+                        }
+                      }}
+                      placeholder="Search products..."
+                    />
+                  </div>
+
+                  <div className="flex flex-col">
+                    <label className="block text-sm font-semibold mb-2">Scan Barcode or Enter SKU</label>
+                    <div className="flex gap-2">
+                      <Input 
+                        placeholder="Scan barcode or Enter SKU..." 
+                        value={barcodeInput} 
+                        onChange={(e) => setBarcodeInput(e.target.value)} 
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleBarcodeReturnScan(barcodeInput);
+                          }
+                        }}
+                      />
+                      <Button variant="secondary" onClick={() => handleBarcodeReturnScan(barcodeInput)}>Scan</Button>
+                    </div>
+                  </div>
                 </div>
                 
                 {returnItemsState.length > 0 && (
-                  <div className="border rounded-md p-3">
-                    <p className="font-semibold mb-2">Selected Products</p>
+                  <div className="border rounded-lg p-4 bg-muted/10">
+                    <p className="font-bold text-sm mb-3">Selected Products for Return</p>
                     <div className="flex flex-col gap-2">
                       {returnItemsState.map((state) => {
                         const item = items.find(i => i.id === state.itemId);
                         if(!item) return null;
+                        const variant = state.variantId ? item.variants?.find(v => v.id === state.variantId) : null;
+                        const label = item.name || item.description;
+                        const price = variant ? (variant.salesPrice || item.unitPrice) : item.unitPrice;
                         return (
-                          <div key={item.id} className="flex items-center justify-between bg-muted/30 p-2 rounded">
-                            <div className="flex-1">
-                              <p className="text-sm font-medium">{item.name || item.description}</p>
-                              <p className="text-xs text-muted-foreground">Selling Price: ৳{item.unitPrice || 0}</p>
+                          <div key={`${state.itemId}-${state.variantId || 'none'}`} className="flex items-center justify-between bg-background border rounded-lg p-3 shadow-sm hover:border-primary/30 transition-all">
+                            <div className="flex-1 min-w-0 pr-4">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-semibold text-foreground truncate">{label}</p>
+                                {variant && (
+                                  <span className="inline-flex items-center rounded-md bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-700 ring-1 ring-inset ring-sky-700/10">
+                                    {variant.color} / {variant.size}
+                                  </span>
+                                )}
+                                {variant?.sku && (
+                                  <span className="inline-flex items-center rounded-md bg-mono/10 px-2 py-0.5 text-xs font-mono text-muted-foreground border">
+                                    {variant.sku}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">Selling Price: ৳{price || 0}</p>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => handleUpdateReturnQty(item.id, Math.max(0, state.returnQty - 1))}>-</Button>
-                              <span className="w-6 text-center text-sm font-medium">{state.returnQty}</span>
-                              <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => handleUpdateReturnQty(item.id, state.returnQty + 1)}>+</Button>
-                              <Button size="icon" variant="ghost" className="h-6 w-6 text-red-500" onClick={() => setReturnItemsState(prev => prev.filter(i => i.itemId !== item.id))}><FaTrashAlt className="w-3 h-3" /></Button>
+                            <div className="flex items-center gap-3">
+                              <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => handleUpdateReturnQty(state.itemId, state.returnQty - 1, state.variantId)}>-</Button>
+                              <span className="w-8 text-center text-sm font-semibold">{state.returnQty}</span>
+                              <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => handleUpdateReturnQty(state.itemId, state.returnQty + 1, state.variantId)}>+</Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700" onClick={() => setReturnItemsState(prev => prev.filter(i => !(i.itemId === state.itemId && i.variantId === state.variantId)))}><FaTrashAlt className="w-3.5 h-3.5" /></Button>
                             </div>
                           </div>
                         );
@@ -1765,7 +1897,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                   </div>
                 )}
                 
-                <div className="flex justify-end mt-4">
+                <div className="flex justify-end gap-2 mt-4">
+                  <Button variant="outline" onClick={() => { setIsReturnModalOpen(false); setReturnItemsState([]); setBarcodeInput(""); }}>Cancel</Button>
                   <Button variant="default" onClick={() => handleProcessVoidReturn()} disabled={isReturning || returnItemsState.length === 0}>{isReturning ? "Processing..." : "Process Void Return"}</Button>
                 </div>
               </div>
@@ -1800,10 +1933,10 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                   />
                   {isFetchingCustomerSales && <p className="text-xs text-muted-foreground mt-1">Loading sales...</p>}
                   {!isFetchingCustomerSales && customerSales.length > 0 && (
-                    <div className="mt-4 border rounded p-2 max-h-[30vh] overflow-y-auto flex flex-col gap-2">
-                      <p className="font-semibold text-sm">Select an Invoice to Return From:</p>
+                    <div className="mt-4 border rounded-lg p-2 max-h-[30vh] overflow-y-auto flex flex-col gap-2 bg-muted/5">
+                      <p className="font-semibold text-sm px-1 py-1">Select an Invoice to Return From:</p>
                       {customerSales.map(sale => (
-                        <div key={sale.id} className="flex justify-between items-center p-2 bg-muted/20 rounded cursor-pointer hover:bg-muted/50" onClick={() => {
+                        <div key={sale.id} className="flex justify-between items-center p-2.5 bg-background border rounded-lg cursor-pointer hover:bg-muted/30 hover:border-primary/20 transition-all" onClick={() => {
                           setActionSaleNumber(sale.saleNumber);
                           handleFetchSaleForReturn(sale.saleNumber);
                         }}>
@@ -1820,23 +1953,22 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 </div>
               )}
 
-              
               {returnSaleDetails && (
-                <div className="mt-4 border rounded-md p-3">
-                  <p className="font-semibold mb-2">Sale Items (Select Quantities to Return)</p>
+                <div className="mt-4 border rounded-lg p-4 bg-muted/10">
+                  <p className="font-bold text-sm mb-3">Sale Items (Select Quantities to Return)</p>
                   <div className="max-h-[30vh] overflow-y-auto flex flex-col gap-2">
                     {returnSaleDetails.items.map((item: any) => {
-                      const state = returnItemsState.find(i => i.itemId === item.itemId);
+                      const state = returnItemsState.find(i => i.itemId === item.itemId && (item.variantId ? i.variantId === item.variantId : !i.variantId));
                       return (
-                        <div key={item.id} className="flex items-center justify-between bg-muted/30 p-2 rounded">
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">{item.description}</p>
-                            <p className="text-xs text-muted-foreground">Purchased: {item.quantity} | ৳{item.unitPrice}</p>
+                        <div key={item.id} className="flex items-center justify-between bg-background border rounded-lg p-3 shadow-sm hover:border-primary/20 transition-all">
+                          <div className="flex-1 min-w-0 pr-4">
+                            <p className="text-sm font-semibold text-foreground">{item.description}</p>
+                            <p className="text-xs text-muted-foreground mt-1">Purchased: {item.quantity} | ৳{item.unitPrice}</p>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => handleUpdateReturnQty(item.itemId, (state?.returnQty || 0) - 1)}>-</Button>
-                            <span className="w-6 text-center text-sm font-medium">{state?.returnQty || 0}</span>
-                            <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => handleUpdateReturnQty(item.itemId, (state?.returnQty || 0) + 1)}>+</Button>
+                          <div className="flex items-center gap-3">
+                            <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => handleUpdateReturnQty(item.itemId, (state?.returnQty || 0) - 1, item.variantId)}>-</Button>
+                            <span className="w-8 text-center text-sm font-semibold">{state?.returnQty || 0}</span>
+                            <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => handleUpdateReturnQty(item.itemId, (state?.returnQty || 0) + 1, item.variantId)}>+</Button>
                           </div>
                         </div>
                       );
@@ -1846,7 +1978,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
               )}
               
               <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline" onClick={() => { setIsReturnModalOpen(false); setReturnSaleDetails(null); }}>Cancel</Button>
+                <Button variant="outline" onClick={() => { setIsReturnModalOpen(false); setReturnSaleDetails(null); setReturnItemsState([]); setBarcodeInput(""); }}>Cancel</Button>
                 <Button variant="default" onClick={handleProcessReturn} disabled={isReturning || !returnSaleDetails}>{isReturning ? "Processing..." : "Process Invoice Return"}</Button>
               </div>
             </TabsContent>

@@ -1129,6 +1129,7 @@ export async function getSaleByNumber(saleNumber: string) {
           select: {
             id: true,
             itemId: true,
+            variantId: true,
             description: true,
             quantity: true,
             unitPrice: true,
@@ -1390,6 +1391,7 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
           items: {
             create: itemsToCreate.map((item) => ({
               itemId: item.itemId,
+              variantId: item.variantId || null,
               description: item.description,
               quantity: new Prisma.Decimal(item.quantity),
               unitPrice: new Prisma.Decimal(item.unitPrice),
@@ -1635,6 +1637,7 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
           items: {
             create: itemsToCreate.map((item) => ({
               itemId: item.itemId,
+              variantId: item.variantId || null,
               description: item.description,
               quantity: new Prisma.Decimal(item.quantity),
               unitPrice: new Prisma.Decimal(item.unitPrice),
@@ -2319,7 +2322,7 @@ export async function voidSale(saleId: string) {
   }
 }
 
-export async function processSaleReturn(saleId: string | null, returnItems: { itemId: string, quantity: number, unitPrice?: number }[]) {
+export async function processSaleReturn(saleId: string | null, returnItems: { itemId: string, variantId?: string, quantity: number, unitPrice?: number }[]) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -2371,7 +2374,10 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
         let itemDescription = "Void Return Item";
 
         if (originalSale) {
-          const originalItem = originalSale.items.find((i: any) => i.itemId === ret.itemId);
+          const originalItem = originalSale.items.find((i: any) => 
+            i.itemId === ret.itemId && 
+            (ret.variantId ? i.variantId === ret.variantId : !i.variantId)
+          );
           if (!originalItem) throw new Error(`Item ${ret.itemId} not found in sale`);
           
           if (ret.quantity > Number(originalItem.quantity)) {
@@ -2386,11 +2392,26 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
             where: { id: ret.itemId }
           });
           if (!dbItem) throw new Error(`Item ${ret.itemId} not found in database`);
-          if (!ret.unitPrice) {
+          
+          let variantName = "";
+          if (ret.variantId) {
+            const dbVariant = await tx.productVariant.findUnique({
+              where: { id: ret.variantId }
+            });
+            if (dbVariant) {
+              if (dbVariant.salesPrice) {
+                itemUnitPrice = Number(dbVariant.salesPrice);
+              } else if (!ret.unitPrice) {
+                itemUnitPrice = Number(dbItem.salesPrice || 0);
+              }
+              variantName = ` - ${dbVariant.color} / ${dbVariant.size} (${dbVariant.sku})`;
+            }
+          } else if (!ret.unitPrice) {
             itemUnitPrice = Number(dbItem.salesPrice || 0);
           }
+          
           trackInventory = dbItem.trackInventory;
-          itemDescription = dbItem.name;
+          itemDescription = dbItem.name + variantName;
         }
 
         const refundAmount = itemUnitPrice * ret.quantity;
@@ -2398,6 +2419,7 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
 
         newSaleItems.push({
           itemId: ret.itemId,
+          variantId: ret.variantId || null,
           description: `Return: ${itemDescription}`,
           quantity: -ret.quantity,
           unitPrice: itemUnitPrice,
@@ -2406,7 +2428,11 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
 
         // Restore stock
         if (trackInventory && warehouseId) {
-          const existingStock = await tx.stock.findUnique({
+          const existingStock = ret.variantId ? await tx.stock.findUnique({
+            where: {
+              variantId_warehouseId: { variantId: ret.variantId, warehouseId: warehouseId }
+            }
+          }) : await tx.stock.findUnique({
             where: {
               itemId_warehouseId: { itemId: ret.itemId, warehouseId: warehouseId }
             }
@@ -2420,7 +2446,8 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
           } else {
             await tx.stock.create({
               data: {
-                itemId: ret.itemId,
+                itemId: ret.variantId ? null : ret.itemId,
+                variantId: ret.variantId || null,
                 warehouseId: warehouseId,
                 quantity: ret.quantity
               }
@@ -2432,7 +2459,8 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
 
           await tx.stockLedger.create({
             data: {
-              itemId: ret.itemId,
+              itemId: ret.variantId ? null : ret.itemId,
+              variantId: ret.variantId || null,
               warehouseId: warehouseId,
               transactionType: "IN",
               quantity: ret.quantity,
@@ -2459,7 +2487,14 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
           grandTotal: -totalRefund,
           createdBy: session.user.id,
           items: {
-            create: newSaleItems
+            create: newSaleItems.map(i => ({
+              itemId: i.itemId,
+              variantId: i.variantId,
+              description: i.description,
+              quantity: new Prisma.Decimal(i.quantity),
+              unitPrice: new Prisma.Decimal(i.unitPrice),
+              amount: new Prisma.Decimal(i.amount)
+            }))
           }
         }
       });
