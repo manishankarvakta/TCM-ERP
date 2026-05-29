@@ -2473,11 +2473,17 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
         }
       }
 
-      const refSaleNumber = originalSale ? originalSale.saleNumber : `VOID-${Date.now().toString().slice(-4)}`;
+      let returnSaleNumber = "";
+      if (originalSale) {
+        returnSaleNumber = originalSale.saleNumber.replace(/^SAL-/, "RET-");
+      } else {
+        const generatedNum = await generateSaleNumber(tx);
+        returnSaleNumber = generatedNum.replace(/^SAL-/, "RET-");
+      }
 
       const returnSale = await tx.sale.create({
         data: {
-          saleNumber: `RET-${refSaleNumber}-${Date.now().toString().slice(-4)}`,
+          saleNumber: returnSaleNumber,
           clientId: clientId!,
           warehouseId: warehouseId!,
           date: new Date(),
