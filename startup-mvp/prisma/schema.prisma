@@ -1293,6 +1293,7 @@ enum VoucherType {
   CONTRA
   SALES
   PURCHASE
+  RETURN
 }
 
 enum CashBankAccountType {

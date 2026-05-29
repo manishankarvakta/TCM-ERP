@@ -2527,7 +2527,7 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
 
         const voucherResult = await createVoucher({
           date: new Date(),
-          type: "PAYMENT",
+          type: "RETURN",
           reference: returnSale.saleNumber,
           description: `Refund for sale return ${returnSale.saleNumber}`,
           clientId: clientId || undefined,
