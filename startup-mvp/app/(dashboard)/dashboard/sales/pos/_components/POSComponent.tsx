@@ -1801,7 +1801,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
             
             <TabsContent value="void-return" className="py-2">
               <div className="flex flex-col gap-4">
-                <div className="flex flex-col md:flex-row gap-4 items-end">
+                <div className="flex gap-4">
                   <div className="flex-1">
                     <label className="block text-sm font-semibold mb-2">Search Product or Scan Barcode / SKU</label>
                     <div className="relative">
@@ -1838,25 +1838,6 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                         placeholder="Search products, variants or barcodes..."
                         className="pl-9"
                       />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col w-full md:w-80">
-                    <label className="block text-sm font-semibold mb-2">Quick Barcode Scanner</label>
-                    <div className="flex gap-2">
-                      <Input 
-                        placeholder="Scan barcode directly..." 
-                        value={barcodeInput} 
-                        onChange={(e) => setBarcodeInput(e.target.value)} 
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleBarcodeReturnScan(barcodeInput);
-                          }
-                        }}
-                        className="h-10"
-                      />
-                      <Button variant="secondary" onClick={() => handleBarcodeReturnScan(barcodeInput)} className="h-10">Scan</Button>
                     </div>
                   </div>
                 </div>
