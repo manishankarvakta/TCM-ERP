@@ -99,6 +99,36 @@ async function generateSaleNumber(tx?: Prisma.TransactionClient): Promise<string
   return `${prefix}${nextNumber.toString().padStart(4, "0")}`;
 }
 
+async function generateReturnSaleNumber(tx?: Prisma.TransactionClient): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `RET-${year}-`;
+  const client = tx || prisma;
+
+  const lastSale = await client.sale.findFirst({
+    where: {
+      saleNumber: {
+        startsWith: prefix,
+      },
+    },
+    orderBy: {
+      saleNumber: "desc",
+    },
+    select: {
+      saleNumber: true,
+    },
+  });
+
+  let nextNumber = 1;
+  if (lastSale?.saleNumber) {
+    const lastNumber = parseInt(lastSale.saleNumber.split("-").pop() || "0", 10);
+    if (!isNaN(lastNumber) && lastNumber >= 1) {
+      nextNumber = lastNumber + 1;
+    }
+  }
+
+  return `${prefix}${nextNumber.toString().padStart(4, "0")}`;
+}
+
 export async function getClientsForSale() {
   try {
     const session = await auth();
@@ -930,6 +960,7 @@ export async function getSales(
           saleNumber: true,
           date: true,
           status: true,
+          orderType: true,
           grandTotal: true,
           isTrash: true,
           client: {
@@ -1165,6 +1196,48 @@ export async function getSaleByNumber(saleNumber: string) {
       return { success: false, error: "Sale not found", sale: null };
     }
 
+    // Find all return sales for this sale to compute already-returned quantities
+    const originalSuffix = saleNumber.replace(/^SAL-/, "").replace(/^RET-/, "");
+    const returnSales = await prisma.sale.findMany({
+      where: {
+        saleNumber: {
+          startsWith: "RET-"
+        },
+        OR: [
+          { saleNumber: { contains: originalSuffix } }
+        ],
+        status: "COMPLETED",
+      },
+      include: {
+        items: true
+      }
+    });
+
+    const itemsWithRemaining = sale.items.map((item) => {
+      let returnedQty = 0;
+      for (const retSale of returnSales) {
+        const retItem = retSale.items.find(ri => 
+          ri.itemId === item.itemId && 
+          (item.variantId ? ri.variantId === item.variantId : !ri.variantId)
+        );
+        if (retItem) {
+          returnedQty += Math.abs(Number(retItem.quantity));
+        }
+      }
+
+      const originalQty = Number(item.quantity);
+      const remainingQty = Math.max(0, originalQty - returnedQty);
+
+      return {
+        ...item,
+        quantity: remainingQty,
+        originalQuantity: originalQty,
+        returnedQuantity: returnedQty,
+        unitPrice: Number(item.unitPrice),
+        amount: Number(item.amount),
+      };
+    });
+
     return {
       success: true,
       sale: {
@@ -1185,12 +1258,7 @@ export async function getSaleByNumber(saleNumber: string) {
         createdAt: sale.createdAt,
         updatedAt: sale.updatedAt,
         completedAt: sale.completedAt,
-        items: sale.items.map((item) => ({
-          ...item,
-          quantity: Number(item.quantity),
-          unitPrice: Number(item.unitPrice),
-          amount: Number(item.amount),
-        })),
+        items: itemsWithRemaining,
       },
     };
   } catch (error) {
@@ -2354,14 +2422,37 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
       });
       if (!defaultWarehouse) return { success: false, error: "No warehouse found for return" };
       warehouseId = defaultWarehouse.id;
-      
-      // Find default client
-      const defaultClient = await prisma.client.findFirst({
-        where: { name: { equals: "Walkway Customer", mode: "insensitive" } }
+         // Find default client
+      let defaultClient = await prisma.client.findFirst({
+        where: {
+          OR: [
+            { name: { contains: "walkway", mode: "insensitive" } },
+            { name: { contains: "walk way", mode: "insensitive" } },
+          ]
+        }
       });
+      if (!defaultClient) {
+        defaultClient = await prisma.client.findFirst();
+      }
       if (defaultClient) {
          clientId = defaultClient.id;
       }
+    }
+    let previousReturns: any[] = [];
+    if (originalSale) {
+      const originalSuffix = originalSale.saleNumber.replace(/^SAL-/, "").replace(/^RET-/, "");
+      previousReturns = await prisma.sale.findMany({
+        where: {
+          saleNumber: { startsWith: "RET-" },
+          OR: [
+            { saleNumber: { contains: originalSuffix } }
+          ],
+          status: "COMPLETED"
+        },
+        include: {
+          items: true
+        }
+      });
     }
 
     const returnSaleData = await prisma.$transaction(async (tx) => {
@@ -2380,8 +2471,22 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
           );
           if (!originalItem) throw new Error(`Item ${ret.itemId} not found in sale`);
           
-          if (ret.quantity > Number(originalItem.quantity)) {
-            throw new Error(`Return quantity exceeds sale quantity for item ${ret.itemId}`);
+          let alreadyReturned = 0;
+          for (const prevRet of previousReturns) {
+            const prevItem = prevRet.items.find((pi: any) => 
+              pi.itemId === ret.itemId && 
+              (ret.variantId ? pi.variantId === ret.variantId : !pi.variantId)
+            );
+            if (prevItem) {
+              alreadyReturned += Math.abs(Number(prevItem.quantity));
+            }
+          }
+
+          const originalQty = Number(originalItem.quantity);
+          const remainingQty = Math.max(0, originalQty - alreadyReturned);
+
+          if (ret.quantity > remainingQty) {
+            throw new Error(`Return quantity (${ret.quantity}) exceeds remaining returnable quantity (${remainingQty}) for item ${originalItem.description || ret.itemId}`);
           }
           itemUnitPrice = Number(originalItem.unitPrice);
           trackInventory = originalItem.item?.trackInventory || false;
@@ -2473,13 +2578,7 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
         }
       }
 
-      let returnSaleNumber = "";
-      if (originalSale) {
-        returnSaleNumber = originalSale.saleNumber.replace(/^SAL-/, "RET-");
-      } else {
-        const generatedNum = await generateSaleNumber(tx);
-        returnSaleNumber = generatedNum.replace(/^SAL-/, "RET-");
-      }
+      const returnSaleNumber = await generateReturnSaleNumber(tx);
 
       const returnSale = await tx.sale.create({
         data: {
@@ -2488,7 +2587,7 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
           warehouseId: warehouseId!,
           date: new Date(),
           status: "COMPLETED",
-          orderType: originalSale ? originalSale.orderType : "RETAIL",
+          orderType: "RETURN",
           subTotal: -totalRefund,
           grandTotal: -totalRefund,
           createdBy: session.user.id,
@@ -2523,14 +2622,36 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
         }
       }
 
-      if (arAccountId) {
-        const cashAccount = await tx.chartOfAccount.findFirst({
-          where: { name: { contains: "Cash", mode: "insensitive" }, type: "ASSET", status: "active" }
+      // Let's get Sales Revenue account for the Debit side
+      let salesRevenueAccountId = null;
+      try {
+        const { getSalesAccounts } = await import("@/lib/accounting-settings");
+        const salesAccounts = await getSalesAccounts();
+        salesRevenueAccountId = salesAccounts.revenueAccountId;
+      } catch (e) {
+        console.warn("Could not load sales revenue account", e);
+      }
+
+      if (!salesRevenueAccountId) {
+        const revAcct = await tx.chartOfAccount.findFirst({
+          where: { name: { contains: "Sales", mode: "insensitive" }, type: "REVENUE", status: "active" }
         });
+        if (revAcct) {
+          salesRevenueAccountId = revAcct.id;
+        }
+      }
 
-        const debitAccountId = arAccountId; 
-        const creditAccountId = cashAccount ? cashAccount.id : arAccountId;
+      // Credit account is Cash (standard for POS returns / walkway customer refund)
+      // or AR account if we want to reduce the customer balance
+      const cashAccount = await tx.chartOfAccount.findFirst({
+        where: { name: { contains: "Cash", mode: "insensitive" }, type: "ASSET", status: "active" }
+      });
+      const creditAccountId = cashAccount ? cashAccount.id : (arAccountId || salesRevenueAccountId);
 
+      // If we don't have a Sales Revenue account, we fall back to arAccountId
+      const debitAccountId = salesRevenueAccountId || arAccountId;
+
+      if (debitAccountId && creditAccountId) {
         const voucherResult = await createVoucher({
           date: new Date(),
           type: "RETURN",
@@ -2545,7 +2666,7 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
               clientId: clientId || undefined,
               debitAmount: totalRefund,
               creditAmount: 0,
-              description: `Sales Return`
+              description: `Sales Return (Debit Revenue)`
             },
             {
               lineNumber: 2,
@@ -2553,14 +2674,21 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
               clientId: clientId || undefined,
               debitAmount: 0,
               creditAmount: totalRefund,
-              description: `Refund for Sales Return`
+              description: `Refund for Sales Return (Credit Cash/AR)`
             }
           ]
         }, tx);
 
-        if (voucherResult.success && voucherResult.voucher) {
-          await postVoucher(voucherResult.voucher.id, tx, true);
+        if (!voucherResult.success || !voucherResult.voucher) {
+          throw new Error(voucherResult.error || "Failed to create accounting voucher");
         }
+
+        const postResult = await postVoucher(voucherResult.voucher.id, tx, true);
+        if (!postResult.success) {
+          throw new Error(postResult.error || "Failed to post accounting voucher");
+        }
+      } else {
+        throw new Error("Cannot process return: Accounting mapping for Sales Revenue or Cash/Receivable is missing.");
       }
 
       return returnSale;
@@ -2585,6 +2713,11 @@ export async function getSalesByCustomer(customerId: string) {
       where: {
         clientId: customerId,
         status: "COMPLETED",
+        NOT: {
+          saleNumber: {
+            startsWith: "RET-"
+          }
+        }
       },
       orderBy: {
         createdAt: "desc",

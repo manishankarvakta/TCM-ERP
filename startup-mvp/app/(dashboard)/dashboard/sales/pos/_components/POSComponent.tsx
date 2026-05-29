@@ -749,8 +749,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     }
   };
 
-  const handleFetchSaleForReturn = async (saleNum?: string) => {
-    const saleNumberToFetch = saleNum || actionSaleNumber;
+  const handleFetchSaleForReturn = async (saleNum?: any) => {
+    const saleNumberToFetch = (typeof saleNum === "string" && saleNum) ? saleNum : actionSaleNumber;
     if(!saleNumberToFetch) return toast({ title: "Error", description: "Sale Number is required", variant: "destructive" });
     setIsFetchingSale(true);
     try {
@@ -795,13 +795,22 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       const res = await processSaleReturn(null, selectedItems);
       if(res.success && res.returnSale) {
         const saleNum = res.returnSale.saleNumber;
+        const saleId = res.returnSale.id;
         const refundAmt = Number(res.returnSale.grandTotal);
         setCompletedSaleNumber(saleNum);
         setChangeAmount(Math.abs(refundAmt));
         toast({ title: "Void Return Processed", description: `Return ${saleNum} created.` });
         setIsReturnModalOpen(false);
         setReturnItemsState([]);
-        setIsPrintDialogOpen(true);
+        
+        // Open print invoice tab directly
+        if (saleId) {
+          const printWindow = window.open(`/print/invoice/${saleId}`, '_blank');
+          if (printWindow) {
+            printWindow.focus();
+          }
+        }
+        setIsChangeDialogOpen(true);
       } else {
         toast({ title: "Return Failed", description: res.error, variant: "destructive" });
       }
@@ -824,6 +833,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       const res = await processSaleReturn(returnSaleDetails.id, selectedItems);
       if(res.success && res.returnSale) {
         const saleNum = res.returnSale.saleNumber;
+        const saleId = res.returnSale.id;
         const refundAmt = Number(res.returnSale.grandTotal);
         setCompletedSaleNumber(saleNum);
         setChangeAmount(Math.abs(refundAmt));
@@ -832,7 +842,15 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         setActionSaleNumber('');
         setReturnSaleDetails(null);
         setReturnItemsState([]);
-        setIsPrintDialogOpen(true);
+        
+        // Open print invoice tab directly
+        if (saleId) {
+          const printWindow = window.open(`/print/invoice/${saleId}`, '_blank');
+          if (printWindow) {
+            printWindow.focus();
+          }
+        }
+        setIsChangeDialogOpen(true);
       } else {
         toast({ title: "Return Failed", description: res.error, variant: "destructive" });
       }
@@ -976,6 +994,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
       if (res.success) {
         const saleNum = (res.sale as any)?.saleNumber || '';
+        const saleId = (res.sale as any)?.id || '';
         setCompletedSaleNumber(saleNum);
         setChangeAmount(paidAmount - grandTotal);
         toast({
@@ -989,7 +1008,15 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         
         setCart([]);
         setIsConfirmModalOpen(false);
-        setIsPrintDialogOpen(true);
+
+        // Open print invoice tab directly
+        if (saleId) {
+          const printWindow = window.open(`/print/invoice/${saleId}`, '_blank');
+          if (printWindow) {
+            printWindow.focus();
+          }
+        }
+        setIsChangeDialogOpen(true);
       } else {
         toast({
           title: "Error processing sale",
@@ -1990,7 +2017,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                         <div key={item.id} className="flex items-center justify-between bg-background border rounded-lg p-3 shadow-sm hover:border-primary/20 transition-all">
                           <div className="flex-1 min-w-0 pr-4">
                             <p className="text-sm font-semibold text-foreground">{item.description}</p>
-                            <p className="text-xs text-muted-foreground mt-1">Purchased: {item.quantity} | ৳{item.unitPrice}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Purchased: {item.originalQuantity ?? item.quantity}
+                              {Number(item.returnedQuantity || 0) > 0 && ` (Returned: ${item.returnedQuantity})`}
+                              {` | ৳${item.unitPrice}`}
+                            </p>
                           </div>
                           <div className="flex items-center gap-3">
                             <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => handleUpdateReturnQty(item.itemId, (state?.returnQty || 0) - 1, item.variantId)}>-</Button>

@@ -47,13 +47,14 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import type { SaleStatus } from "@prisma/client";
+import type { SaleStatus, OrderType } from "@prisma/client";
 
 interface Sale {
   id: string;
   saleNumber: string;
   date: Date;
   status: SaleStatus;
+  orderType: OrderType;
   grandTotal: number;
   isTrash: boolean;
   client: {
@@ -90,6 +91,7 @@ const STATUS_LABELS: Record<SaleStatus, string> = {
   DRAFT: "Draft",
   COMPLETED: "Completed",
   CANCELLED: "Cancelled",
+  RETURN: "Return",
 };
 
 export default function SalesListClient({
@@ -308,6 +310,7 @@ export default function SalesListClient({
               <TableHead>Sale #</TableHead>
               <TableHead>Client</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Date</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -364,6 +367,23 @@ export default function SalesListClient({
                         }
                       >
                         {STATUS_LABELS[sale.status]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          sale.orderType === "RETURN"
+                            ? "destructive"
+                            : sale.orderType === "WHOLESALE"
+                            ? "outline"
+                            : "secondary"
+                        }
+                        className={cn(
+                          sale.orderType === "WHOLESALE" && "border-amber-500/30 text-amber-600 bg-amber-500/5",
+                          sale.orderType === "RETAIL" && "border-blue-500/30 text-blue-600 bg-blue-500/5"
+                        )}
+                      >
+                        {sale.orderType}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">

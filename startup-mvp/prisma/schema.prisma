@@ -1321,12 +1321,14 @@ enum SaleStatus {
   DRAFT
   COMPLETED
   CANCELLED
+  RETURN
 }
 
 enum OrderType {
   READY_PRODUCT
   RETAIL
   WHOLESALE
+  RETURN
 }
 
 enum ItemType {
