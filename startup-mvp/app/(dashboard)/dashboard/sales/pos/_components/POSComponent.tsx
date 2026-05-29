@@ -793,10 +793,15 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setIsReturning(true);
     try {
       const res = await processSaleReturn(null, selectedItems);
-      if(res.success) {
-        toast({ title: "Void Return Processed", description: "The product return has been recorded." });
+      if(res.success && res.returnSale) {
+        const saleNum = res.returnSale.saleNumber;
+        const refundAmt = Number(res.returnSale.grandTotal);
+        setCompletedSaleNumber(saleNum);
+        setChangeAmount(Math.abs(refundAmt));
+        toast({ title: "Void Return Processed", description: `Return ${saleNum} created.` });
         setIsReturnModalOpen(false);
         setReturnItemsState([]);
+        setIsPrintDialogOpen(true);
       } else {
         toast({ title: "Return Failed", description: res.error, variant: "destructive" });
       }
@@ -817,11 +822,17 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setIsReturning(true);
     try {
       const res = await processSaleReturn(returnSaleDetails.id, selectedItems);
-      if(res.success) {
-        toast({ title: "Return Processed", description: "The invoice return has been recorded." });
+      if(res.success && res.returnSale) {
+        const saleNum = res.returnSale.saleNumber;
+        const refundAmt = Number(res.returnSale.grandTotal);
+        setCompletedSaleNumber(saleNum);
+        setChangeAmount(Math.abs(refundAmt));
+        toast({ title: "Return Processed", description: `Return ${saleNum} created.` });
         setIsReturnModalOpen(false);
         setActionSaleNumber('');
         setReturnSaleDetails(null);
+        setReturnItemsState([]);
+        setIsPrintDialogOpen(true);
       } else {
         toast({ title: "Return Failed", description: res.error, variant: "destructive" });
       }
