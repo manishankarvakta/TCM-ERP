@@ -3,6 +3,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 // Item in the purchase
 export interface PurchaseItem {
   itemId: string;
+  variantId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -22,6 +23,7 @@ const initialState: PurchaseState = {
   items: [
     {
       itemId: '',
+      variantId: '',
       description: '',
       quantity: 1,
       unitPrice: 0,
@@ -55,10 +57,11 @@ const purchaseSlice = createSlice({
   initialState,
   reducers: {
     // Set item at specific index
-    setItem: (state, action: PayloadAction<{ index: number; itemId: string; description: string; unitPrice: number }>) => {
-      const { index, itemId, description, unitPrice } = action.payload;
+    setItem: (state, action: PayloadAction<{ index: number; itemId: string; variantId?: string; description: string; unitPrice: number }>) => {
+      const { index, itemId, variantId, description, unitPrice } = action.payload;
       if (state.items[index]) {
         state.items[index].itemId = itemId;
+        state.items[index].variantId = variantId || '';
         state.items[index].description = description;
         state.items[index].unitPrice = unitPrice;
         // Recalculate amount for this item
@@ -107,6 +110,7 @@ const purchaseSlice = createSlice({
     addItem: (state) => {
       state.items.push({
         itemId: '',
+        variantId: '',
         description: '',
         quantity: 1,
         unitPrice: 0,

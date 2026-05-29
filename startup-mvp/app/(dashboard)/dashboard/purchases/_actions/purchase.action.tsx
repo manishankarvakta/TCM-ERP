@@ -13,6 +13,7 @@ import { createUserLog, LogAction } from "@/lib/user-log";
 
 const purchaseItemSchema = z.object({
   itemId: z.string().optional().nullable(),
+  variantId: z.string().optional().nullable(),
   description: z.string().min(1, "Description is required"),
   quantity: z.coerce.number().positive("Quantity must be greater than 0"),
   unitPrice: z.coerce.number().min(0, "Unit price must be 0 or greater"),
@@ -142,13 +143,14 @@ export async function getItemsForPurchase() {
         status: "active",
         isTrash: false,
         itemType: {
-          in: [ItemType.RAW_MATERIAL, ItemType.READY_PRODUCT, ItemType.RETAIL],
+          in: [ItemType.RAW_MATERIAL, ItemType.READY_PRODUCT, ItemType.RETAIL, ItemType.WHOLESALE],
         },
       },
       select: {
         id: true,
         code: true,
         name: true,
+        itemType: true,
         costPrice: true,
         stocks: {
           select: {
@@ -176,6 +178,7 @@ export async function getItemsForPurchase() {
           id: item.id,
           code: item.code,
           description: item.name,
+          itemType: item.itemType,
           unitPrice: item.costPrice ? Number(item.costPrice) : 0,
           stock: totalStock,
           unit: item.unit.symbol,
@@ -310,10 +313,11 @@ export async function getPurchaseById(purchaseId: string) {
             code: true,
           },
         },
-        items: {
+        items: {              // ✅ Add this
           select: {
             id: true,
             itemId: true,
+            variantId: true,
             description: true,
             quantity: true,
             unitPrice: true,
@@ -774,6 +778,7 @@ export async function createPurchase(input: z.infer<typeof purchaseSchema>) {
           items: {
             create: validated.items.map((item) => ({
               itemId: item.itemId || null,
+              variantId: item.variantId || null,
               description: item.description,
               quantity: new Prisma.Decimal(item.quantity),
               unitPrice: new Prisma.Decimal(item.unitPrice),
@@ -900,6 +905,7 @@ export async function updatePurchase(input: z.infer<typeof updatePurchaseSchema>
           items: {
             create: validated.items.map((item) => ({
               itemId: item.itemId || null,
+              variantId: item.variantId || null,
               description: item.description,
               quantity: new Prisma.Decimal(item.quantity),
               unitPrice: new Prisma.Decimal(item.unitPrice),

@@ -69,7 +69,14 @@ export async function updateStockOnPurchase(
         const quantity = Number(purchaseItem.quantity);
 
         // Update or create Stock record
-        const existingStock = await transaction.stock.findUnique({
+        const existingStock = purchaseItem.variantId ? await transaction.stock.findUnique({
+          where: {
+            variantId_warehouseId: {
+              variantId: purchaseItem.variantId,
+              warehouseId: targetWarehouseId,
+            },
+          },
+        }) : await transaction.stock.findUnique({
           where: {
             itemId_warehouseId: {
               itemId: purchaseItem.itemId,
@@ -91,7 +98,8 @@ export async function updateStockOnPurchase(
         } else {
           await transaction.stock.create({
             data: {
-              itemId: purchaseItem.itemId,
+              itemId: purchaseItem.variantId ? null : purchaseItem.itemId,
+              variantId: purchaseItem.variantId || null,
               warehouseId: targetWarehouseId,
               quantity: quantity,
               reservedQuantity: 0,
@@ -102,7 +110,8 @@ export async function updateStockOnPurchase(
         // Create StockLedger entry
         await transaction.stockLedger.create({
           data: {
-            itemId: purchaseItem.itemId,
+            itemId: purchaseItem.variantId ? null : purchaseItem.itemId,
+            variantId: purchaseItem.variantId || null,
             warehouseId: targetWarehouseId,
             transactionType: StockTransactionType.IN,
             quantity: quantity,
@@ -818,13 +827,14 @@ export async function getWarehouseStocks(warehouseId: string) {
       },
       select: {
         itemId: true,
+        variantId: true,
         quantity: true,
       },
     });
 
     return {
       success: true,
-      stocks: stocks.map(s => ({ itemId: s.itemId, quantity: Number(s.quantity) })),
+      stocks: stocks.map(s => ({ itemId: s.itemId, variantId: s.variantId, quantity: Number(s.quantity) })),
       debug: { warehouseId, count: stocks.length }
     };
   } catch (error) {

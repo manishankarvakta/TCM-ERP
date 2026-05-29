@@ -1436,3 +1436,57 @@ export async function bulkUpdateItemStatus(
     };
   }
 }
+
+/**
+ * Get variants for a specific item
+ */
+export async function getItemVariants(itemId: string) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        variants: [],
+      };
+    }
+
+    const variants = await prisma.productVariant.findMany({
+      where: { itemId },
+      select: {
+        id: true,
+        sku: true,
+        barcode: true,
+        size: true,
+        color: true,
+        costPrice: true,
+        salesPrice: true,
+        wholesalePrice: true,
+        wholesaleDiscountAmount: true,
+        image: true,
+      },
+      orderBy: { sku: 'asc' },
+    });
+
+    const serializedVariants = variants.map((v) => ({
+      ...v,
+      costPrice: v.costPrice ? Number(v.costPrice) : null,
+      salesPrice: v.salesPrice ? Number(v.salesPrice) : null,
+      wholesalePrice: v.wholesalePrice ? Number(v.wholesalePrice) : null,
+      wholesaleDiscountAmount: v.wholesaleDiscountAmount ? Number(v.wholesaleDiscountAmount) : null,
+    }));
+
+    return {
+      success: true,
+      variants: serializedVariants,
+    };
+  } catch (error) {
+    console.error("getItemVariants error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch item variants",
+      variants: [],
+    };
+  }
+}

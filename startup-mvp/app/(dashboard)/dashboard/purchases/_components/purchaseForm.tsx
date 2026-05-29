@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -31,6 +32,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle, FiPlus, FiTrash2, FiSearch } from "react-icons/fi";
 import { createPurchase, updatePurchase } from "../_actions/purchase.action";
+import { getItemVariants } from "../../master/items/_actions/item.action";
 import { getWarehouseStocks } from "../../inventory/stock/_actions/stock.action";
 import { PurchaseStatus } from "@prisma/client";
 import { format } from "date-fns";
@@ -49,6 +51,7 @@ import { Toaster } from "@/components/ui/toast";
 
 const purchaseItemSchema = z.object({
   itemId: z.string().optional().nullable(),
+  variantId: z.string().optional().nullable(),
   description: z.string().min(1, "Description is required"),
   quantity: z.coerce.number().positive("Quantity must be greater than 0"),
   unitPrice: z.coerce.number().min(0, "Unit price must be 0 or greater"),
@@ -87,6 +90,7 @@ interface PurchaseFormProps {
     id: string;
     code: string;
     description: string;
+    itemType: string;
     unitPrice: number;
     stock: number;
     unit: string;
@@ -105,6 +109,7 @@ interface PurchaseFormProps {
     items: Array<{
       id: string;
       itemId: string | null;
+      variantId?: string | null;
       description: string;
       quantity: number;
       unitPrice: number;
@@ -137,6 +142,84 @@ export default function PurchaseForm({
   const [isSupplierDialogOpen, setIsSupplierDialogOpen] = useState(false);
   const { toasts, closeToast } = useToast();
 
+  // SKU selection modal state
+  const [skuModalOpen, setSkuModalOpen] = useState(false);
+  const [skuModalItem, setSkuModalItem] = useState<{ id: string; description: string; code: string } | null>(null);
+  const [skuModalIndex, setSkuModalIndex] = useState<number | null>(null);
+  const [skuVariants, setSkuVariants] = useState<Array<{
+    id: string;
+    sku: string;
+    size: string | null;
+    color: string | null;
+    costPrice: number | null;
+  }>>([]);
+  const [skuLoading, setSkuLoading] = useState(false);
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, boolean>>({});
+
+  const handleSkuConfirm = () => {
+    if (skuModalIndex === null || !skuModalItem) return;
+    
+    const selectedVariantIds = Object.keys(selectedVariants).filter(id => selectedVariants[id]);
+    if (selectedVariantIds.length === 0) {
+      setSkuModalOpen(false);
+      return;
+    }
+    
+    // Process first variant to update current row
+    const firstVariantId = selectedVariantIds[0];
+    const firstVariant = skuVariants.find(v => v.id === firstVariantId);
+    if (firstVariant) {
+      const desc = `${skuModalItem.code} - ${skuModalItem.description} (${firstVariant.sku}${firstVariant.size ? `, ${firstVariant.size}` : ''}${firstVariant.color ? `, ${firstVariant.color}` : ''})`;
+      const price = firstVariant.costPrice || 0;
+      
+      setValue(`items.${skuModalIndex}.itemId`, skuModalItem.id);
+      setValue(`items.${skuModalIndex}.variantId`, firstVariant.id);
+      setValue(`items.${skuModalIndex}.description`, desc);
+      setValue(`items.${skuModalIndex}.unitPrice`, price);
+      
+      const currentQty = Number(getValues(`items.${skuModalIndex}.quantity`) || 1);
+      setValue(`items.${skuModalIndex}.amount`, currentQty * price);
+      
+      dispatch(setReduxItem({
+        index: skuModalIndex,
+        itemId: skuModalItem.id,
+        variantId: firstVariant.id,
+        description: desc,
+        unitPrice: price,
+      }));
+    }
+    
+    // Process remaining variants
+    selectedVariantIds.slice(1).forEach((varId, idx) => {
+      const variant = skuVariants.find(v => v.id === varId);
+      if (variant) {
+        const desc = `${skuModalItem.code} - ${skuModalItem.description} (${variant.sku}${variant.size ? `, ${variant.size}` : ''}${variant.color ? `, ${variant.color}` : ''})`;
+        const price = variant.costPrice || 0;
+        const newIndex = fields.length + idx;
+        
+        append({
+          itemId: skuModalItem.id,
+          variantId: variant.id,
+          description: desc,
+          quantity: 1,
+          unitPrice: price,
+          amount: price,
+        });
+        
+        dispatch(addReduxItem());
+        dispatch(setReduxItem({
+          index: newIndex,
+          itemId: skuModalItem.id,
+          variantId: variant.id,
+          description: desc,
+          unitPrice: price,
+        }));
+      }
+    });
+    
+    setSkuModalOpen(false);
+  };
+
   useEffect(() => {
     setLocalSuppliers(suppliers);
   }, [suppliers]);
@@ -166,6 +249,7 @@ export default function PurchaseForm({
   const defaultItems =
     initialData?.items.map((item) => ({
       itemId: item.itemId || "",
+      variantId: item.variantId || "",
       description: item.description,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
@@ -173,6 +257,7 @@ export default function PurchaseForm({
     })) || [
       {
         itemId: "",
+        variantId: "",
         description: "",
         quantity: 1,
         unitPrice: 0,
@@ -239,6 +324,7 @@ export default function PurchaseForm({
     dispatch(initializePurchase({
       items: items.map(item => ({
         itemId: item.itemId || "",
+        variantId: item.variantId || "",
         description: item.description || "",
         quantity: Number(item.quantity) || 1,
         unitPrice: Number(item.unitPrice) || 0,
@@ -278,7 +364,8 @@ export default function PurchaseForm({
         if (res.success && res.stocks) {
            const map: Record<string, number> = {};
            res.stocks.forEach(s => {
-             map[s.itemId] = s.quantity;
+             if (s.itemId) map[s.itemId] = s.quantity;
+             if (s.variantId) map[s.variantId] = s.quantity;
            });
            setStockMap(map);
         }
@@ -622,27 +709,52 @@ export default function PurchaseForm({
                               return (
                                 <Select
                                   value={itemField.value || ""}
-                                  onValueChange={(value) => {
-                                    itemField.onChange(value || "");
+                                  onValueChange={async (value) => {
                                     const selectedItem = items.find((item) => item.id === value);
                                     if (selectedItem) {
-                                      setValue(`items.${index}.description`, selectedItem.description);
-                                      setValue(`items.${index}.unitPrice`, selectedItem.unitPrice);
-                                      
-                                      // Calculate amount immediately with the new unit price
-                                      const currentQuantity = Number(getValues(`items.${index}.quantity`) || 0);
-                                      const amount = Number.isFinite(currentQuantity * selectedItem.unitPrice) 
-                                        ? currentQuantity * selectedItem.unitPrice 
-                                        : 0;
-                                      setValue(`items.${index}.amount`, amount);
-                                      
-                                      // Dispatch to Redux for instant calculation
-                                      dispatch(setReduxItem({
-                                        index,
-                                        itemId: value,
-                                        description: selectedItem.description,
-                                        unitPrice: selectedItem.unitPrice,
-                                      }));
+                                      if (selectedItem.itemType === "RETAIL" || selectedItem.itemType === "READY_PRODUCT") {
+                                        // Open SKU selection modal
+                                        setSkuModalItem({
+                                          id: selectedItem.id,
+                                          description: selectedItem.description,
+                                          code: selectedItem.code
+                                        });
+                                        setSkuModalIndex(index);
+                                        setSkuModalOpen(true);
+                                        setSkuLoading(true);
+                                        setSelectedVariants({});
+                                        
+                                        const res = await getItemVariants(selectedItem.id);
+                                        if (res.success && res.variants) {
+                                          setSkuVariants(res.variants);
+                                        } else {
+                                          const errorMessage = res.error || "Failed to load variants";
+                                          // Note: toasts array is handled by custom Toaster wrapper in this component, but using standard toast UI is also good.
+                                          setError(errorMessage);
+                                          itemField.onChange("");
+                                        }
+                                        setSkuLoading(false);
+                                      } else {
+                                        itemField.onChange(value || "");
+                                        setValue(`items.${index}.description`, selectedItem.description);
+                                        setValue(`items.${index}.unitPrice`, selectedItem.unitPrice);
+                                        
+                                        // Calculate amount immediately with the new unit price
+                                        const currentQuantity = Number(getValues(`items.${index}.quantity`) || 0);
+                                        const amount = Number.isFinite(currentQuantity * selectedItem.unitPrice) 
+                                          ? currentQuantity * selectedItem.unitPrice 
+                                          : 0;
+                                        setValue(`items.${index}.amount`, amount);
+                                        
+                                        // Dispatch to Redux for instant calculation
+                                        dispatch(setReduxItem({
+                                          index,
+                                          itemId: value,
+                                          variantId: "",
+                                          description: selectedItem.description,
+                                          unitPrice: selectedItem.unitPrice,
+                                        }));
+                                      }
                                       
                                       // Clear search after selection
                                       setItemSearch("");
@@ -762,7 +874,7 @@ export default function PurchaseForm({
                             {...register(`items.${index}.unitPrice`, {
                               valueAsNumber: true,
                             })}
-                            disabled
+                            readOnly
                           />
                           {errors.items?.[index]?.unitPrice && (
                             <p className="text-xs text-destructive mt-1">
@@ -776,7 +888,7 @@ export default function PurchaseForm({
                             step="1"
                             className="text-right"
                             {...register(`items.${index}.amount`, { valueAsNumber: true })}
-                            disabled
+                            readOnly
                           />
                         </td>
                         <td className="px-3 py-2 align-top text-right">
@@ -851,6 +963,112 @@ export default function PurchaseForm({
         </CardContent>
       </Card>
     </div>
+    <Dialog open={skuModalOpen} onOpenChange={(open) => {
+      if (!open) {
+        setSkuModalOpen(false);
+        if (skuModalIndex !== null && !getValues(`items.${skuModalIndex}.variantId`)) {
+          setValue(`items.${skuModalIndex}.itemId`, "");
+        }
+      }
+    }}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Select SKUs/Variants</DialogTitle>
+          <DialogDescription>
+            Choose the specific SKUs for <strong>{skuModalItem?.code} - {skuModalItem?.description}</strong>.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          {skuLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : skuVariants.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No variants/SKUs found for this product.
+            </div>
+          ) : (
+            <div className="max-h-[350px] overflow-y-auto border rounded-md">
+              <table className="w-full text-sm">
+                <thead className="bg-muted sticky top-0">
+                  <tr>
+                    <th className="w-24 px-4 py-2 text-left">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={skuVariants.length > 0 && skuVariants.every(v => !!selectedVariants[v.id])}
+                          onCheckedChange={(checked) => {
+                            const newSelected: Record<string, boolean> = {};
+                            if (checked) {
+                              skuVariants.forEach(v => {
+                                newSelected[v.id] = true;
+                              });
+                            }
+                            setSelectedVariants(newSelected);
+                          }}
+                        />
+                        <span>All</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-2 text-left">SKU</th>
+                    <th className="px-4 py-2 text-left">Size</th>
+                    <th className="px-4 py-2 text-left">Color</th>
+                    <th className="px-4 py-2 text-right">Stock</th>
+                    <th className="px-4 py-2 text-right">Cost Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {skuVariants.map((variant) => (
+                    <tr key={variant.id} className="border-t hover:bg-muted/50">
+                      <td className="px-4 py-2">
+                        <Checkbox
+                          checked={!!selectedVariants[variant.id]}
+                          onCheckedChange={(checked) => {
+                            setSelectedVariants(prev => ({
+                              ...prev,
+                              [variant.id]: !!checked
+                            }));
+                          }}
+                        />
+                      </td>
+                      <td className="px-4 py-2 font-mono text-xs">{variant.sku}</td>
+                      <td className="px-4 py-2">{variant.size || "-"}</td>
+                      <td className="px-4 py-2">{variant.color || "-"}</td>
+                      <td className="px-4 py-2 text-right font-medium">
+                        {stockMap[variant.id] ?? 0}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {variant.costPrice !== null ? `৳${variant.costPrice.toFixed(2)}` : "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setSkuModalOpen(false);
+              if (skuModalIndex !== null && !getValues(`items.${skuModalIndex}.variantId`)) {
+                setValue(`items.${skuModalIndex}.itemId`, "");
+              }
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSkuConfirm}
+            disabled={skuLoading || Object.keys(selectedVariants).filter(id => selectedVariants[id]).length === 0}
+          >
+            Confirm Selection
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
     <Toaster toasts={toasts} onClose={closeToast} />
     </>
   );

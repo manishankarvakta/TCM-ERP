@@ -89,13 +89,7 @@ interface POSComponentProps {
 }
 
 export default function POSComponent({ items, clients: initialClients, warehouses, paymentAccounts = [] }: POSComponentProps) {
-  const handleOpenVoidReturnModal = () => {
-    toast({ variant: "destructive", title: "Error", description: "Void Return is temporarily disabled while we update the wholesale pricing logic." });
-  };
 
-  const handleOpenInvoiceReturnModal = () => {
-    toast({ variant: "destructive", title: "Error", description: "Invoice Return is temporarily disabled while we update the wholesale pricing logic." });
-  };
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -686,11 +680,12 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   };
 
   
-  const handleFetchSaleForReturn = async () => {
-    if(!actionSaleNumber) return toast({ title: "Error", description: "Sale Number is required", variant: "destructive" });
+  const handleFetchSaleForReturn = async (saleNum?: string) => {
+    const saleNumberToFetch = saleNum || actionSaleNumber;
+    if(!saleNumberToFetch) return toast({ title: "Error", description: "Sale Number is required", variant: "destructive" });
     setIsFetchingSale(true);
     try {
-      const res = await getSaleByNumber(actionSaleNumber);
+      const res = await getSaleByNumber(saleNumberToFetch);
       if (res.success && res.sale) {
         setReturnSaleDetails(res.sale);
         setReturnItemsState(res.sale.items.map((i: any) => ({ itemId: i.itemId, maxQty: Number(i.quantity), returnQty: 0 })));
@@ -716,7 +711,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const handleProcessVoidReturn = async () => {
     const selectedItems = returnItemsState.filter(i => i.returnQty > 0).map(i => {
       const it = items.find(x => x.id === i.itemId);
-      return { itemId: i.itemId, quantity: i.returnQty, unitPrice: it?.salesPrice || 0 };
+      return { itemId: i.itemId, quantity: i.returnQty, unitPrice: it?.unitPrice || 0 };
     });
     if(selectedItems.length === 0) return toast({ title: "Error", description: "Please select at least one item to return", variant: "destructive" });
     
@@ -1730,9 +1725,9 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 <div>
                   <label className="block text-sm font-medium mb-2">Search Products to Return</label>
                   <SearchableSelect 
-                    options={items.map(item => ({ value: item.id, label: item.name }))}
+                    options={items.map(item => ({ value: item.id, label: item.name || item.description }))}
                     value=""
-                    onChange={(val) => {
+                    onValueChange={(val) => {
                       if(val) {
                         const item = items.find(i => i.id === val);
                         if(item && !returnItemsState.find(i => i.itemId === item.id)) {
@@ -1754,8 +1749,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                         return (
                           <div key={item.id} className="flex items-center justify-between bg-muted/30 p-2 rounded">
                             <div className="flex-1">
-                              <p className="text-sm font-medium">{item.name}</p>
-                              <p className="text-xs text-muted-foreground">Selling Price: ৳{item.salesPrice || 0}</p>
+                              <p className="text-sm font-medium">{item.name || item.description}</p>
+                              <p className="text-xs text-muted-foreground">Selling Price: ৳{item.unitPrice || 0}</p>
                             </div>
                             <div className="flex items-center gap-2">
                               <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => handleUpdateReturnQty(item.id, Math.max(0, state.returnQty - 1))}>-</Button>
@@ -1798,9 +1793,9 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 <div className="mb-4">
                   <label className="block text-sm font-medium mb-2">Select Customer</label>
                   <SearchableSelect 
-                    options={clients.map(c => ({ value: c.id, label: c.name || "Unknown" }))}
-                    value={returnCustomerId}
-                    onChange={(val) => setReturnCustomerId(val)}
+                    options={clients.map(c => ({ value: c.id, label: c.name || c.email || "Unnamed Customer" }))}
+                    value={returnCustomerId || null}
+                    onValueChange={(val) => setReturnCustomerId(val || "")}
                     placeholder="Search Customer..."
                   />
                   {isFetchingCustomerSales && <p className="text-xs text-muted-foreground mt-1">Loading sales...</p>}
@@ -1810,21 +1805,14 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                       {customerSales.map(sale => (
                         <div key={sale.id} className="flex justify-between items-center p-2 bg-muted/20 rounded cursor-pointer hover:bg-muted/50" onClick={() => {
                           setActionSaleNumber(sale.saleNumber);
-                          handleFetchSaleForReturn(); // Wait, handleFetchSaleForReturn uses actionSaleNumber state, which might not update before it's called.
+                          handleFetchSaleForReturn(sale.saleNumber);
                         }}>
                           <div>
                             <p className="text-sm font-bold">{sale.saleNumber}</p>
                             <p className="text-xs text-muted-foreground">{new Date(sale.createdAt).toLocaleDateString()}</p>
                           </div>
                           <p className="text-sm font-semibold">৳{sale.grandTotal}</p>
-                          <Button size="sm" variant="secondary" onClick={(e) => {
-                             e.stopPropagation();
-                             setActionSaleNumber(sale.saleNumber);
-                             // Let's directly call the internal logic of fetch, or just set the input and the user clicks search.
-                             // Best approach: set input, then user can click search. But we can auto-search if we modify fetch to accept an arg.
-                             // For simplicity, we just trigger a toast telling them to click Search.
-                             toast({ description: "Invoice selected! Click Search to load items." });
-                          }}>Select</Button>
+                          <Button size="sm" variant="secondary">Select</Button>
                         </div>
                       ))}
                     </div>
