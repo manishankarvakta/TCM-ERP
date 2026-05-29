@@ -1801,47 +1801,51 @@ export default function POSComponent({ items, clients: initialClients, warehouse
             
             <TabsContent value="void-return" className="py-2">
               <div className="flex flex-col gap-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex flex-col">
-                    <label className="block text-sm font-semibold mb-2">Search Products to Return</label>
-                    <SearchableSelect 
-                      options={items.flatMap(item => {
-                        if (item.variants && item.variants.length > 0) {
-                          return item.variants.map(v => ({
-                            value: `${item.id}:${v.id}`,
-                            label: `${item.name || item.description} - ${v.color} / ${v.size} (${v.sku})`
-                          }));
-                        } else {
-                          return [{
-                            value: item.id,
-                            label: item.name || item.description
-                          }];
-                        }
-                      })}
-                      value=""
-                      onValueChange={(val) => {
-                        if(val) {
-                          const [itemId, variantId] = val.split(':');
-                          const item = items.find(i => i.id === itemId);
-                          if(item) {
-                            const exists = returnItemsState.find(i => i.itemId === itemId && (variantId ? i.variantId === variantId : !i.variantId));
-                            if(!exists) {
-                              setReturnItemsState(prev => [...prev, { itemId, variantId, maxQty: 9999, returnQty: 1 }]);
-                            } else {
-                              handleUpdateReturnQty(itemId, exists.returnQty + 1, variantId);
+                <div className="flex flex-col md:flex-row gap-4 items-end">
+                  <div className="flex-1">
+                    <label className="block text-sm font-semibold mb-2">Search Product or Scan Barcode / SKU</label>
+                    <div className="relative">
+                      <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <SearchableSelect 
+                        options={items.flatMap(item => {
+                          if (item.variants && item.variants.length > 0) {
+                            return item.variants.map(v => ({
+                              value: `${item.id}:${v.id}`,
+                              label: `${item.name || item.description} - ${v.color} / ${v.size} (${v.sku})`
+                            }));
+                          } else {
+                            return [{
+                              value: item.id,
+                              label: item.name || item.description
+                            }];
+                          }
+                        })}
+                        value=""
+                        onValueChange={(val) => {
+                          if(val) {
+                            const [itemId, variantId] = val.split(':');
+                            const item = items.find(i => i.id === itemId);
+                            if(item) {
+                              const exists = returnItemsState.find(i => i.itemId === itemId && (variantId ? i.variantId === variantId : !i.variantId));
+                              if(!exists) {
+                                setReturnItemsState(prev => [...prev, { itemId, variantId, maxQty: 9999, returnQty: 1 }]);
+                              } else {
+                                handleUpdateReturnQty(itemId, exists.returnQty + 1, variantId);
+                              }
                             }
                           }
-                        }
-                      }}
-                      placeholder="Search products..."
-                    />
+                        }}
+                        placeholder="Search products, variants or barcodes..."
+                        className="pl-9"
+                      />
+                    </div>
                   </div>
 
-                  <div className="flex flex-col">
-                    <label className="block text-sm font-semibold mb-2">Scan Barcode or Enter SKU</label>
+                  <div className="flex flex-col w-full md:w-80">
+                    <label className="block text-sm font-semibold mb-2">Quick Barcode Scanner</label>
                     <div className="flex gap-2">
                       <Input 
-                        placeholder="Scan barcode or Enter SKU..." 
+                        placeholder="Scan barcode directly..." 
                         value={barcodeInput} 
                         onChange={(e) => setBarcodeInput(e.target.value)} 
                         onKeyDown={(e) => {
@@ -1850,54 +1854,85 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                             handleBarcodeReturnScan(barcodeInput);
                           }
                         }}
+                        className="h-10"
                       />
-                      <Button variant="secondary" onClick={() => handleBarcodeReturnScan(barcodeInput)}>Scan</Button>
+                      <Button variant="secondary" onClick={() => handleBarcodeReturnScan(barcodeInput)} className="h-10">Scan</Button>
                     </div>
                   </div>
                 </div>
                 
-                {returnItemsState.length > 0 && (
-                  <div className="border rounded-lg p-4 bg-muted/10">
-                    <p className="font-bold text-sm mb-3">Selected Products for Return</p>
-                    <div className="flex flex-col gap-2">
-                      {returnItemsState.map((state) => {
-                        const item = items.find(i => i.id === state.itemId);
-                        if(!item) return null;
-                        const variant = state.variantId ? item.variants?.find(v => v.id === state.variantId) : null;
-                        const label = item.name || item.description;
-                        const price = variant ? (variant.salesPrice || item.unitPrice) : item.unitPrice;
-                        return (
-                          <div key={`${state.itemId}-${state.variantId || 'none'}`} className="flex items-center justify-between bg-background border rounded-lg p-3 shadow-sm hover:border-primary/30 transition-all">
-                            <div className="flex-1 min-w-0 pr-4">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-sm font-semibold text-foreground truncate">{label}</p>
+                <div className="bg-background rounded-xl border border-border overflow-hidden shadow-sm mt-2">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50 text-muted-foreground border-b border-border">
+                      <tr>
+                        <th className="text-left py-3 px-4 font-semibold w-10"></th>
+                        <th className="text-left py-3 px-4 font-semibold">Item</th>
+                        <th className="text-center py-3 px-4 font-semibold w-32">Qty</th>
+                        <th className="text-right py-3 px-4 font-semibold">Price</th>
+                        <th className="text-right py-3 px-4 font-semibold">Total</th>
+                        <th className="text-center py-3 px-4 font-semibold w-16"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {returnItemsState.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="text-center py-10 text-muted-foreground font-medium">
+                            <FaShoppingCart className="w-12 h-12 mx-auto mb-3 opacity-40" />
+                            No items added to return list yet. Use the search bar above.
+                          </td>
+                        </tr>
+                      ) : (
+                        returnItemsState.map((state) => {
+                          const item = items.find(i => i.id === state.itemId);
+                          if(!item) return null;
+                          const variant = state.variantId ? item.variants?.find(v => v.id === state.variantId) : null;
+                          const label = item.name || item.description;
+                          const price = variant ? (variant.salesPrice || item.unitPrice) : item.unitPrice;
+                          const total = price * state.returnQty;
+                          return (
+                            <tr key={`${state.itemId}-${state.variantId || 'none'}`} className="hover:bg-muted/5 transition-colors">
+                              <td className="py-2.5 px-4">
+                                <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0">
+                                  {item.imageUrl ? (
+                                    <img src={item.imageUrl} alt={label} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span className="text-[9px] text-muted-foreground text-center px-0.5 truncate">{item.code}</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-4">
+                                <span className="font-semibold text-foreground">{label}</span>
                                 {variant && (
-                                  <span className="inline-flex items-center rounded-md bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-700 ring-1 ring-inset ring-sky-700/10">
-                                    {variant.color} / {variant.size}
-                                  </span>
+                                  <div className="flex gap-1 mt-1">
+                                    <span className="text-[9px] px-1.5 py-0.5 bg-muted border border-border text-foreground rounded font-medium">{variant.color}</span>
+                                    <span className="text-[9px] px-1.5 py-0.5 bg-muted border border-border text-foreground rounded font-medium">{variant.size}</span>
+                                    {variant.sku && <span className="text-[9px] px-1.5 py-0.5 bg-muted border border-border text-muted-foreground font-mono rounded">{variant.sku}</span>}
+                                  </div>
                                 )}
-                                {variant?.sku && (
-                                  <span className="inline-flex items-center rounded-md bg-mono/10 px-2 py-0.5 text-xs font-mono text-muted-foreground border">
-                                    {variant.sku}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-1">Selling Price: ৳{price || 0}</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => handleUpdateReturnQty(state.itemId, state.returnQty - 1, state.variantId)}>-</Button>
-                              <span className="w-8 text-center text-sm font-semibold">{state.returnQty}</span>
-                              <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => handleUpdateReturnQty(state.itemId, state.returnQty + 1, state.variantId)}>+</Button>
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700" onClick={() => setReturnItemsState(prev => prev.filter(i => !(i.itemId === state.itemId && i.variantId === state.variantId)))}><FaTrashAlt className="w-3.5 h-3.5" /></Button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                              </td>
+                              <td className="py-2.5 px-4 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <Button size="icon" variant="outline" className="h-6 w-6 rounded-full" onClick={() => handleUpdateReturnQty(state.itemId, state.returnQty - 1, state.variantId)}>-</Button>
+                                  <span className="w-8 text-center text-sm font-semibold">{state.returnQty}</span>
+                                  <Button size="icon" variant="outline" className="h-6 w-6 rounded-full" onClick={() => handleUpdateReturnQty(state.itemId, state.returnQty + 1, state.variantId)}>+</Button>
+                                </div>
+                              </td>
+                              <td className="text-right py-2.5 px-4 text-muted-foreground font-semibold">৳{price.toFixed(2)}</td>
+                              <td className="text-right py-2.5 px-4 font-bold text-foreground">৳{total.toFixed(2)}</td>
+                              <td className="text-center py-2.5 px-4">
+                                <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-500/10 rounded-lg" onClick={() => setReturnItemsState(prev => prev.filter(i => !(i.itemId === state.itemId && i.variantId === state.variantId)))}>
+                                  <FaTrashAlt className="w-3.5 h-3.5" />
+                                </Button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
                 
-                <div className="flex justify-end gap-2 mt-4">
+                <div className="flex justify-end gap-2 mt-2">
                   <Button variant="outline" onClick={() => { setIsReturnModalOpen(false); setReturnItemsState([]); setBarcodeInput(""); }}>Cancel</Button>
                   <Button variant="default" onClick={() => handleProcessVoidReturn()} disabled={isReturning || returnItemsState.length === 0}>{isReturning ? "Processing..." : "Process Void Return"}</Button>
                 </div>
