@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import DashboardSidebarWrapper from "@/components/dashboard/sidebar-wrapper";
 import DashboardHeader from "@/components/dashboard/header";
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardLayout({
   children,
 }: {
