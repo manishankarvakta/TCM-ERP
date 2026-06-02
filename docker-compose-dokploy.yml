@@ -12,8 +12,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgresUser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgresPass}
       POSTGRES_DB: ${POSTGRES_DB:-startup_mvp}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+    expose:
+      - "5432"
     volumes:
       # IMPORTANT: Data persists across deployments in ./volumes/postgres
       # This directory is preserved even when containers are recreated
@@ -77,8 +77,8 @@ services:
     image: redis:7-alpine
     container_name: fferp-redis
     restart: unless-stopped
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
+    expose:
+      - "6379"
     volumes:
       - ./volumes/redis:/data
     healthcheck:
