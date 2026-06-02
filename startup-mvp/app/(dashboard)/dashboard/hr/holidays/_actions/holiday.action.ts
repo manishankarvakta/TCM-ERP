@@ -72,6 +72,94 @@ export async function getHolidays(
   }
 }
 
+/**
+ * Fetch all active holidays for a given year (for Calendar View)
+ */
+export async function getYearHolidays(year: number) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", holidays: [] };
+    }
+
+    const yearStart = new Date(year, 0, 1);
+    const yearEnd = new Date(year, 11, 31, 23, 59, 59);
+
+    const holidays = await prisma.holiday.findMany({
+      where: {
+        isTrash: false,
+        status: "active",
+        date: { gte: yearStart, lte: yearEnd },
+      },
+      include: {
+        warehouse: { select: { id: true, name: true } },
+      },
+      orderBy: { date: "asc" },
+    });
+
+    return { success: true, holidays };
+  } catch (error) {
+    console.error("getYearHolidays error:", error);
+    return { success: false, error: "Failed to fetch holidays for calendar", holidays: [] };
+  }
+}
+
+
+/**
+ * Returns holiday statistics for the header info cards.
+ */
+export async function getHolidayStats() {
+  try {
+    const now   = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+    const yearEnd   = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    const [totalThisYear, upcoming, thisMonth, nextHoliday] = await Promise.all([
+      // Total active holidays this year
+      prisma.holiday.count({
+        where: { isTrash: false, status: "active", date: { gte: yearStart, lte: yearEnd } },
+      }),
+      // Upcoming (from today onwards, this year)
+      prisma.holiday.count({
+        where: { isTrash: false, status: "active", date: { gte: today, lte: yearEnd } },
+      }),
+      // This month
+      prisma.holiday.count({
+        where: { isTrash: false, status: "active", date: { gte: monthStart, lte: monthEnd } },
+      }),
+      // Next upcoming holiday
+      prisma.holiday.findFirst({
+        where: { isTrash: false, status: "active", date: { gte: today } },
+        orderBy: { date: "asc" },
+        select: { name: true, date: true },
+      }),
+    ]);
+
+    const past = totalThisYear - upcoming;
+
+    return {
+      success: true,
+      stats: {
+        totalThisYear,
+        upcoming,
+        past,
+        thisMonth,
+        nextHoliday: nextHoliday
+          ? { name: nextHoliday.name, date: nextHoliday.date }
+          : null,
+        currentYear: now.getFullYear(),
+        currentMonth: now.toLocaleString("en-US", { month: "long" }),
+      },
+    };
+  } catch (error) {
+    console.error("getHolidayStats error:", error);
+    return { success: false, stats: null };
+  }
+}
+
 export async function createHoliday(input: {
   name: string;
   date: string;

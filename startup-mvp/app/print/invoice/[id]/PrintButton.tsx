@@ -8,6 +8,10 @@ export default function PrintButton() {
 
   useEffect(() => {
     setMounted(true);
+    // Don't auto-print if loaded inside an iframe to prevent double-printing!
+    const isInsideIframe = typeof window !== 'undefined' && window.self !== window.top;
+    if (isInsideIframe) return;
+
     // Automatically open print dialog after a short delay to let fonts/styles load
     const timer = setTimeout(() => {
       window.print();

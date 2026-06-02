@@ -72,6 +72,7 @@ model User {
   createdWarehouses                Warehouse[]           @relation("WarehouseCreator")
   createdSettings                  Settings[]            @relation("SettingsCreator")
   settings                         Settings[]            @relation("SettingsUser")
+  rfidBundleScans                  RFIDBundleScan[]
 
   @@index([status])
   @@index([designationTemplateId])
@@ -327,6 +328,8 @@ model Item {
   barcode                 String?                   @unique
   variants                ProductVariant[]
   clientDiscounts         ClientItemDiscount[]
+  industrialEngineeringBreakdown   IndustrialEngineeringBreakdown?
+  fabricRolls                      FabricRoll[]
 
   @@index([code])
   @@index([name])
@@ -364,6 +367,7 @@ model Warehouse {
   defaultUsers        User[]                @relation("UserDefaultWarehouse")
   creator             User                  @relation("WarehouseCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   cashBankAccounts    CashBankAccount[]     @relation("WarehouseCashBankAccounts")
+  fabricRolls                      FabricRoll[]
 
   @@index([code])
   @@index([name])
@@ -1496,6 +1500,8 @@ model CuttingJob {
   piecesCutActual    Int
   fabricWastageKg    Decimal         @db.Decimal(10, 2)
   createdAt          DateTime        @default(now())
+  fabricRolls        CuttingJobFabricRoll[]
+  bundles            ProductionBundle[]
 }
 
 model SewingLineTrack {
@@ -1550,4 +1556,115 @@ model ClientItemDiscount {
   @@index([clientId])
   @@index([itemId])
   @@index([variantId])
+}
+
+// ============================================
+// GARMENTS BRAND ERP EXTENSIONS (PHASE 2)
+// ============================================
+
+model IndustrialEngineeringBreakdown {
+  id               String             @id @default(cuid())
+  itemId           String             @unique
+  item             Item               @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  totalSAM         Decimal            @db.Decimal(6, 2)
+  targetEffPercent Decimal            @db.Decimal(5, 2) @default(100.00)
+  operatorCount    Int                @default(0)
+  helperCount      Int                @default(0)
+  pitchTime        Decimal?           @db.Decimal(6, 2)
+  operations       GarmentOperation[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([itemId])
+}
+
+model GarmentOperation {
+  id            String                         @id @default(cuid())
+  breakdownId   String
+  breakdown     IndustrialEngineeringBreakdown @relation(fields: [breakdownId], references: [id], onDelete: Cascade)
+  sequence      Int
+  operationName String
+  machineType   String
+  sam           Decimal                        @db.Decimal(5, 2)
+  operatorGrade String?
+  targetPerHour Int?
+  createdAt     DateTime                       @default(now())
+  updatedAt     DateTime                       @updatedAt
+
+  @@index([breakdownId])
+  @@index([sequence])
+}
+
+model FabricRoll {
+  id             String                 @id @default(cuid())
+  rollNumber     String                 @unique
+  itemId         String
+  item           Item                   @relation(fields: [itemId], references: [id])
+  supplierRollId String?
+  shade          String?
+  gsmActual      Int?
+  widthInch      Decimal?               @db.Decimal(5, 2)
+  weightKg       Decimal                @db.Decimal(8, 2)
+  lengthMeter    Decimal?               @db.Decimal(8, 2)
+  status         String                 @default("AVAILABLE") // AVAILABLE, RESERVED, ISSUED, CONSUMED
+  warehouseId    String?
+  warehouse      Warehouse?             @relation(fields: [warehouseId], references: [id])
+  cuttingJobs    CuttingJobFabricRoll[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@index([itemId])
+  @@index([warehouseId])
+  @@index([status])
+}
+
+model CuttingJobFabricRoll {
+  id           String     @id @default(cuid())
+  cuttingJobId String
+  cuttingJob   CuttingJob @relation(fields: [cuttingJobId], references: [id], onDelete: Cascade)
+  fabricRollId String
+  fabricRoll   FabricRoll @relation(fields: [fabricRollId], references: [id], onDelete: Cascade)
+  weightUsedKg Decimal    @db.Decimal(8, 2)
+  allocatedAt  DateTime   @default(now())
+
+  @@unique([cuttingJobId, fabricRollId])
+  @@index([cuttingJobId])
+  @@index([fabricRollId])
+}
+
+model ProductionBundle {
+  id           String           @id @default(cuid())
+  bundleNumber String           @unique
+  cuttingJobId String
+  cuttingJob   CuttingJob       @relation(fields: [cuttingJobId], references: [id], onDelete: Cascade)
+  size         String
+  color        String
+  quantity     Int
+  plyStart     Int?
+  plyEnd       Int?
+  status       String           @default("CUTTING_COMPLETED")
+  scans        RFIDBundleScan[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([cuttingJobId])
+  @@index([status])
+}
+
+model RFIDBundleScan {
+  id          String           @id @default(cuid())
+  bundleId    String
+  bundle      ProductionBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  rfidTag     String?
+  station     String
+  lineCode    String?
+  scannedById String?
+  scannedBy   User?            @relation(fields: [scannedById], references: [id])
+  scanTime    DateTime         @default(now())
+  status      String           @default("SUCCESS")
+
+  @@index([bundleId])
+  @@index([rfidTag])
+  @@index([station])
+  @@index([scanTime])
 }

@@ -7,11 +7,37 @@ import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { Prisma, PayrollStatus } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
 import { createVoucher, postVoucher, cancelVoucher } from "../../../accounts/vouchers/_actions/voucher.action";
+import { getPayrollSettings } from "@/lib/payroll-settings";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Applies the configured net pay rounding rule.
+ * "none"       = no rounding
+ * "nearest10"  = round to nearest 10
+ * "nearest100" = round to nearest 100
+ */
+function applyNetPayRounding(value: number, mode: string): number {
+  if (mode === "nearest10")  return Math.round(value / 10) * 10;
+  if (mode === "nearest100") return Math.round(value / 100) * 100;
+  return value;
+}
+
 
 /**
  * Generate a new Payroll for a given month and year
  */
-export async function generatePayroll(month: number, year: number) {
+/**
+ * Generate options for payroll.
+ * includeFestivalBonus: if true, adds defaultFestivalBonusPct of basic as bonus for all employees.
+ */
+export interface GeneratePayrollOptions {
+  includeFestivalBonus?: boolean;
+}
+
+export async function generatePayroll(month: number, year: number, options?: GeneratePayrollOptions) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -41,9 +67,18 @@ export async function generatePayroll(month: number, year: number) {
       return { success: false, error: "No active employees found to generate payroll for" };
     }
 
+    // Load payroll settings for calculation rules
+    const payrollSettings = await getPayrollSettings();
+    const calc = payrollSettings.calculation;
+
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59, 999);
-    const daysInMonth = endDate.getDate();
+    const calendarDaysInMonth = endDate.getDate();
+    // Divisor for daily rate: configurable (calendar vs fixed working days)
+    const payDivisor =
+      calc.absentDeductionMode === "working"
+        ? calc.standardWorkingDays
+        : calendarDaysInMonth;
 
     // Fetch Attendance
     const attendanceRecords = await prisma.attendance.findMany({
@@ -93,50 +128,90 @@ export async function generatePayroll(month: number, year: number) {
       return acc;
     }, {} as Record<string, typeof loans>);
 
+    // Fetch all EmployeeSalary rows for structured allowances
+    const employeeSalaries = await prisma.employeeSalary.findMany({
+      where: { employeeId: { in: employees.map((e) => e.id) } },
+    });
+    const salaryByEmployee = new Map(
+      employeeSalaries.map((s) => [s.employeeId, s])
+    );
+
     // Calculate payroll items
-    const payrollItemsData = [];
+    const payrollItemsData: Array<{
+      employeeId: string;
+      basic: number;
+      houseRent: number;
+      medical: number;
+      transport: number;
+      foodAllowance: number;
+      otAmount: number;
+      bonus: number;
+      grossPay: number;
+      absentDeduction: number;
+      loanDeduction: number;
+      taxDeduction: number;
+      pfDeduction: number;
+      totalDeduction: number;
+      netPay: number;
+      status: string;
+    }> = [];
     let grandTotalAmount = 0;
 
     for (const emp of employees) {
       const basic = Number(emp.salary) || 0;
       if (basic <= 0) continue; // Skip if no salary setup
 
-      const houseRent = 0;
-      const medical = 0;
-      const transport = 0;
-      const foodAllowance = 0;
+      // Load per-employee salary structure; fall back to global default %
+      const empSalary = salaryByEmployee.get(emp.id);
+      const houseRent = empSalary
+        ? Number(empSalary.houseRent)
+        : basic * (calc.defaultHouseRentPct / 100);
+      const medical = empSalary
+        ? Number(empSalary.medical)
+        : basic * (calc.defaultMedicalPct / 100);
+      const transport = empSalary
+        ? Number(empSalary.transport)
+        : basic * (calc.defaultTransportPct / 100);
+      const foodAllowance = empSalary
+        ? Number(empSalary.foodAllowance)
+        : basic * (calc.defaultFoodAllowancePct / 100);
+      const taxPercentage = empSalary ? Number(empSalary.taxPercentage) : 0;
+      const pfPercentage = empSalary ? Number(empSalary.pfPercentage) : 0;
 
       // Attendance values
       const att = attendanceByEmployee[emp.id] || { absentDays: 0, otHours: 0 };
-      
-      // Calculate OT Amount (Basic / days / 8 * 1.5 * otHours) - Assuming standard rate
-      const hourlyRate = (basic / daysInMonth) / 8;
-      const otRate = hourlyRate * 1.5;
-      const otAmount = att.otHours * otRate;
 
-      // Calculate Absent Deduction
-      const dailyRate = basic / daysInMonth;
+      // OT Amount — only hours exceeding dailyOtThresholdHours count as OT
+      const hourlyRate = basic / (payDivisor * calc.workingHoursPerDay);
+      const effectiveOtHours = Math.max(0, att.otHours - calc.dailyOtThresholdHours);
+      const otAmount = effectiveOtHours * hourlyRate * calc.otMultiplier;
+
+      // Festival Bonus — only when explicitly requested via options
+      const bonus = options?.includeFestivalBonus
+        ? basic * (calc.defaultFestivalBonusPct / 100)
+        : 0;
+
+      // Absent Deduction
+      const dailyRate = basic / payDivisor;
       const absentDeduction = att.absentDays * dailyRate;
 
-      // Calculate Loan Deduction
+      // Loan Deduction
       let loanDeduction = 0;
       const empLoans = loansByEmployee[emp.id] || [];
       for (const loan of empLoans) {
-        // Take monthly installment, but cap it at remaining balance
         const deduction = Math.min(Number(loan.monthlyInstallment), Number(loan.remainingBalance));
         loanDeduction += deduction;
       }
 
-      // Calculate Tax & PF (based on basic) - Default to 0 for now as percentages aren't in schema
-      const taxPercentage = 0;
-      const pfPercentage = 0;
-      
+      // Tax & PF based on per-employee config (or zero if not configured)
       const taxDeduction = basic * (taxPercentage / 100);
-      const pfDeduction = basic * (pfPercentage / 100);
+      const pfDeduction  = basic * (pfPercentage / 100);
 
-      const grossPay = basic + houseRent + medical + transport + foodAllowance + otAmount;
+      const grossPay       = basic + houseRent + medical + transport + foodAllowance + otAmount + bonus;
       const totalDeduction = absentDeduction + loanDeduction + taxDeduction + pfDeduction;
-      const netPay = grossPay - totalDeduction;
+      // Apply net pay rounding from settings ("none" | "nearest10" | "nearest100")
+      const rawNetPay = grossPay - totalDeduction;
+      const netPay = applyNetPayRounding(rawNetPay, calc.netPayRounding);
 
       grandTotalAmount += netPay;
 
@@ -148,7 +223,7 @@ export async function generatePayroll(month: number, year: number) {
         transport,
         foodAllowance,
         otAmount,
-        bonus: 0, // Bonus handled separately if needed
+        bonus,
         grossPay,
         absentDeduction,
         loanDeduction,
@@ -166,7 +241,7 @@ export async function generatePayroll(month: number, year: number) {
 
     // Safeguard: Verify attendance coverage
     const actualAttendanceCount = attendanceRecords.length;
-    const expectedAttendanceCount = employees.length * daysInMonth;
+    const expectedAttendanceCount = employees.length * calendarDaysInMonth;
     const coveragePercentage = (actualAttendanceCount / expectedAttendanceCount) * 100;
     
     if (coveragePercentage < 50) {
@@ -196,7 +271,7 @@ export async function generatePayroll(month: number, year: number) {
       });
     });
 
-    await logItemCreated(session.user.id, "Payroll", payroll.id, payrollNumber, payroll);
+    await logItemCreated(session.user.id, "Payroll", payroll.id, payrollNumber);
     revalidateBothPaths("hr/payroll");
 
     return { success: true, payrollId: payroll.id };
@@ -327,7 +402,7 @@ export async function updatePayrollStatus(id: string, status: PayrollStatus) {
       },
     });
 
-    await logItemUpdated(session.user.id, "Payroll", id, `Status changed to ${status}`, oldPayroll, updated);
+    await logItemUpdated(session.user.id, "Payroll", id, [`status:${status}`], "Payroll Status Update");
     revalidateBothPaths(`hr/payroll/${id}`);
     revalidateBothPaths("hr/payroll");
 
@@ -349,7 +424,7 @@ export async function postPayroll(payrollId: string, salaryExpenseAccountId: str
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
 
-    const canPost = await hasPermission(session.user.id, "hr.payroll", "post");
+    const canPost = await hasPermission(session.user.id, "hr.payroll", "edit");
     // Fallback if hr.payroll post permission doesn't exist, use accounts.vouchers create
     const canCreateVoucher = await hasPermission(session.user.id, "accounts.vouchers", "create");
     if (!canPost && !canCreateVoucher) return { success: false, error: "Permission denied" };
@@ -368,6 +443,9 @@ export async function postPayroll(payrollId: string, salaryExpenseAccountId: str
     if (!payroll) return { success: false, error: "Payroll not found" };
     if (payroll.status === "POSTED") return { success: false, error: "Already posted" };
     if (payroll.status !== "APPROVED") return { success: false, error: "Payroll must be approved before posting" };
+
+    // Load payroll settings for default accounts
+    const payrollSettings = await getPayrollSettings();
 
     // Prepare Voucher Lines
     const voucherLines: any[] = [];
@@ -397,53 +475,125 @@ export async function postPayroll(payrollId: string, salaryExpenseAccountId: str
 
       // Credit: Employee Advance Account (Loan Deduction)
       if (Number(item.loanDeduction) > 0) {
-        if (item.employee.advanceAccountId) {
+        const advanceAcctId =
+          item.employee.advanceAccountId ||
+          payrollSettings.accounts.defaultAdvanceAccountId;
+        if (advanceAcctId) {
           voucherLines.push({
             lineNumber: lineNumber++,
-            chartOfAccountId: item.employee.advanceAccountId,
+            chartOfAccountId: advanceAcctId,
             creditAmount: Number(item.loanDeduction),
             debitAmount: 0,
             description: `Loan Deduction for ${item.employee.name} (${payroll.payrollNumber})`,
           });
         } else {
-          return { success: false, error: `Employee ${item.employee.name} has loan deductions but no Advance Account configured.` };
+          return { success: false, error: `Employee ${item.employee.name} has loan deductions but no Advance Account configured. Please set a Default Advance Account in Payroll Settings.` };
         }
       }
 
-      // Note: Tax, PF, and Absent Deductions:
-      // In a real system, Absent deduction reduces Gross Pay directly, or credits an expense. 
-      // Right now, our grossPay includes basic minus nothing. Wait, our totalDeduction includes absentDeduction.
-      // So grossPay - totalDeduction = netPay.
-      // The accounting equation: DR Gross Pay = CR Net Pay + CR Deductions
-      // Since absent deduction is just unpaid time, we should actually debit Gross Pay MINUS absent deduction.
-      // Let's adjust totalDebit to be Gross - Absent.
+      // Credit: Tax Payable (if tax was deducted)
+      if (Number(item.taxDeduction) > 0) {
+        const taxAcctId = payrollSettings.accounts.taxPayableAccountId;
+        if (taxAcctId) {
+          voucherLines.push({
+            lineNumber: lineNumber++,
+            chartOfAccountId: taxAcctId,
+            creditAmount: Number(item.taxDeduction),
+            debitAmount: 0,
+            description: `Tax Withholding for ${item.employee.name} (${payroll.payrollNumber})`,
+          });
+        }
+        // If no tax account configured, we include it in expense debit to keep books balanced
+      }
+
+      // Credit: PF Payable (if PF was deducted)
+      if (Number(item.pfDeduction) > 0) {
+        const pfAcctId = payrollSettings.accounts.pfPayableAccountId;
+        if (pfAcctId) {
+          voucherLines.push({
+            lineNumber: lineNumber++,
+            chartOfAccountId: pfAcctId,
+            creditAmount: Number(item.pfDeduction),
+            debitAmount: 0,
+            description: `PF Deduction for ${item.employee.name} (${payroll.payrollNumber})`,
+          });
+        }
+        // If no PF account configured, include in expense debit to keep books balanced
+      }
+
+      // Credit: Festival Bonus (if any) — credited to the default salary payable as bonus liability
+      if (Number(item.bonus) > 0) {
+        const bonusAcctId =
+          payrollSettings.accounts.festivalBonusExpenseAccountId ||
+          payrollSettings.accounts.defaultSalaryPayableAccountId;
+        if (bonusAcctId) {
+          voucherLines.push({
+            lineNumber: lineNumber++,
+            chartOfAccountId: bonusAcctId,
+            creditAmount: Number(item.bonus),
+            debitAmount: 0,
+            description: `Festival Bonus for ${item.employee.name} (${payroll.payrollNumber})`,
+          });
+        }
+      }
+    } // end per-employee loop
+
+    // After the per-item loop — add Employer PF matching lines (1 pair for whole payroll)
+    const totalEmployerPf = payroll.items.reduce((sum, item) => {
+      const basic = Number(item.basic);
+      return sum + basic * (payrollSettings.calculation.employerPfPct / 100);
+    }, 0);
+
+    if (
+      totalEmployerPf > 0 &&
+      payrollSettings.accounts.employerPfExpenseAccountId &&
+      payrollSettings.accounts.employerPfPayableAccountId
+    ) {
+      // DR: Employer PF Expense
+      voucherLines.push({
+        lineNumber: lineNumber++,
+        chartOfAccountId: payrollSettings.accounts.employerPfExpenseAccountId,
+        debitAmount: totalEmployerPf,
+        creditAmount: 0,
+        description: `Employer PF Contribution for ${payroll.payrollNumber}`,
+      });
+      // CR: Employer PF Payable
+      voucherLines.push({
+        lineNumber: lineNumber++,
+        chartOfAccountId: payrollSettings.accounts.employerPfPayableAccountId,
+        debitAmount: 0,
+        creditAmount: totalEmployerPf,
+        description: `Employer PF Payable for ${payroll.payrollNumber}`,
+      });
     }
 
     // Debit: Salary Expense Account
-    // We adjust the expense debit by removing the absent deduction so the books balance
-    // Actually, mathematically: Gross - Absent - Tax - PF - Loan = Net Pay
-    // So DR: (Gross - Absent)
-    // CR: Net Pay
-    // CR: Loan
-    // CR: Tax Payable (Missing account)
-    // CR: PF Payable (Missing account)
-    // For MVP, to ensure vouchers balance, let's combine Tax & PF deductions into the Expense debit reduction if we don't have accounts, 
-    // OR we just use a generic 'Deductions' logic. To ensure balance exactly:
-    // DR Salary Expense = Total Net Pay + Total Loan Deductions.
-    // This perfectly balances the credits we are creating.
-    
+    // DR Salary Expense = sum of all credit lines (Net Pay + Loan + Tax + PF)
+    // This ensures the voucher always balances regardless of which optional accounts are configured.
     let totalDebitExpense = 0;
     for (const line of voucherLines) {
-        totalDebitExpense += Number(line.creditAmount);
+      totalDebitExpense += Number(line.creditAmount);
+    }
+
+    // Use the passed-in salaryExpenseAccountId, fall back to payroll settings default
+    const effectiveSalaryExpenseId =
+      salaryExpenseAccountId || payrollSettings.accounts.salaryExpenseAccountId;
+    if (!effectiveSalaryExpenseId) {
+      return {
+        success: false,
+        error:
+          "No Salary Expense account configured. Please set one in Payroll Settings or select one when posting.",
+      };
     }
 
     voucherLines.unshift({
       lineNumber: lineNumber++,
-      chartOfAccountId: salaryExpenseAccountId,
+      chartOfAccountId: effectiveSalaryExpenseId,
       debitAmount: totalDebitExpense,
       creditAmount: 0,
       description: `Total Salary Expense for ${payroll.payrollNumber}`,
     });
+
 
     const createVchInput = {
       date: new Date(),
@@ -497,7 +647,7 @@ export async function postPayroll(payrollId: string, salaryExpenseAccountId: str
               where: { id: loan.id },
               data: {
                 remainingBalance: newBalance,
-                ...(newBalance <= 0 ? { status: "COMPLETED" } : {})
+                ...(newBalance <= 0 ? { status: "CLOSED" as const } : {})
               }
             });
             
@@ -542,7 +692,7 @@ export async function disbursePayroll(payrollId: string, cashBankAccountId: stri
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
 
-    const canPost = await hasPermission(session.user.id, "hr.payroll", "post");
+    const canPost = await hasPermission(session.user.id, "hr.payroll", "edit");
     const canCreateVoucher = await hasPermission(session.user.id, "accounts.vouchers", "create");
     if (!canPost && !canCreateVoucher) return { success: false, error: "Permission denied" };
 
@@ -621,11 +771,12 @@ export async function disbursePayroll(payrollId: string, cashBankAccountId: stri
 
     // 3. Mark Payroll and Items as PAID
     await prisma.$transaction(async (tx) => {
-      // Update Payroll
+      // Update Payroll status to PAID
       await tx.payroll.update({
         where: { id: payrollId },
         data: {
           paymentVchId: vchResult.voucher.id,
+          status: "PAID",
         },
       });
 
@@ -682,7 +833,7 @@ export async function voidPayroll(payrollId: string) {
             // This is complex as multiple loans might have been touched.
             // Simplified: Add back the deduction to the first active/completed loan for that employee.
             const loan = await tx.employeeLoan.findFirst({
-              where: { employeeId: item.employeeId, status: { in: ["APPROVED", "COMPLETED"] } },
+              where: { employeeId: item.employeeId, status: { in: ["APPROVED", "CLOSED"] } },
               orderBy: { updatedAt: 'desc' },
             });
 
@@ -691,7 +842,7 @@ export async function voidPayroll(payrollId: string) {
                 where: { id: loan.id },
                 data: {
                   remainingBalance: Number(loan.remainingBalance) + Number(item.loanDeduction),
-                  status: "APPROVED" // Reset to approved if it was completed
+                  status: "APPROVED" as const
                 }
               });
             }

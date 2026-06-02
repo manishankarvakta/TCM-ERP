@@ -20,6 +20,7 @@ import {
   LucideDatabaseBackup,
   Lock,
   Calculator,
+  Banknote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -51,6 +52,7 @@ import { SlEnvolopeLetter } from "react-icons/sl";
 import CoverLetter from "./_components/coverLetter/CoverLetter";
 import TOS from "./_components/Tos";
 import Accounting from "./_components/Accounting";
+import PayrollSettings from "./_components/PayrollSettings";
 
 
 type SettingsSection = "profile" | 
@@ -78,7 +80,8 @@ type SettingsSection = "profile" |
                        "coverLetter" | 
                        "tos" | 
                        "preferences" |
-                       "accounting";
+                       "accounting" |
+                       "payroll";
 
 export default function SettingsPageClient() {
   const router = useRouter();
@@ -153,6 +156,12 @@ export default function SettingsPageClient() {
       ],
     },
     {
+      category: "HR & Payroll",
+      items: [
+        { id: "payroll" as SettingsSection, label: "Payroll Settings", icon: Banknote, active: activeSection === "payroll" },
+      ],
+    },
+    {
       category: "Quotations",
       items: [
         { id: "coverLetter" as SettingsSection, label: "Cover Letter", icon: SlEnvolopeLetter, active: activeSection === "coverLetter" },
@@ -203,6 +212,8 @@ export default function SettingsPageClient() {
         return <Preferences />;
       case "accounting":
         return <Accounting />;
+      case "payroll":
+        return <PayrollSettings />;
       case "coverLetter":
         return <CoverLetter />;
       case "tos":

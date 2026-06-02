@@ -205,6 +205,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const [isReturning, setIsReturning] = useState(false);
   const [isChangeDialogOpen, setIsChangeDialogOpen] = useState(false);
   const [completedSaleNumber, setCompletedSaleNumber] = useState('');
+  const [completedSaleId, setCompletedSaleId] = useState('');
   const [changeAmount, setChangeAmount] = useState(0);
 
   // Walkway customer
@@ -517,6 +518,17 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     });
   };
 
+  const handleCustomQuantitySet = (cartKey: string, qty: number) => {
+    setCart((prev) => {
+      return prev.map((i) => {
+        if (i.cartKey === cartKey) {
+          return { ...i, cartQuantity: qty };
+        }
+        return i;
+      }).filter((i) => i.cartQuantity !== 0);
+    });
+  };
+
   const handleRemoveItem = (cartKey: string) => {
     setCart((prev) => prev.filter((i) => i.cartKey !== cartKey));
   };
@@ -653,7 +665,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     try {
       const res = await getLastSaleForUser();
       if (res?.success && res.saleId) {
-        window.open(`/print/invoice/${res.saleId}`, '_blank');
+        printInvoiceDirect(res.saleId);
       } else {
         toast({ title: "No Last Bill", description: "Could not find a recent sale for your account.", variant: "destructive" });
       }
@@ -798,17 +810,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         const saleId = res.returnSale.id;
         const refundAmt = Number(res.returnSale.grandTotal);
         setCompletedSaleNumber(saleNum);
+        setCompletedSaleId(saleId || '');
         setChangeAmount(Math.abs(refundAmt));
         toast({ title: "Void Return Processed", description: `Return ${saleNum} created.` });
         setIsReturnModalOpen(false);
         setReturnItemsState([]);
-        
-        // Open print invoice tab directly
         if (saleId) {
-          const printWindow = window.open(`/print/invoice/${saleId}`, '_blank');
-          if (printWindow) {
-            printWindow.focus();
-          }
+          printInvoiceDirect(saleId);
         }
         setIsChangeDialogOpen(true);
       } else {
@@ -836,19 +844,15 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         const saleId = res.returnSale.id;
         const refundAmt = Number(res.returnSale.grandTotal);
         setCompletedSaleNumber(saleNum);
+        setCompletedSaleId(saleId || '');
         setChangeAmount(Math.abs(refundAmt));
         toast({ title: "Return Processed", description: `Return ${saleNum} created.` });
         setIsReturnModalOpen(false);
         setActionSaleNumber('');
         setReturnSaleDetails(null);
         setReturnItemsState([]);
-        
-        // Open print invoice tab directly
         if (saleId) {
-          const printWindow = window.open(`/print/invoice/${saleId}`, '_blank');
-          if (printWindow) {
-            printWindow.focus();
-          }
+          printInvoiceDirect(saleId);
         }
         setIsChangeDialogOpen(true);
       } else {
@@ -886,6 +890,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setPaidAmount(0);
     setSuccessMsg('');
     setCompletedSaleNumber('');
+    setCompletedSaleId('');
     setChangeAmount(0);
     setPromoCode('');
     setAppliedPromo(null);
@@ -931,6 +936,32 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       title: "Promo Removed",
       description: "Coupon code has been removed."
     });
+  };
+
+  const printInvoiceDirect = (saleId: string) => {
+    const oldIframe = document.getElementById('print-invoice-iframe');
+    if (oldIframe) {
+      oldIframe.remove();
+    }
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'print-invoice-iframe';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.src = `/print/invoice/${saleId}`;
+
+    document.body.appendChild(iframe);
+
+    iframe.onload = () => {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      }
+    };
   };
 
   const handleProcessTransaction = () => {
@@ -996,6 +1027,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         const saleNum = (res.sale as any)?.saleNumber || '';
         const saleId = (res.sale as any)?.id || '';
         setCompletedSaleNumber(saleNum);
+        setCompletedSaleId(saleId || '');
         setChangeAmount(paidAmount - grandTotal);
         toast({
           title: "Success",
@@ -1008,13 +1040,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         
         setCart([]);
         setIsConfirmModalOpen(false);
-
-        // Open print invoice tab directly
         if (saleId) {
-          const printWindow = window.open(`/print/invoice/${saleId}`, '_blank');
-          if (printWindow) {
-            printWindow.focus();
-          }
+          printInvoiceDirect(saleId);
         }
         setIsChangeDialogOpen(true);
       } else {
@@ -1088,7 +1115,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   useEffect(() => {
     if (!isChangeDialogOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' || e.key === 'Escape') {
         e.preventDefault();
         handleNewSale();
       }
@@ -1350,7 +1377,22 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                         >
                           <FaMinus className="w-3 h-3" />
                         </button>
-                        <span className="text-sm font-medium w-4 text-center text-foreground">{item.cartQuantity}</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={item.cartQuantity === 0 ? "" : item.cartQuantity}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            handleCustomQuantitySet(item.cartKey, isNaN(val) ? 0 : val);
+                          }}
+                          onBlur={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            if (isNaN(val) || val <= 0) {
+                              handleRemoveItem(item.cartKey);
+                            }
+                          }}
+                          className="text-sm font-semibold w-10 text-center text-foreground bg-transparent border-none outline-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 m-0"
+                        />
                         <button 
                           className="w-6 h-6 flex items-center justify-center bg-background rounded-full border border-border shadow-sm text-muted-foreground hover:text-foreground"
                           onClick={() => handleUpdateQuantity(item.cartKey, 1)}
@@ -1684,16 +1726,41 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-center"><span className="flex items-center gap-2 justify-center"><FaGlassCheers /> Sale Created!</span></DialogTitle>
+      <Dialog open={isPrintDialogOpen} onOpenChange={(open) => {
+        setIsPrintDialogOpen(open);
+        if (!open) {
+          setIsChangeDialogOpen(true);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-background">
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle className="text-center flex items-center gap-2 justify-center">
+              <FaPrint className="text-primary animate-pulse" /> Print Invoice ({completedSaleNumber})
+            </DialogTitle>
           </DialogHeader>
-          <div className="text-center py-4">
-            <p className="text-2xl font-bold mb-6">{completedSaleNumber}</p>
-            <div className="flex gap-3">
-              <Button className="flex-1" onClick={() => { setIsPrintDialogOpen(false); setIsChangeDialogOpen(true); }}>Done</Button>
-            </div>
+          <div className="p-2 bg-muted/30">
+            {completedSaleId ? (
+              <iframe
+                src={`/print/invoice/${completedSaleId}`}
+                className="w-full h-[500px] border rounded-md shadow-sm bg-white"
+                id="pos-print-iframe"
+              />
+            ) : (
+              <div className="h-[500px] flex items-center justify-center text-muted-foreground">
+                Loading receipt preview...
+              </div>
+            )}
+          </div>
+          <div className="p-4 border-t flex gap-3 bg-background">
+            <Button
+              className="flex-1 h-11 text-base font-semibold"
+              onClick={() => {
+                setIsPrintDialogOpen(false);
+                setIsChangeDialogOpen(true);
+              }}
+            >
+              Done & View Change
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

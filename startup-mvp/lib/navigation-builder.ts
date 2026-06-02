@@ -167,6 +167,24 @@ export const MENU_TEMPLATE: MenuItemData[] = [
         icon: "FiPackage", 
         module: "production" 
       },
+      { 
+        href: "/dashboard/production/cutting", 
+        label: "Cutting Room", 
+        icon: "FiScissors", 
+        module: "production" 
+      },
+      { 
+        href: "/dashboard/production/sewing", 
+        label: "Sewing Tracker", 
+        icon: "FiActivity", 
+        module: "production" 
+      },
+      { 
+        href: "/dashboard/production/quality", 
+        label: "Quality Check", 
+        icon: "FiClipboard", 
+        module: "production" 
+      },
     ],
   },
   { href: "/dashboard/files", label: "Files", icon: "FiFolder", module: "files" },

@@ -242,6 +242,9 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     subModules: [
       { id: "boms", label: "Bill of Materials", path: "/dashboard/production/boms", module: "production", permissionKey: "production.boms" },
       { id: "orders", label: "Production Orders", path: "/dashboard/production/orders", module: "production", permissionKey: "production.orders" },
+      { id: "cutting", label: "Cutting Room", path: "/dashboard/production/cutting", module: "production", permissionKey: "production.orders" },
+      { id: "sewing", label: "Sewing Tracker", path: "/dashboard/production/sewing", module: "production", permissionKey: "production.orders" },
+      { id: "quality", label: "Quality Check", path: "/dashboard/production/quality", module: "production", permissionKey: "production.orders" },
     ],
   },
   settings: {
@@ -782,6 +785,24 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         path: "/dashboard/production/orders",
         label: "Production Orders",
         operations: ["view", "create", "edit", "start", "complete", "cancel"],
+      },
+      {
+        permissionKey: "production.orders",
+        path: "/dashboard/production/cutting",
+        label: "Cutting Room",
+        operations: ["view", "create"],
+      },
+      {
+        permissionKey: "production.orders",
+        path: "/dashboard/production/sewing",
+        label: "Sewing Tracker",
+        operations: ["view", "edit"],
+      },
+      {
+        permissionKey: "production.orders",
+        path: "/dashboard/production/quality",
+        label: "Quality Check",
+        operations: ["view"],
       },
     ],
   },

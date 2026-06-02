@@ -165,10 +165,16 @@ export async function getAttendances(startDate: Date, endDate: Date, employeeId?
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized", attendances: [] };
 
+    // Format dates to YYYY-MM-DD then parse as UTC to ensure precise matching
+    // against Prisma's @db.Date without local timezone shift bleeding into the previous day
+    const { format } = require("date-fns");
+    const gteDate = new Date(format(startDate, "yyyy-MM-dd") + "T00:00:00.000Z");
+    const lteDate = new Date(format(endDate, "yyyy-MM-dd") + "T00:00:00.000Z");
+
     const where: Prisma.AttendanceWhereInput = {
       date: {
-        gte: startOfDay(startDate),
-        lte: endOfDay(endDate),
+        gte: gteDate,
+        lte: lteDate,
       }
     };
 

@@ -1132,13 +1132,41 @@ export async function completeProductionOrder(id: string) {
     // Finished good quantity = quantity per unit × production quantity
     const finishedGoodQuantity = bomQuantityPerUnit * productionQuantity;
 
+    // Garments ERP Integration: Load actual cutting jobs & CMT Cost Breakdown if they exist
+    const cuttingJobs = await prisma.cuttingJob.findMany({
+      where: { productionOrderId: id },
+      include: {
+        fabricRolls: {
+          include: {
+            fabricRoll: true,
+          },
+        },
+      },
+    });
+
+    const cmt = await prisma.cMTCostBreakdown.findUnique({
+      where: { productionOrderId: id },
+    });
+
+    const hasCuttingFabric = cuttingJobs.length > 0 && cuttingJobs.some((cj) => cj.fabricRolls.length > 0);
+
     // Prepare raw materials for stock deduction
     const rawMaterials: Array<{ itemId: string; quantity: number; warehouseId: string }> = [];
     for (const bomItem of order.bom.items) {
       if (!bomItem.item.trackInventory) continue;
 
-      const quantityNeeded =
+      let quantityNeeded =
         (Number(bomItem.quantityRequired) * productionQuantity) / bomQuantityPerUnit;
+
+      // If garments actual cutting jobs are active and rolls are mapped, use actual fabric consumption instead of standard yield
+      if (hasCuttingFabric) {
+        const matchingRolls = cuttingJobs
+          .flatMap((cj) => cj.fabricRolls)
+          .filter((cfr) => cfr.fabricRoll.itemId === bomItem.itemId);
+        if (matchingRolls.length > 0) {
+          quantityNeeded = matchingRolls.reduce((sum, cfr) => sum + Number(cfr.weightUsedKg), 0);
+        }
+      }
 
       rawMaterials.push({
         itemId: bomItem.itemId,
@@ -1265,11 +1293,19 @@ export async function completeProductionOrder(id: string) {
       }
 
       // --- ACCOUNTING INTEGRATION (Within Transaction) ---
-      // Calculate total raw material cost
+      // Calculate total raw material cost (using actual weight if cutting rolls are present)
       let totalRawMaterialCost = 0;
       for (const bomItem of order.bom.items) {
         if (!bomItem.item.trackInventory || !bomItem.item.costPrice) continue;
-        const quantityNeeded = (Number(bomItem.quantityRequired) * productionQuantity) / bomQuantityPerUnit;
+        let quantityNeeded = (Number(bomItem.quantityRequired) * productionQuantity) / bomQuantityPerUnit;
+        if (hasCuttingFabric) {
+          const matchingRolls = cuttingJobs
+            .flatMap((cj) => cj.fabricRolls)
+            .filter((cfr) => cfr.fabricRoll.itemId === bomItem.itemId);
+          if (matchingRolls.length > 0) {
+            quantityNeeded = matchingRolls.reduce((sum, cfr) => sum + Number(cfr.weightUsedKg), 0);
+          }
+        }
         totalRawMaterialCost += quantityNeeded * Number(bomItem.item.costPrice);
       }
 
@@ -1286,13 +1322,68 @@ export async function completeProductionOrder(id: string) {
         }
 
         if (productionAccounts) {
-          const voucherResult = await createVoucher({
-            date: new Date(),
-            type: VoucherType.JOURNAL,
-            reference: order.code,
-            description: `Production ${order.code} - Move raw material cost to finished goods`,
-            isSystemAction: true,
-            lines: [
+          let lines = [];
+          let totalCapitalizedValue = totalRawMaterialCost;
+
+          // CMT Costing calculations and custom voucher line expansion
+          if (cmt) {
+            const finishedQty = Number(finishedGoodQuantity);
+            const cuttingCost = Number(cmt.cuttingCostPiece) * finishedQty;
+            const sewingCost = Number(cmt.sewingCostPiece) * finishedQty;
+            const trimCost = Number(cmt.trimCostPiece) * finishedQty;
+            const washingCost = Number(cmt.washingCostPiece) * finishedQty;
+            const packingCost = Number(cmt.packingCostPiece) * finishedQty;
+            const totalCMTCost = cuttingCost + sewingCost + trimCost + washingCost + packingCost;
+
+            totalCapitalizedValue += totalCMTCost;
+
+            // Fetch dynamic clearing accounts by standard codes to protect transaction integrity
+            const clearingAccounts = await tx.chartOfAccount.findMany({
+              where: { code: { in: ["2120", "2130"] } },
+            });
+            const accruedExpensesCoa = clearingAccounts.find((c) => c.code === "2120") || { id: productionAccounts.completionWipAccountId };
+            const salariesPayableCoa = clearingAccounts.find((c) => c.code === "2130") || accruedExpensesCoa;
+
+            lines = [
+              {
+                lineNumber: 1,
+                debitAmount: totalCapitalizedValue,
+                creditAmount: 0,
+                description: `FG Capitalization (Material + CMT) - ${order.code}`,
+                chartOfAccountId: productionAccounts.completionFinishedGoodsInventoryId,
+              },
+              {
+                lineNumber: 2,
+                debitAmount: 0,
+                creditAmount: totalRawMaterialCost,
+                description: `WIP Material Completion - ${order.code}`,
+                chartOfAccountId: productionAccounts.completionWipAccountId,
+              },
+              {
+                lineNumber: 3,
+                debitAmount: 0,
+                creditAmount: cuttingCost,
+                description: `CMT Cutting Wages - ${order.code}`,
+                chartOfAccountId: salariesPayableCoa.id,
+              },
+              {
+                lineNumber: 4,
+                debitAmount: 0,
+                creditAmount: sewingCost,
+                description: `CMT Sewing Wages - ${order.code}`,
+                chartOfAccountId: salariesPayableCoa.id,
+              },
+              {
+                lineNumber: 5,
+                debitAmount: 0,
+                creditAmount: trimCost + washingCost + packingCost,
+                description: `CMT Trims & Finishing Accrued Expenses - ${order.code}`,
+                chartOfAccountId: accruedExpensesCoa.id,
+              },
+            ];
+          } else {
+            // Standard two-line voucher fallback (Standard ERP Users)
+            lines = [
               {
                 lineNumber: 1,
                 debitAmount: totalRawMaterialCost,
@@ -1307,7 +1398,18 @@ export async function completeProductionOrder(id: string) {
                 description: `WIP Completion - ${order.code}`,
                 chartOfAccountId: productionAccounts.completionWipAccountId,
               },
-            ],
+            ];
+          }
+
+          const voucherResult = await createVoucher({
+            date: new Date(),
+            type: VoucherType.JOURNAL,
+            reference: order.code,
+            description: cmt 
+              ? `Production Capitalization (BOM + CMT) - ${order.code}` 
+              : `Production ${order.code} - Move raw material cost to finished goods`,
+            isSystemAction: true,
+            lines: lines,
           });
 
           if (voucherResult.success && voucherResult.voucher) {
@@ -1329,10 +1431,10 @@ export async function completeProductionOrder(id: string) {
               LogAction.CREATE,
               "Voucher",
               voucherResult.voucher.id,
-              `Production Completion Voucher: ${order.code} - ৳${totalRawMaterialCost.toLocaleString()}`,
+              `Production Completion Voucher: ${order.code} - ৳${totalCapitalizedValue.toLocaleString()}`,
               {
                 productionOrderId: order.id,
-                totalCost: totalRawMaterialCost,
+                totalCost: totalCapitalizedValue,
                 voucherNumber: voucherResult.voucher.voucherNumber
               }
             );
@@ -1523,3 +1625,72 @@ export async function cancelProductionOrder(id: string) {
     };
   }
 }
+
+/**
+ * Concurrency-safe bundle scanning action with pessimistic row locking
+ */
+export async function scanBundlePiece(input: {
+  productionOrderId: string;
+  stageName: string;
+  piecesPassed: number;
+  piecesDefect: number;
+}) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+      };
+    }
+
+    return await prisma.$transaction(async (tx) => {
+      // 1. Lock the stage row for write using raw SQL to prevent race conditions during concurrent scans
+      const stages = await tx.$queryRaw<any[]>`
+        SELECT * FROM "GarmentProductionStage"
+        WHERE "productionOrderId" = ${input.productionOrderId} 
+          AND "stageName" = ${input.stageName}
+        LIMIT 1
+        FOR UPDATE
+      `;
+
+      const stage = stages[0];
+      if (!stage) {
+        throw new Error(`Garment production stage '${input.stageName}' not found for this order`);
+      }
+
+      // 2. Perform increment updates safely
+      const newPassed = Number(stage.piecesPassed) + input.piecesPassed;
+      const newDefect = Number(stage.piecesDefect) + input.piecesDefect;
+      const target = Number(stage.piecesTarget);
+
+      const updatedStage = await tx.garmentProductionStage.update({
+        where: { id: stage.id },
+        data: {
+          piecesPassed: newPassed,
+          piecesDefect: newDefect,
+          status: newPassed >= target ? "COMPLETED" : "IN_PROGRESS",
+        },
+      });
+
+      return {
+        success: true,
+        stage: {
+          ...updatedStage,
+          piecesTarget: Number(updatedStage.piecesTarget),
+          piecesPassed: Number(updatedStage.piecesPassed),
+          piecesDefect: Number(updatedStage.piecesDefect),
+        },
+      };
+    }, {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable
+    });
+  } catch (error) {
+    console.error("scanBundlePiece error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to scan bundle piece",
+    };
+  }
+}
+

@@ -135,8 +135,10 @@ export async function getAdminInventorySnapshot() {
     };
 
     stocks.forEach(s => {
-      const val = Number(s.quantity) * Number(s.item.costPrice || 0);
-      snapshot[s.item.itemType] += val;
+      if (s.item) {
+        const val = Number(s.quantity) * Number(s.item.costPrice || 0);
+        snapshot[s.item.itemType] += val;
+      }
     });
 
     // Low Stock Alerts (using a threshold of 10 for now)
