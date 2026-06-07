@@ -1,5 +1,8 @@
 # Docker volumes - contains persistent data
-volumes/
+volumes/*
+!volumes/uploads/
+volumes/uploads/*
+!volumes/uploads/.gitkeep
 
 # Explicit local volume roots (absolute host bind-mount targets)
 volumes/postgres/

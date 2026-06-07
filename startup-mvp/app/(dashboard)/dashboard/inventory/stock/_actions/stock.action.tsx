@@ -275,11 +275,12 @@ export async function updateStockOnSale(
               lastUpdated: new Date(),
             },
           });
-        } else if (item.variantId) {
-          // If a stock record doesn't exist yet for this variant and warehouse, create it with negative quantity
+        } else {
+          // If a stock record doesn't exist yet for this item/variant and warehouse, create it with negative quantity
           await transaction.stock.create({
             data: {
-              variantId: item.variantId,
+              itemId: item.variantId ? null : item.itemId,
+              variantId: item.variantId || null,
               warehouseId: warehouseId,
               quantity: -item.quantity,
               reservedQuantity: 0,
@@ -502,7 +503,7 @@ export async function adjustStock(input: {
         stock = await tx.stock.update({
           where: { id: stock.id },
           data: {
-            quantity: newQuantity,
+            quantity: { increment: input.quantity },
             lastUpdated: new Date(),
           },
           include: {
