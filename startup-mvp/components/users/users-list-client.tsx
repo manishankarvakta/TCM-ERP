@@ -54,6 +54,9 @@ interface User {
     name: string | null;
     email: string;
   } | null;
+  defaultWarehouse?: {
+    name: string;
+  } | null;
   createdAt: Date;
   sessions: Array<{
     id: string;
@@ -381,6 +384,7 @@ export default function UsersListClient({
               <TableHead>User</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Warehouse</TableHead>
               <TableHead>Incharge</TableHead>
               <TableHead>Access</TableHead>
               <TableHead>Status</TableHead>
@@ -391,7 +395,7 @@ export default function UsersListClient({
           <TableBody>
             {initialUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed users found" : "No users found"}
                 </TableCell>
               </TableRow>
@@ -424,6 +428,9 @@ export default function UsersListClient({
                       <Badge variant={user.role === "admin" ? "default" : "secondary"}>
                         {user.role}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {user.defaultWarehouse?.name || "-"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {user.incharge ? (user.incharge.name || user.incharge.email) : "-"}

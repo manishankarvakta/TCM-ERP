@@ -31,6 +31,7 @@ export async function getCurrentUser() {
       email: true,
       image: true,
       role: true,
+      defaultWarehouseId: true,
     },
   });
 
@@ -44,6 +45,7 @@ export async function getCurrentUser() {
     email: user.email || "",
     image: user.image || null,
     role: user.role,
+    defaultWarehouseId: user.defaultWarehouseId,
   };
 }
 
@@ -365,6 +367,11 @@ export async function getUsers(
               id: true,
               name: true,
               email: true,
+            },
+          },
+          defaultWarehouse: {
+            select: {
+              name: true,
             },
           },
           createdAt: true,

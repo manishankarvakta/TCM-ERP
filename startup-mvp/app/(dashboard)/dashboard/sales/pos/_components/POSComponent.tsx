@@ -86,9 +86,14 @@ interface POSComponentProps {
     type: "CASH" | "BANK" | "WALLET" | null;
     warehouseIds?: string[];
   }>;
+  currentUser?: {
+    id: string;
+    role: string;
+    defaultWarehouseId?: string | null;
+  } | null;
 }
 
-export default function POSComponent({ items, clients: initialClients, warehouses, paymentAccounts = [] }: POSComponentProps) {
+export default function POSComponent({ items, clients: initialClients, warehouses, paymentAccounts = [], currentUser }: POSComponentProps) {
 
 
   const router = useRouter();
@@ -117,7 +122,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const [cart, setCart] = useState<CartItem[]>([]);
   const [heldCarts, setHeldCarts] = useState<{ id: string, cart: CartItem[], clientId: string, amount: number }[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>(clients.find(c => c.name?.toLowerCase() === "walkway customer")?.id || clients[0]?.id || "");
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>(warehouses[0]?.id || "");
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>(currentUser?.defaultWarehouseId || warehouses[0]?.id || "");
   
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("CASH");
@@ -865,6 +870,22 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   };
 
 
+  const handleRecallCart = (heldCart: any) => {
+    setCart(heldCart.cart);
+    if (heldCart.clientId) {
+      setSelectedClientId(heldCart.clientId);
+    }
+    setHeldCarts(heldCarts.filter((c: any) => c.id !== heldCart.id));
+    setIsHeldCartsModalOpen(false);
+    toast({ title: "Cart Recalled", description: "Held cart has been restored." });
+  };
+
+  const handleDeleteHeldCart = (id: string) => {
+    setHeldCarts(heldCarts.filter((c: any) => c.id !== id));
+    if (heldCarts.length === 1) setIsHeldCartsModalOpen(false);
+    toast({ title: "Held Cart Deleted", description: "The held cart was removed." });
+  };
+
   const handleHoldCart = () => {
     if (cart.length === 0) {
       toast({ title: "Cart is empty", description: "Nothing to hold.", variant: "destructive" });
@@ -1140,7 +1161,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
               </span>
             </h1>
             <div className="flex items-center gap-2">
-              <Select value={selectedWarehouseId} onValueChange={setSelectedWarehouseId}>
+              <Select value={selectedWarehouseId} onValueChange={setSelectedWarehouseId} disabled={currentUser?.role?.toLowerCase() !== "admin"}>
                 <SelectTrigger className="w-[180px] bg-muted border-none text-foreground font-medium h-10 shadow-none focus:ring-0 focus:ring-offset-0">
                   <SelectValue placeholder="Select warehouse" />
                 </SelectTrigger>
@@ -2108,6 +2129,51 @@ export default function POSComponent({ items, clients: initialClients, warehouse
               </div>
             </TabsContent>
           </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Held Carts Modal */}
+      <Dialog open={isHeldCartsModalOpen} onOpenChange={setIsHeldCartsModalOpen}>
+        <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Held Carts</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 mt-4">
+            {heldCarts.length === 0 ? (
+              <p className="text-center text-muted-foreground py-6">No carts are currently on hold.</p>
+            ) : (
+              heldCarts.map((hc: any) => (
+                <div key={hc.id} className="flex items-center justify-between p-4 bg-muted/20 border rounded-lg hover:border-primary/30 transition-all">
+                  <div>
+                    <p className="font-semibold text-foreground">
+                      {clients.find(c => c.id === hc.clientId)?.name || "Walk-in Customer"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {new Date(parseInt(hc.id)).toLocaleString()} • {hc.cart.length} item(s)
+                    </p>
+                    <p className="text-sm font-bold mt-1 text-primary">৳{hc.amount.toFixed(2)}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                      onClick={() => handleDeleteHeldCart(hc.id)}
+                    >
+                      Delete
+                    </Button>
+                    <Button 
+                      variant="default" 
+                      size="sm"
+                      onClick={() => handleRecallCart(hc)}
+                    >
+                      Recall
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
