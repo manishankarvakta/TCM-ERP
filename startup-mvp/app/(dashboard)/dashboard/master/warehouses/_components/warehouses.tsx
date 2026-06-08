@@ -89,6 +89,7 @@ export default function WarehousesListClient({
   const [search, setSearch] = useState(initialSearch);
   const [deleteWarehouseId, setDeleteWarehouseId] = useState<string | null>(null);
   const [restoreWarehouseId, setRestoreWarehouseId] = useState<string | null>(null);
+  const [errorModalMsg, setErrorModalMsg] = useState<string | null>(null);
   const [selectedWarehouses, setSelectedWarehouses] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -134,20 +135,43 @@ export default function WarehousesListClient({
     if (!deleteWarehouseId) return;
 
     startTransition(async () => {
-      const result = await deleteWarehouse(deleteWarehouseId);
-      if (result.success) {
-        setDeleteWarehouseId(null);
-        toast({
-          title: "Success",
-          description: "Warehouse deleted successfully",
-        });
-        router.refresh();
+      if (isTrash) {
+        const result = await deleteWarehousesPermanently([deleteWarehouseId]);
+        if (result.success) {
+          setDeleteWarehouseId(null);
+          toast({
+            title: "Success",
+            description: "Warehouse deleted permanently",
+          });
+          router.refresh();
+        } else {
+          setDeleteWarehouseId(null);
+          if (result.error?.includes("existing stock")) {
+            setErrorModalMsg(result.error);
+          } else {
+            toast({
+              title: "Error",
+              description: result.error || "Failed to delete warehouse",
+              variant: "destructive",
+            });
+          }
+        }
       } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to delete warehouse",
-          variant: "destructive",
-        });
+        const result = await deleteWarehouse(deleteWarehouseId);
+        if (result.success) {
+          setDeleteWarehouseId(null);
+          toast({
+            title: "Success",
+            description: "Warehouse moved to trash",
+          });
+          router.refresh();
+        } else {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to delete warehouse",
+            variant: "destructive",
+          });
+        }
       }
     });
   };
@@ -208,11 +232,15 @@ export default function WarehousesListClient({
         });
         router.refresh();
       } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to perform bulk action",
-          variant: "destructive",
-        });
+        if (result.error?.includes("existing stock")) {
+          setErrorModalMsg(result.error);
+        } else {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to perform bulk action",
+            variant: "destructive",
+          });
+        }
       }
     });
   };
@@ -422,6 +450,7 @@ export default function WarehousesListClient({
                           onClick={() => setDeleteWarehouseId(warehouse.id)}
                           className="text-destructive hover:text-destructive"
                           disabled={isPending}
+                          title={isTrash ? "Delete permanently" : "Move to trash"}
                         >
                           <FiTrash2 className="h-4 w-4" />
                         </Button>
@@ -479,9 +508,13 @@ export default function WarehousesListClient({
       <AlertDialog open={!!deleteWarehouseId} onOpenChange={(open) => !open && setDeleteWarehouseId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Warehouse</AlertDialogTitle>
+            <AlertDialogTitle>
+              {isTrash ? "Delete Warehouse Permanently" : "Move Warehouse to Trash"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this warehouse? This action will move it to trash and can be restored later.
+              {isTrash
+                ? "This action cannot be undone. This will permanently delete the warehouse and all associated data."
+                : "This will move the warehouse to trash. You can restore it later from the Trash tab."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -507,6 +540,20 @@ export default function WarehousesListClient({
             <AlertDialogAction onClick={handleRestore} disabled={isPending}>
               Restore
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!errorModalMsg} onOpenChange={() => setErrorModalMsg(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cannot Delete Warehouse</AlertDialogTitle>
+            <AlertDialogDescription className="text-destructive font-medium">
+              {errorModalMsg}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setErrorModalMsg(null)}>Understood</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -922,7 +922,14 @@ export async function getSales(
   page: number = 1,
   limit: number = 10,
   search: string = "",
-  status: "trash" | "all" = "all"
+  status: "trash" | "all" = "all",
+  filters?: {
+    billerId?: string;
+    warehouseId?: string;
+    type?: OrderType;
+    startDate?: string;
+    endDate?: string;
+  }
 ) {
   try {
     const session = await auth();
@@ -940,6 +947,25 @@ export async function getSales(
     const where: Prisma.SaleWhereInput = {
       isTrash: status === "trash",
     };
+
+    if (filters?.billerId) {
+      where.createdBy = filters.billerId;
+    }
+    if (filters?.warehouseId) {
+      where.warehouseId = filters.warehouseId;
+    }
+    if (filters?.type) {
+      where.orderType = filters.type;
+    }
+    if (filters?.startDate || filters?.endDate) {
+      where.date = {};
+      if (filters.startDate) {
+        where.date.gte = new Date(filters.startDate);
+      }
+      if (filters.endDate) {
+        where.date.lte = new Date(filters.endDate);
+      }
+    }
 
     if (search) {
       where.OR = [
@@ -972,6 +998,12 @@ export async function getSales(
             },
           },
           warehouse: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          createdByUser: {
             select: {
               id: true,
               name: true,

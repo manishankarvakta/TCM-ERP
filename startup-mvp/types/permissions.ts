@@ -152,6 +152,7 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     description: "Sales and point of sale",
     subModules: [
       { id: "sales", label: "Sales", path: "/dashboard/sales", module: "sales", permissionKey: "sales.sales" },
+      { id: "pos", label: "POS", path: "/dashboard/sales/pos", module: "sales", permissionKey: "sales.pos" },
     ],
   },
   accounts: {
@@ -511,7 +512,7 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         operations: ["view", "create", "edit", "approve", "move-to-trash", "delete-permanently"],
       },
       {
-        permissionKey: "sales.sales",
+        permissionKey: "sales.pos",
         path: "/dashboard/sales/pos",
         label: "POS",
         operations: ["view", "create"],

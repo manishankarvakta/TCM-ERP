@@ -21,6 +21,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import {
   FiSearch,
   FiTrash2,
   FiX,
@@ -62,6 +70,14 @@ interface Sale {
     name: string | null;
     email: string;
   };
+  warehouse?: {
+    id: string;
+    name: string;
+  };
+  createdByUser?: {
+    id: string;
+    name: string;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -101,7 +117,20 @@ export default function SalesListClient({
   isTrash = false,
   userId: providedUserId,
   permissions,
-}: SalesListClientProps) {
+  warehouses = [],
+  billers = [],
+  filters,
+}: SalesListClientProps & {
+  warehouses?: { id: string; name: string }[];
+  billers?: { id: string; name: string; email: string }[];
+  filters?: {
+    billerId?: string;
+    warehouseId?: string;
+    type?: string;
+    startDate?: string | null;
+    endDate?: string | null;
+  };
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(initialSearch);
@@ -109,6 +138,48 @@ export default function SalesListClient({
   const [selectedSales, setSelectedSales] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+
+  const [billerId, setBillerId] = useState(filters?.billerId || "all");
+  const [warehouseId, setWarehouseId] = useState(filters?.warehouseId || "all");
+  const [type, setType] = useState(filters?.type || "all");
+  
+  const formatForInput = (isoString?: string | null) => {
+    if (!isoString) return "";
+    try { return new Date(isoString).toISOString().split('T')[0]; } catch(e) { return ""; }
+  };
+
+  const [startDate, setStartDate] = useState(formatForInput(filters?.startDate));
+  const [endDate, setEndDate] = useState(formatForInput(filters?.endDate));
+
+  const applyFilters = (updates: any = {}) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    
+    const newBiller = updates.billerId !== undefined ? updates.billerId : billerId;
+    const newWarehouse = updates.warehouseId !== undefined ? updates.warehouseId : warehouseId;
+    const newType = updates.type !== undefined ? updates.type : type;
+    const newStart = updates.startDate !== undefined ? updates.startDate : startDate;
+    const newEnd = updates.endDate !== undefined ? updates.endDate : endDate;
+
+    if (newBiller && newBiller !== "all") params.set("billerId", newBiller);
+    else params.delete("billerId");
+
+    if (newWarehouse && newWarehouse !== "all") params.set("warehouseId", newWarehouse);
+    else params.delete("warehouseId");
+
+    if (newType && newType !== "all") params.set("type", newType);
+    else params.delete("type");
+
+    if (newStart) {
+       params.set("startDate", newStart + "T00:00:00.000Z");
+    } else params.delete("startDate");
+
+    if (newEnd) {
+       params.set("endDate", newEnd + "T23:59:59.999Z");
+    } else params.delete("endDate");
+
+    router.push(`/dashboard/sales?${params.toString()}`);
+  };
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -208,26 +279,27 @@ export default function SalesListClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by number or client..."
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="pl-10"
-          />
-          {search && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-              onClick={() => handleSearch("")}
-            >
-              <FiX className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
+      <div className="flex flex-col gap-4 mb-6 bg-muted/20 p-4 rounded-lg border border-border/50">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by number or client..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="pl-10"
+            />
+            {search && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => handleSearch("")}
+              >
+                <FiX className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
 
         <div className="flex items-center gap-2">
           {selectedSales.size > 0 && (
@@ -296,6 +368,99 @@ export default function SalesListClient({
         </div>
       </div>
 
+      {/* Filters Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground">Biller</Label>
+          <Select value={billerId} onValueChange={(val) => { setBillerId(val); applyFilters({ billerId: val }); }}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="All Billers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Billers</SelectItem>
+              {billers.map((b) => (
+                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground">Warehouse</Label>
+          <Select value={warehouseId} onValueChange={(val) => { setWarehouseId(val); applyFilters({ warehouseId: val }); }}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="All Warehouses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Warehouses</SelectItem>
+              {warehouses.map((w) => (
+                <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground">Order Type</Label>
+          <Select value={type} onValueChange={(val) => { setType(val); applyFilters({ type: val }); }}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="All Types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="RETAIL">Retail</SelectItem>
+              <SelectItem value="WHOLESALE">Wholesale</SelectItem>
+              <SelectItem value="READY_PRODUCT">Ready Product</SelectItem>
+              <SelectItem value="RETURN">Return</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground">Start Date</Label>
+          <Input 
+            type="date" 
+            className="h-9" 
+            value={startDate} 
+            onChange={(e) => {
+              setStartDate(e.target.value);
+              applyFilters({ startDate: e.target.value });
+            }} 
+          />
+        </div>
+
+        <div className="space-y-1.5 flex items-end gap-2">
+          <div className="flex-1 space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">End Date</Label>
+            <Input 
+              type="date" 
+              className="h-9" 
+              value={endDate} 
+              onChange={(e) => {
+                setEndDate(e.target.value);
+                applyFilters({ endDate: e.target.value });
+              }} 
+            />
+          </div>
+          <Button 
+            variant="outline" 
+            className="h-9 px-3 shrink-0" 
+            onClick={() => {
+              setBillerId("all");
+              setWarehouseId("all");
+              setType("all");
+              setStartDate("");
+              setEndDate("");
+              applyFilters({ billerId: "all", warehouseId: "all", type: "all", startDate: "", endDate: "" });
+            }}
+            title="Clear Filters"
+          >
+            <FiX className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
@@ -311,6 +476,8 @@ export default function SalesListClient({
               <TableHead>Client</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead>Warehouse</TableHead>
+              <TableHead>Biller</TableHead>
               <TableHead>Date</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -319,7 +486,7 @@ export default function SalesListClient({
           <TableBody>
             {initialSales.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed sales found" : "No sales found"}
                 </TableCell>
               </TableRow>
@@ -385,6 +552,12 @@ export default function SalesListClient({
                       >
                         {sale.orderType}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {sale.warehouse?.name || "N/A"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {sale.createdByUser?.name || "System"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {format(new Date(sale.date), "MMM d, yyyy")}

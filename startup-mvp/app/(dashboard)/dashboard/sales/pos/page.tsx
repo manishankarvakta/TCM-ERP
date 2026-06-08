@@ -12,7 +12,7 @@ export default async function POSPage() {
   ]);
 
   return (
-    <PageGuard permissionKey="sales.sales" requiredOperation="create">
+    <PageGuard permissionKey="sales.pos" requiredOperation="create">
       <POSComponent 
         items={itemsResult.items || []}
         clients={clientsResult.clients || []}

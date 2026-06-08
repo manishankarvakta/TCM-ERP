@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { notFound } from "next/navigation";
 import type { SaleStatus } from "@prisma/client";
 import PageGuard from "@/components/permissions/page-guard";
+import PosReceiptPrint from "./_components/pos-receipt-print";
 
 interface SaleDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -81,6 +82,7 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
               Back
             </Link>
           </Button>
+          <PosReceiptPrint sale={sale} />
           {sale.status === "DRAFT" && (
             <Button asChild>
               <Link href={`/dashboard/sales/${sale.id}/edit`}>

@@ -14,6 +14,11 @@ interface SalesPageProps {
     page?: string;
     search?: string;
     tab?: string;
+    billerId?: string;
+    warehouseId?: string;
+    type?: string;
+    startDate?: string;
+    endDate?: string;
   }>;
 }
 
@@ -22,18 +27,41 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
   const page = parseInt(params.page || "1");
   const search = params.search || "";
   const tab = params.tab || "all";
+  const billerId = params.billerId || undefined;
+  const warehouseId = params.warehouseId || undefined;
+  const type = params.type as any || undefined;
+  
+  let startDate = params.startDate;
+  let endDate = params.endDate;
+
+  // Default to today if no date range is provided
+  if (!startDate && !endDate) {
+    const today = new Date();
+    // Use local date string YYYY-MM-DD
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    startDate = `${yyyy}-${mm}-${dd}T00:00:00.000Z`;
+    endDate = `${yyyy}-${mm}-${dd}T23:59:59.999Z`;
+  }
 
   const session = await auth();
   const userId = session?.user?.id;
 
   const status = tab === "trash" ? "trash" : "all";
 
-  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
-    getSales(page, 10, search, status),
+  // Dynamic imports to avoid large bundle size in layout
+  const { getWarehousesForSale } = await import("./_actions/sale.action");
+  const { prisma } = await import("@/lib/prisma");
+
+  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently, warehousesRes, users] = await Promise.all([
+    getSales(page, 10, search, status, { billerId, warehouseId, type, startDate, endDate }),
     userId ? hasPermission(userId, "sales.sales", "view") : false,
     userId ? hasPermission(userId, "sales.sales", "edit") : false,
     userId ? hasPermission(userId, "sales.sales", "move-to-trash") : false,
     userId ? hasPermission(userId, "sales.sales", "delete-permanently") : false,
+    getWarehousesForSale(),
+    prisma.user.findMany({ where: { status: "active" }, select: { id: true, name: true, email: true }, orderBy: { name: "asc" } }),
   ]);
 
   if (!result.success) {
@@ -103,6 +131,15 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
               moveToTrash: canMoveToTrash,
               deletePermanently: canDeletePermanently,
             }}
+            warehouses={warehousesRes.warehouses || []}
+            billers={users || []}
+            filters={{
+              billerId,
+              warehouseId,
+              type,
+              startDate,
+              endDate,
+            }}
           />
         </TabsContent>
         <TabsContent value="trash" className="mt-4">
@@ -124,6 +161,15 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
               edit: canEdit,
               moveToTrash: canMoveToTrash,
               deletePermanently: canDeletePermanently,
+            }}
+            warehouses={warehousesRes.warehouses || []}
+            billers={users || []}
+            filters={{
+              billerId,
+              warehouseId,
+              type,
+              startDate,
+              endDate,
             }}
           />
         </TabsContent>

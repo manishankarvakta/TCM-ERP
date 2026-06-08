@@ -539,10 +539,35 @@ export async function deleteWarehousesPermanently(warehouseIds: string[]) {
       };
     }
 
+    if (warehouseIds.length === 0) {
+      return {
+        success: false,
+        error: "No warehouses selected",
+      };
+    }
+
+    // Check if any warehouses have stock > 0
+    const warehousesWithStock = await prisma.warehouse.findMany({
+      where: {
+        id: { in: warehouseIds },
+        stocks: { some: { quantity: { gt: 0 } } }
+      },
+      select: { name: true }
+    });
+
+    if (warehousesWithStock.length > 0) {
+      const names = warehousesWithStock.map(w => w.name).join(", ");
+      return {
+        success: false,
+        error: `Cannot permanently delete warehouses with existing stock: ${names}`,
+      };
+    }
+
     // Permanently delete
     await prisma.warehouse.deleteMany({
       where: {
         id: { in: warehouseIds },
+        isTrash: true, // Only allow deleting warehouses that are in trash
       },
     });
 
