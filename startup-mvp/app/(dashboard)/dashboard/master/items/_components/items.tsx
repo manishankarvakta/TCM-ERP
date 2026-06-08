@@ -104,6 +104,7 @@ export default function ItemsListClient({
   const [itemTypeFilter, setItemTypeFilter] = useState<ItemType | "all">(initialItemType);
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const [restoreItemId, setRestoreItemId] = useState<string | null>(null);
+  const [stockErrorMsg, setStockErrorMsg] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -146,7 +147,12 @@ export default function ItemsListClient({
         toast({ title: "Success", description: isTrash ? "Item deleted permanently" : "Item moved to trash" });
         router.refresh();
       } else {
-        toast({ title: "Error", description: result.error || "Failed to delete item", variant: "destructive" });
+        setDeleteItemId(null);
+        if (result.error?.includes("existing stock")) {
+          setStockErrorMsg(result.error);
+        } else {
+          toast({ title: "Error", description: result.error || "Failed to delete item", variant: "destructive" });
+        }
       }
     });
   };
@@ -183,7 +189,11 @@ export default function ItemsListClient({
         toast({ title: "Success", description: `Bulk action completed successfully` });
         router.refresh();
       } else {
-        toast({ title: "Error", description: result.error || "Failed to perform bulk action", variant: "destructive" });
+        if (result.error?.includes("existing stock")) {
+          setStockErrorMsg(result.error);
+        } else {
+          toast({ title: "Error", description: result.error || "Failed to perform bulk action", variant: "destructive" });
+        }
       }
     });
   };
@@ -365,6 +375,19 @@ export default function ItemsListClient({
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleRestore}>Restore</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={!!stockErrorMsg} onOpenChange={() => setStockErrorMsg(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cannot Delete Item(s)</AlertDialogTitle>
+            <AlertDialogDescription className="text-destructive font-medium">
+              {stockErrorMsg}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setStockErrorMsg(null)}>Understood</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

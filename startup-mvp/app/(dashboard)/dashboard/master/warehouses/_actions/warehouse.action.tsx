@@ -21,7 +21,6 @@ async function generateWarehouseCode(): Promise<string> {
   const lastWarehouse = await prisma.warehouse.findFirst({
     where: { 
       code: { startsWith: pattern },
-      isTrash: false,
     },
     orderBy: { code: "desc" },
   });

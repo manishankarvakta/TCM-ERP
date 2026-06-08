@@ -470,6 +470,24 @@ export async function deleteCategoriesPermanently(categoryIds: string[]) {
       };
     }
 
+    // Check if any categories are used by items
+    const categoriesWithItems = await prisma.category.findMany({
+      where: {
+        id: { in: categoryIds },
+        status: "trash",
+        items: { some: {} }
+      },
+      select: { name: true }
+    });
+
+    if (categoriesWithItems.length > 0) {
+      const names = categoriesWithItems.map(c => c.name).join(", ");
+      return {
+        success: false,
+        error: `Cannot permanently delete categories that are in use by items: ${names}`,
+      };
+    }
+
     // Delete categories permanently
     await prisma.category.deleteMany({
       where: {

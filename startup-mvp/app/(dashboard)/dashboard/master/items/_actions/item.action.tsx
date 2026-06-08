@@ -732,11 +732,11 @@ export async function createItem(input: {
         itemType: input.itemType,
         categoryId: input.categoryId || null,
         unitId: input.unitId,
-        costPrice: input.costPrice,
-        salesPrice: input.salesPrice || null,
-        wholesalePrice: input.wholesalePrice || null,
-        wholesaleDiscountAmount: input.wholesaleDiscountAmount || null,
-        discount: input.discount || null,
+        costPrice: input.costPrice || 0,
+        salesPrice: input.salesPrice || 0,
+        wholesalePrice: input.wholesalePrice || 0,
+        wholesaleDiscountAmount: input.wholesaleDiscountAmount || 0,
+        discount: input.discount || 0,
         trackInventory: input.trackInventory ?? false,
         images: input.images || [],
         featuredImage: input.featuredImage || null,
@@ -755,10 +755,10 @@ export async function createItem(input: {
             barcode: v.barcode || await generateUniqueBarcode(),
             size: v.size,
             color: v.color,
-            costPrice: v.costPrice || null,
-            salesPrice: v.salesPrice || null,
-            wholesalePrice: v.wholesalePrice || null,
-            wholesaleDiscountAmount: v.wholesaleDiscountAmount || null,
+            costPrice: v.costPrice || 0,
+            salesPrice: v.salesPrice || 0,
+            wholesalePrice: v.wholesalePrice || 0,
+            wholesaleDiscountAmount: v.wholesaleDiscountAmount || 0,
             image: v.image || null,
           }))),
         } : undefined,
@@ -1035,11 +1035,11 @@ export async function updateItem(input: {
       itemType: input.itemType,
       category: input.categoryId ? { connect: { id: input.categoryId } } : { disconnect: true },
       unit: { connect: { id: input.unitId } },
-      costPrice: input.costPrice,
-      salesPrice: input.salesPrice || null,
-      wholesalePrice: input.wholesalePrice || null,
-      wholesaleDiscountAmount: input.wholesaleDiscountAmount || null,
-      discount: input.discount || null,
+      costPrice: input.costPrice || 0,
+      salesPrice: input.salesPrice || 0,
+      wholesalePrice: input.wholesalePrice || 0,
+      wholesaleDiscountAmount: input.wholesaleDiscountAmount || 0,
+      discount: input.discount || 0,
       trackInventory: input.trackInventory ?? false,
       images: input.images || [],
       featuredImage: input.featuredImage || null,
@@ -1082,10 +1082,10 @@ export async function updateItem(input: {
               barcode: v.barcode || await generateUniqueBarcode(),
               size: v.size,
               color: v.color,
-              costPrice: v.costPrice || null,
-              salesPrice: v.salesPrice || null,
-              wholesalePrice: v.wholesalePrice || null,
-              wholesaleDiscountAmount: v.wholesaleDiscountAmount || null,
+              costPrice: v.costPrice || 0,
+              salesPrice: v.salesPrice || 0,
+              wholesalePrice: v.wholesalePrice || 0,
+              wholesaleDiscountAmount: v.wholesaleDiscountAmount || 0,
               image: v.image || null,
             }
           });
@@ -1097,10 +1097,10 @@ export async function updateItem(input: {
               barcode: v.barcode || await generateUniqueBarcode(),
               size: v.size,
               color: v.color,
-              costPrice: v.costPrice || null,
-              salesPrice: v.salesPrice || null,
-              wholesalePrice: v.wholesalePrice || null,
-              wholesaleDiscountAmount: v.wholesaleDiscountAmount || null,
+              costPrice: v.costPrice || 0,
+              salesPrice: v.salesPrice || 0,
+              wholesalePrice: v.wholesalePrice || 0,
+              wholesaleDiscountAmount: v.wholesaleDiscountAmount || 0,
               image: v.image || null,
               itemId: input.id,
             }
@@ -1328,14 +1328,50 @@ export async function deleteItemsPermanently(itemIds: string[]) {
       };
     }
 
-    // Get items for logging
+    // Get items for logging and check stock
     const itemsToDelete = await prisma.item.findMany({
       where: {
         id: { in: itemIds },
         isTrash: true, // Only allow deleting items that are in trash
       },
-      select: { id: true, name: true, code: true },
+      select: { 
+        id: true, 
+        name: true, 
+        code: true,
+        stocks: {
+          select: { quantity: true }
+        },
+        variants: {
+          select: {
+            stocks: {
+              select: { quantity: true }
+            }
+          }
+        }
+      },
     });
+
+    // Validate that none of them have stock > 0
+    const itemsWithStock = itemsToDelete.filter(item => {
+      let totalStock = 0;
+      item.stocks.forEach(s => {
+        totalStock += Number(s.quantity);
+      });
+      item.variants.forEach(v => {
+        v.stocks.forEach(s => {
+          totalStock += Number(s.quantity);
+        });
+      });
+      return totalStock > 0;
+    });
+
+    if (itemsWithStock.length > 0) {
+      const names = itemsWithStock.map(i => i.name).join(", ");
+      return {
+        success: false,
+        error: `Cannot permanently delete items with existing stock: ${names}`,
+      };
+    }
 
     // Delete items permanently
     await prisma.item.deleteMany({

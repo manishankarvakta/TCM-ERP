@@ -85,6 +85,7 @@ export default function UnitsListClient({
   const [search, setSearch] = useState(initialSearch);
   const [deleteUnitId, setDeleteUnitId] = useState<string | null>(null);
   const [restoreUnitId, setRestoreUnitId] = useState<string | null>(null);
+  const [errorModalMsg, setErrorModalMsg] = useState<string | null>(null);
   const [selectedUnits, setSelectedUnits] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -135,11 +136,16 @@ export default function UnitsListClient({
           });
           router.refresh();
         } else {
-          toast({
-            title: "Error",
-            description: result.error || "Failed to delete unit",
-            variant: "destructive",
-          });
+          setDeleteUnitId(null);
+          if (result.error?.includes("in use by items")) {
+            setErrorModalMsg(result.error);
+          } else {
+            toast({
+              title: "Error",
+              description: result.error || "Failed to delete unit",
+              variant: "destructive",
+            });
+          }
         }
       } else {
         const result = await deleteUnit(deleteUnitId);
@@ -212,11 +218,15 @@ export default function UnitsListClient({
         });
         router.refresh();
       } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to perform bulk action",
-          variant: "destructive",
-        });
+        if (result.error?.includes("in use by items")) {
+          setErrorModalMsg(result.error);
+        } else {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to perform bulk action",
+            variant: "destructive",
+          });
+        }
       }
     });
   };
@@ -497,6 +507,20 @@ export default function UnitsListClient({
             >
               {isPending ? "Restoring..." : "Restore Unit"}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!errorModalMsg} onOpenChange={() => setErrorModalMsg(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cannot Delete Unit</AlertDialogTitle>
+            <AlertDialogDescription className="text-destructive font-medium">
+              {errorModalMsg}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setErrorModalMsg(null)}>Understood</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

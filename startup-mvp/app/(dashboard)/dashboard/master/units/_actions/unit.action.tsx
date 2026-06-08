@@ -453,6 +453,24 @@ export async function deleteUnitsPermanently(unitIds: string[]) {
       };
     }
 
+    // Check if any units are used by items
+    const unitsWithItems = await prisma.unit.findMany({
+      where: {
+        id: { in: unitIds },
+        status: "trash",
+        items: { some: {} }
+      },
+      select: { symbol: true }
+    });
+
+    if (unitsWithItems.length > 0) {
+      const symbols = unitsWithItems.map(u => u.symbol).join(", ");
+      return {
+        success: false,
+        error: `Cannot permanently delete units that are in use by items: ${symbols}`,
+      };
+    }
+
     // Delete units permanently
     await prisma.unit.deleteMany({
       where: {

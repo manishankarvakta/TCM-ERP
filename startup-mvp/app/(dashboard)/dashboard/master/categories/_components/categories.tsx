@@ -71,6 +71,7 @@ export default function CategoriesListClient({
   const [search, setSearch] = useState(initialSearch);
   const [deleteCategoryId, setDeleteCategoryId] = useState<string | null>(null);
   const [restoreCategoryId, setRestoreCategoryId] = useState<string | null>(null);
+  const [errorModalMsg, setErrorModalMsg] = useState<string | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -126,11 +127,16 @@ export default function CategoriesListClient({
           });
           router.refresh();
         } else {
-          toast({
-            title: "Error",
-            description: result.error || "Failed to delete category",
-            variant: "destructive",
-          });
+          setDeleteCategoryId(null);
+          if (result.error?.includes("in use by items")) {
+            setErrorModalMsg(result.error);
+          } else {
+            toast({
+              title: "Error",
+              description: result.error || "Failed to delete category",
+              variant: "destructive",
+            });
+          }
         }
       } else {
         const result = await deleteCategory(deleteCategoryId);
@@ -204,11 +210,15 @@ export default function CategoriesListClient({
         });
         router.refresh();
       } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to perform bulk action",
-          variant: "destructive",
-        });
+        if (result.error?.includes("in use by items")) {
+          setErrorModalMsg(result.error);
+        } else {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to perform bulk action",
+            variant: "destructive",
+          });
+        }
       }
     });
   };
@@ -506,6 +516,20 @@ export default function CategoriesListClient({
             >
               {isPending ? "Restoring..." : "Restore Category"}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!errorModalMsg} onOpenChange={() => setErrorModalMsg(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cannot Delete Category</AlertDialogTitle>
+            <AlertDialogDescription className="text-destructive font-medium">
+              {errorModalMsg}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setErrorModalMsg(null)}>Understood</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

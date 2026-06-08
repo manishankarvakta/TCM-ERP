@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FiAlertCircle, FiPlus, FiTrash2 } from "react-icons/fi";
@@ -181,10 +182,10 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           categoryId: initialData.categoryId || null,
           unitId: initialData.unitId,
           costPrice: Number(initialData.costPrice),
-          salesPrice: initialData.salesPrice ? Number(initialData.salesPrice) : null,
-          wholesalePrice: initialData.wholesalePrice ? Number(initialData.wholesalePrice) : null,
-          wholesaleDiscountAmount: initialData.wholesaleDiscountAmount ? Number(initialData.wholesaleDiscountAmount) : null,
-          discount: initialData.discount ? Number(initialData.discount) : null,
+          salesPrice: initialData.salesPrice !== null && initialData.salesPrice !== undefined ? Number(initialData.salesPrice) : 0,
+          wholesalePrice: initialData.wholesalePrice !== null && initialData.wholesalePrice !== undefined ? Number(initialData.wholesalePrice) : 0,
+          wholesaleDiscountAmount: initialData.wholesaleDiscountAmount !== null && initialData.wholesaleDiscountAmount !== undefined ? Number(initialData.wholesaleDiscountAmount) : 0,
+          discount: initialData.discount !== null && initialData.discount !== undefined ? Number(initialData.discount) : 0,
           trackInventory: initialData.trackInventory,
           images: initialData.images || [],
           featuredImage: initialData.featuredImage || null,
@@ -205,10 +206,10 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           categoryId: null,
           unitId: "",
           costPrice: 0,
-          salesPrice: null,
-          wholesalePrice: null,
-          wholesaleDiscountAmount: null,
-          discount: null,
+          salesPrice: 0,
+          wholesalePrice: 0,
+          wholesaleDiscountAmount: 0,
+          discount: 0,
           trackInventory: false,
           images: [],
           featuredImage: null,
@@ -517,7 +518,6 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                       rows={3}
                     />
                   </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="categoryId">Category (Optional)</Label>
@@ -525,19 +525,15 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                         name="categoryId"
                         control={control}
                         render={({ field }) => (
-                          <Select
-                            value={field.value || "__none__"}
-                            onValueChange={(value) => field.onChange(value === "__none__" ? null : value)}
+                          <SearchableSelect
+                            options={categories.map(c => ({ label: c.name, value: c.id }))}
+                            value={field.value || null}
+                            onValueChange={field.onChange}
+                            placeholder="Select category"
+                            searchPlaceholder="Search categories..."
+                            allowClear
                             disabled={loading}
-                          >
-                            <SelectTrigger id="categoryId">
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">None</SelectItem>
-                              {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
+                          />
                         )}
                       />
                     </div>
@@ -548,14 +544,14 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                         name="unitId"
                         control={control}
                         render={({ field }) => (
-                          <Select value={field.value} onValueChange={field.onChange} disabled={loading}>
-                            <SelectTrigger id="unitId">
-                              <SelectValue placeholder="Select unit" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {units.map((u) => <SelectItem key={u.id} value={u.id}>{u.symbol} - {u.details}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
+                          <SearchableSelect
+                            options={units.map(u => ({ label: `${u.symbol} - ${u.details}`, value: u.id }))}
+                            value={field.value || null}
+                            onValueChange={field.onChange}
+                            placeholder="Select unit"
+                            searchPlaceholder="Search units..."
+                            disabled={loading}
+                          />
                         )}
                       />
                     </div>
