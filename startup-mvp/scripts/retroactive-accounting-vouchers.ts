@@ -15,44 +15,7 @@ const prisma = new PrismaClient();
 
 async function createVouchersForPurchases() {
   console.log("\n📦 Creating vouchers for RECEIVED purchases...\n");
-
-  const purchases = await prisma.purchase.findMany({
-    where: {
-      status: { in: ["RECEIVED", "PARTIALLY_RECEIVED"] },
-      voucherId: null,
-    },
-    include: {
-      items: {
-        where: { itemId: { not: null } },
-        include: {
-          item: {
-            select: {
-              itemType: true,
-              costPrice: true,
-            },
-          },
-        },
-      },
-      supplier: true,
-    },
-    take: 50,
-  });
-
-  console.log(`Found ${purchases.length} purchases without vouchers`);
-
-  for (const purchase of purchases) {
-    // Import the function dynamically
-    const { createPurchaseAccountingVoucher } = await import(
-      "../app/(dashboard)/dashboard/purchases/_actions/purchase.action"
-    );
-
-    const result = await createPurchaseAccountingVoucher(purchase.id);
-    if (result.success) {
-      console.log(`✅ Created voucher for ${purchase.purchaseNumber}`);
-    } else {
-      console.log(`❌ Failed to create voucher for ${purchase.purchaseNumber}: ${result.error}`);
-    }
-  }
+  console.log("Note: Purchase vouchers have been replaced by GRN vouchers. This script needs to be updated to generate GRNs first.");
 }
 
 async function createVouchersForSales() {

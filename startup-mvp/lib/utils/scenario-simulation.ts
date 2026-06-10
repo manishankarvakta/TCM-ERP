@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { 
   createPurchase, 
-} from "@/app/(dashboard)/dashboard/purchases/_actions/purchase.action";
+} from "@/app/(dashboard)/dashboard/procurements/purchases/_actions/purchase.action";
 import { 
   createVoucher, 
   postVoucher 

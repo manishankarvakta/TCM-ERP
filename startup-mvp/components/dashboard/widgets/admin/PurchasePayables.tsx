@@ -67,7 +67,7 @@ export default function PurchasePayables() {
             )}
           </div>
 
-          <Link href="/dashboard/purchases" className="block text-center text-[10px] font-bold uppercase text-primary hover:underline pt-2">
+          <Link href="/dashboard/procurements/purchases" className="block text-center text-[10px] font-bold uppercase text-primary hover:underline pt-2">
             Open Purchase Orders
           </Link>
         </div>

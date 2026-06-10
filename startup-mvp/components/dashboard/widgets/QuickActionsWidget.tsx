@@ -40,11 +40,11 @@ export default function QuickActionsWidget({ userId }: { userId: string }) {
         canCreateBOM,
         canCreateProductionOrder
       ] = await Promise.all([
-        hasPermission(userId, 'items.items', 'create'),
+        hasPermission(userId, 'master.items', 'create'),
         hasPermission(userId, 'peoples.clients', 'create'),
         hasPermission(userId, 'peoples.suppliers', 'create'),
         hasPermission(userId, 'sales.sales', 'create'),
-        hasPermission(userId, 'purchases.purchases', 'create'),
+        hasPermission(userId, 'procurements.purchases', 'create'),
         hasPermission(userId, 'production.boms', 'create'),
         hasPermission(userId, 'production.orders', 'create'),
       ]);
@@ -118,7 +118,7 @@ export default function QuickActionsWidget({ userId }: { userId: string }) {
 
           {permissions.canCreatePurchase && (
             <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center gap-2 hover:bg-rose-500/5 hover:text-rose-600 hover:border-rose-500/30 transition-all group" asChild>
-              <Link href="/dashboard/purchases/add">
+              <Link href="/dashboard/procurements/purchases/add">
                 <div className="h-10 w-10 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-600 group-hover:scale-110 transition-transform">
                   <FiShoppingCart className="h-5 w-5" />
                 </div>

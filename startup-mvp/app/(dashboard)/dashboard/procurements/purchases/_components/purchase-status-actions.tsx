@@ -5,7 +5,7 @@ import { useReactToPrint } from "react-to-print";
 import { Button } from "@/components/ui/button";
 import { bulkUpdatePurchaseStatus } from "../_actions/purchase.action";
 import { useToast } from "@/hooks/use-toast";
-import { FiCheck, FiTruck } from "react-icons/fi";
+import { FiCheck, FiTruck, FiCornerUpLeft } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 import type { PurchaseStatus } from "@prisma/client";
 
@@ -68,14 +68,24 @@ export default function PurchaseStatusActions({
           {isPending ? "Approving..." : "Approve Purchase"}
         </Button>
       )}
-      {status === "APPROVED" && (
+      {(status === "APPROVED" || status === "PARTIALLY_RECEIVED") && (
         <Button
-          onClick={() => handleUpdateStatus("RECEIVED")}
+          onClick={() => router.push(`/dashboard/procurements/grn/add?purchaseId=${purchaseId}`)}
           disabled={isPending}
           className="bg-green-600 hover:bg-green-700 text-white mr-2"
         >
           <FiTruck className="mr-2 h-4 w-4" />
-          {isPending ? "Receiving..." : "Receive Goods"}
+          Create GRN
+        </Button>
+      )}
+      {status === "RECEIVED" && (
+        <Button
+          onClick={() => router.push(`/dashboard/procurements/rtv/new?purchaseId=${purchaseId}`)}
+          disabled={isPending}
+          className="bg-red-600 hover:bg-red-700 text-white mr-2"
+        >
+          <FiCornerUpLeft className="mr-2 h-4 w-4" />
+          Return Items (RTV)
         </Button>
       )}
       {/* Print button – available for any status */}

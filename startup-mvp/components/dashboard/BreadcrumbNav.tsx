@@ -10,7 +10,7 @@ import { getWarehouseById } from "@/app/(dashboard)/dashboard/master/warehouses/
 import { getItemById } from "@/app/(dashboard)/dashboard/master/items/_actions/item.action";
 import { getBOMById } from "@/app/(dashboard)/dashboard/production/boms/_actions/bom.action";
 import { getProductionOrderById } from "@/app/(dashboard)/dashboard/production/orders/_actions/production.action";
-import { getPurchaseById } from "@/app/(dashboard)/dashboard/purchases/_actions/purchase.action";
+import { getPurchaseById } from "@/app/(dashboard)/dashboard/procurements/purchases/_actions/purchase.action";
 import { getCategoryById } from "@/app/(dashboard)/dashboard/master/categories/_actions/category.action";
 import { getUnitById } from "@/app/(dashboard)/dashboard/master/units/_actions/unit.action";
 import { getVoucherById } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
@@ -698,12 +698,12 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   // For purchase routes, replace the ID segment with "Purchases" as parent
   if (isPurchaseDetailMatch || isPurchaseEditMatch || isPurchaseViewMatch) {
     // Find the "Purchases" item (should be before the ID)
-    const purchasesItem = items.find(item => item.path === "/dashboard/purchases");
+    const purchasesItem = items.find(item => item.path === "/dashboard/procurements/purchases");
     if (purchasesItem) {
       parentItem = purchasesItem;
     } else {
       // If not found, create a parent item pointing to purchases list
-      parentItem = { path: "/dashboard/purchases", label: "Purchases" };
+      parentItem = { path: "/dashboard/procurements/purchases", label: "Purchases" };
     }
     
     // Update current label with purchase code

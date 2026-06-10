@@ -12,7 +12,6 @@ import { promisify } from 'util';
 import type { RestoreOptions } from '@/types/backup';
 import {
   parsePostgresConfig,
-  getMinIOConfig,
   METADATA_FILENAME,
   DATABASE_DUMP_FILENAME,
   FILES_DIRECTORY_NAME,
@@ -193,7 +192,7 @@ export async function restoreFilesBackup(
     // Stage 4: RESTORING_FILES (40-90%)
     manager.updateStatus(restoreId, 'RESTORING_FILES', 'Restoring files to local storage');
     
-    const minioConfig = getMinIOConfig();
+    const minioConfig = null;
     let uploadedCount = 0;
 
     for (const entry of entries) {
@@ -331,7 +330,7 @@ export async function restoreFullBackup(
 
     manager.addLog(restoreId, `Found ${entries.length} files to restore`);
 
-    const minioConfig = getMinIOConfig();
+    const minioConfig = null;
     let uploadedCount = 0;
 
     for (const entry of entries) {

@@ -18,6 +18,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { FiAlertCircle, FiSave, FiGlobe, FiClock } from "react-icons/fi";
 import { getPreferencesAction, updatePreferencesAction } from "../_actions/preferences.action";
 import type { PreferencesSettings } from "@/types/preferences";
+import { Switch } from "@/components/ui/switch";
 import {
   CURRENCIES,
   TIMEZONES,
@@ -37,6 +38,7 @@ const preferencesFormSchema = z.object({
   timeFormat: z.enum(["12h", "24h"]),
   decimalSeparator: z.enum([".", ","]),
   thousandsSeparator: z.enum([",", ".", " ", "none"]),
+  createPurchaseWithoutGRN: z.boolean().default(false),
 });
 
 type FormData = z.infer<typeof preferencesFormSchema>;
@@ -378,6 +380,36 @@ export default function Preferences() {
                   )}
                 />
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Procurement Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Procurement Settings</CardTitle>
+            <CardDescription>
+              Configure how procurement documents behave
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="space-y-0.5">
+                <Label className="text-base">Create Purchase Without GRN</Label>
+                <p className="text-sm text-muted-foreground">
+                  If enabled, you can create and approve purchases without an automatic Goods Receipt Note. You will need to create the GRN manually later.
+                </p>
+              </div>
+              <Controller
+                name="createPurchaseWithoutGRN"
+                control={control}
+                render={({ field }) => (
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                )}
+              />
             </div>
           </CardContent>
         </Card>

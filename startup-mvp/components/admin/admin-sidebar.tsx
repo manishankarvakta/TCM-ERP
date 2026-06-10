@@ -74,7 +74,7 @@ const menuItems: MenuItem[] = [
       { href: "/dashboard/work-orders", label: "Work Orders", icon: FiBriefcase },
     ],
   },
-  { href: "/dashboard/purchases", label: "Purchases", icon: FiShoppingCart },
+  { href: "/dashboard/procurements/purchases", label: "Purchases", icon: FiShoppingCart },
   {
     label: "Accounts",
     icon: SlCalculator,

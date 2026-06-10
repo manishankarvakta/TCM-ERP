@@ -63,7 +63,7 @@ npx tsx scripts/test-accounts-system.ts
 ### Test 2.1: Create Purchase A - Raw Material
 
 **Steps**:
-1. Navigate to `/dashboard/purchases/add`
+1. Navigate to `/dashboard/procurements/purchases/add`
 2. Select a supplier
 3. Select a warehouse
 4. Add item:

@@ -28,10 +28,10 @@ import {
   FiRotateCw,
 } from "react-icons/fi";
 import {
-  deletePurchase,
-  bulkUpdatePurchaseStatus,
-  deletePurchasesPermanently,
-} from "../_actions/purchase.action";
+  deleteGRN,
+  bulkUpdateGRNStatus,
+  deleteGRNsPermanently,
+} from "../_actions/grn.action";
 import ProtectedAction from "@/components/permissions/protected-action";
 import {
   AlertDialog,
@@ -46,20 +46,24 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import type { PurchaseStatus } from "@prisma/client";
+import type { GRNStatus } from "@prisma/client";
 
-interface Purchase {
+interface GRN {
   id: string;
-  purchaseNumber: string;
+  grnNumber: string;
   date: Date;
-  status: PurchaseStatus;
+  status: GRNStatus;
   grandTotal: number;
   isTrash: boolean;
-  supplier: {
-    id: string;
-    name: string | null;
-    email: string;
-    company: string | null;
+  source: {
+    type: "PURCHASE" | "TPN";
+    number: string;
+    supplier: {
+      id: string;
+      name: string | null;
+      email: string;
+      company: string | null;
+    } | null;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -72,8 +76,8 @@ interface Pagination {
   totalPages: number;
 }
 
-interface PurchasesListClientProps {
-  initialPurchases: Purchase[];
+interface GRNsListClientProps {
+  initialGRNs: GRN[];
   initialPagination: Pagination;
   initialSearch: string;
   isTrash?: boolean;
@@ -86,28 +90,26 @@ interface PurchasesListClientProps {
   };
 }
 
-const STATUS_LABELS: Record<PurchaseStatus, string> = {
+const STATUS_LABELS: Record<GRNStatus, string> = {
   DRAFT: "Draft",
-  APPROVED: "Approved",
-  PARTIALLY_RECEIVED: "Partial",
-  RECEIVED: "Received",
+  COMPLETED: "Completed",
   CANCELLED: "Cancelled",
 };
 
-export default function PurchasesListClient({
-  initialPurchases = [],
+export default function GRNsListClient({
+  initialGRNs = [],
   initialPagination,
   initialSearch,
   isTrash = false,
   userId: providedUserId,
   permissions,
-}: PurchasesListClientProps) {
+}: GRNsListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(initialSearch);
-  const [deletePurchaseId, setDeletePurchaseId] = useState<string | null>(null);
-  const [restorePurchaseId, setRestorePurchaseId] = useState<string | null>(null);
-  const [selectedPurchases, setSelectedPurchases] = useState<Set<string>>(new Set());
+  const [deleteGRNId, setDeleteGRNId] = useState<string | null>(null);
+  const [restoreGRNId, setRestoreGRNId] = useState<string | null>(null);
+  const [selectedGRNs, setSelectedGRNs] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
@@ -124,25 +126,25 @@ export default function PurchasesListClient({
     if (tab) {
       params.set("tab", tab);
     }
-    router.push(`/dashboard/purchases?${params.toString()}`);
+    router.push(`/dashboard/procurements/grn?${params.toString()}`);
   };
 
   const handleDelete = async () => {
-    if (!deletePurchaseId) return;
+    if (!deleteGRNId) return;
 
     startTransition(async () => {
-      const result = await deletePurchase(deletePurchaseId);
+      const result = await deleteGRN(deleteGRNId);
       if (result.success) {
-        setDeletePurchaseId(null);
+        setDeleteGRNId(null);
         toast({
           title: "Success",
-          description: "Purchase moved to trash",
+          description: "GRN moved to trash",
         });
         router.refresh();
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to delete purchase",
+          description: result.error || "Failed to delete GRN",
           variant: "destructive",
         });
       }
@@ -150,70 +152,70 @@ export default function PurchasesListClient({
   };
 
   const handleRestore = async () => {
-    if (!restorePurchaseId) return;
+    if (!restoreGRNId) return;
 
     startTransition(async () => {
-      const result = await bulkUpdatePurchaseStatus([restorePurchaseId], "restore");
+      const result = await bulkUpdateGRNStatus([restoreGRNId], "restore");
       if (result.success) {
-        setRestorePurchaseId(null);
+        setRestoreGRNId(null);
         toast({
           title: "Success",
-          description: "Purchase restored successfully",
+          description: "GRN restored successfully",
         });
         router.refresh();
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to restore purchase",
+          description: result.error || "Failed to restore GRN",
           variant: "destructive",
         });
       }
     });
   };
 
-  const handleSelectPurchase = (id: string, checked: boolean) => {
-    const newSelected = new Set(selectedPurchases);
+  const handleSelectGRN = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedGRNs);
     if (checked) {
       newSelected.add(id);
     } else {
       newSelected.delete(id);
     }
-    setSelectedPurchases(newSelected);
+    setSelectedGRNs(newSelected);
   };
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedPurchases(new Set(initialPurchases.map((purchase) => purchase.id)));
+      setSelectedGRNs(new Set(initialGRNs.map((grn) => grn.id)));
     } else {
-      setSelectedPurchases(new Set());
+      setSelectedGRNs(new Set());
     }
   };
 
   const handleBulkAction = async (action: "trash" | "restore" | "delete-permanently") => {
-    if (selectedPurchases.size === 0) {
+    if (selectedGRNs.size === 0) {
       toast({
         title: "No selection",
-        description: "Please select at least one purchase",
+        description: "Please select at least one GRN",
         variant: "destructive",
       });
       return;
     }
 
-    const purchaseIds = Array.from(selectedPurchases);
+    const grnIds = Array.from(selectedGRNs);
 
     startTransition(async () => {
       let result;
 
       if (action === "trash") {
-        result = await bulkUpdatePurchaseStatus(purchaseIds, "trash");
+        result = await bulkUpdateGRNStatus(grnIds, "trash");
       } else if (action === "restore") {
-        result = await bulkUpdatePurchaseStatus(purchaseIds, "restore");
+        result = await bulkUpdateGRNStatus(grnIds, "restore");
       } else {
-        result = await deletePurchasesPermanently(purchaseIds);
+        result = await deleteGRNsPermanently(grnIds);
       }
 
       if (result.success) {
-        setSelectedPurchases(new Set());
+        setSelectedGRNs(new Set());
         toast({
           title: "Success",
           description: "Bulk action completed successfully",
@@ -230,7 +232,7 @@ export default function PurchasesListClient({
   };
 
   const allSelected =
-    initialPurchases.length > 0 && selectedPurchases.size === initialPurchases.length;
+    initialGRNs.length > 0 && selectedGRNs.size === initialGRNs.length;
 
   return (
     <div className="space-y-4">
@@ -256,9 +258,9 @@ export default function PurchasesListClient({
         </div>
 
         <div className="flex items-center gap-2">
-          {selectedPurchases.size > 0 && (
+          {selectedGRNs.size > 0 && (
             <span className="text-sm text-muted-foreground whitespace-nowrap">
-              {selectedPurchases.size} selected
+              {selectedGRNs.size} selected
             </span>
           )}
           <DropdownMenu>
@@ -266,7 +268,7 @@ export default function PurchasesListClient({
               <Button
                 variant="outline"
                 size="sm"
-                disabled={isPending || selectedPurchases.size === 0}
+                disabled={isPending || selectedGRNs.size === 0}
               >
                 <FiMoreVertical className="mr-2 h-4 w-4" />
                 Bulk Actions
@@ -276,7 +278,7 @@ export default function PurchasesListClient({
               {!isTrash ? (
                 <DropdownMenuItem
                   onClick={() => handleBulkAction("trash")}
-                  disabled={selectedPurchases.size === 0}
+                  disabled={selectedGRNs.size === 0}
                 >
                   <FiTrash2 className="mr-2 h-4 w-4" />
                   Move to Trash
@@ -285,7 +287,7 @@ export default function PurchasesListClient({
                 <>
                   <DropdownMenuItem
                     onClick={() => handleBulkAction("restore")}
-                    disabled={selectedPurchases.size === 0}
+                    disabled={selectedGRNs.size === 0}
                   >
                     <FiRotateCw className="mr-2 h-4 w-4" />
                     Restore
@@ -293,7 +295,7 @@ export default function PurchasesListClient({
                   <DropdownMenuItem
                     onClick={() => handleBulkAction("delete-permanently")}
                     className="text-destructive"
-                    disabled={selectedPurchases.size === 0}
+                    disabled={selectedGRNs.size === 0}
                   >
                     <FiTrash2 className="mr-2 h-4 w-4" />
                     Delete Permanently
@@ -316,8 +318,9 @@ export default function PurchasesListClient({
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead>Purchase #</TableHead>
-              <TableHead>Supplier</TableHead>
+              <TableHead>GRN #</TableHead>
+              <TableHead>Source Doc #</TableHead>
+              <TableHead>Origin / Supplier</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Date</TableHead>
               <TableHead className="text-right">Total</TableHead>
@@ -325,61 +328,55 @@ export default function PurchasesListClient({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {initialPurchases.length === 0 ? (
+            {initialGRNs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  {isTrash ? "No trashed purchases found" : "No purchases found"}
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  {isTrash ? "No trashed GRNs found" : "No GRNs found"}
                 </TableCell>
               </TableRow>
             ) : (
-              initialPurchases.map((purchase) => {
-                const isSelected = selectedPurchases.has(purchase.id);
+              initialGRNs.map((grn) => {
+                const isSelected = selectedGRNs.has(grn.id);
 
                 return (
-                  <TableRow key={purchase.id} className={cn(isSelected && "bg-muted/50")}>
+                  <TableRow key={grn.id} className={cn(isSelected && "bg-muted/50")}>
                     <TableCell>
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={(checked) =>
-                          handleSelectPurchase(purchase.id, checked as boolean)
+                          handleSelectGRN(grn.id, checked as boolean)
                         }
-                        aria-label={`Select ${purchase.purchaseNumber}`}
+                        aria-label={`Select ${grn.grnNumber}`}
                       />
                     </TableCell>
                     <TableCell className="font-medium">
-                      {purchase.purchaseNumber}
+                      {grn.grnNumber}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground font-mono">
+                      {grn.source?.number || "-"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {purchase.supplier.name || purchase.supplier.email}
+                      {grn.source?.type === "TPN" ? "TPN Transfer" : grn.source?.supplier?.name || grn.source?.supplier?.company || "Unknown Supplier"}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={purchase.status === "CANCELLED" ? "destructive" : "secondary"}>
-                        {STATUS_LABELS[purchase.status]}
+                      <Badge variant={grn.status === "CANCELLED" ? "destructive" : "secondary"}>
+                        {STATUS_LABELS[grn.status]}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {format(new Date(purchase.date), "MMM d, yyyy")}
+                      {format(new Date(grn.date), "MMM d, yyyy")}
                     </TableCell>
                     <TableCell className="text-right font-medium">
-                      {purchase.grandTotal.toFixed(2)}
+                      {grn.grandTotal.toFixed(2)}
                     </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           {!isTrash && (
                             <>
-                              {purchase.status !== "RECEIVED" && (
-                                <ProtectedAction
-                                  permissionKey="purchases.purchases"
-                                  action="edit"
-                                  href={`/dashboard/purchases/${purchase.id}/edit`}
-                                  userId={providedUserId || undefined}
-                                  hasAccess={permissions?.edit}
-                                />
-                              )}
                               <ProtectedAction
-                                permissionKey="purchases.purchases"
+                                permissionKey="procurements.grn"
                                 action="view"
-                                href={`/dashboard/purchases/${purchase.id}/view`}
+                                href={`/dashboard/procurements/grn/${grn.id}/view`}
                                 userId={providedUserId || undefined}
                                 hasAccess={permissions?.view}
                               />
@@ -390,7 +387,7 @@ export default function PurchasesListClient({
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                setRestorePurchaseId(purchase.id);
+                                setRestoreGRNId(grn.id);
                                 handleRestore();
                               }}
                               disabled={isPending}
@@ -398,11 +395,11 @@ export default function PurchasesListClient({
                               <FiRotateCw className="h-4 w-4" />
                             </Button>
                           )}
-                          {purchase.status !== "RECEIVED" && (
+                          {grn.status !== "COMPLETED" && (
                             <ProtectedAction
-                              permissionKey="purchases.purchases"
+                              permissionKey="procurements.grn"
                               action={isTrash ? "delete-permanently" : "move-to-trash"}
-                              onClick={() => setDeletePurchaseId(purchase.id)}
+                              onClick={() => setDeleteGRNId(grn.id)}
                               userId={providedUserId || undefined}
                               hasAccess={isTrash ? permissions?.deletePermanently : permissions?.moveToTrash}
                               buttonProps={{
@@ -427,7 +424,7 @@ export default function PurchasesListClient({
           <div className="text-sm text-muted-foreground">
             Showing {((initialPagination.page - 1) * initialPagination.limit) + 1} to{" "}
             {Math.min(initialPagination.page * initialPagination.limit, initialPagination.total)} of{" "}
-            {initialPagination.total} purchases
+            {initialPagination.total} GRNs
           </div>
           <div className="flex gap-2">
             <Button
@@ -441,7 +438,7 @@ export default function PurchasesListClient({
                 if (tab) {
                   params.set("tab", tab);
                 }
-                router.push(`/dashboard/purchases?${params.toString()}`);
+                router.push(`/dashboard/procurements/grn?${params.toString()}`);
               }}
             >
               Previous
@@ -457,7 +454,7 @@ export default function PurchasesListClient({
                 if (tab) {
                   params.set("tab", tab);
                 }
-                router.push(`/dashboard/purchases?${params.toString()}`);
+                router.push(`/dashboard/procurements/grn?${params.toString()}`);
               }}
             >
               Next
@@ -466,35 +463,35 @@ export default function PurchasesListClient({
         </div>
       )}
 
-      <AlertDialog open={!!deletePurchaseId} onOpenChange={() => setDeletePurchaseId(null)}>
+      <AlertDialog open={!!deleteGRNId} onOpenChange={() => setDeleteGRNId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {isTrash ? "Delete Purchase Permanently" : "Move Purchase to Trash"}
+              {isTrash ? "Delete GRN Permanently" : "Move GRN to Trash"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {isTrash
-                ? "This action cannot be undone. This will permanently delete the purchase."
-                : "This will move the purchase to trash. You can restore it later from the Trash tab."}
+                ? "This action cannot be undone. This will permanently delete the GRN."
+                : "This will move the GRN to trash. You can restore it later from the Trash tab."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
-                if (isTrash && deletePurchaseId) {
-                  const result = await deletePurchasesPermanently([deletePurchaseId]);
+                if (isTrash && deleteGRNId) {
+                  const result = await deleteGRNsPermanently([deleteGRNId]);
                   if (result.success) {
-                    setDeletePurchaseId(null);
+                    setDeleteGRNId(null);
                     toast({
                       title: "Success",
-                      description: "Purchase deleted permanently",
+                      description: "GRN deleted permanently",
                     });
                     router.refresh();
                   } else {
                     toast({
                       title: "Error",
-                      description: result.error || "Failed to delete purchase",
+                      description: result.error || "Failed to delete GRN",
                       variant: "destructive",
                     });
                   }
@@ -513,5 +510,3 @@ export default function PurchasesListClient({
     </div>
   );
 }
-
-

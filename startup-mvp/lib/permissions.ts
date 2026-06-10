@@ -145,14 +145,18 @@ export async function canAccessModule(
     const permissions = await getUserPermissions(userId);
     
     // Check module-level permission
-    const modulePermissions = permissions[module] || [];
-    if (modulePermissions.length > 0) return true;
+    const modulePerms = permissions[module];
+    const hasModPerms = modulePerms && ((Array.isArray(modulePerms) && modulePerms.length > 0) || (!Array.isArray(modulePerms) && modulePerms.operations && modulePerms.operations.length > 0));
+    if (hasModPerms) return true;
     
     // Check sub-module permissions
     const subModuleKeys = Object.keys(permissions).filter((key) =>
       key.startsWith(`${module}.`)
     );
-    return subModuleKeys.some((key) => (permissions[key]?.length || 0) > 0);
+    return subModuleKeys.some((key) => {
+      const p = permissions[key];
+      return p && ((Array.isArray(p) && p.length > 0) || (!Array.isArray(p) && p.operations && p.operations.length > 0));
+    });
   } catch (error) {
     console.error("Error checking module access:", error);
     return false;
@@ -329,7 +333,9 @@ export async function getUserModules(userId: string): Promise<Module[]> {
     
     // Check all permission keys
     for (const key of Object.keys(permissions)) {
-      if ((permissions[key]?.length || 0) > 0) {
+      const p = permissions[key];
+      const hasPerms = p && ((Array.isArray(p) && p.length > 0) || (!Array.isArray(p) && p.operations && p.operations.length > 0));
+      if (hasPerms) {
         // Extract module from key (e.g., "items.groups" -> "items")
         const module = key.split(".")[0] as Module;
         if (module) {
@@ -357,13 +363,17 @@ export async function getUserSubModules(
     const accessibleSubModules: string[] = [];
     
     // Check module-level permission - grants access to all sub-modules
-    if (permissions[module] && permissions[module]!.length > 0) {
+    const pMod = permissions[module];
+    const hasModPerms = pMod && ((Array.isArray(pMod) && pMod.length > 0) || (!Array.isArray(pMod) && pMod.operations && pMod.operations.length > 0));
+    if (hasModPerms) {
       return ["*"]; // Wildcard means all sub-modules
     }
     
     // Check individual sub-module permissions
     for (const key of Object.keys(permissions)) {
-      if (key.startsWith(`${module}.`) && (permissions[key]?.length || 0) > 0) {
+      const p = permissions[key];
+      const hasPerms = p && ((Array.isArray(p) && p.length > 0) || (!Array.isArray(p) && p.operations && p.operations.length > 0));
+      if (key.startsWith(`${module}.`) && hasPerms) {
         const subModule = key.split(".")[1];
         if (subModule) {
           accessibleSubModules.push(subModule);

@@ -107,4 +107,5 @@ export const DEFAULT_PREFERENCES = {
   timeFormat: "12h" as const,
   decimalSeparator: "." as const,
   thousandsSeparator: "," as const,
+  createPurchaseWithoutGRN: false,
 };

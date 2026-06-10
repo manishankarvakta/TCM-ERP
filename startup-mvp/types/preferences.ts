@@ -24,6 +24,9 @@ export interface PreferencesSettings {
   // Number formatting
   decimalSeparator: "." | ",";
   thousandsSeparator: "," | "." | " " | "none";
+
+  // Procurement
+  createPurchaseWithoutGRN: boolean;
 }
 
 /**

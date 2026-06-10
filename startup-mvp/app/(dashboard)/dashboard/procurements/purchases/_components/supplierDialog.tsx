@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { DialogFooter } from "@/components/ui/dialog";
-import { createSupplier } from "../../suppliers/_actions/supplier.action";
+import { createSupplier } from "../../../suppliers/_actions/supplier.action";
 
 const supplierSchema = z.object({
   name: z.string().min(1, "Name required"),

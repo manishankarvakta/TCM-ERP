@@ -81,7 +81,7 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" asChild>
-            <Link href="/dashboard/purchases">
+            <Link href="/dashboard/procurements/purchases">
               <FiArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Link>
@@ -91,7 +91,7 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
           // || purchase.status === "APPROVED" 
           && (
             <Button asChild>
-              <Link href={`/dashboard/purchases/${purchase.id}/edit`}>
+              <Link href={`/dashboard/procurements/purchases/${purchase.id}/edit`}>
                 <FiEdit className="mr-2 h-4 w-4" />
                 Edit
               </Link>

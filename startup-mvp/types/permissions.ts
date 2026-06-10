@@ -4,7 +4,6 @@
 export type Module =
   | "dashboard"
   | "master"
-  | "purchases"
   | "sales"
   | "accounts"
   | "peoples"
@@ -15,7 +14,8 @@ export type Module =
   | "analytics"
   | "production"
   | "settings"
-  | "hr";
+  | "hr"
+  | "procurements";
 
 // Basic operations
 export type BasicOperation = "create" | "read" | "update" | "delete" | "export" | "import";
@@ -35,7 +35,13 @@ export type CustomOperation =
   | "adjust"
   | "start"
   | "complete"
-  | "cancel";
+  | "cancel"
+  | "view_sales_widget"
+  | "view_inventory_widget"
+  | "view_production_widget"
+  | "view_accounts_widget"
+  | "view_quick_actions_widget"
+  | "view_recent_activity_widget";
 
 // Standard operations for pages (as per requirements)
 export type StandardOperation = "create" | "view" | "edit" | "move-to-trash" | "delete-permanently";
@@ -138,12 +144,16 @@ export const MODULES: Record<Module, ModuleMetadata> = {
       { id: "warehouses", label: "Warehouses", path: "/dashboard/master/warehouses", module: "master", permissionKey: "master.warehouses" },
     ],
   },
-  purchases: {
-    id: "purchases",
-    label: "Purchases",
-    description: "Manage purchase orders and receipts",
+  procurements: {
+    id: "procurements",
+    label: "Procurements",
+    description: "Manage purchases, transfers, and returns",
     subModules: [
-      { id: "purchases", label: "Purchases", path: "/dashboard/purchases", module: "purchases", permissionKey: "purchases.purchases" },
+      { id: "dashboard", label: "Dashboard", path: "/dashboard/procurements", module: "procurements", permissionKey: "procurements.dashboard" },
+      { id: "purchases", label: "Purchases", path: "/dashboard/procurements/purchases", module: "procurements", permissionKey: "procurements.purchases" },
+      { id: "grn", label: "Goods Receipt", path: "/dashboard/procurements/grn", module: "procurements", permissionKey: "procurements.grn" },
+      { id: "tpn", label: "Transfer Notes", path: "/dashboard/procurements/tpn", module: "procurements", permissionKey: "procurements.tpn" },
+      { id: "rtv", label: "Returns (RTV)", path: "/dashboard/procurements/rtv", module: "procurements", permissionKey: "procurements.rtv" },
     ],
   },
   sales: {
@@ -395,9 +405,15 @@ export const OPERATIONS: Record<Operation, OperationMetadata> = {
   cancel: {
     id: "cancel",
     label: "Cancel",
-    description: "Cancel a process",
+    description: "Cancel an ongoing process",
     category: "custom",
   },
+  view_sales_widget: { id: "view_sales_widget", label: "Sales Widget", category: "custom" },
+  view_inventory_widget: { id: "view_inventory_widget", label: "Inventory Widget", category: "custom" },
+  view_production_widget: { id: "view_production_widget", label: "Production Widget", category: "custom" },
+  view_accounts_widget: { id: "view_accounts_widget", label: "Accounts Widget", category: "custom" },
+  view_quick_actions_widget: { id: "view_quick_actions_widget", label: "Quick Actions Widget", category: "custom" },
+  view_recent_activity_widget: { id: "view_recent_activity_widget", label: "Recent Activity Widget", category: "custom" },
 };
 
 // Helper function to get all modules
@@ -454,8 +470,16 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
       {
         permissionKey: "dashboard",
         path: "/dashboard",
-        label: "Dashboard",
-        operations: ["view"],
+        label: "Dashboard Overview",
+        operations: [
+          "view",
+          "view_sales_widget",
+          "view_inventory_widget",
+          "view_production_widget",
+          "view_accounts_widget",
+          "view_quick_actions_widget",
+          "view_recent_activity_widget"
+        ],
       },
     ],
   },
@@ -490,13 +514,37 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
     ],
   },
   {
-    id: "purchases",
-    label: "Purchases",
+    id: "procurements",
+    label: "Procurements",
     pages: [
       {
-        permissionKey: "purchases.purchases",
-        path: "/dashboard/purchases",
+        permissionKey: "procurements.dashboard",
+        path: "/dashboard/procurements",
+        label: "Dashboard",
+        operations: ["view"],
+      },
+      {
+        permissionKey: "procurements.purchases",
+        path: "/dashboard/procurements/purchases",
         label: "Purchases",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "procurements.grn",
+        path: "/dashboard/procurements/grn",
+        label: "Goods Receipt Note",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "procurements.tpn",
+        path: "/dashboard/procurements/tpn",
+        label: "Transfer Notes",
+        operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "procurements.rtv",
+        path: "/dashboard/procurements/rtv",
+        label: "Returns (RTV)",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
     ],

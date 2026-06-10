@@ -27,12 +27,13 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
 
   const status = tab === "trash" ? "trash" : "all";
 
-  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
+  const [result, canView, canCreate, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
     getPurchases(page, 10, search, status),
-    userId ? hasPermission(userId, "purchases.purchases", "view") : false,
-    userId ? hasPermission(userId, "purchases.purchases", "edit") : false,
-    userId ? hasPermission(userId, "purchases.purchases", "move-to-trash") : false,
-    userId ? hasPermission(userId, "purchases.purchases", "delete-permanently") : false,
+    userId ? hasPermission(userId, "procurements.purchases", "view") : false,
+    userId ? hasPermission(userId, "procurements.purchases", "create") : false,
+    userId ? hasPermission(userId, "procurements.purchases", "edit") : false,
+    userId ? hasPermission(userId, "procurements.purchases", "move-to-trash") : false,
+    userId ? hasPermission(userId, "procurements.purchases", "delete-permanently") : false,
   ]);
 
   if (!result.success) {
@@ -60,9 +61,9 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
           <h1 className="text-2xl font-semibold">Purchases</h1>
           <p className="text-sm text-muted-foreground">Manage purchases in your system</p>
         </div>
-        {tab !== "trash" && (
+        {tab !== "trash" && canCreate && (
           <Button asChild>
-            <Link href="/dashboard/purchases/add">
+            <Link href="/dashboard/procurements/purchases/add">
               <FiPlus className="mr-2 h-4 w-4" />
               Add Purchase
             </Link>
@@ -73,10 +74,10 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
       <Tabs defaultValue={tab} className="w-full">
         <TabsList>
           <TabsTrigger value="all" asChild>
-            <Link href="/dashboard/purchases?tab=all&page=1">All Purchases</Link>
+            <Link href="/dashboard/procurements/purchases?tab=all&page=1">All Purchases</Link>
           </TabsTrigger>
           <TabsTrigger value="trash" asChild>
-            <Link href="/dashboard/purchases?tab=trash&page=1">Trash</Link>
+            <Link href="/dashboard/procurements/purchases?tab=trash&page=1">Trash</Link>
           </TabsTrigger>
         </TabsList>
         <TabsContent value="all" className="mt-4">

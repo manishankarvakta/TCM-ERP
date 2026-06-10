@@ -17,6 +17,8 @@ export default function UserDashboard({ userId }: { userId: string }) {
     canViewInventory: false,
     canViewSales: false,
     canViewAccounts: false,
+    canViewQuickActions: false,
+    canViewRecentActivity: false,
   });
   const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,12 +30,16 @@ export default function UserDashboard({ userId }: { userId: string }) {
         canViewInventory,
         canViewSales,
         canViewAccounts,
+        canViewQuickActions,
+        canViewRecentActivity,
         activityResult
       ] = await Promise.all([
-        hasPermission(userId, "production.orders", "view"),
-        hasPermission(userId, "inventory.stock", "view"),
-        hasPermission(userId, "sales.sales", "view"),
-        hasPermission(userId, "accounts.vouchers", "view"),
+        hasPermission(userId, "dashboard", "view_production_widget"),
+        hasPermission(userId, "dashboard", "view_inventory_widget"),
+        hasPermission(userId, "dashboard", "view_sales_widget"),
+        hasPermission(userId, "dashboard", "view_accounts_widget"),
+        hasPermission(userId, "dashboard", "view_quick_actions_widget"),
+        hasPermission(userId, "dashboard", "view_recent_activity_widget"),
         getUserActivity(8)
       ]);
 
@@ -42,6 +48,8 @@ export default function UserDashboard({ userId }: { userId: string }) {
         canViewInventory,
         canViewSales,
         canViewAccounts,
+        canViewQuickActions,
+        canViewRecentActivity,
       });
       
       if (activityResult) {
@@ -85,7 +93,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
       </div>
 
       {/* Quick Actions at the top */}
-      <QuickActionsWidget userId={userId} />
+      {permissions.canViewQuickActions && <QuickActionsWidget userId={userId} />}
 
       {/* Operational Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -95,9 +103,11 @@ export default function UserDashboard({ userId }: { userId: string }) {
         {permissions.canViewAccounts && <AccountsWidget />}
 
         {/* Recent Activity Card */}
-        <div className="col-span-full">
-          <RecentActivity activities={activities} />
-        </div>
+        {permissions.canViewRecentActivity && (
+          <div className="col-span-full">
+            <RecentActivity activities={activities} />
+          </div>
+        )}
       </div>
     </div>
   );

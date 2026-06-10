@@ -38,11 +38,15 @@ export const MENU_TEMPLATE: MenuItemData[] = [
     ],
   },
   {
-    label: "Purchases",
+    label: "Procurements",
     icon: "FiShoppingCart",
-    module: "purchases",
+    module: "procurements",
     subMenu: [
-      { href: "/dashboard/purchases", label: "Purchases", icon: "FiShoppingCart", module: "purchases" },
+      { href: "/dashboard/procurements", label: "Dashboard", icon: "FiPieChart", module: "procurements" },
+      { href: "/dashboard/procurements/purchases", label: "Purchases", icon: "FiShoppingCart", module: "procurements" },
+      { href: "/dashboard/procurements/grn", label: "Goods Receipt", icon: "FiTruck", module: "procurements" },
+      { href: "/dashboard/procurements/tpn", label: "Transfer Notes", icon: "FiNavigation", module: "procurements" },
+      { href: "/dashboard/procurements/rtv", label: "Returns (RTV)", icon: "FiCornerUpLeft", module: "procurements" },
     ],
   },
   {
@@ -334,7 +338,7 @@ function getNavigationIdForMenuItem(item: MenuItemData): string | null {
   const navMap: Record<string, string> = {
     "/dashboard": "dashboard",
     "master": "master",
-    "purchases": "purchases",
+    "procurements": "procurements",
     "sales": "sales",
     "accounts": "accounts",
     "peoples": "peoples",

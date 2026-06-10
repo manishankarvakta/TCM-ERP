@@ -8,10 +8,10 @@ This directory contains development documentation for the Purchase module.
 The Purchase module manages purchase orders from suppliers, integrates with inventory for stock updates, and creates accounting vouchers for financial transactions.
 
 ### Key Routes
-- **List**: `/dashboard/purchases`
-- **Add**: `/dashboard/purchases/add`
-- **View**: `/dashboard/purchases/[id]/view`
-- **Edit**: `/dashboard/purchases/[id]/edit`
+- **List**: `/dashboard/procurements/purchases`
+- **Add**: `/dashboard/procurements/purchases/add`
+- **View**: `/dashboard/procurements/purchases/[id]/view`
+- **Edit**: `/dashboard/procurements/purchases/[id]/edit`
 
 ### Permission Key
 `purchases.purchases`
@@ -44,7 +44,7 @@ Comprehensive development documentation covering:
 ### Creating a Purchase
 
 ```typescript
-import { createPurchase } from "@/app/(dashboard)/dashboard/purchases/_actions/purchase.action";
+import { createPurchase } from "@/app/(dashboard)/dashboard/procurements/purchases/_actions/purchase.action";
 
 const result = await createPurchase({
   supplierId: "supplier-id",
@@ -66,7 +66,7 @@ const result = await createPurchase({
 ### Fetching Purchases
 
 ```typescript
-import { getPurchases } from "@/app/(dashboard)/dashboard/purchases/_actions/purchase.action";
+import { getPurchases } from "@/app/(dashboard)/dashboard/procurements/purchases/_actions/purchase.action";
 
 const result = await getPurchases(1, 10, "search-term", "all");
 if (result.success) {

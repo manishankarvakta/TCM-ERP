@@ -11,12 +11,10 @@ import { createVoucher, postVoucher } from "@/app/(dashboard)/dashboard/accounts
 
 
 /**
- * Update stock when Purchase is received
- * Called automatically when Purchase status = RECEIVED or PARTIALLY_RECEIVED
+ * Update stock when GRN is confirmed
  */
-export async function updateStockOnPurchase(
-  purchaseId: string,
-  warehouseId?: string,
+export async function updateStockOnGRN(
+  grnId: string,
   tx?: Prisma.TransactionClient
 ) {
   try {
@@ -27,59 +25,48 @@ export async function updateStockOnPurchase(
 
     const client = tx || prisma;
 
-    // Get purchase with items
-    const purchase = await client.purchase.findUnique({
-      where: { id: purchaseId },
+    // Get GRN with items
+    const grn = await client.gRN.findUnique({
+      where: { id: grnId },
       include: {
         items: {
-          where: { itemId: { not: null } }, // Only items with itemId
+          where: { itemId: { not: null } },
         },
       },
     });
 
-    if (!purchase) {
-      return { success: false, error: "Purchase not found" };
+    if (!grn) {
+      return { success: false, error: "GRN not found" };
     }
 
-    // Get default warehouse if not provided
-    let targetWarehouseId = warehouseId;
-    if (!targetWarehouseId) {
-      const defaultWarehouse = await client.warehouse.findFirst({
-        where: { status: "active", isTrash: false },
-        orderBy: { createdAt: "asc" },
-      });
-      if (!defaultWarehouse) {
-        return { success: false, error: "No active warehouse found" };
-      }
-      targetWarehouseId = defaultWarehouse.id;
-    }
+    const targetWarehouseId = grn.warehouseId;
 
     const performUpdate = async (transaction: Prisma.TransactionClient) => {
-      for (const purchaseItem of purchase.items) {
-        if (!purchaseItem.itemId) continue;
+      for (const grnItem of grn.items) {
+        if (!grnItem.itemId) continue;
 
         const item = await transaction.item.findUnique({
-          where: { id: purchaseItem.itemId },
+          where: { id: grnItem.itemId },
           select: { trackInventory: true },
         });
 
         // Only update stock if item tracks inventory
         if (!item || !item.trackInventory) continue;
 
-        const quantity = Number(purchaseItem.quantity);
+        const quantity = Number(grnItem.receivedQuantity);
 
         // Update or create Stock record
-        const existingStock = purchaseItem.variantId ? await transaction.stock.findUnique({
+        const existingStock = grnItem.variantId ? await transaction.stock.findUnique({
           where: {
             variantId_warehouseId: {
-              variantId: purchaseItem.variantId,
+              variantId: grnItem.variantId,
               warehouseId: targetWarehouseId,
             },
           },
         }) : await transaction.stock.findUnique({
           where: {
             itemId_warehouseId: {
-              itemId: purchaseItem.itemId,
+              itemId: grnItem.itemId,
               warehouseId: targetWarehouseId,
             },
           },
@@ -98,8 +85,8 @@ export async function updateStockOnPurchase(
         } else {
           await transaction.stock.create({
             data: {
-              itemId: purchaseItem.variantId ? null : purchaseItem.itemId,
-              variantId: purchaseItem.variantId || null,
+              itemId: grnItem.variantId ? null : grnItem.itemId,
+              variantId: grnItem.variantId || null,
               warehouseId: targetWarehouseId,
               quantity: quantity,
               reservedQuantity: 0,
@@ -110,14 +97,14 @@ export async function updateStockOnPurchase(
         // Create StockLedger entry
         await transaction.stockLedger.create({
           data: {
-            itemId: purchaseItem.variantId ? null : purchaseItem.itemId,
-            variantId: purchaseItem.variantId || null,
+            itemId: grnItem.variantId ? null : grnItem.itemId,
+            variantId: grnItem.variantId || null,
             warehouseId: targetWarehouseId,
             transactionType: StockTransactionType.IN,
             quantity: quantity,
-            referenceType: "PURCHASE",
-            referenceId: purchaseId,
-            notes: `Purchase ${purchase.purchaseNumber}`,
+            referenceType: "GRN",
+            referenceId: grnId,
+            notes: `GRN ${grn.grnNumber}`,
             createdBy: session.user.id,
           },
         });
@@ -132,7 +119,7 @@ export async function updateStockOnPurchase(
 
     return { success: true };
   } catch (error) {
-    console.error("updateStockOnPurchase error:", error);
+    console.error("updateStockOnGRN error:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to update stock",
@@ -314,6 +301,105 @@ export async function updateStockOnSale(
     return { success: true };
   } catch (error) {
     console.error("updateStockOnSale error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to update stock",
+    };
+  }
+}
+
+/**
+ * Update stock on Return to Vendor (RTV)
+ */
+export async function updateStockOnRTV(
+  rtvId: string,
+  warehouseId: string,
+  items: Array<{ itemId: string; variantId?: string; quantity: number }>,
+  tx?: Prisma.TransactionClient
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const client = tx || prisma;
+
+    const performUpdate = async (transaction: Prisma.TransactionClient) => {
+      for (const item of items) {
+        const stockItem = await transaction.item.findUnique({
+          where: { id: item.itemId },
+          select: { trackInventory: true },
+        });
+
+        if (!stockItem || !stockItem.trackInventory) continue;
+
+        // Update Stock (decrease)
+        const existingStock = item.variantId ? await transaction.stock.findUnique({
+          where: {
+            variantId_warehouseId: {
+              variantId: item.variantId,
+              warehouseId: warehouseId,
+            },
+          },
+        }) : await transaction.stock.findUnique({
+          where: {
+            itemId_warehouseId: {
+              itemId: item.itemId,
+              warehouseId: warehouseId,
+            },
+          },
+        });
+
+        if (existingStock) {
+          await transaction.stock.update({
+            where: { id: existingStock.id },
+            data: {
+              quantity: {
+                decrement: item.quantity,
+              },
+              lastUpdated: new Date(),
+            },
+          });
+        } else {
+          // If a stock record doesn't exist yet for this item/variant and warehouse, create it with negative quantity
+          await transaction.stock.create({
+            data: {
+              itemId: item.variantId ? null : item.itemId,
+              variantId: item.variantId || null,
+              warehouseId: warehouseId,
+              quantity: -item.quantity,
+              reservedQuantity: 0,
+            }
+          });
+        }
+
+        // Create StockLedger entry
+        await transaction.stockLedger.create({
+          data: {
+            itemId: item.variantId ? null : item.itemId,
+            variantId: item.variantId || null,
+            warehouseId: warehouseId,
+            transactionType: StockTransactionType.PURCHASE_RETURN,
+            quantity: -item.quantity, // Negative for OUT
+            referenceType: "PURCHASE_RETURN",
+            referenceId: rtvId,
+            notes: `RTV transaction`,
+            createdBy: session.user.id,
+          },
+        });
+      }
+    };
+
+    if (tx) {
+      await performUpdate(tx);
+    } else {
+      await prisma.$transaction(async (t) => await performUpdate(t));
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("updateStockOnRTV error:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to update stock",
@@ -712,6 +798,20 @@ export async function getStock(itemId: string, warehouseId: string) {
       };
     }
 
+    // RBAC: Check warehouse assignment
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true }
+    });
+
+    if (user?.role !== "admin" && user?.defaultWarehouseId !== warehouseId) {
+      return {
+        success: false,
+        error: "Unauthorized: You can only view stock in your assigned warehouse",
+        stock: null,
+      };
+    }
+
     const stock = await prisma.stock.findUnique({
       where: {
         itemId_warehouseId: {
@@ -822,6 +922,16 @@ export async function getWarehouseStocks(warehouseId: string) {
       return { success: false, error: "Unauthorized", stocks: [] };
     }
 
+    // RBAC: Check warehouse assignment
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true }
+    });
+
+    if (user?.role !== "admin" && user?.defaultWarehouseId !== warehouseId) {
+      return { success: false, error: "Unauthorized: You can only view stock in your assigned warehouse", stocks: [], debug: { warehouseId, count: 0 } };
+    }
+
     const stocks = await prisma.stock.findMany({
       where: {
         warehouseId,
@@ -895,6 +1005,12 @@ export async function getStocks(
 
     const skip = (page - 1) * limit;
 
+    // Fetch user details for RBAC
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true }
+    });
+
     // Build where clause
     const where: Prisma.StockWhereInput = {};
 
@@ -902,7 +1018,12 @@ export async function getStocks(
       where.itemId = filters.itemId;
     }
 
-    if (filters.warehouseId) {
+    if (user && user.role !== "admin") {
+      where.warehouseId = user.defaultWarehouseId || "unassigned-no-match";
+      if (filters.warehouseId && filters.warehouseId !== user.defaultWarehouseId) {
+        where.warehouseId = "unassigned-no-match"; // Force no results
+      }
+    } else if (filters.warehouseId) {
       where.warehouseId = filters.warehouseId;
     }
 
@@ -1084,6 +1205,12 @@ export async function getStockLedger(
 
     const skip = (page - 1) * limit;
 
+    // Fetch user details for RBAC
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true }
+    });
+
     // Build where clause
     const where: Prisma.StockLedgerWhereInput = {};
 
@@ -1091,7 +1218,12 @@ export async function getStockLedger(
       where.itemId = filters.itemId;
     }
 
-    if (filters.warehouseId) {
+    if (user && user.role !== "admin") {
+      where.warehouseId = user.defaultWarehouseId || "unassigned-no-match";
+      if (filters.warehouseId && filters.warehouseId !== user.defaultWarehouseId) {
+        where.warehouseId = "unassigned-no-match"; // Force no results
+      }
+    } else if (filters.warehouseId) {
       where.warehouseId = filters.warehouseId;
     }
 
@@ -1190,9 +1322,22 @@ export async function getStockLedger(
       const featuredImage = entry.variant?.image || parentItem?.featuredImage || null;
       const images = parentItem?.images || null;
 
+      let serializedVariant = null;
+      if (entry.variant) {
+        serializedVariant = {
+          ...entry.variant,
+          costPrice: entry.variant.costPrice ? Number(entry.variant.costPrice) : null,
+          salesPrice: entry.variant.salesPrice ? Number(entry.variant.salesPrice) : null,
+          wholesalePrice: entry.variant.wholesalePrice ? Number(entry.variant.wholesalePrice) : null,
+          wholesaleDiscountAmount: entry.variant.wholesaleDiscountAmount ? Number(entry.variant.wholesaleDiscountAmount) : null,
+        };
+      }
+
       return {
         ...entry,
         quantity: Number(entry.quantity),
+        rate: entry.rate ? Number(entry.rate) : null,
+        variant: serializedVariant,
         item: parentItem ? {
           id: parentItem.id,
           name,
@@ -1261,9 +1406,23 @@ export async function getStockReport(itemId?: string, warehouseId?: string) {
       };
     }
 
+    // Fetch user details for RBAC
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true }
+    });
+
     const where: Prisma.StockWhereInput = {};
     if (itemId) where.itemId = itemId;
-    if (warehouseId) where.warehouseId = warehouseId;
+
+    if (user && user.role !== "admin") {
+      where.warehouseId = user.defaultWarehouseId || "unassigned-no-match";
+      if (warehouseId && warehouseId !== user.defaultWarehouseId) {
+        where.warehouseId = "unassigned-no-match"; // Force no results
+      }
+    } else if (warehouseId) {
+      where.warehouseId = warehouseId;
+    }
 
     // Get all stocks matching filters
     const stocks = await prisma.stock.findMany({
@@ -1432,6 +1591,108 @@ export async function getActiveWarehouses() {
       success: false,
       error: error instanceof Error ? error.message : "Failed to fetch warehouses",
       warehouses: [],
+    };
+  }
+}
+
+/**
+ * Update stock on TPN (Transfer Purchase Note)
+ */
+export async function updateStockOnTPN(
+  tpnId: string,
+  warehouseId: string,
+  type: "IN" | "OUT",
+  items: Array<{ itemId: string; variantId?: string | null; quantity: number }>,
+  tx?: Prisma.TransactionClient
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const client = tx || prisma;
+
+    const performUpdate = async (transaction: Prisma.TransactionClient) => {
+      for (const item of items) {
+        const stockItem = await transaction.item.findUnique({
+          where: { id: item.itemId },
+          select: { trackInventory: true },
+        });
+
+        if (!stockItem || !stockItem.trackInventory) continue;
+
+        const quantity = type === "OUT" ? -item.quantity : item.quantity;
+
+        // Update Stock
+        const existingStock = item.variantId ? await transaction.stock.findUnique({
+          where: {
+            variantId_warehouseId: {
+              variantId: item.variantId,
+              warehouseId: warehouseId,
+            },
+          },
+        }) : await transaction.stock.findUnique({
+          where: {
+            itemId_warehouseId: {
+              itemId: item.itemId,
+              warehouseId: warehouseId,
+            },
+          },
+        });
+
+        if (existingStock) {
+          await transaction.stock.update({
+            where: { id: existingStock.id },
+            data: {
+              quantity: {
+                increment: quantity,
+              },
+              lastUpdated: new Date(),
+            },
+          });
+        } else {
+          // Create stock if it doesn't exist
+          await transaction.stock.create({
+            data: {
+              itemId: item.variantId ? null : item.itemId,
+              variantId: item.variantId || null,
+              warehouseId: warehouseId,
+              quantity: quantity,
+              reservedQuantity: 0,
+            }
+          });
+        }
+
+        // Create StockLedger entry
+        await transaction.stockLedger.create({
+          data: {
+            itemId: item.variantId ? null : item.itemId,
+            variantId: item.variantId || null,
+            warehouseId: warehouseId,
+            transactionType: StockTransactionType.TRANSFER,
+            quantity: quantity,
+            referenceType: "TPN",
+            referenceId: tpnId,
+            notes: `Transfer Purchase Note ${type}`,
+            createdBy: session.user.id,
+          },
+        });
+      }
+    };
+
+    if (tx) {
+      await performUpdate(tx);
+    } else {
+      await prisma.$transaction(async (t) => await performUpdate(t));
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("updateStockOnTPN error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to update stock for TPN",
     };
   }
 }

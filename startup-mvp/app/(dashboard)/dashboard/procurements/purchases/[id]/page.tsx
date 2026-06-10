@@ -8,13 +8,13 @@ export default async function PurchasePage({ params }: PurchasePageProps) {
   try {
     const { id } = await params;
     if (!id) {
-      redirect("/dashboard/purchases");
+      redirect("/dashboard/procurements/purchases");
       return;
     }
     // Redirect to view page
-    redirect(`/dashboard/purchases/${id}/view`);
+    redirect(`/dashboard/procurements/purchases/${id}/view`);
   } catch (error) {
-    redirect("/dashboard/purchases");
+    redirect("/dashboard/procurements/purchases");
   }
 }
 

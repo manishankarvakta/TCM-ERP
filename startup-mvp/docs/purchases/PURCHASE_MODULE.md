@@ -31,7 +31,7 @@ The Purchase module manages purchase orders from suppliers. It integrates with t
 - **Soft Delete**: Trash system for safe deletion
 
 ### Module Location
-- **Path**: `/dashboard/purchases`
+- **Path**: `/dashboard/procurements/purchases`
 - **Permission Key**: `purchases.purchases`
 - **Module Type**: Procurement Management
 
@@ -581,7 +581,7 @@ if (result.success) {
 
 ### Pages
 
-#### List Page: `/dashboard/purchases/page.tsx`
+#### List Page: `/dashboard/procurements/purchases/page.tsx`
 - Displays paginated list of purchases
 - Search and filter functionality
 - Individual actions (view, edit, delete)
@@ -596,18 +596,18 @@ if (result.success) {
 - Action buttons per purchase
 - Bulk operations support
 
-#### Add Page: `/dashboard/purchases/add/page.tsx`
+#### Add Page: `/dashboard/procurements/purchases/add/page.tsx`
 - Form for creating new purchase order
 - Uses `PurchaseForm` component
 - Fetches suppliers and items for dropdowns
 
-#### Edit Page: `/dashboard/purchases/[id]/edit/page.tsx`
+#### Edit Page: `/dashboard/procurements/purchases/[id]/edit/page.tsx`
 - Form for editing existing purchase order
 - Pre-populates with existing data
 - Uses `PurchaseForm` component
 - Fetches suppliers and items for dropdowns
 
-#### View Page: `/dashboard/purchases/[id]/view/page.tsx`
+#### View Page: `/dashboard/procurements/purchases/[id]/view/page.tsx`
 - Read-only view of purchase order details
 - Shows supplier information
 - Displays purchase items with item details
@@ -616,7 +616,7 @@ if (result.success) {
 - Audit information
 - Action buttons (edit, back)
 
-#### Detail Redirect: `/dashboard/purchases/[id]/page.tsx`
+#### Detail Redirect: `/dashboard/procurements/purchases/[id]/page.tsx`
 - Redirects to view page for backward compatibility
 
 ### Client Components

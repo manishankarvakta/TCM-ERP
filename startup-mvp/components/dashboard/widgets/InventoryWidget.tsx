@@ -55,7 +55,7 @@ export default function InventoryWidget() {
         {/* Quick Links for Storekeepers */}
         <div className="grid grid-cols-2 gap-2">
           <Button variant="secondary" size="sm" className="text-[10px] font-bold uppercase tracking-widest" asChild>
-            <Link href="/dashboard/purchases">
+            <Link href="/dashboard/procurements/purchases">
               <FiArrowDown className="mr-1 h-3 w-3" /> Receive
             </Link>
           </Button>
@@ -104,7 +104,7 @@ export default function InventoryWidget() {
                   <div className="flex items-center gap-2">
                     <div className={`h-1.5 w-1.5 rounded-full ${Number(movement.quantity) > 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                     <div>
-                      <p className="text-xs font-medium leading-none">{movement.item.name}</p>
+                      <p className="text-xs font-medium leading-none">{movement?.item?.name}</p>
                       <p className="text-[9px] text-muted-foreground mt-1">
                         {movement.warehouse.name} • {formatDistanceToNow(new Date(movement.createdAt), { addSuffix: true })}
                       </p>

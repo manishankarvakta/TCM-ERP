@@ -164,8 +164,10 @@ export default function StockLedgerClient({
       OUT: { label: "OUT", variant: "destructive", icon: FiArrowUp },
       ADJUSTMENT: { label: "ADJUST", variant: "secondary", icon: FiEdit },
       PRODUCTION: { label: "PRODUCTION", variant: "outline", icon: FiRefreshCw },
+      PURCHASE_RETURN: { label: "RETURN", variant: "destructive", icon: FiArrowUp },
+      TRANSFER: { label: "TRANSFER", variant: "outline", icon: FiRefreshCw },
     };
-    const config = variants[type];
+    const config = variants[type] || { label: type || "UNKNOWN", variant: "secondary", icon: FiBox };
     const Icon = config.icon;
     return (
       <Badge variant={config.variant} className="gap-1">
@@ -348,6 +350,7 @@ export default function StockLedgerClient({
             <SelectItem value="OUT">OUT</SelectItem>
             <SelectItem value="ADJUSTMENT">Adjustment</SelectItem>
             <SelectItem value="PRODUCTION">Production</SelectItem>
+            <SelectItem value="PURCHASE_RETURN">Return (RTV)</SelectItem>
           </SelectContent>
         </Select>
 

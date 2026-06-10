@@ -262,6 +262,7 @@ export async function updatePermissionTemplate(
           permissions: mergedPermissions as any,
         },
       });
+      revalidateTag(`permissions-${user.id}`);
     }
 
     await createUserLog({

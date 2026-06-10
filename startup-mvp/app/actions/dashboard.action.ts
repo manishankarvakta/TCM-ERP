@@ -600,6 +600,9 @@ export async function getUserActivity(limit: number = 10) {
     }
 
     const activities = await prisma.userLog.findMany({
+      where: {
+        userId: session.user.id
+      },
       select: {
         id: true,
         action: true,

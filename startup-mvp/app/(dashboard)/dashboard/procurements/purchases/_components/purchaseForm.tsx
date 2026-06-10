@@ -32,8 +32,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle, FiPlus, FiTrash2, FiSearch } from "react-icons/fi";
 import { createPurchase, updatePurchase } from "../_actions/purchase.action";
-import { getItemVariants } from "../../master/items/_actions/item.action";
-import { getWarehouseStocks } from "../../inventory/stock/_actions/stock.action";
+import { getItemVariants } from "../../../master/items/_actions/item.action";
+import { getWarehouseStocks } from "../../../inventory/stock/_actions/stock.action";
 import { PurchaseStatus } from "@prisma/client";
 import { format } from "date-fns";
 import MediaSelector from "@/components/MediaSelector";
@@ -121,7 +121,6 @@ interface PurchaseFormProps {
 const STATUS_OPTIONS: { value: PurchaseStatus; label: string }[] = [
   { value: "DRAFT", label: "Draft" },
   { value: "APPROVED", label: "Approved" },
-  { value: "RECEIVED", label: "Received" },
   { value: "CANCELLED", label: "Cancelled" },
 ];
 
@@ -409,13 +408,13 @@ export default function PurchaseForm({
         if (!result.success) {
           throw new Error(result.error || "Failed to create purchase");
         }
-        router.push("/dashboard/purchases");
+        router.push("/dashboard/procurements/purchases");
       } else {
         const result = await updatePurchase({ ...data, id: initialData!.id });
         if (!result.success) {
           throw new Error(result.error || "Failed to update purchase");
         }
-        router.push("/dashboard/purchases");
+        router.push("/dashboard/procurements/purchases");
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");

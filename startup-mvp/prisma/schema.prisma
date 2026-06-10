@@ -73,6 +73,10 @@ model User {
   createdSettings                  Settings[]            @relation("SettingsCreator")
   settings                         Settings[]            @relation("SettingsUser")
   rfidBundleScans                  RFIDBundleScan[]
+  createdTPNs                      TransferPurchaseNote[] @relation("TPNCreatedBy")
+  updatedTPNs                      TransferPurchaseNote[] @relation("TPNUpdatedBy")
+  createdGRNs                      GRN[]                  @relation("GRNCreator")
+  updatedGRNs                      GRN[]                  @relation("GRNUpdater")
 
   @@index([status])
   @@index([designationTemplateId])
@@ -316,20 +320,23 @@ model Item {
   stockLedgers            StockLedger[]
 
   // New Apparel Relations (Optional)
-  seasonId                String?
-  season                  Season?                   @relation(fields: [seasonId], references: [id])
-  collectionId            String?
-  collection              Collection?               @relation(fields: [collectionId], references: [id])
-  fabricId                String?
-  fabric                  Fabric?                   @relation(fields: [fabricId], references: [id])
-  fit                     String?                   // e.g., "Slim", "Relaxed"
-  isVatEnabled            Boolean                   @default(false)
-  vatPercentage           Decimal                   @default(0) @db.Decimal(5, 2)
-  barcode                 String?                   @unique
-  variants                ProductVariant[]
-  clientDiscounts         ClientItemDiscount[]
-  industrialEngineeringBreakdown   IndustrialEngineeringBreakdown?
-  fabricRolls                      FabricRoll[]
+  seasonId                       String?
+  season                         Season?                         @relation(fields: [seasonId], references: [id])
+  collectionId                   String?
+  collection                     Collection?                     @relation(fields: [collectionId], references: [id])
+  fabricId                       String?
+  fabric                         Fabric?                         @relation(fields: [fabricId], references: [id])
+  fit                            String? // e.g., "Slim", "Relaxed"
+  isVatEnabled                   Boolean                         @default(false)
+  vatPercentage                  Decimal                         @default(0) @db.Decimal(5, 2)
+  barcode                        String?                         @unique
+  variants                       ProductVariant[]
+  clientDiscounts                ClientItemDiscount[]
+  industrialEngineeringBreakdown IndustrialEngineeringBreakdown?
+  fabricRolls                    FabricRoll[]
+  returnToVendorItems            ReturnToVendorItem[]
+  tpnItems                       TransferPurchaseNoteItem[]
+  grnItems                       GRNItem[]
 
   @@index([code])
   @@index([name])
@@ -367,7 +374,11 @@ model Warehouse {
   defaultUsers        User[]                @relation("UserDefaultWarehouse")
   creator             User                  @relation("WarehouseCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   cashBankAccounts    CashBankAccount[]     @relation("WarehouseCashBankAccounts")
-  fabricRolls                      FabricRoll[]
+  fabricRolls         FabricRoll[]
+  returnToVendors     ReturnToVendor[]
+  tpnSources          TransferPurchaseNote[] @relation("TPNSource")
+  tpnDestinations     TransferPurchaseNote[] @relation("TPNDestination")
+  grns                GRN[]
 
   @@index([code])
   @@index([name])
@@ -378,8 +389,8 @@ model Warehouse {
 
 model Stock {
   id               String          @id @default(cuid())
-  itemId           String?         // Optional for backward compatibility
-  variantId        String?         // New variant (SKU) relation
+  itemId           String? // Optional for backward compatibility
+  variantId        String? // New variant (SKU) relation
   warehouseId      String
   quantity         Decimal         @default(0) @db.Decimal(12, 2)
   reservedQuantity Decimal         @default(0) @db.Decimal(12, 2)
@@ -400,8 +411,8 @@ model Stock {
 
 model StockLedger {
   id              String               @id @default(cuid())
-  itemId          String?              // Optional
-  variantId       String?              // New variant relation
+  itemId          String? // Optional
+  variantId       String? // New variant relation
   warehouseId     String
   transactionType StockTransactionType
   quantity        Decimal              @db.Decimal(12, 2)
@@ -465,30 +476,30 @@ model BOMItem {
 }
 
 model ProductionOrder {
-  id                 String                   @id @default(cuid())
-  code               String                   @unique
-  bomId              String
-  itemId             String
-  warehouseId        String
-  quantity           Decimal                  @db.Decimal(12, 2)
-  status             ProductionOrderStatus    @default(PLANNED)
-  notes              String?
-  isTrash            Boolean                  @default(false)
-  createdBy          String
-  createdAt          DateTime                 @default(now())
-  updatedAt          DateTime                 @updatedAt
-  completedAt        DateTime?
-  voucherId          String?
-  bom                BOM                      @relation(fields: [bomId], references: [id])
-  creator            User                     @relation("ProductionOrderCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  item               Item                     @relation("ProductionOrderFG", fields: [itemId], references: [id])
-  voucher            Voucher?                 @relation(fields: [voucherId], references: [id])
-  warehouse          Warehouse                @relation(fields: [warehouseId], references: [id])
-  garmentStages      GarmentProductionStage[]
-  cuttingJobs        CuttingJob[]
-  sewingLineTracks   SewingLineTrack[]
-  washingJobs        WashingJob[]
-  cmtCostBreakdown   CMTCostBreakdown?
+  id               String                   @id @default(cuid())
+  code             String                   @unique
+  bomId            String
+  itemId           String
+  warehouseId      String
+  quantity         Decimal                  @db.Decimal(12, 2)
+  status           ProductionOrderStatus    @default(PLANNED)
+  notes            String?
+  isTrash          Boolean                  @default(false)
+  createdBy        String
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  completedAt      DateTime?
+  voucherId        String?
+  bom              BOM                      @relation(fields: [bomId], references: [id])
+  creator          User                     @relation("ProductionOrderCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  item             Item                     @relation("ProductionOrderFG", fields: [itemId], references: [id])
+  voucher          Voucher?                 @relation(fields: [voucherId], references: [id])
+  warehouse        Warehouse                @relation(fields: [warehouseId], references: [id])
+  garmentStages    GarmentProductionStage[]
+  cuttingJobs      CuttingJob[]
+  sewingLineTracks SewingLineTrack[]
+  washingJobs      WashingJob[]
+  cmtCostBreakdown CMTCostBreakdown?
 
   @@index([code])
   @@index([bomId])
@@ -501,9 +512,9 @@ model ProductionOrder {
 }
 
 model Client {
-  id               String             @id @default(cuid())
+  id               String               @id @default(cuid())
   name             String?
-  email            String             @unique
+  email            String               @unique
   phone            String?
   address          String?
   city             String?
@@ -513,19 +524,19 @@ model Client {
   company          String?
   image            String?
   createdBy        String
-  status           String             @default("active")
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  status           String               @default("active")
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
   chartOfAccountId String?
-  clientCode       String?            @unique
-  openingBalance   Decimal            @default(0) @db.Decimal(12, 2)
-  ChartOfAccount   ChartOfAccount?    @relation(fields: [chartOfAccountId], references: [id])
-  createdByUser    User               @relation("ClientCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  clientCode       String?              @unique
+  openingBalance   Decimal              @default(0) @db.Decimal(12, 2)
+  ChartOfAccount   ChartOfAccount?      @relation(fields: [chartOfAccountId], references: [id])
+  createdByUser    User                 @relation("ClientCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   JournalEntryLine JournalEntryLine[]
   sales            Sale[]
   Voucher          Voucher[]
   VoucherLine      VoucherLine[]
-  clientType       String             @default("regular")
+  clientType       String               @default("regular")
   itemDiscounts    ClientItemDiscount[]
 
   @@index([status])
@@ -560,6 +571,7 @@ model Supplier {
   createdByUser    User               @relation("SupplierCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   Voucher          Voucher[]
   VoucherLine      VoucherLine[]
+  returnToVendors  ReturnToVendor[]
 
   @@index([status])
   @@index([createdBy])
@@ -569,30 +581,32 @@ model Supplier {
 }
 
 model Purchase {
-  id             String         @id @default(cuid())
-  purchaseNumber String         @unique
-  supplierId     String
-  date           DateTime       @default(now())
-  status         PurchaseStatus @default(DRAFT)
-  notes          String?
-  attachmentUrl  String?
-  subTotal       Decimal        @db.Decimal(12, 2)
-  discount       Decimal?       @db.Decimal(5, 2)
-  tax            Decimal?       @db.Decimal(5, 2)
-  grandTotal     Decimal        @db.Decimal(12, 2)
-  isTrash        Boolean        @default(false)
-  createdBy      String
-  updatedBy      String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  voucherId      String?
-  warehouseId    String?
-  createdByUser  User           @relation("PurchaseCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
-  supplier       Supplier       @relation(fields: [supplierId], references: [id])
-  updatedByUser  User?          @relation("PurchaseUpdatedBy", fields: [updatedBy], references: [id])
-  voucher        Voucher?       @relation(fields: [voucherId], references: [id])
-  warehouse      Warehouse?     @relation(fields: [warehouseId], references: [id])
-  items          PurchaseItem[]
+  id              String           @id @default(cuid())
+  purchaseNumber  String           @unique
+  supplierId      String
+  date            DateTime         @default(now())
+  status          PurchaseStatus   @default(DRAFT)
+  notes           String?
+  attachmentUrl   String?
+  subTotal        Decimal          @db.Decimal(12, 2)
+  discount        Decimal?         @db.Decimal(5, 2)
+  tax             Decimal?         @db.Decimal(5, 2)
+  grandTotal      Decimal          @db.Decimal(12, 2)
+  isTrash         Boolean          @default(false)
+  createdBy       String
+  updatedBy       String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  voucherId       String?
+  warehouseId     String?
+  createdByUser   User             @relation("PurchaseCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  supplier        Supplier         @relation(fields: [supplierId], references: [id])
+  updatedByUser   User?            @relation("PurchaseUpdatedBy", fields: [updatedBy], references: [id])
+  voucher         Voucher?         @relation(fields: [voucherId], references: [id])
+  warehouse       Warehouse?       @relation(fields: [warehouseId], references: [id])
+  items           PurchaseItem[]
+  returnToVendors ReturnToVendor[]
+  grns            GRN[]
 
   @@index([supplierId])
   @@index([warehouseId])
@@ -604,19 +618,22 @@ model Purchase {
 }
 
 model PurchaseItem {
-  id          String   @id @default(cuid())
-  purchaseId  String
-  itemId      String?
-  variantId   String?
-  description String
-  quantity    Decimal  @db.Decimal(10, 2)
-  unitPrice   Decimal  @db.Decimal(10, 2)
-  amount      Decimal  @db.Decimal(12, 2)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  item        Item?    @relation(fields: [itemId], references: [id])
-  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  purchase    Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  id               String          @id @default(cuid())
+  purchaseId       String
+  itemId           String?
+  variantId        String?
+  description      String
+  quantity         Decimal         @db.Decimal(10, 2)
+  receivedQuantity Decimal         @default(0) @db.Decimal(10, 2)
+  returnedQuantity Decimal         @default(0) @db.Decimal(10, 2)
+  unitPrice        Decimal         @db.Decimal(10, 2)
+  amount           Decimal         @db.Decimal(12, 2)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  item             Item?           @relation(fields: [itemId], references: [id])
+  variant          ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  purchase         Purchase        @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  grnItems         GRNItem[]
 
   @@index([purchaseId])
   @@index([itemId])
@@ -677,19 +694,19 @@ model Coupon {
 }
 
 model SaleItem {
-  id          String   @id @default(cuid())
+  id          String          @id @default(cuid())
   saleId      String
   itemId      String
   variantId   String?
   description String
-  quantity    Decimal  @db.Decimal(10, 2)
-  unitPrice   Decimal  @db.Decimal(10, 2)
-  amount      Decimal  @db.Decimal(12, 2)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  item        Item     @relation(fields: [itemId], references: [id])
+  quantity    Decimal         @db.Decimal(10, 2)
+  unitPrice   Decimal         @db.Decimal(10, 2)
+  amount      Decimal         @db.Decimal(12, 2)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  item        Item            @relation(fields: [itemId], references: [id])
   variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  sale        Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  sale        Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
   @@index([saleId])
   @@index([itemId])
@@ -896,6 +913,8 @@ model Voucher {
   Supplier                      Supplier?            @relation(fields: [supplierId], references: [id])
   User_Voucher_userIdToUser     User?                @relation("Voucher_userIdToUser", fields: [userId], references: [id])
   VoucherLine                   VoucherLine[]
+  returnToVendors               ReturnToVendor[]
+  grns                          GRN[]
 
   @@index([clientId])
   @@index([createdBy])
@@ -1312,6 +1331,7 @@ enum PurchaseStatus {
   PARTIALLY_RECEIVED
   RECEIVED
   CANCELLED
+  RETURNED
 }
 
 enum ProductionOrderStatus {
@@ -1347,6 +1367,8 @@ enum StockTransactionType {
   OUT
   ADJUSTMENT
   PRODUCTION
+  PURCHASE_RETURN
+  TRANSFER
 }
 
 enum EmploymentType {
@@ -1451,25 +1473,28 @@ model Fabric {
 }
 
 model ProductVariant {
-  id           String        @id @default(cuid())
-  sku          String        @unique
-  barcode      String?       @unique
-  size         String
-  color        String
-  costPrice    Decimal?      @db.Decimal(12, 2)
-  salesPrice              Decimal?      @db.Decimal(12, 2)
-  wholesalePrice          Decimal?      @db.Decimal(12, 2)
-  wholesaleDiscountAmount Decimal?      @db.Decimal(12, 2)
+  id                      String               @id @default(cuid())
+  sku                     String               @unique
+  barcode                 String?              @unique
+  size                    String
+  color                   String
+  costPrice               Decimal?             @db.Decimal(12, 2)
+  salesPrice              Decimal?             @db.Decimal(12, 2)
+  wholesalePrice          Decimal?             @db.Decimal(12, 2)
+  wholesaleDiscountAmount Decimal?             @db.Decimal(12, 2)
   image                   String?
-  itemId          String
-  item            Item                 @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  stocks          Stock[]
-  stockLedgers    StockLedger[]
-  purchaseItems   PurchaseItem[]
-  saleItems       SaleItem[]
-  clientDiscounts ClientItemDiscount[]
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  itemId                  String
+  item                    Item                 @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  stocks                  Stock[]
+  stockLedgers            StockLedger[]
+  purchaseItems           PurchaseItem[]
+  saleItems               SaleItem[]
+  clientDiscounts         ClientItemDiscount[]
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+  returnToVendorItems     ReturnToVendorItem[]
+  tpnItems                TransferPurchaseNoteItem[]
+  grnItems                GRNItem[]
 
   @@index([itemId])
   @@index([sku])
@@ -1489,17 +1514,17 @@ model GarmentProductionStage {
 }
 
 model CuttingJob {
-  id                 String          @id @default(cuid())
+  id                 String                 @id @default(cuid())
   productionOrderId  String
-  productionOrder    ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  productionOrder    ProductionOrder        @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
   fabricRollsCount   Int
-  fabricWeightIssued Decimal         @db.Decimal(10, 2)
-  markerLengthMeter  Decimal         @db.Decimal(6, 2)
+  fabricWeightIssued Decimal                @db.Decimal(10, 2)
+  markerLengthMeter  Decimal                @db.Decimal(6, 2)
   pliesCount         Int
   piecesExpected     Int
   piecesCutActual    Int
-  fabricWastageKg    Decimal         @db.Decimal(10, 2)
-  createdAt          DateTime        @default(now())
+  fabricWastageKg    Decimal                @db.Decimal(10, 2)
+  createdAt          DateTime               @default(now())
   fabricRolls        CuttingJobFabricRoll[]
   bundles            ProductionBundle[]
 }
@@ -1514,7 +1539,7 @@ model SewingLineTrack {
   actualPieces      Int             @default(0)
   sewingDefects     Int             @default(0)
   hoursTracked      Decimal         @db.Decimal(4, 2)
-  createdAt          DateTime        @default(now())
+  createdAt         DateTime        @default(now())
 }
 
 model WashingJob {
@@ -1522,11 +1547,11 @@ model WashingJob {
   productionOrderId String
   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
   washType          String
-  shrinkageTarget   Decimal         @db.Decimal(4, 2) @map("shrinkageTargetPercent")
-  shrinkageActual   Decimal         @db.Decimal(4, 2) @map("shrinkageActualPercent")
+  shrinkageTarget   Decimal         @map("shrinkageTargetPercent") @db.Decimal(4, 2)
+  shrinkageActual   Decimal         @map("shrinkageActualPercent") @db.Decimal(4, 2)
   temperatureC      Int
   chemicalRatios    Json?
-  createdAt          DateTime        @default(now())
+  createdAt         DateTime        @default(now())
 }
 
 model CMTCostBreakdown {
@@ -1567,7 +1592,7 @@ model IndustrialEngineeringBreakdown {
   itemId           String             @unique
   item             Item               @relation(fields: [itemId], references: [id], onDelete: Cascade)
   totalSAM         Decimal            @db.Decimal(6, 2)
-  targetEffPercent Decimal            @db.Decimal(5, 2) @default(100.00)
+  targetEffPercent Decimal            @default(100.00) @db.Decimal(5, 2)
   operatorCount    Int                @default(0)
   helperCount      Int                @default(0)
   pitchTime        Decimal?           @db.Decimal(6, 2)
@@ -1667,4 +1692,181 @@ model RFIDBundleScan {
   @@index([rfidTag])
   @@index([station])
   @@index([scanTime])
+}
+
+model ReturnToVendor {
+  id          String               @id @default(cuid())
+  rtvNumber   String               @unique
+  purchaseId  String? // Optional link to original purchase
+  supplierId  String
+  warehouseId String
+  date        DateTime             @default(now())
+  status      ReturnToVendorStatus @default(DRAFT)
+  notes       String?
+  subTotal    Decimal              @db.Decimal(12, 2)
+  tax         Decimal?             @db.Decimal(5, 2)
+  grandTotal  Decimal              @db.Decimal(12, 2)
+  createdBy   String
+  updatedBy   String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  voucherId   String? // Link to financial debit note
+
+  // Relations
+  purchase  Purchase?            @relation(fields: [purchaseId], references: [id])
+  supplier  Supplier             @relation(fields: [supplierId], references: [id])
+  warehouse Warehouse            @relation(fields: [warehouseId], references: [id])
+  voucher   Voucher?             @relation(fields: [voucherId], references: [id])
+  items     ReturnToVendorItem[]
+
+  @@index([purchaseId])
+  @@index([supplierId])
+  @@index([warehouseId])
+  @@index([voucherId])
+  @@index([status])
+  @@index([date])
+}
+
+model ReturnToVendorItem {
+  id        String  @id @default(cuid())
+  rtvId     String
+  itemId    String
+  variantId String?
+  quantity  Decimal @db.Decimal(10, 2)
+  unitPrice Decimal @db.Decimal(10, 2)
+  amount    Decimal @db.Decimal(12, 2)
+  reason    String?
+
+  // Relations
+  rtv     ReturnToVendor  @relation(fields: [rtvId], references: [id], onDelete: Cascade)
+  item    Item            @relation(fields: [itemId], references: [id])
+  variant ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([rtvId])
+  @@index([itemId])
+  @@index([variantId])
+}
+
+enum ReturnToVendorStatus {
+  DRAFT
+  APPROVED
+  SHIPPED
+  COMPLETED
+  CANCELLED
+}
+
+model TransferPurchaseNote {
+  id                     String    @id @default(cuid())
+  tpnNumber              String    @unique
+  sourceWarehouseId      String
+  destinationWarehouseId String
+  date                   DateTime  @default(now())
+  status                 TransferStatus @default(DRAFT)
+  notes                  String?
+  isTrash                Boolean   @default(false)
+  createdBy              String
+  updatedBy              String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  sourceWarehouse      Warehouse @relation("TPNSource", fields: [sourceWarehouseId], references: [id])
+  destinationWarehouse Warehouse @relation("TPNDestination", fields: [destinationWarehouseId], references: [id])
+  createdByUser        User      @relation("TPNCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser        User?     @relation("TPNUpdatedBy", fields: [updatedBy], references: [id])
+  items                TransferPurchaseNoteItem[]
+  grns                 GRN[]
+
+  @@index([sourceWarehouseId])
+  @@index([destinationWarehouseId])
+  @@index([status])
+  @@index([date])
+}
+
+model TransferPurchaseNoteItem {
+  id        String  @id @default(cuid())
+  tpnId     String
+  itemId    String
+  variantId String?
+  quantity  Decimal @db.Decimal(10, 2)
+
+  tpn     TransferPurchaseNote @relation(fields: [tpnId], references: [id], onDelete: Cascade)
+  item    Item                 @relation(fields: [itemId], references: [id])
+  variant ProductVariant?      @relation(fields: [variantId], references: [id])
+  grnItems GRNItem[]
+
+  @@index([tpnId])
+  @@index([itemId])
+  @@index([variantId])
+}
+
+enum TransferStatus {
+  DRAFT
+  SHIPPED
+  RECEIVED
+  CANCELLED
+}
+
+enum GRNStatus {
+  DRAFT
+  COMPLETED
+  CANCELLED
+}
+
+model GRN {
+  id          String      @id @default(cuid())
+  grnNumber   String      @unique
+  purchaseId  String?
+  tpnId       String?
+  warehouseId String
+  date        DateTime    @default(now())
+  status      GRNStatus   @default(DRAFT)
+  notes       String?
+  isTrash     Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  createdBy   String
+  updatedBy   String?
+  voucherId   String?
+
+  purchase    Purchase?   @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  tpn         TransferPurchaseNote? @relation(fields: [tpnId], references: [id], onDelete: Cascade)
+  warehouse   Warehouse   @relation(fields: [warehouseId], references: [id])
+  creator     User        @relation("GRNCreator", fields: [createdBy], references: [id])
+  updater     User?       @relation("GRNUpdater", fields: [updatedBy], references: [id])
+  voucher     Voucher?    @relation(fields: [voucherId], references: [id])
+  items       GRNItem[]
+
+  @@index([purchaseId])
+  @@index([tpnId])
+  @@index([warehouseId])
+  @@index([voucherId])
+  @@index([status])
+  @@index([date])
+  @@index([grnNumber])
+  @@index([createdBy])
+  @@index([isTrash])
+}
+
+model GRNItem {
+  id               String          @id @default(cuid())
+  grnId            String
+  purchaseItemId   String?
+  tpnItemId        String?
+  itemId           String?
+  variantId        String?
+  receivedQuantity Decimal         @db.Decimal(10, 2)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  grn              GRN             @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  purchaseItem     PurchaseItem?   @relation(fields: [purchaseItemId], references: [id], onDelete: Cascade)
+  tpnItem          TransferPurchaseNoteItem? @relation(fields: [tpnItemId], references: [id], onDelete: Cascade)
+  item             Item?           @relation(fields: [itemId], references: [id])
+  variant          ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([grnId])
+  @@index([purchaseItemId])
+  @@index([tpnItemId])
+  @@index([itemId])
+  @@index([variantId])
 }
