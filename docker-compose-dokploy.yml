@@ -15,9 +15,9 @@ services:
     expose:
       - "5432"
     volumes:
-      # IMPORTANT: Data persists across deployments in ./volumes/postgres
-      # This directory is preserved even when containers are recreated
-      - ./volumes/postgres:/var/lib/postgresql/data
+      # IMPORTANT: Data persists across deployments via named volumes
+      # Docker manages this volume independently of the project folder
+      - fferp-postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgresUser}"]
       interval: 10s
@@ -64,7 +64,7 @@ services:
       # Node Environment
       NODE_ENV: production
     volumes:
-      - ./volumes/uploads:/app/uploads
+      - fferp-uploads-data:/app/uploads
     depends_on:
       fferp-postgres:
         condition: service_healthy
@@ -80,7 +80,7 @@ services:
     expose:
       - "6379"
     volumes:
-      - ./volumes/redis:/data
+      - fferp-redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -96,15 +96,13 @@ networks:
     external: true
 
 # CRITICAL: Named volumes for data persistence
-# These volumes will NEVER be deleted during normal deployments
-# Only explicit "docker-compose down -v" or "docker volume rm" will delete them
-# However, we use bind mounts (./volumes/*) so data is on the host filesystem
+# These volumes are managed by Docker and safely survive Dokploy redeployments.
+# They will NEVER be deleted during normal deployments unless explicitly destroyed.
 volumes:
-  # These are not actively used since we use bind mounts,
-  # but declaring them here for documentation purposes
-  # Data is stored in ./volumes/ directory on the host
-  postgres-data:
+  fferp-postgres-data:
     driver: local
-  redis-data:
+  fferp-uploads-data:
+    driver: local
+  fferp-redis-data:
     driver: local
 
