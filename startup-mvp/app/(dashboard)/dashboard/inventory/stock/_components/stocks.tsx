@@ -69,6 +69,7 @@ interface StocksListClientProps {
   initialWarehouseId?: string;
   items?: Array<{ id: string; name: string; code: string }>;
   warehouses?: Array<{ id: string; name: string; code: string }>;
+  isNormalUser?: boolean;
 }
 
 export default function StocksListClient({
@@ -79,6 +80,7 @@ export default function StocksListClient({
   initialWarehouseId,
   items = [],
   warehouses = [],
+  isNormalUser = false,
 }: StocksListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -197,7 +199,7 @@ export default function StocksListClient({
           </SelectContent>
         </Select>
 
-        <Select value={warehouseFilter} onValueChange={handleWarehouseFilter}>
+        <Select value={warehouseFilter} onValueChange={handleWarehouseFilter} disabled={isNormalUser}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Filter by warehouse" />
           </SelectTrigger>

@@ -1,5 +1,6 @@
 import React from "react";
 import { getStocks, getActiveItems, getActiveWarehouses } from "./_actions/stock.action";
+import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
@@ -27,11 +28,32 @@ export default async function StockPage({ searchParams }: StockPageProps) {
   const session = await auth();
   const userId = session?.user?.id;
 
+  let isNormalUser = false;
+  let defaultWarehouseId = null;
+
+  if (userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, defaultWarehouseId: true }
+    });
+    
+    if (user && user.role !== "admin") {
+      isNormalUser = true;
+      defaultWarehouseId = user.defaultWarehouseId;
+    }
+  }
+
+  // Override warehouseId for normal user
+  let finalWarehouseId = warehouseId;
+  if (isNormalUser && defaultWarehouseId) {
+    finalWarehouseId = defaultWarehouseId;
+  }
+
   // Check permissions and fetch data
   const [result, itemsResult, warehousesResult, canView, canAdjust] = await Promise.all([
     getStocks(page, 10, {
       itemId,
-      warehouseId,
+      warehouseId: finalWarehouseId,
       search,
     }),
     getActiveItems(),
@@ -89,9 +111,10 @@ export default async function StockPage({ searchParams }: StockPageProps) {
           }}
           initialSearch={search}
           initialItemId={itemId}
-          initialWarehouseId={warehouseId}
+          initialWarehouseId={finalWarehouseId}
           items={itemsResult.success ? itemsResult.items || [] : []}
           warehouses={warehousesResult.success ? warehousesResult.warehouses || [] : []}
+          isNormalUser={isNormalUser}
         />
       </div>
     </PageGuard>
