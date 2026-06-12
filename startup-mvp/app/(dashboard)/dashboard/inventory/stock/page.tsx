@@ -1,5 +1,5 @@
 import React from "react";
-import { getStocks, getActiveItems, getActiveWarehouses } from "./_actions/stock.action";
+import { getStocks, getItemsWithStockMovements, getActiveWarehouses } from "./_actions/stock.action";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -37,7 +37,7 @@ export default async function StockPage({ searchParams }: StockPageProps) {
       select: { role: true, defaultWarehouseId: true }
     });
     
-    if (user && user.role !== "admin") {
+    if (user && user.role !== "admin" && user.role !== "superadmin") {
       isNormalUser = true;
       defaultWarehouseId = user.defaultWarehouseId;
     }
@@ -56,7 +56,7 @@ export default async function StockPage({ searchParams }: StockPageProps) {
       warehouseId: finalWarehouseId,
       search,
     }),
-    getActiveItems(),
+    getItemsWithStockMovements(finalWarehouseId),
     getActiveWarehouses(),
     userId ? hasPermission(userId, "inventory.stock", "view") : false,
     userId ? hasPermission(userId, "inventory.stock", "adjust") : false,

@@ -1705,3 +1705,62 @@ export async function updateStockOnTPN(
     };
   }
 }
+
+/**
+ * Get active items that have stock movements
+ */
+export async function getItemsWithStockMovements(warehouseId?: string | null) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", items: [] };
+    }
+
+    const whereClause: any = {};
+    if (warehouseId) {
+      whereClause.warehouseId = warehouseId;
+    }
+
+    const stocks = await prisma.stock.findMany({
+      where: whereClause,
+      select: {
+        itemId: true,
+        variant: {
+          select: {
+            itemId: true,
+          }
+        }
+      },
+    });
+
+    const itemIds = Array.from(new Set(stocks.map(s => s.itemId || s.variant?.itemId).filter(Boolean))) as string[];
+
+    const items = await prisma.item.findMany({
+      where: {
+        id: { in: itemIds },
+        status: "active",
+        isTrash: false,
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return {
+      success: true,
+      items,
+    };
+  } catch (error) {
+    console.error("getItemsWithStockMovements error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch items",
+      items: [],
+    };
+  }
+}
