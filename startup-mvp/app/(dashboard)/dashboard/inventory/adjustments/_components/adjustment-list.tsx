@@ -27,6 +27,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface AdjustmentListProps {
   adjustments: any[];
@@ -142,27 +149,30 @@ export default function AdjustmentList({
               />
             </div>
             
-            {!userContext?.isNormalUser && (
-              <select
-                className="h-10 px-3 py-2 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                value={params.get("warehouseId") || ""}
-                onChange={(e) => {
-                  const newParams = new URLSearchParams(params.toString());
-                  if (e.target.value) {
-                    newParams.set("warehouseId", e.target.value);
-                  } else {
-                    newParams.delete("warehouseId");
-                  }
-                  newParams.set("page", "1");
-                  router.push(`?${newParams.toString()}`);
-                }}
-              >
-                <option value="">All Warehouses</option>
+            <Select
+              value={params.get("warehouseId") || (userContext?.isNormalUser ? userContext.defaultWarehouseId || "all" : "all")}
+              onValueChange={(val) => {
+                const newParams = new URLSearchParams(params.toString());
+                if (val && val !== "all") {
+                  newParams.set("warehouseId", val);
+                } else {
+                  newParams.delete("warehouseId");
+                }
+                newParams.set("page", "1");
+                router.push(`?${newParams.toString()}`);
+              }}
+              disabled={userContext?.isNormalUser}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="All Warehouses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Warehouses</SelectItem>
                 {warehouses?.map(w => (
-                  <option key={w.id} value={w.id}>{w.name}</option>
+                  <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
                 ))}
-              </select>
-            )}
+              </SelectContent>
+            </Select>
 
             <Button type="submit" variant="secondary">Search</Button>
          </form>
