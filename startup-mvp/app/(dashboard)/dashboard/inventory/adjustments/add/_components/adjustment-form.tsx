@@ -50,9 +50,13 @@ type AdjustmentFormValues = z.infer<typeof adjustmentSchema>;
 interface AdjustmentFormProps {
   warehouses: any[];
   items: any[]; 
+  userContext?: {
+    isNormalUser: boolean;
+    defaultWarehouseId: string | null;
+  };
 }
 
-export default function AdjustmentForm({ warehouses, items }: AdjustmentFormProps) {
+export default function AdjustmentForm({ warehouses, items, userContext }: AdjustmentFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -63,7 +67,7 @@ export default function AdjustmentForm({ warehouses, items }: AdjustmentFormProp
   const form = useForm<AdjustmentFormValues>({
     resolver: zodResolver(adjustmentSchema),
     defaultValues: {
-      warehouseId: "",
+      warehouseId: userContext?.defaultWarehouseId || (warehouses.length > 0 ? warehouses[0].id : ""),
       date: new Date().toISOString().split("T")[0],
       notes: "",
       items: [{ itemId: "", quantity: 0, unitRate: 0, description: "", amount: 0 }],
@@ -204,6 +208,7 @@ export default function AdjustmentForm({ warehouses, items }: AdjustmentFormProp
             <Select 
               onValueChange={(val) => form.setValue("warehouseId", val)} 
               defaultValue={form.getValues("warehouseId")}
+              disabled={userContext?.isNormalUser}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select Warehouse" />

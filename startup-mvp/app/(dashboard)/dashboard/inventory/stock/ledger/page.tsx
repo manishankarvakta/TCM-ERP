@@ -1,5 +1,6 @@
 import React from "react";
 import { getStockLedger, getActiveItems, getActiveWarehouses } from "../_actions/stock.action";
+import { prisma } from "@/lib/prisma";
 import StockLedgerClient from "../_components/stockLedger";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
@@ -31,11 +32,31 @@ export default async function StockLedgerPage({ searchParams }: StockLedgerPageP
   const session = await auth();
   const userId = session?.user?.id;
 
+  let isNormalUser = false;
+  let defaultWarehouseId = null;
+
+  if (userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, defaultWarehouseId: true }
+    });
+    
+    if (user && user.role !== "admin" && user.role !== "superadmin") {
+      isNormalUser = true;
+      defaultWarehouseId = user.defaultWarehouseId;
+    }
+  }
+
+  let finalWarehouseId = warehouseId;
+  if (isNormalUser && defaultWarehouseId) {
+    finalWarehouseId = defaultWarehouseId;
+  }
+
   // Check permissions and fetch data
   const [result, itemsResult, warehousesResult, canView] = await Promise.all([
     getStockLedger(page, 10, {
       itemId,
-      warehouseId,
+      warehouseId: finalWarehouseId,
       transactionType,
       dateFrom,
       dateTo,
@@ -93,6 +114,7 @@ export default async function StockLedgerPage({ searchParams }: StockLedgerPageP
           initialDateTo={params.dateTo}
           items={itemsResult.success ? itemsResult.items || [] : []}
           warehouses={warehousesResult.success ? warehousesResult.warehouses || [] : []}
+          isNormalUser={isNormalUser}
         />
       </div>
     </PageGuard>

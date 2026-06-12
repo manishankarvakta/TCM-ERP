@@ -76,6 +76,7 @@ interface StockLedgerClientProps {
   initialDateTo?: string;
   items?: Array<{ id: string; name: string; code: string }>;
   warehouses?: Array<{ id: string; name: string; code: string }>;
+  isNormalUser?: boolean;
 }
 
 export default function StockLedgerClient({
@@ -89,6 +90,7 @@ export default function StockLedgerClient({
   initialDateTo,
   items = [],
   warehouses = [],
+  isNormalUser = false,
 }: StockLedgerClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -293,7 +295,7 @@ export default function StockLedgerClient({
             params.set("page", "1");
             router.push(`/dashboard/inventory/stock/ledger?${params.toString()}`);
           });
-        }}>
+        }} disabled={isNormalUser}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Filter by warehouse" />
           </SelectTrigger>
