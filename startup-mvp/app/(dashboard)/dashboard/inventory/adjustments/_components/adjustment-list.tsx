@@ -32,12 +32,19 @@ interface AdjustmentListProps {
   adjustments: any[];
   pagination: any;
   searchParams: any;
+  warehouses?: any[];
+  userContext?: {
+    isNormalUser: boolean;
+    defaultWarehouseId: string | null;
+  };
 }
 
 export default function AdjustmentList({
   adjustments,
   pagination,
-  searchParams
+  searchParams: queryParams,
+  warehouses = [],
+  userContext
 }: AdjustmentListProps) {
   const router = useRouter();
   const params = useSearchParams();
@@ -124,16 +131,39 @@ export default function AdjustmentList({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-         <form onSubmit={handleSearch} className="flex gap-2">
+         <form onSubmit={handleSearch} className="flex gap-2 flex-wrap items-center">
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="Search adjustment number..." 
-                className="pl-8 w-[300px]"
+                className="pl-8 w-[250px]"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
+            
+            {!userContext?.isNormalUser && (
+              <select
+                className="h-10 px-3 py-2 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={params.get("warehouseId") || ""}
+                onChange={(e) => {
+                  const newParams = new URLSearchParams(params.toString());
+                  if (e.target.value) {
+                    newParams.set("warehouseId", e.target.value);
+                  } else {
+                    newParams.delete("warehouseId");
+                  }
+                  newParams.set("page", "1");
+                  router.push(`?${newParams.toString()}`);
+                }}
+              >
+                <option value="">All Warehouses</option>
+                {warehouses?.map(w => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+            )}
+
             <Button type="submit" variant="secondary">Search</Button>
          </form>
       </div>

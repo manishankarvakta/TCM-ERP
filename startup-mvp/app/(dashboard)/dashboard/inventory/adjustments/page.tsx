@@ -16,6 +16,9 @@ interface PageProps {
   }>;
 }
 
+import { getActiveWarehouses } from "@/app/(dashboard)/dashboard/inventory/stock/_actions/stock.action";
+import { prisma } from "@/lib/prisma";
+
 export default async function AdjustmentPage({ searchParams }: PageProps) {
   const session = await auth();
   const params = await searchParams;
@@ -23,9 +26,20 @@ export default async function AdjustmentPage({ searchParams }: PageProps) {
   
   const canCreate = await hasPermission(session?.user?.id || "", "inventory.adjustments", "create");
 
+  const dbUser = session?.user?.id ? await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true, defaultWarehouseId: true }
+  }) : null;
+  const userContext = {
+    isNormalUser: dbUser?.role !== "admin" && dbUser?.role !== "superadmin",
+    defaultWarehouseId: dbUser?.defaultWarehouseId || null,
+  };
+
+  const warehousesResult = await getActiveWarehouses();
+
   const { adjustments, pagination, success, error } = await getAdjustments(page, 10, {
     search: params.search,
-    warehouseId: params.warehouseId,
+    warehouseId: params.warehouseId || (userContext.isNormalUser ? userContext.defaultWarehouseId : undefined),
   });
 
   if (!success) {
@@ -56,6 +70,8 @@ export default async function AdjustmentPage({ searchParams }: PageProps) {
           adjustments={adjustments || []} 
           pagination={pagination || { page: 1, totalPages: 1, total: 0, limit: 10 }}
           searchParams={params}
+          warehouses={warehousesResult?.success ? warehousesResult.warehouses : []}
+          userContext={userContext}
         />
       </div>
     </PageGuard>

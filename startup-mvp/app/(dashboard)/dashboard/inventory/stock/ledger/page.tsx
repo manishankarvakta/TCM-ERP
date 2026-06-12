@@ -108,7 +108,7 @@ export default async function StockLedgerPage({ searchParams }: StockLedgerPageP
           }}
           initialSearch={search}
           initialItemId={itemId}
-          initialWarehouseId={warehouseId}
+          initialWarehouseId={finalWarehouseId}
           initialTransactionType={transactionType || "all"}
           initialDateFrom={params.dateFrom}
           initialDateTo={params.dateTo}
