@@ -116,6 +116,10 @@ interface PurchaseFormProps {
       amount: number;
     }>;
   };
+  userContext?: {
+    isNormalUser: boolean;
+    defaultWarehouseId: string | null;
+  };
 }
 
 const STATUS_OPTIONS: { value: PurchaseStatus; label: string }[] = [
@@ -130,6 +134,7 @@ export default function PurchaseForm({
   warehouses,
   items,
   initialData,
+  userContext,
 }: PurchaseFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string>("");
@@ -282,7 +287,7 @@ export default function PurchaseForm({
     defaultValues: initialData
       ? {
           supplierId: initialData.supplier.id,
-          warehouseId: initialData.warehouseId || (warehouses.length > 0 ? warehouses[0].id : ""),
+          warehouseId: initialData.warehouseId || userContext?.defaultWarehouseId || (warehouses.length > 0 ? warehouses[0].id : ""),
           date: defaultDate,
           status: initialData.status,
           notes: initialData.notes || "",
@@ -293,7 +298,7 @@ export default function PurchaseForm({
         }
       : {
           supplierId: "",
-          warehouseId: warehouses.length > 0 ? warehouses[0].id : "",
+          warehouseId: userContext?.defaultWarehouseId || (warehouses.length > 0 ? warehouses[0].id : ""),
           date: defaultDate,
           status: "DRAFT",
           notes: "",
@@ -540,7 +545,7 @@ export default function PurchaseForm({
                         <Select
                           value={field.value || ""}
                           onValueChange={field.onChange}
-                          disabled={loading}
+                          disabled={loading || userContext?.isNormalUser}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select warehouse" />
