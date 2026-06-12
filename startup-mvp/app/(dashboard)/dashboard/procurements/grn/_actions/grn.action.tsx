@@ -423,7 +423,8 @@ export async function getGRNs(
   page: number = 1,
   limit: number = 10,
   search: string = "",
-  status: "all" | "trash" = "all"
+  status: "all" | "trash" = "all",
+  warehouseId?: string
 ) {
   try {
     const session = await auth();
@@ -438,7 +439,7 @@ export async function getGRNs(
 
     const where: Prisma.GRNWhereInput = {
       isTrash: status === "trash",
-      ...(isNormalUser && user?.defaultWarehouseId ? { warehouseId: user.defaultWarehouseId } : {}),
+      ...(isNormalUser && user?.defaultWarehouseId ? { warehouseId: user.defaultWarehouseId } : warehouseId ? { warehouseId } : {}),
       ...(search
         ? {
             OR: [

@@ -7,12 +7,15 @@ import { FiPlus } from "react-icons/fi";
 import TpnListClient from "./_components/tpn-list";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
+import { getActiveWarehouses } from "@/app/(dashboard)/dashboard/inventory/stock/_actions/stock.action";
+import { prisma } from "@/lib/prisma";
 
 interface TPNPageProps {
   searchParams: Promise<{
     page?: string;
     search?: string;
     tab?: string;
+    warehouseId?: string;
   }>;
 }
 
@@ -25,10 +28,22 @@ export default async function TPNPage({ searchParams }: TPNPageProps) {
   const session = await auth();
   const userId = session?.user?.id;
 
-  const status = tab === "trash" ? "trash" : "all";
+  const dbUser = userId ? await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, defaultWarehouseId: true }
+  }) : null;
 
-  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently, canApprove] = await Promise.all([
-    getTPNs(page, 10, search, status),
+  const userContext = {
+    isNormalUser: dbUser?.role !== "admin" && dbUser?.role !== "superadmin",
+    defaultWarehouseId: dbUser?.defaultWarehouseId || null,
+  };
+
+  const status = tab === "trash" ? "trash" : "all";
+  const warehouseId = params.warehouseId || (userContext.isNormalUser ? userContext.defaultWarehouseId : undefined) || undefined;
+
+  const [result, warehousesResult, canView, canEdit, canMoveToTrash, canDeletePermanently, canApprove] = await Promise.all([
+    getTPNs(page, 10, search, status, warehouseId),
+    getActiveWarehouses(),
     userId ? hasPermission(userId, "procurements.tpn", "view") : false,
     userId ? hasPermission(userId, "procurements.tpn", "edit") : false,
     userId ? hasPermission(userId, "procurements.tpn", "move-to-trash") : false,
@@ -101,6 +116,8 @@ export default async function TPNPage({ searchParams }: TPNPageProps) {
               deletePermanently: canDeletePermanently,
               approve: canApprove,
             }}
+            warehouses={warehousesResult?.success ? warehousesResult.warehouses : []}
+            userContext={userContext}
           />
         </TabsContent>
         <TabsContent value="trash" className="mt-4">
@@ -124,6 +141,8 @@ export default async function TPNPage({ searchParams }: TPNPageProps) {
               deletePermanently: canDeletePermanently,
               approve: canApprove,
             }}
+            warehouses={warehousesResult?.success ? warehousesResult.warehouses : []}
+            userContext={userContext}
           />
         </TabsContent>
       </Tabs>

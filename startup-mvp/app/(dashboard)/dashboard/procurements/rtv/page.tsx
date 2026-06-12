@@ -6,13 +6,34 @@ import { FiPlus } from "react-icons/fi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import RTVListClient from "./_components/rtv-list-client";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { getActiveWarehouses } from "@/app/(dashboard)/dashboard/inventory/stock/_actions/stock.action";
 
-export default async function RTVPage({ searchParams }: { searchParams: Promise<{ page?: string; search?: string }> }) {
+export default async function RTVPage({ searchParams }: { searchParams: Promise<{ page?: string; search?: string; warehouseId?: string }> }) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
   const search = params.search || "";
 
-  const result = await getReturnsToVendor(page, 10, search);
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  const dbUser = userId ? await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, defaultWarehouseId: true }
+  }) : null;
+
+  const userContext = {
+    isNormalUser: dbUser?.role !== "admin" && dbUser?.role !== "superadmin",
+    defaultWarehouseId: dbUser?.defaultWarehouseId || null,
+  };
+
+  const warehouseId = params.warehouseId || (userContext.isNormalUser ? userContext.defaultWarehouseId : undefined) || undefined;
+
+  const [result, warehousesResult] = await Promise.all([
+    getReturnsToVendor(page, 10, search, warehouseId),
+    getActiveWarehouses(),
+  ]);
 
   if (!result.success) {
     return (
@@ -42,6 +63,8 @@ export default async function RTVPage({ searchParams }: { searchParams: Promise<
         initialData={result.rtvs || []} 
         pagination={result.pagination || { page: 1, limit: 10, total: 0, totalPages: 0 }} 
         searchStr={search} 
+        warehouses={warehousesResult?.success ? warehousesResult.warehouses : []}
+        userContext={userContext}
       />
     </div>
   );

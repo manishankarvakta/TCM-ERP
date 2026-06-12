@@ -7,12 +7,15 @@ import { FiPlus } from "react-icons/fi";
 import PurchasesListClient from "./_components/purchases";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
+import { getActiveWarehouses } from "@/app/(dashboard)/dashboard/inventory/stock/_actions/stock.action";
+import { prisma } from "@/lib/prisma";
 
 interface PurchasesPageProps {
   searchParams: Promise<{
     page?: string;
     search?: string;
     tab?: string;
+    warehouseId?: string;
   }>;
 }
 
@@ -25,10 +28,22 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
   const session = await auth();
   const userId = session?.user?.id;
 
-  const status = tab === "trash" ? "trash" : "all";
+  const dbUser = userId ? await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, defaultWarehouseId: true }
+  }) : null;
 
-  const [result, canView, canCreate, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
-    getPurchases(page, 10, search, status),
+  const userContext = {
+    isNormalUser: dbUser?.role !== "admin" && dbUser?.role !== "superadmin",
+    defaultWarehouseId: dbUser?.defaultWarehouseId || null,
+  };
+
+  const status = tab === "trash" ? "trash" : "all";
+  const warehouseId = params.warehouseId || (userContext.isNormalUser ? userContext.defaultWarehouseId : undefined) || undefined;
+
+  const [result, warehousesResult, canView, canCreate, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
+    getPurchases(page, 10, search, status, warehouseId),
+    getActiveWarehouses(),
     userId ? hasPermission(userId, "procurements.purchases", "view") : false,
     userId ? hasPermission(userId, "procurements.purchases", "create") : false,
     userId ? hasPermission(userId, "procurements.purchases", "edit") : false,
@@ -100,6 +115,8 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
               moveToTrash: canMoveToTrash,
               deletePermanently: canDeletePermanently,
             }}
+            warehouses={warehousesResult?.success ? warehousesResult.warehouses : []}
+            userContext={userContext}
           />
         </TabsContent>
         <TabsContent value="trash" className="mt-4">
@@ -122,6 +139,8 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
               moveToTrash: canMoveToTrash,
               deletePermanently: canDeletePermanently,
             }}
+            warehouses={warehousesResult?.success ? warehousesResult.warehouses : []}
+            userContext={userContext}
           />
         </TabsContent>
       </Tabs>

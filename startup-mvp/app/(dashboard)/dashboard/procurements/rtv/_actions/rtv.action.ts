@@ -220,7 +220,7 @@ export async function createReturnToVendor(input: z.infer<typeof rtvSchema>) {
   }
 }
 
-export async function getReturnsToVendor(page = 1, limit = 10, search = "") {
+export async function getReturnsToVendor(page = 1, limit = 10, search = "", warehouseId?: string) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -236,7 +236,7 @@ export async function getReturnsToVendor(page = 1, limit = 10, search = "") {
 
     const skip = (page - 1) * limit;
     const where: Prisma.ReturnToVendorWhereInput = {
-      ...(isNormalUser && user?.defaultWarehouseId ? { warehouseId: user.defaultWarehouseId } : {}),
+      ...(isNormalUser && user?.defaultWarehouseId ? { warehouseId: user.defaultWarehouseId } : warehouseId ? { warehouseId } : {}),
     };
     if (search) {
       where.OR = [

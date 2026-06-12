@@ -259,7 +259,8 @@ export async function getTPNs(
   page: number = 1,
   limit: number = 10,
   search: string = "",
-  status: "trash" | "all" = "all"
+  status: "trash" | "all" = "all",
+  warehouseId?: string
 ) {
   try {
     const session = await auth();
@@ -283,7 +284,7 @@ export async function getTPNs(
 
     const where: Prisma.TransferPurchaseNoteWhereInput = {
       isTrash: status === "trash",
-      ...(isNormalUser && user?.defaultWarehouseId ? { destinationWarehouseId: user.defaultWarehouseId } : {}),
+      ...(isNormalUser && user?.defaultWarehouseId ? { destinationWarehouseId: user.defaultWarehouseId } : warehouseId ? { destinationWarehouseId: warehouseId } : {}),
     };
 
     if (search) {

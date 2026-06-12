@@ -17,6 +17,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FiSearch, FiChevronLeft, FiChevronRight, FiEye } from "react-icons/fi";
 import { useDebounce } from "@/hooks/use-debounce";
 import Link from "next/link";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface RTVListClientProps {
   initialData: any[];
@@ -27,9 +34,14 @@ interface RTVListClientProps {
     totalPages: number;
   };
   searchStr: string;
+  warehouses?: any[];
+  userContext?: {
+    isNormalUser: boolean;
+    defaultWarehouseId: string | null;
+  };
 }
 
-export default function RTVListClient({ initialData, pagination, searchStr }: RTVListClientProps) {
+export default function RTVListClient({ initialData, pagination, searchStr, warehouses = [], userContext }: RTVListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(searchStr);
@@ -68,6 +80,30 @@ export default function RTVListClient({ initialData, pagination, searchStr }: RT
             aria-label="Search returns to vendor"
           />
         </div>
+        <Select
+          value={searchParams.get("warehouseId") || (userContext?.isNormalUser ? userContext.defaultWarehouseId || "all" : "all")}
+          onValueChange={(val) => {
+            const params = new URLSearchParams(searchParams.toString());
+            if (val && val !== "all") {
+              params.set("warehouseId", val);
+            } else {
+              params.delete("warehouseId");
+            }
+            params.set("page", "1");
+            router.push(`/dashboard/procurements/rtv?${params.toString()}`);
+          }}
+          disabled={userContext?.isNormalUser}
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="All Warehouses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Warehouses</SelectItem>
+            {warehouses?.map(w => (
+              <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <CardContent className="p-0">
         <div className="rounded-md border-0 overflow-x-auto">

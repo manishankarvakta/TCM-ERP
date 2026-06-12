@@ -21,6 +21,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   FiSearch,
   FiTrash2,
   FiX,
@@ -91,6 +98,11 @@ interface GRNsListClientProps {
     moveToTrash: boolean;
     deletePermanently: boolean;
   };
+  warehouses?: any[];
+  userContext?: {
+    isNormalUser: boolean;
+    defaultWarehouseId: string | null;
+  };
 }
 
 const STATUS_LABELS: Record<GRNStatus, string> = {
@@ -106,6 +118,8 @@ export default function GRNsListClient({
   isTrash = false,
   userId: providedUserId,
   permissions,
+  warehouses = [],
+  userContext,
 }: GRNsListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -259,6 +273,33 @@ export default function GRNsListClient({
             </Button>
           )}
         </div>
+
+        {!isTrash && (
+          <Select
+            value={searchParams.get("warehouseId") || (userContext?.isNormalUser ? userContext.defaultWarehouseId || "all" : "all")}
+            onValueChange={(val) => {
+              const params = new URLSearchParams(searchParams.toString());
+              if (val && val !== "all") {
+                params.set("warehouseId", val);
+              } else {
+                params.delete("warehouseId");
+              }
+              params.set("page", "1");
+              router.push(`/dashboard/procurements/grn?${params.toString()}`);
+            }}
+            disabled={userContext?.isNormalUser}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="All Warehouses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Warehouses</SelectItem>
+              {warehouses?.map(w => (
+                <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         <div className="flex items-center gap-2">
           {selectedGRNs.size > 0 && (
