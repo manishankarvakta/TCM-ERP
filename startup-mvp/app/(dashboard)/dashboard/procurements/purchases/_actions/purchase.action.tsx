@@ -258,6 +258,11 @@ export async function getPurchases(
             company: true,
           },
         },
+        warehouse: {
+          select: {
+            name: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
       },

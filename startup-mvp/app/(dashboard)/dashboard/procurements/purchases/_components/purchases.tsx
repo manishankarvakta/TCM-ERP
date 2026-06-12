@@ -61,6 +61,9 @@ interface Purchase {
     email: string;
     company: string | null;
   };
+  warehouse?: {
+    name: string;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -318,6 +321,7 @@ export default function PurchasesListClient({
               </TableHead>
               <TableHead>Purchase #</TableHead>
               <TableHead>Supplier</TableHead>
+              <TableHead>Warehouse</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Date</TableHead>
               <TableHead className="text-right">Total</TableHead>
@@ -327,7 +331,7 @@ export default function PurchasesListClient({
           <TableBody>
             {initialPurchases.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed purchases found" : "No purchases found"}
                 </TableCell>
               </TableRow>
@@ -351,6 +355,9 @@ export default function PurchasesListClient({
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {purchase.supplier.name || purchase.supplier.email}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {purchase.warehouse?.name || "-"}
                     </TableCell>
                     <TableCell>
                       <Badge variant={purchase.status === "CANCELLED" ? "destructive" : "secondary"}>

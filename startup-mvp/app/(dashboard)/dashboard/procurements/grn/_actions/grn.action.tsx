@@ -472,6 +472,11 @@ export async function getGRNs(
             select: {
               tpnNumber: true,
             }
+          },
+          warehouse: {
+            select: {
+              name: true,
+            }
           }
         },
         orderBy: { createdAt: "desc" },
@@ -520,6 +525,7 @@ export async function getGRNs(
           number: grn.tpn?.tpnNumber || "",
           supplier: null,
         },
+        warehouse: grn.warehouse || null,
         createdAt: grn.createdAt,
         updatedAt: grn.updatedAt,
       };

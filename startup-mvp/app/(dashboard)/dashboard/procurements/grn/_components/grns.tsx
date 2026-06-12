@@ -65,6 +65,9 @@ interface GRN {
       company: string | null;
     } | null;
   };
+  warehouse?: {
+    name: string;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -321,6 +324,7 @@ export default function GRNsListClient({
               <TableHead>GRN #</TableHead>
               <TableHead>Source Doc #</TableHead>
               <TableHead>Origin / Supplier</TableHead>
+              <TableHead>Warehouse</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Date</TableHead>
               <TableHead className="text-right">Total</TableHead>
@@ -330,7 +334,7 @@ export default function GRNsListClient({
           <TableBody>
             {initialGRNs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed GRNs found" : "No GRNs found"}
                 </TableCell>
               </TableRow>
@@ -357,6 +361,9 @@ export default function GRNsListClient({
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {grn.source?.type === "TPN" ? "TPN Transfer" : grn.source?.supplier?.name || grn.source?.supplier?.company || "Unknown Supplier"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {grn.warehouse?.name || "-"}
                     </TableCell>
                     <TableCell>
                       <Badge variant={grn.status === "CANCELLED" ? "destructive" : "secondary"}>

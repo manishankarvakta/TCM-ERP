@@ -44,8 +44,19 @@ export async function getAdjustments(
     const canView = await hasPermission(session.user.id, "inventory.adjustments", "view");
     if (!canView) return { success: false, error: "Permission denied" };
 
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true }
+    });
+
+    const isNormalUser = user?.role !== "admin" && user?.role !== "superadmin";
+
     const where: any = {};
-    if (filters.warehouseId) where.warehouseId = filters.warehouseId;
+    if (filters.warehouseId) {
+      where.warehouseId = filters.warehouseId;
+    } else if (isNormalUser && user?.defaultWarehouseId) {
+      where.warehouseId = user.defaultWarehouseId;
+    }
     if (filters.status) where.status = filters.status;
     if (filters.search) {
       where.OR = [
