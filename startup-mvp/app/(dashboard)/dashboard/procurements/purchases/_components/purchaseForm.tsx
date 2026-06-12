@@ -843,7 +843,11 @@ export default function PurchaseForm({
                         </td>
                         <td className="px-3 py-2 align-top text-right flex items-center gap-1">
                           <div className="text-sm font-medium">
-                            {selectedItem ? (stockMap[selectedItem.id] ?? 0) : 0}
+                            {selectedItem 
+                              ? (watch(`items.${index}.variantId`) 
+                                  ? (stockMap[watch(`items.${index}.variantId`) as string] ?? 0) 
+                                  : (stockMap[selectedItem.id] ?? 0)) 
+                              : 0}
                           </div> 
                           {selectedItem && (
                               <span className="text-sm text-muted-foreground">
