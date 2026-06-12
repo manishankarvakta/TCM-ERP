@@ -368,8 +368,8 @@ export default function PurchaseForm({
         if (res.success && res.stocks) {
            const map: Record<string, number> = {};
            res.stocks.forEach(s => {
-             if (s.itemId) map[s.itemId] = s.quantity;
-             if (s.variantId) map[s.variantId] = s.quantity;
+             if (s.itemId) map[s.itemId] = (map[s.itemId] || 0) + s.quantity;
+             if (s.variantId) map[s.variantId] = (map[s.variantId] || 0) + s.quantity;
            });
            setStockMap(map);
         }

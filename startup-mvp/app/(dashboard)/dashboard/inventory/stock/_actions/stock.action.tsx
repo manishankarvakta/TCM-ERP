@@ -804,7 +804,7 @@ export async function getStock(itemId: string, warehouseId: string) {
       select: { role: true, defaultWarehouseId: true }
     });
 
-    if (user?.role !== "admin" && user?.defaultWarehouseId !== warehouseId) {
+    if (user?.role !== "admin" && user?.role !== "superadmin" && user?.defaultWarehouseId !== warehouseId) {
       return {
         success: false,
         error: "Unauthorized: You can only view stock in your assigned warehouse",
@@ -928,7 +928,7 @@ export async function getWarehouseStocks(warehouseId: string) {
       select: { role: true, defaultWarehouseId: true }
     });
 
-    if (user?.role !== "admin" && user?.defaultWarehouseId !== warehouseId) {
+    if (user?.role !== "admin" && user?.role !== "superadmin" && user?.defaultWarehouseId !== warehouseId) {
       return { success: false, error: "Unauthorized: You can only view stock in your assigned warehouse", stocks: [], debug: { warehouseId, count: 0 } };
     }
 
@@ -940,12 +940,21 @@ export async function getWarehouseStocks(warehouseId: string) {
         itemId: true,
         variantId: true,
         quantity: true,
+        variant: {
+          select: {
+            itemId: true,
+          }
+        }
       },
     });
 
     return {
       success: true,
-      stocks: stocks.map(s => ({ itemId: s.itemId, variantId: s.variantId, quantity: Number(s.quantity) })),
+      stocks: stocks.map(s => ({ 
+        itemId: s.itemId || s.variant?.itemId, 
+        variantId: s.variantId, 
+        quantity: Number(s.quantity) 
+      })),
       debug: { warehouseId, count: stocks.length }
     };
   } catch (error) {
