@@ -426,10 +426,19 @@ export async function getGRNs(
   status: "all" | "trash" = "all"
 ) {
   try {
+    const session = await auth();
+    const user = session?.user ? await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true },
+    }) : null;
+
+    const isNormalUser = user?.role !== "admin" && user?.role !== "superadmin";
+
     const skip = (page - 1) * limit;
 
     const where: Prisma.GRNWhereInput = {
       isTrash: status === "trash",
+      ...(isNormalUser && user?.defaultWarehouseId ? { warehouseId: user.defaultWarehouseId } : {}),
       ...(search
         ? {
             OR: [

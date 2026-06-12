@@ -214,8 +214,16 @@ export async function getPurchases(
 
     const skip = (page - 1) * limit;
 
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true },
+    });
+
+    const isNormalUser = user?.role !== "admin" && user?.role !== "superadmin";
+
     const where: Prisma.PurchaseWhereInput = {
       isTrash: status === "trash",
+      ...(isNormalUser && user?.defaultWarehouseId ? { warehouseId: user.defaultWarehouseId } : {}),
     };
 
     if (search) {

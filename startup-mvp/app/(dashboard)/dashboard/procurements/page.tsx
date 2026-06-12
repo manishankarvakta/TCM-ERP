@@ -16,6 +16,25 @@ export default async function ProcurementsDashboardPage() {
     redirect("/login");
   }
 
+  // Fetch user role and default warehouse
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true, defaultWarehouseId: true },
+  });
+
+  const warehouseFilter = dbUser?.role !== "admin" && dbUser?.defaultWarehouseId
+    ? { warehouseId: dbUser.defaultWarehouseId }
+    : {};
+
+  const tpnWarehouseFilter = dbUser?.role !== "admin" && dbUser?.defaultWarehouseId
+    ? { destinationWarehouseId: dbUser.defaultWarehouseId }
+    : {};
+
+  const purchaseWhere = { isTrash: false, ...warehouseFilter };
+  const grnWhere = { isTrash: false, ...warehouseFilter };
+  const rtvWhere = { ...warehouseFilter }; // RTV doesn't have isTrash currently based on schema
+  const tpnWhere = { isTrash: false, ...tpnWarehouseFilter };
+
   // Fetch Purchases Data
   const [
     totalPurchases,
@@ -24,16 +43,16 @@ export default async function ProcurementsDashboardPage() {
     purchaseStatusGroup,
     recentPurchases,
   ] = await Promise.all([
-    prisma.purchase.count({ where: { isTrash: false } }),
-    prisma.purchase.count({ where: { isTrash: false, status: "DRAFT" } }), // Or PENDING if there was a pending status
-    prisma.purchase.count({ where: { isTrash: false, status: "RECEIVED" } }),
+    prisma.purchase.count({ where: purchaseWhere }),
+    prisma.purchase.count({ where: { ...purchaseWhere, status: "DRAFT" } }), // Or PENDING if there was a pending status
+    prisma.purchase.count({ where: { ...purchaseWhere, status: "RECEIVED" } }),
     prisma.purchase.groupBy({
       by: ["status"],
-      where: { isTrash: false },
+      where: purchaseWhere,
       _count: true,
     }),
     prisma.purchase.findMany({
-      where: { isTrash: false },
+      where: purchaseWhere,
       take: 10,
       orderBy: { date: "desc" },
       select: {
@@ -57,9 +76,9 @@ export default async function ProcurementsDashboardPage() {
 
   // Fetch GRNs Data
   const [totalGRNs, recentGRNs] = await Promise.all([
-    prisma.gRN.count({ where: { isTrash: false } }),
+    prisma.gRN.count({ where: grnWhere }),
     prisma.gRN.findMany({
-      where: { isTrash: false },
+      where: grnWhere,
       take: 10,
       orderBy: { date: "desc" },
       select: {
@@ -74,8 +93,9 @@ export default async function ProcurementsDashboardPage() {
 
   // Fetch RTVs Data
   const [totalRTVs, recentRTVs] = await Promise.all([
-    prisma.returnToVendor.count(),
+    prisma.returnToVendor.count({ where: rtvWhere }),
     prisma.returnToVendor.findMany({
+      where: rtvWhere,
       take: 10,
       orderBy: { date: "desc" },
       select: {
@@ -91,9 +111,9 @@ export default async function ProcurementsDashboardPage() {
 
   // Fetch TPNs Data
   const [totalTPNs, recentTPNs] = await Promise.all([
-    prisma.transferPurchaseNote.count({ where: { isTrash: false } }),
+    prisma.transferPurchaseNote.count({ where: tpnWhere }),
     prisma.transferPurchaseNote.findMany({
-      where: { isTrash: false },
+      where: tpnWhere,
       take: 10,
       orderBy: { date: "desc" },
       select: {

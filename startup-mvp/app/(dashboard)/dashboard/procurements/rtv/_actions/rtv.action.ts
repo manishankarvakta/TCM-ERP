@@ -227,8 +227,17 @@ export async function getReturnsToVendor(page = 1, limit = 10, search = "") {
       return { success: false, error: "Unauthorized", rtvs: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 } };
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true },
+    });
+
+    const isNormalUser = user?.role !== "admin" && user?.role !== "superadmin";
+
     const skip = (page - 1) * limit;
-    const where: Prisma.ReturnToVendorWhereInput = {};
+    const where: Prisma.ReturnToVendorWhereInput = {
+      ...(isNormalUser && user?.defaultWarehouseId ? { warehouseId: user.defaultWarehouseId } : {}),
+    };
     if (search) {
       where.OR = [
         { rtvNumber: { contains: search, mode: "insensitive" } },
