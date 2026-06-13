@@ -354,6 +354,12 @@ export async function getItemsForSale() {
             color: true,
             costPrice: true,
             salesPrice: true,
+            stocks: {
+              select: {
+                warehouseId: true,
+                quantity: true,
+              },
+            },
           },
         },
       },
@@ -390,6 +396,10 @@ export async function getItemsForSale() {
           color: v.color,
           costPrice: v.costPrice ? Number(v.costPrice) : null,
           salesPrice: v.salesPrice ? Number(v.salesPrice) : null,
+          stocks: v.stocks ? v.stocks.map((s: any) => ({
+            warehouseId: s.warehouseId,
+            quantity: Number(s.quantity)
+          })) : [],
         })) : [],
       })),
     };
@@ -2422,7 +2432,7 @@ export async function voidSale(saleId: string) {
   }
 }
 
-export async function processSaleReturn(saleId: string | null, returnItems: { itemId: string, variantId?: string, quantity: number, unitPrice?: number }[]) {
+export async function processSaleReturn(saleId: string | null, returnItems: { itemId: string, variantId?: string, quantity: number, unitPrice?: number }[], selectedWarehouseId?: string) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -2447,13 +2457,17 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
       clientId = originalSale.clientId;
       warehouseId = originalSale.warehouseId;
     } else {
-      // Find default warehouse
-      const defaultWarehouse = await prisma.warehouse.findFirst({
-        where: { status: "active", isTrash: false },
-        orderBy: { name: "asc" }
-      });
-      if (!defaultWarehouse) return { success: false, error: "No warehouse found for return" };
-      warehouseId = defaultWarehouse.id;
+      if (selectedWarehouseId) {
+        warehouseId = selectedWarehouseId;
+      } else {
+        // Find default warehouse
+        const defaultWarehouse = await prisma.warehouse.findFirst({
+          where: { status: "active", isTrash: false },
+          orderBy: { name: "asc" }
+        });
+        if (!defaultWarehouse) return { success: false, error: "No warehouse found for return" };
+        warehouseId = defaultWarehouse.id;
+      }
          // Find default client
       let defaultClient = await prisma.client.findFirst({
         where: {

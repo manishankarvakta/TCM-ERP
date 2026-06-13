@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw } from "react-icons/fi";
-import { deleteWarehouse, bulkUpdateWarehouseStatus, deleteWarehousesPermanently } from "../_actions/warehouse.action";
+import { deleteWarehouse, bulkUpdateWarehouseStatus, deleteWarehousesPermanently, restoreWarehouses } from "../_actions/warehouse.action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -180,7 +180,7 @@ export default function WarehousesListClient({
     if (!restoreWarehouseId) return;
 
     startTransition(async () => {
-      const result = await bulkUpdateWarehouseStatus([restoreWarehouseId], "active");
+      const result = await restoreWarehouses([restoreWarehouseId]);
       if (result.success) {
         setRestoreWarehouseId(null);
         toast({
@@ -216,7 +216,7 @@ export default function WarehousesListClient({
         }
         result = { success: true };
       } else if (action === "restore") {
-        result = await bulkUpdateWarehouseStatus(warehouseIds, "active");
+        result = await restoreWarehouses(warehouseIds);
       } else if (action === "deletePermanently") {
         result = await deleteWarehousesPermanently(warehouseIds);
       } else {

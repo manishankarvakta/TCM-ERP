@@ -30,6 +30,7 @@ interface ItemVariant {
   salesPrice?: number | null;
   wholesalePrice?: number | null;
   wholesaleDiscountAmount?: number | null;
+  stocks?: { warehouseId: string; quantity: number }[];
 }
 
 interface Item {
@@ -809,7 +810,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     
     setIsReturning(true);
     try {
-      const res = await processSaleReturn(null, selectedItems);
+      const res = await processSaleReturn(null, selectedItems, selectedWarehouseId);
       if(res.success && res.returnSale) {
         const saleNum = res.returnSale.saleNumber;
         const saleId = res.returnSale.id;
@@ -1227,6 +1228,9 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 }
               }
               const hasDiscount = finalPrice !== displayPrice;
+              const itemStock = item.variants && item.variants.length > 0
+                ? item.variants.reduce((acc, v) => acc + (v.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0), 0)
+                : (item.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0);
               
               return (
               <div key={item.id} className="bg-card text-card-foreground rounded-xl border border-border p-4 hover:shadow-md transition-shadow flex flex-col justify-between h-full">
@@ -1249,6 +1253,9 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                           </span>
                         </>
                       )}
+                      <span className="ml-auto text-xs font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                        Stock: {itemStock}
+                      </span>
                    </div>
                 </div>
                 {item.variants && item.variants.length > 0 ? (
@@ -1821,6 +1828,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                       <div>
                         <p className="font-semibold text-sm text-foreground">{v.color} / {v.size}</p>
                         <p className="text-xs text-muted-foreground">SKU: {v.sku}</p>
+                        {v.stocks && (
+                          <p className="text-[10px] font-medium text-muted-foreground mt-0.5 uppercase tracking-wide">
+                            Stock: <span className="font-bold text-foreground ml-1 bg-muted px-1.5 py-0.5 rounded">{v.stocks.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0}</span>
+                          </p>
+                        )}
                       </div>
                     </div>
                     <Button 

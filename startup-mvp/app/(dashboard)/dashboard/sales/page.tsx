@@ -34,15 +34,10 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
   let startDate = params.startDate;
   let endDate = params.endDate;
 
-  // Default to today if no date range is provided
   if (!startDate && !endDate) {
     const today = new Date();
-    // Use local date string YYYY-MM-DD
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    startDate = `${yyyy}-${mm}-${dd}T00:00:00.000Z`;
-    endDate = `${yyyy}-${mm}-${dd}T23:59:59.999Z`;
+    startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0).toISOString();
+    endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).toISOString();
   }
 
   const session = await auth();
@@ -54,14 +49,40 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
   const { getWarehousesForSale } = await import("./_actions/sale.action");
   const { prisma } = await import("@/lib/prisma");
 
+  let isAdmin = false;
+  let userWarehouseId: string | undefined = undefined;
+
+  if (userId) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, defaultWarehouseId: true }
+    });
+    if (dbUser) {
+      isAdmin = ['admin', 'superadmin'].includes(dbUser.role.toLowerCase());
+      userWarehouseId = dbUser.defaultWarehouseId || undefined;
+    }
+  }
+
+  let effectiveWarehouseId = warehouseId;
+  if (!isAdmin) {
+    effectiveWarehouseId = userWarehouseId || "all";
+  }
+
   const [result, canView, canEdit, canMoveToTrash, canDeletePermanently, warehousesRes, users] = await Promise.all([
-    getSales(page, 10, search, status, { billerId, warehouseId, type, startDate, endDate }),
+    getSales(page, 10, search, status, { billerId, warehouseId: effectiveWarehouseId !== "all" ? effectiveWarehouseId : undefined, type, startDate, endDate }),
     userId ? hasPermission(userId, "sales.sales", "view") : false,
     userId ? hasPermission(userId, "sales.sales", "edit") : false,
     userId ? hasPermission(userId, "sales.sales", "move-to-trash") : false,
     userId ? hasPermission(userId, "sales.sales", "delete-permanently") : false,
     getWarehousesForSale(),
-    prisma.user.findMany({ where: { status: "active" }, select: { id: true, name: true, email: true }, orderBy: { name: "asc" } }),
+    prisma.user.findMany({ 
+      where: { 
+        status: "active",
+        ...(!isAdmin && userWarehouseId ? { defaultWarehouseId: userWarehouseId } : {})
+      }, 
+      select: { id: true, name: true, email: true }, 
+      orderBy: { name: "asc" } 
+    }),
   ]);
 
   if (!result.success) {
@@ -94,7 +115,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
         </div>
         {tab !== "trash" && (
           <Button asChild>
-            <Link href="/dashboard/sales/add">
+            <Link href="/dashboard/sales/pos">
               <FiPlus className="mr-2 h-4 w-4" />
               Add Sale
             </Link>
@@ -133,9 +154,11 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
             }}
             warehouses={warehousesRes.warehouses || []}
             billers={users || []}
+            isAdmin={isAdmin}
+            userWarehouseId={userWarehouseId}
             filters={{
               billerId,
-              warehouseId,
+              warehouseId: effectiveWarehouseId,
               type,
               startDate,
               endDate,
@@ -164,9 +187,11 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
             }}
             warehouses={warehousesRes.warehouses || []}
             billers={users || []}
+            isAdmin={isAdmin}
+            userWarehouseId={userWarehouseId}
             filters={{
               billerId,
-              warehouseId,
+              warehouseId: effectiveWarehouseId,
               type,
               startDate,
               endDate,

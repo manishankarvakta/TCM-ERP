@@ -594,6 +594,156 @@ export async function getItemStock(itemId: string) {
 }
 
 /**
+ * Get warehouse-wise stock information for an item
+ */
+export async function getItemWarehouseStock(itemId: string) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        stocks: [],
+      };
+    }
+
+    // Permission check
+    const canView = await hasPermission(session.user.id, "master.items", "view");
+    if (!canView) {
+      return {
+        success: false,
+        error: "You do not have permission to view items",
+        stocks: [],
+      };
+    }
+
+    // Check if item exists and has inventory tracking enabled
+    const item = await prisma.item.findUnique({
+      where: { id: itemId },
+      select: { trackInventory: true },
+    });
+
+    if (!item) {
+      return { success: false, error: "Item not found", stocks: [] };
+    }
+
+    if (!item.trackInventory) {
+      return {
+        success: true,
+        stocks: [],
+        message: "Inventory tracking is disabled for this item",
+      };
+    }
+
+    // Fetch user to get role and defaultWarehouseId
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true }
+    });
+
+    if (!user) {
+      return { success: false, error: "User not found", stocks: [] };
+    }
+
+    const isNormalUser = user.role === "user";
+
+    // If normal user has no default warehouse, they can't see any stock
+    if (isNormalUser && !user.defaultWarehouseId) {
+      return {
+        success: true,
+        stocks: [],
+        message: "No default warehouse assigned to your account."
+      };
+    }
+
+    // Build the query where clause
+    const whereClause: any = {
+      OR: [
+        { itemId: itemId },
+        { variant: { itemId: itemId } }
+      ]
+    };
+
+    if (isNormalUser && user.defaultWarehouseId) {
+      whereClause.warehouseId = user.defaultWarehouseId;
+    }
+
+    // Query Stock table
+    const stockRecords = await prisma.stock.findMany({
+      where: whereClause,
+      include: {
+        warehouse: {
+          select: { id: true, name: true, code: true }
+        },
+        variant: {
+          select: { costPrice: true, salesPrice: true }
+        },
+        item: {
+          select: { costPrice: true, salesPrice: true }
+        }
+      }
+    });
+
+    // Group by warehouse
+    const warehouseStockMap = new Map<string, {
+      warehouse: { id: string; name: string; code: string };
+      quantity: number;
+      totalValue: number;
+      lastUpdated: Date;
+    }>();
+
+    for (const record of stockRecords) {
+      const whId = record.warehouseId;
+      const qty = Number(record.quantity);
+      
+      // Determine cost price for value calculation
+      const costPrice = record.variant?.costPrice ? Number(record.variant.costPrice) : 
+                        record.item?.costPrice ? Number(record.item.costPrice) : 0;
+      
+      const value = qty * costPrice;
+
+      if (!warehouseStockMap.has(whId)) {
+        warehouseStockMap.set(whId, {
+          warehouse: record.warehouse,
+          quantity: 0,
+          totalValue: 0,
+          lastUpdated: record.lastUpdated,
+        });
+      }
+
+      const whStock = warehouseStockMap.get(whId)!;
+      whStock.quantity += qty;
+      whStock.totalValue += value;
+      if (record.lastUpdated > whStock.lastUpdated) {
+        whStock.lastUpdated = record.lastUpdated;
+      }
+    }
+
+    const stocks = Array.from(warehouseStockMap.values()).map(ws => ({
+      ...ws,
+      averageCost: ws.quantity > 0 ? ws.totalValue / ws.quantity : 0
+    }));
+
+    // Sort by warehouse name
+    stocks.sort((a, b) => a.warehouse.name.localeCompare(b.warehouse.name));
+
+    return {
+      success: true,
+      stocks,
+      message: null,
+    };
+  } catch (error) {
+    console.error("getItemWarehouseStock error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch warehouse stock",
+      stocks: [],
+    };
+  }
+}
+
+/**
  * Create a new item
  */
 export async function createItem(input: {

@@ -53,6 +53,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { toast as sonnerToast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { SaleStatus, OrderType } from "@prisma/client";
@@ -119,10 +120,14 @@ export default function SalesListClient({
   permissions,
   warehouses = [],
   billers = [],
+  isAdmin = false,
+  userWarehouseId,
   filters,
 }: SalesListClientProps & {
   warehouses?: { id: string; name: string }[];
   billers?: { id: string; name: string; email: string }[];
+  isAdmin?: boolean;
+  userWarehouseId?: string;
   filters?: {
     billerId?: string;
     warehouseId?: string;
@@ -145,7 +150,13 @@ export default function SalesListClient({
   
   const formatForInput = (isoString?: string | null) => {
     if (!isoString) return "";
-    try { return new Date(isoString).toISOString().split('T')[0]; } catch(e) { return ""; }
+    try { 
+      const d = new Date(isoString);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    } catch(e) { return ""; }
   };
 
   const [startDate, setStartDate] = useState(formatForInput(filters?.startDate));
@@ -171,11 +182,15 @@ export default function SalesListClient({
     else params.delete("type");
 
     if (newStart) {
-       params.set("startDate", newStart + "T00:00:00.000Z");
+       const [year, month, day] = newStart.split('-');
+       const d = new Date(Number(year), Number(month) - 1, Number(day), 0, 0, 0);
+       params.set("startDate", d.toISOString());
     } else params.delete("startDate");
 
     if (newEnd) {
-       params.set("endDate", newEnd + "T23:59:59.999Z");
+       const [year, month, day] = newEnd.split('-');
+       const d = new Date(Number(year), Number(month) - 1, Number(day), 23, 59, 59, 999);
+       params.set("endDate", d.toISOString());
     } else params.delete("endDate");
 
     router.push(`/dashboard/sales?${params.toString()}`);
@@ -387,12 +402,17 @@ export default function SalesListClient({
 
         <div className="space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground">Warehouse</Label>
-          <Select value={warehouseId} onValueChange={(val) => { setWarehouseId(val); applyFilters({ warehouseId: val }); }}>
+          <Select 
+            value={warehouseId} 
+            onValueChange={(val) => { setWarehouseId(val); applyFilters({ warehouseId: val }); }}
+            disabled={!isAdmin}
+          >
             <SelectTrigger className="h-9">
               <SelectValue placeholder="All Warehouses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Warehouses</SelectItem>
+              {isAdmin && <SelectItem value="all">All Warehouses</SelectItem>}
+              {!isAdmin && (!userWarehouseId || userWarehouseId === "all") && <SelectItem value="all">All Warehouses</SelectItem>}
               {warehouses.map((w) => (
                 <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
               ))}
@@ -447,11 +467,12 @@ export default function SalesListClient({
             className="h-9 px-3 shrink-0" 
             onClick={() => {
               setBillerId("all");
-              setWarehouseId("all");
+              const resetWarehouseId = isAdmin ? "all" : (userWarehouseId || "all");
+              setWarehouseId(resetWarehouseId);
               setType("all");
               setStartDate("");
               setEndDate("");
-              applyFilters({ billerId: "all", warehouseId: "all", type: "all", startDate: "", endDate: "" });
+              applyFilters({ billerId: "all", warehouseId: resetWarehouseId, type: "all", startDate: "", endDate: "" });
             }}
             title="Clear Filters"
           >
@@ -510,9 +531,15 @@ export default function SalesListClient({
                         {sale.saleNumber}
                         <button 
                           className="text-muted-foreground hover:text-foreground transition-colors"
-                          onClick={() => {
-                            navigator.clipboard.writeText(sale.saleNumber);
-                            toast({ title: "Copied", description: "Invoice number copied to clipboard" });
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            try {
+                              await navigator.clipboard.writeText(sale.saleNumber);
+                              sonnerToast.success("Copied successfully", { description: sale.saleNumber });
+                            } catch (err) {
+                              sonnerToast.error("Failed to copy");
+                            }
                           }}
                           title="Copy Invoice Number"
                         >

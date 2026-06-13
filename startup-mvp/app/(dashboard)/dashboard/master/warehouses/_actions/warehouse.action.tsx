@@ -681,3 +681,60 @@ export async function getActiveWarehouses() {
     };
   }
 }
+
+/**
+ * Restore trashed warehouses
+ */
+export async function restoreWarehouses(warehouseIds: string[]) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+      };
+    }
+
+    // Permission check
+    const canEdit = await hasPermission(session.user.id, "master.warehouses", "edit");
+    if (!canEdit) {
+      return {
+        success: false,
+        error: "You do not have permission to restore warehouses",
+      };
+    }
+
+    if (warehouseIds.length === 0) {
+      return {
+        success: false,
+        error: "No warehouses selected",
+      };
+    }
+
+    // Update status and remove from trash
+    await prisma.warehouse.updateMany({
+      where: {
+        id: { in: warehouseIds },
+        isTrash: true, // Only restore trashed warehouses
+      },
+      data: {
+        status: "active",
+        isTrash: false,
+      },
+    });
+
+    // Revalidate cache
+    await revalidateBothPaths("/dashboard/master/warehouses");
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("restoreWarehouses error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to restore warehouses",
+    };
+  }
+}

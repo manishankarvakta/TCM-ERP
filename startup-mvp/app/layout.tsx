@@ -40,7 +40,7 @@ export default function RootLayout({
             <StoreProvider>
               <ToastProvider>
                 {children}
-                <Toaster />
+                <Toaster position="top-right" />
               </ToastProvider>
             </StoreProvider>
           </ThemeProvider>

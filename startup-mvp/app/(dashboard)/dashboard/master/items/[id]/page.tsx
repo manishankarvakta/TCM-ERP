@@ -1,5 +1,5 @@
 import React from "react";
-import { getItemById, getItemStock } from "../_actions/item.action";
+import { getItemById, getItemWarehouseStock } from "../_actions/item.action";
 import PageGuard from "@/components/permissions/page-guard";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,8 +47,9 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
   }
 
   const item = result.item as any;
-  const stockResult = await getItemStock(id);
-  const stock = stockResult.success ? stockResult.stock : null;
+  const stockResult = await getItemWarehouseStock(id);
+  const warehouseStocks = stockResult.success ? stockResult.stocks : [];
+  const warehouseStocksMessage = stockResult.message || null;
   
   const session = await auth();
   const userId = session?.user?.id;
@@ -561,36 +562,67 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
             {item.trackInventory && (
               <Card className="border-border/60">
                 <CardHeader className="pb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-md bg-muted">
-                      <FiBox className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-md bg-muted">
+                        <FiBox className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base">Warehouse Stock</CardTitle>
+                        <CardDescription className="mt-0.5">Stock availability across locations</CardDescription>
+                      </div>
                     </div>
-                    <CardTitle className="text-base">Stock Information</CardTitle>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  {stock && stock.message ? (
-                    <div className="text-sm text-muted-foreground p-4 bg-muted rounded-lg">{stock.message}</div>
-                  ) : stock && stock.quantity !== null ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="rounded-xl border border-border/60 bg-muted/30 p-4 space-y-1">
-                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Stock</label>
-                        <div className="flex items-baseline gap-2">
-                          <p className="text-2xl font-black">{Number(stock.quantity).toLocaleString()}</p>
-                          <span className="text-sm text-muted-foreground">{item.unit.symbol}</span>
-                        </div>
-                      </div>
-                      <div className="rounded-xl border border-border/60 bg-muted/30 p-4 space-y-1">
-                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Avg Cost</label>
-                        <p className="text-xl font-bold">{formatPrice((stock as any).averageCost)}</p>
-                      </div>
-                      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-1">
-                        <label className="text-xs font-medium text-primary uppercase tracking-wide">Total Value</label>
-                        <p className="text-xl font-bold text-primary">{formatPrice((stock as any).totalValue)}</p>
-                      </div>
+                <CardContent className="p-0">
+                  {warehouseStocksMessage ? (
+                    <div className="text-sm text-muted-foreground p-4 m-4 bg-muted rounded-lg">{warehouseStocksMessage}</div>
+                  ) : warehouseStocks && warehouseStocks.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-y border-border bg-muted/50">
+                            <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Warehouse</th>
+                            <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Quantity</th>
+                            <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Avg Cost</th>
+                            <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total Value</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {warehouseStocks.map((ws: any) => (
+                            <tr key={ws.warehouse.id} className="hover:bg-muted/20 transition-colors">
+                              <td className="py-3 px-4">
+                                <div className="font-medium text-foreground">{ws.warehouse.name}</div>
+                                <div className="text-xs text-muted-foreground">{ws.warehouse.code}</div>
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <span className="font-bold">{Number(ws.quantity).toLocaleString()}</span>
+                                <span className="text-xs text-muted-foreground ml-1">{item.unit.symbol}</span>
+                              </td>
+                              <td className="py-3 px-4 text-right font-medium">{formatPrice(ws.averageCost)}</td>
+                              <td className="py-3 px-4 text-right font-bold text-primary">{formatPrice(ws.totalValue)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="border-t border-border bg-muted/10">
+                          <tr>
+                            <td className="py-3 px-4 text-sm font-bold text-foreground">Total</td>
+                            <td className="py-3 px-4 text-right font-black">
+                              {warehouseStocks.reduce((sum: number, ws: any) => sum + Number(ws.quantity), 0).toLocaleString()}
+                              <span className="text-xs text-muted-foreground ml-1 font-normal">{item.unit.symbol}</span>
+                            </td>
+                            <td className="py-3 px-4 text-right">—</td>
+                            <td className="py-3 px-4 text-right font-black text-primary">
+                              {formatPrice(warehouseStocks.reduce((sum: number, ws: any) => sum + Number(ws.totalValue), 0))}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
                     </div>
                   ) : (
-                    <div className="text-sm text-muted-foreground p-4 bg-muted rounded-lg">No stock data available.</div>
+                    <div className="text-sm text-muted-foreground p-4 m-4 bg-muted rounded-lg border border-dashed border-border flex items-center justify-center">
+                      No stock data available in any warehouse.
+                    </div>
                   )}
                 </CardContent>
               </Card>
