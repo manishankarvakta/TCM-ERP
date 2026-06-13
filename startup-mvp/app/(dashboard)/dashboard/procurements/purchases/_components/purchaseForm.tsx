@@ -241,17 +241,14 @@ export default function PurchaseForm({
   }, [localSuppliers, supplierSearch]);
 
   const filteredItemsForSelect = useMemo(() => {
-    // Only include items that are in the stock list
-    const itemsInStock = items.filter(item => stockMap[item.id] !== undefined);
-
-    if (!itemSearch) return itemsInStock;
+    if (!itemSearch) return items;
     const searchLower = itemSearch.toLowerCase();
-    return itemsInStock.filter(
+    return items.filter(
       (item) =>
         item.code.toLowerCase().includes(searchLower) ||
         item.description.toLowerCase().includes(searchLower)
     );
-  }, [items, itemSearch, stockMap]);
+  }, [items, itemSearch]);
 
   const defaultItems =
     initialData?.items.map((item) => ({

@@ -199,8 +199,7 @@ export async function getPurchases(
   page: number = 1,
   limit: number = 10,
   search: string = "",
-  status: "trash" | "all" = "all",
-  warehouseId?: string
+  status: "trash" | "all" = "all"
 ) {
   try {
     const session = await auth();
@@ -224,7 +223,7 @@ export async function getPurchases(
 
     const where: Prisma.PurchaseWhereInput = {
       isTrash: status === "trash",
-      ...(isNormalUser && user?.defaultWarehouseId ? { warehouseId: user.defaultWarehouseId } : warehouseId ? { warehouseId } : {}),
+      ...(isNormalUser && user?.defaultWarehouseId ? { warehouseId: user.defaultWarehouseId } : {}),
     };
 
     if (search) {
