@@ -45,6 +45,8 @@ import { useBackups } from '@/hooks/useBackups';
 import { useRestore } from '@/hooks/useRestore';
 import { RestoreProgressModal } from '@/components/backup/RestoreProgressModal';
 import { BackupUploadZone } from '@/components/backup/BackupUploadZone';
+import { AutoBackupTimeCard } from './AutoBackupTimeCard';
+import { DriveSettingsForm } from './DriveSettingsForm';
 import type { BackupListItem, BackupType } from '@/types/backup';
 import { format } from 'date-fns';
 
@@ -212,6 +214,9 @@ export default function Backup() {
         </Card>
       )}
 
+      {/* Auto Backup Settings Card (Top) */}
+      <AutoBackupTimeCard />
+
       {/* Create Backup Section */}
       <Card>
         <CardHeader>
@@ -318,11 +323,12 @@ export default function Backup() {
             </div>
           ) : (
             <Tabs defaultValue="all" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="all">All ({backups.length})</TabsTrigger>
                 <TabsTrigger value="database">Database ({databaseBackups.length})</TabsTrigger>
                 <TabsTrigger value="files">Files ({filesBackups.length})</TabsTrigger>
                 <TabsTrigger value="full">Full ({fullBackups.length})</TabsTrigger>
+                <TabsTrigger value="drive">Drive Settings</TabsTrigger>
               </TabsList>
 
               <TabsContent value="all" className="space-y-3 mt-4">
@@ -422,6 +428,10 @@ export default function Backup() {
                     No full backups
                   </p>
                 )}
+              </TabsContent>
+
+              <TabsContent value="drive" className="space-y-3 mt-4">
+                <DriveSettingsForm />
               </TabsContent>
             </Tabs>
           )}
