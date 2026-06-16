@@ -245,6 +245,7 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     subModules: [
       { id: "stock", label: "Stock", path: "/dashboard/inventory/stock", module: "inventory", permissionKey: "inventory.stock" },
       { id: "adjustments", label: "Adjustments", path: "/dashboard/inventory/adjustments", module: "inventory", permissionKey: "inventory.adjustments" },
+      { id: "damage", label: "Damage", path: "/dashboard/inventory/damage", module: "inventory", permissionKey: "inventory.damage" },
     ],
   },
   production: {
@@ -818,6 +819,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         path: "/dashboard/inventory/adjustments",
         label: "Adjustments",
         operations: ["create", "view", "approve"],
+      },
+      {
+        permissionKey: "inventory.damage",
+        path: "/dashboard/inventory/damage",
+        label: "Damage",
+        operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
       },
     ],
   },

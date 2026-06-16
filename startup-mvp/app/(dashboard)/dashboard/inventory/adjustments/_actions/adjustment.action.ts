@@ -14,6 +14,7 @@ import { getAccountingOperationSettings } from "@/lib/accounting-settings";
 
 export interface AdjustmentItemInput {
   itemId: string;
+  variantId?: string | null;
   quantity: number; // Positive for Gain, Negative for Loss (user enters absolute, logic handles sign based on toggle?) 
                     // Let's assume input is signed: +5 or -5.
   unitRate: number; // Cost Price
@@ -111,7 +112,10 @@ export async function getAdjustment(id: string) {
         items: {
           include: {
             item: {
-              select: { code: true, name: true, unit: { select: { symbol: true } } }
+              select: { code: true, name: true, unit: { select: { symbol: true } }, itemType: true }
+            },
+            variant: {
+              select: { sku: true, size: true, color: true }
             }
           }
         },
@@ -186,6 +190,7 @@ export async function createAdjustment(input: CreateAdjustmentInput) {
         items: {
           create: input.items.map(item => ({
             itemId: item.itemId,
+            variantId: item.variantId || null,
             quantity: item.quantity,
             unitRate: item.unitRate,
             amount: Math.abs(item.quantity * item.unitRate),
@@ -235,7 +240,9 @@ export async function approveAdjustment(id: string) {
     await prisma.$transaction(async (tx) => {
       for (const item of adjustment.items) {
         // 1. Update Stock
-        const existingStock = await tx.stock.findUnique({
+        const existingStock = item.variantId ? await tx.stock.findUnique({
+          where: { variantId_warehouseId: { variantId: item.variantId, warehouseId: adjustment.warehouseId } }
+        }) : await tx.stock.findUnique({
           where: { itemId_warehouseId: { itemId: item.itemId, warehouseId: adjustment.warehouseId } }
         });
 
@@ -249,7 +256,8 @@ export async function approveAdjustment(id: string) {
         } else {
           await tx.stock.create({
             data: {
-              itemId: item.itemId,
+              itemId: item.variantId ? null : item.itemId,
+              variantId: item.variantId || null,
               warehouseId: adjustment.warehouseId,
               quantity: newQty,
             }
@@ -259,7 +267,8 @@ export async function approveAdjustment(id: string) {
         // 2. Create Stock Ledger
         await tx.stockLedger.create({
           data: {
-            itemId: item.itemId,
+            itemId: item.variantId ? null : item.itemId,
+            variantId: item.variantId || null,
             warehouseId: adjustment.warehouseId,
             transactionType: StockTransactionType.ADJUSTMENT,
             quantity: item.quantity,

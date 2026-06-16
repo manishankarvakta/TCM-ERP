@@ -1541,6 +1541,7 @@ export async function getActiveItems() {
         code: true,
         description: true,
         costPrice: true,
+        itemType: true,
         trackInventory: true,
       },
       orderBy: {

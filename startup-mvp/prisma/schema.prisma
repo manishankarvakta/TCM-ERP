@@ -8,75 +8,76 @@ datasource db {
 }
 
 model User {
-  id                               String                @id @default(cuid())
+  id                               String                 @id @default(cuid())
   name                             String?
-  email                            String                @unique
+  email                            String                 @unique
   emailVerified                    DateTime?
   password                         String
   image                            String?
-  role                             String                @default("user")
-  status                           String                @default("active")
-  createdAt                        DateTime              @default(now())
-  updatedAt                        DateTime              @updatedAt
+  role                             String                 @default("user")
+  status                           String                 @default("active")
+  createdAt                        DateTime               @default(now())
+  updatedAt                        DateTime               @updatedAt
   designationTemplateId            String?
   permissions                      Json?
   inchargeId                       String?
   defaultWarehouseId               String?
-  isActive                         String                @default("")
+  isActive                         String                 @default("")
   accounts                         Account[]
-  createdAttendances               Attendance[]          @relation("AttendanceCreator")
-  updatedAttendances               Attendance[]          @relation("AttendanceUpdater")
-  createdBOMs                      BOM[]                 @relation("BOMCreator")
+  createdAttendances               Attendance[]           @relation("AttendanceCreator")
+  updatedAttendances               Attendance[]           @relation("AttendanceUpdater")
+  createdBOMs                      BOM[]                  @relation("BOMCreator")
   biometricSyncLogs                BiometricSyncLog[]
   CashBankAccount                  CashBankAccount[]
   ChartOfAccount                   ChartOfAccount[]
-  createdClients                   Client[]              @relation("ClientCreator")
-  Employee                         Employee?             @relation("UserEmployee")
-  approvedLoans                    EmployeeLoan[]        @relation("LoanApprover")
+  createdClients                   Client[]               @relation("ClientCreator")
+  Employee                         Employee?              @relation("UserEmployee")
+  approvedLoans                    EmployeeLoan[]         @relation("LoanApprover")
   files                            File[]
-  createdHolidays                  Holiday[]             @relation("HolidayCreator")
-  InventoryAdjustmentCreated       InventoryAdjustment[] @relation("InventoryAdjustment_createdBy")
-  InventoryAdjustmentUpdated       InventoryAdjustment[] @relation("InventoryAdjustment_updatedBy")
-  createdItems                     Item[]                @relation("ItemCreator")
+  createdHolidays                  Holiday[]              @relation("HolidayCreator")
+  InventoryAdjustmentCreated       InventoryAdjustment[]  @relation("InventoryAdjustment_createdBy")
+  InventoryAdjustmentUpdated       InventoryAdjustment[]  @relation("InventoryAdjustment_updatedBy")
+  createdItems                     Item[]                 @relation("ItemCreator")
   JournalEntryLine                 JournalEntryLine[]
-  createdLeaveApps                 LeaveApplication[]    @relation("LeaveAppCreator")
-  hrLeaves                         LeaveApplication[]    @relation("LeaveHR")
-  managedLeaves                    LeaveApplication[]    @relation("LeaveManager")
-  createdLeaveTypes                LeaveType[]           @relation("LeaveTypeCreator")
-  createdNotifications             Notification[]        @relation("NotificationCreator")
+  createdLeaveApps                 LeaveApplication[]     @relation("LeaveAppCreator")
+  hrLeaves                         LeaveApplication[]     @relation("LeaveHR")
+  managedLeaves                    LeaveApplication[]     @relation("LeaveManager")
+  createdLeaveTypes                LeaveType[]            @relation("LeaveTypeCreator")
+  createdNotifications             Notification[]         @relation("NotificationCreator")
   notifications                    Notification[]
-  createdOrganizations             Organization[]        @relation("OrganizationCreator")
-  createdOvertimes                 Overtime[]            @relation("OvertimeCreator")
-  approvedPayrolls                 Payroll[]             @relation("PayrollApprover")
-  createdPayrolls                  Payroll[]             @relation("PayrollCreator")
-  createdProductionOrders          ProductionOrder[]     @relation("ProductionOrderCreator")
-  createdPurchases                 Purchase[]            @relation("PurchaseCreatedBy")
-  updatedPurchases                 Purchase[]            @relation("PurchaseUpdatedBy")
-  createdSales                     Sale[]                @relation("SaleCreatedBy")
-  updatedSales                     Sale[]                @relation("SaleUpdatedBy")
+  createdOrganizations             Organization[]         @relation("OrganizationCreator")
+  createdOvertimes                 Overtime[]             @relation("OvertimeCreator")
+  approvedPayrolls                 Payroll[]              @relation("PayrollApprover")
+  createdPayrolls                  Payroll[]              @relation("PayrollCreator")
+  createdProductionOrders          ProductionOrder[]      @relation("ProductionOrderCreator")
+  createdPurchases                 Purchase[]             @relation("PurchaseCreatedBy")
+  updatedPurchases                 Purchase[]             @relation("PurchaseUpdatedBy")
+  createdSales                     Sale[]                 @relation("SaleCreatedBy")
+  updatedSales                     Sale[]                 @relation("SaleUpdatedBy")
   sessions                         Session[]
-  createdShifts                    Shift[]               @relation("ShiftCreator")
-  createdStockLedgers              StockLedger[]         @relation("StockLedgerCreator")
-  createdSuppliers                 Supplier[]            @relation("SupplierCreator")
-  createdUnits                     Unit[]                @relation("UnitCreator")
-  defaultWarehouse                 Warehouse?            @relation("UserDefaultWarehouse", fields: [defaultWarehouseId], references: [id])
-  designationTemplate              PermissionTemplate?   @relation("UserDesignationTemplate", fields: [designationTemplateId], references: [id])
-  incharge                         User?                 @relation("UserIncharge", fields: [inchargeId], references: [id])
-  inchargeOf                       User[]                @relation("UserIncharge")
+  createdShifts                    Shift[]                @relation("ShiftCreator")
+  createdStockLedgers              StockLedger[]          @relation("StockLedgerCreator")
+  createdSuppliers                 Supplier[]             @relation("SupplierCreator")
+  createdUnits                     Unit[]                 @relation("UnitCreator")
+  defaultWarehouse                 Warehouse?             @relation("UserDefaultWarehouse", fields: [defaultWarehouseId], references: [id])
+  designationTemplate              PermissionTemplate?    @relation("UserDesignationTemplate", fields: [designationTemplateId], references: [id])
+  incharge                         User?                  @relation("UserIncharge", fields: [inchargeId], references: [id])
+  inchargeOf                       User[]                 @relation("UserIncharge")
   userLogs                         UserLog[]
   userPermissions                  UserPermission[]
-  Voucher_Voucher_createdByToUser  Voucher[]             @relation("Voucher_createdByToUser")
-  Voucher_Voucher_postedByIdToUser Voucher[]             @relation("Voucher_postedByIdToUser")
-  Voucher_Voucher_userIdToUser     Voucher[]             @relation("Voucher_userIdToUser")
+  Voucher_Voucher_createdByToUser  Voucher[]              @relation("Voucher_createdByToUser")
+  Voucher_Voucher_postedByIdToUser Voucher[]              @relation("Voucher_postedByIdToUser")
+  Voucher_Voucher_userIdToUser     Voucher[]              @relation("Voucher_userIdToUser")
   VoucherLine                      VoucherLine[]
-  createdWarehouses                Warehouse[]           @relation("WarehouseCreator")
-  createdSettings                  Settings[]            @relation("SettingsCreator")
-  settings                         Settings[]            @relation("SettingsUser")
+  createdWarehouses                Warehouse[]            @relation("WarehouseCreator")
+  createdSettings                  Settings[]             @relation("SettingsCreator")
+  settings                         Settings[]             @relation("SettingsUser")
   rfidBundleScans                  RFIDBundleScan[]
   createdTPNs                      TransferPurchaseNote[] @relation("TPNCreatedBy")
   updatedTPNs                      TransferPurchaseNote[] @relation("TPNUpdatedBy")
   createdGRNs                      GRN[]                  @relation("GRNCreator")
   updatedGRNs                      GRN[]                  @relation("GRNUpdater")
+  inventoryDamages                 InventoryDamage[]
 
   @@index([status])
   @@index([designationTemplateId])
@@ -339,6 +340,7 @@ model Item {
   returnToVendorItems            ReturnToVendorItem[]
   tpnItems                       TransferPurchaseNoteItem[]
   grnItems                       GRNItem[]
+  inventoryDamageItems           InventoryDamageItem[]
 
   @@index([code])
   @@index([name])
@@ -352,30 +354,31 @@ model Item {
 }
 
 model Warehouse {
-  id                  String                @id @default(cuid())
+  id                  String                 @id @default(cuid())
   name                String
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
-  code                String                @unique
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  code                String                 @unique
   createdBy           String
-  isTrash             Boolean               @default(false)
-  status              String                @default("active")
+  isTrash             Boolean                @default(false)
+  status              String                 @default("active")
   address             String?
   city                String?
   country             String?
   state               String?
   zip                 String?
-  employees           Employee[]            @relation("WarehouseEmployees")
+  employees           Employee[]             @relation("WarehouseEmployees")
   holidays            Holiday[]
+  createdDamages      InventoryDamage[]
   InventoryAdjustment InventoryAdjustment[]
   productionOrders    ProductionOrder[]
   purchases           Purchase[]
   sales               Sale[]
   stocks              Stock[]
   stockLedgers        StockLedger[]
-  defaultUsers        User[]                @relation("UserDefaultWarehouse")
-  creator             User                  @relation("WarehouseCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  cashBankAccounts    CashBankAccount[]     @relation("WarehouseCashBankAccounts")
+  defaultUsers        User[]                 @relation("UserDefaultWarehouse")
+  creator             User                   @relation("WarehouseCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  cashBankAccounts    CashBankAccount[]      @relation("WarehouseCashBankAccounts")
   fabricRolls         FabricRoll[]
   returnToVendors     ReturnToVendor[]
   tpnSources          TransferPurchaseNote[] @relation("TPNSource")
@@ -902,6 +905,7 @@ model Voucher {
   isLocked                      Boolean              @default(false)
   employeeLoans                 EmployeeLoan[]
   inventoryAdjustment           InventoryAdjustment?
+  inventoryDamage               InventoryDamage?
   JournalEntry                  JournalEntry[]
   payrollPayment                Payroll?             @relation("PayrollPaymentVoucher")
   payrollAccrual                Payroll?             @relation("PayrollVoucher")
@@ -1003,6 +1007,7 @@ model InventoryAdjustmentItem {
   id                    String              @id @default(cuid())
   inventoryAdjustmentId String
   itemId                String
+  variantId             String?
   quantity              Decimal             @db.Decimal(12, 2)
   unitRate              Decimal             @default(0) @db.Decimal(12, 2)
   amount                Decimal             @default(0) @db.Decimal(12, 2)
@@ -1010,9 +1015,53 @@ model InventoryAdjustmentItem {
   updatedAt             DateTime            @updatedAt
   inventoryAdjustment   InventoryAdjustment @relation(fields: [inventoryAdjustmentId], references: [id], onDelete: Cascade)
   item                  Item                @relation(fields: [itemId], references: [id])
+  variant               ProductVariant?     @relation(fields: [variantId], references: [id], onDelete: Cascade)
 
   @@index([inventoryAdjustmentId])
   @@index([itemId])
+  @@index([variantId])
+}
+
+model InventoryDamage {
+  id            String                @id @default(cuid())
+  damageNumber  String                @unique
+  warehouseId   String
+  date          DateTime              @default(now())
+  notes         String?               @db.Text
+  status        InventoryDamageStatus @default(DRAFT)
+  isTrash       Boolean               @default(false)
+  createdById   String
+  voucherId     String?               @unique
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  warehouse     Warehouse             @relation(fields: [warehouseId], references: [id])
+  createdByUser User                  @relation(fields: [createdById], references: [id])
+  voucher       Voucher?              @relation(fields: [voucherId], references: [id])
+  items         InventoryDamageItem[]
+
+  @@index([warehouseId])
+  @@index([createdById])
+  @@index([voucherId])
+  @@index([isTrash])
+}
+
+model InventoryDamageItem {
+  id                String          @id @default(cuid())
+  inventoryDamageId String
+  itemId            String
+  variantId         String?
+  quantity          Decimal         @db.Decimal(10, 2)
+  unitRate          Decimal         @db.Decimal(10, 2)
+  amount            Decimal         @db.Decimal(10, 2)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  inventoryDamage   InventoryDamage @relation(fields: [inventoryDamageId], references: [id], onDelete: Cascade)
+  item              Item            @relation(fields: [itemId], references: [id])
+  variant           ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryDamageId])
+  @@index([itemId])
+  @@index([variantId])
 }
 
 model Shift {
@@ -1319,6 +1368,7 @@ enum VoucherType {
   SALES
   PURCHASE
   RETURN
+  DAMAGE
 }
 
 enum CashBankAccountType {
@@ -1368,6 +1418,7 @@ enum StockTransactionType {
   IN
   OUT
   ADJUSTMENT
+  DAMAGE
   PRODUCTION
   PURCHASE_RETURN
   TRANSFER
@@ -1440,6 +1491,12 @@ enum NotificationType {
   SUCCESS
 }
 
+enum InventoryDamageStatus {
+  DRAFT
+  COMPLETED
+  CANCELLED
+}
+
 enum InventoryAdjustmentStatus {
   DRAFT
   COMPLETED
@@ -1475,28 +1532,30 @@ model Fabric {
 }
 
 model ProductVariant {
-  id                      String               @id @default(cuid())
-  sku                     String               @unique
-  barcode                 String?              @unique
-  size                    String
-  color                   String
-  costPrice               Decimal?             @db.Decimal(12, 2)
-  salesPrice              Decimal?             @db.Decimal(12, 2)
-  wholesalePrice          Decimal?             @db.Decimal(12, 2)
-  wholesaleDiscountAmount Decimal?             @db.Decimal(12, 2)
-  image                   String?
-  itemId                  String
-  item                    Item                 @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  stocks                  Stock[]
-  stockLedgers            StockLedger[]
-  purchaseItems           PurchaseItem[]
-  saleItems               SaleItem[]
-  clientDiscounts         ClientItemDiscount[]
-  createdAt               DateTime             @default(now())
-  updatedAt               DateTime             @updatedAt
-  returnToVendorItems     ReturnToVendorItem[]
-  tpnItems                TransferPurchaseNoteItem[]
-  grnItems                GRNItem[]
+  id                       String                     @id @default(cuid())
+  sku                      String                     @unique
+  barcode                  String?                    @unique
+  size                     String
+  color                    String
+  costPrice                Decimal?                   @db.Decimal(12, 2)
+  salesPrice               Decimal?                   @db.Decimal(12, 2)
+  wholesalePrice           Decimal?                   @db.Decimal(12, 2)
+  wholesaleDiscountAmount  Decimal?                   @db.Decimal(12, 2)
+  image                    String?
+  itemId                   String
+  item                     Item                       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  stocks                   Stock[]
+  stockLedgers             StockLedger[]
+  purchaseItems            PurchaseItem[]
+  inventoryDamageItems     InventoryDamageItem[]
+  saleItems                SaleItem[]
+  clientDiscounts          ClientItemDiscount[]
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  returnToVendorItems      ReturnToVendorItem[]
+  tpnItems                 TransferPurchaseNoteItem[]
+  grnItems                 GRNItem[]
+  inventoryAdjustmentItems InventoryAdjustmentItem[]
 
   @@index([itemId])
   @@index([sku])
@@ -1758,23 +1817,23 @@ enum ReturnToVendorStatus {
 }
 
 model TransferPurchaseNote {
-  id                     String    @id @default(cuid())
-  tpnNumber              String    @unique
+  id                     String         @id @default(cuid())
+  tpnNumber              String         @unique
   sourceWarehouseId      String
   destinationWarehouseId String
-  date                   DateTime  @default(now())
+  date                   DateTime       @default(now())
   status                 TransferStatus @default(DRAFT)
   notes                  String?
-  isTrash                Boolean   @default(false)
+  isTrash                Boolean        @default(false)
   createdBy              String
   updatedBy              String?
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
 
-  sourceWarehouse      Warehouse @relation("TPNSource", fields: [sourceWarehouseId], references: [id])
-  destinationWarehouse Warehouse @relation("TPNDestination", fields: [destinationWarehouseId], references: [id])
-  createdByUser        User      @relation("TPNCreatedBy", fields: [createdBy], references: [id])
-  updatedByUser        User?     @relation("TPNUpdatedBy", fields: [updatedBy], references: [id])
+  sourceWarehouse      Warehouse                  @relation("TPNSource", fields: [sourceWarehouseId], references: [id])
+  destinationWarehouse Warehouse                  @relation("TPNDestination", fields: [destinationWarehouseId], references: [id])
+  createdByUser        User                       @relation("TPNCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser        User?                      @relation("TPNUpdatedBy", fields: [updatedBy], references: [id])
   items                TransferPurchaseNoteItem[]
   grns                 GRN[]
 
@@ -1791,9 +1850,9 @@ model TransferPurchaseNoteItem {
   variantId String?
   quantity  Decimal @db.Decimal(10, 2)
 
-  tpn     TransferPurchaseNote @relation(fields: [tpnId], references: [id], onDelete: Cascade)
-  item    Item                 @relation(fields: [itemId], references: [id])
-  variant ProductVariant?      @relation(fields: [variantId], references: [id])
+  tpn      TransferPurchaseNote @relation(fields: [tpnId], references: [id], onDelete: Cascade)
+  item     Item                 @relation(fields: [itemId], references: [id])
+  variant  ProductVariant?      @relation(fields: [variantId], references: [id])
   grnItems GRNItem[]
 
   @@index([tpnId])
@@ -1815,28 +1874,28 @@ enum GRNStatus {
 }
 
 model GRN {
-  id          String      @id @default(cuid())
-  grnNumber   String      @unique
+  id          String    @id @default(cuid())
+  grnNumber   String    @unique
   purchaseId  String?
   tpnId       String?
   warehouseId String
-  date        DateTime    @default(now())
-  status      GRNStatus   @default(DRAFT)
+  date        DateTime  @default(now())
+  status      GRNStatus @default(DRAFT)
   notes       String?
-  isTrash     Boolean     @default(false)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  isTrash     Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   createdBy   String
   updatedBy   String?
   voucherId   String?
 
-  purchase    Purchase?   @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
-  tpn         TransferPurchaseNote? @relation(fields: [tpnId], references: [id], onDelete: Cascade)
-  warehouse   Warehouse   @relation(fields: [warehouseId], references: [id])
-  creator     User        @relation("GRNCreator", fields: [createdBy], references: [id])
-  updater     User?       @relation("GRNUpdater", fields: [updatedBy], references: [id])
-  voucher     Voucher?    @relation(fields: [voucherId], references: [id])
-  items       GRNItem[]
+  purchase  Purchase?             @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  tpn       TransferPurchaseNote? @relation(fields: [tpnId], references: [id], onDelete: Cascade)
+  warehouse Warehouse             @relation(fields: [warehouseId], references: [id])
+  creator   User                  @relation("GRNCreator", fields: [createdBy], references: [id])
+  updater   User?                 @relation("GRNUpdater", fields: [updatedBy], references: [id])
+  voucher   Voucher?              @relation(fields: [voucherId], references: [id])
+  items     GRNItem[]
 
   @@index([purchaseId])
   @@index([tpnId])
@@ -1850,21 +1909,21 @@ model GRN {
 }
 
 model GRNItem {
-  id               String          @id @default(cuid())
+  id               String   @id @default(cuid())
   grnId            String
   purchaseItemId   String?
   tpnItemId        String?
   itemId           String?
   variantId        String?
-  receivedQuantity Decimal         @db.Decimal(10, 2)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  receivedQuantity Decimal  @db.Decimal(10, 2)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  grn              GRN             @relation(fields: [grnId], references: [id], onDelete: Cascade)
-  purchaseItem     PurchaseItem?   @relation(fields: [purchaseItemId], references: [id], onDelete: Cascade)
-  tpnItem          TransferPurchaseNoteItem? @relation(fields: [tpnItemId], references: [id], onDelete: Cascade)
-  item             Item?           @relation(fields: [itemId], references: [id])
-  variant          ProductVariant? @relation(fields: [variantId], references: [id])
+  grn          GRN                       @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  purchaseItem PurchaseItem?             @relation(fields: [purchaseItemId], references: [id], onDelete: Cascade)
+  tpnItem      TransferPurchaseNoteItem? @relation(fields: [tpnItemId], references: [id], onDelete: Cascade)
+  item         Item?                     @relation(fields: [itemId], references: [id])
+  variant      ProductVariant?           @relation(fields: [variantId], references: [id])
 
   @@index([grnId])
   @@index([purchaseItemId])

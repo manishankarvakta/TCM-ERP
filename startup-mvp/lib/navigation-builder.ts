@@ -152,6 +152,12 @@ export const MENU_TEMPLATE: MenuItemData[] = [
         icon: "FiClipboard", 
         module: "inventory" 
       },
+      { 
+        href: "/dashboard/inventory/damage", 
+        label: "Damage", 
+        icon: "FiAlertTriangle", 
+        module: "inventory" 
+      },
     ],
   },
   {

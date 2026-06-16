@@ -22,6 +22,11 @@ async function main() {
       pageAccess: true,
       operations: ["create", "view", "approve"],
     },
+    "inventory.damage": {
+      navigationVisible: true,
+      pageAccess: true,
+      operations: ["create", "view", "approve", "move-to-trash", "delete-permanently"],
+    },
   };
 
   await prisma.user.update({

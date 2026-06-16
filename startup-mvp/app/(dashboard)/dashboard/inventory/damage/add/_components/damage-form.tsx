@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Trash2, Search } from "lucide-react";
-import { createAdjustment } from "../../_actions/adjustment.action";
+import { createDamage } from "../../_actions/damage.action";
 import { getStock, getWarehouseStocks } from "../../../stock/_actions/stock.action";
 import { getItemVariants } from "../../../../master/items/_actions/item.action";
 import {
@@ -39,37 +39,37 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 
-// Schema
-const adjustmentSchema = z.object({
+const damageSchema = z.object({
   warehouseId: z.string().min(1, "Warehouse is required"),
   date: z.string().refine((val) => !isNaN(Date.parse(val)), "Invalid date"),
   notes: z.string().optional(),
   items: z.array(z.object({
     itemId: z.string().min(1, "Item is required"),
     variantId: z.string().optional().nullable(),
-    quantity: z.number().refine(val => val !== 0, "Quantity cannot be zero"),
+    quantity: z.number().min(0.01, "Quantity must be greater than zero"),
     unitRate: z.number().min(0, "Rate must be positive"),
-    // UI only fields
     description: z.string().optional(),
     amount: z.number().optional()
   })).min(1, "At least one item is required"),
 });
 
-type AdjustmentFormValues = z.infer<typeof adjustmentSchema>;
+type DamageFormValues = z.infer<typeof damageSchema>;
 
-interface AdjustmentFormProps {
+interface DamageFormProps {
   warehouses: any[];
   items: any[]; 
   userContext?: {
     isNormalUser: boolean;
     defaultWarehouseId: string | null;
   };
+  initialData?: any;
 }
 
-export default function AdjustmentForm({ warehouses, items, userContext }: AdjustmentFormProps) {
+export default function DamageForm({ warehouses, items, userContext, initialData }: DamageFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  
   const [stockMap, setStockMap] = useState<Record<string, number>>({});
   const [itemSearch, setItemSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -81,22 +81,26 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
   const [skuLoading, setSkuLoading] = useState(false);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, boolean>>({});
 
-  const form = useForm<AdjustmentFormValues>({
-    resolver: zodResolver(adjustmentSchema),
+  const form = useForm<DamageFormValues>({
+    resolver: zodResolver(damageSchema),
     defaultValues: {
-      warehouseId: userContext?.defaultWarehouseId || (warehouses.length > 0 ? warehouses[0].id : ""),
-      date: new Date().toISOString().split("T")[0],
-      notes: "",
-      items: [{ itemId: "", variantId: null, quantity: 0, unitRate: 0, description: "", amount: 0 }],
+      warehouseId: initialData?.warehouseId || userContext?.defaultWarehouseId || (warehouses.length > 0 ? warehouses[0].id : ""),
+      date: initialData?.date ? new Date(initialData.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+      notes: initialData?.notes || "",
+      items: initialData?.items?.length > 0 
+        ? initialData.items.map((i: any) => ({
+            itemId: i.itemId,
+            variantId: i.variantId || null,
+            quantity: Number(i.quantity),
+            unitRate: Number(i.unitRate),
+            description: i.description || "",
+            amount: Number(i.amount)
+          }))
+        : [{ itemId: "", variantId: null, quantity: 0, unitRate: 0, description: "", amount: 0 }],
     },
   });
 
   const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "items",
-  });
-
-  const watchedItems = useWatch({
     control: form.control,
     name: "items",
   });
@@ -106,7 +110,6 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
     name: "warehouseId",
   });
 
-  // Filter items based on search
   const filteredItems = useMemo(() => {
     if (!itemSearch) return items;
     const searchLower = itemSearch.toLowerCase();
@@ -117,7 +120,6 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
     );
   }, [items, itemSearch]);
 
-  // Calculate amounts
   useEffect(() => {
     const subscription = form.watch((value, { name, type }) => {
       if (name?.includes('quantity') || name?.includes('unitRate')) {
@@ -133,10 +135,8 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
     return () => subscription.unsubscribe();
   }, [form]);
 
-  // Fetch ALL stocks for warehouse when warehouse changes
   useEffect(() => {
      if (!warehouseId) return;
-     
      const fetchAllStocks = async () => {
         const res = await getWarehouseStocks(warehouseId);
         if (res.success && res.stocks) {
@@ -151,7 +151,6 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
            setStockMap(map);
         }
      };
-     
      fetchAllStocks();
   }, [warehouseId]); 
 
@@ -161,7 +160,6 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
     const selectedIds = Object.keys(selectedVariants).filter((id) => selectedVariants[id]);
     if (selectedIds.length === 0) return;
 
-    // First variant replaces the current row
     const firstVariantId = selectedIds[0];
     const firstVariant = skuVariants.find((v) => v.id === firstVariantId);
     
@@ -174,7 +172,6 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
       form.setValue(`items.${skuModalIndex}.unitRate`, costPrice);
     }
 
-    // Additional variants are appended as new rows
     for (let i = 1; i < selectedIds.length; i++) {
       const variantId = selectedIds[i];
       const variant = skuVariants.find((v) => v.id === variantId);
@@ -199,31 +196,36 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
     setSkuVariants([]);
   };
 
-  const onSubmit = async (data: AdjustmentFormValues) => {
+  const onSubmit = async (values: DamageFormValues) => {
     setIsSubmitting(true);
     try {
-      const result = await createAdjustment({
-         warehouseId: data.warehouseId,
-         date: new Date(data.date),
-         notes: data.notes,
-         items: data.items.map(i => ({
+      const payload = {
+         warehouseId: values.warehouseId,
+         date: new Date(values.date),
+         notes: values.notes,
+         items: values.items.map(i => ({
              itemId: i.itemId,
              variantId: i.variantId || null,
              quantity: i.quantity,
              unitRate: i.unitRate
          })),
-      });
+      };
 
-      if (result.success) {
-        toast({
-          title: "Success",
-          description: "Draft adjustment created",
-        }); 
-        router.push("/dashboard/inventory/adjustments");
+      let res;
+      if (initialData?.id) {
+        const { updateDamage } = await import("../../_actions/damage.action");
+        res = await updateDamage(initialData.id, payload);
+      } else {
+        res = await createDamage(payload);
+      }
+      
+      if (res.success) {
+        toast({ title: "Success", description: `Damage record ${initialData ? 'updated' : 'created'} successfully` });
+        router.push("/dashboard/inventory/damage");
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to create adjustment",
+          description: res.error || "Failed to save damage",
           variant: "destructive",
         });
       }
@@ -314,15 +316,15 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
 
           <div className="col-span-1 md:col-span-2 space-y-2">
             <Label>Notes</Label>
-            <Textarea {...form.register("notes")} placeholder="Reason for adjustment..." />
+            <Textarea {...form.register("notes")} placeholder="Reason for damage..." />
           </div>
         </CardContent>
       </Card>
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium">Items</h3>
-            <Button type="button" variant="outline" size="sm" onClick={() => append({ itemId: "", quantity: 0, unitRate: 0, description: "", amount: 0 })}>
+            <h3 className="text-lg font-medium">Damaged Items</h3>
+            <Button type="button" variant="outline" size="sm" onClick={() => append({ itemId: "", variantId: null, quantity: 0, unitRate: 0, description: "", amount: 0 })}>
               <Plus className="mr-2 h-4 w-4" /> Add Item
             </Button>
         </div>
@@ -335,9 +337,9 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
                      <TableHead className="w-[20%]">Item</TableHead>
                      <TableHead className="w-[20%]">Description</TableHead>
                      <TableHead className="w-[10%]">Stock</TableHead>
-                     <TableHead className="w-[15%]">Qty</TableHead>
+                     <TableHead className="w-[15%]">Qty Lost</TableHead>
                      <TableHead className="w-[15%]">Cost Price</TableHead>
-                     <TableHead className="w-[15%]">Amount</TableHead>
+                     <TableHead className="w-[15%]">Total Loss</TableHead>
                      <TableHead className="w-[50px]"></TableHead>
                    </TableRow>
                  </TableHeader>
@@ -419,24 +421,25 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
                           />
                        </TableCell>
                        <TableCell>
-                          <div className="text-sm font-medium">
+                          <div className="text-sm font-medium text-blue-600">
                              {stockMap[form.getValues(`items.${index}.variantId`) || form.getValues(`items.${index}.itemId`)] || 0}
                           </div>
                        </TableCell>
                        <TableCell>
                          <Input 
                            type="number" 
-                           step="1" 
+                           step="0.01" 
+                           min="0"
                            className="text-center"
+                           placeholder="Qty"
                            {...form.register(`items.${index}.quantity`, { valueAsNumber: true })} 
                          />
-                         <p className="text-[10px] text-muted-foreground mt-1">Neg for loss</p>
                        </TableCell>
                        <TableCell>
                           <Input 
                             readOnly
                             type="number" 
-                            step="1" 
+                            step="0.01" 
                             min="0"
                              className="text-right bg-muted"
                             {...form.register(`items.${index}.unitRate`, { valueAsNumber: true })} 
@@ -445,7 +448,7 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
                        <TableCell>
                           <Input 
                               readOnly
-                              className="bg-muted text-right"
+                              className="bg-muted text-right font-medium text-red-600"
                               value={form.watch(`items.${index}.amount`) || 0}
                           />
                        </TableCell>
@@ -463,9 +466,11 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
       </div>
 
       <div className="flex justify-end gap-2">
-         <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+         <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+           Cancel
+         </Button>
          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Creating..." : "Create Draft"}
+           {isSubmitting ? "Saving..." : initialData ? "Update Damage" : "Save Damage"}
          </Button>
       </div>
 
@@ -479,7 +484,7 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
       }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Select SKUs/Variants</DialogTitle>
+            <DialogTitle>Select SKUs/Variants for Damage</DialogTitle>
             <DialogDescription>
               Choose the specific SKUs for <strong>{skuModalItem?.code} - {skuModalItem?.description}</strong>.
             </DialogDescription>
@@ -539,7 +544,7 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
                         <TableCell className="px-4 py-2 font-mono text-xs">{variant.sku}</TableCell>
                         <TableCell className="px-4 py-2">{variant.size || "-"}</TableCell>
                         <TableCell className="px-4 py-2">{variant.color || "-"}</TableCell>
-                        <TableCell className="px-4 py-2 text-right font-medium">
+                        <TableCell className="px-4 py-2 text-right font-medium text-blue-600">
                           {stockMap[variant.id] ?? 0}
                         </TableCell>
                         <TableCell className="px-4 py-2 text-right">
