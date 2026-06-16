@@ -48,6 +48,7 @@ npm run dev
 ## 🛠 Features
 
 - **Integrated Accounting**: Double-entry bookkeeping system with real-time financial reporting (P&L, Balance Sheet, Trial Balance).
+- **Human Resource Management (HRM)**: Comprehensive employee management, attendance tracking (with biometric integration), leave applications, and automated payroll processing.
 - **Inventory Management**: Multi-warehouse stock tracking with detailed ledgers and valuation.
 - **Production (Kitchen)**: Bill of Materials (BOM) management and production order tracking.
 - **Sales & POS**: Comprehensive sales management integrated with inventory and accounting.
