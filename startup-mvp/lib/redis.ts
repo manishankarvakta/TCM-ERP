@@ -4,7 +4,14 @@ const getRedisUrl = () => {
   if (process.env.REDIS_URL) {
     return process.env.REDIS_URL;
   }
-  throw new Error("REDIS_URL is not defined");
+  console.warn("REDIS_URL is not defined, using default localhost for build/dev");
+  return "redis://localhost:6379";
 };
 
-export const redis = new Redis(getRedisUrl(), { maxRetriesPerRequest: null });
+const globalForRedis = global as unknown as { redis: Redis };
+
+export const redis =
+  globalForRedis.redis ||
+  new Redis(getRedisUrl(), { maxRetriesPerRequest: null });
+
+if (process.env.NODE_ENV !== "production") globalForRedis.redis = redis;
