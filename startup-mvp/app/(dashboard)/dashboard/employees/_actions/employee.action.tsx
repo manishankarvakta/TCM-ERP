@@ -103,6 +103,8 @@ export async function getEmployees(
         },
         photo: true,
         shiftId: true,
+        type: true,
+        nominee: true,
         salaryPayableAccount: {
           select: {
             id: true,
@@ -203,6 +205,8 @@ export async function getEmployeeById(employeeId: string) {
         },
         photo: true,
         shiftId: true, shift: { select: { id: true, name: true, startTime: true, endTime: true } },
+        type: true,
+        nominee: true,
         salaryPayableAccount: {
           select: {
             id: true,
@@ -422,6 +426,8 @@ export async function createEmployee(input: {
   warehouseId?: string;
   photo?: string;
   shiftId?: string;
+  type?: string;
+  nominee?: any;
 }) {
   try {
     const session = await auth();
@@ -439,6 +445,14 @@ export async function createEmployee(input: {
       return {
         success: false,
         error: "Name is required",
+        employee: null,
+      };
+    }
+
+    if (!input.phone || input.phone.trim() === "") {
+      return {
+        success: false,
+        error: "Phone is required",
         employee: null,
       };
     }
@@ -689,6 +703,8 @@ export async function createEmployee(input: {
           warehouseId: input.warehouseId || null,
           photo: input.photo || null,
           shiftId: input.shiftId || null,
+          type: input.type || null,
+          nominee: input.nominee || null,
           salaryPayableAccountId: salaryPayableCOA.id,
           advanceAccountId: advanceCOA?.id || null,
         },
@@ -712,6 +728,8 @@ export async function createEmployee(input: {
           warehouseId: true,
           photo: true,
           shiftId: true,
+          type: true,
+          nominee: true,
           salaryPayableAccount: {
             select: {
               id: true,
@@ -792,6 +810,8 @@ export async function updateEmployee(input: {
   warehouseId?: string;
   photo?: string;
   shiftId?: string;
+  type?: string;
+  nominee?: any;
 }) {
   try {
     const session = await auth();
@@ -841,6 +861,15 @@ export async function updateEmployee(input: {
       return {
         success: false,
         error: "Name cannot be empty",
+        employee: null,
+      };
+    }
+
+    // Validate phone if provided
+    if (input.phone !== undefined && (!input.phone || input.phone.trim() === "")) {
+      return {
+        success: false,
+        error: "Phone cannot be empty",
         employee: null,
       };
     }
@@ -1049,6 +1078,8 @@ export async function updateEmployee(input: {
         warehouseId: input.warehouseId !== undefined ? (input.warehouseId || null) : undefined,
         photo: input.photo !== undefined ? (input.photo || null) : undefined,
         shiftId: input.shiftId !== undefined ? (input.shiftId || null) : undefined,
+        nominee: input.nominee !== undefined ? (input.nominee || null) : undefined,
+        type: input.type !== undefined ? (input.type || null) : undefined,
       };
 
       // Add account IDs if they were created

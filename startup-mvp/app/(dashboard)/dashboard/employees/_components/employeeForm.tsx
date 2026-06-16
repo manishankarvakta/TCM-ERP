@@ -24,11 +24,13 @@ import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { useEffect } from "react";
 import MediaSelector from "@/components/MediaSelector";
 import { useToast } from "@/hooks/use-toast";
+import UploadDialog from "@/components/UploadDialog";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const employeeFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.union([z.string().email("Invalid email address"), z.literal("")]).optional(),
-  phone: z.string().optional().or(z.literal("")),
+  phone: z.string().min(1, "Phone is required"),
   status: z.enum(["active", "inactive"]),
   designation: z.string().optional().or(z.literal("")),
   department: z.string().optional().or(z.literal("")),
@@ -49,9 +51,16 @@ const employeeFormSchema = z.object({
     relation: z.string().optional().or(z.literal("")),
     phone: z.string().optional().or(z.literal("")),
   }).optional(),
+  nominee: z.object({
+    name: z.string().optional().or(z.literal("")),
+    phone: z.string().optional().or(z.literal("")),
+    address: z.string().optional().or(z.literal("")),
+    photos: z.array(z.string()).optional(),
+  }).optional(),
   warehouseId: z.string().optional().or(z.literal("")),
   photo: z.string().optional().or(z.literal("")),
   shiftId: z.string().optional().or(z.literal("")),
+  type: z.string().optional().or(z.literal("")),
 });
 
 type EmployeeFormData = z.infer<typeof employeeFormSchema>;
@@ -80,9 +89,11 @@ interface EmployeeFormProps {
     nationalId: string | null;
     address: any;
     emergencyContact: any;
+    nominee: any;
     warehouseId: string | null;
     photo: string | null;
     shiftId: string | null;
+    type?: string | null;
     salaryPayableAccount: {
       id: string;
       code: string;
@@ -140,9 +151,16 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
             relation: "",
             phone: "",
           },
+          nominee: initialData.nominee || {
+            name: "",
+            phone: "",
+            address: "",
+            photos: [],
+          },
           warehouseId: initialData.warehouseId || "",
           photo: initialData.photo || "",
           shiftId: initialData.shiftId || "",
+          type: initialData.type || "",
         }
       : {
           name: "",
@@ -168,9 +186,16 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
             relation: "",
             phone: "",
           },
+          nominee: {
+            name: "",
+            phone: "",
+            address: "",
+            photos: [],
+          },
           warehouseId: "",
           photo: "",
           shiftId: "",
+          type: "",
         },
   });
 
@@ -249,6 +274,29 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
     }
   };
 
+  const nomineePhotos = watch("nominee.photos") || [];
+  const [isNomineePhotoDialogOpen, setIsNomineePhotoDialogOpen] = useState(false);
+
+  const handleNomineePhotoSelect = (url: string) => {
+    setValue("nominee.photos", [...nomineePhotos, url]);
+    setIsNomineePhotoDialogOpen(false);
+  };
+
+  const removeNomineePhoto = (index: number) => {
+    const updated = nomineePhotos.filter((_, i) => i !== index);
+    setValue("nominee.photos", updated);
+  };
+
+  const moveNomineePhoto = (index: number, direction: 'left' | 'right') => {
+    const updated = [...nomineePhotos];
+    if (direction === 'left' && index > 0) {
+      [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+      setValue("nominee.photos", updated);
+    } else if (direction === 'right' && index < updated.length - 1) {
+      [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+      setValue("nominee.photos", updated);
+    }
+  };
 
   return (
     <div className="w-full">
@@ -302,7 +350,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="phone">Phone</Label>
+                          <Label htmlFor="phone">Phone *</Label>
                           <Input
                             id="phone"
                             type="tel"
@@ -310,6 +358,9 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                             {...register("phone")}
                             disabled={loading}
                           />
+                          {errors.phone && (
+                            <p className="text-sm text-destructive">{errors.phone.message}</p>
+                          )}
                         </div>
                       </div>
 
@@ -508,6 +559,26 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                         </SelectContent>
                       </Select>
                     </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="type">Type</Label>
+                      <Select
+                        defaultValue={watch("type") || ""}
+                        onValueChange={(value) => setValue("type", value)}
+                        disabled={loading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Management">Management</SelectItem>
+                          <SelectItem value="Executive">Executive</SelectItem>
+                          <SelectItem value="Staff">Staff</SelectItem>
+                          <SelectItem value="Manager">Manager</SelectItem>
+                          <SelectItem value="Sales Assistant">Sales Assistant</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
 
@@ -607,6 +678,100 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                     </div>
                   </div>
                 </div>
+
+                {/* Nominee */}
+                <div className="space-y-4 pt-4">
+                  <div className="flex items-center gap-2 border-b pb-2">
+                    <FiUser className="text-primary" />
+                    <h3 className="font-semibold">Nominee</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="nominee.name">Nominee Name</Label>
+                      <Input
+                        id="nominee.name"
+                        placeholder="John Doe"
+                        {...register("nominee.name")}
+                        disabled={loading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="nominee.phone">Contact Phone</Label>
+                      <Input
+                        id="nominee.phone"
+                        placeholder="01811223344"
+                        {...register("nominee.phone")}
+                        disabled={loading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="nominee.address">Address</Label>
+                      <Input
+                        id="nominee.address"
+                        placeholder="123 Main St"
+                        {...register("nominee.address")}
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2 pt-2">
+                    <div className="flex justify-between items-center">
+                      <Label>Nominee Photos</Label>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setIsNomineePhotoDialogOpen(true)} disabled={loading}>
+                        Add Photo
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-4 mt-2">
+                      {nomineePhotos.map((photo: string, index: number) => (
+                        <div key={index} className="relative mt-2 group border rounded-lg p-1 bg-muted/20">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img 
+                            src={photo} 
+                            alt={`Nominee Photo ${index + 1}`} 
+                            className="h-24 w-24 object-cover rounded"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => removeNomineePhoto(index)}
+                            disabled={loading}
+                          >
+                            <span className="text-xs">×</span>
+                          </Button>
+                          <div className="absolute bottom-1 left-1 right-1 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button 
+                              type="button" 
+                              variant="secondary" 
+                              size="icon" 
+                              className="h-6 w-6 rounded-full shadow-sm"
+                              onClick={() => moveNomineePhoto(index, 'left')}
+                              disabled={index === 0 || loading}
+                            >
+                              <ChevronLeft className="h-3 w-3" />
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant="secondary" 
+                              size="icon" 
+                              className="h-6 w-6 rounded-full shadow-sm"
+                              onClick={() => moveNomineePhoto(index, 'right')}
+                              disabled={index === nomineePhotos.length - 1 || loading}
+                            >
+                              <ChevronRight className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                      {nomineePhotos.length === 0 && (
+                        <p className="text-sm text-muted-foreground italic">No photos added yet.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
 
             </div>
@@ -627,6 +792,13 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           </form>
         </CardContent>
       </Card>
+      
+      <UploadDialog
+        isOpen={isNomineePhotoDialogOpen}
+        onClose={() => setIsNomineePhotoDialogOpen(false)}
+        onSelect={handleNomineePhotoSelect}
+        allowedTypes={["image/*"]}
+      />
     </div>
   );
 }

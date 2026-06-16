@@ -2,6 +2,7 @@ import React from "react";
 import PageGuard from "@/components/permissions/page-guard";
 import { getClientsForSale, getItemsForSale, getWarehousesForSale, getPaymentAccountsForPOS } from "../_actions/sale.action";
 import { getCurrentUser } from "@/app/actions/user.action";
+import { hasPermission } from "@/lib/permissions";
 import POSComponent from "./_components/POSComponent";
 
 export default async function POSPage() {
@@ -13,6 +14,8 @@ export default async function POSPage() {
     getCurrentUser(),
   ]);
 
+  const isWholesaleAllowed = currentUser ? await hasPermission(currentUser.id, "sales.pos", "wholesale") : false;
+
   return (
     <PageGuard permissionKey="sales.pos" requiredOperation="create">
       <POSComponent 
@@ -21,6 +24,7 @@ export default async function POSPage() {
         warehouses={warehousesResult.warehouses || []}
         paymentAccounts={paymentAccountsResult.accounts || []}
         currentUser={currentUser}
+        isWholesaleAllowed={isWholesaleAllowed}
       />
     </PageGuard>
   );

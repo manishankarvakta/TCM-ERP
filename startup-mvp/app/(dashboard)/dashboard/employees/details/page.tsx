@@ -233,6 +233,43 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
                 </div>
               </div>
 
+              {/* Nominee Section */}
+              {employee.nominee && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b pb-2">
+                    <FiUser className="text-primary" />
+                    <h3 className="font-semibold">Nominee Information</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Nominee Name</label>
+                      <p className="text-sm font-medium">{(employee.nominee as any)?.name || "-"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Phone Number</label>
+                      <p className="text-sm">{(employee.nominee as any)?.phone || "-"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Address</label>
+                      <p className="text-sm">{(employee.nominee as any)?.address || "-"}</p>
+                    </div>
+                  </div>
+                  {(employee.nominee as any)?.photos && (employee.nominee as any).photos.length > 0 && (
+                    <div className="space-y-2 pt-2">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Photos</label>
+                      <div className="flex flex-wrap gap-4 mt-1">
+                        {(employee.nominee as any).photos.map((photo: string, idx: number) => (
+                          <div key={idx} className="relative h-20 w-20 rounded overflow-hidden border">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={photo} alt={`Nominee ${idx + 1}`} className="object-cover w-full h-full" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Accounting Section */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 border-b pb-2">

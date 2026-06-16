@@ -41,7 +41,8 @@ export type CustomOperation =
   | "view_production_widget"
   | "view_accounts_widget"
   | "view_quick_actions_widget"
-  | "view_recent_activity_widget";
+  | "view_recent_activity_widget"
+  | "wholesale";
 
 // Standard operations for pages (as per requirements)
 export type StandardOperation = "create" | "view" | "edit" | "move-to-trash" | "delete-permanently";
@@ -414,6 +415,7 @@ export const OPERATIONS: Record<Operation, OperationMetadata> = {
   view_accounts_widget: { id: "view_accounts_widget", label: "Accounts Widget", category: "custom" },
   view_quick_actions_widget: { id: "view_quick_actions_widget", label: "Quick Actions Widget", category: "custom" },
   view_recent_activity_widget: { id: "view_recent_activity_widget", label: "Recent Activity Widget", category: "custom" },
+  wholesale: { id: "wholesale", label: "Wholesale", description: "Enable wholesale mode", category: "custom" },
 };
 
 // Helper function to get all modules
@@ -563,7 +565,7 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "sales.pos",
         path: "/dashboard/sales/pos",
         label: "POS",
-        operations: ["view", "create"],
+        operations: ["view", "create", "wholesale"],
       },
     ],
   },

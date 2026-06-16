@@ -107,6 +107,8 @@ model Employee {
   salary                 Decimal?           @db.Decimal(12, 2)
   warehouseId            String?
   employmentType         EmploymentType?    @default(PERMANENT)
+  type                   String?
+  nominee                Json?
   shiftId                String?
   attendances            Attendance[]
   attendanceLogs         AttendanceLog[]

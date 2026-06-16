@@ -92,9 +92,10 @@ interface POSComponentProps {
     role: string;
     defaultWarehouseId?: string | null;
   } | null;
+  isWholesaleAllowed?: boolean;
 }
 
-export default function POSComponent({ items, clients: initialClients, warehouses, paymentAccounts = [], currentUser }: POSComponentProps) {
+export default function POSComponent({ items, clients: initialClients, warehouses, paymentAccounts = [], currentUser, isWholesaleAllowed = false }: POSComponentProps) {
 
 
   const router = useRouter();
@@ -115,7 +116,9 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   
   // URL mode sync
   const initialMode = (searchParams.get("mode") as "RETAIL" | "WHOLESALE") || "RETAIL";
-  const [orderType, setOrderType] = useState<"RETAIL" | "WHOLESALE">(initialMode);
+  const [orderType, setOrderType] = useState<"RETAIL" | "WHOLESALE">(
+    initialMode === "WHOLESALE" && !isWholesaleAllowed ? "RETAIL" : initialMode
+  );
   
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [taxPercent, setTaxPercent] = useState<number>(0);
@@ -1324,20 +1327,22 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         <div className="p-4 flex-1 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between mb-3 gap-2">
             <h2 className="text-xl font-bold text-foreground shrink-0">Order Details</h2>
-            <div className="flex bg-muted p-0.5 rounded-lg">
-                <button 
-                  onClick={() => { if (orderType !== "RETAIL") updateOrderMode("RETAIL"); }}
-                  className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${orderType === "RETAIL" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  Retail
-                </button>
-                <button 
-                  onClick={() => { if (orderType !== "WHOLESALE") updateOrderMode("WHOLESALE"); }}
-                  className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${orderType === "WHOLESALE" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  Wholesale
-                </button>
-            </div>
+            {isWholesaleAllowed && (
+              <div className="flex bg-muted p-0.5 rounded-lg">
+                  <button 
+                    onClick={() => { if (orderType !== "RETAIL") updateOrderMode("RETAIL"); }}
+                    className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${orderType === "RETAIL" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Retail
+                  </button>
+                  <button 
+                    onClick={() => { if (orderType !== "WHOLESALE") updateOrderMode("WHOLESALE"); }}
+                    className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${orderType === "WHOLESALE" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Wholesale
+                  </button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2 mb-4">
