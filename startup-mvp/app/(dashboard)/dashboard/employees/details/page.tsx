@@ -186,6 +186,16 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
                       )}
                     </p>
                   </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Type</label>
+                    <p className="text-sm">{(employee as any).type || "-"}</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Biometric Device ID</label>
+                    <p className="text-sm font-medium">{(employee as any).biometricDeviceId || "-"}</p>
+                  </div>
                 </div>
               </div>
 

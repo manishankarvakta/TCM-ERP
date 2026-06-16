@@ -85,15 +85,15 @@ model User {
 }
 
 model Employee {
-  id                     String             @id @default(cuid())
+  id                     String              @id @default(cuid())
   name                   String
-  employeeCode           String?            @unique
+  employeeCode           String?             @unique
   email                  String?
   phone                  String?
-  userId                 String?            @unique
-  status                 String             @default("active")
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
+  userId                 String?             @unique
+  status                 String              @default("active")
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
   salaryPayableAccountId String?
   advanceAccountId       String?
   address                Json?
@@ -105,24 +105,26 @@ model Employee {
   joiningDate            DateTime?
   nationalId             String?
   photo                  String?
-  salary                 Decimal?           @db.Decimal(12, 2)
+  salary                 Decimal?            @db.Decimal(12, 2)
   warehouseId            String?
-  employmentType         EmploymentType?    @default(PERMANENT)
+  employmentType         EmploymentType?     @default(PERMANENT)
   type                   String?
+  biometricDeviceId      String?
   nominee                Json?
   shiftId                String?
   attendances            Attendance[]
   attendanceLogs         AttendanceLog[]
-  advanceAccount         ChartOfAccount?    @relation("Employee_advanceAccountIdToChartOfAccount", fields: [advanceAccountId], references: [id])
-  salaryPayableAccount   ChartOfAccount?    @relation("Employee_salaryPayableAccountIdToChartOfAccount", fields: [salaryPayableAccountId], references: [id])
-  shift                  Shift?             @relation("EmployeeShift", fields: [shiftId], references: [id])
-  user                   User?              @relation("UserEmployee", fields: [userId], references: [id])
-  warehouse              Warehouse?         @relation("WarehouseEmployees", fields: [warehouseId], references: [id])
+  advanceAccount         ChartOfAccount?     @relation("Employee_advanceAccountIdToChartOfAccount", fields: [advanceAccountId], references: [id])
+  salaryPayableAccount   ChartOfAccount?     @relation("Employee_salaryPayableAccountIdToChartOfAccount", fields: [salaryPayableAccountId], references: [id])
+  shift                  Shift?              @relation("EmployeeShift", fields: [shiftId], references: [id])
+  user                   User?               @relation("UserEmployee", fields: [userId], references: [id])
+  warehouse              Warehouse?          @relation("WarehouseEmployees", fields: [warehouseId], references: [id])
   loans                  EmployeeLoan[]
   salaryStructure        EmployeeSalary?
   leaveApps              LeaveApplication[]
   overtimes              Overtime[]
   payrollItems           PayrollItem[]
+  deviceMappings         EmployeeDeviceMap[]
 
   @@index([userId])
   @@index([status])
@@ -1331,25 +1333,77 @@ model BiometricSyncLog {
 }
 
 model BiometricDevice {
-  id             String             @id @default(cuid())
+  id             String              @id @default(cuid())
   name           String
   vendor         String
-  connectionType String             @default("IP")
+  connectionType String              @default("IP")
+  deviceType     String              @default("ATTENDANCE")
+  connectionMode String              @default("ADMS")
   ipAddress      String?
-  port           Int?               @default(4370)
+  port           Int?                @default(4370)
   apiKey         String?
-  serialNumber   String?            @unique
+  serialNumber   String?             @unique
   location       String?
-  status         String             @default("active")
+  status         String              @default("active")
+  isActive       Boolean             @default(true)
   lastSyncAt     DateTime?
+  lastPingAt     DateTime?
   createdBy      String
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
   attendanceLogs AttendanceLog[]
   syncLogs       BiometricSyncLog[]
+  deviceMappings EmployeeDeviceMap[]
 
   @@index([vendor])
   @@index([status])
+}
+
+model EmployeeDeviceMap {
+  id           String          @id @default(cuid())
+  employeeId   String
+  deviceId     String
+  deviceUserId String
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  device       BiometricDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  employee     Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, deviceUserId])
+  @@unique([employeeId, deviceId])
+  @@index([employeeId])
+  @@index([deviceId])
+}
+
+model BiometricRawLog {
+  id                 String    @id @default(cuid())
+  deviceId           String?
+  deviceSerialNumber String?
+  deviceUserId       String?
+  punchTime          DateTime?
+  rawData            String    @db.Text
+  source             String
+  syncStatus         String    @default("PENDING")
+  createdAt          DateTime  @default(now())
+
+  @@index([deviceId])
+  @@index([deviceSerialNumber])
+  @@index([syncStatus])
+}
+
+model UnmappedBiometricLog {
+  id                 String   @id @default(cuid())
+  deviceSerialNumber String?
+  deviceUserId       String
+  punchTime          DateTime
+  rawData            String?  @db.Text
+  reason             String   @default("EMPLOYEE_NOT_FOUND")
+  status             String   @default("UNRESOLVED")
+  createdAt          DateTime @default(now())
+
+  @@index([deviceSerialNumber, deviceUserId])
+  @@index([createdAt])
 }
 
 enum AccountType {

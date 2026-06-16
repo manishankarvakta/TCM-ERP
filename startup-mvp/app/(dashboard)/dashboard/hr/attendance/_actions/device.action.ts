@@ -80,3 +80,55 @@ export async function deleteBiometricDevice(id: string) {
     return { success: false, error: "Failed to delete device" };
   }
 }
+
+/**
+ * Check Device Connection
+ * Attempts to open a TCP socket to the device IP
+ */
+export async function checkDeviceConnection(id: string): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const device = await prisma.biometricDevice.findUnique({ where: { id } });
+    if (!device) return { success: false, error: "Device not found" };
+
+    if (device.connectionType === "WEB_API" || !device.ipAddress) {
+      return { success: false, error: "Cannot ping Cloud/ADMS devices directly. The device must push data to the server." };
+    }
+
+    // Try to open a TCP socket
+    const net = require("net");
+    const port = device.port || 4370;
+
+    return new Promise((resolve) => {
+      const socket = new net.Socket();
+      socket.setTimeout(3000); // 3 seconds timeout
+
+      socket.on("connect", async () => {
+        socket.destroy();
+        await prisma.biometricDevice.update({
+          where: { id },
+          data: { lastPingAt: new Date() },
+        });
+        revalidateBothPaths("hr/attendance/devices");
+        resolve({ success: true, message: "Device is Online!" });
+      });
+
+      socket.on("timeout", () => {
+        socket.destroy();
+        resolve({ success: false, error: "Connection timed out. Device is Offline." });
+      });
+
+      socket.on("error", (err: any) => {
+        socket.destroy();
+        resolve({ success: false, error: `Connection failed: ${err.message}` });
+      });
+
+      socket.connect(port, device.ipAddress!);
+    });
+  } catch (error) {
+    console.error("checkDeviceConnection error:", error);
+    return { success: false, error: "Failed to check connection" };
+  }
+}

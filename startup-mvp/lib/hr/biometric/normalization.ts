@@ -4,7 +4,7 @@
  */
 
 export interface NormalizedPunch {
-  employeeCode: string;
+  biometricDeviceId: string;
   timestamp: Date;
   deviceId?: string;
   vendor: string;
@@ -21,7 +21,7 @@ export interface BiometricAdapter {
 class ZKTecoAdapter implements BiometricAdapter {
   normalize(rawData: any[]): NormalizedPunch[] {
     return rawData.map((item) => ({
-      employeeCode: String(item.EnrollNumber || item.employeeCode),
+      biometricDeviceId: String(item.EnrollNumber || item.biometricDeviceId || item.employeeCode),
       timestamp: new Date(`${item.Date} ${item.Time}`),
       deviceId: item.DeviceID || item.deviceId,
       vendor: "ZKTeco",
@@ -36,7 +36,7 @@ class ZKTecoAdapter implements BiometricAdapter {
 class ESSlAdapter implements BiometricAdapter {
   normalize(rawData: any[]): NormalizedPunch[] {
     return rawData.map((item) => ({
-      employeeCode: String(item.UserID || item.employeeCode),
+      biometricDeviceId: String(item.UserID || item.biometricDeviceId || item.employeeCode),
       timestamp: new Date(item.LogTime || item.timestamp),
       deviceId: item.DeviceIP || item.deviceId,
       vendor: "eSSL",
@@ -51,7 +51,7 @@ class ESSlAdapter implements BiometricAdapter {
 class FingerTecAdapter implements BiometricAdapter {
   normalize(rawData: any[]): NormalizedPunch[] {
     return rawData.map((item) => ({
-      employeeCode: String(item.ID || item.employeeCode),
+      biometricDeviceId: String(item.ID || item.biometricDeviceId || item.employeeCode),
       timestamp: new Date(item.DateTime || item.timestamp),
       deviceId: item.Terminal || item.deviceId,
       vendor: "FingerTec",

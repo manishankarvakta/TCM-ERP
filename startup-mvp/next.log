@@ -1,0 +1,116 @@
+
+> FF-ERP@0.1.0 dev
+> next dev --webpack -p 3005
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ ⚠ Invalid next.config.ts options detected: 
+ ⚠     Unrecognized key(s) in object: 'serverActions'
+ ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+   ▲ Next.js 16.0.0 (webpack)
+   - Local:        http://localhost:3005
+   - Network:      http://192.168.0.103:3005
+   - Environments: .env
+   - Experiments (use with caution):
+     · serverActions
+
+ ✓ Starting...
+[Backup Scheduler] Initializing backup cron job...
+🚀 Biometric Worker instantiated and listening for jobs on 'biometric-sync' queue!
+Biometric Worker registered in instrumentation
+(node:23389) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ ✓ Ready in 5.1s
+ ⚠ ./node_modules/bullmq/dist/esm/classes/child-processor.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/bullmq/dist/esm/classes/child-processor.js
+./node_modules/bullmq/dist/esm/classes/index.js
+./node_modules/bullmq/dist/esm/index.js
+./lib/hr/biometric/queue.ts
+./lib/hr/biometric/sync-service.ts
+./app/iclock/cdata/route.ts
+🚀 Biometric Worker instantiated and listening for jobs on 'biometric-sync' queue!
+ GET /iclock/cdata?SN=TESTDEV1 200 in 2.2s (compile: 1947ms, proxy.ts: 195ms, render: 40ms)
+syncBiometricLogs error: Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.biometricSyncLog.create()` invocation:
+
+
+Foreign key constraint violated on the constraint: `BiometricSyncLog_syncedBy_fkey`
+    at async syncBiometricLogs (lib/hr/biometric/sync-service.ts:17:21)
+    at async POST (app/iclock/cdata/route.ts:92:11)
+  15 |   try {
+  16 |     // 1. Create a Sync Log in PENDING status
+> 17 |     const syncLog = await prisma.biometricSyncLog.create({
+     |                     ^
+  18 |       data: {
+  19 |         vendor: input.vendor,
+  20 |         deviceId: input.deviceId, {
+  code: 'P2003',
+  meta: [Object],
+  clientVersion: '6.19.1'
+}
+ POST /iclock/cdata?SN=TESTDEV1&table=ATTLOG 200 in 149ms (compile: 5ms, proxy.ts: 10ms, render: 134ms)
+ ○ Compiling /iclock/cdata ...
+syncBiometricLogs error: Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.biometricSyncLog.create()` invocation:
+
+
+Foreign key constraint violated on the constraint: `BiometricSyncLog_syncedBy_fkey`
+    at async syncBiometricLogs (lib/hr/biometric/sync-service.ts:17:21)
+    at async POST (app/iclock/cdata/route.ts:92:11)
+  15 |   try {
+  16 |     // 1. Create a Sync Log in PENDING status
+> 17 |     const syncLog = await prisma.biometricSyncLog.create({
+     |                     ^
+  18 |       data: {
+  19 |         vendor: input.vendor,
+  20 |         deviceId: input.deviceId, {
+  code: 'P2003',
+  meta: [Object],
+  clientVersion: '6.19.1'
+}
+ POST /iclock/cdata?SN=TESTDEV1&table=ATTLOG 200 in 249ms (compile: 21ms, proxy.ts: 22ms, render: 206ms)
+syncBiometricLogs error: Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.biometricSyncLog.create()` invocation:
+
+
+Foreign key constraint violated on the constraint: `BiometricSyncLog_syncedBy_fkey`
+    at async syncBiometricLogs (lib/hr/biometric/sync-service.ts:17:21)
+    at async POST (app/iclock/cdata/route.ts:92:11)
+  15 |   try {
+  16 |     // 1. Create a Sync Log in PENDING status
+> 17 |     const syncLog = await prisma.biometricSyncLog.create({
+     |                     ^
+  18 |       data: {
+  19 |         vendor: input.vendor,
+  20 |         deviceId: input.deviceId, {
+  code: 'P2003',
+  meta: [Object],
+  clientVersion: '6.19.1'
+}
+ POST /iclock/cdata?SN=TESTDEV1&table=ATTLOG 200 in 109ms (compile: 4ms, proxy.ts: 8ms, render: 97ms)
+ ⚠ ./node_modules/bullmq/dist/esm/classes/child-processor.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/bullmq/dist/esm/classes/child-processor.js
+./node_modules/bullmq/dist/esm/classes/index.js
+./node_modules/bullmq/dist/esm/index.js
+./lib/hr/biometric/queue.ts
+./lib/hr/biometric/sync-service.ts
+./app/iclock/cdata/route.ts
+ ⚠ ./node_modules/bullmq/dist/esm/classes/child-processor.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/bullmq/dist/esm/classes/child-processor.js
+./node_modules/bullmq/dist/esm/classes/index.js
+./node_modules/bullmq/dist/esm/index.js
+./lib/hr/biometric/queue.ts
+./lib/hr/biometric/sync-service.ts
+./app/iclock/cdata/route.ts
+🚀 Biometric Worker instantiated and listening for jobs on 'biometric-sync' queue!
+ POST /api/biometric/sync 401 in 594ms (compile: 588ms, render: 6ms)
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[?25h

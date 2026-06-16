@@ -13,6 +13,7 @@ import { startOfDay, endOfDay } from "date-fns";
  */
 export async function processBiometricAttendance(startDate: Date, endDate: Date, employeeId?: string) {
   try {
+    console.log("⚙️ [PROCESS] Operation triggered for date range:", startDate, "-", endDate);
     const where: any = {
       timestamp: {
         gte: startOfDay(startDate),
@@ -31,8 +32,12 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
     });
 
     if (logs.length === 0) {
+      console.log("⚠️ [PROCESS] Finish Result. No raw logs found for this date range.");
       return { success: true, processedCount: 0, message: "No logs found to process" };
     }
+    
+    console.log("📥 [PROCESS] Raw Logs fetched from database:");
+    console.log(JSON.stringify(logs, null, 2));
 
     // Group logs by employee and date
     const groupedLogs: Record<string, Record<string, Date[]>> = {};
@@ -124,7 +129,6 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
             status,
             shiftId: employee.shiftId,
             isManual: false,
-            createdBy: "SYSTEM", // Placeholder for system-generated
           },
         });
 
@@ -132,6 +136,7 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
       }
     }
 
+    console.log("✅ [PROCESS] Finish Result. Successfully generated", processedCount, "Attendance records.");
     return { success: true, processedCount };
   } catch (error) {
     console.error("processBiometricAttendance error:", error);

@@ -5,6 +5,8 @@ import { processNormalizedChunk } from "./sync-service";
 import { processBiometricAttendance } from "./processor";
 import { BiometricJobData, BiometricJobType } from "./queue";
 
+console.log("🚀 Biometric Worker instantiated and listening for jobs on 'biometric-sync' queue!");
+
 export const biometricWorker = new Worker(
   "biometric-sync",
   async (job: Job<BiometricJobData>) => {
@@ -51,6 +53,7 @@ export const biometricWorker = new Worker(
           data: { status: "COMPLETED" as any },
         });
 
+        console.log(`✅ SYNC_LOGS Job ${job.id} completely finished. Processed total: ${dataArray.length} records.`);
         return { success: true, processed: dataArray.length };
       } catch (error) {
         console.error(`Error in biometric worker for job ${job.id} (SYNC_LOGS):`, error);
@@ -85,6 +88,7 @@ export const biometricWorker = new Worker(
           throw new Error(result.error || "Failed to process biometric attendance");
         }
 
+        console.log(`✅ PROCESS_ATTENDANCE Job ${job.id} completely finished for range ${startDate} to ${endDate}.`);
         return result;
       } catch (error) {
         console.error(`Error in biometric worker for job ${job.id} (PROCESS_ATTENDANCE):`, error);

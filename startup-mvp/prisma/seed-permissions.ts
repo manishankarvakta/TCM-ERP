@@ -29,9 +29,25 @@ async function seedPermissions() {
   );
   const allStandardOps = ["create", "view", "edit", "move-to-trash", "delete-permanently"];
 
+  const hrExtraKeys = [
+    "hr.view",
+    "hr.employee.view",
+    "hr.employee.manage",
+    "hr.attendance.view",
+    "hr.attendance.manage",
+    "hr.attendance.import",
+    "hr.biometric.view",
+    "hr.biometric.sync",
+    "hr.biometric.manage",
+    "hr.payroll.view",
+    "hr.payroll.manage"
+  ];
+
   // Manager Template - Full access to all pages
-  const managerPermissions: Partial<EnhancedPermissions> =
-    createPermissionsForPages(allPageKeys, allStandardOps);
+  const managerPermissions: Partial<EnhancedPermissions> = {
+    ...createPermissionsForPages(allPageKeys, allStandardOps),
+    ...createPermissionsForPages(hrExtraKeys, allStandardOps)
+  };
 
   // Sales Executive Template - Quotations and Clients focus
   const salesExecutivePermissions: Partial<EnhancedPermissions> = {
@@ -137,8 +153,10 @@ async function seedPermissions() {
   // ============================================
 
   // Super Admin Template - Full system access (developer-level)
-  const superAdminPermissions: Partial<EnhancedPermissions> = 
-    createPermissionsForPages(allPageKeys, ["create", "view", "edit", "move-to-trash", "delete-permanently", "export", "import"]);
+  const superAdminPermissions: Partial<EnhancedPermissions> = {
+    ...createPermissionsForPages(allPageKeys, ["create", "view", "edit", "move-to-trash", "delete-permanently", "export", "import"]),
+    ...createPermissionsForPages(hrExtraKeys, ["create", "view", "edit", "move-to-trash", "delete-permanently", "export", "import"])
+  };
 
   // Admin Template - Full operational access (no system/developer settings)
   const adminPermissions: Partial<EnhancedPermissions> = {
@@ -188,6 +206,8 @@ async function seedPermissions() {
     ...createPermissionsForPages(["files"], allStandardOps),
     ...createPermissionsForPages(["notifications"], ["view", "edit"]),
     ...createPermissionsForPages(["reports.view"], ["view", "export"]),
+    // HR Extra permissions
+    ...createPermissionsForPages(hrExtraKeys, allStandardOps),
     // Settings - full access except developer tools
     ...createPermissionsForPages(
       [

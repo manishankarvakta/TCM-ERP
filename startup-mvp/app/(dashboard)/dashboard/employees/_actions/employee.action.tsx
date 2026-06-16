@@ -206,6 +206,7 @@ export async function getEmployeeById(employeeId: string) {
         photo: true,
         shiftId: true, shift: { select: { id: true, name: true, startTime: true, endTime: true } },
         type: true,
+        biometricDeviceId: true,
         nominee: true,
         salaryPayableAccount: {
           select: {
@@ -238,7 +239,10 @@ export async function getEmployeeById(employeeId: string) {
 
     return {
       success: true,
-      employee,
+      employee: {
+        ...employee,
+        salary: employee.salary ? Number(employee.salary) : null,
+      },
     };
   } catch (error) {
     console.error("getEmployeeById error:", error);
@@ -427,6 +431,7 @@ export async function createEmployee(input: {
   photo?: string;
   shiftId?: string;
   type?: string;
+  biometricDeviceId?: string;
   nominee?: any;
 }) {
   try {
@@ -704,6 +709,7 @@ export async function createEmployee(input: {
           photo: input.photo || null,
           shiftId: input.shiftId || null,
           type: input.type || null,
+          biometricDeviceId: input.biometricDeviceId || null,
           nominee: input.nominee || null,
           salaryPayableAccountId: salaryPayableCOA.id,
           advanceAccountId: advanceCOA?.id || null,
@@ -811,6 +817,7 @@ export async function updateEmployee(input: {
   photo?: string;
   shiftId?: string;
   type?: string;
+  biometricDeviceId?: string;
   nominee?: any;
 }) {
   try {
@@ -1080,6 +1087,7 @@ export async function updateEmployee(input: {
         shiftId: input.shiftId !== undefined ? (input.shiftId || null) : undefined,
         nominee: input.nominee !== undefined ? (input.nominee || null) : undefined,
         type: input.type !== undefined ? (input.type || null) : undefined,
+        biometricDeviceId: input.biometricDeviceId !== undefined ? (input.biometricDeviceId || null) : undefined,
       };
 
       // Add account IDs if they were created

@@ -49,20 +49,57 @@ export async function processNormalizedChunk(input: {
   rawData: any[];
   deviceId?: string;
 }) {
+  console.log("📥 [SYNC] Operation triggered. Raw Data received from device:");
+  console.log(JSON.stringify(input.rawData, null, 2));
+
   const normalizedLogs = normalizeBiometricLogs(input.vendor, input.rawData);
   
-  // Get employees for mapping
-  const employees = await prisma.employee.findMany({
-    select: { id: true, employeeCode: true },
+  console.log("🔄 [SYNC] Data after normalization:");
+  console.log(JSON.stringify(normalizedLogs, null, 2));
+  
+  // Get explicit device maps
+  const deviceMaps = await prisma.employeeDeviceMap.findMany({
+    where: { isActive: true },
+    select: { deviceUserId: true, deviceId: true, employeeId: true }
   });
-  const empMap = new Map(employees.map((e) => [e.employeeCode, e.id]));
+
+  // Get employees for mapping fallback
+  const employees = await prisma.employee.findMany({
+    select: { id: true, biometricDeviceId: true },
+    where: { biometricDeviceId: { not: null } }
+  });
+  const empFallbackMap = new Map(employees.map((e) => [e.biometricDeviceId, e.id]));
   
   let processedCount = 0;
   let errorCount = 0;
 
   for (const log of normalizedLogs) {
-    const employeeId = empMap.get(log.employeeCode);
+    let employeeId = undefined;
+
+    // 1. Try to find in EmployeeDeviceMap
+    if (input.deviceId) {
+      const mapEntry = deviceMaps.find(m => m.deviceId === input.deviceId && m.deviceUserId === log.biometricDeviceId);
+      if (mapEntry) employeeId = mapEntry.employeeId;
+    }
+
+    // 2. Fallback to Employee.biometricDeviceId
     if (!employeeId) {
+      employeeId = empFallbackMap.get(log.biometricDeviceId);
+    }
+
+    if (!employeeId) {
+      // 3. Log Unmapped Biometric Punch
+      try {
+        await prisma.unmappedBiometricLog.create({
+          data: {
+            deviceUserId: log.biometricDeviceId,
+            punchTime: log.timestamp,
+            reason: "EMPLOYEE_NOT_FOUND",
+          }
+        });
+      } catch (err) {
+        console.error("Failed to insert UnmappedBiometricLog:", err);
+      }
       errorCount++;
       continue;
     }
@@ -80,13 +117,34 @@ export async function processNormalizedChunk(input: {
           employeeId,
           timestamp: log.timestamp,
           source: "BIOMETRIC",
-          deviceId: log.deviceId || input.deviceId,
+          deviceId: input.deviceId || undefined,
         },
       });
       processedCount++;
     } catch (err) {
+      console.error("Upsert failed for employee:", log.biometricDeviceId, err);
       errorCount++;
     }
+  }
+
+  console.log("✅ [SYNC] Finish Result. Upserted:", processedCount, "Failed/Skipped:", errorCount);
+
+  // Auto-chain: Enqueue processing for the affected date range
+  if (processedCount > 0 && normalizedLogs.length > 0) {
+    let minDate = normalizedLogs[0].timestamp;
+    let maxDate = normalizedLogs[0].timestamp;
+    for (const log of normalizedLogs) {
+      if (log.timestamp < minDate) minDate = log.timestamp;
+      if (log.timestamp > maxDate) maxDate = log.timestamp;
+    }
+    
+    // Auto-enqueue attendance calculation
+    await biometricQueue.add(`auto-process-${Date.now()}`, {
+      type: BiometricJobType.PROCESS_ATTENDANCE,
+      startDate: minDate,
+      endDate: maxDate,
+    });
+    console.log(`🚀 [SYNC] Auto-chained processing job for ${minDate.toISOString()} to ${maxDate.toISOString()}`);
   }
 
   return { processedCount, errorCount };

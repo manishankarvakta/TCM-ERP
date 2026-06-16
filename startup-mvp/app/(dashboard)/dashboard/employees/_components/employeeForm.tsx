@@ -37,6 +37,8 @@ const employeeFormSchema = z.object({
   salary: z.coerce.number().optional().or(z.literal(0)),
   joiningDate: z.string().optional().or(z.literal("")),
   gender: z.string().optional().or(z.literal("")),
+  type: z.string().optional().or(z.literal("")),
+  biometricDeviceId: z.string().optional().or(z.literal("")),
   dateOfBirth: z.string().optional().or(z.literal("")),
   nationalId: z.string().optional().or(z.literal("")),
   address: z.object({
@@ -161,6 +163,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           photo: initialData.photo || "",
           shiftId: initialData.shiftId || "",
           type: initialData.type || "",
+          biometricDeviceId: initialData.biometricDeviceId || "",
         }
       : {
           name: "",
@@ -196,6 +199,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           photo: "",
           shiftId: "",
           type: "",
+          biometricDeviceId: "",
         },
   });
 
@@ -578,6 +582,16 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                           <SelectItem value="Sales Assistant">Sales Assistant</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="biometricDeviceId">Biometric Device ID</Label>
+                      <Input
+                        id="biometricDeviceId"
+                        placeholder="Device ID"
+                        {...register("biometricDeviceId")}
+                        disabled={loading}
+                      />
                     </div>
                   </div>
                 </div>

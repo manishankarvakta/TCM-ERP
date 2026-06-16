@@ -81,3 +81,75 @@ export async function getBiometricSyncLogs(limit = 10) {
     return { success: false, error: "Failed to fetch logs" };
   }
 }
+
+/**
+ * Trigger Active Pull from all TCP/IP (Direct) Devices
+ */
+export async function triggerActiveDeviceSync() {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const canSync = await hasPermission(session.user.id, "hr.attendance", "create");
+    if (!canSync) return { success: false, error: "Permission denied" };
+
+    // Fetch all active IP devices
+    const devices = await prisma.biometricDevice.findMany({
+      where: { status: "active", connectionType: "IP" },
+    });
+
+    if (devices.length === 0) {
+      return { success: false, error: "No active TCP/IP devices configured." };
+    }
+
+    const { pullLogsFromDevice } = await import("@/lib/hr/biometric/zklib-service");
+
+    let totalPulled = 0;
+    let failedDevices = 0;
+
+    for (const device of devices) {
+      if (!device.ipAddress) {
+        failedDevices++;
+        continue;
+      }
+
+      // Update ping time
+      await prisma.biometricDevice.update({
+        where: { id: device.id },
+        data: { lastPingAt: new Date() }
+      });
+
+      const port = parseInt(device.port || "4370");
+      const pullResult = await pullLogsFromDevice(device.ipAddress, port);
+
+      if (pullResult.success && pullResult.logs && pullResult.logs.length > 0) {
+        // Enqueue the downloaded logs using existing queue logic
+        await syncBiometricLogs({
+          vendor: device.vendor || "ZKTeco",
+          rawData: pullResult.logs,
+          deviceId: device.id,
+          syncedBy: session.user.id,
+        });
+        totalPulled += pullResult.logs.length;
+      } else if (!pullResult.success) {
+        failedDevices++;
+      }
+    }
+
+    revalidateBothPaths("hr/attendance");
+
+    if (failedDevices > 0 && totalPulled === 0) {
+      return { success: false, error: `Failed to connect to ${failedDevices} device(s).` };
+    }
+
+    return { 
+      success: true, 
+      message: `Successfully queued ${totalPulled} logs from devices.`,
+      totalPulled
+    };
+
+  } catch (error: any) {
+    console.error("triggerActiveDeviceSync error:", error);
+    return { success: false, error: "Action failed" };
+  }
+}

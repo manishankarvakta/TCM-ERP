@@ -39,6 +39,9 @@ import {
   FiClipboard,
   FiCpu,
   FiCalendar,
+  FiLink,
+  FiAlertCircle,
+  FiRefreshCw,
 } from "react-icons/fi";
 import Logo from "@/components/layout/logo";
 import { SlCalculator } from "react-icons/sl";
@@ -73,6 +76,9 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   FiClipboard,
   FiCpu,
   FiCalendar,
+  FiLink,
+  FiAlertCircle,
+  FiRefreshCw,
   SlCalculator,
   MdOutlineCategory,
 };

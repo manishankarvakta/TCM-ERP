@@ -46,6 +46,16 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  
+  async redirects() {
+    return [
+      {
+        source: '/dashboard/hr/attendance/devices',
+        destination: '/dashboard/hr/biometric/devices',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

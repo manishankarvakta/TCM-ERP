@@ -126,7 +126,11 @@ export const MENU_TEMPLATE: MenuItemData[] = [
       { href: "/dashboard/hr/leave", label: "Leave", icon: "FiFileText", module: "hr" },
       { href: "/dashboard/hr/payroll", label: "Payroll", icon: "FiDollarSign", module: "hr" },
       { href: "/dashboard/hr/loans", label: "Loans", icon: "FiCreditCard", module: "hr" },
-      { href: "/dashboard/hr/attendance/devices", label: "Biometric Devices", icon: "FiCpu", module: "hr" },
+      { href: "/dashboard/hr/biometric/devices", label: "Biometric Devices", icon: "FiCpu", module: "hr" },
+      { href: "/dashboard/hr/biometric/mapping", label: "Device Mapping", icon: "FiLink", module: "hr" },
+      { href: "/dashboard/hr/biometric/raw-logs", label: "Raw Logs", icon: "FiDatabase", module: "hr" },
+      { href: "/dashboard/hr/biometric/unmapped-logs", label: "Unmapped Logs", icon: "FiAlertCircle", module: "hr" },
+      { href: "/dashboard/hr/biometric/sync-history", label: "Sync History", icon: "FiRefreshCw", module: "hr" },
     ],
   },
   {
@@ -302,9 +306,14 @@ export function getPermissionKeyFromPath(path: string): string | null {
       const moduleName = pathParts[0];
       const subModule = pathParts[1];
       
-      // Special case for HR attendance devices
-      if (moduleName === "hr" && subModule === "attendance" && pathParts[2] === "devices") {
-        return "hr.attendance.devices";
+      // Special case for HR biometric devices
+      if (moduleName === "hr" && subModule === "biometric") {
+        const pageName = pathParts[2];
+        if (pageName === "devices") return "hr.biometric.view";
+        if (pageName === "mapping") return "hr.biometric.manage";
+        if (pageName === "raw-logs") return "hr.biometric.view";
+        if (pageName === "unmapped-logs") return "hr.biometric.manage";
+        if (pageName === "sync-history") return "hr.biometric.view";
       }
       
       return `${moduleName}.${subModule}`;

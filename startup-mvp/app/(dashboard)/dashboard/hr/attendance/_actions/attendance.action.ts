@@ -127,7 +127,14 @@ export async function processManualAttendance(input: {
           isManual: true,
         }
       });
-      await logItemUpdated(session.user.id, "Attendance", attendance.id, `Attendance for ${employee.name}`, oldAttendance, attendance);
+      await logItemUpdated(
+        session.user.id, 
+        "Attendance", 
+        attendance.id, 
+        [], 
+        `Attendance for ${employee.name}`, 
+        { old: oldAttendance, new: attendance }
+      );
     } else {
       // Create
       attendance = await prisma.attendance.create({

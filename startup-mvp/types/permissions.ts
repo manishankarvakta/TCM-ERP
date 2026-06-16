@@ -42,7 +42,8 @@ export type CustomOperation =
   | "view_accounts_widget"
   | "view_quick_actions_widget"
   | "view_recent_activity_widget"
-  | "wholesale";
+  | "wholesale"
+  | "sync";
 
 // Standard operations for pages (as per requirements)
 export type StandardOperation = "create" | "view" | "edit" | "move-to-trash" | "delete-permanently";
@@ -417,6 +418,7 @@ export const OPERATIONS: Record<Operation, OperationMetadata> = {
   view_quick_actions_widget: { id: "view_quick_actions_widget", label: "Quick Actions Widget", category: "custom" },
   view_recent_activity_widget: { id: "view_recent_activity_widget", label: "Recent Activity Widget", category: "custom" },
   wholesale: { id: "wholesale", label: "Wholesale", description: "Enable wholesale mode", category: "custom" },
+  sync: { id: "sync", label: "Sync", description: "Sync data from external devices", category: "custom" },
 };
 
 // Helper function to get all modules
@@ -713,10 +715,34 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
       },
       {
-        permissionKey: "hr.attendance.devices",
-        path: "/dashboard/hr/attendance/devices",
+        permissionKey: "hr.biometric.view",
+        path: "/dashboard/hr/biometric/devices",
         label: "Biometric Devices",
-        operations: ["create", "view", "edit", "delete"],
+        operations: ["view", "create", "edit", "delete"],
+      },
+      {
+        permissionKey: "hr.biometric.manage",
+        path: "/dashboard/hr/biometric/mapping",
+        label: "Employee Device Mapping",
+        operations: ["view", "manage"],
+      },
+      {
+        permissionKey: "hr.biometric.view",
+        path: "/dashboard/hr/biometric/raw-logs",
+        label: "Raw Biometric Logs",
+        operations: ["view"],
+      },
+      {
+        permissionKey: "hr.biometric.manage",
+        path: "/dashboard/hr/biometric/unmapped-logs",
+        label: "Unmapped Logs",
+        operations: ["view", "manage"],
+      },
+      {
+        permissionKey: "hr.biometric.view",
+        path: "/dashboard/hr/biometric/sync-history",
+        label: "Sync History",
+        operations: ["view"],
       },
     ],
   },
