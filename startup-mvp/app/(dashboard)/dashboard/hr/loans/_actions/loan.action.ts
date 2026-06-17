@@ -64,7 +64,7 @@ export async function getLoanById(id: string) {
         voucher: {
           select: {
             id: true,
-            voucherNo: true,
+            voucherNumber: true,
           }
         }
       }

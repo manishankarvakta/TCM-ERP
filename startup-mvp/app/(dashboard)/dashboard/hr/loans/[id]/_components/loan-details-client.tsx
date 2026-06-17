@@ -185,9 +185,9 @@ export default function LoanDetailsClient({ loan, permissions }: LoanDetailsClie
               </div>
             )}
             {loan.voucher && (
-              <div className="flex justify-between border-t pt-2">
-                <span className="text-muted-foreground">Voucher No</span>
-                <Badge variant="secondary">{loan.voucher.voucherNo}</Badge>
+              <div className="flex justify-between items-center py-2 border-b">
+                <span className="text-sm text-muted-foreground">Voucher</span>
+                <Badge variant="secondary">{loan.voucher.voucherNumber}</Badge>
               </div>
             )}
           </CardContent>

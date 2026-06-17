@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import { FiSearch, FiEdit, FiPower, FiMoreVertical } from "react-icons/fi";
+import { FiSearch, FiEdit, FiPower, FiMoreVertical, FiHardDrive, FiRefreshCw } from "react-icons/fi";
 import { toggleBiometricDeviceStatus } from "../_actions/device.action";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -88,14 +88,20 @@ export default function DevicesListClient({
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full max-w-sm">
-          <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, serial, or location..."
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="pl-9"
-          />
+        <div className="relative w-full max-w-sm flex items-center gap-2">
+          <div className="relative w-full">
+            <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, serial, or location..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Button variant="outline" onClick={() => router.refresh()}>
+            <FiRefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
         </div>
       </div>
 
@@ -126,7 +132,26 @@ export default function DevicesListClient({
             ) : (
               initialDevices.map((device) => (
                 <TableRow key={device.id}>
-                  <TableCell className="font-medium">{device.name}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <div className="p-2 bg-muted rounded-md">
+                          <FiHardDrive className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        {device.lastPingAt && (new Date().getTime() - new Date(device.lastPingAt).getTime() < 15 * 60 * 1000) ? (
+                          <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500 border-2 border-white dark:border-gray-950"></span>
+                          </span>
+                        ) : (
+                          <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border-2 border-white dark:border-gray-950"></span>
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-medium">{device.name}</span>
+                    </div>
+                  </TableCell>
                   <TableCell>{device.serialNumber}</TableCell>
                   <TableCell>{device.deviceType}</TableCell>
                   <TableCell>
