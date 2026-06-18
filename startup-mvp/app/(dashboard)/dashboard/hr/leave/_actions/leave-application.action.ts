@@ -6,6 +6,7 @@ import { logItemCreated, logItemUpdated } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { type Prisma, LeaveStatus } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
+import { calculateWorkHours, calculateOTHours, determineAttendanceStatus } from "@/lib/hr/shift-utils";
 
 /**
  * Get Paginated Leave Applications
@@ -195,67 +196,137 @@ export async function updateLeaveStatus(id: string, newStatus: LeaveStatus) {
       return { success: false, error: "Leave application not found" };
     }
 
-    const updateData: any = { status: newStatus };
+    const needsRollback = oldApp.status === "HR_APPROVED" && 
+                          (newStatus === "CANCELLED" || newStatus === "REJECTED" || 
+                           newStatus === "PENDING" || newStatus === "MANAGER_APPROVED");
 
-    if (newStatus === "MANAGER_APPROVED") {
-      updateData.managerId = session.user.id;
-    } else if (newStatus === "HR_APPROVED") {
-      updateData.hrId = session.user.id;
-    } else if (newStatus === "REJECTED") {
-      // Could be rejected by either manager or HR, just setting status
-    }
+    const result = await prisma.$transaction(async (tx) => {
+      let rollbackCount = 0;
+      let recalculatedCount = 0;
+      let skippedCount = 0;
 
-    const leaveApp = await prisma.leaveApplication.update({
-      where: { id },
-      data: updateData,
-    });
-
-    await logItemUpdated(session.user.id, "LeaveApplication", leaveApp.id, `Status changed to ${newStatus}`, oldApp, leaveApp);
-
-    // If HR approved, automatically create Attendance records for those dates with status = LEAVE
-    if (newStatus === "HR_APPROVED") {
-      const dates = [];
-      let currentDate = new Date(oldApp.startDate);
-      const endDate = new Date(oldApp.endDate);
-      
-      while (currentDate <= endDate) {
-        dates.push(new Date(currentDate));
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-
-      for (const date of dates) {
-        await prisma.attendance.upsert({
+      if (needsRollback) {
+        // 1. Check if any attendance is locked
+        const lockedAttendances = await tx.attendance.findMany({
           where: {
-            employeeId_date: {
-              employeeId: oldApp.employeeId,
-              date: date
-            }
-          },
-          update: {
-            status: "LEAVE",
-            isManual: true,
-            notes: "Auto-synced from approved leave",
             leaveApplicationId: oldApp.id,
-            updatedBy: session.user.id
-          },
-          create: {
-            employeeId: oldApp.employeeId,
-            date: date,
-            status: "LEAVE",
-            shiftId: oldApp.employee.shiftId,
-            isManual: true,
-            notes: "Auto-synced from approved leave",
-            leaveApplicationId: oldApp.id,
-            createdBy: session.user.id
+            isLocked: true
           }
         });
+
+        if (lockedAttendances.length > 0) {
+          throw new Error("Cannot change leave status because attendance for this period is already locked by payroll. Please reverse payroll first or contact admin.");
+        }
+
+        // 2. Perform safe rollback
+        const attendances = await tx.attendance.findMany({
+          where: { leaveApplicationId: oldApp.id },
+          include: { shift: true }
+        });
+
+        for (const att of attendances) {
+          // Check for manual or biometric data (checkIn / checkOut)
+          if (att.checkIn || att.checkOut) {
+            recalculatedCount++;
+            
+            const recalculatedStatus = determineAttendanceStatus(att.checkIn as any, att.checkOut as any, att.shift as any);
+            const workHours = calculateWorkHours(att.checkIn, att.checkOut);
+            const otHours = att.checkOut && att.shift
+              ? calculateOTHours(att.checkOut, att.date, att.shift as any)
+              : 0;
+
+            await tx.attendance.update({
+              where: { id: att.id },
+              data: {
+                leaveApplicationId: null,
+                status: recalculatedStatus,
+                workHours: workHours,
+                otHours: otHours,
+                notes: att.notes ? att.notes + " (Leave cancelled/rejected, recalculated)" : "(Leave cancelled/rejected, recalculated)"
+              }
+            });
+          } else {
+            // No real punch data, delete the auto-generated row
+            await tx.attendance.delete({
+              where: { id: att.id }
+            });
+            rollbackCount++;
+          }
+        }
       }
-    }
+
+      const updateData: any = { status: newStatus };
+
+      if (newStatus === "MANAGER_APPROVED") {
+        updateData.managerId = session.user.id;
+      } else if (newStatus === "HR_APPROVED") {
+        updateData.hrId = session.user.id;
+      } else if (newStatus === "REJECTED") {
+        // Could be rejected by either manager or HR, just setting status
+      }
+
+      const leaveApp = await tx.leaveApplication.update({
+        where: { id },
+        data: updateData,
+      });
+
+      // If newly approved, generate attendance
+      if (newStatus === "HR_APPROVED" && oldApp.status !== "HR_APPROVED") {
+        const dates = [];
+        let currentDate = new Date(oldApp.startDate);
+        const endDate = new Date(oldApp.endDate);
+        
+        while (currentDate <= endDate) {
+          dates.push(new Date(currentDate));
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        for (const date of dates) {
+          await tx.attendance.upsert({
+            where: {
+              employeeId_date: {
+                employeeId: oldApp.employeeId,
+                date: date
+              }
+            },
+            update: {
+              status: "LEAVE",
+              isManual: true,
+              notes: "Auto-synced from approved leave",
+              leaveApplicationId: oldApp.id,
+              updatedBy: session.user.id
+            },
+            create: {
+              employeeId: oldApp.employeeId,
+              date: date,
+              status: "LEAVE",
+              shiftId: oldApp.employee.shiftId,
+              isManual: true,
+              notes: "Auto-synced from approved leave",
+              leaveApplicationId: oldApp.id,
+              createdBy: session.user.id
+            }
+          });
+        }
+      }
+
+      return { leaveApp, rollbackCount, recalculatedCount, skippedCount };
+    });
+
+    await logItemUpdated(session.user.id, "LeaveApplication", result.leaveApp.id, [`Status changed to ${newStatus}`], oldApp as any, result.leaveApp as any);
 
     revalidateBothPaths("hr/leave");
     revalidateBothPaths("hr/attendance");
 
-    return { success: true, leaveApplication: leaveApp };
+    let message = "Leave status updated successfully.";
+    if (needsRollback) {
+       message = `Leave ${newStatus.toLowerCase()}. ${result.rollbackCount} generated attendance records were reverted.`;
+       if (result.recalculatedCount > 0) {
+         message += ` ${result.recalculatedCount} records were recalculated and preserved because they contain punch data.`;
+       }
+    }
+
+    return { success: true, leaveApplication: result.leaveApp, message };
   } catch (error) {
     console.error("updateLeaveStatus error:", error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to update leave status" };

@@ -118,7 +118,7 @@ export default function ARView({
       }
       return base;
     });
-    exportToCSV(csvData, `accounts-receivable-${format(asOfDate, "yyyy-MM-dd")}.csv`);
+    exportToCSV(csvData, { filename: `accounts-receivable-${format(asOfDate, "yyyy-MM-dd")}.csv` });
   };
 
   const handleExportExcel = () => {

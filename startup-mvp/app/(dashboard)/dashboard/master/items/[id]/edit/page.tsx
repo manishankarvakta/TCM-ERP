@@ -27,39 +27,7 @@ export default async function EditItemPage({ params }: EditItemPageProps) {
       <div className="space-y-6">
         <ItemForm
           mode="edit"
-          initialData={{
-            id: item.id,
-            code: item.code,
-            name: item.name,
-            description: item.description,
-            itemType: item.itemType,
-            categoryId: item.categoryId,
-            unitId: item.unitId,
-            costPrice: Number(item.costPrice),
-            salesPrice: item.salesPrice ? Number(item.salesPrice) : null,
-            wholesalePrice: item.wholesalePrice ? Number(item.wholesalePrice) : null,
-            discount: item.discount ? Number(item.discount) : null,
-            trackInventory: item.trackInventory,
-            images: item.images as string[],
-            featuredImage: (item as any).featuredImage as string | null,
-            sizes: item.sizes as string[],
-            colors: item.colors as string[],
-            isEnableEcom: item.isEnableEcom,
-            status: item.status as "active" | "inactive",
-            isVatEnabled: item.isVatEnabled,
-            vatPercentage: item.vatPercentage ? Number(item.vatPercentage) : 0,
-            barcode: item.barcode,
-            variants: item.variants ? (item.variants as any[]).map((v) => ({
-              id: v.id,
-              sku: v.sku,
-              barcode: v.barcode,
-              size: v.size,
-              color: v.color,
-              costPrice: v.costPrice ? Number(v.costPrice) : null,
-              salesPrice: v.salesPrice ? Number(v.salesPrice) : null,
-              image: v.image,
-            })) : [],
-          }}
+          initialData={item as any}
         />
       </div>
     </PageGuard>

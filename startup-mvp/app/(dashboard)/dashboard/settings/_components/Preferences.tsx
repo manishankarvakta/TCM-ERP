@@ -41,7 +41,7 @@ const preferencesFormSchema = z.object({
   createPurchaseWithoutGRN: z.boolean().default(false),
 });
 
-type FormData = z.infer<typeof preferencesFormSchema>;
+type PreferencesFormData = z.infer<typeof preferencesFormSchema>;
 
 export default function Preferences() {
   const [loading, setLoading] = useState(false);
@@ -56,8 +56,8 @@ export default function Preferences() {
     setValue,
     reset,
     formState: { errors },
-  } = useForm<FormData>({
-    resolver: zodResolver(preferencesFormSchema),
+  } = useForm<PreferencesFormData>({
+    resolver: zodResolver(preferencesFormSchema) as any,
     defaultValues: DEFAULT_PREFERENCES,
   });
 
@@ -91,7 +91,7 @@ export default function Preferences() {
     loadPreferences();
   }, [reset]);
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: PreferencesFormData) => {
     try {
       setLoading(true);
       setError("");

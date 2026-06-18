@@ -16,7 +16,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <Toaster toasts={toasts} onClose={closeToast} />
+      <Toaster toasts={toasts as any} onClose={closeToast} />
     </ToastContext.Provider>
   );
 }

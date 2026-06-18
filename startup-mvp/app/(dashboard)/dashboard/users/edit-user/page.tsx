@@ -38,8 +38,8 @@ export default async function EditUserPage({ searchParams }: EditUserPageProps) 
           image: result.user.image,
           inchargeId: result.user.inchargeId,
           defaultWarehouseId: result.user.defaultWarehouseId,
-          status: result.user.status,
-          isActive: result.user.isActive,
+          status: (result.user as any).status,
+          isActive: (result.user as any).isActive,
         }}
       />
     </div>

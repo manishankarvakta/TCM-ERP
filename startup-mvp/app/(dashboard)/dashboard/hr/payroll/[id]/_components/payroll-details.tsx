@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FiCheck, FiFileText, FiSend } from "react-icons/fi";
+import { FiCheck, FiFileText, FiSend, FiDownload } from "react-icons/fi";
 import { useToast } from "@/hooks/use-toast";
 import { updatePayrollStatus, postPayroll, disbursePayroll } from "@/app/(dashboard)/dashboard/hr/payroll/_actions/payroll.action";
 import { format } from "date-fns";
@@ -139,7 +139,14 @@ export default function PayrollDetailsClient({
           </p>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <a href={`/dashboard/hr/payroll/${payroll.id}/export`} download>
+              <FiDownload className="mr-2 h-4 w-4" />
+              Export CSV
+            </a>
+          </Button>
+
           {payroll.status === "DRAFT" && permissions.canApprove && (
             <Button onClick={handleApprove} disabled={isPending}>
               <FiCheck className="mr-2 h-4 w-4" />
@@ -240,6 +247,7 @@ export default function PayrollDetailsClient({
                   <TableHead className="text-right">Loan Ded.</TableHead>
                   <TableHead className="text-right font-semibold text-destructive bg-destructive/5">Total Ded.</TableHead>
                   <TableHead className="text-right font-bold text-primary bg-primary/10">Net Pay</TableHead>
+                  <TableHead className="w-[100px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -256,6 +264,13 @@ export default function PayrollDetailsClient({
                     <TableCell className="text-right">{formatCurrency(item.loanDeduction)}</TableCell>
                     <TableCell className="text-right font-semibold text-destructive bg-destructive/5">{formatCurrency(item.totalDeduction)}</TableCell>
                     <TableCell className="text-right font-bold text-primary bg-primary/10">{formatCurrency(item.netPay)}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" asChild className="h-8">
+                        <a href={`/dashboard/hr/payroll/${payroll.id}/payslips/${item.id}`} target="_blank" rel="noreferrer">
+                          Payslip
+                        </a>
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

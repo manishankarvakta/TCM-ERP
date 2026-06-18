@@ -101,7 +101,7 @@ export function QualityDashboardClient({ isEnabled }: QualityDashboardProps) {
               <div className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/20 text-xs">
                 <div className="flex justify-between font-bold text-amber-600 mb-1">
                   <span>Line A Alert</span>
-                  <Badge variant="warning">Alert</Badge>
+                  <Badge variant="outline" className="text-amber-600 border-amber-600">Alert</Badge>
                 </div>
                 Slight oil stain contamination logged on batch #04. Inspect washing parameters.
               </div>

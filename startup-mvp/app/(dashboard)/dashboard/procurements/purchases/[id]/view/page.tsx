@@ -29,6 +29,7 @@ const STATUS_LABELS: Record<PurchaseStatus, string> = {
   PARTIALLY_RECEIVED: "Partially Received",
   RECEIVED: "Received",
   CANCELLED: "Cancelled",
+  RETURNED: "Returned",
 };
 
 export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPageProps) {

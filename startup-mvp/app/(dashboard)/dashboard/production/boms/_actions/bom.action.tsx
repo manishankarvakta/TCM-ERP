@@ -437,7 +437,7 @@ export async function getBOMForProduction(itemId: string) {
         quantityRequired: Number(item.quantityRequired),
         item: {
           ...item.item,
-          costPrice: item.item.costPrice ? Number(item.costPrice) : 0,
+          costPrice: item.item.costPrice ? Number(item.item.costPrice) : 0,
         },
       })),
     };

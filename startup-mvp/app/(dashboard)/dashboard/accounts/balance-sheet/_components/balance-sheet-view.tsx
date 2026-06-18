@@ -105,7 +105,7 @@ export default function BalanceSheetView({
         Balance: acc.balance,
       })),
     ];
-    exportToCSV(csvData, `balance-sheet-${format(date, "yyyy-MM-dd")}.csv`);
+    exportToCSV(csvData, { filename: `balance-sheet-${format(date, "yyyy-MM-dd")}.csv` });
   };
 
   const handleExportExcel = () => {

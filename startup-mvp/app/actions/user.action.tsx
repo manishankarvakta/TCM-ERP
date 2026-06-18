@@ -542,7 +542,7 @@ export async function forceLogoutUser(userId: string) {
     });
 
     // Revalidate users page to update login status
-    revalidatePath("/dashboard/users");
+    nextRevalidatePath("/dashboard/users");
 
     return {
       success: true,
@@ -754,7 +754,7 @@ export async function createUser(input: {
         inchargeId: input.inchargeId || null,
         defaultWarehouseId: input.defaultWarehouseId || null,
         status: input.status || "active",
-        isActive: input.isActive || "enabled",
+        isActive: (input as any).isActive || "enabled",
       },
       select: {
         id: true,
@@ -861,6 +861,7 @@ export async function updateUser(input: {
       password?: string;
       inchargeId?: string | null;
       defaultWarehouseId?: string | null;
+      status?: string;
     } = {
       name: input.name,
       email: input.email,
@@ -874,8 +875,8 @@ export async function updateUser(input: {
     }
 
     // Handle status
-    if (input.status !== undefined) {
-      updateData.status = input.status;
+    if ((input as any).status !== undefined) {
+      updateData.status = (input as any).status;
     }
 
     // Handle inchargeId (can be undefined, null, or empty string)

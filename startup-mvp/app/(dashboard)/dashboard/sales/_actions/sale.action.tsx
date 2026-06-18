@@ -179,7 +179,7 @@ export async function getClientsForSale() {
     // Make sure Walkway Customer is at the top or at least exists
     const clientList = clients.filter(c => c.id !== defaultClient?.id);
     if (defaultClient) {
-      clientList.unshift(defaultClient);
+      clientList.unshift(defaultClient as any);
     }
 
     return { success: true, clients: clientList };
@@ -1137,7 +1137,7 @@ export async function getSaleById(saleId: string) {
         tax: sale.tax ? Number(sale.tax) : null,
         grandTotal: Number(sale.grandTotal),
         isTrash: sale.isTrash,
-        client: sale.client,
+        client: sale.client as any,
         warehouse: sale.warehouse,
         createdByUser: sale.createdByUser,
         createdAt: sale.createdAt,
@@ -1294,7 +1294,7 @@ export async function getSaleByNumber(saleNumber: string) {
         tax: sale.tax ? Number(sale.tax) : null,
         grandTotal: Number(sale.grandTotal),
         isTrash: sale.isTrash,
-        client: sale.client,
+        client: sale.client as any,
         warehouse: sale.warehouse,
         createdByUser: sale.createdByUser,
         createdAt: sale.createdAt,

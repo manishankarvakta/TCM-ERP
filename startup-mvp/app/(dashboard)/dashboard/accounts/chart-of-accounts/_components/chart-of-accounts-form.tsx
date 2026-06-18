@@ -26,9 +26,7 @@ import { AccountType } from "@prisma/client";
 const chartOfAccountFormSchema = z.object({
   code: z.string().min(1, "Code is required"),
   name: z.string().min(1, "Name is required"),
-  type: z.nativeEnum(AccountType, {
-    errorMap: () => ({ message: "Account type is required" }),
-  }),
+  type: z.nativeEnum(AccountType),
   parentId: z.string().optional().nullable(),
   isPostable: z.boolean().optional(),
   description: z.string().optional().or(z.literal("")),

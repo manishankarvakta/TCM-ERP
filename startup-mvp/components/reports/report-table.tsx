@@ -125,7 +125,7 @@ export default function ReportTable({
       });
       return exportRow;
     });
-    exportToCSV(exportData, `${exportFilename || "report"}.csv`, headers);
+    exportToCSV(exportData, { filename: `${exportFilename || "report"}.csv`, headers });
   };
 
   const handleExportExcel = () => {

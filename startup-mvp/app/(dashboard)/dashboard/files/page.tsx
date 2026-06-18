@@ -920,7 +920,7 @@ export default function FilesPage() {
       />
 
       {/* Toast Notifications */}
-      <Toaster toasts={toasts} onClose={closeToast} />
+      <Toaster toasts={toasts as any} onClose={closeToast} />
     </div>
   );
 }

@@ -70,7 +70,7 @@ export async function lockPeriod(id: string) {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
 
-    const canLock = await hasPermission(session.user.id, "accounts.periods", "lock");
+    const canLock = await hasPermission(session.user.id, "accounts.periods", "lock" as any);
     if (!canLock) return { success: false, error: "Unauthorized" };
 
     const period = await prisma.accountingPeriod.update({
@@ -115,7 +115,7 @@ export async function unlockPeriod(id: string) {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
 
-    const canUnlock = await hasPermission(session.user.id, "accounts.periods", "unlock");
+    const canUnlock = await hasPermission(session.user.id, "accounts.periods", "unlock" as any);
     if (!canUnlock) return { success: false, error: "Unauthorized" };
 
     const period = await prisma.accountingPeriod.update({

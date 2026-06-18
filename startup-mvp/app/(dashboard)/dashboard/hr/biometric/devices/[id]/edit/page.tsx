@@ -1,7 +1,7 @@
 import React from "react";
 import PageGuard from "@/components/permissions/page-guard";
 import DeviceForm from "../../_components/device-form";
-import { getBiometricDeviceById } from "../../_actions/device.action";
+import { getBiometricDeviceById, getActiveWarehouses } from "../../_actions/device.action";
 import { notFound } from "next/navigation";
 
 interface EditDevicePageProps {
@@ -13,11 +13,16 @@ interface EditDevicePageProps {
 export default async function EditDevicePage({ params }: EditDevicePageProps) {
   const { id } = await params;
   
-  const result = await getBiometricDeviceById(id);
+  const [result, warehousesResult] = await Promise.all([
+    getBiometricDeviceById(id),
+    getActiveWarehouses(),
+  ]);
 
   if (!result.success || !result.device) {
     notFound();
   }
+
+  const warehouses = warehousesResult.success ? warehousesResult.warehouses : [];
 
   return (
     <PageGuard permissionKey="hr.biometric.manage">
@@ -27,7 +32,7 @@ export default async function EditDevicePage({ params }: EditDevicePageProps) {
           <p className="text-sm text-muted-foreground">Update existing device details</p>
         </div>
 
-        <DeviceForm mode="edit" initialData={result.device} />
+        <DeviceForm mode="edit" initialData={result.device} warehouses={warehouses} />
       </div>
     </PageGuard>
   );

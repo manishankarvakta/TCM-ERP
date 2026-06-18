@@ -399,7 +399,8 @@ export async function hasAnyPermission(
   try {
     const permissions = await getUserPermissions(userId);
     const modulePermissions = permissions[module] || [];
-    return operations.some((op) => modulePermissions.includes(op));
+    const opsArray = Array.isArray(modulePermissions) ? modulePermissions : (modulePermissions as any).operations || [];
+    return operations.some((op) => opsArray.includes(op));
   } catch (error) {
     console.error("Error checking any permission:", error);
     return false;
@@ -417,7 +418,8 @@ export async function hasAllPermissions(
   try {
     const permissions = await getUserPermissions(userId);
     const modulePermissions = permissions[module] || [];
-    return operations.every((op) => modulePermissions.includes(op));
+    const opsArray = Array.isArray(modulePermissions) ? modulePermissions : (modulePermissions as any).operations || [];
+    return operations.every((op) => opsArray.includes(op));
   } catch (error) {
     console.error("Error checking all permissions:", error);
     return false;

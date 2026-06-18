@@ -119,7 +119,7 @@ export async function triggerActiveDeviceSync() {
         data: { lastPingAt: new Date() }
       });
 
-      const port = parseInt(device.port || "4370");
+      const port = device.port || 4370;
       const pullResult = await pullLogsFromDevice(device.ipAddress, port);
 
       if (pullResult.success && pullResult.logs && pullResult.logs.length > 0) {

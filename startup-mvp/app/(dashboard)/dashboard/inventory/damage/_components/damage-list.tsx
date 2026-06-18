@@ -37,8 +37,7 @@ interface DamageListProps {
   initialData: any[];
   totalPages: number;
   currentPage: number;
-  totalPages: number;
-  currentPage: number;
+
   warehouses: any[];
   isTrash?: boolean;
 }

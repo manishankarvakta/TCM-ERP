@@ -43,7 +43,7 @@ export function AutoBackupTimeCard() {
   const [saving, setSaving] = useState(false);
 
   const form = useForm<AutoBackupFormValues>({
-    resolver: zodResolver(autoBackupSchema),
+    resolver: zodResolver(autoBackupSchema) as any,
     defaultValues: {
       isAutoBackupEnabled: false,
       backupTime: "02:00",

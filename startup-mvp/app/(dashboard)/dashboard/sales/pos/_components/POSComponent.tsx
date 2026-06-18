@@ -196,7 +196,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     if (returnMode === "customer" && returnCustomerId) {
       setIsFetchingCustomerSales(true);
       getSalesByCustomer(returnCustomerId).then(res => {
-        if(res.success) setCustomerSales(res.sales);
+        if(res.success) setCustomerSales(res.sales || []);
         else toast({ title: "Error", description: "Could not fetch sales", variant: "destructive" });
         setIsFetchingCustomerSales(false);
       });

@@ -134,7 +134,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
         </TabsList>
         <TabsContent value="all" className="mt-4">
           <SalesListClient
-            initialSales={result.sales || []}
+            initialSales={(result.sales as any) || []}
             initialPagination={
               result.pagination || {
                 page: 1,
@@ -153,7 +153,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
               deletePermanently: canDeletePermanently,
             }}
             warehouses={warehousesRes.warehouses || []}
-            billers={users || []}
+            billers={(users as any) || []}
             isAdmin={isAdmin}
             userWarehouseId={userWarehouseId}
             filters={{
@@ -167,7 +167,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
         </TabsContent>
         <TabsContent value="trash" className="mt-4">
           <SalesListClient
-            initialSales={result.sales || []}
+            initialSales={(result.sales as any) || []}
             initialPagination={
               result.pagination || {
                 page: 1,
@@ -186,7 +186,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
               deletePermanently: canDeletePermanently,
             }}
             warehouses={warehousesRes.warehouses || []}
-            billers={users || []}
+            billers={(users as any) || []}
             isAdmin={isAdmin}
             userWarehouseId={userWarehouseId}
             filters={{

@@ -9,6 +9,7 @@ export const biometricDeviceSchema = z.object({
   deviceType: z.string().optional().default("ATTENDANCE"),
   connectionMode: z.string().optional().default("ADMS"),
   isActive: z.boolean().default(true),
+  warehouseId: z.string().optional().or(z.literal("")),
 });
 
 export type BiometricDeviceFormData = z.infer<typeof biometricDeviceSchema>;

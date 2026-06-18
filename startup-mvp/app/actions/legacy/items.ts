@@ -1,6 +1,6 @@
 'use server';
 
-import { getActiveItems } from '@/app/(dashboard)/dashboard/items/_actions/item.action';
+import { getActiveItems } from '@/app/(dashboard)/dashboard/master/items/_actions/item.action';
 
 /**
  * Get active items for dropdown selection

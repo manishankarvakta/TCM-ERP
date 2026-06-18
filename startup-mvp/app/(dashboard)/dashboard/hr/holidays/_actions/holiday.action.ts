@@ -229,7 +229,7 @@ export async function updateHoliday(id: string, input: {
       },
     });
 
-    await logItemUpdated(session.user.id, "Holiday", holiday.id, holiday.name, oldHoliday, holiday);
+    await logItemUpdated(session.user.id, "Holiday", holiday.id, ["Updated Holiday"], oldHoliday as any, holiday as any);
     revalidateBothPaths("hr/holidays");
 
     return { success: true, holiday };

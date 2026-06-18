@@ -103,7 +103,7 @@ export default function MappingListClient({
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const form = useForm<EmployeeDeviceMappingFormData>({
-    resolver: zodResolver(employeeDeviceMappingSchema),
+    resolver: zodResolver(employeeDeviceMappingSchema as any),
     defaultValues: {
       employeeId: "",
       deviceId: "",
@@ -209,7 +209,7 @@ export default function MappingListClient({
               <TableHead>Employee</TableHead>
               <TableHead>Device</TableHead>
               <TableHead>Serial Number</TableHead>
-              <TableHead>Device PIN / User ID</TableHead>
+              <TableHead>Biometric ID / PIN</TableHead>
               <TableHead>Status</TableHead>
               {permissions?.manage && <TableHead className="w-[80px]">Actions</TableHead>}
             </TableRow>
@@ -324,7 +324,7 @@ export default function MappingListClient({
       {/* Add/Edit Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
-          <form onSubmit={form.handleSubmit(onFormSubmit)}>
+          <form onSubmit={form.handleSubmit(onFormSubmit as any)}>
             <DialogHeader>
               <DialogTitle>{modalMode === "create" ? "Add Mapping" : "Edit Mapping"}</DialogTitle>
               <DialogDescription>

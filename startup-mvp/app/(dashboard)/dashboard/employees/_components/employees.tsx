@@ -75,6 +75,9 @@ interface Employee {
   } | null;
   createdAt: Date;
   updatedAt: Date;
+  deviceMappings?: {
+    deviceUserId: string;
+  }[];
 }
 
 interface Pagination {
@@ -362,13 +365,14 @@ export default function EmployeesListClient({
               <TableHead>Email & Phone</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Joined At</TableHead>
+              <TableHead>Biometric ID / PIN</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
               {initialEmployees.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     {isTrash ? "No trashed employees found" : "No employees found"}
                   </TableCell>
                 </TableRow>
@@ -424,6 +428,11 @@ export default function EmployeesListClient({
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {employee.joiningDate ? format(new Date(employee.joiningDate), "MMM d, yyyy") : "-"}
+                    </TableCell>
+                    <TableCell className="font-mono text-muted-foreground">
+                      {employee.deviceMappings && employee.deviceMappings.length > 0 
+                        ? employee.deviceMappings.map(m => m.deviceUserId).join(", ") 
+                        : "-"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">

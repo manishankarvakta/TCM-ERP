@@ -118,7 +118,7 @@ export default function APView({
       }
       return base;
     });
-    exportToCSV(csvData, `accounts-payable-${format(asOfDate, "yyyy-MM-dd")}.csv`);
+    exportToCSV(csvData, { filename: `accounts-payable-${format(asOfDate, "yyyy-MM-dd")}.csv` });
   };
 
   const handleExportExcel = () => {

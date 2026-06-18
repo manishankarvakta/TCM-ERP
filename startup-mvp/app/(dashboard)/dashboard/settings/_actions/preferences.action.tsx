@@ -51,7 +51,7 @@ export async function getPreferencesAction() {
     });
 
     if (userSetting && userSetting.settings) {
-      const preferences = userSetting.settings as PreferencesSettings;
+      const preferences = userSetting.settings as unknown as PreferencesSettings;
       return {
         success: true,
         preferences,
@@ -75,7 +75,7 @@ export async function getPreferencesAction() {
     });
 
     if (globalSetting && globalSetting.settings) {
-      const preferences = globalSetting.settings as PreferencesSettings;
+      const preferences = globalSetting.settings as unknown as PreferencesSettings;
       return {
         success: true,
         preferences,

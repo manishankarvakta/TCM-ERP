@@ -458,8 +458,8 @@ export async function getItemById(itemId: string) {
         ...v,
         costPrice: v.costPrice ? Number(v.costPrice) : null,
         salesPrice: v.salesPrice ? Number(v.salesPrice) : null,
-        wholesalePrice: v.wholesalePrice ? Number(v.wholesalePrice) : null,
-        wholesaleDiscountAmount: v.wholesaleDiscountAmount ? Number(v.wholesaleDiscountAmount) : null,
+        wholesalePrice: (v as any).wholesalePrice ? Number((v as any).wholesalePrice) : null,
+        wholesaleDiscountAmount: (v as any).wholesaleDiscountAmount ? Number((v as any).wholesaleDiscountAmount) : null,
       })) : [],
     };
 

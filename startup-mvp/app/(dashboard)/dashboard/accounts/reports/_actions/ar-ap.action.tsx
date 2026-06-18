@@ -238,7 +238,7 @@ export async function getAccountsReceivable(asOfDate?: Date | string, includeAgi
         clientMap.set(clientId, {
           client: {
             id: client.id,
-            name: client.name,
+            name: client.name || "",
             email: client.email,
             phone: client.phone,
             company: client.company,
@@ -279,7 +279,7 @@ export async function getAccountsReceivable(asOfDate?: Date | string, includeAgi
       // Calculate aging if requested
       if (includeAging && balance > 0) {
         const bucket = calculateAgingBucket(entry.JournalEntry.date, reportDate);
-        clientData.aging![bucket] = (clientData.aging![bucket] || 0) + balance;
+        (clientData.aging as any)[bucket] = (clientData.aging![bucket as keyof typeof clientData.aging] || 0) + balance;
       }
     }
 
@@ -513,7 +513,7 @@ export async function getAccountsPayable(asOfDate?: Date | string, includeAging:
         supplierMap.set(supplierId, {
           supplier: {
             id: supplier.id,
-            name: supplier.name,
+            name: supplier.name || "",
             email: supplier.email,
             phone: supplier.phone,
             company: supplier.company,
@@ -554,7 +554,7 @@ export async function getAccountsPayable(asOfDate?: Date | string, includeAging:
       // Calculate aging if requested
       if (includeAging && balance > 0) {
         const bucket = calculateAgingBucket(entry.JournalEntry.date, reportDate);
-        supplierData.aging![bucket] = (supplierData.aging![bucket] || 0) + balance;
+        (supplierData.aging as any)[bucket] = (supplierData.aging![bucket as keyof typeof supplierData.aging] || 0) + balance;
       }
     }
 

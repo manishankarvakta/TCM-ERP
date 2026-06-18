@@ -1,0 +1,225 @@
+"use server";
+
+import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
+import { differenceInMinutes } from "date-fns";
+
+/**
+ * Validates permission to sync or view commands
+ */
+async function validateSyncAuth(action: "sync" | "view" = "sync") {
+  const session = await auth();
+  if (!session?.user) return { success: false, error: "Unauthorized" };
+
+  const permissionKey = action === "sync" ? "hr.biometric.sync" : "hr.biometric.view";
+  const canPerform = await hasPermission(session.user.id, permissionKey as any, "manage" as any);
+  if (!canPerform) return { success: false, error: "Permission denied" };
+
+  return { success: true, userId: session.user.id };
+}
+
+/**
+ * Evaluate if the device is currently online based on ADMS lastPingAt
+ */
+export async function checkDeviceStatus(deviceId: string) {
+  try {
+    const authRes = await validateSyncAuth("sync");
+    if (!authRes.success) return authRes;
+
+    const device = await prisma.biometricDevice.findUnique({
+      where: { id: deviceId },
+      select: { id: true, serialNumber: true, lastPingAt: true, name: true }
+    });
+
+    if (!device || !device.serialNumber) {
+      return { success: false, error: "Device not found or missing Serial Number" };
+    }
+
+    const isOnline = device.lastPingAt 
+      ? differenceInMinutes(new Date(), new Date(device.lastPingAt)) <= 5 
+      : false;
+
+    // We can also queue an INFO command to get hardware specifics
+    await prisma.biometricCommand.create({
+      data: {
+        deviceId: device.id,
+        deviceSerialNumber: device.serialNumber,
+        commandType: "CHECK_STATUS",
+        commandText: `C:100:INFO`, // This ID 100 will be overridden or parsed safely, we just need a unique ID for the handshake
+        status: "QUEUED", // It will be picked up by ADMS polling
+        requestedById: authRes.userId,
+      }
+    });
+
+    return { 
+      success: true, 
+      isOnline, 
+      lastPingAt: device.lastPingAt,
+      message: isOnline ? "Device is currently online. INFO ping queued." : "Device is offline. INFO ping queued." 
+    };
+  } catch (error: any) {
+    console.error("checkDeviceStatus error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Queue a command to sync all mapped users to the specific device
+ */
+export async function queueSyncUsersToDevice(deviceId: string) {
+  try {
+    const authRes = await validateSyncAuth("sync");
+    if (!authRes.success) return authRes;
+
+    const device = await prisma.biometricDevice.findUnique({
+      where: { id: deviceId },
+      include: {
+        deviceMappings: {
+          where: { isActive: true },
+          include: { employee: true }
+        }
+      }
+    });
+
+    if (!device || !device.serialNumber) {
+      return { success: false, error: "Device not found or missing SN." };
+    }
+
+    const usersToSync = device.deviceMappings.map(m => ({
+      deviceUserId: m.deviceUserId,
+      name: m.employee.name,
+      employeeId: m.employee.id
+    }));
+
+    if (usersToSync.length === 0) {
+      return { success: false, error: "No mapped active users found for this device." };
+    }
+
+    // Format the command lines. E.g. DATA UPDATE USERINFO PIN=1\tName=John
+    // Note: ZKTeco requires \t separation. We'll join commands with newlines if multiple, or queue multiple commands.
+    // For safety in Phase 6, we only push the FIRST mapped user to avoid flooding the device during testing.
+    const testUser = usersToSync[0];
+    const commandText = `C:200:DATA UPDATE USERINFO PIN=${testUser.deviceUserId}\tName=${testUser.name}\tPri=0\tGrp=1\tTZ=0000100100000000`;
+
+    const command = await prisma.biometricCommand.create({
+      data: {
+        deviceId: device.id,
+        deviceSerialNumber: device.serialNumber,
+        commandType: "SYNC_USERS",
+        commandText,
+        status: "PENDING_DEVICE_VERIFICATION",
+        payloadJson: JSON.stringify([testUser]), // We only test one user for Phase 6
+        requestedById: authRes.userId,
+        errorMessage: "Requires hardware MB360 syntax verification before dispatch."
+      }
+    });
+
+    return { 
+      success: true, 
+      message: `Queued test user sync (PIN: ${testUser.deviceUserId}). Awaiting hardware syntax verification.`,
+      command 
+    };
+  } catch (error: any) {
+    console.error("queueSyncUsersToDevice error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Queue a command to resend attendance logs from the device
+ */
+export async function queueSyncAttendanceLogs(deviceId: string) {
+  try {
+    const authRes = await validateSyncAuth("sync");
+    if (!authRes.success) return authRes;
+
+    const device = await prisma.biometricDevice.findUnique({
+      where: { id: deviceId },
+      select: { id: true, serialNumber: true }
+    });
+
+    if (!device || !device.serialNumber) {
+      return { success: false, error: "Device not found." };
+    }
+
+    // Command to pull all un-pushed attendance logs
+    // DATA QUERY ATTLOG StartTime=2024-01-01 00:00:00 EndTime=2024-12-31 23:59:59
+    const commandText = `C:300:DATA QUERY ATTLOG`;
+
+    const command = await prisma.biometricCommand.create({
+      data: {
+        deviceId: device.id,
+        deviceSerialNumber: device.serialNumber,
+        commandType: "SYNC_ATTENDANCE",
+        commandText,
+        status: "PENDING_DEVICE_VERIFICATION",
+        requestedById: authRes.userId,
+        errorMessage: "Log pull requires validated firmware command execution."
+      }
+    });
+
+    return { 
+      success: true, 
+      message: "Log sync queued successfully. Awaiting hardware verification.",
+      command
+    };
+  } catch (error: any) {
+    console.error("queueSyncAttendanceLogs error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Orchestrator to run checks and queue full sync
+ */
+export async function queueFullDeviceSync(deviceId: string) {
+  try {
+    const statusRes = await checkDeviceStatus(deviceId);
+    const usersRes = await queueSyncUsersToDevice(deviceId);
+    const logsRes = await queueSyncAttendanceLogs(deviceId);
+
+    return {
+      success: true,
+      message: "Full sync orchestration queued.",
+      details: {
+        status: statusRes,
+        users: usersRes,
+        logs: logsRes
+      }
+    };
+  } catch (error: any) {
+    console.error("queueFullDeviceSync error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Fetch the command history for a device
+ */
+export async function getDeviceSyncCommands({
+  deviceId,
+  limit = 20,
+}: {
+  deviceId: string;
+  limit?: number;
+}) {
+  try {
+    const authRes = await validateSyncAuth("view");
+    if (!authRes.success) return authRes;
+
+    const commands = await prisma.biometricCommand.findMany({
+      where: { deviceId },
+      include: {
+        requestedBy: { select: { name: true } }
+      },
+      take: limit,
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return { success: true, commands };
+  } catch (error: any) {
+    console.error("getDeviceSyncCommands error:", error);
+    return { success: false, error: error.message, commands: [] };
+  }
+}

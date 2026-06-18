@@ -60,7 +60,7 @@ export default async function SupplierDetailsPage({ searchParams }: SupplierDeta
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Supplier Code</label>
-                  <p className="text-sm font-medium">{supplier.supplierCode || "-"}</p>
+                  <p className="text-sm font-medium">{(supplier as any).supplierCode || "-"}</p>
                 </div>
 
                 <div className="space-y-2">

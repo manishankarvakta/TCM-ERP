@@ -114,8 +114,9 @@ export default function VoucherCreateForm() {
     formState: { errors },
     control,
     watch,
+    setValue,
   } = useForm<VoucherFormData>({
-    resolver: zodResolver(voucherFormSchema),
+    resolver: zodResolver(voucherFormSchema as any),
     defaultValues: {
       date: new Date().toISOString().split("T")[0],
       description: "",
@@ -208,7 +209,7 @@ export default function VoucherCreateForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit(onSubmit as any)}>
           <div className="space-y-6">
             {error && (
               <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive border border-destructive/20">
@@ -350,7 +351,7 @@ export default function VoucherCreateForm() {
                                     field.onChange(value);
                                     // Clear credit when debit is entered
                                     if (value > 0) {
-                                      control.setValue(`lines.${index}.creditAmount`, 0);
+                                      setValue(`lines.${index}.creditAmount` as any, 0);
                                     }
                                   }}
                                   disabled={loading}
@@ -379,7 +380,7 @@ export default function VoucherCreateForm() {
                                     field.onChange(value);
                                     // Clear debit when credit is entered
                                     if (value > 0) {
-                                      control.setValue(`lines.${index}.debitAmount`, 0);
+                                      setValue(`lines.${index}.debitAmount` as any, 0);
                                     }
                                   }}
                                   disabled={loading}

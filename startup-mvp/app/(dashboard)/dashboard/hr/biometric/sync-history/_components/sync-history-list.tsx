@@ -139,12 +139,12 @@ export default function SyncHistoryListClient({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Time</TableHead>
+              <TableHead>Sync Time</TableHead>
               <TableHead>Device</TableHead>
               <TableHead>Vendor</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Processed</TableHead>
-              <TableHead>Error Message</TableHead>
+              <TableHead>Issue</TableHead>
               <TableHead className="w-[80px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -154,7 +154,7 @@ export default function SyncHistoryListClient({
                 <TableCell colSpan={7} className="h-32 text-center">
                   <div className="flex flex-col items-center justify-center text-muted-foreground">
                     <FiSearch className="mb-2 h-8 w-8" />
-                    <p>No biometric sync history found.</p>
+                    <p>No sync activity has been recorded yet.</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -237,9 +237,9 @@ export default function SyncHistoryListClient({
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Sync Error Details</DialogTitle>
+            <DialogTitle>Sync Issue Details</DialogTitle>
             <DialogDescription>
-              Full error stack or message generated during the synchronization attempt.
+              Full error stack or issue generated during the synchronization attempt.
             </DialogDescription>
           </DialogHeader>
           {selectedError && (

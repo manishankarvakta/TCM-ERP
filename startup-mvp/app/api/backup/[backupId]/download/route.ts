@@ -62,7 +62,7 @@ export async function GET(
     // Convert Node.js stream to Web Stream
     const readableStream = new ReadableStream({
       start(controller) {
-        stream.on('data', (chunk: Buffer) => {
+        stream.on('data', (chunk: any) => {
           controller.enqueue(new Uint8Array(chunk));
         });
 

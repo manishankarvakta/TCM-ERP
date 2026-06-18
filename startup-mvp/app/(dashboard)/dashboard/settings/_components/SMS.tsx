@@ -194,7 +194,7 @@ export default function SMS() {
           </div>
         </CardContent>
       </Card>
-      <Toaster toasts={toasts} onClose={closeToast} />
+      <Toaster toasts={toasts as any} onClose={closeToast} />
     </div>
   );
 }

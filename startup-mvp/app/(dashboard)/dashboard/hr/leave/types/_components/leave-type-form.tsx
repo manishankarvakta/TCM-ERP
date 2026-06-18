@@ -56,7 +56,7 @@ export default function LeaveTypeForm({ mode, initialData }: LeaveTypeFormProps)
     setValue,
     watch,
   } = useForm<LeaveTypeFormData>({
-    resolver: zodResolver(leaveTypeFormSchema),
+    resolver: zodResolver(leaveTypeFormSchema as any),
     defaultValues: initialData
       ? {
           name: initialData.name,
@@ -133,7 +133,7 @@ export default function LeaveTypeForm({ mode, initialData }: LeaveTypeFormProps)
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={handleSubmit(onSubmit as any)}>
             <div className="space-y-6">
               {error && (
                 <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive border border-destructive/20">

@@ -1750,13 +1750,14 @@ export async function cancelVoucher(voucherId: string, tx?: Prisma.TransactionCl
     // In a real system, you might want to create a REVERSAL journal instead of deleting.
     // For this ERP, we follow the pattern of deleting/voiding the JournalEntry to revert impact.
     
-    await client.$transaction(async (t) => {
+    await (client as any).$transaction(async (t: any) => {
       // 1. Delete associated Journal Entries
       await t.journalEntryLine.deleteMany({
         where: { journalEntry: { voucherId: voucher.id } }
       });
-      await t.journalEntry.deleteMany({
-        where: { voucherId: voucher.id }
+      const v = voucher as any;
+      await t.voucherLine.deleteMany({
+        where: { voucherId: v.id }
       });
 
       // 2. Update voucher status to cancelled
@@ -1792,8 +1793,8 @@ export async function deleteVoucher(voucherId: string) {
             },
           },
         },
-        PayrollVoucher: true,
-        PayrollPaymentVoucher: true,
+        payrollAccrual: true,
+        payrollPayment: true,
       },
     });
 
@@ -1802,7 +1803,7 @@ export async function deleteVoucher(voucherId: string) {
       return { success: false, error: "Cannot delete a posted voucher. Cancel/Reverse it instead." };
     }
 
-    if (voucher.PayrollVoucher || voucher.PayrollPaymentVoucher) {
+    if ((voucher as any).payrollAccrual || (voucher as any).payrollPayment) {
       return { 
         success: false, 
         error: "This voucher is linked to a Payroll record and cannot be manually deleted. Please void the payroll instead." 
@@ -1815,9 +1816,9 @@ export async function deleteVoucher(voucherId: string) {
     }
 
     // Calculate totals before deletion for audit log
-    const deleteTotalDebit = voucher.VoucherLine.reduce((sum, line) => sum + Number(line.debitAmount), 0);
-    const deleteTotalCredit = voucher.VoucherLine.reduce((sum, line) => sum + Number(line.creditAmount), 0);
-    const deleteAccounts = voucher.VoucherLine.map(line => ({
+    const deleteTotalDebit = (voucher as any).VoucherLine.reduce((sum: any, line: any) => sum + Number(line.debitAmount), 0);
+    const deleteTotalCredit = (voucher as any).VoucherLine.reduce((sum: any, line: any) => sum + Number(line.creditAmount), 0);
+    const deleteAccounts = (voucher as any).VoucherLine.map((line: any) => ({
       accountId: line.chartOfAccountId,
       accountName: line.ChartOfAccount?.name || null,
       debit: Number(line.debitAmount),
@@ -1837,7 +1838,7 @@ export async function deleteVoucher(voucherId: string) {
         type: voucher.type,
         totalDebit: deleteTotalDebit,
         totalCredit: deleteTotalCredit,
-        linesCount: voucher.VoucherLine.length,
+        linesCount: (voucher as any).VoucherLine.length,
         accounts: deleteAccounts,
         clientId: voucher.clientId,
         supplierId: voucher.supplierId,

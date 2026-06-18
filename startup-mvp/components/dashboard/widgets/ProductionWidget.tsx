@@ -45,7 +45,7 @@ export default function ProductionWidget() {
             </CardTitle>
             <CardDescription>Live production throughput and task control</CardDescription>
           </div>
-          <Badge variant="success" className="text-[10px] uppercase font-black tracking-widest">
+          <Badge variant="default" className="text-[10px] uppercase font-black tracking-widest bg-emerald-500 hover:bg-emerald-600">
             {data.stats.completedToday} Done
           </Badge>
         </div>
@@ -105,7 +105,7 @@ export default function ProductionWidget() {
                       </p>
                     </div>
                   </div>
-                  <Badge variant={order.status === 'IN_PROGRESS' ? 'warning' : 'outline'} className="text-[9px] uppercase font-black h-5">
+                  <Badge variant={order.status === 'IN_PROGRESS' ? 'secondary' : 'outline'} className="text-[9px] uppercase font-black h-5">
                     {order.status === 'IN_PROGRESS' ? 'Cooking' : order.status}
                   </Badge>
                 </div>

@@ -68,14 +68,14 @@ export default function NotificationsPage() {
       }
       const result = await getCurrentUserNotifications();
       if (result.success) {
-        const newNotifications = result.data || [];
+        const newNotifications = Array.isArray(result.data) ? result.data : [];
         
         // Check if there are new unread notifications
         const previousUnreadCount = notifications.filter((n: Notification) => !n.isRead).length;
         const newUnreadCount = newNotifications.filter((n: Notification) => !n.isRead).length;
         
         // Update notifications
-        setNotifications(newNotifications);
+        setNotifications(newNotifications as any);
         
         // Show toast if new unread notifications arrived (only if not silent and count increased)
         if (!silent && newUnreadCount > previousUnreadCount && previousUnreadCount > 0) {

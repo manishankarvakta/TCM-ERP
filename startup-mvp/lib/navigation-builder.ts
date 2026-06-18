@@ -127,10 +127,12 @@ export const MENU_TEMPLATE: MenuItemData[] = [
       { href: "/dashboard/hr/payroll", label: "Payroll", icon: "FiDollarSign", module: "hr" },
       { href: "/dashboard/hr/loans", label: "Loans", icon: "FiCreditCard", module: "hr" },
       { href: "/dashboard/hr/biometric/devices", label: "Biometric Devices", icon: "FiCpu", module: "hr" },
-      { href: "/dashboard/hr/biometric/mapping", label: "Device Mapping", icon: "FiLink", module: "hr" },
-      { href: "/dashboard/hr/biometric/raw-logs", label: "Raw Logs", icon: "FiDatabase", module: "hr" },
-      { href: "/dashboard/hr/biometric/unmapped-logs", label: "Unmapped Logs", icon: "FiAlertCircle", module: "hr" },
-      { href: "/dashboard/hr/biometric/sync-history", label: "Sync History", icon: "FiRefreshCw", module: "hr" },
+      // The following routes are preserved for backward compatibility and admin direct access, 
+      // but hidden from the normal HR user's sidebar to simplify the UI experience.
+      // { href: "/dashboard/hr/biometric/mapping", label: "Device Mapping", icon: "FiLink", module: "hr" },
+      // { href: "/dashboard/hr/biometric/raw-logs", label: "Raw Logs", icon: "FiDatabase", module: "hr" },
+      // { href: "/dashboard/hr/biometric/unmapped-logs", label: "Unmapped Logs", icon: "FiAlertCircle", module: "hr" },
+      // { href: "/dashboard/hr/biometric/sync-history", label: "Sync History", icon: "FiRefreshCw", module: "hr" },
     ],
   },
   {

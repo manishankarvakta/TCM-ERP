@@ -81,6 +81,8 @@ export async function getAccountingOperationSettings(): Promise<AccountingOperat
 
     return defaultSettings;
   } catch (error) {
+    console.error("Error getting accounting settings:", error);
+    return createDefaultSettings();
   }
 }
 

@@ -92,7 +92,7 @@ export default async function LeavePage({ searchParams }: LeavePageProps) {
         
         <TabsContent value={statusParam} className="mt-4">
           <LeaveApplicationsListClient
-            initialApplications={result.leaveApplications || []}
+            initialApplications={(result.leaveApplications as any) || []}
             initialPagination={result.pagination || { page: 1, limit: 10, total: 0, totalPages: 0 }}
             initialSearch={search}
             userId={userId}

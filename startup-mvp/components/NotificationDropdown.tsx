@@ -63,7 +63,7 @@ export default function NotificationDropdown() {
       }
       const result = await getCurrentUserNotifications();
       if (result.success) {
-        const newNotifications = result.data || [];
+        const newNotifications = (result.data as Notification[]) || [];
         
         // Check if there are new unread notifications
         const previousUnreadCount = notifications.filter((n: Notification) => !n.isRead).length;

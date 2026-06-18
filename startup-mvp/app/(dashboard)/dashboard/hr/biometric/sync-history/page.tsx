@@ -30,8 +30,8 @@ export default async function BiometricSyncHistoryPage({ searchParams }: SyncHis
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Biometric Sync History</h1>
-            <p className="text-sm text-muted-foreground">Monitor background synchronization jobs and status</p>
+            <h1 className="text-2xl font-semibold">Sync Activity</h1>
+            <p className="text-sm text-muted-foreground">History of device sync jobs and background biometric processing.</p>
           </div>
         </div>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -45,8 +45,12 @@ export default async function BiometricSyncHistoryPage({ searchParams }: SyncHis
     <PageGuard permissionKey="hr.biometric.view">
       <div className="space-y-6">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold">Biometric Sync History</h1>
-          <p className="text-sm text-muted-foreground">Monitor background synchronization jobs and status</p>
+          <h1 className="text-2xl font-semibold">Sync Activity</h1>
+          <p className="text-sm text-muted-foreground">History of device sync jobs and background biometric processing.</p>
+        </div>
+
+        <div className="rounded-lg border bg-yellow-50/50 p-3 text-sm text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">
+          <strong>Notice:</strong> This page is mainly useful for Admin/IT troubleshooting.
         </div>
 
         <Tabs defaultValue={tab} className="w-full">

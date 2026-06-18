@@ -63,7 +63,7 @@ export default function ShiftForm({ mode, initialData }: ShiftFormProps) {
     setValue,
     watch,
   } = useForm<ShiftFormData>({
-    resolver: zodResolver(shiftFormSchema),
+    resolver: zodResolver(shiftFormSchema as any),
     defaultValues: initialData
       ? {
           name: initialData.name,
@@ -148,7 +148,7 @@ export default function ShiftForm({ mode, initialData }: ShiftFormProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={handleSubmit(onSubmit as any)}>
             <div className="space-y-6">
               {error && (
                 <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive border border-destructive/20">

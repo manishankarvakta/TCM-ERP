@@ -78,7 +78,7 @@ export async function restoreDatabaseBackup(
     
     if (options?.createPreRestoreBackup) {
       manager.addLog(restoreId, 'Creating pre-restore backup...');
-      await createDatabaseBackup({ description: 'Pre-restore backup' });
+      await createDatabaseBackup({ type: 'database', description: 'Pre-restore backup' });
       manager.addLog(restoreId, 'Pre-restore backup created');
     }
     
@@ -285,7 +285,7 @@ export async function restoreFullBackup(
     
     if (options?.createPreRestoreBackup) {
       manager.addLog(restoreId, 'Creating pre-restore backup...');
-      await createFullBackup({ description: 'Pre-restore backup' });
+      await createFullBackup({ type: 'full', description: 'Pre-restore backup' });
       manager.addLog(restoreId, 'Pre-restore backup created');
     }
     

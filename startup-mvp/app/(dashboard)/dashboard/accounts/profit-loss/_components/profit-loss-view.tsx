@@ -100,7 +100,7 @@ export default function ProfitLossView({
         Amount: acc.amount,
       })),
     ];
-    exportToCSV(csvData, `profit-loss-${format(startDate, "yyyy-MM-dd")}-${format(endDate, "yyyy-MM-dd")}.csv`);
+    exportToCSV(csvData, { filename: `profit-loss-${format(startDate, "yyyy-MM-dd")}-${format(endDate, "yyyy-MM-dd")}.csv` });
   };
 
   const handleExportExcel = () => {

@@ -45,7 +45,6 @@ import APIs from "./_components/APIs";
 import Webhooks from "./_components/Webhooks";
 
 import { SlEnvolopeLetter } from "react-icons/sl";
-import CoverLetter from "./_components/coverLetter/CoverLetter";
 import TOS from "./_components/Tos";
 import Inventory from "./_components/Inventory";
 import Production from "./_components/Production";
@@ -287,7 +286,6 @@ export default function SettingsPageClient({ accessiblePages }: SettingsPageClie
       case "preferences":
         return <Preferences />;
       case "coverLetter":
-        return <CoverLetter />;
       case "tos":
         return <TOS />;
       case "general":
@@ -350,7 +348,7 @@ export default function SettingsPageClient({ accessiblePages }: SettingsPageClie
                 {category.items.map((item) => {
                   const isExpanded = expandedItems.has(item.id);
                   const hasChildren = 'children' in item && Array.isArray(item.children);
-                  const hasActiveChild = hasChildren && item.children ? item.children.some((child: { active: boolean }) => child.active) : false;
+                  const hasActiveChild = hasChildren && item.children ? item.children.some((child: any) => child.active) : false;
                   
                   return (
                     <div key={item.id}>

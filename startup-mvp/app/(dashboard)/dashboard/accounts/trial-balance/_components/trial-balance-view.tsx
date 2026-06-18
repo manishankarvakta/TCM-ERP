@@ -98,8 +98,10 @@ export default function TrialBalanceView({
     }));
     exportToCSV(
       csvData,
-      `trial-balance-${format(date, "yyyy-MM-dd")}.csv`,
-      ["Code", "Account Name", "Type", "Debit", "Credit", "Balance"]
+      {
+        filename: `trial-balance-${format(date, "yyyy-MM-dd")}.csv`,
+        headers: ["Code", "Account Name", "Type", "Debit", "Credit", "Balance"]
+      }
     );
   };
 

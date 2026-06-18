@@ -244,7 +244,7 @@ export async function updateDamage(id: string, input: CreateDamageInput) {
       });
     });
 
-    await logItemUpdated(session.user.id, "InventoryDamage", id, "Updated draft damage");
+    await logItemUpdated(session.user.id, "InventoryDamage", id, ["Updated draft damage"]);
     revalidateBothPaths("/dashboard/inventory/damage");
 
     return { success: true };
@@ -374,7 +374,7 @@ export async function approveDamage(id: string) {
        }
     }
 
-    await logItemUpdated(session.user.id, "InventoryDamage", damage.id, "Approved and Posted Damage");
+    await logItemUpdated(session.user.id, "InventoryDamage", damage.id, ["Approved and Posted Damage"]);
     revalidateBothPaths("/dashboard/inventory/damage");
     
     return { success: true };
@@ -398,7 +398,7 @@ export async function trashDamage(id: string) {
     if (damage.status !== "DRAFT") return { success: false, error: "Cannot trash non-draft damage" };
     
     await prisma.inventoryDamage.update({ where: { id }, data: { isTrash: true } });
-    await logItemUpdated(session.user.id, "InventoryDamage", damage.id, "Moved to trash");
+    await logItemUpdated(session.user.id, "InventoryDamage", damage.id, ["Moved to trash"]);
     revalidateBothPaths("/dashboard/inventory/damage");
     return { success: true };
    } catch (error) {
@@ -418,7 +418,7 @@ export async function restoreDamage(id: string) {
     if (!damage) return { success: false, error: "Not found" };
     
     await prisma.inventoryDamage.update({ where: { id }, data: { isTrash: false } });
-    await logItemUpdated(session.user.id, "InventoryDamage", damage.id, "Restored from trash");
+    await logItemUpdated(session.user.id, "InventoryDamage", damage.id, ["Restored from trash"]);
     revalidateBothPaths("/dashboard/inventory/damage");
     return { success: true };
    } catch (error) {
@@ -445,7 +445,7 @@ export async function deleteDamage(id: string) {
       prisma.inventoryDamageItem.deleteMany({ where: { inventoryDamageId: id } }),
       prisma.inventoryDamage.delete({ where: { id } })
     ]);
-    await logItemUpdated(session.user.id, "InventoryDamage", damage.id, "Permanently deleted damage");
+    await logItemUpdated(session.user.id, "InventoryDamage", damage.id, ["Permanently deleted damage"]);
     revalidateBothPaths("/dashboard/inventory/damage");
     return { success: true };
    } catch (error) {

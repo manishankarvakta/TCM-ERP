@@ -86,8 +86,8 @@ export async function createTPN(input: TPNFormInput) {
       session.user.id,
       "TransferPurchaseNote",
       result.id,
-      ["Created TPN"],
-      result.tpnNumber
+      "Created TPN",
+      { tpnNumber: result.tpnNumber }
     );
 
     await notifyItemCreated(session.user.id, "TPN", result.tpnNumber);

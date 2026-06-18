@@ -42,7 +42,7 @@ export default async function LoansPage() {
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Total Active Loans</p>
-              <h3 className="text-2xl font-bold">{loans.filter(l => l.status === 'APPROVED').length}</h3>
+              <h3 className="text-2xl font-bold">{(loans || []).filter(l => l.status === 'APPROVED').length}</h3>
             </div>
           </div>
         </div>
@@ -50,7 +50,7 @@ export default async function LoansPage() {
       </div>
 
       <Suspense fallback={<div>Loading loans...</div>}>
-        <LoanList initialLoans={loans} />
+        <LoanList initialLoans={(loans as any) || []} />
       </Suspense>
     </div>
   );

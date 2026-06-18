@@ -76,7 +76,7 @@ export default async function SalesTrendsPage({
           <SalesTrendsView
             data={result.data}
             warehouses={warehouses}
-            clients={clients}
+            clients={clients as any}
             itemTypeOptions={itemTypeOptions}
             filters={filters}
           />

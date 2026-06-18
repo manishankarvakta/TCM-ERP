@@ -30,8 +30,8 @@ export default async function BiometricRawLogsPage({ searchParams }: RawLogsPage
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Raw Biometric Logs</h1>
-            <p className="text-sm text-muted-foreground">View the raw punch data received directly from devices</p>
+            <h1 className="text-2xl font-semibold">Hardware Diagnostics</h1>
+            <p className="text-sm text-muted-foreground">Technical punch data received directly from biometric devices.</p>
           </div>
         </div>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -45,8 +45,12 @@ export default async function BiometricRawLogsPage({ searchParams }: RawLogsPage
     <PageGuard permissionKey="hr.biometric.view">
       <div className="space-y-6">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold">Raw Biometric Logs</h1>
-          <p className="text-sm text-muted-foreground">View the raw punch data received directly from devices</p>
+          <h1 className="text-2xl font-semibold">Hardware Diagnostics</h1>
+          <p className="text-sm text-muted-foreground">Technical punch data received directly from biometric devices.</p>
+        </div>
+
+        <div className="rounded-lg border bg-yellow-50/50 p-3 text-sm text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">
+          <strong>Notice:</strong> This page is mainly for IT/admin troubleshooting. HR users should use Attendance or Unknown Punches instead.
         </div>
 
         <Tabs defaultValue={tab} className="w-full">

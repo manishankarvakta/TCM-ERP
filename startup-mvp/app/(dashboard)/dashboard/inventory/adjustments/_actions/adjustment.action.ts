@@ -369,7 +369,7 @@ export async function approveAdjustment(id: string) {
        }
     }
 
-    await logItemUpdated(session.user.id, "InventoryAdjustment", adjustment.id, "Approved and Posted Adjustment");
+    await logItemUpdated(session.user.id, "InventoryAdjustment", adjustment.id, ["Approved and Posted Adjustment"]);
     revalidateBothPaths("/dashboard/inventory/adjustments");
     
     return { success: true };

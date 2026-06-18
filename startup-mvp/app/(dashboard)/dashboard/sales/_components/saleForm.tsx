@@ -181,7 +181,7 @@ export default function SaleForm({
     watch,
     trigger,
   } = useForm<SaleFormData>({
-    resolver: zodResolver(saleFormSchema),
+    resolver: zodResolver(saleFormSchema) as any,
     defaultValues: initialData
       ? {
           clientId: initialData.client.id,
@@ -364,14 +364,14 @@ export default function SaleForm({
     try {
       let result;
       if (mode === "create") {
-        result = await createSale(data);
+        result = await createSale(data as any);
       } else {
         if (!initialData) {
           setError("Initial data is required for edit mode");
           setLoading(false);
           return;
         }
-        result = await updateSale({ ...data, id: initialData.id });
+        result = await updateSale({ ...data, id: initialData.id } as any);
       }
 
       if (result.success) {
@@ -402,7 +402,7 @@ export default function SaleForm({
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
           <div className="flex items-center gap-2">

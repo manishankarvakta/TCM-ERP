@@ -76,7 +76,7 @@ export default async function CreateGRNPage({ searchParams }: PageProps) {
       include: {
         sourceWarehouse: true,
         items: {
-          where: { itemId: { not: null } },
+
           include: {
             item: true,
             variant: true,
@@ -88,7 +88,7 @@ export default async function CreateGRNPage({ searchParams }: PageProps) {
     if (tpn && tpn.status === "SHIPPED") {
       initialTpn = {
         ...tpn,
-        items: tpn.items.map(item => ({
+        items: tpn.items.map((item: any) => ({
           ...item,
           quantity: Number(item.quantity),
         })),

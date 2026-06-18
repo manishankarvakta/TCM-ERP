@@ -37,7 +37,7 @@ export default async function ProductionOrderSummaryPage({
     dateRangeType: (params.dateRangeType as "created" | "completed") || "created",
   };
 
-  const result = await getProductionOrderSummary(filters, { page, limit: 50 });
+  const result = await getProductionOrderSummary(filters as any, { page, limit: 50 });
 
   // Get filter options
   const [warehouses, items, boms] = await Promise.all([
@@ -88,12 +88,12 @@ export default async function ProductionOrderSummaryPage({
           <ProductionOrderSummaryView
             data={result.data}
             pagination={result.pagination}
-            statusBreakdown={result.statusBreakdown}
+            statusBreakdown={result.statusBreakdown as any}
             warehouses={warehouses}
             items={items}
             boms={boms}
             statusOptions={statusOptions}
-            filters={filters}
+            filters={filters as any}
           />
         )}
       </div>

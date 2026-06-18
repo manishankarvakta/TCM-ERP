@@ -83,7 +83,7 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
         </TabsList>
         <TabsContent value="all" className="mt-4">
           <SuppliersListClient
-            initialSuppliers={result.suppliers || []}
+            initialSuppliers={(result.suppliers as any) || []}
             initialPagination={result.pagination || {
               page: 1,
               limit: 10,
@@ -103,7 +103,7 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
         </TabsContent>
         <TabsContent value="trash" className="mt-4">
           <SuppliersListClient
-            initialSuppliers={result.suppliers || []}
+            initialSuppliers={(result.suppliers as any) || []}
             initialPagination={result.pagination || {
               page: 1,
               limit: 10,

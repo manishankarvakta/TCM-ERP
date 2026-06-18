@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, AttendanceStatus } from '@prisma/client';
 import { eachDayOfInterval, isWeekend, format, addDays } from 'date-fns';
 
 const prisma = new PrismaClient();
@@ -64,7 +64,7 @@ async function run() {
     
     for (const day of daysInMonth) {
       const isWeekEnd = isWeekend(day);
-      let status = isWeekEnd ? 'WEEKEND' : 'PRESENT';
+      let status: AttendanceStatus = isWeekEnd ? AttendanceStatus.WEEKEND : AttendanceStatus.PRESENT;
       let workHours = isWeekEnd ? 0 : 8;
       let otHours = 0;
       

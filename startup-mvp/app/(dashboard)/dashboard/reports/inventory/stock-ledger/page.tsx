@@ -37,7 +37,7 @@ export default async function StockLedgerPage({
     referenceId: params.referenceId || undefined,
   };
 
-  const result = await getStockLedger(filters, { page, limit: 50 });
+  const result = await getStockLedger(filters as any, { page, limit: 50 });
 
   // Get filter options
   const [warehouses, items] = await Promise.all([
@@ -91,7 +91,7 @@ export default async function StockLedgerPage({
             items={items}
             transactionTypeOptions={transactionTypeOptions}
             referenceTypeOptions={referenceTypeOptions}
-            filters={filters}
+            filters={filters as any}
           />
         )}
       </div>

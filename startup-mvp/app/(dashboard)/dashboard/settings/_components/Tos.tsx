@@ -141,7 +141,7 @@ export default function TOS() {
           </Button>
         </div>
       </div>
-      <Toaster toasts={toasts} onClose={closeToast} />
+      <Toaster toasts={toasts as any} onClose={closeToast} />
     </div>
   );
 }

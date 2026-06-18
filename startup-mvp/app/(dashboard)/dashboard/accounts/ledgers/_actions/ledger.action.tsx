@@ -987,27 +987,27 @@ export async function getEmployeeLedger(
       return {
         id: line.id,
         lineNumber: line.lineNumber,
-        date: line.journalEntry.date,
-        entryNumber: line.journalEntry.entryNumber,
-        description: line.description || line.journalEntry.description,
+        date: (line as any).JournalEntry.date,
+        entryNumber: (line as any).JournalEntry.entryNumber,
+        description: line.description || (line as any).JournalEntry.description,
         debitAmount: debit,
         creditAmount: credit,
         runningBalance: runningBalance,
-        voucher: line.journalEntry.voucher
+        voucher: (line as any).JournalEntry.voucher
           ? {
-              id: line.journalEntry.voucher.id,
-              voucherNumber: line.journalEntry.voucher.voucherNumber,
-              type: line.journalEntry.voucher.type,
-              reference: line.journalEntry.voucher.reference,
-              description: line.journalEntry.voucher.description,
-              status: line.journalEntry.voucher.status,
+              id: (line as any).JournalEntry.voucher.id,
+              voucherNumber: (line as any).JournalEntry.voucher.voucherNumber,
+              type: (line as any).JournalEntry.voucher.type,
+              reference: (line as any).JournalEntry.voucher.reference,
+              description: (line as any).JournalEntry.voucher.description,
+              status: (line as any).JournalEntry.voucher.status,
             }
           : null,
         chartOfAccount: {
-          id: line.chartOfAccount.id,
-          code: line.chartOfAccount.code,
-          name: line.chartOfAccount.name,
-          type: line.chartOfAccount.type,
+          id: (line as any).ChartOfAccount.id,
+          code: (line as any).ChartOfAccount.code,
+          name: (line as any).ChartOfAccount.name,
+          type: (line as any).ChartOfAccount.type,
         },
         createdAt: line.createdAt,
       };
@@ -1258,27 +1258,27 @@ export async function getEmployeeAdvanceLedger(
       return {
         id: line.id,
         lineNumber: line.lineNumber,
-        date: line.journalEntry.date,
-        entryNumber: line.journalEntry.entryNumber,
-        description: line.description || line.journalEntry.description,
+        date: line.JournalEntry.date,
+        entryNumber: line.JournalEntry.entryNumber,
+        description: line.description || line.JournalEntry.description,
         debitAmount: debit,
         creditAmount: credit,
         runningBalance: runningBalance,
-        voucher: line.journalEntry.voucher
+        voucher: line.JournalEntry.Voucher
           ? {
-              id: line.journalEntry.voucher.id,
-              voucherNumber: line.journalEntry.voucher.voucherNumber,
-              type: line.journalEntry.voucher.type,
-              reference: line.journalEntry.voucher.reference,
-              description: line.journalEntry.voucher.description,
-              status: line.journalEntry.voucher.status,
+              id: line.JournalEntry.Voucher.id,
+              voucherNumber: line.JournalEntry.Voucher.voucherNumber,
+              type: line.JournalEntry.Voucher.type,
+              reference: line.JournalEntry.Voucher.reference,
+              description: line.JournalEntry.Voucher.description,
+              status: line.JournalEntry.Voucher.status,
             }
           : null,
         chartOfAccount: {
-          id: line.chartOfAccount.id,
-          code: line.chartOfAccount.code,
-          name: line.chartOfAccount.name,
-          type: line.chartOfAccount.type,
+          id: line.ChartOfAccount.id,
+          code: line.ChartOfAccount.code,
+          name: line.ChartOfAccount.name,
+          type: line.ChartOfAccount.type,
         },
         createdAt: line.createdAt,
       };

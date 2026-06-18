@@ -95,7 +95,6 @@ export default async function BiometricDevicesPage({ searchParams }: DevicesPage
               }}
               initialSearch={search}
               permissions={{
-                view: canView,
                 manage: canManage,
               }}
             />

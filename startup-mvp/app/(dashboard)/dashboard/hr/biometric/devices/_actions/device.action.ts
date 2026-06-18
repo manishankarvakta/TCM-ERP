@@ -47,6 +47,10 @@ export async function getBiometricDevices(
         skip,
         take: limit,
         orderBy: { createdAt: "desc" },
+        include: { 
+          warehouse: { select: { id: true, name: true, code: true } },
+          _count: { select: { deviceMappings: true } }
+        },
       }),
       prisma.biometricDevice.count({ where }),
     ]);
@@ -64,6 +68,26 @@ export async function getBiometricDevices(
   } catch (error: any) {
     console.error("Error fetching biometric devices:", error);
     return { success: false, error: error.message || "Failed to fetch devices" };
+  }
+}
+
+export async function getActiveWarehouses() {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const warehouses = await prisma.warehouse.findMany({
+      where: { status: "active", isTrash: false },
+      select: { id: true, name: true, code: true },
+      orderBy: { name: "asc" },
+    });
+
+    return { success: true, warehouses };
+  } catch (error: any) {
+    console.error("Error fetching warehouses:", error);
+    return { success: false, error: error.message || "Failed to fetch warehouses" };
   }
 }
 
@@ -127,6 +151,7 @@ export async function createBiometricDevice(data: any) {
         deviceType: validatedData.deviceType || "ATTENDANCE",
         connectionMode: validatedData.connectionMode || "ADMS",
         isActive: validatedData.isActive,
+        warehouseId: validatedData.warehouseId || null,
         vendor: "ZKTeco", // Defaulting vendor since schema requires it
         createdBy: session.user.id,
       },
@@ -152,7 +177,9 @@ export async function updateBiometricDevice(id: string, data: any) {
       return { success: false, error: "Forbidden: insufficient permissions" };
     }
 
+    console.log("updateBiometricDevice input:", id, data);
     const validatedData = biometricDeviceSchema.parse(data);
+    console.log("Validated Data:", validatedData);
 
     // Check duplicate serial number (excluding self)
     const existing = await prisma.biometricDevice.findFirst({
@@ -177,6 +204,7 @@ export async function updateBiometricDevice(id: string, data: any) {
         deviceType: validatedData.deviceType || "ATTENDANCE",
         connectionMode: validatedData.connectionMode || "ADMS",
         isActive: validatedData.isActive,
+        warehouseId: validatedData.warehouseId || null,
       },
     });
 

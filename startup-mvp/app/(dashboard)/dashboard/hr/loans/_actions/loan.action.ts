@@ -141,7 +141,7 @@ export async function updateLoanStatus(loanId: string, status: LoanStatus) {
       data: updateData
     });
 
-    await logItemUpdated(session.user.id, "EMPLOYEE_LOAN", loan.id, `Updated loan status to ${status}`);
+    await logItemUpdated(session.user.id, "EMPLOYEE_LOAN", loan.id, [`Updated loan status to ${status}`]);
     revalidateBothPaths("/dashboard/hr/loans");
 
     return { success: true, loan };

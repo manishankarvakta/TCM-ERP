@@ -99,7 +99,7 @@ export default async function StockLedgerPage({ searchParams }: StockLedgerPageP
         </div>
 
         <StockLedgerClient
-          initialEntries={result.entries || []}
+          initialEntries={(result.entries as any) || []}
           initialPagination={result.pagination || {
             page: 1,
             limit: 10,

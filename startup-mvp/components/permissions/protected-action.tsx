@@ -82,7 +82,7 @@ export default function ProtectedAction({
     }
 
     async function checkPermission() {
-      let currentUserId = providedUserId;
+      let currentUserId: string | null = providedUserId || null;
 
       // If userId not provided, fetch it from server
       if (!currentUserId) {

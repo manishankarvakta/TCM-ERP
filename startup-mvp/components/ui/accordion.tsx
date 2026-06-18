@@ -76,7 +76,7 @@ const AccordionTrigger = React.forwardRef<HTMLButtonElement, AccordionTriggerPro
         )}
         onClick={() => {
           if (props.value) {
-            context.onValueChange?.(props.value === context.value ? "" : props.value);
+            context.onValueChange?.(props.value === context.value ? "" : (props.value as string));
           }
         }}
         {...props}

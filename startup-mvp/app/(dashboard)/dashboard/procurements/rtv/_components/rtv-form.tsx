@@ -91,7 +91,7 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
     watch,
     formState: { errors },
   } = useForm<RTVFormData>({
-    resolver: zodResolver(rtvFormSchema),
+    resolver: zodResolver(rtvFormSchema) as any,
     defaultValues: {
       supplierId: purchase?.supplier?.id || "",
       warehouseId: purchase?.warehouse?.id || warehouses[0]?.id || "",
@@ -588,14 +588,14 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
             <Button
               type="button"
               variant="secondary"
-              onClick={handleSubmit((data) => onSubmit(data, "DRAFT"))}
+              onClick={handleSubmit((data) => onSubmit(data as any, "DRAFT")) as any}
               disabled={loading}
             >
               Save as Draft
             </Button>
             <Button
               type="button"
-              onClick={handleSubmit((data) => onSubmit(data, "COMPLETED"))}
+              onClick={handleSubmit((data) => onSubmit(data as any, "COMPLETED")) as any}
               disabled={loading}
             >
               Complete Return

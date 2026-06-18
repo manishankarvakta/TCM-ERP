@@ -153,7 +153,7 @@ export default function JournalVoucherForm() {
     watch,
     setValue,
   } = useForm<JournalVoucherFormData>({
-    resolver: zodResolver(journalVoucherSchema),
+    resolver: zodResolver(journalVoucherSchema as any),
     defaultValues: {
       date: new Date().toISOString().split("T")[0],
       reference: "",
@@ -301,7 +301,7 @@ export default function JournalVoucherForm() {
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={handleSubmit(onSubmit as any)}>
             <div className="space-y-6">
               {/* Context Alerts */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

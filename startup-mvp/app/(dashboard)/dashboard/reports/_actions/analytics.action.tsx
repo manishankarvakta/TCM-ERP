@@ -84,8 +84,8 @@ export async function getAnalyticsData(filters: {
     // Calculate stock value by item type
     const stockValueByType = stocks.reduce(
       (acc, stock) => {
-        const value = Number(stock.quantity) * (stock.item.costPrice ? Number(stock.item.costPrice) : 0);
-        const type = stock.item.itemType;
+        const value = Number(stock.quantity) * (stock.item?.costPrice ? Number(stock.item?.costPrice) : 0);
+        const type = (stock.item?.itemType as ItemType) || "RAW_MATERIAL";
         if (!acc[type]) {
           acc[type] = 0;
         }
@@ -98,9 +98,9 @@ export async function getAnalyticsData(filters: {
     // Top 10 items by value
     const itemsByValue = stocks
       .map((stock) => ({
-        itemCode: stock.item.code,
-        itemName: stock.item.name,
-        value: Number(stock.quantity) * (stock.item.costPrice ? Number(stock.item.costPrice) : 0),
+        itemCode: stock.item?.code || "",
+        itemName: stock.item?.name || "",
+        value: Number(stock.quantity) * (stock.item?.costPrice ? Number(stock.item?.costPrice) : 0),
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 10);
@@ -112,8 +112,8 @@ export async function getAnalyticsData(filters: {
         return available < 10;
       })
       .map((stock) => ({
-        itemCode: stock.item.code,
-        itemName: stock.item.name,
+        itemCode: stock.item?.code || "",
+        itemName: stock.item?.name || "",
         availableQuantity: Number(stock.quantity) - Number(stock.reservedQuantity),
       }))
       .slice(0, 10);

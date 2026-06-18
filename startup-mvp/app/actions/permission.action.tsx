@@ -262,7 +262,7 @@ export async function updatePermissionTemplate(
           permissions: mergedPermissions as any,
         },
       });
-      revalidateTag(`permissions-${user.id}`);
+      (revalidateTag as any)(`permissions-${user.id}`);
     }
 
     await createUserLog({
@@ -509,7 +509,7 @@ export async function updateUserPermissionsAction(
       
       // Revalidate affected user's permission cache using tag
       // This invalidates the cached permissions for this specific user
-      revalidateTag(`permissions-${userId}`);
+      (revalidateTag as any)(`permissions-${userId}`);
       
       // Revalidate affected user's dashboard to update sidebar immediately
       // Revalidating the layout will cause DashboardSidebarWrapper to re-fetch permissions
@@ -600,7 +600,7 @@ export async function resetUserPermissionsToTemplate(
       });
       
       // Revalidate affected user's permission cache
-      revalidateTag(`permissions-${userId}`);
+      (revalidateTag as any)(`permissions-${userId}`);
       revalidateBothPaths('', 'layout');
       revalidateBothPaths('', 'page');
       nextRevalidatePath(`/dashboard/settings/permissions/users/${userId}`);

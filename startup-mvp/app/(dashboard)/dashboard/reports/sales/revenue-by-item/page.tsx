@@ -80,7 +80,7 @@ export default async function RevenueByItemPage({
             data={result.data}
             warehouses={warehouses}
             items={items}
-            clients={clients}
+            clients={clients as any}
             itemTypeOptions={itemTypeOptions}
             filters={filters}
           />

@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { Quotation, QuotationWithAll } from '@/types/quotation';
+import type { Quotation } from '@/types/quotation';
 import { formatDate } from './formatters';
 
 // Helper function to get unit description
@@ -148,7 +148,7 @@ const drawPageBorder = (doc: jsPDF, margin: number) => {
   doc.rect(margin, margin, pageWidth - 2 * margin, pageHeight - 2 * margin);
 };
 
-export async function generateQuotationPDF(quotation: Quotation | QuotationWithAll | any): Promise<jsPDF> {
+export async function generateQuotationPDF(quotation: any): Promise<jsPDF> {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -1236,7 +1236,7 @@ export async function generateQuotationPDF(quotation: Quotation | QuotationWithA
   return doc;
 }
 
-export async function downloadQuotationPDF(quotation: Quotation | QuotationWithAll | any, filename?: string) {
+export async function downloadQuotationPDF(quotation: any, filename?: string) {
   try {
     if (!quotation) {
       throw new Error('Quotation data is required');

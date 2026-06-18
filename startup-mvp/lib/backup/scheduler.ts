@@ -6,7 +6,9 @@ import { getBackupTypeDir } from './config';
 import * as path from 'path';
 import * as fs from 'fs';
 
-let activeBackupJob: cron.ScheduledTask | null = null;
+import type { BackupType } from '@/types/backup';
+
+let activeBackupJob: any = null;
 
 export async function initializeBackupCron() {
   console.log('[Backup Scheduler] Initializing backup cron job...');
@@ -59,6 +61,7 @@ export async function initializeBackupCron() {
       try {
         const backupType = config.backupType || 'full';
         const options = {
+          type: backupType as BackupType,
           description: 'Automated Scheduled Backup',
           encrypt: false,
         };

@@ -60,7 +60,7 @@ interface RawMaterial {
   unit: {
     symbol: string;
   };
-  costPrice: number;
+  costPrice: any;
 }
 
 interface BOMFormProps {
@@ -113,7 +113,7 @@ export default function BOMForm({
     getValues,
     watch,
   } = useForm<BOMFormData>({
-    resolver: zodResolver(bomFormSchema),
+    resolver: zodResolver(bomFormSchema) as any,
     defaultValues: initialData
       ? {
           name: initialData.name,
@@ -220,7 +220,7 @@ export default function BOMForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
             {error && (
               <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive border border-destructive/20">
                 <FiAlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />

@@ -795,9 +795,8 @@ export async function updateSupplier(input: {
         updateData.supplierCode = supplierCode;
       }
 
-      // Add chartOfAccountId if it was created
       if (chartOfAccountId && chartOfAccountId !== existingSupplier.chartOfAccountId) {
-        updateData.chartOfAccountId = chartOfAccountId;
+        updateData.ChartOfAccount = { connect: { id: chartOfAccountId } };
       }
 
       // Update supplier

@@ -172,7 +172,7 @@ export default async function ChartOfAccountDetailPage({ params }: ChartOfAccoun
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {account.children.map((child) => (
+                    {account.children.map((child: any) => (
                       <TableRow key={child.id}>
                         <TableCell className="font-medium">{child.code}</TableCell>
                         <TableCell>{child.name}</TableCell>

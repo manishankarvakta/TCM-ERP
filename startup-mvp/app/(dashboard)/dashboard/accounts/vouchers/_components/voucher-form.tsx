@@ -51,7 +51,7 @@ const voucherLineSchema = z.object({
 const voucherFormSchema = z.object({
   date: z.string().min(1, "Date is required"),
   type: z.nativeEnum(VoucherType, {
-    errorMap: () => ({ message: "Voucher type is required" }),
+    error: "Voucher type is required",
   }),
   reference: z.string().optional().or(z.literal("")),
   description: z.string().optional().or(z.literal("")),
@@ -122,8 +122,9 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
     formState: { errors },
     control,
     watch,
+    setValue,
   } = useForm<VoucherFormData>({
-    resolver: zodResolver(voucherFormSchema),
+    resolver: zodResolver(voucherFormSchema as any),
     defaultValues: {
       date: new Date().toISOString().split("T")[0],
       type: VoucherType.JOURNAL,
@@ -230,7 +231,7 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={handleSubmit(onSubmit as any)}>
             <div className="space-y-6">
               {error && (
                 <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive border border-destructive/20">
@@ -417,7 +418,7 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
                                       field.onChange(value);
                                       // Clear credit when debit is entered
                                       if (value > 0) {
-                                        control.setValue(`lines.${index}.creditAmount`, 0);
+                                        setValue(`lines.${index}.creditAmount` as any, 0);
                                       }
                                     }}
                                     disabled={loading}
@@ -446,7 +447,7 @@ export default function VoucherForm({ mode }: VoucherFormProps) {
                                       field.onChange(value);
                                       // Clear debit when credit is entered
                                       if (value > 0) {
-                                        control.setValue(`lines.${index}.debitAmount`, 0);
+                                        setValue(`lines.${index}.debitAmount` as any, 0);
                                       }
                                     }}
                                     disabled={loading}

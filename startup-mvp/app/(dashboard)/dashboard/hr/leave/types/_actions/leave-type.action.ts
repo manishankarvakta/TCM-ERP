@@ -144,7 +144,7 @@ export async function updateLeaveType(id: string, input: {
       },
     });
 
-    await logItemUpdated(session.user.id, "LeaveType", leaveType.id, leaveType.name, oldLeaveType, leaveType);
+    await logItemUpdated(session.user.id, "LeaveType", leaveType.id, ["Updated LeaveType"], oldLeaveType as any, leaveType as any);
     revalidateBothPaths("hr/leave/types");
     revalidateBothPaths("hr/leave/apply");
 

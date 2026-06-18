@@ -62,7 +62,7 @@ const employeeFormSchema = z.object({
   warehouseId: z.string().optional().or(z.literal("")),
   photo: z.string().optional().or(z.literal("")),
   shiftId: z.string().optional().or(z.literal("")),
-  type: z.string().optional().or(z.literal("")),
+
 });
 
 type EmployeeFormData = z.infer<typeof employeeFormSchema>;
@@ -127,7 +127,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
     setValue,
     watch,
   } = useForm<EmployeeFormData>({
-    resolver: zodResolver(employeeFormSchema),
+    resolver: zodResolver(employeeFormSchema as any),
     defaultValues: initialData
       ? {
           name: initialData.name || "",
@@ -163,7 +163,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           photo: initialData.photo || "",
           shiftId: initialData.shiftId || "",
           type: initialData.type || "",
-          biometricDeviceId: initialData.biometricDeviceId || "",
+          biometricDeviceId: (initialData as any).biometricDeviceId || "",
         }
       : {
           name: "",
@@ -316,7 +316,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-8">
             <div className="space-y-6">
               {/* Form Fields */}
               <div className="space-y-6">

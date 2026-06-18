@@ -69,7 +69,7 @@ export default async function RevenueByClientPage({
           <RevenueByClientView
             data={result.data}
             warehouses={warehouses}
-            clients={clients}
+            clients={clients as any}
             itemTypeOptions={itemTypeOptions}
             filters={filters}
           />

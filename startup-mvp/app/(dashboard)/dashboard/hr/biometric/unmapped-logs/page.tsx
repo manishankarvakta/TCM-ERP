@@ -39,8 +39,8 @@ export default async function UnmappedBiometricLogsPage({ searchParams }: Unmapp
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Unmapped Biometric Logs</h1>
-            <p className="text-sm text-muted-foreground">Resolve punches that couldn't be matched to an employee</p>
+            <h1 className="text-2xl font-semibold">Unknown Punches</h1>
+            <p className="text-sm text-muted-foreground">Punches received from biometric devices that could not be matched to an employee.</p>
           </div>
         </div>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -54,8 +54,8 @@ export default async function UnmappedBiometricLogsPage({ searchParams }: Unmapp
     <PageGuard permissionKey="hr.biometric.view">
       <div className="space-y-6">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold">Unmapped Biometric Logs</h1>
-          <p className="text-sm text-muted-foreground">Resolve punches that couldn't be matched to an employee</p>
+          <h1 className="text-2xl font-semibold">Unknown Punches</h1>
+          <p className="text-sm text-muted-foreground">Punches received from biometric devices that could not be matched to an employee.</p>
         </div>
 
         <Tabs defaultValue={tab} className="w-full">

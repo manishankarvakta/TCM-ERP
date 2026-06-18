@@ -179,7 +179,7 @@ export async function getUploadPresignedUrl(input: {
 
     return {
       success: true,
-      data: { url, key: storageKey },
+      data: { url: "", key: storageKey },
     };
   } catch (error) {
     console.error("getUploadPresignedUrl error:", error);

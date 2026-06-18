@@ -6,7 +6,7 @@ import { hasPermission } from "@/lib/permissions";
 import { logItemCreated, logItemUpdated, logItemDeleted, createUserLog, LogAction } from "@/lib/user-log";
 import { notifyItemCreated, notifyItemUpdated } from "@/lib/notification";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
-import { type Prisma, ProductionOrderStatus, StockTransactionType, Prisma as PrismaClient, VoucherType } from "@prisma/client";
+import { Prisma, ProductionOrderStatus, StockTransactionType, VoucherType } from "@prisma/client";
 import { createVoucher, postVoucher } from "@/app/(dashboard)/dashboard/accounts/vouchers/_actions/voucher.action";
 
 
@@ -159,12 +159,12 @@ export async function validateStockAvailability(
 
       validationResults.push({
         itemId: material.itemId,
-        itemName: stock?.item.name || "Unknown",
-        itemCode: stock?.item.code || "Unknown",
+        itemName: stock?.item?.name || "Unknown",
+        itemCode: stock?.item?.code || "Unknown",
         required: material.quantityNeeded,
         available: availableQuantity,
         isAvailable,
-        trackInventory: stock?.item.trackInventory || false,
+        trackInventory: stock?.item?.trackInventory || false,
       });
     }
 
@@ -604,6 +604,7 @@ export async function createProductionOrder(input: {
         item: {
           select: {
             id: true,
+            name: true,
             itemType: true,
             trackInventory: true,
           },
@@ -837,8 +838,8 @@ export async function updateProductionOrder(
 
     // Update order
     const updateData: Prisma.ProductionOrderUpdateInput = {};
-    if (input.bomId) updateData.bomId = input.bomId;
-    if (input.warehouseId) updateData.warehouseId = input.warehouseId;
+    if (input.bomId) updateData.bom = { connect: { id: input.bomId } };
+    if (input.warehouseId) updateData.warehouse = { connect: { id: input.warehouseId } };
     if (input.quantity !== undefined) updateData.quantity = input.quantity;
     if (input.notes !== undefined) updateData.notes = input.notes;
 
@@ -849,7 +850,7 @@ export async function updateProductionOrder(
         select: { itemId: true },
       });
       if (bom) {
-        updateData.itemId = bom.itemId;
+        updateData.item = { connect: { id: bom.itemId } };
       }
     }
 
@@ -886,7 +887,7 @@ export async function updateProductionOrder(
       session.user.id,
       "ProductionOrder",
       order.code,
-      `Updated production order ${order.code}`
+      [`Updated production order ${order.code}`]
     );
     await notifyItemUpdated(session.user.id, "Production Order", order.code);
 
@@ -1017,18 +1018,16 @@ export async function startProductionOrder(id: string) {
           await postVoucher(voucherResult.voucher.id, undefined, true);
           
           // Log accounting move
-          await createUserLog(
-            session.user.id,
-            LogAction.CREATE,
-            "Voucher",
-            voucherResult.voucher.id,
-            `WIP Move: ${order.code} - ৳${totalRawMaterialCost.toLocaleString()}`,
-            {
+          await createUserLog({
+            userId: session.user.id,
+            action: LogAction.ITEM_CREATED,
+            details: `WIP Move: ${order.code} - ৳${totalRawMaterialCost.toLocaleString()}`,
+            metadata: {
               productionOrderId: order.id,
               totalCost: totalRawMaterialCost,
               voucherNumber: voucherResult.voucher.voucherNumber
             }
-          );
+          });
         } else {
           console.error("Failed to create WIP voucher for production start:", voucherResult.error);
         }
@@ -1041,7 +1040,7 @@ export async function startProductionOrder(id: string) {
       session.user.id,
       "ProductionOrder",
       order.code,
-      `Started production order ${order.code}`
+      [`Status changed from ${order.status} to ${ProductionOrderStatus.IN_PROGRESS}`]
     );
     await notifyItemUpdated(session.user.id, "Production Order", order.code);
 
@@ -1426,18 +1425,16 @@ export async function completeProductionOrder(id: string) {
             });
 
             // Log activity
-            await createUserLog(
-              session.user.id,
-              LogAction.CREATE,
-              "Voucher",
-              voucherResult.voucher.id,
-              `Production Completion Voucher: ${order.code} - ৳${totalCapitalizedValue.toLocaleString()}`,
-              {
+            await createUserLog({
+              userId: session.user.id,
+              action: LogAction.ITEM_CREATED,
+              details: `Production Completion Voucher: ${order.code} - ৳${totalCapitalizedValue.toLocaleString()}`,
+              metadata: {
                 productionOrderId: order.id,
                 totalCost: totalCapitalizedValue,
                 voucherNumber: voucherResult.voucher.voucherNumber
               }
-            );
+            });
           } else {
             throw new Error(`Failed to create accounting voucher: ${voucherResult.error}`);
           }
@@ -1461,7 +1458,7 @@ export async function completeProductionOrder(id: string) {
       session.user.id,
       "ProductionOrder",
       order.code,
-      `Completed production order ${order.code} - Produced ${finishedGoodQuantity.toFixed(2)} ${order.item.name}`
+      [`Completed production order ${order.code} - Produced ${finishedGoodQuantity.toFixed(2)} ${order.item.name}`]
     );
     await notifyItemUpdated(session.user.id, "Production Order", order.code);
 
@@ -1584,18 +1581,16 @@ export async function cancelProductionOrder(id: string) {
             await postVoucher(voucherResult.voucher.id, undefined, true);
             
             // Log reversal
-            await createUserLog(
-              session.user.id,
-              LogAction.DELETE,
-              "Voucher",
-              voucherResult.voucher.id,
-              `WIP Reversal (Cancelled): ${order.code} - ৳${totalRawMaterialCost.toLocaleString()}`,
-              {
+            await createUserLog({
+              userId: session.user.id,
+              action: LogAction.ITEM_DELETED,
+              details: `WIP Reversal (Cancelled): ${order.code} - ৳${totalRawMaterialCost.toLocaleString()}`,
+              metadata: {
                 productionOrderId: order.id,
                 totalCost: totalRawMaterialCost,
                 voucherNumber: voucherResult.voucher.voucherNumber
               }
-            );
+            });
           } else {
             console.error("Failed to create WIP reversal voucher for production cancellation:", voucherResult.error);
           }

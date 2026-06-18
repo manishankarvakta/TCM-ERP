@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getCategoryById } from "@/app/(dashboard)/dashboard/category/_actions/category.action";
+import { getCategoryById } from "@/app/(dashboard)/dashboard/master/categories/_actions/category.action";
 // import { getQuotation } from "@/app/actions/quotations";
 // import { getGroupById } from "@/app/(dashboard)/dashboard/items/groups/_actions/group.action";
 // import { getItemById } from "@/app/(dashboard)/dashboard/items/_actions/item.action";

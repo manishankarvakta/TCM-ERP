@@ -82,7 +82,7 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
         </TabsList>
         <TabsContent value="all" className="mt-4">
           <PurchasesListClient
-            initialPurchases={result.purchases || []}
+            initialPurchases={(result.purchases as any) || []}
             initialPagination={
               result.pagination || {
                 page: 1,
@@ -104,7 +104,7 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
         </TabsContent>
         <TabsContent value="trash" className="mt-4">
           <PurchasesListClient
-            initialPurchases={result.purchases || []}
+            initialPurchases={(result.purchases as any) || []}
             initialPagination={
               result.pagination || {
                 page: 1,

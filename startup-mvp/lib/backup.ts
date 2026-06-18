@@ -378,7 +378,7 @@ export async function createDatabaseBackup(operationId?: string): Promise<string
         // Continue with unencrypted backup if encryption fails
         updateProgress(opId, { 
           stage: "Encryption failed, keeping unencrypted backup",
-          errors: (getProgress(opId)?.errors || 0) + 1,
+          errors: ((await getProgress(opId))?.errors || 0) + 1,
         });
       }
     }

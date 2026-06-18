@@ -168,6 +168,7 @@ export default function StockLedgerClient({
       PRODUCTION: { label: "PRODUCTION", variant: "outline", icon: FiRefreshCw },
       PURCHASE_RETURN: { label: "RETURN", variant: "destructive", icon: FiArrowUp },
       TRANSFER: { label: "TRANSFER", variant: "outline", icon: FiRefreshCw },
+      DAMAGE: { label: "DAMAGE", variant: "destructive", icon: FiArrowUp },
     };
     const config = variants[type] || { label: type || "UNKNOWN", variant: "secondary", icon: FiBox };
     const Icon = config.icon;

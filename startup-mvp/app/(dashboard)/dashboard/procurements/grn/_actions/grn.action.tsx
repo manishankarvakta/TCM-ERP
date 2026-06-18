@@ -1,3 +1,4 @@
+import { z } from "zod";
 "use server";
 
 import { auth } from "@/lib/auth";
@@ -87,7 +88,7 @@ async function createGRNAccountingVoucher(
       const quantity = Number(grnItem.receivedQuantity);
       if (quantity <= 0) continue;
       
-      const unitPrice = Number(grnItem.purchaseItem.unitPrice);
+      const unitPrice = Number(grnItem.purchaseItem?.unitPrice || 0);
       const totalCost = quantity * unitPrice;
 
       itemsByType[grnItem.item.itemType].push({
@@ -158,7 +159,7 @@ async function createGRNAccountingVoucher(
     }
 
     if (totalInventoryDebit > 0) {
-      const payableAccountId = grn.purchase.supplier.chartOfAccountId || purchaseAccounts.payableAccountId;
+      const payableAccountId = grn.purchase?.supplier?.chartOfAccountId || purchaseAccounts.payableAccountId;
 
       if (!payableAccountId) {
         return { success: false, error: `No Accounts Payable ledger found for supplier.` };
@@ -168,9 +169,9 @@ async function createGRNAccountingVoucher(
         lineNumber: lineNumber++,
         debitAmount: 0,
         creditAmount: totalInventoryDebit,
-        description: `Accounts Payable - ${grn.grnNumber} - ${grn.purchase.supplier.name || grn.purchase.supplier.email}`,
+        description: `Accounts Payable - ${grn.grnNumber} - ${grn.purchase?.supplier?.name || grn.purchase?.supplier?.email}`,
         chartOfAccountId: payableAccountId,
-        supplierId: grn.purchase.supplierId,
+        supplierId: grn.purchase?.supplierId,
       });
     }
 
@@ -182,8 +183,8 @@ async function createGRNAccountingVoucher(
       date: grn.date,
       type: VoucherType.PURCHASE,
       reference: grn.grnNumber,
-      description: `GRN ${grn.grnNumber} - ${grn.purchase.supplier.name || grn.purchase.supplier.email}`,
-      supplierId: grn.purchase.supplierId,
+      description: `GRN ${grn.grnNumber} - ${grn.purchase?.supplier?.name || grn.purchase?.supplier?.email}`,
+      supplierId: grn.purchase?.supplierId,
       isSystemAction: true,
       lines: voucherLines,
     }, tx);

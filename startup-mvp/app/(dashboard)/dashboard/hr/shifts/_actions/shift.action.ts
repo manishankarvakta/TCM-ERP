@@ -163,7 +163,7 @@ export async function updateShift(id: string, input: {
       },
     });
 
-    await logItemUpdated(session.user.id, "Shift", shift.id, shift.name, oldShift, shift);
+    await logItemUpdated(session.user.id, "Shift", shift.id, ["Updated Shift"], oldShift as any, shift as any);
     revalidateBothPaths("hr/shifts");
 
     return { success: true, shift };

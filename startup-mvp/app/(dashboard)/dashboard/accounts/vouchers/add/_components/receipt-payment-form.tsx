@@ -29,7 +29,7 @@ import { FiAlertCircle, FiPlus, FiTrash2, FiSearch, FiUser } from "react-icons/f
 import { createVoucher } from "../../_actions/voucher.action";
 import { getChartOfAccounts } from "../../../chart-of-accounts/_actions/chart-of-accounts.action";
 import { getCashBankAccounts } from "../../../cash-bank/_actions/cash-bank.action";
-import { getSuppliersForPurchase } from "../../../../purchases/_actions/purchase.action";
+import { getSuppliersForPurchase } from "../../../../procurements/purchases/_actions/purchase.action";
 import { getClientsForSale } from "../../../../sales/_actions/sale.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType, AccountType } from "@prisma/client";
@@ -102,7 +102,7 @@ interface CashBankAccountOption {
 }
 
 interface ReceiptPaymentFormProps {
-  voucherType: VoucherType.RECEIPT | VoucherType.PAYMENT;
+  voucherType: "RECEIPT" | "PAYMENT";
 }
 
 export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormProps) {
@@ -117,7 +117,7 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [accountSearch, setAccountSearch] = useState("");
 
-  const isReceipt = voucherType === VoucherType.RECEIPT;
+  const isReceipt = voucherType === "RECEIPT";
 
   // Fetch accounts and suppliers for selection
   useEffect(() => {
@@ -133,7 +133,7 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
 
         if (accountsResult.success) {
           setAllAccounts(
-            accountsResult.accounts.map((a) => ({
+            accountsResult.accounts.map((a: any) => ({
               id: a.id,
               code: a.code,
               name: a.name,
@@ -144,14 +144,14 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
 
         if (cashBankResult.success && cashBankResult.accounts) {
           const cashBankOptions: CashBankAccountOption[] = [
-            ...cashBankResult.accounts.cash.map((cb) => ({
+            ...cashBankResult.accounts.cash.map((cb: any) => ({
               id: cb.id,
               chartOfAccountId: cb.chartOfAccount.id,
               code: cb.chartOfAccount.code,
               name: cb.chartOfAccount.name,
               type: "CASH" as const,
             })),
-            ...cashBankResult.accounts.bank.map((cb) => ({
+            ...cashBankResult.accounts.bank.map((cb: any) => ({
               id: cb.id,
               chartOfAccountId: cb.chartOfAccount.id,
               code: cb.chartOfAccount.code,
@@ -218,7 +218,7 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
     watch,
     setValue,
   } = useForm<VoucherFormData>({
-    resolver: zodResolver(voucherFormSchema),
+    resolver: zodResolver(voucherFormSchema as any),
     defaultValues: {
       date: new Date().toISOString().split("T")[0],
       description: "",
@@ -360,7 +360,7 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit(onSubmit as any)}>
           <div className="space-y-6">
             {error && (
               <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive border border-destructive/20">
@@ -562,7 +562,7 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
                                     const value = parseFloat(e.target.value) || 0;
                                     field.onChange(value);
                                     if (value > 0) {
-                                      control.setValue(`lines.${index}.creditAmount`, 0);
+                                      setValue(`lines.${index}.creditAmount` as any, 0);
                                       handleAmountChange(index, value, true);
                                     }
                                   }}
@@ -591,7 +591,7 @@ export default function ReceiptPaymentForm({ voucherType }: ReceiptPaymentFormPr
                                     const value = parseFloat(e.target.value) || 0;
                                     field.onChange(value);
                                     if (value > 0) {
-                                      control.setValue(`lines.${index}.debitAmount`, 0);
+                                      setValue(`lines.${index}.debitAmount` as any, 0);
                                       handleAmountChange(index, value, false);
                                     }
                                   }}

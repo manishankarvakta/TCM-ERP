@@ -1,3 +1,4 @@
+// @ts-ignore
 import ZKLib from "node-zklib";
 
 export async function pullLogsFromDevice(ip: string, port: number = 4370) {

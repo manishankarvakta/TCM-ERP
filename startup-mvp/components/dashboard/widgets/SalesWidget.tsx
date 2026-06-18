@@ -48,7 +48,7 @@ export default function SalesWidget() {
             </CardTitle>
             <CardDescription>Daily revenue and menu performance</CardDescription>
           </div>
-          <Badge variant="success" className="text-[10px] font-black uppercase tracking-widest">
+          <Badge variant="default" className="text-[10px] font-black uppercase tracking-widest bg-emerald-500 hover:bg-emerald-600">
             Live
           </Badge>
         </div>

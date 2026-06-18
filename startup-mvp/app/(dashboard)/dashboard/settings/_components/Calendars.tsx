@@ -179,7 +179,7 @@ export default function Calendars() {
           </CardContent>
         </Card>
       </div>
-      <Toaster toasts={toasts} onClose={closeToast} />
+      <Toaster toasts={toasts as any} onClose={closeToast} />
     </div>
   );
 }

@@ -23,9 +23,10 @@ import { useToast } from "@/hooks/use-toast";
 interface DeviceFormProps {
   mode: "create" | "edit";
   initialData?: any;
+  warehouses?: { id: string; name: string; code: string }[];
 }
 
-export default function DeviceForm({ mode, initialData }: DeviceFormProps) {
+export default function DeviceForm({ mode, initialData, warehouses = [] }: DeviceFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -37,7 +38,7 @@ export default function DeviceForm({ mode, initialData }: DeviceFormProps) {
     setValue,
     watch,
   } = useForm<BiometricDeviceFormData>({
-    resolver: zodResolver(biometricDeviceSchema),
+    resolver: zodResolver(biometricDeviceSchema as any),
     defaultValues: initialData
       ? {
           name: initialData.name || "",
@@ -48,6 +49,7 @@ export default function DeviceForm({ mode, initialData }: DeviceFormProps) {
           deviceType: initialData.deviceType || "ATTENDANCE",
           connectionMode: initialData.connectionMode || "ADMS",
           isActive: initialData.isActive !== false,
+          warehouseId: initialData.warehouseId || "",
         }
       : {
           name: "",
@@ -58,10 +60,12 @@ export default function DeviceForm({ mode, initialData }: DeviceFormProps) {
           deviceType: "ATTENDANCE",
           connectionMode: "ADMS",
           isActive: true,
+          warehouseId: "",
         },
   });
 
   const onSubmit = async (data: BiometricDeviceFormData) => {
+    console.log("onSubmit triggered with data:", data);
     setLoading(true);
 
     try {
@@ -97,18 +101,27 @@ export default function DeviceForm({ mode, initialData }: DeviceFormProps) {
     }
   };
 
+  const onError = (errors: any) => {
+    console.error("Form validation errors:", errors);
+    toast({
+      title: "Validation Error",
+      description: "Please check the form for invalid fields.",
+      variant: "destructive",
+    });
+  };
+
   return (
     <Card className="max-w-3xl mx-auto">
       <CardHeader>
-        <CardTitle>{mode === "create" ? "Add Device" : "Edit Device"}</CardTitle>
+        <CardTitle>{mode === "create" ? "Add New Device" : "Device Details"}</CardTitle>
         <CardDescription>
           {mode === "create"
-            ? "Register a new biometric attendance device."
-            : "Update existing biometric device information."}
+            ? "Register a new biometric attendance or access control device."
+            : "Update the configuration for this device."}
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit as any, onError)} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="name">Device Name <span className="text-destructive">*</span></Label>
@@ -164,6 +177,27 @@ export default function DeviceForm({ mode, initialData }: DeviceFormProps) {
                   <SelectItem value="TCP_IP">Local Bridge (TCP/IP)</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="warehouseId">Warehouse Assignment (Optional)</Label>
+              <Select
+                value={watch("warehouseId") || "none"}
+                onValueChange={(val) => setValue("warehouseId", val === "none" ? "" : val)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a warehouse" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Unassigned</SelectItem>
+                  {warehouses.map((w) => (
+                    <SelectItem key={w.id} value={w.id}>
+                      {w.name} {w.code ? `(${w.code})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Warehouse can be assigned later.</p>
             </div>
 
             <div className="space-y-2">

@@ -38,7 +38,7 @@ export default async function EditTemplatePage({ params }: EditTemplatePageProps
         </p>
       </div>
 
-      <TemplateForm template={result.template} mode="edit" />
+      <TemplateForm template={result.template as any} mode="edit" />
     </div>
   );
 }

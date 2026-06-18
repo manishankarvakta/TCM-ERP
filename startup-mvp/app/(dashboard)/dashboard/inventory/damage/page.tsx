@@ -69,7 +69,7 @@ export default async function DamagePage({
 
         <TabsContent value="active" className="mt-4">
           <DamageList 
-            initialData={damages} 
+            initialData={damages || []} 
             totalPages={totalPages}
             currentPage={page}
             warehouses={warehouses}
@@ -78,7 +78,7 @@ export default async function DamagePage({
         </TabsContent>
         <TabsContent value="trash" className="mt-4">
           <DamageList 
-            initialData={damages} 
+            initialData={damages || []} 
             totalPages={totalPages}
             currentPage={page}
             warehouses={warehouses}

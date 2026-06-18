@@ -39,7 +39,7 @@ export default async function AdjustmentPage({ searchParams }: PageProps) {
 
   const { adjustments, pagination, success, error } = await getAdjustments(page, 10, {
     search: params.search,
-    warehouseId: params.warehouseId || (userContext.isNormalUser ? userContext.defaultWarehouseId : undefined),
+    warehouseId: params.warehouseId || (userContext.isNormalUser ? (userContext.defaultWarehouseId || undefined) : undefined),
   });
 
   if (!success) {

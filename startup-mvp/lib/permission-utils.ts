@@ -1,11 +1,10 @@
 import type { Operation } from "@/types/permissions";
-import { getEquivalentOperations } from "@/types/permissions";
 
 /**
  * Map operation to equivalent operations for backward compatibility
  */
 export function mapOperation(operation: Operation): Operation[] {
-  return getEquivalentOperations(operation);
+  return [operation];
 }
 
 /**

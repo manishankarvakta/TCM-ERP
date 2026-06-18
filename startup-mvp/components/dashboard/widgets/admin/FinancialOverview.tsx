@@ -36,7 +36,7 @@ export default function FinancialOverview() {
             </CardTitle>
             <CardDescription>Consolidated revenue and expenses overview</CardDescription>
           </div>
-          <Badge variant={data.netProfit >= 0 ? "success" : "destructive"}>
+          <Badge variant={data.netProfit >= 0 ? "default" : "secondary"}>
             {data.netProfit >= 0 ? "In Profit" : "In Loss"}
           </Badge>
         </div>

@@ -141,7 +141,7 @@ export default function StockAdjustForm() {
         itemId: data.itemId,
         warehouseId: data.warehouseId,
         quantity: data.quantity,
-        notes: data.notes || undefined,
+        notes: data.notes || "",
       });
 
       if (!result.success) {

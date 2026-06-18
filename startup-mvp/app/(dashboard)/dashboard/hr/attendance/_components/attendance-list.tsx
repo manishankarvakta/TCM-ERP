@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,12 +20,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FiClock, FiSearch, FiCheckSquare, FiAlertCircle } from "react-icons/fi";
+import { FiSearch, FiCheckSquare, FiAlertCircle } from "react-icons/fi";
 import { processBulkAttendance } from "../_actions/attendance.action";
 import { getWarehouses } from "../../../master/warehouses/_actions/warehouse.action";
+import { getEmployees } from "../../../employees/_actions/employee.action";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import Link from "next/link";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import { DateRange } from "react-day-picker";
 
 interface AttendanceRecord {
   id: string;
@@ -53,8 +57,23 @@ interface AttendanceRecord {
 
 interface AttendanceListClientProps {
   initialAttendances: AttendanceRecord[];
-  selectedDate: string;
-  selectedWarehouseId: string;
+  pagination: {
+    total: number;
+    pages: number;
+    page: number;
+    limit: number;
+  } | null;
+  filters: {
+    page: number;
+    limit: number;
+    search: string;
+    warehouseId: string;
+    deviceId: string;
+    employeeId: string;
+    fromDate: string;
+    toDate: string;
+    status: string;
+  };
   permissions?: {
     view: boolean;
     edit: boolean;
@@ -63,103 +82,129 @@ interface AttendanceListClientProps {
 
 export default function AttendanceListClient({
   initialAttendances = [],
-  selectedDate,
-  selectedWarehouseId,
+  pagination,
+  filters,
   permissions,
 }: AttendanceListClientProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
-  const [date, setDate] = useState(selectedDate);
-  const [warehouseId, setWarehouseId] = useState(selectedWarehouseId);
+
+  // Local state for filters to allow debouncing/explicit search triggers
+  const [localFilters, setLocalFilters] = useState(filters);
   const [warehouses, setWarehouses] = useState<{id: string, name: string}[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [employees, setEmployees] = useState<{id: string, name: string, employeeCode: string | null}[]>([]);
 
   useEffect(() => {
-    async function fetchWarehouses() {
-      const res = await getWarehouses(1, 100);
-      if (res.success && res.warehouses) {
-        setWarehouses(res.warehouses);
-      }
+    async function loadDropdowns() {
+      const [whRes, empRes] = await Promise.all([
+        getWarehouses(1, 100),
+        getEmployees(1, 1000)
+      ]);
+      if (whRes.success && whRes.warehouses) setWarehouses(whRes.warehouses);
+      if (empRes.success && empRes.employees) setEmployees(empRes.employees);
     }
-    fetchWarehouses();
+    loadDropdowns();
   }, []);
 
-  const handleFilterChange = (newDate: string, newWarehouseId: string) => {
-    setDate(newDate);
-    setWarehouseId(newWarehouseId);
+  const pushFilters = useCallback((newFilters: Partial<typeof filters>) => {
+    const updated = { ...localFilters, ...newFilters, page: newFilters.page || 1 };
+    setLocalFilters(updated);
     
     const params = new URLSearchParams();
-    if (newDate) params.set("date", newDate);
-    if (newWarehouseId && newWarehouseId !== "all") params.set("warehouseId", newWarehouseId);
-    
-    router.push(`/dashboard/hr/attendance?${params.toString()}`);
-  };
+    if (updated.page > 1) params.set("page", updated.page.toString());
+    if (updated.limit !== 10) params.set("limit", updated.limit.toString());
+    if (updated.search) params.set("search", updated.search);
+    if (updated.warehouseId && updated.warehouseId !== "all") params.set("warehouseId", updated.warehouseId);
+    if (updated.employeeId && updated.employeeId !== "all") params.set("employeeId", updated.employeeId);
+    if (updated.fromDate) params.set("fromDate", updated.fromDate);
+    if (updated.toDate) params.set("toDate", updated.toDate);
+    if (updated.status && updated.status !== "ALL") params.set("status", updated.status);
+    if (updated.deviceId) params.set("deviceId", updated.deviceId);
+
+    startTransition(() => {
+      router.push(`/dashboard/hr/attendance?${params.toString()}`);
+    });
+  }, [localFilters, router]);
+
+  const resetFilters = useCallback(() => {
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    setLocalFilters({ page: 1, limit: 10, search: "", warehouseId: "", deviceId: "", employeeId: "", status: "ALL", fromDate: todayStr, toDate: todayStr });
+    startTransition(() => {
+      router.push(`/dashboard/hr/attendance?fromDate=${todayStr}&toDate=${todayStr}`);
+    });
+  }, [router]);
+
 
   const handleProcessBulk = () => {
     startTransition(async () => {
-      const result = await processBulkAttendance(date, warehouseId === "all" ? undefined : warehouseId);
+      const result = await processBulkAttendance(localFilters.fromDate, localFilters.warehouseId === "all" ? undefined : localFilters.warehouseId);
       if (result.success) {
-        toast({
-          title: "Success",
-          description: `Processed attendance for ${result.count} un-punched employees as Absent.`,
-        });
-        router.refresh();
+        toast({ title: "Success", description: `Processed ${result.count} un-punched attendances as ABSENT.` });
       } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to process bulk attendance",
-          variant: "destructive",
-        });
+        toast({ variant: "destructive", title: "Error", description: result.error });
       }
     });
   };
 
-  const filteredAttendances = initialAttendances.filter(a => 
-    a.employee.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    a.employee.employeeCode?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "PRESENT":
-        return <Badge className="bg-emerald-500 hover:bg-emerald-600">Present</Badge>;
-      case "LATE":
-        return <Badge className="bg-amber-500 hover:bg-amber-600">Late</Badge>;
-      case "HALF_DAY":
-        return <Badge className="bg-orange-500 hover:bg-orange-600">Half Day</Badge>;
-      case "ABSENT":
-        return <Badge variant="destructive">Absent</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
+  const employeeOptions = [
+    { label: "All Employees", value: "all" },
+    ...employees.map(e => ({
+      label: `${e.name} ${e.employeeCode ? `(${e.employeeCode})` : ''}`,
+      value: e.id
+    }))
+  ];
 
   return (
     <div className="space-y-4">
-      {/* Filters Bar */}
-      <div className="flex flex-col md:flex-row gap-4 items-center p-4 bg-card border rounded-lg">
-        <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Date</label>
-            <Input 
-              type="date" 
-              value={date} 
-              onChange={(e) => handleFilterChange(e.target.value, warehouseId)}
+      {filters.deviceId && (
+        <Alert>
+          <FiAlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            You arrived from a Device Details page. Note: Daily Summaries aggregate punches from all hardware sources. To see exact, strict device-level logs, please check the <strong>Logs</strong> tab on the device details page.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Filter Bar */}
+      <div className="flex flex-col gap-4 p-4 border rounded-lg bg-card shadow-sm">
+        <div className="flex flex-wrap items-end gap-3">
+          
+          <div className="space-y-1.5 flex-1 min-w-[200px]">
+            <label className="text-xs font-semibold text-muted-foreground">Search</label>
+            <div className="relative">
+              <FiSearch className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Name or Code..."
+                className="pl-9"
+                value={localFilters.search}
+                onChange={(e) => setLocalFilters({ ...localFilters, search: e.target.value })}
+                onKeyDown={(e) => e.key === 'Enter' && pushFilters({ search: localFilters.search })}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5 flex-1 min-w-[200px]">
+            <label className="text-xs font-semibold text-muted-foreground">Employee</label>
+            <SearchableSelect
+              options={employeeOptions}
+              value={localFilters.employeeId || "all"}
+              onValueChange={(val) => pushFilters({ employeeId: val || "all" })}
+              placeholder="Select Employee"
             />
           </div>
-          
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Branch</label>
+
+          <div className="space-y-1.5 flex-1 min-w-[200px]">
+            <label className="text-xs font-semibold text-muted-foreground">Warehouse</label>
             <Select 
-              value={warehouseId || "all"} 
-              onValueChange={(val) => handleFilterChange(date, val)}
+              value={localFilters.warehouseId || "all"} 
+              onValueChange={(val) => pushFilters({ warehouseId: val })}
             >
               <SelectTrigger>
-                <SelectValue placeholder="All Branches" />
+                <SelectValue placeholder="All Warehouses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Branches</SelectItem>
+                <SelectItem value="all">All Warehouses</SelectItem>
                 {warehouses.map(w => (
                   <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
                 ))}
@@ -167,129 +212,166 @@ export default function AttendanceListClient({
             </Select>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Search Employee</label>
-            <div className="relative">
-              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Name or Code..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+          <div className="space-y-1.5 flex-1 min-w-[160px]">
+            <label className="text-xs font-semibold text-muted-foreground">Status</label>
+            <Select 
+              value={localFilters.status || "ALL"} 
+              onValueChange={(val) => pushFilters({ status: val })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="PRESENT">Present</SelectItem>
+                <SelectItem value="ABSENT">Absent</SelectItem>
+                <SelectItem value="LATE">Late</SelectItem>
+                <SelectItem value="HALF_DAY">Half Day</SelectItem>
+                <SelectItem value="LEAVE">Leave</SelectItem>
+                <SelectItem value="HOLIDAY">Holiday</SelectItem>
+                <SelectItem value="WEEKEND">Weekend</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5 flex-1 min-w-[260px]">
+            <label className="text-xs font-semibold text-muted-foreground">Date Range</label>
+            <div className="w-full">
+              <DatePickerWithRange
+                date={{
+                  from: localFilters.fromDate ? new Date(localFilters.fromDate) : undefined,
+                  to: localFilters.toDate ? new Date(localFilters.toDate) : undefined,
+                }}
+                setDate={(range: DateRange | undefined) => {
+                  pushFilters({
+                    fromDate: range?.from ? format(range.from, "yyyy-MM-dd") : "",
+                    toDate: range?.to ? format(range.to, "yyyy-MM-dd") : "",
+                  });
+                }}
               />
             </div>
           </div>
+
         </div>
 
-        {permissions?.edit && (
-          <div className="flex-shrink-0 self-end">
-            <Button 
-              variant="secondary" 
-              onClick={handleProcessBulk}
+        <div className="flex justify-between items-center border-t pt-4 mt-2">
+          <div className="text-sm text-muted-foreground">
+            {isPending ? "Updating..." : `Found ${pagination?.total || 0} records`}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => resetFilters()}
               disabled={isPending}
             >
-              <FiCheckSquare className="mr-2 h-4 w-4" />
-              {isPending ? "Processing..." : "Process Un-punched as Absent"}
+              Reset Filters
             </Button>
+            <Button
+              onClick={() => pushFilters({ search: localFilters.search })}
+              disabled={isPending}
+            >
+              Apply Search
+            </Button>
+            {permissions?.edit && (
+              <Button onClick={handleProcessBulk} disabled={isPending || !localFilters.fromDate} variant="secondary">
+                <FiCheckSquare className="mr-2 h-4 w-4" />
+                Process Un-Punched as Absent
+              </Button>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Data Table */}
-      <div className="border rounded-lg">
+      {/* Table Section */}
+      <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Date</TableHead>
               <TableHead>Employee</TableHead>
-              <TableHead>Shift</TableHead>
               <TableHead>Check In</TableHead>
               <TableHead>Check Out</TableHead>
-              <TableHead className="text-right">Hours (WH/OT)</TableHead>
+              <TableHead>Work / OT</TableHead>
               <TableHead>Status</TableHead>
-              {permissions?.edit && <TableHead className="text-right">Action</TableHead>}
+              <TableHead>Source</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAttendances.length === 0 ? (
+            {initialAttendances.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No attendance records found for this date.
+                  No attendance records found.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredAttendances.map((att) => (
-                <TableRow key={att.id}>
+              initialAttendances.map((record) => (
+                <TableRow key={record.id}>
+                  <TableCell className="font-medium whitespace-nowrap">
+                    {format(new Date(record.date), "MMM d, yyyy")}
+                  </TableCell>
                   <TableCell>
-                    <div>
-                      <div className="font-medium">{att.employee.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {att.employee.employeeCode || "N/A"} • {att.employee.designation || "No Desig."}
-                      </div>
+                    <div className="font-medium">{record.employee.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {record.employee.employeeCode || "No Code"}
                     </div>
                   </TableCell>
                   <TableCell>
-                    {att.shift ? (
-                      <div className="text-sm">
-                        <div>{att.shift.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {att.shift.startTime} - {att.shift.endTime}
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Unassigned</span>
+                    {record.checkIn ? format(new Date(record.checkIn), "hh:mm a") : "-"}
+                  </TableCell>
+                  <TableCell>
+                    {record.checkOut ? format(new Date(record.checkOut), "hh:mm a") : "-"}
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">{Number(record.workHours).toFixed(2)}h</div>
+                    {Number(record.otHours) > 0 && (
+                      <div className="text-xs text-green-600">+{Number(record.otHours).toFixed(2)}h OT</div>
                     )}
                   </TableCell>
                   <TableCell>
-                    {att.checkIn ? (
-                      <div className="flex items-center gap-1">
-                        <FiClock className="h-3 w-3 text-emerald-500" />
-                        <span>{format(new Date(att.checkIn), "hh:mm a")}</span>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
+                    <Badge variant={
+                      record.status === "PRESENT" ? "default" :
+                      record.status === "ABSENT" ? "destructive" :
+                      record.status === "LATE" || record.status === "HALF_DAY" ? "secondary" : "outline"
+                    }>
+                      {record.status}
+                    </Badge>
                   </TableCell>
                   <TableCell>
-                    {att.checkOut ? (
-                      <div className="flex items-center gap-1">
-                        <FiClock className="h-3 w-3 text-amber-500" />
-                        <span>{format(new Date(att.checkOut), "hh:mm a")}</span>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
+                    <Badge variant="outline" className="text-xs">
+                      {record.isManual ? "Manual" : "Biometric"}
+                    </Badge>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="font-medium">{Number(att.workHours).toFixed(1)}h</div>
-                    {Number(att.otHours) > 0 && (
-                      <div className="text-xs text-emerald-600 font-medium">
-                        +{Number(att.otHours).toFixed(1)}h OT
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {getStatusBadge(att.status)}
-                      {att.isManual && (
-                        <FiAlertCircle className="h-3 w-3 text-muted-foreground" title="Manual Entry" />
-                      )}
-                    </div>
-                  </TableCell>
-                  {permissions?.edit && (
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/dashboard/hr/attendance/manual-punch?employeeId=${att.employee.id}&date=${date}`}>
-                          Edit
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  )}
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination Controls */}
+      {pagination && pagination.pages > 1 && (
+        <div className="flex items-center justify-end space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => pushFilters({ page: pagination.page - 1 })}
+            disabled={pagination.page <= 1 || isPending}
+          >
+            Previous
+          </Button>
+          <div className="text-sm text-muted-foreground">
+            Page {pagination.page} of {pagination.pages}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => pushFilters({ page: pagination.page + 1 })}
+            disabled={pagination.page >= pagination.pages || isPending}
+          >
+            Next
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

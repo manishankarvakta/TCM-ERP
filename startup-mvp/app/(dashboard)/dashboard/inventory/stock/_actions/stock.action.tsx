@@ -1469,7 +1469,7 @@ export async function getStockReport(itemId?: string, warehouseId?: string) {
     const serializedStocks = stocks.map((stock) => {
       const qty = Number(stock.quantity);
       const reserved = Number(stock.reservedQuantity);
-      const costPrice = stock.item.costPrice ? Number(stock.item.costPrice) : 0;
+      const costPrice = stock.item?.costPrice ? Number(stock.item?.costPrice) : 0;
 
       totalQuantity += qty;
       totalReserved += reserved;

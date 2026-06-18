@@ -150,8 +150,16 @@ export async function getPayrollSettings(): Promise<PayrollSettings> {
 
     return defaults;
   } catch (error) {
-    console.error("getPayrollSettings error:", error);
-    return createDefaultPayrollSettings();
+    // If we're not in a request context (e.g. cron/cli), fallback to global settings directly
+    const globalSetting = await prisma.settings.findFirst({
+      where: { code: "PAYROLL_SETTINGS", userId: null, isGlobal: true, isActive: true },
+      orderBy: { createdAt: "desc" },
+    });
+    const defaults = createDefaultPayrollSettings();
+    if (globalSetting?.settings) {
+      return mergeWithDefaults(globalSetting.settings as Partial<PayrollSettings>, defaults);
+    }
+    return defaults;
   }
 }
 

@@ -28,6 +28,8 @@ model User {
   updatedAttendances               Attendance[]           @relation("AttendanceUpdater")
   createdBOMs                      BOM[]                  @relation("BOMCreator")
   biometricSyncLogs                BiometricSyncLog[]
+  biometricCommands                BiometricCommand[]
+
   CashBankAccount                  CashBankAccount[]
   ChartOfAccount                   ChartOfAccount[]
   createdClients                   Client[]               @relation("ClientCreator")
@@ -386,6 +388,7 @@ model Warehouse {
   tpnSources          TransferPurchaseNote[] @relation("TPNSource")
   tpnDestinations     TransferPurchaseNote[] @relation("TPNDestination")
   grns                GRN[]
+  biometricDevices    BiometricDevice[]
 
   @@index([code])
   @@index([name])
@@ -1351,12 +1354,16 @@ model BiometricDevice {
   createdBy      String
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
+  warehouseId    String?
+  warehouse      Warehouse?          @relation(fields: [warehouseId], references: [id])
   attendanceLogs AttendanceLog[]
   syncLogs       BiometricSyncLog[]
   deviceMappings EmployeeDeviceMap[]
+  commands       BiometricCommand[]
 
   @@index([vendor])
   @@index([status])
+  @@index([warehouseId])
 }
 
 model EmployeeDeviceMap {
@@ -1984,4 +1991,31 @@ model GRNItem {
   @@index([tpnItemId])
   @@index([itemId])
   @@index([variantId])
+}
+
+model BiometricCommand {
+  id                 String           @id @default(cuid())
+  deviceId           String?
+  deviceSerialNumber String
+  commandType        String
+  commandText        String?          @db.Text
+  status             String           @default("QUEUED")
+  priority           Int              @default(0)
+  payloadJson        String?          @db.Text
+  resultText         String?          @db.Text
+  errorMessage       String?          @db.Text
+  requestedById      String?
+  sentAt             DateTime?
+  respondedAt        DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  device             BiometricDevice? @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  requestedBy        User?            @relation(fields: [requestedById], references: [id])
+
+  @@index([deviceId])
+  @@index([deviceSerialNumber])
+  @@index([status])
+  @@index([commandType])
+  @@index([createdAt])
 }

@@ -97,7 +97,7 @@ export default async function GRNsPage({ searchParams }: GRNsPageProps) {
         </TabsList>
         <TabsContent value="all" className="mt-4">
           <GRNsListClient
-            initialGRNs={result.grns || []}
+            initialGRNs={(result.grns as any) || []}
             initialPagination={
               result.pagination || {
                 page: 1,
@@ -121,7 +121,7 @@ export default async function GRNsPage({ searchParams }: GRNsPageProps) {
         </TabsContent>
         <TabsContent value="trash" className="mt-4">
           <GRNsListClient
-            initialGRNs={result.grns || []}
+            initialGRNs={(result.grns as any) || []}
             initialPagination={
               result.pagination || {
                 page: 1,

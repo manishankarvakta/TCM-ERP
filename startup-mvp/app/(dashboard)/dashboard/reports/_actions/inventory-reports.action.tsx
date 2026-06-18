@@ -45,7 +45,7 @@ export async function getStockSummary(filters: {
       ...(filters.warehouseId ? { warehouseId: filters.warehouseId } : {}),
     };
 
-    const stocks = await prisma.Stock.findMany({
+    const stocks = await prisma.stock.findMany({
       where,
       include: {
         item: {
@@ -77,7 +77,7 @@ export async function getStockSummary(filters: {
     });
 
     // Process data
-    const reportData = stocks.map((stock) => {
+    const reportData = stocks.map((stock: any) => {
       const quantity = Number(stock.quantity);
       const reservedQuantity = Number(stock.reservedQuantity);
       const availableQuantity = quantity - reservedQuantity;
@@ -104,7 +104,7 @@ export async function getStockSummary(filters: {
     let filteredData = reportData;
     if (filters.lowStockThreshold !== undefined) {
       filteredData = reportData.filter(
-        (item) => item.availableQuantity < filters.lowStockThreshold!
+        (item: any) => item.availableQuantity < filters.lowStockThreshold!
       );
     }
 
@@ -237,10 +237,10 @@ export async function getStockLedger(
 
       return {
         date: entry.createdAt,
-        itemCode: entry.item.code,
-        itemName: entry.item.name,
-        warehouse: entry.warehouse.name,
-        warehouseCode: entry.warehouse.code,
+        itemCode: entry.item?.code || "",
+        itemName: entry.item?.name || "",
+        warehouse: entry.warehouse?.name || "",
+        warehouseCode: entry.warehouse?.code || "",
         transactionType: entry.transactionType,
         quantity: quantity,
         rate: rate,
@@ -378,20 +378,20 @@ export async function getRawMaterialConsumption(filters: {
     >();
 
     for (const entry of entries) {
-      const key = `${entry.itemId}_${entry.warehouseId}`;
+      const key = `${entry.item?.id}_${entry.warehouse?.id}`;
       const quantity = Math.abs(Number(entry.quantity));
       const rate = entry.rate ? Number(entry.rate) : 0;
       const cost = quantity * rate;
 
       if (!grouped.has(key)) {
         grouped.set(key, {
-          itemId: entry.itemId,
-          itemCode: entry.item.code,
-          itemName: entry.item.name,
-          warehouseId: entry.warehouseId,
-          warehouse: entry.warehouse.name,
-          warehouseCode: entry.warehouse.code,
-          unit: entry.item.unit?.symbol || "",
+          itemId: entry.item?.id || "",
+          itemCode: entry.item?.code || "",
+          itemName: entry.item?.name || "",
+          warehouseId: entry.warehouse?.id || "",
+          warehouse: entry.warehouse?.name || "",
+          warehouseCode: entry.warehouse?.code || "",
+          unit: entry.item?.unit?.symbol || "",
           totalConsumed: 0,
           totalCost: 0,
           averageCost: 0,

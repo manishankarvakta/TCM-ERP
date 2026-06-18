@@ -24,7 +24,7 @@ export default function BiometricSyncButton({ date }: BiometricSyncButtonProps) 
       if (result.success) {
         toast({
           title: "Success",
-          description: `Processed ${result.processedCount} attendance records from biometric logs.`,
+          description: `Processed ${(result as any).processedCount || 0} attendance records from biometric logs.`,
         });
         router.refresh();
       } else {

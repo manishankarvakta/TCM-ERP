@@ -238,9 +238,9 @@ export default function SettingsLayoutWrapper({
                                     if (item.id === "permissions") {
                                       const usersPath = isDashboardRoute ? "/dashboard/users" : "/dashboard/users";
                                       let href = `${basePath}?section=permissions`;
-                                      if (child.id === "permissions-templates") {
+                                      if ((child.id as string) === "permissions-templates") {
                                         href = `${basePath}/permissions/templates`;
-                                      } else if (child.id === "permissions-users") {
+                                      } else if ((child.id as string) === "permissions-users") {
                                         href = usersPath; // Users list page
                                       }
 

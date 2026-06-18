@@ -8,6 +8,7 @@ import { Prisma, PayrollStatus } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
 import { createVoucher, postVoucher, cancelVoucher } from "../../../accounts/vouchers/_actions/voucher.action";
 import { getPayrollSettings } from "@/lib/payroll-settings";
+import { validateHRMAccountingSetup } from "@/lib/hr/payroll-settings-guard";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -47,6 +48,12 @@ export async function generatePayroll(month: number, year: number, options?: Gen
     const canCreate = await hasPermission(session.user.id, "hr.payroll", "create");
     if (!canCreate) {
       return { success: false, error: "You do not have permission to generate payroll" };
+    }
+
+    // Validate HR Accounting Setup Guard
+    const hrGuard = await validateHRMAccountingSetup("PAYROLL_GENERATE");
+    if (!hrGuard.ok) {
+      return { success: false, error: hrGuard.errors.join(". ") };
     }
 
     // Check if payroll already exists for this month/year
@@ -429,6 +436,12 @@ export async function postPayroll(payrollId: string, salaryExpenseAccountId: str
     const canCreateVoucher = await hasPermission(session.user.id, "accounts.vouchers", "create");
     if (!canPost && !canCreateVoucher) return { success: false, error: "Permission denied" };
 
+    // Validate HR Accounting Setup Guard
+    const hrGuard = await validateHRMAccountingSetup("PAYROLL_POST", { payrollId, salaryExpenseAccountId });
+    if (!hrGuard.ok) {
+      return { success: false, error: hrGuard.errors.join(". ") };
+    }
+
     const payroll = await prisma.payroll.findUnique({
       where: { id: payrollId },
       include: {
@@ -695,6 +708,12 @@ export async function disbursePayroll(payrollId: string, cashBankAccountId: stri
     const canPost = await hasPermission(session.user.id, "hr.payroll", "edit");
     const canCreateVoucher = await hasPermission(session.user.id, "accounts.vouchers", "create");
     if (!canPost && !canCreateVoucher) return { success: false, error: "Permission denied" };
+
+    // Validate HR Accounting Setup Guard
+    const hrGuard = await validateHRMAccountingSetup("PAYROLL_DISBURSE", { cashBankAccountId });
+    if (!hrGuard.ok) {
+      return { success: false, error: hrGuard.errors.join(". ") };
+    }
 
     const payroll = await prisma.payroll.findUnique({
       where: { id: payrollId },

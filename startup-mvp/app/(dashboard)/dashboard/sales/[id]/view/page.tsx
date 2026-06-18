@@ -28,6 +28,7 @@ const STATUS_LABELS: Record<SaleStatus, string> = {
   DRAFT: "Draft",
   COMPLETED: "Completed",
   CANCELLED: "Cancelled",
+  RETURN: "Return",
 };
 
 export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) {

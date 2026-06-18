@@ -42,7 +42,7 @@ interface AnalyticsDashboardViewProps {
   };
 }
 
-const itemTypeLabels: Record<ItemType, string> = {
+const itemTypeLabels: Record<string, string> = {
   RAW_MATERIAL: "Raw Material",
   READY_PRODUCT: "Ready Product",
   RETAIL: "Retail",
@@ -63,7 +63,7 @@ export default function AnalyticsDashboardView({
   }
 
   const handleExportChartData = (chartName: string, chartData: any[]) => {
-    exportToCSV(chartData, `${chartName}-${format(new Date(), "yyyy-MM-dd")}.csv`);
+    exportToCSV(chartData, { filename: `${chartName}-${format(new Date(), "yyyy-MM-dd")}.csv` });
   };
 
   return (
@@ -170,7 +170,7 @@ export default function AnalyticsDashboardView({
         <div className="grid gap-4 md:grid-cols-2">
           <LineChart
             title="Revenue Trend (Last 12 Months)"
-            data={data.sales.revenueTrend}
+            data={data.sales.revenueTrend.map((d: any) => ({ period: d.period, value: d.revenue }))}
             valueFormatter={(value) =>
               `৳ ${new Intl.NumberFormat("en-BD", {
                 minimumFractionDigits: 0,
@@ -237,7 +237,7 @@ export default function AnalyticsDashboardView({
           />
           <LineChart
             title="Production Volume Trend"
-            data={data.production.volumeTrend}
+            data={data.production.volumeTrend.map((d: any) => ({ period: d.period, value: d.volume }))}
             valueFormatter={(value) => value.toFixed(2)}
           />
         </div>

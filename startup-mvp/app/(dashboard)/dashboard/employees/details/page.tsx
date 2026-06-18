@@ -208,12 +208,12 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Street Address</label>
-                    <p className="text-sm">{employee.address?.street || "-"}</p>
+                    <p className="text-sm">{(employee.address as any)?.street || "-"}</p>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Location</label>
                     <p className="text-sm">
-                      {[employee.address?.city, employee.address?.state, employee.address?.zipCode, employee.address?.country]
+                      {[(employee.address as any)?.city, (employee.address as any)?.state, (employee.address as any)?.zipCode, (employee.address as any)?.country]
                         .filter(Boolean)
                         .join(", ") || "-"}
                     </p>
@@ -230,15 +230,15 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Contact Name</label>
-                    <p className="text-sm font-medium">{employee.emergencyContact?.name || "-"}</p>
+                    <p className="text-sm font-medium">{(employee.emergencyContact as any)?.name || "-"}</p>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Relation</label>
-                    <p className="text-sm">{employee.emergencyContact?.relation || "-"}</p>
+                    <p className="text-sm">{(employee.emergencyContact as any)?.relation || "-"}</p>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Phone Number</label>
-                    <p className="text-sm">{employee.emergencyContact?.phone || "-"}</p>
+                    <p className="text-sm">{(employee.emergencyContact as any)?.phone || "-"}</p>
                   </div>
                 </div>
               </div>

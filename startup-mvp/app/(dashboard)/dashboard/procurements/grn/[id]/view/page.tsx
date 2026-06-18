@@ -25,6 +25,7 @@ interface GRNDetailsPageProps {
 const STATUS_LABELS: Record<GRNStatus, string> = {
   DRAFT: "Draft",
   COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
 };
 
 export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
@@ -245,7 +246,7 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
                         <div>
                           <p className="font-medium">
                             {item.item?.name || "Unknown Item"}
-                            {item.variant ? ` - ${item.variant.name}` : ""}
+                            {item.variant ? ` - ${(item.variant as any).name || (item.variant as any).sku || ""}` : ""}
                           </p>
                         </div>
                       </TableCell>

@@ -24,7 +24,10 @@ interface RTVDetailsPageProps {
 
 const STATUS_LABELS: Record<ReturnToVendorStatus, string> = {
   DRAFT: "Draft",
+  APPROVED: "Approved",
+  SHIPPED: "Shipped",
   COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
 };
 
 export default async function RTVDetailsPage({ params }: RTVDetailsPageProps) {

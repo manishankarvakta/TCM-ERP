@@ -110,14 +110,14 @@ export async function getCashLedger(
     const ledgerLines = await prisma.journalEntryLine.findMany({
       where: {
         chartOfAccountId: { in: accountIds },
-        journalEntry: {
+        JournalEntry: {
           ...(Object.keys(journalEntryDateFilter).length > 0 && { date: journalEntryDateFilter }),
         },
       },
       include: {
-        journalEntry: {
+        JournalEntry: {
           include: {
-            voucher: {
+            Voucher: {
               select: {
                 id: true,
                 voucherNumber: true,
@@ -158,7 +158,7 @@ export async function getCashLedger(
             email: true,
           },
         },
-        organization: {
+        Organization: {
           select: {
             id: true,
             name: true,
@@ -166,7 +166,7 @@ export async function getCashLedger(
         },
       },
       orderBy: {
-        journalEntry: {
+        JournalEntry: {
           date: "asc",
         },
       },
@@ -176,13 +176,13 @@ export async function getCashLedger(
     let totalDebit = 0;
     let totalCredit = 0;
 
-    ledgerLines.forEach((line) => {
+    ledgerLines.forEach((line: any) => {
       totalDebit += Number(line.debitAmount);
       totalCredit += Number(line.creditAmount);
     });
 
     // Serialize Decimal fields and format response
-    const serializedLedger = ledgerLines.map((line) => ({
+    const serializedLedger = ledgerLines.map((line: any) => ({
       id: line.id,
       lineNumber: line.lineNumber,
       debitAmount: Number(line.debitAmount),
@@ -369,14 +369,14 @@ export async function getBankLedger(
     const ledgerLines = await prisma.journalEntryLine.findMany({
       where: {
         chartOfAccountId: { in: accountIds },
-        journalEntry: {
+        JournalEntry: {
           ...(Object.keys(journalEntryDateFilter).length > 0 && { date: journalEntryDateFilter }),
         },
       },
       include: {
-        journalEntry: {
+        JournalEntry: {
           include: {
-            voucher: {
+            Voucher: {
               select: {
                 id: true,
                 voucherNumber: true,
@@ -417,7 +417,7 @@ export async function getBankLedger(
             email: true,
           },
         },
-        organization: {
+        Organization: {
           select: {
             id: true,
             name: true,
@@ -425,7 +425,7 @@ export async function getBankLedger(
         },
       },
       orderBy: {
-        journalEntry: {
+        JournalEntry: {
           date: "asc",
         },
       },
@@ -435,13 +435,13 @@ export async function getBankLedger(
     let totalDebit = 0;
     let totalCredit = 0;
 
-    ledgerLines.forEach((line) => {
+    ledgerLines.forEach((line: any) => {
       totalDebit += Number(line.debitAmount);
       totalCredit += Number(line.creditAmount);
     });
 
     // Serialize Decimal fields and format response
-    const serializedLedger = ledgerLines.map((line) => ({
+    const serializedLedger = ledgerLines.map((line: any) => ({
       id: line.id,
       lineNumber: line.lineNumber,
       debitAmount: Number(line.debitAmount),

@@ -160,7 +160,7 @@ export default function RawLogsListClient({
               <TableHead>Created At</TableHead>
               <TableHead>Punch Time</TableHead>
               <TableHead>Device</TableHead>
-              <TableHead>Device User ID</TableHead>
+              <TableHead>Biometric ID / PIN</TableHead>
               <TableHead>Source</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-[80px]">Actions</TableHead>
@@ -172,7 +172,7 @@ export default function RawLogsListClient({
                 <TableCell colSpan={7} className="h-32 text-center">
                   <div className="flex flex-col items-center justify-center text-muted-foreground">
                     <FiSearch className="mb-2 h-8 w-8" />
-                    <p>No biometric raw logs found.</p>
+                    <p>No diagnostic data found.</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -205,7 +205,7 @@ export default function RawLogsListClient({
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => viewRawPayload(log.id, { deviceName: log.deviceName })}>
                           <FiEye className="mr-2 h-4 w-4" />
-                          View Payload
+                          View Technical Data
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -256,7 +256,7 @@ export default function RawLogsListClient({
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Raw Payload Details</DialogTitle>
+            <DialogTitle>Technical Data Details</DialogTitle>
             <DialogDescription>
               Original unmodified text block received from the physical hardware.
             </DialogDescription>

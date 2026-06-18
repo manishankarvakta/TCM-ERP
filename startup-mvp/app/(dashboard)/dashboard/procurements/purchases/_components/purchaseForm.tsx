@@ -283,7 +283,7 @@ export default function PurchaseForm({
     getValues,
     watch,
   } = useForm<PurchaseFormData>({
-    resolver: zodResolver(purchaseFormSchema),
+    resolver: zodResolver(purchaseFormSchema) as any,
     defaultValues: initialData
       ? {
           supplierId: initialData.supplier.id,
@@ -441,7 +441,7 @@ export default function PurchaseForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
             {error && (
               <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive border border-destructive/20">
                 <FiAlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
@@ -1077,7 +1077,7 @@ export default function PurchaseForm({
         </div>
       </DialogContent>
     </Dialog>
-    <Toaster toasts={toasts} onClose={closeToast} />
+    <Toaster toasts={toasts as any} onClose={closeToast} />
     </>
   );
 }

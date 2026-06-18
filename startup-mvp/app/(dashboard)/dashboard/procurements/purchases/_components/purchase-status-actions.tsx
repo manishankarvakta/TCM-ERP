@@ -35,7 +35,7 @@ export default function PurchaseStatusActions({
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
     documentTitle: `Purchase_${purchaseId}`,
-  });
+  } as any);
 
   const handleUpdateStatus = async (newStatus: PurchaseStatus) => {
     startTransition(async () => {

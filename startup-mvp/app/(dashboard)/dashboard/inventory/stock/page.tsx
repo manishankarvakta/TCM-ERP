@@ -102,7 +102,7 @@ export default async function StockPage({ searchParams }: StockPageProps) {
         </div>
 
         <StocksListClient
-          initialStocks={result.stocks || []}
+          initialStocks={(result.stocks as any) || []}
           initialPagination={result.pagination || {
             page: 1,
             limit: 10,

@@ -172,7 +172,6 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           inchargeId: data.inchargeId && data.inchargeId.length > 0 ? data.inchargeId : undefined,
           defaultWarehouseId: data.defaultWarehouseId && data.defaultWarehouseId.length > 0 ? data.defaultWarehouseId : undefined,
           status: data.status,
-          isActive: data.isActive,
         });
 
         if (!result.success) {
@@ -191,7 +190,6 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           inchargeId: data.inchargeId && data.inchargeId.length > 0 ? data.inchargeId : undefined,
           defaultWarehouseId: data.defaultWarehouseId && data.defaultWarehouseId.length > 0 ? data.defaultWarehouseId : undefined,
           status: data.status,
-          isActive: data.isActive,
         });
 
         if (!result.success) {

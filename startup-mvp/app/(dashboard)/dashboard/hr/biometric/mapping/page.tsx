@@ -53,8 +53,8 @@ export default async function EmployeeDeviceMappingPage({ searchParams }: Mappin
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Employee Device Mapping</h1>
-            <p className="text-sm text-muted-foreground">Map ERP employees to biometric device PIN/User IDs.</p>
+            <h1 className="text-2xl font-semibold">Employee Hardware IDs</h1>
+            <p className="text-sm text-muted-foreground">Manage which biometric ID/PIN belongs to each employee and device.</p>
           </div>
         </div>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -68,8 +68,12 @@ export default async function EmployeeDeviceMappingPage({ searchParams }: Mappin
     <PageGuard permissionKey="hr.biometric.view">
       <div className="space-y-6">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold">Employee Device Mapping</h1>
-          <p className="text-sm text-muted-foreground">Map ERP employees to biometric device PIN/User IDs.</p>
+          <h1 className="text-2xl font-semibold">Employee Hardware IDs</h1>
+          <p className="text-sm text-muted-foreground">Manage which biometric ID/PIN belongs to each employee and device.</p>
+        </div>
+
+        <div className="rounded-lg border bg-blue-50/50 p-3 text-sm text-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
+          <strong>Tip:</strong> For easier management, open a device and use the Employees tab.
         </div>
 
         <Tabs defaultValue={tab} className="w-full">

@@ -113,7 +113,7 @@ export async function scanBackupDirectory(type: BackupType): Promise<BackupListI
         }
 
         backups.push({
-          metadata,
+          metadata: metadata as any,
           filePath,
           fileName: filename,
           status,

@@ -9,6 +9,8 @@ import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import PageGuard from "@/components/permissions/page-guard";
 import PayrollHeaderActions from "./_components/payroll-header-actions";
+import { validateHRMAccountingSetup } from "@/lib/hr/payroll-settings-guard";
+import { AlertCircle } from "lucide-react";
 
 interface PayrollPageProps {
   searchParams: Promise<{
@@ -33,6 +35,8 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
     userId ? hasPermission(userId, "hr.payroll", "create") : false,
     userId ? hasPermission(userId, "hr.payroll", "edit") : false,
   ]);
+
+  const hrGuard = await validateHRMAccountingSetup("PAYROLL_GENERATE");
 
   if (!result.success) {
     return (
@@ -60,6 +64,21 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
           <PayrollHeaderActions canCreate={canCreate} canEdit={canEdit} />
         </div>
 
+        {!hrGuard.ok && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 mb-6 flex items-start space-x-3">
+            <AlertCircle className="w-5 h-5 text-destructive mt-0.5" />
+            <div>
+              <h3 className="text-sm font-semibold text-destructive">HRM setup incomplete</h3>
+              <ul className="list-disc list-inside text-sm text-destructive mt-1 space-y-1">
+                {hrGuard.errors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+              <p className="text-sm text-destructive mt-2">Please configure these before generating or posting payroll.</p>
+            </div>
+          </div>
+        )}
+
         <Tabs defaultValue={statusParam} className="w-full">
           <TabsList>
             <TabsTrigger value="ALL" asChild>
@@ -78,7 +97,7 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
           
           <TabsContent value={statusParam} className="mt-4">
             <PayrollListClient
-              initialPayrolls={result.payrolls || []}
+              initialPayrolls={(result.payrolls as any) || []}
               initialPagination={result.pagination || { page: 1, limit: 10, total: 0, totalPages: 0 }}
               permissions={{
                 view: canView,

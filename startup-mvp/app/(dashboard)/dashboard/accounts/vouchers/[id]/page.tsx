@@ -192,7 +192,7 @@ export default async function VoucherDetailPage({ params }: VoucherDetailPagePro
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {voucher.voucherLines.map((line) => (
+                  {voucher.voucherLines.map((line: any) => (
                     <TableRow key={line.id}>
                       <TableCell className="font-medium">{line.lineNumber}</TableCell>
                       <TableCell>
@@ -237,7 +237,7 @@ export default async function VoucherDetailPage({ params }: VoucherDetailPagePro
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {voucher.journalEntries.map((entry) => (
+                {voucher.journalEntries.map((entry: any) => (
                   <div key={entry.id} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-4">
                       <div>
@@ -265,7 +265,7 @@ export default async function VoucherDetailPage({ params }: VoucherDetailPagePro
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {entry.journalEntryLines.map((line) => (
+                          {entry.journalEntryLines.map((line: any) => (
                             <TableRow key={line.id}>
                               <TableCell className="font-medium">{line.lineNumber}</TableCell>
                               <TableCell>

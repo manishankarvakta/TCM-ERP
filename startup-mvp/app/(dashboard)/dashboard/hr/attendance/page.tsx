@@ -1,34 +1,59 @@
 import React from "react";
-import { getAttendances } from "./_actions/attendance.action";
+import { getAttendanceRecordsPaginated } from "./_actions/attendance.action";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { FiPlus, FiDownload, FiSettings } from "react-icons/fi";
+import { FiPlus, FiSettings } from "react-icons/fi";
 import AttendanceListClient from "./_components/attendance-list";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
-import { startOfDay, endOfDay } from "date-fns";
 import BiometricSyncButton from "./_components/biometric-sync-button";
 
 interface AttendancePageProps {
   searchParams: Promise<{
-    date?: string;
+    page?: string;
+    limit?: string;
+    search?: string;
     warehouseId?: string;
+    deviceId?: string;
+    employeeId?: string;
+    fromDate?: string;
+    toDate?: string;
+    status?: string;
   }>;
 }
 
 export default async function AttendancePage({ searchParams }: AttendancePageProps) {
   const params = await searchParams;
   
-  const selectedDate = params.date ? new Date(params.date) : new Date();
+  const page = parseInt(params.page || "1", 10);
+  const limit = parseInt(params.limit || "10", 10);
+  const search = params.search || "";
   const warehouseId = params.warehouseId || undefined;
+  const deviceId = params.deviceId || undefined;
+  const employeeId = params.employeeId || undefined;
+  
+  // Set default date range if not provided (e.g. today)
+  const today = new Date().toISOString().split("T")[0];
+  const fromDate = params.fromDate || today;
+  const toDate = params.toDate || today;
+  const status = params.status || undefined;
 
   const session = await auth();
   const userId = session?.user?.id;
 
   // Check permissions
   const [result, canView, canEdit] = await Promise.all([
-    getAttendances(startOfDay(selectedDate), endOfDay(selectedDate), undefined, warehouseId),
+    getAttendanceRecordsPaginated({
+      page,
+      limit,
+      search,
+      warehouseId,
+      deviceId,
+      employeeId,
+      fromDate,
+      toDate,
+      status
+    }),
     userId ? hasPermission(userId, "hr.attendance", "view") : false,
     userId ? hasPermission(userId, "hr.attendance", "edit") : false,
   ]);
@@ -56,12 +81,12 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Daily Attendance</h1>
-          <p className="text-sm text-muted-foreground">Manage check-ins, check-outs, and daily status</p>
+          <p className="text-sm text-muted-foreground">Manage check-ins, check-outs, and daily status across all locations</p>
         </div>
         <div className="flex gap-2">
           {canEdit && (
             <>
-              <BiometricSyncButton date={selectedDate.toISOString().split("T")[0]} />
+              <BiometricSyncButton date={fromDate} />
               <Button asChild variant="outline">
                 <Link href="/dashboard/hr/attendance/devices">
                   <FiSettings className="mr-2 h-4 w-4" />
@@ -81,8 +106,18 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
 
       <AttendanceListClient
         initialAttendances={result.attendances || []}
-        selectedDate={selectedDate.toISOString().split("T")[0]}
-        selectedWarehouseId={warehouseId || ""}
+        pagination={result.pagination}
+        filters={{
+          page,
+          limit,
+          search,
+          warehouseId: warehouseId || "",
+          deviceId: deviceId || "",
+          employeeId: employeeId || "",
+          fromDate,
+          toDate,
+          status: status || "ALL",
+        }}
         permissions={{
           view: canView,
           edit: canEdit,

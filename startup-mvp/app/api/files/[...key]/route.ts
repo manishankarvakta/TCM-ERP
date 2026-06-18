@@ -75,7 +75,7 @@ export async function GET(
     const buffer = await storage.readFile(key);
 
     // Return file with appropriate headers
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": file.mimeType || "application/octet-stream",

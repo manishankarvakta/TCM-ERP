@@ -114,7 +114,7 @@ export default function ProductionForm({
     watch,
     setValue,
   } = useForm<ProductionFormData>({
-    resolver: zodResolver(productionFormSchema),
+    resolver: zodResolver(productionFormSchema) as any,
     defaultValues: initialData
       ? {
           bomId: initialData.bomId,
@@ -315,7 +315,7 @@ export default function ProductionForm({
   const selectedBOMSummary = boms.find((b) => b.id === watchedBOMId);
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
       {error && (
         <Alert variant="destructive">
           <FiAlertCircle className="h-4 w-4" />

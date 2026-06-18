@@ -5,6 +5,7 @@ import PayrollDetailsClient from "./_components/payroll-details";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import PageGuard from "@/components/permissions/page-guard";
+import { serializeDecimalAndDate } from "@/lib/utils/serialization";
 import Link from "next/link";
 import { FiArrowLeft } from "react-icons/fi";
 
@@ -21,7 +22,7 @@ export default async function PayrollDetailsPage({ params }: PayrollDetailsPageP
     getPayrollById(id),
     userId ? hasPermission(userId, "hr.payroll", "edit") : false,
     userId ? hasPermission(userId, "hr.payroll", "approve") : false,
-    userId ? hasPermission(userId, "hr.payroll", "post") : false, // or accounts.vouchers create
+    userId ? hasPermission(userId, "hr.payroll", "post" as any) : false, // or accounts.vouchers create
   ]);
 
   // Fallback for posting if user has voucher creation permission instead of explicit hr.payroll post
@@ -74,7 +75,7 @@ export default async function PayrollDetailsPage({ params }: PayrollDetailsPageP
         </Link>
         
         <PayrollDetailsClient 
-          payroll={result.payroll}
+          payroll={serializeDecimalAndDate(result.payroll)}
           expenseAccounts={expenseAccounts}
           cashBankAccounts={cashBankAccounts}
           permissions={{

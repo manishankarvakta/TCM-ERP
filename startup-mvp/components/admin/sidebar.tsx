@@ -71,26 +71,15 @@ const menuItems: MenuItem[] = [
   {
     label: "Items",
     icon: FiArchive,
-    module: "items",
+    module: "items" as any,
     subMenu: [
-      { href: "/dashboard/items/groups", label: "Groups", icon: FiLayers, module: "items" },
-      { href: "/dashboard/items", label: "All Items", icon: FiPackage, module: "items" },
-      { href: "/dashboard/items/category", label: "Categories", icon: MdOutlineCategory, module: "items" },
-      { href: "/dashboard/items/units", label: "Units", icon: FiLayers, module: "items" },
+      { href: "/dashboard/items/groups", label: "Groups", icon: FiLayers, module: "items" as any },
+      { href: "/dashboard/items", label: "All Items", icon: FiPackage, module: "items" as any },
+      { href: "/dashboard/items/category", label: "Categories", icon: MdOutlineCategory, module: "items" as any },
+      { href: "/dashboard/items/units", label: "Units", icon: FiLayers, module: "items" as any },
     ],
   },
-  {
-    label: "Quotations",
-    icon: FiFileText,
-    module: "quotations",
-    subMenu: [
-      { href: "/dashboard/quotations", label: "Quotations", icon: FiFileText, module: "quotations" },
-      { href: "/dashboard/quotations/invoices", label: "Invoices", icon: FiDollarSign, module: "quotations" },
-      { href: "/dashboard/quotations/orders", label: "Orders", icon: FiShoppingCart, module: "quotations" },
-      { href: "/dashboard/work-orders", label: "Work Orders", icon: FiBriefcase, module: "work-orders" },
-    ],
-  },
-  { href: "/dashboard/procurements/purchases", label: "Purchases", icon: FiShoppingCart, module: "purchases" },
+  { href: "/dashboard/procurements/purchases", label: "Purchases", icon: FiShoppingCart, module: "procurements" as any },
   {
     label: "Accounts",
     icon: SlCalculator,

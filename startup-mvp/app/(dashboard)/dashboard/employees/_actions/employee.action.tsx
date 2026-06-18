@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { type Prisma, AccountType } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
 import PageGuard from "@/components/permissions/page-guard";
+import { validateHRMAccountingSetup } from "@/lib/hr/payroll-settings-guard";
 
 /**
  * Get paginated list of employees with search
@@ -105,6 +106,11 @@ export async function getEmployees(
         shiftId: true,
         type: true,
         nominee: true,
+        deviceMappings: {
+          select: {
+            deviceUserId: true,
+          },
+        },
         salaryPayableAccount: {
           select: {
             id: true,
@@ -477,6 +483,16 @@ export async function createEmployee(input: {
       return {
         success: false,
         error: "You don't have permission to create employees",
+        employee: null,
+      };
+    }
+
+    // Validate HR Accounting Setup Guard
+    const hrGuard = await validateHRMAccountingSetup("EMPLOYEE_CREATE");
+    if (!hrGuard.ok) {
+      return {
+        success: false,
+        error: hrGuard.errors.join(". "),
         employee: null,
       };
     }
@@ -1066,7 +1082,7 @@ export async function updateEmployee(input: {
       }
 
       // Build update data
-      const updateData: Prisma.EmployeeUpdateInput = {
+      const updateData: any = {
         name: input.name !== undefined ? input.name : undefined,
         employeeCode: input.employeeCode !== undefined ? (input.employeeCode || null) : undefined,
         email: input.email !== undefined ? (input.email || null) : undefined,

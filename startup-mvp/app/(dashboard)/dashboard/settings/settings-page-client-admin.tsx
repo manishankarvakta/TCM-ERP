@@ -49,7 +49,6 @@ import Backup from "./_components/Backup";
 import PermissionsSettings from "./_components/PermissionsSettings";
 
 import { SlEnvolopeLetter } from "react-icons/sl";
-import CoverLetter from "./_components/coverLetter/CoverLetter";
 import TOS from "./_components/Tos";
 import Accounting from "./_components/Accounting";
 import PayrollSettings from "./_components/PayrollSettings";
@@ -215,7 +214,6 @@ export default function SettingsPageClient() {
       case "payroll":
         return <PayrollSettings />;
       case "coverLetter":
-        return <CoverLetter />;
       case "tos":
         return <TOS />;
       case "general":

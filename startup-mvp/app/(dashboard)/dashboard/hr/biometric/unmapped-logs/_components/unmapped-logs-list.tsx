@@ -146,7 +146,7 @@ export default function UnmappedLogsListClient({
               <TableHead>Created At</TableHead>
               <TableHead>Punch Time</TableHead>
               <TableHead>Device</TableHead>
-              <TableHead>Device User ID</TableHead>
+              <TableHead>Biometric ID / PIN</TableHead>
               <TableHead>Reason</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-[80px]">Actions</TableHead>
@@ -158,7 +158,7 @@ export default function UnmappedLogsListClient({
                 <TableCell colSpan={7} className="h-32 text-center">
                   <div className="flex flex-col items-center justify-center text-muted-foreground">
                     <FiSearch className="mb-2 h-8 w-8" />
-                    <p>No unmapped logs found.</p>
+                    <p>No unknown punches found.</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -205,7 +205,7 @@ export default function UnmappedLogsListClient({
                         )}
                         <DropdownMenuItem onClick={() => copyToClipboard(log.deviceUserId, "User ID")}>
                           <FiCopy className="mr-2 h-4 w-4" />
-                          Copy PIN / User ID
+                          Copy Biometric ID / PIN
                         </DropdownMenuItem>
                         {log.deviceSerialNumber && (
                           <DropdownMenuItem onClick={() => copyToClipboard(log.deviceSerialNumber, "Serial")}>
@@ -216,7 +216,7 @@ export default function UnmappedLogsListClient({
                         {log.rawData && (
                           <DropdownMenuItem onClick={() => viewRawPayload(log.rawData)}>
                             <FiEye className="mr-2 h-4 w-4" />
-                            View Raw Data
+                            View Technical Data
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
@@ -278,9 +278,9 @@ export default function UnmappedLogsListClient({
       <Dialog open={isRawModalOpen} onOpenChange={setIsRawModalOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Raw Data Payload</DialogTitle>
+            <DialogTitle>Technical Data</DialogTitle>
             <DialogDescription>
-              The original punch data extracted from the device that couldn't be automatically mapped.
+              Original text received from the physical hardware that couldn't be automatically mapped.
             </DialogDescription>
           </DialogHeader>
           {selectedRawData && (
