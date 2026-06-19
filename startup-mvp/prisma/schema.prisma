@@ -1325,11 +1325,11 @@ model BiometricSyncLog {
   recordsCount Int              @default(0)
   status       String           @default("SUCCESS")
   errorMessage String?
-  syncedBy     String
+  syncedBy     String?
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
-  device       BiometricDevice? @relation(fields: [deviceId], references: [id])
-  user         User             @relation(fields: [syncedBy], references: [id])
+  device       BiometricDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  user         User?            @relation(fields: [syncedBy], references: [id], onDelete: SetNull)
 
   @@index([syncTime])
   @@index([vendor])
@@ -1366,16 +1366,29 @@ model BiometricDevice {
   @@index([warehouseId])
 }
 
+enum BiometricUserSyncStatus {
+  NOT_SYNCED
+  READY
+  DRY_RUN_READY
+  SYNCED
+  FAILED
+  DISABLED
+}
+
 model EmployeeDeviceMap {
-  id           String          @id @default(cuid())
-  employeeId   String
-  deviceId     String
-  deviceUserId String
-  isActive     Boolean         @default(true)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  device       BiometricDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  employee     Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id             String                   @id @default(cuid())
+  employeeId     String
+  deviceId       String
+  deviceUserId   String
+  isActive       Boolean                  @default(true)
+  syncStatus     BiometricUserSyncStatus  @default(NOT_SYNCED)
+  lastSyncedAt   DateTime?
+  lastSyncStatus String?
+  lastSyncError  String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  device         BiometricDevice          @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  employee       Employee                 @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([deviceId, deviceUserId])
   @@unique([employeeId, deviceId])
@@ -1397,6 +1410,7 @@ model BiometricRawLog {
   @@index([deviceId])
   @@index([deviceSerialNumber])
   @@index([syncStatus])
+  @@unique([deviceSerialNumber, deviceUserId, punchTime])
 }
 
 model UnmappedBiometricLog {
@@ -1411,6 +1425,7 @@ model UnmappedBiometricLog {
 
   @@index([deviceSerialNumber, deviceUserId])
   @@index([createdAt])
+  @@unique([deviceSerialNumber, deviceUserId, punchTime])
 }
 
 enum AccountType {

@@ -1,6 +1,6 @@
-# BHAGYAKUL ERP
+# Ferrari Fashion  ERP
 
-A modern, full-stack Enterprise Resource Planning system for Bhagyakul Biryani House, built with Next.js 15, Prisma, and PostgreSQL.
+A modern, full-stack Enterprise Resource Planning system for Ferrari Fashion  Biryani House, built with Next.js 15, Prisma, and PostgreSQL.
 
 ## 🚀 Quick Start
 
@@ -14,7 +14,7 @@ npm install
 ### 2. Environment Setup
 Create a `.env` file in the root directory:
 ```env
-DATABASE_URL="postgresql://user:password@localhost:5432/bhagyakul"
+DATABASE_URL="postgresql://user:password@localhost:5432/Ferrari Fashion "
 NEXTAUTH_SECRET="your-secret"
 NEXTAUTH_URL="http://localhost:3000"
 # File Storage Config (Local)
@@ -78,5 +78,5 @@ npx tsx scripts/pre-deployment-validation.ts
 ---
 
 ## 📄 License
-© 2025 Bhagyakul Biryani House. All rights reserved.
+© 2025 Ferrari Fashion  Biryani House. All rights reserved.
 Developed by Techsoul.

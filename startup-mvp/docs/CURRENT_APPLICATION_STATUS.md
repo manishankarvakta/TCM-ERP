@@ -40,4 +40,4 @@
 - **Permissions Sync**: Always run `npx tsx prisma/seed-permissions.ts` after adding new modules or modifying roles.
 
 ## 📄 Final Summary
-The BHAGYAKUL ERP is now a mature, enterprise-ready application capable of handling the operational and financial needs of Bhagyakul Biryani House.
+The Ferrari Fashion  ERP is now a mature, enterprise-ready application capable of handling the operational and financial needs of Ferrari Fashion  Biryani House.

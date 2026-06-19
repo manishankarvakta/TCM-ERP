@@ -1,7 +1,7 @@
-# BHAGYAKUL ERP - Final Developer Documentation
+# Ferrari Fashion  ERP - Final Developer Documentation
 
 ## 1. Project Overview
-BHAGYAKUL ERP is a comprehensive Enterprise Resource Planning system built for Bhagyakul Biryani House. It manages the entire lifecycle of food production, from raw material procurement to kitchen production and final sales, integrated with a robust double-entry accounting system.
+Ferrari Fashion  ERP is a comprehensive Enterprise Resource Planning system built for Ferrari Fashion  Biryani House. It manages the entire lifecycle of food production, from raw material procurement to kitchen production and final sales, integrated with a robust double-entry accounting system.
 
 ### Key Business Flows:
 - **Procurement**: Purchase raw materials from suppliers -> Increase stock -> Create Accounts Payable.

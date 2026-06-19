@@ -95,6 +95,22 @@ export async function POST(req: Request) {
         errorMessage: returnCode !== "0" ? `Device returned error code: ${returnCode}` : null
       }
     });
+
+    if (matchedCommand.commandType === "PHASE_3B_SINGLE_USER_TEST" && matchedCommand.commandText && matchedCommand.deviceId) {
+      const pinMatch = matchedCommand.commandText.match(/PIN=(\d+)/);
+      if (pinMatch && pinMatch[1]) {
+        const deviceUserId = pinMatch[1];
+        await prisma.employeeDeviceMap.updateMany({
+          where: { deviceId: matchedCommand.deviceId, deviceUserId },
+          data: {
+            syncStatus: returnCode === "0" ? "SYNCED" : "FAILED",
+            lastSyncedAt: new Date(),
+            lastSyncStatus: returnCode === "0" ? "SUCCESS" : "ERROR",
+            lastSyncError: returnCode !== "0" ? `Device returned error code: ${returnCode}` : null
+          }
+        });
+      }
+    }
   } else {
     console.log(`No matched command found. Storing as ACKNOWLEDGED_UNKNOWN in log.`);
     // We could store it somewhere, but for now we just log it as requested

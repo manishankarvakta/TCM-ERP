@@ -46,17 +46,6 @@ export async function POST(req: Request) {
     const rawText = await req.text();
 
     if (table === "ATTLOG" || table === "OPERLOG") {
-      // 1. Store Raw Payload immediately
-      await prisma.biometricRawLog.create({
-        data: {
-          deviceId,
-          deviceSerialNumber: sn,
-          rawData: rawText,
-          source: "ADMS",
-          syncStatus: "PENDING",
-        }
-      });
-
       if (table === "ATTLOG") {
         // ADMS format is tab separated: e.g., "1\t2026-06-16 15:10:29\t1" (EnrollNumber, Time, PunchType)
         const lines = rawText.split('\n').filter(line => line.trim().length > 0);
@@ -74,15 +63,39 @@ export async function POST(req: Request) {
 
             if (pin && dateTime.match(/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$/)) {
               const [date, time] = dateTime.split(' ');
-              rawData.push({
-                EnrollNumber: pin,
-                Date: date,
-                Time: time,
-                PunchType: punchType,
-                VerifyMode: verifyMode,
-                WorkCode: workCode,
-                DeviceID: sn || "ADMS"
-              });
+              const isoDateTime = new Date(dateTime); // Treat as local/server time
+              
+              // 1. Store Raw Payload individually to prevent duplicates via DB constraint
+              try {
+                await prisma.biometricRawLog.create({
+                  data: {
+                    deviceId,
+                    deviceSerialNumber: sn,
+                    deviceUserId: pin,
+                    punchTime: isoDateTime,
+                    rawData: line,
+                    source: "ADMS",
+                    syncStatus: "PENDING",
+                  }
+                });
+                
+                rawData.push({
+                  EnrollNumber: pin,
+                  Date: date,
+                  Time: time,
+                  PunchType: punchType,
+                  VerifyMode: verifyMode,
+                  WorkCode: workCode,
+                  DeviceID: sn || "ADMS"
+                });
+              } catch (err: any) {
+                // Ignore Prisma P2002 Unique Constraint violation safely
+                if (err.code === 'P2002') {
+                  console.log(`[ADMS] Duplicate raw punch skipped for SN:${sn} PIN:${pin} Time:${dateTime}`);
+                } else {
+                  console.error("Raw log insert error:", err);
+                }
+              }
             }
           }
         }
@@ -93,9 +106,19 @@ export async function POST(req: Request) {
             vendor: "ZKTeco",
             rawData,
             deviceId,
-            syncedBy: "ADMS_PUSH",
           });
         }
+      } else {
+        // OPERLOG: Store Raw Payload immediately in bulk
+        await prisma.biometricRawLog.create({
+          data: {
+            deviceId,
+            deviceSerialNumber: sn,
+            rawData: rawText,
+            source: "ADMS",
+            syncStatus: "PENDING",
+          }
+        });
       }
     }
 

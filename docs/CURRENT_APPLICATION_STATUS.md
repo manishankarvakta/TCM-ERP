@@ -7,7 +7,7 @@
 
 ## 📋 Executive Summary
 
-This document provides a comprehensive overview of the current state of the Bhagyakul ERP application. The system uses a **dual routing architecture** with separate `/admin` and `/dashboard` routes, supporting role-based access control and comprehensive permission management.
+This document provides a comprehensive overview of the current state of the Ferrari Fashion  ERP application. The system uses a **dual routing architecture** with separate `/admin` and `/dashboard` routes, supporting role-based access control and comprehensive permission management.
 
 ### Key Highlights
 - ✅ **Dual Routing System**: `/admin` (admin-only) and `/dashboard` (all users) routes

@@ -1,5 +1,5 @@
 # Development Guideline
-**Project**: Bhagyakul ERP System  
+**Project**: Ferrari Fashion  ERP System  
 **Version**: 1.0.1  
 **Last Updated**: January 2025  
 **Purpose**: Comprehensive guide for developers working on this project

@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide details the steps and assumptions for deploying the BHAGYAKUL ERP system.
+This guide details the steps and assumptions for deploying the Ferrari Fashion  ERP system.
 
 ## 1. Database Synchronization
 

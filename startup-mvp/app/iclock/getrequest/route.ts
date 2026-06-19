@@ -20,8 +20,8 @@ export async function GET(req: Request) {
   console.log(`Headers=`, JSON.stringify(headersObj));
   
   if (!sn) {
-    console.log(`responseText="ERROR: Missing SN"`);
-    return new NextResponse("ERROR: Missing SN", { status: 400 });
+    console.log(`responseText="OK" (Missing SN)`);
+    return new NextResponse("OK", { status: 200, headers: { "Content-Type": "text/plain" }});
   }
 
   // 1. Detect Manual / Script Polling (Dry-Run Mode)

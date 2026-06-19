@@ -8,7 +8,7 @@ import { differenceInMinutes } from "date-fns";
 /**
  * Validates permission to sync or view commands
  */
-async function validateSyncAuth(action: "sync" | "view" = "sync") {
+async function validateSyncAuth(action: "sync" | "view" = "sync"): Promise<{ success: boolean; userId?: string; error?: string }> {
   const session = await auth();
   if (!session?.user) return { success: false, error: "Unauthorized" };
 
@@ -25,7 +25,7 @@ async function validateSyncAuth(action: "sync" | "view" = "sync") {
 export async function checkDeviceStatus(deviceId: string) {
   try {
     const authRes = await validateSyncAuth("sync");
-    if (!authRes.success) return authRes;
+    if (!authRes.success) return { success: false, error: authRes.error || "Auth error" };
 
     const device = await prisma.biometricDevice.findUnique({
       where: { id: deviceId },
@@ -65,12 +65,120 @@ export async function checkDeviceStatus(deviceId: string) {
 }
 
 /**
+ * Fetch User Sync Preview (Phase 3A)
+ */
+export async function fetchDeviceUserSyncPreview(deviceId: string) {
+  try {
+    const authRes = await validateSyncAuth("view");
+    if (!authRes.success) return { success: false, error: authRes.error || "Auth error" };
+
+    const { getDeviceUserSyncPreview } = await import("@/lib/hr/biometric/user-sync-service");
+    const preview = await getDeviceUserSyncPreview(deviceId);
+
+    return { success: true, preview };
+  } catch (error: any) {
+    console.error("fetchDeviceUserSyncPreview error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Create Missing Mappings (Dry Run Phase 3A)
+ */
+export async function generateMissingDeviceUserMappings(deviceId: string) {
+  try {
+    const authRes = await validateSyncAuth("sync");
+    if (!authRes.success) return { success: false, error: authRes.error || "Auth error" };
+
+    const { createMissingMappings } = await import("@/lib/hr/biometric/user-sync-service");
+    const result = await createMissingMappings(deviceId);
+
+    return { 
+      success: true, 
+      message: `Successfully created ${result.createdCount} new mappings as DRY_RUN_READY.`,
+      createdCount: result.createdCount 
+    };
+  } catch (error: any) {
+    console.error("generateMissingDeviceUserMappings error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Queue Single User Sync Test (Phase 3B)
+ */
+export async function queueSingleUserInfoSyncTest({ deviceId, employeeId }: { deviceId: string, employeeId: string }) {
+  try {
+    const authRes = await validateSyncAuth("sync");
+    if (!authRes.success) return { success: false, error: authRes.error || "Auth error" };
+
+    const { 
+      assertBiometricSingleUserSyncTestEnabled, 
+      hasSuccessfulAdmsCommandAck,
+      getDeviceUserSyncPreview
+    } = await import("@/lib/hr/biometric/user-sync-service");
+
+    assertBiometricSingleUserSyncTestEnabled();
+
+    const hasAck = await hasSuccessfulAdmsCommandAck(deviceId);
+    if (!hasAck) {
+      return { success: false, error: "BLOCKED: Phase 2 real device ACK not confirmed within the last 24 hours." };
+    }
+
+    const preview = await getDeviceUserSyncPreview(deviceId);
+    const row = preview.rows.find(r => r.employeeId === employeeId);
+
+    if (!row) return { success: false, error: "Employee not found in device scope." };
+    if (row.status !== "READY" && row.status !== "ALREADY_MAPPED") {
+      return { success: false, error: `Employee is not ready for sync. Status: ${row.status}` };
+    }
+    if (!row.dryRunCommandText || !row.dryRunCommandText.startsWith("DATA UPDATE USERINFO PIN=")) {
+      return { success: false, error: "Invalid generated payload." };
+    }
+
+    // Safety checks on the payload
+    if (row.dryRunCommandText.includes("DELETE") || row.dryRunCommandText.includes("CLEAR") || row.dryRunCommandText.includes("REBOOT")) {
+      return { success: false, error: "Generated payload contains destructive commands." };
+    }
+
+    const device = await prisma.biometricDevice.findUnique({ where: { id: deviceId } });
+    if (!device) return { success: false, error: "Device not found." };
+
+    // Queue exactly ONE command
+    const command = await prisma.biometricCommand.create({
+      data: {
+        deviceId: device.id,
+        deviceSerialNumber: device.serialNumber || "",
+        commandType: "PHASE_3B_SINGLE_USER_TEST",
+        commandText: row.dryRunCommandText,
+        status: "QUEUED",
+      }
+    });
+
+    // Update mapping status
+    await prisma.employeeDeviceMap.updateMany({
+      where: { employeeId, deviceId },
+      data: { syncStatus: "READY" } // Temporarily mark as READY or SYNC_TEST_QUEUED if enum allows. We'll just use READY. Wait, enum has NO SYNC_TEST_QUEUED. Let's use READY, but devicecmd sets it to SYNCED.
+    });
+
+    return { 
+      success: true, 
+      message: "Single-user sync test queued successfully.",
+      commandId: command.id 
+    };
+  } catch (error: any) {
+    console.error("queueSingleUserInfoSyncTest error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Queue a command to sync all mapped users to the specific device
  */
 export async function queueSyncUsersToDevice(deviceId: string) {
   try {
     const authRes = await validateSyncAuth("sync");
-    if (!authRes.success) return authRes;
+    if (!authRes.success) return { success: false, error: authRes.error || "Auth error" };
 
     const device = await prisma.biometricDevice.findUnique({
       where: { id: deviceId },
@@ -132,7 +240,7 @@ export async function queueSyncUsersToDevice(deviceId: string) {
 export async function queueSyncAttendanceLogs(deviceId: string) {
   try {
     const authRes = await validateSyncAuth("sync");
-    if (!authRes.success) return authRes;
+    if (!authRes.success) return { success: false, error: authRes.error || "Auth error" };
 
     const device = await prisma.biometricDevice.findUnique({
       where: { id: deviceId },
@@ -206,7 +314,7 @@ export async function getDeviceSyncCommands({
 }) {
   try {
     const authRes = await validateSyncAuth("view");
-    if (!authRes.success) return authRes;
+    if (!authRes.success) return { success: false, error: authRes.error || "Auth error" };
 
     const commands = await prisma.biometricCommand.findMany({
       where: { deviceId },
@@ -221,5 +329,53 @@ export async function getDeviceSyncCommands({
   } catch (error: any) {
     console.error("getDeviceSyncCommands error:", error);
     return { success: false, error: error.message, commands: [] };
+  }
+}
+
+/**
+ * Queue safe test commands for Phase 2 ADMS verification
+ */
+export async function queueTestCommand(deviceId: string, testType: "INFO" | "CHECK" | "USERINFO") {
+  try {
+    const authRes = await validateSyncAuth("sync");
+    if (!authRes.success) return authRes;
+
+    const device = await prisma.biometricDevice.findUnique({
+      where: { id: deviceId },
+      select: { id: true, serialNumber: true }
+    });
+
+    if (!device || !device.serialNumber) {
+      return { success: false, error: "Device not found." };
+    }
+
+    let commandText = "";
+    if (testType === "INFO") {
+      commandText = "INFO";
+    } else if (testType === "CHECK") {
+      commandText = "CHECK";
+    } else if (testType === "USERINFO") {
+      commandText = "DATA QUERY USERINFO";
+    }
+
+    const command = await prisma.biometricCommand.create({
+      data: {
+        deviceId: device.id,
+        deviceSerialNumber: device.serialNumber,
+        commandType: `TEST_${testType}`,
+        commandText,
+        status: "QUEUED",
+        requestedById: authRes.userId,
+      }
+    });
+
+    return { 
+      success: true, 
+      message: `Test command ${testType} queued successfully.`,
+      command
+    };
+  } catch (error: any) {
+    console.error("queueTestCommand error:", error);
+    return { success: false, error: error.message };
   }
 }

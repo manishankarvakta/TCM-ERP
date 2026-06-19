@@ -1,5 +1,5 @@
 # ERP Development Plan
-**Project**: Bhagyakul ERP System  
+**Project**: Ferrari Fashion  ERP System  
 **Version**: 1.0.1  
 **Date**: January 2025  
 **Status**: Production-Ready with Active Development
@@ -8,7 +8,7 @@
 
 ## 📋 Executive Summary
 
-This document outlines a comprehensive development plan for the Bhagyakul ERP system. The application is a full-featured business management platform built with Next.js 16, PostgreSQL, and modern web technologies. Currently, **71% of core modules are fully implemented**, with manufacturing and inventory modules partially complete.
+This document outlines a comprehensive development plan for the Ferrari Fashion  ERP system. The application is a full-featured business management platform built with Next.js 16, PostgreSQL, and modern web technologies. Currently, **71% of core modules are fully implemented**, with manufacturing and inventory modules partially complete.
 
 ### Current State
 - ✅ **12 modules fully implemented** (Dashboard, Items, Products, Quotations, Accounts, Peoples, Purchases, Work Orders, Files, Notifications, Settings, Permissions)

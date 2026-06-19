@@ -1,4 +1,4 @@
-# BHAGYAKUL ERP Documentation Index
+# Ferrari Fashion  ERP Documentation Index
 
 This index provides a map to all documentation files available in the project, categorized by module and purpose.
 

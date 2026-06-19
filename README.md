@@ -1,4 +1,4 @@
-# BHAGYAKUL ERP
+# Ferrari Fashion  ERP
 
 A modern Enterprise Resource Planning application built with Next.js 16, Prisma, PostgreSQL, and Redis.
 
@@ -67,7 +67,7 @@ SMTP_SECURE=true
 SMTP_USER=no-reply@techsoulbd.com
 SMTP_PASS=your-email-password-here
 EMAIL_FROM=no-reply@techsoulbd.com
-EMAIL_FROM_NAME=BHAGYAKUL ERP
+EMAIL_FROM_NAME=Ferrari Fashion  ERP
 
 # App URL (for email links)
 NEXT_PUBLIC_APP_URL=http://localhost:3000

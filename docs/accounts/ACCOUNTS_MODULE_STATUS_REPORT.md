@@ -1,7 +1,7 @@
 # Accounts Module Status Report - January 2026
 
 ## 1. Module Overview
-The Accounts module is a fully integrated double-entry accounting system that serves as the financial backbone of the BHAGYAKUL ERP. It automates financial records across Purchases, Production, and Sales.
+The Accounts module is a fully integrated double-entry accounting system that serves as the financial backbone of the Ferrari Fashion  ERP. It automates financial records across Purchases, Production, and Sales.
 
 ## 2. Prisma Data Structure (Backend)
 The accounting data is structured into four main tiers:

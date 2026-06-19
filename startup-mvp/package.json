@@ -8,6 +8,7 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
+    "biometric:mock-adms": "tsx scripts/biometric/mock-adms-device.ts",
     "test:unit": "tsx tests/unit/backup-encryption.test.ts",
     "test:integration:create": "tsx tests/integration/backup-creation.test.ts",
     "test:integration:restore": "tsx tests/integration/backup-restore.test.ts",

@@ -118,7 +118,7 @@ export default function BarcodePrintModal({ item, isOpen, onClose }: BarcodePrin
 
   // Configuration options
   const [showCompany, setShowCompany] = useState(false);
-  const [companyName, setCompanyName] = useState("Bhagyakul");
+  const [companyName, setCompanyName] = useState("Ferrari Fashion ");
   const [showName, setShowName] = useState(true);
   const [showVariant, setShowVariant] = useState(true);
   const [showPrice, setShowPrice] = useState(true);

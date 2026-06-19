@@ -9,7 +9,7 @@ import { biometricQueue, BiometricJobType } from "./queue";
 export async function syncBiometricLogs(input: {
   vendor: string;
   rawData: any[];
-  syncedBy: string;
+  syncedBy?: string | null;
   deviceId?: string;
 }) {
   try {
@@ -57,48 +57,69 @@ export async function processNormalizedChunk(input: {
   console.log("🔄 [SYNC] Data after normalization:");
   console.log(JSON.stringify(normalizedLogs, null, 2));
   
-  // Get explicit device maps
+  // Pre-load common data to optimize chunk processing
   const deviceMaps = await prisma.employeeDeviceMap.findMany({
-    where: { isActive: true },
-    select: { deviceUserId: true, deviceId: true, employeeId: true }
+    select: { deviceUserId: true, deviceId: true, employeeId: true, isActive: true }
   });
 
-  // Get employees for mapping fallback
   const employees = await prisma.employee.findMany({
     select: { id: true, biometricDeviceId: true },
     where: { biometricDeviceId: { not: null } }
   });
   const empFallbackMap = new Map(employees.map((e) => [e.biometricDeviceId, e.id]));
   
+  // Get deviceSerialNumber for UnmappedBiometricLog
+  let deviceSerialNumber = undefined;
+  if (input.deviceId) {
+    const d = await prisma.biometricDevice.findUnique({
+      where: { id: input.deviceId },
+      select: { serialNumber: true }
+    });
+    if (d?.serialNumber) deviceSerialNumber = d.serialNumber;
+  }
+
   let processedCount = 0;
   let errorCount = 0;
 
   for (const log of normalizedLogs) {
     let employeeId = undefined;
+    let isDisabledAccess = false;
 
     // 1. Try to find in EmployeeDeviceMap
     if (input.deviceId) {
       const mapEntry = deviceMaps.find(m => m.deviceId === input.deviceId && m.deviceUserId === log.biometricDeviceId);
-      if (mapEntry) employeeId = mapEntry.employeeId;
+      if (mapEntry) {
+        if (!mapEntry.isActive) {
+          isDisabledAccess = true;
+        } else {
+          employeeId = mapEntry.employeeId;
+        }
+      }
     }
 
-    // 2. Fallback to Employee.biometricDeviceId
-    if (!employeeId) {
+    // 2. Fallback to Employee.biometricDeviceId (only if not found in device map at all)
+    if (!employeeId && !isDisabledAccess) {
       employeeId = empFallbackMap.get(log.biometricDeviceId);
     }
 
-    if (!employeeId) {
-      // 3. Log Unmapped Biometric Punch
+    if (isDisabledAccess || !employeeId) {
+      // 3. Log Unmapped or Disabled Biometric Punch
       try {
         await prisma.unmappedBiometricLog.create({
           data: {
+            deviceSerialNumber: deviceSerialNumber || undefined,
             deviceUserId: log.biometricDeviceId,
             punchTime: log.timestamp,
-            reason: "EMPLOYEE_NOT_FOUND",
+            reason: isDisabledAccess ? "DISABLED_ACCESS" : "EMPLOYEE_NOT_FOUND",
+            status: isDisabledAccess ? "REJECTED" : "UNRESOLVED",
           }
         });
-      } catch (err) {
-        console.error("Failed to insert UnmappedBiometricLog:", err);
+      } catch (err: any) {
+        if (err.code === 'P2002') {
+          console.log(`[SYNC] Duplicate unmapped/disabled punch skipped for PIN:${log.biometricDeviceId} Time:${log.timestamp.toISOString()}`);
+        } else {
+          console.error("Failed to insert UnmappedBiometricLog:", err);
+        }
       }
       errorCount++;
       continue;
@@ -148,4 +169,72 @@ export async function processNormalizedChunk(input: {
   }
 
   return { processedCount, errorCount };
+}
+
+/**
+ * Validates a user's local access mapping for biometric processing.
+ */
+export async function checkDeviceUserAccess({
+  deviceId,
+  deviceSerialNumber,
+  deviceUserId,
+}: {
+  deviceId?: string;
+  deviceSerialNumber?: string;
+  deviceUserId: string;
+}): Promise<{
+  mappingFound: boolean;
+  employeeId?: string;
+  isActive?: boolean;
+  reason?: "UNMAPPED" | "DISABLED_ACCESS" | "ACTIVE";
+}> {
+  if (!deviceId) return { mappingFound: false, reason: "UNMAPPED" };
+
+  const mapEntry = await prisma.employeeDeviceMap.findUnique({
+    where: { deviceId_deviceUserId: { deviceId, deviceUserId } }
+  });
+
+  if (!mapEntry) {
+    // Check fallback
+    const employee = await prisma.employee.findFirst({
+      where: { biometricDeviceId: deviceUserId }
+    });
+    if (employee) {
+      return { mappingFound: true, employeeId: employee.id, isActive: true, reason: "ACTIVE" };
+    }
+    return { mappingFound: false, reason: "UNMAPPED" };
+  }
+
+  return {
+    mappingFound: true,
+    employeeId: mapEntry.employeeId,
+    isActive: mapEntry.isActive,
+    reason: mapEntry.isActive ? "ACTIVE" : "DISABLED_ACCESS"
+  };
+}
+
+/**
+ * Prepares a safe ADMS command for device synchronization.
+ * Currently limited to CHECK/INFO to avoid destructive operations.
+ */
+export async function enqueueSafeAdmsCommand(
+  deviceSerialNumber: string,
+  action: "CHECK" | "INFO",
+  deviceId?: string
+) {
+  try {
+    const cmd = await prisma.biometricCommand.create({
+      data: {
+        deviceSerialNumber,
+        deviceId,
+        commandType: action,
+        commandText: action === "INFO" ? "INFO" : "CHECK",
+        status: "PENDING"
+      }
+    });
+    return { success: true, commandId: cmd.id };
+  } catch (error) {
+    console.error("Failed to enqueue safe ADMS command:", error);
+    return { success: false, error: "Command generation failed" };
+  }
 }

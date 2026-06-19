@@ -29,6 +29,9 @@ import {
 } from "../_actions/device-details.action";
 import { getDeviceSyncCommands } from "../_actions/device-sync.action";
 import AdvancedSyncPanel from "../_components/advanced-sync-panel";
+import DeviceEmployeesClient from "./_components/device-employees-client";
+import DeviceUnmappedClient from "./_components/device-unmapped-client";
+import { prisma } from "@/lib/prisma";
 
 // Helper for online status
 const isOnline = (lastPingAt: Date | null) => {
@@ -50,7 +53,8 @@ export default async function DeviceDetailsPage({ params }: DeviceDetailsPagePro
     rawLogsResult,
     syncLogsResult,
     unmappedResult,
-    syncCommandsResult
+    syncCommandsResult,
+    activeEmployees
   ] = await Promise.all([
     getDeviceOverview(id),
     getDeviceMappedUsers(id),
@@ -60,7 +64,12 @@ export default async function DeviceDetailsPage({ params }: DeviceDetailsPagePro
     getDeviceOverview(id).then(res => 
       res.success && res.device ? getDeviceUnmappedLogs(res.device.serialNumber, 10) : { success: false, logs: [] }
     ),
-    getDeviceSyncCommands({ deviceId: id, limit: 10 })
+    getDeviceSyncCommands({ deviceId: id, limit: 10 }),
+    prisma.employee.findMany({
+      where: { status: "active" },
+      select: { id: true, name: true, employeeCode: true },
+      orderBy: { name: 'asc' }
+    })
   ]);
 
   if (!deviceOverview.success || !deviceOverview.device) {
@@ -213,46 +222,12 @@ export default async function DeviceDetailsPage({ params }: DeviceDetailsPagePro
                   </div>
                   <Button variant="outline" asChild size="sm">
                     <Link href={`/dashboard/hr/biometric/mapping?deviceId=${device.id}`}>
-                      Manage Employees
+                      Manage Global Mapping
                     </Link>
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  {mappings?.length === 0 ? (
-                    <div className="text-center p-8 text-muted-foreground">
-                      <FiUsers className="mx-auto h-8 w-8 mb-3 opacity-20" />
-                      <p>No users mapped to this device yet.</p>
-                    </div>
-                  ) : (
-                    <div className="rounded-md border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Employee</TableHead>
-                            <TableHead>Code</TableHead>
-                            <TableHead>Designation</TableHead>
-                            <TableHead>Biometric ID / PIN</TableHead>
-                            <TableHead>Status</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {mappings?.map((m: any) => (
-                            <TableRow key={m.id}>
-                              <TableCell className="font-medium">{m.employee?.name}</TableCell>
-                              <TableCell>{m.employee?.employeeCode || "-"}</TableCell>
-                              <TableCell>{m.employee?.designation || "-"}</TableCell>
-                              <TableCell className="font-mono">{m.deviceUserId}</TableCell>
-                              <TableCell>
-                                <Badge variant={m.isActive ? "default" : "secondary"}>
-                                  {m.isActive ? "Active" : "Inactive"}
-                                </Badge>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
+                  <DeviceEmployeesClient deviceId={device.id} mappings={mappings} />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -316,35 +291,12 @@ export default async function DeviceDetailsPage({ params }: DeviceDetailsPagePro
                   <CardDescription>These punches could not be matched to an employee.</CardDescription>
                 </CardHeader>
                 <CardContent>
-
-                      {unmappedLogs?.length === 0 ? (
-                        <p className="text-sm text-muted-foreground p-4 text-center border rounded">No unknown punches found.</p>
-                      ) : (
-                        <div className="rounded-md border overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Punch Time</TableHead>
-                                <TableHead>Biometric ID / PIN</TableHead>
-                                <TableHead>Reason</TableHead>
-                                <TableHead>Status</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {unmappedLogs?.map((log: any) => (
-                                <TableRow key={log.id}>
-                                  <TableCell className="whitespace-nowrap">{format(new Date(log.punchTime), "MMM d, h:mm a")}</TableCell>
-                                  <TableCell className="font-mono text-destructive">{log.deviceUserId}</TableCell>
-                                  <TableCell>{log.reason}</TableCell>
-                                  <TableCell>
-                                    <Badge variant="outline">{log.status}</Badge>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      )}
+                  <DeviceUnmappedClient 
+                    deviceId={device.id}
+                    deviceSerialNumber={device.serialNumber || ""}
+                    unmappedLogs={unmappedLogs} 
+                    employees={activeEmployees} 
+                  />
                 </CardContent>
               </Card>
             </TabsContent>

@@ -80,6 +80,18 @@ export async function generatePayroll(month: number, year: number, options?: Gen
 
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+    
+    // Backend Safety: Check and log attendance warnings
+    try {
+      const { getPayrollAttendanceWarnings } = await import("@/lib/hr/payroll/attendance-warnings");
+      const warningCheck = await getPayrollAttendanceWarnings({ fromDate: startDate, toDate: endDate });
+      if (warningCheck.warnings.length > 0) {
+        console.warn(`[PAYROLL] Generating payroll for ${month}/${year} with ${warningCheck.warnings.length} unresolved attendance warnings.`);
+      }
+    } catch (warnErr) {
+      console.error("[PAYROLL] Failed to check attendance warnings:", warnErr);
+    }
+
     const calendarDaysInMonth = endDate.getDate();
     // Divisor for daily rate: configurable (calendar vs fixed working days)
     const payDivisor =
