@@ -557,281 +557,6 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                     </div>
                   </div>
 
-                  {/* Variations (Sizes & Colors) */}
-                  <div className="space-y-4 border-t pt-4">
-                    <div className="flex items-center gap-2 text-primary font-semibold">
-                      <FiPlus className="h-4 w-4" />
-                      <h3>Product Variations</h3>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <Label>Sizes</Label>
-                        <div className="flex gap-2">
-                          <Input 
-                            placeholder="Add size (e.g. XL, 42)" 
-                            value={sizeInput} 
-                            onChange={(e) => setSizeInput(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSize())}
-                          />
-                          <Button type="button" variant="outline" size="icon" onClick={addSize}><FiPlus /></Button>
-                        </div>
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {watchedSizes.map((s: string, i: number) => (
-                            <Badge key={i} variant="secondary" className="gap-1">
-                              {s} <FiTrash2 className="h-3 w-3 cursor-pointer" onClick={() => removeSize(i)} />
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Colors</Label>
-                        <div className="flex gap-2">
-                          <Input 
-                            placeholder="Add color (e.g. Red, Blue)" 
-                            value={colorInput} 
-                            onChange={(e) => setColorInput(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addColor())}
-                          />
-                          <Button type="button" variant="outline" size="icon" onClick={addColor}><FiPlus /></Button>
-                        </div>
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {watchedColors.map((c: string, i: number) => (
-                            <Badge key={i} variant="secondary" className="gap-1">
-                              {c} <FiTrash2 className="h-3 w-3 cursor-pointer" onClick={() => removeColor(i)} />
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 2D SKU Variant Matrix Grid */}
-                  {variants.length > 0 && (
-                    <div className="space-y-4 border-t pt-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-primary font-semibold">
-                          <FiPlus className="h-4 w-4" />
-                          <h3>SKU Variant Matrix ({variants.filter(v => v.enabled).length} Active)</h3>
-                        </div>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => {
-                            const baseCost = Number(watch("costPrice")) || 0;
-                            const baseSales = Number(watch("salesPrice")) || 0;
-                            setVariants(prev => prev.map(v => ({
-                              ...v,
-                              costPrice: v.costPrice === null ? baseCost : v.costPrice,
-                              salesPrice: v.salesPrice === null ? baseSales : v.salesPrice,
-                            })));
-                          }}
-                        >
-                          Copy Base Pricing to Empty Variants
-                        </Button>
-                      </div>
-                      <div className="overflow-x-auto rounded-lg border border-border">
-                        <table className="w-full text-sm text-left text-muted-foreground border-collapse">
-                          <thead className="text-xs uppercase bg-muted/50 text-foreground font-semibold border-b border-border">
-                            <tr>
-                              <th className="p-3 w-12 text-center">Active</th>
-                              <th className="p-3 w-16 text-center">Photo</th>
-                              <th className="p-3">Color</th>
-                              <th className="p-3">Size</th>
-                              <th className="p-3">SKU Code</th>
-                              <th className="p-3">Barcode</th>
-                              <th className="p-3">Cost Price</th>
-                              <th className="p-3">Sales Price</th>
-                              <th className="p-3">WS Price</th>
-                              <th className="p-3">WS Disc. Amount</th>
-                              {mode === "create" && <th className="p-3">Init Stock</th>}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border">
-                            {variants.map((v, idx) => (
-                              <tr key={idx} className={`hover:bg-muted/10 transition-colors ${!v.enabled ? "opacity-40" : ""}`}>
-                                <td className="p-3 text-center">
-                                  <Checkbox 
-                                    checked={v.enabled} 
-                                    onCheckedChange={(checked) => {
-                                      setVariants(prev => {
-                                        const updated = [...prev];
-                                        updated[idx].enabled = !!checked;
-                                        return updated;
-                                      });
-                                    }}
-                                  />
-                                </td>
-                                <td className="p-3 text-center">
-                                  {v.image ? (
-                                    <div className="relative group w-10 h-10 rounded border border-border overflow-hidden mx-auto bg-muted">
-                                      <img 
-                                        src={v.image} 
-                                        alt={`${v.color}-${v.size}`} 
-                                        className="w-full h-full object-cover cursor-pointer"
-                                        onClick={() => {
-                                          if (v.enabled) {
-                                            setActiveVariantIdx(idx);
-                                            setIsVariantUploadOpen(true);
-                                          }
-                                        }}
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setVariants(prev => {
-                                            const updated = [...prev];
-                                            updated[idx].image = "";
-                                            return updated;
-                                          });
-                                        }}
-                                        className="absolute top-0 right-0 p-0.5 bg-destructive text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                      >
-                                        <X size={10} />
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      disabled={!v.enabled}
-                                      onClick={() => {
-                                        setActiveVariantIdx(idx);
-                                        setIsVariantUploadOpen(true);
-                                      }}
-                                      className="w-10 h-10 rounded border-2 border-dashed border-muted-foreground/20 hover:border-primary flex items-center justify-center text-muted-foreground hover:text-primary transition-colors mx-auto bg-muted/30"
-                                      title="Upload variant photo"
-                                    >
-                                      <ImageIcon className="h-4 w-4" />
-                                    </button>
-                                  )}
-                                </td>
-                                <td className="p-3 font-medium text-foreground">{v.color}</td>
-                                <td className="p-3 font-medium text-foreground">{v.size}</td>
-                                <td className="p-3">
-                                  <Input 
-                                    value={v.sku} 
-                                    disabled={!v.enabled}
-                                    onChange={(e) => {
-                                      setVariants(prev => {
-                                        const updated = [...prev];
-                                        updated[idx].sku = e.target.value;
-                                        return updated;
-                                      });
-                                    }}
-                                    className="h-8 font-mono text-xs max-w-[180px]"
-                                  />
-                                </td>
-                                <td className="p-3">
-                                  <Input 
-                                    value={v.barcode} 
-                                    placeholder="Auto-generated"
-                                    disabled={!v.enabled}
-                                    onChange={(e) => {
-                                      setVariants(prev => {
-                                        const updated = [...prev];
-                                        updated[idx].barcode = e.target.value;
-                                        return updated;
-                                      });
-                                    }}
-                                    className="h-8 font-mono text-xs max-w-[180px]"
-                                  />
-                                </td>
-                                <td className="p-3">
-                                  <Input 
-                                    type="number"
-                                    placeholder="Use Base"
-                                    disabled={!v.enabled}
-                                    value={v.costPrice !== null ? v.costPrice : ""}
-                                    onChange={(e) => {
-                                      const val = e.target.value === "" ? null : Number(e.target.value);
-                                      setVariants(prev => {
-                                        const updated = [...prev];
-                                        updated[idx].costPrice = val;
-                                        return updated;
-                                      });
-                                    }}
-                                    className="h-8 max-w-[100px]"
-                                  />
-                                </td>
-                                <td className="p-3">
-                                  <Input 
-                                    type="number"
-                                    placeholder="Use Base"
-                                    disabled={!v.enabled}
-                                    value={v.salesPrice !== null ? v.salesPrice : ""}
-                                    onChange={(e) => {
-                                      const val = e.target.value === "" ? null : Number(e.target.value);
-                                      setVariants(prev => {
-                                        const updated = [...prev];
-                                        updated[idx].salesPrice = val;
-                                        return updated;
-                                      });
-                                    }}
-                                    className="h-8 max-w-[100px]"
-                                  />
-                                </td>
-                                <td className="p-3">
-                                  <Input 
-                                    type="number"
-                                    placeholder="Use Base"
-                                    disabled={!v.enabled}
-                                    value={v.wholesalePrice !== null ? v.wholesalePrice : ""}
-                                    onChange={(e) => {
-                                      const val = e.target.value === "" ? null : Number(e.target.value);
-                                      setVariants(prev => {
-                                        const updated = [...prev];
-                                        updated[idx].wholesalePrice = val;
-                                        return updated;
-                                      });
-                                    }}
-                                    className="h-8 max-w-[100px]"
-                                  />
-                                </td>
-                                <td className="p-3">
-                                  <Input 
-                                    type="number"
-                                    placeholder="Use Base"
-                                    disabled={!v.enabled}
-                                    value={v.wholesaleDiscountAmount !== null ? v.wholesaleDiscountAmount : ""}
-                                    onChange={(e) => {
-                                      const val = e.target.value === "" ? null : Number(e.target.value);
-                                      setVariants(prev => {
-                                        const updated = [...prev];
-                                        updated[idx].wholesaleDiscountAmount = val;
-                                        return updated;
-                                      });
-                                    }}
-                                    className="h-8 max-w-[100px]"
-                                  />
-                                </td>
-                                {mode === "create" && (
-                                  <td className="p-3">
-                                    <Input 
-                                      type="number"
-                                      disabled={!v.enabled}
-                                      value={v.initialStock || ""}
-                                      onChange={(e) => {
-                                        const val = Number(e.target.value) || 0;
-                                        setVariants(prev => {
-                                          const updated = [...prev];
-                                          updated[idx].initialStock = val;
-                                          return updated;
-                                        });
-                                      }}
-                                      className="h-8 max-w-[80px]"
-                                    />
-                                  </td>
-                                )}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-
                   {/* Pricing */}
                   <div className="space-y-4 border-t pt-4">
                     <div className="flex items-center gap-2 text-primary font-semibold">
@@ -896,102 +621,53 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                     </div>
                   </div>
 
-                  {/* Toggles */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded-lg bg-muted/20">
-                    <div className="flex items-center space-x-2">
-                      <Controller
-                        name="trackInventory"
-                        control={control}
-                        render={({ field }) => (
-                          <Checkbox id="trackInventory" checked={field.value} onCheckedChange={field.onChange} disabled={loading} />
-                        )}
-                      />
-                      <Label htmlFor="trackInventory">Track Inventory</Label>
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      <Controller
-                        name="isEnableEcom"
-                        control={control}
-                        render={({ field }) => (
-                          <Checkbox id="isEnableEcom" checked={field.value} onCheckedChange={field.onChange} disabled={loading} />
-                        )}
-                      />
-                      <Label htmlFor="isEnableEcom">Enable E-commerce</Label>
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      <Controller
-                        name="status"
-                        control={control}
-                        render={({ field }) => (
-                          <Select value={field.value} onValueChange={field.onChange} disabled={loading}>
-                            <SelectTrigger className="h-8 w-[120px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="active">Active</SelectItem>
-                              <SelectItem value="inactive">Inactive</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                    </div>
-                  </div>
-
-                  {/* VAT / Tax Settings */}
+                  {/* Variations (Sizes & Colors) */}
                   <div className="space-y-4 border-t pt-4">
                     <div className="flex items-center gap-2 text-primary font-semibold">
                       <FiPlus className="h-4 w-4" />
-                      <h3>VAT & Tax Information</h3>
+                      <h3>Product Variations</h3>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded-lg bg-muted/20">
-                      <div className="flex items-center space-x-2 py-2">
-                        <Controller
-                          name="isVatEnabled"
-                          control={control}
-                          render={({ field }) => (
-                            <Checkbox 
-                              id="isVatEnabled" 
-                              checked={field.value} 
-                              onCheckedChange={(checked) => {
-                                field.onChange(checked);
-                                if (!checked) {
-                                  setValue("vatPercentage", 0);
-                                }
-                              }} 
-                              disabled={loading} 
-                            />
-                          )}
-                        />
-                        <Label htmlFor="isVatEnabled" className="cursor-pointer font-medium">Enable VAT for this item</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label>Sizes</Label>
+                        <div className="flex gap-2">
+                          <Input 
+                            placeholder="Add size (e.g. XL, 42)" 
+                            value={sizeInput} 
+                            onChange={(e) => setSizeInput(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSize())}
+                          />
+                          <Button type="button" variant="outline" size="icon" onClick={addSize}><FiPlus /></Button>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {watchedSizes.map((s: string, i: number) => (
+                            <Badge key={i} variant="secondary" className="gap-1">
+                              {s} <FiTrash2 className="h-3 w-3 cursor-pointer" onClick={() => removeSize(i)} />
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
 
-                      {watchedIsVatEnabled && (
-                        <div className="space-y-2">
-                          <Label htmlFor="vatPercentage">VAT Percentage (%)</Label>
-                          <Input
-                            id="vatPercentage"
-                            type="number"
-                            step="0.01"
-                            placeholder="e.g. 5, 12, 18"
-                            {...register("vatPercentage", { valueAsNumber: true })}
-                            disabled={loading}
-                            className="max-w-[200px]"
+                      <div className="space-y-2">
+                        <Label>Colors</Label>
+                        <div className="flex gap-2">
+                          <Input 
+                            placeholder="Add color (e.g. Red, Blue)" 
+                            value={colorInput} 
+                            onChange={(e) => setColorInput(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addColor())}
                           />
-                          {errors.vatPercentage?.message && <p className="text-sm text-destructive">{String(errors.vatPercentage.message)}</p>}
+                          <Button type="button" variant="outline" size="icon" onClick={addColor}><FiPlus /></Button>
                         </div>
-                      )}
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {watchedColors.map((c: string, i: number) => (
+                            <Badge key={i} variant="secondary" className="gap-1">
+                              {c} <FiTrash2 className="h-3 w-3 cursor-pointer" onClick={() => removeColor(i)} />
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 pt-4">
-                    <Button type="submit" disabled={loading}>
-                      {loading ? "Saving..." : mode === "create" ? "Create Item" : "Update Item"}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
-                      Cancel
-                    </Button>
                   </div>
                 </div>
 
@@ -1047,6 +723,348 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                   </div>
                   <p className="text-xs text-muted-foreground">Up to 6 photos allowed.</p>
                 </div>
+              </div>
+
+              {/* 2D SKU Variant Matrix Grid */}
+              {variants.length > 0 && (
+                <div className="space-y-4 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-primary font-semibold">
+                      <FiPlus className="h-4 w-4" />
+                      <h3>SKU Variant Matrix ({variants.filter(v => v.enabled).length} Active)</h3>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                          const baseCost = Number(watch("costPrice")) || 0;
+                          const baseSales = Number(watch("salesPrice")) || 0;
+                          setVariants(prev => prev.map(v => ({
+                            ...v,
+                            costPrice: (v.costPrice === null || Number(v.costPrice) === 0) ? baseCost : v.costPrice,
+                            salesPrice: (v.salesPrice === null || Number(v.salesPrice) === 0) ? baseSales : v.salesPrice,
+                          })));
+                        }}
+                      >
+                        Copy Base Pricing to Empty Variants
+                      </Button>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                          const baseCost = Number(watch("costPrice")) || 0;
+                          const baseSales = Number(watch("salesPrice")) || 0;
+                          setVariants(prev => prev.map(v => ({
+                            ...v,
+                            costPrice: baseCost,
+                            salesPrice: baseSales,
+                          })));
+                        }}
+                      >
+                        Reset All to Base Pricing
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto rounded-lg border border-border">
+                    <table className="w-full text-sm text-left text-muted-foreground border-collapse">
+                      <thead className="text-xs uppercase bg-muted/50 text-foreground font-semibold border-b border-border">
+                        <tr>
+                          <th className="p-3 w-12 text-center">Active</th>
+                          <th className="p-3 w-16 text-center">Photo</th>
+                          <th className="p-3">Color</th>
+                          <th className="p-3">Size</th>
+                          <th className="p-3">SKU Code</th>
+                          <th className="p-3">Barcode</th>
+                          <th className="p-3">Cost Price</th>
+                          <th className="p-3">Sales Price</th>
+                          <th className="p-3">WS Price</th>
+                          <th className="p-3">WS Disc. Amount</th>
+                          {mode === "create" && <th className="p-3">Init Stock</th>}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {variants.map((v, idx) => (
+                          <tr key={idx} className={`hover:bg-muted/10 transition-colors ${!v.enabled ? "opacity-40" : ""}`}>
+                            <td className="p-3 text-center">
+                              <Checkbox 
+                                checked={v.enabled} 
+                                onCheckedChange={(checked) => {
+                                  setVariants(prev => {
+                                    const updated = [...prev];
+                                    updated[idx].enabled = !!checked;
+                                    return updated;
+                                  });
+                                }}
+                              />
+                            </td>
+                            <td className="p-3 text-center">
+                              {v.image ? (
+                                <div className="relative group w-10 h-10 rounded border border-border overflow-hidden mx-auto bg-muted">
+                                  <img 
+                                    src={v.image} 
+                                    alt={`${v.color}-${v.size}`} 
+                                    className="w-full h-full object-cover cursor-pointer"
+                                    onClick={() => {
+                                      if (v.enabled) {
+                                        setActiveVariantIdx(idx);
+                                        setIsVariantUploadOpen(true);
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setVariants(prev => {
+                                        const updated = [...prev];
+                                        updated[idx].image = "";
+                                        return updated;
+                                      });
+                                    }}
+                                    className="absolute top-0 right-0 p-0.5 bg-destructive text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <X size={10} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={!v.enabled}
+                                  onClick={() => {
+                                    setActiveVariantIdx(idx);
+                                    setIsVariantUploadOpen(true);
+                                  }}
+                                  className="w-10 h-10 rounded border-2 border-dashed border-muted-foreground/20 hover:border-primary flex items-center justify-center text-muted-foreground hover:text-primary transition-colors mx-auto bg-muted/30"
+                                  title="Upload variant photo"
+                                >
+                                  <ImageIcon className="h-4 w-4" />
+                                </button>
+                              )}
+                            </td>
+                            <td className="p-3 font-medium text-foreground">{v.color}</td>
+                            <td className="p-3 font-medium text-foreground">{v.size}</td>
+                            <td className="p-3">
+                              <Input 
+                                value={v.sku} 
+                                disabled={!v.enabled}
+                                onChange={(e) => {
+                                  setVariants(prev => {
+                                    const updated = [...prev];
+                                    updated[idx].sku = e.target.value;
+                                    return updated;
+                                  });
+                                }}
+                                className="h-8 font-mono text-xs max-w-[180px]"
+                              />
+                            </td>
+                            <td className="p-3">
+                              <Input 
+                                value={v.barcode} 
+                                placeholder="Auto-generated"
+                                disabled={!v.enabled}
+                                onChange={(e) => {
+                                  setVariants(prev => {
+                                    const updated = [...prev];
+                                    updated[idx].barcode = e.target.value;
+                                    return updated;
+                                  });
+                                }}
+                                className="h-8 font-mono text-xs max-w-[180px]"
+                              />
+                            </td>
+                            <td className="p-3">
+                              <Input 
+                                type="number"
+                                placeholder="Use Base"
+                                disabled={!v.enabled}
+                                value={v.costPrice !== null ? v.costPrice : ""}
+                                onChange={(e) => {
+                                  const val = e.target.value === "" ? null : Number(e.target.value);
+                                  setVariants(prev => {
+                                    const updated = [...prev];
+                                    updated[idx].costPrice = val;
+                                    return updated;
+                                  });
+                                }}
+                                className="h-8 max-w-[100px]"
+                              />
+                            </td>
+                            <td className="p-3">
+                              <Input 
+                                type="number"
+                                placeholder="Use Base"
+                                disabled={!v.enabled}
+                                value={v.salesPrice !== null ? v.salesPrice : ""}
+                                onChange={(e) => {
+                                  const val = e.target.value === "" ? null : Number(e.target.value);
+                                  setVariants(prev => {
+                                    const updated = [...prev];
+                                    updated[idx].salesPrice = val;
+                                    return updated;
+                                  });
+                                }}
+                                className="h-8 max-w-[100px]"
+                              />
+                            </td>
+                            <td className="p-3">
+                              <Input 
+                                type="number"
+                                placeholder="Use Base"
+                                disabled={!v.enabled}
+                                value={v.wholesalePrice !== null ? v.wholesalePrice : ""}
+                                onChange={(e) => {
+                                  const val = e.target.value === "" ? null : Number(e.target.value);
+                                  setVariants(prev => {
+                                    const updated = [...prev];
+                                    updated[idx].wholesalePrice = val;
+                                    return updated;
+                                  });
+                                }}
+                                className="h-8 max-w-[100px]"
+                              />
+                            </td>
+                            <td className="p-3">
+                              <Input 
+                                type="number"
+                                placeholder="Use Base"
+                                disabled={!v.enabled}
+                                value={v.wholesaleDiscountAmount !== null ? v.wholesaleDiscountAmount : ""}
+                                onChange={(e) => {
+                                  const val = e.target.value === "" ? null : Number(e.target.value);
+                                  setVariants(prev => {
+                                    const updated = [...prev];
+                                    updated[idx].wholesaleDiscountAmount = val;
+                                    return updated;
+                                  });
+                                }}
+                                className="h-8 max-w-[100px]"
+                              />
+                            </td>
+                            {mode === "create" && (
+                              <td className="p-3">
+                                <Input 
+                                  type="number"
+                                  disabled={!v.enabled}
+                                  value={v.initialStock || ""}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value) || 0;
+                                    setVariants(prev => {
+                                      const updated = [...prev];
+                                      updated[idx].initialStock = val;
+                                      return updated;
+                                    });
+                                  }}
+                                  className="h-8 max-w-[80px]"
+                                />
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Toggles */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded-lg bg-muted/20">
+                <div className="flex items-center space-x-2">
+                  <Controller
+                    name="trackInventory"
+                    control={control}
+                    render={({ field }) => (
+                      <Checkbox id="trackInventory" checked={field.value} onCheckedChange={field.onChange} disabled={loading} />
+                    )}
+                  />
+                  <Label htmlFor="trackInventory">Track Inventory</Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Controller
+                    name="isEnableEcom"
+                    control={control}
+                    render={({ field }) => (
+                      <Checkbox id="isEnableEcom" checked={field.value} onCheckedChange={field.onChange} disabled={loading} />
+                    )}
+                  />
+                  <Label htmlFor="isEnableEcom">Enable E-commerce</Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Controller
+                    name="status"
+                    control={control}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange} disabled={loading}>
+                        <SelectTrigger className="h-8 w-[120px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* VAT / Tax Settings */}
+              <div className="space-y-4 border-t pt-4">
+                <div className="flex items-center gap-2 text-primary font-semibold">
+                  <FiPlus className="h-4 w-4" />
+                  <h3>VAT & Tax Information</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded-lg bg-muted/20">
+                  <div className="flex items-center space-x-2 py-2">
+                    <Controller
+                      name="isVatEnabled"
+                      control={control}
+                      render={({ field }) => (
+                        <Checkbox 
+                          id="isVatEnabled" 
+                          checked={field.value} 
+                          onCheckedChange={(checked) => {
+                            field.onChange(checked);
+                            if (!checked) {
+                              setValue("vatPercentage", 0);
+                            }
+                          }} 
+                          disabled={loading} 
+                        />
+                      )}
+                    />
+                    <Label htmlFor="isVatEnabled" className="cursor-pointer font-medium">Enable VAT for this item</Label>
+                  </div>
+
+                  {watchedIsVatEnabled && (
+                    <div className="space-y-2">
+                      <Label htmlFor="vatPercentage">VAT Percentage (%)</Label>
+                      <Input
+                        id="vatPercentage"
+                        type="number"
+                        step="0.01"
+                        placeholder="e.g. 5, 12, 18"
+                        {...register("vatPercentage", { valueAsNumber: true })}
+                        disabled={loading}
+                        className="max-w-[200px]"
+                      />
+                      {errors.vatPercentage?.message && <p className="text-sm text-destructive">{String(errors.vatPercentage.message)}</p>}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 pt-4">
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Saving..." : mode === "create" ? "Create Item" : "Update Item"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
+                  Cancel
+                </Button>
               </div>
             </div>
           </form>

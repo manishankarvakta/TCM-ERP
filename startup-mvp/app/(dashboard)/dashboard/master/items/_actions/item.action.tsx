@@ -50,18 +50,7 @@ async function generateUniqueBarcode(): Promise<string> {
   let unique = false;
   let barcode = "";
   while (!unique) {
-    const randomDigits = Math.floor(1000000000 + Math.random() * 9000000000).toString();
-    const prefix = "200"; // Local use prefix
-    const candidate = prefix + randomDigits;
-    
-    // EAN-13 checksum
-    let sum = 0;
-    for (let i = 0; i < 12; i++) {
-      const digit = parseInt(candidate[i]);
-      sum += i % 2 === 0 ? digit : digit * 3;
-    }
-    const checksum = (10 - (sum % 10)) % 10;
-    barcode = candidate + checksum;
+    barcode = Math.floor(10000000 + Math.random() * 90000000).toString();
 
     // Check collision in database
     const existing = await prisma.productVariant.findFirst({
@@ -76,25 +65,13 @@ async function generateUniqueBarcode(): Promise<string> {
 }
 
 /**
- * Generate a unique EAN-13 barcode for an Item (not variant)
- * Uses prefix '200' for local internal use
+ * Generate a unique 8-character random barcode for an Item (not variant)
  */
 async function generateUniqueItemBarcode(): Promise<string> {
   let unique = false;
   let barcode = "";
   while (!unique) {
-    const randomDigits = Math.floor(1000000000 + Math.random() * 9000000000).toString();
-    const prefix = "200";
-    const candidate = prefix + randomDigits;
-
-    // EAN-13 checksum
-    let sum = 0;
-    for (let i = 0; i < 12; i++) {
-      const digit = parseInt(candidate[i]);
-      sum += i % 2 === 0 ? digit : digit * 3;
-    }
-    const checksum = (10 - (sum % 10)) % 10;
-    barcode = candidate + checksum;
+    barcode = Math.floor(10000000 + Math.random() * 90000000).toString();
 
     // Check collision in Item table
     const existingItem = await prisma.item.findFirst({

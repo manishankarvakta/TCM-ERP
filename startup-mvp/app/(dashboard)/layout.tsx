@@ -20,10 +20,16 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen overflow-hidden">
+      <style dangerouslySetInnerHTML={{ __html: `
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow: hidden !important;
+          height: 100vh !important;
+        }
+      `}} />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto bg-background">
-          {children}
-        </main>
+        {children}
       </div>
     </div>
   );
