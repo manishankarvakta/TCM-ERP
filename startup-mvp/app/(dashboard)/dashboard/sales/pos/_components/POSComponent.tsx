@@ -311,6 +311,37 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     }
   }, [clients]);
 
+  const changeCustomerAndSyncMode = (val: string) => {
+    setSelectedClientId(val);
+    if (!val) return;
+    const client = clients.find((c) => c.id === val);
+    const isWholesale = client
+      ? !!(
+          client.company?.toLowerCase().includes("wholesale") ||
+          client.name?.toLowerCase().includes("wholesale") ||
+          client.email?.toLowerCase().includes("wholesale") ||
+          client.clientCode?.toLowerCase().includes("wholesale") ||
+          client.clientType === 'wholesale'
+        )
+      : false;
+
+    const newMode = isWholesale ? "WHOLESALE" : "RETAIL";
+    if (newMode !== orderType) {
+      updateOrderMode(newMode);
+    }
+  };
+
+  useEffect(() => {
+    const mode = searchParams.get("mode") as "RETAIL" | "WHOLESALE";
+    if (mode && (mode === "RETAIL" || mode === "WHOLESALE") && mode !== orderType) {
+      if (mode === "WHOLESALE" && !isWholesaleAllowed) {
+        setOrderType("RETAIL");
+      } else {
+        setOrderType(mode);
+      }
+    }
+  }, [searchParams, isWholesaleAllowed, orderType]);
+
   useEffect(() => {
     if (!selectedClientId) {
       setClientDiscounts([]);
@@ -326,11 +357,6 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           client.clientType === 'wholesale'
         )
       : false;
-
-    const newMode = isWholesale ? "WHOLESALE" : "RETAIL";
-    if (newMode !== orderType) {
-      updateOrderMode(newMode);
-    }
 
     if (isWholesale) {
       getClientItemDiscounts(selectedClientId).then((res) => {
@@ -1109,7 +1135,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           description: "New client registered successfully!"
         });
         setClients(prev => [res.client as Client, ...prev]);
-        setSelectedClientId(res.client.id);
+        changeCustomerAndSyncMode(res.client.id);
         setIsAddCustomerOpen(false);
         setNewCustomerData({
           name: "",
@@ -1358,7 +1384,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                   <SearchableSelect
                     options={clientOptions}
                     value={selectedClientId || null}
-                    onValueChange={(val) => setSelectedClientId(val || "")}
+                    onValueChange={(val) => changeCustomerAndSyncMode(val || "")}
                     placeholder="Select Customer..."
                     searchPlaceholder="Search customer..."
                     className="w-full h-9 text-xs"

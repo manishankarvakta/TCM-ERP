@@ -38,13 +38,23 @@ const voucherTypes = [
   },
   {
     id: "contra",
-    title: "Contra Voucher",
+    title: "Transfer",
     description: "Transfer between Cash and Bank accounts",
     icon: FiRefreshCw,
     href: "/contra/add",
     color: "text-blue-500",
     bgColor: "bg-blue-50 dark:bg-blue-950",
     borderColor: "border-blue-200 dark:border-blue-800",
+  },
+  {
+    id: "expenses",
+    title: "Expenses",
+    description: "Record business, administrative, or operational expenses",
+    icon: FiArrowUpCircle,
+    href: "/expenses/add",
+    color: "text-amber-500",
+    bgColor: "bg-amber-50 dark:bg-amber-950",
+    borderColor: "border-amber-200 dark:border-amber-800",
   },
   {
     id: "journal",
@@ -71,7 +81,7 @@ export default function VoucherQuickCreate({ basePath = "/dashboard/accounts/vou
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {voucherTypes.map((type) => {
             const Icon = type.icon;
             return (

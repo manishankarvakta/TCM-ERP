@@ -9,7 +9,9 @@ import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import RecentActivity from "./recent-activity";
 import { getUserActivity } from "@/app/actions/dashboard.action";
 import { hasPermission } from "@/lib/permissions";
-import { FiLayout } from "react-icons/fi";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { FiLayout, FiZap, FiShoppingBag, FiDollarSign } from "react-icons/fi";
 
 export default function UserDashboard({ userId }: { userId: string }) {
   const [permissions, setPermissions] = useState({
@@ -19,6 +21,8 @@ export default function UserDashboard({ userId }: { userId: string }) {
     canViewAccounts: false,
     canViewQuickActions: false,
     canViewRecentActivity: false,
+    canViewWholesale: false,
+    canViewExpenses: false,
   });
   const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,6 +36,8 @@ export default function UserDashboard({ userId }: { userId: string }) {
         canViewAccounts,
         canViewQuickActions,
         canViewRecentActivity,
+        canViewWholesale,
+        canViewExpenses,
         activityResult
       ] = await Promise.all([
         hasPermission(userId, "dashboard", "view_production_widget"),
@@ -40,6 +46,8 @@ export default function UserDashboard({ userId }: { userId: string }) {
         hasPermission(userId, "dashboard", "view_accounts_widget"),
         hasPermission(userId, "dashboard", "view_quick_actions_widget"),
         hasPermission(userId, "dashboard", "view_recent_activity_widget"),
+        hasPermission(userId, "sales.pos", "wholesale"),
+        hasPermission(userId, "accounts.vouchers", "create"),
         getUserActivity(8)
       ]);
 
@@ -50,6 +58,8 @@ export default function UserDashboard({ userId }: { userId: string }) {
         canViewAccounts,
         canViewQuickActions,
         canViewRecentActivity,
+        canViewWholesale,
+        canViewExpenses,
       });
       
       if (activityResult) {
@@ -89,6 +99,34 @@ export default function UserDashboard({ userId }: { userId: string }) {
           <p className="text-sm text-muted-foreground mt-1 font-bold italic tracking-tight">
             FashionFlow Garments Ltd • Production & Sales Operations
           </p>
+        </div>
+        
+        {/* Top-Right Quick Actions */}
+        <div className="flex items-center gap-2 mt-4 md:mt-0">
+          <Button variant="outline" size="sm" className="gap-1.5 h-9" asChild>
+            <Link href="/dashboard/sales/pos">
+              <FiZap className="h-4 w-4 text-emerald-500 fill-emerald-500/20" />
+              <span>POS</span>
+            </Link>
+          </Button>
+
+          {permissions.canViewWholesale && (
+            <Button variant="outline" size="sm" className="gap-1.5 h-9" asChild>
+              <Link href="/dashboard/sales/pos?mode=WHOLESALE">
+                <FiShoppingBag className="h-4 w-4 text-purple-500" />
+                <span>Wholesale</span>
+              </Link>
+            </Button>
+          )}
+
+          {permissions.canViewExpenses && (
+            <Button variant="outline" size="sm" className="gap-1.5 h-9" asChild>
+              <Link href="/dashboard/accounts/vouchers/expenses/add">
+                <FiDollarSign className="h-4 w-4 text-amber-500" />
+                <span>Expenses</span>
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
