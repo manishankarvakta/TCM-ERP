@@ -1419,7 +1419,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
   return (
     <div className="fixed inset-0 z-50 flex bg-background">
-      <div className="flex-1 flex flex-col p-6 overflow-hidden bg-background">
+      <div className="flex-1 flex flex-col p-6 overflow-hidden bg-background relative">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-6">
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
@@ -1485,7 +1485,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-2 pb-10">
+        <div className="flex-1 overflow-y-auto pr-2 pb-20">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {filteredItems.map((item) => {
               const displayPrice = orderType === "WHOLESALE" ? (item.wholesalePrice || item.unitPrice) : item.unitPrice;
@@ -1513,9 +1513,12 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                         <span className="text-xs">{item.code}</span>
                       )}
                    </div>
-                   <h3 className="font-semibold text-sm line-clamp-2 mb-1 text-foreground" title={item.description}>{item.description}</h3>
-                   <div className="text-lg font-bold text-foreground mb-3 flex flex-wrap items-center gap-1.5">
-                      <span>৳{finalPrice.toFixed(2)}</span>
+                   <div className="mb-2">
+                      <h3 className="font-bold text-sm text-foreground line-clamp-1">{item.name}</h3>
+                      <p className="text-[11px] text-muted-foreground font-mono">{item.code}</p>
+                   </div>
+                   <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+                      <span className="text-sm font-bold text-primary">৳{finalPrice.toFixed(2)}</span>
                       {hasDiscount && (
                         <>
                           <span className="text-xs text-muted-foreground line-through font-normal">৳{displayPrice.toFixed(2)}</span>
@@ -1524,7 +1527,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                           </span>
                         </>
                       )}
-                      <span className="ml-auto text-xs font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                      <span className="ml-auto text-[10px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                         Stock: {itemStock}
                       </span>
                    </div>
@@ -1549,52 +1552,45 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           </div>
         </div>
 
-        {/* Bottom Actions */}
-        <div className="mt-2 pt-4 border-t border-border shrink-0 overflow-x-auto pb-2">
-          <div className="flex items-center w-fit rounded-md overflow-hidden border border-border">
+        {/* Floating Action Buttons - Bottom Left */}
+        <div className="absolute bottom-0 left-0 p-4 z-20 flex items-center gap-2 bg-transparent">
+          <button 
+            className="flex items-center justify-center gap-2 h-10 px-4 bg-[#e11d48] text-white hover:bg-[#e11d48]/90 transition-colors border border-[#e11d48]/20 rounded-lg text-xs font-bold shadow-lg"
+            onClick={() => { setActionSaleNumber(""); setIsReturnModalOpen(true); }}
+          >
+            Return <FaUndoAlt className="w-3.5 h-3.5" />
+          </button>
 
-            <button 
-              className="flex items-center justify-center gap-2 h-12 px-6 bg-background text-foreground hover:bg-muted transition-colors border-r border-border min-w-[120px]"
-              onClick={() => { setActionSaleNumber(""); setIsReturnModalOpen(true); }}
-            >
-              Return <FaUndoAlt className="w-4 h-4" />
-            </button>
+          <button 
+            className="flex items-center justify-center gap-2 h-10 px-4 bg-[#6366f1] text-white hover:bg-[#6366f1]/90 transition-colors border border-[#6366f1]/20 rounded-lg text-xs font-bold shadow-lg"
+            onClick={() => { setPayDueClientId(""); setOutstandingSales([]); setIsPayDueModalOpen(true); }}
+          >
+            Pay Due <FaMoneyBillWave className="w-3.5 h-3.5" />
+          </button>
+          
+          <button 
+            className="flex items-center justify-center gap-2 h-10 px-4 bg-[#ffb000] text-black hover:bg-[#ffb000]/90 transition-colors border border-[#ffb000]/20 rounded-lg text-xs font-bold shadow-lg"
+            onClick={() => { if(cart.length > 0) handleHoldCart(); else if(heldCarts.length > 0) setIsHeldCartsModalOpen(true); else toast({title: "Hold", description:"No carts held."}) }}
+          >
+            Hold 
+            {heldCarts.length > 0 && <span className="ml-1 bg-black text-[#ffb000] rounded-full w-4 h-4 flex items-center justify-center text-[9px]">{heldCarts.length}</span>} 
+            <FaHandPaper className="w-3.5 h-3.5" />
+          </button>
 
-            <button 
-              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#6366f1] text-white hover:bg-[#6366f1]/90 transition-colors border-r border-border min-w-[120px]"
-              onClick={() => { setPayDueClientId(""); setOutstandingSales([]); setIsPayDueModalOpen(true); }}
-            >
-              Pay Due <FaMoneyBillWave className="w-4 h-4" />
-            </button>
-            
-            
+          <button 
+            className="flex items-center justify-center gap-2 h-10 px-4 bg-[#0f8c5a] text-white hover:bg-[#0f8c5a]/90 transition-colors border border-[#0f8c5a]/20 rounded-lg text-xs font-bold shadow-lg"
+            onClick={() => { handleNewSale(); toast({ title: "Refreshed", description: "POS reset successfully" }); }}
+          >
+            Refresh <FaSync className="w-3.5 h-3.5" />
+          </button>
 
-            <button 
-              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#ffb000] text-black hover:bg-[#ffb000]/90 transition-colors min-w-[120px]"
-              onClick={() => { if(cart.length > 0) handleHoldCart(); else if(heldCarts.length > 0) setIsHeldCartsModalOpen(true); else toast({title: "Hold", description:"No carts held."}) }}
-            >
-              "Hold" 
-              
-              {heldCarts.length > 0 && <span className="ml-1 bg-black text-[#ffb000] rounded-full w-5 h-5 flex items-center justify-center text-[10px]">{heldCarts.length}</span>} 
-              
-              <FaHandPaper className="w-4 h-4" />
-            </button>
-
-            <button 
-              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#0f8c5a] text-white hover:bg-[#0f8c5a]/90 transition-colors min-w-[120px]"
-              onClick={() => { handleNewSale(); toast({ title: "Refreshed", description: "POS reset successfully" }); }}
-            >
-              Refresh <FaSync className="w-4 h-4" />
-            </button>
-
-            <button 
-              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#136bfb] text-white hover:bg-[#136bfb]/90 transition-colors min-w-[120px] rounded-r-md disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={handlePrintLastBill}
-              disabled={!hasLastSale && !completedSaleNumber}
-            >
-              Last Bill <FaPrint className="w-4 h-4" />
-            </button>
-          </div>
+          <button 
+            className="flex items-center justify-center gap-2 h-10 px-4 bg-[#136bfb] text-white hover:bg-[#136bfb]/90 transition-colors border border-[#136bfb]/20 rounded-lg text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+            onClick={handlePrintLastBill}
+            disabled={!hasLastSale && !completedSaleNumber}
+          >
+            Last Bill <FaPrint className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
