@@ -54,6 +54,7 @@ interface Supplier {
   image: string | null;
   status: string;
   createdBy: string;
+  dueAmount: number;
   createdByUser: {
     id: string;
     name: string | null;
@@ -354,7 +355,7 @@ export default function SuppliersListClient({
               <TableHead>Phone</TableHead>
               <TableHead>Company</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Created At</TableHead>
+              <TableHead className="text-right">Due</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -403,8 +404,19 @@ export default function SuppliersListClient({
                         <Badge variant="default">Active</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {format(new Date(supplier.createdAt), "MMM d, yyyy")}
+                    <TableCell className="text-right">
+                      <span
+                        className={
+                          (supplier.dueAmount ?? 0) > 0
+                            ? "font-semibold text-amber-600"
+                            : "text-muted-foreground"
+                        }
+                      >
+                        ৳{(supplier.dueAmount ?? 0).toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">

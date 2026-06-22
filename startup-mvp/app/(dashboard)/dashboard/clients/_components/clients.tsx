@@ -55,6 +55,7 @@ interface Client {
   status: string;
   clientType?: string | null;
   createdBy: string;
+  dueAmount: number;
   createdByUser: {
     id: string;
     name: string | null;
@@ -356,7 +357,7 @@ export default function ClientsListClient({
               <TableHead>Company</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Created At</TableHead>
+              <TableHead className="text-right">Due</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -416,8 +417,19 @@ export default function ClientsListClient({
                         <Badge variant="default">Active</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {format(new Date(client.createdAt), "MMM d, yyyy")}
+                    <TableCell className="text-right">
+                      <span
+                        className={
+                          (client.dueAmount ?? 0) > 0
+                            ? "font-semibold text-amber-600"
+                            : "text-muted-foreground"
+                        }
+                      >
+                        ৳{(client.dueAmount ?? 0).toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">

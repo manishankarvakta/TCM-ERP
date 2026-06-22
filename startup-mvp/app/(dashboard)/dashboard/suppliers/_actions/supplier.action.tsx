@@ -112,9 +112,28 @@ export async function getSuppliers(
 
     const totalPages = Math.ceil(total / limit);
 
+    // Calculate payable due amount for each supplier via their AP sub-ledger account
+    const suppliersWithDue = await Promise.all(
+      suppliers.map(async (supplier) => {
+        const coaId = supplier.ChartOfAccount?.id;
+        if (!coaId) return { ...supplier, dueAmount: 0 };
+
+        const balanceResult = await prisma.journalEntryLine.aggregate({
+          where: { chartOfAccountId: coaId },
+          _sum: { debitAmount: true, creditAmount: true },
+        });
+
+        const due =
+          Number(balanceResult._sum.creditAmount || 0) -
+          Number(balanceResult._sum.debitAmount || 0);
+
+        return { ...supplier, dueAmount: Math.max(0, due) };
+      })
+    );
+
     return {
       success: true,
-      suppliers,
+      suppliers: suppliersWithDue,
       pagination: {
         page,
         limit,

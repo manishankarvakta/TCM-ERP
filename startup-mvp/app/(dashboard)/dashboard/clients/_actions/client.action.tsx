@@ -114,9 +114,29 @@ export async function getClients(
 
     const totalPages = Math.ceil(total / limit);
 
+    // Calculate receivable due amount for each client via their AR sub-ledger account
+    const clientsWithDue = await Promise.all(
+      clients.map(async (client) => {
+        const coaId = client.ChartOfAccount?.id;
+        if (!coaId) return { ...client, dueAmount: 0 };
+
+        const balanceResult = await prisma.journalEntryLine.aggregate({
+          where: { chartOfAccountId: coaId },
+          _sum: { debitAmount: true, creditAmount: true },
+        });
+
+        // AR is an Asset account: debit increases balance, credit reduces it
+        const due =
+          Number(balanceResult._sum.debitAmount || 0) -
+          Number(balanceResult._sum.creditAmount || 0);
+
+        return { ...client, dueAmount: Math.max(0, due) };
+      })
+    );
+
     return {
       success: true,
-      clients,
+      clients: clientsWithDue,
       pagination: {
         page,
         limit,
