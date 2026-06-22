@@ -1615,22 +1615,28 @@ export async function getItemVariants(itemId: string) {
       };
     }
 
-    const variants = await prisma.productVariant.findMany({
-      where: { itemId },
-      select: {
-        id: true,
-        sku: true,
-        barcode: true,
-        size: true,
-        color: true,
-        costPrice: true,
-        salesPrice: true,
-        wholesalePrice: true,
-        wholesaleDiscountAmount: true,
-        image: true,
-      },
-      orderBy: { sku: 'asc' },
-    });
+    const [item, variants] = await Promise.all([
+      prisma.item.findUnique({
+        where: { id: itemId },
+        select: { colors: true, sizes: true },
+      }),
+      prisma.productVariant.findMany({
+        where: { itemId },
+        select: {
+          id: true,
+          sku: true,
+          barcode: true,
+          size: true,
+          color: true,
+          costPrice: true,
+          salesPrice: true,
+          wholesalePrice: true,
+          wholesaleDiscountAmount: true,
+          image: true,
+        },
+        orderBy: { sku: 'asc' },
+      }),
+    ]);
 
     const serializedVariants = variants.map((v) => ({
       ...v,
@@ -1639,6 +1645,47 @@ export async function getItemVariants(itemId: string) {
       wholesalePrice: v.wholesalePrice ? Number(v.wholesalePrice) : null,
       wholesaleDiscountAmount: v.wholesaleDiscountAmount ? Number(v.wholesaleDiscountAmount) : null,
     }));
+
+    // Sort variants: grouped by color first (in the order defined in item.colors),
+    // and then by size (in the order defined in item.sizes).
+    const colorOrder = item?.colors || [];
+    const sizeOrder = item?.sizes || [];
+
+    serializedVariants.sort((a, b) => {
+      const colorA = a.color || "";
+      const colorB = b.color || "";
+      const colorIndexA = colorOrder.indexOf(colorA);
+      const colorIndexB = colorOrder.indexOf(colorB);
+
+      const cA = colorIndexA !== -1 ? colorIndexA : 9999;
+      const cB = colorIndexB !== -1 ? colorIndexB : 9999;
+
+      if (cA !== cB) {
+        return cA - cB;
+      }
+
+      if (cA === 9999 && colorA !== colorB) {
+        return colorA.localeCompare(colorB);
+      }
+
+      const sizeA = a.size || "";
+      const sizeB = b.size || "";
+      const sizeIndexA = sizeOrder.indexOf(sizeA);
+      const sizeIndexB = sizeOrder.indexOf(sizeB);
+
+      const sA = sizeIndexA !== -1 ? sizeIndexA : 9999;
+      const sB = sizeIndexB !== -1 ? sizeIndexB : 9999;
+
+      if (sA !== sB) {
+        return sA - sB;
+      }
+
+      if (sA === 9999 && sizeA !== sizeB) {
+        return sizeA.localeCompare(sizeB, undefined, { numeric: true });
+      }
+
+      return (a.sku || "").localeCompare(b.sku || "");
+    });
 
     return {
       success: true,

@@ -160,7 +160,13 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
   const handleSkuConfirm = () => {
     if (skuModalIndex === null || !skuModalItem) return;
 
-    const selectedVariantIds = Object.keys(selectedVariants).filter(id => selectedVariants[id]);
+    const selectedVariantIds = Object.keys(selectedVariants)
+      .filter(id => selectedVariants[id])
+      .sort((a, b) => {
+        const indexA = skuVariants.findIndex(v => v.id === a);
+        const indexB = skuVariants.findIndex(v => v.id === b);
+        return indexA - indexB;
+      });
     if (selectedVariantIds.length === 0) return;
 
     // The first selected variant updates the current row
@@ -168,7 +174,7 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
     const firstVariant = skuVariants.find(v => v.id === firstVariantId);
     
     if (firstVariant) {
-      const description = `${skuModalItem.description} - ${firstVariant.size || ''} ${firstVariant.color || ''}`.trim();
+      const description = `${firstVariant.sku}${firstVariant.size ? `, ${firstVariant.size}` : ''}${firstVariant.color ? `, ${firstVariant.color}` : ''}`;
       
       setValue(`items.${skuModalIndex}.itemId`, skuModalItem.id);
       setValue(`items.${skuModalIndex}.variantId`, firstVariantId);
@@ -187,7 +193,7 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
         .filter((v): v is NonNullable<typeof v> => !!v);
 
       additionalVariants.forEach(variant => {
-        const description = `${skuModalItem.description} - ${variant.size || ''} ${variant.color || ''}`.trim();
+        const description = `${variant.sku}${variant.size ? `, ${variant.size}` : ''}${variant.color ? `, ${variant.color}` : ''}`;
         append({
           itemId: skuModalItem.id,
           variantId: variant.id,

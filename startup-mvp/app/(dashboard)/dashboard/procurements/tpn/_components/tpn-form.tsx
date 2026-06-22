@@ -86,7 +86,13 @@ export default function TpnForm({ warehouses, items, user }: TpnFormProps) {
   const handleSkuConfirm = () => {
     if (skuModalIndex === null || !skuModalItem) return;
     
-    const selectedVariantIds = Object.keys(selectedVariants).filter(id => selectedVariants[id]);
+    const selectedVariantIds = Object.keys(selectedVariants)
+      .filter(id => selectedVariants[id])
+      .sort((a, b) => {
+        const indexA = skuVariants.findIndex(v => v.id === a);
+        const indexB = skuVariants.findIndex(v => v.id === b);
+        return indexA - indexB;
+      });
     if (selectedVariantIds.length === 0) {
       setSkuModalOpen(false);
       return;
@@ -96,7 +102,7 @@ export default function TpnForm({ warehouses, items, user }: TpnFormProps) {
     const firstVariantId = selectedVariantIds[0];
     const firstVariant = skuVariants.find(v => v.id === firstVariantId);
     if (firstVariant) {
-      const desc = `${skuModalItem.code} - ${skuModalItem.description} (${firstVariant.sku}${firstVariant.size ? `, ${firstVariant.size}` : ''}${firstVariant.color ? `, ${firstVariant.color}` : ''})`;
+      const desc = `${firstVariant.sku}${firstVariant.size ? `, ${firstVariant.size}` : ''}${firstVariant.color ? `, ${firstVariant.color}` : ''}`;
       
       form.setValue(`items.${skuModalIndex}.itemId`, skuModalItem.id);
       form.setValue(`items.${skuModalIndex}.variantId`, firstVariant.id);
@@ -107,7 +113,7 @@ export default function TpnForm({ warehouses, items, user }: TpnFormProps) {
     selectedVariantIds.slice(1).forEach((varId, idx) => {
       const variant = skuVariants.find(v => v.id === varId);
       if (variant) {
-        const desc = `${skuModalItem.code} - ${skuModalItem.description} (${variant.sku}${variant.size ? `, ${variant.size}` : ''}${variant.color ? `, ${variant.color}` : ''})`;
+        const desc = `${variant.sku}${variant.size ? `, ${variant.size}` : ''}${variant.color ? `, ${variant.color}` : ''}`;
         
         append({
           itemId: skuModalItem.id,

@@ -158,7 +158,13 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
   const handleSkuConfirm = () => {
     if (skuModalIndex === null || !skuModalItem) return;
 
-    const selectedIds = Object.keys(selectedVariants).filter((id) => selectedVariants[id]);
+    const selectedIds = Object.keys(selectedVariants)
+      .filter((id) => selectedVariants[id])
+      .sort((a, b) => {
+        const indexA = skuVariants.findIndex(v => v.id === a);
+        const indexB = skuVariants.findIndex(v => v.id === b);
+        return indexA - indexB;
+      });
     if (selectedIds.length === 0) return;
 
     // First variant replaces the current row
@@ -166,7 +172,7 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
     const firstVariant = skuVariants.find((v) => v.id === firstVariantId);
     
     if (firstVariant) {
-      const description = `${skuModalItem.code} - ${skuModalItem.description} (${firstVariant.sku}, ${firstVariant.size}, ${firstVariant.color})`;
+      const description = `${firstVariant.sku}${firstVariant.size ? `, ${firstVariant.size}` : ''}${firstVariant.color ? `, ${firstVariant.color}` : ''}`;
       const costPrice = firstVariant.costPrice ? Number(firstVariant.costPrice) : 0;
       form.setValue(`items.${skuModalIndex}.itemId`, skuModalItem.id);
       form.setValue(`items.${skuModalIndex}.variantId`, firstVariantId);
@@ -179,7 +185,7 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
       const variantId = selectedIds[i];
       const variant = skuVariants.find((v) => v.id === variantId);
       if (variant) {
-        const description = `${skuModalItem.code} - ${skuModalItem.description} (${variant.sku}, ${variant.size}, ${variant.color})`;
+        const description = `${variant.sku}${variant.size ? `, ${variant.size}` : ''}${variant.color ? `, ${variant.color}` : ''}`;
         const costPrice = variant.costPrice ? Number(variant.costPrice) : 0;
         append({
           itemId: skuModalItem.id,
