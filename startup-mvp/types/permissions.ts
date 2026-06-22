@@ -570,6 +570,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         label: "POS",
         operations: ["view", "create", "wholesale"],
       },
+      {
+        permissionKey: "sales.coupons",
+        path: "/dashboard/sales/coupons",
+        label: "Coupons",
+        operations: ["view", "create", "edit", "delete"],
+      },
     ],
   },
   {
@@ -1018,6 +1024,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "settings.general",
         path: "/dashboard/settings?section=general",
         label: "General",
+        operations: ["view", "edit"],
+      },
+      {
+        permissionKey: "settings.membership",
+        path: "/dashboard/settings?section=membership",
+        label: "Membership Settings",
         operations: ["view", "edit"],
       },
       {

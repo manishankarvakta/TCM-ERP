@@ -42,6 +42,7 @@ import {
   FiLink,
   FiAlertCircle,
   FiRefreshCw,
+  FiTag,
 } from "react-icons/fi";
 import Logo from "@/components/layout/logo";
 import { SlCalculator } from "react-icons/sl";
@@ -59,6 +60,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   FiFolder,
   FiBell,
   FiArchive,
+  FiTag,
   FiPackage,
   FiLayers,
   FiDollarSign,

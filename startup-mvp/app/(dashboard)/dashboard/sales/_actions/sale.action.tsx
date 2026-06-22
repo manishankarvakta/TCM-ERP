@@ -37,6 +37,14 @@ const saleSchema = z.object({
   items: z.array(saleItemSchema).min(1, "At least one item is required"),
   couponCode: z.string().optional().nullable(),
   paymentMethod: z.string().optional().nullable(),
+  paymentDetails: z.object({
+    cashAmount: z.number().optional().nullable(),
+    cashAccountId: z.string().optional().nullable(),
+    cardAmount: z.number().optional().nullable(),
+    cardAccountId: z.string().optional().nullable(),
+    mfsAmount: z.number().optional().nullable(),
+    mfsAccountId: z.string().optional().nullable(),
+  }).optional().nullable(),
 });
 
 const updateSaleSchema = saleSchema.extend({
@@ -268,10 +276,12 @@ export async function getPaymentAccountsForPOS() {
       .map((acc) => {
         // Determine account type: WALLET, CASH, BANK
         let type: "CASH" | "BANK" | "WALLET" | null = null;
-        if (isWalletName(acc.name)) {
+        if (isWalletName(acc.name) || acc.CashBankAccount?.type === "MFS") {
           type = "WALLET";
-        } else if (acc.CashBankAccount?.type) {
-          type = acc.CashBankAccount.type as "CASH" | "BANK";
+        } else if (acc.CashBankAccount?.type === "CASH") {
+          type = "CASH";
+        } else if (acc.CashBankAccount?.type === "BANK") {
+          type = "BANK";
         } else {
           if (acc.name.toLowerCase().includes("cash")) {
             type = "CASH";
@@ -354,6 +364,7 @@ export async function getItemsForSale() {
             color: true,
             costPrice: true,
             salesPrice: true,
+            image: true,
             stocks: {
               select: {
                 warehouseId: true,
@@ -396,6 +407,7 @@ export async function getItemsForSale() {
           color: v.color,
           costPrice: v.costPrice ? Number(v.costPrice) : null,
           salesPrice: v.salesPrice ? Number(v.salesPrice) : null,
+          imageUrl: v.image || null,
           stocks: v.stocks ? v.stocks.map((s: any) => ({
             warehouseId: s.warehouseId,
             quantity: Number(s.quantity)
@@ -419,7 +431,8 @@ export async function getItemsForSale() {
  */
 export async function validateCoupon(
   code: string,
-  subTotal: number
+  subTotal: number,
+  clientId?: string
 ): Promise<{ success: boolean; discountAmount?: number; message?: string; couponId?: string; error?: string }> {
   try {
     if (!code || !code.trim()) {
@@ -440,6 +453,26 @@ export async function validateCoupon(
 
     if (coupon.expiryDate && coupon.expiryDate < new Date()) {
       return { success: false, error: "This coupon has expired." };
+    }
+
+    // Check usageLimit (total uses)
+    if (coupon.usageLimit !== null) {
+      const totalUses = await prisma.sale.count({
+        where: { couponId: coupon.id, status: { not: "CANCELLED" } },
+      });
+      if (totalUses >= coupon.usageLimit) {
+        return { success: false, error: "This coupon's total usage limit has been reached." };
+      }
+    }
+
+    // Check userLimit (limit per client)
+    if (coupon.userLimit !== null && clientId) {
+      const clientUses = await prisma.sale.count({
+        where: { couponId: coupon.id, clientId: clientId, status: { not: "CANCELLED" } },
+      });
+      if (clientUses >= coupon.userLimit) {
+        return { success: false, error: `You have reached the maximum usage limit of ${coupon.userLimit} times for this coupon.` };
+      }
     }
 
     const value = Number(coupon.value);
@@ -833,15 +866,85 @@ async function createSaleAccountingVoucher(
     const isReturn = Number(totalSaleAmount) < 0;
     const absTotalSaleAmount = Math.abs(Number(totalSaleAmount));
 
-    // 1. Payment/Receivable
-    voucherLines.push({
-      lineNumber: lineNumber++,
-      debitAmount: isReturn ? 0 : absTotalSaleAmount,
-      creditAmount: isReturn ? absTotalSaleAmount : 0,
-      description: debitDescription,
-      chartOfAccountId: debitAccountId,
-      clientId: debitClientId,
-    });
+    const paymentDetails = sale.paymentDetails as any;
+    const splitLines: Array<{ accountId: string; amount: number; description: string; clientId?: string }> = [];
+
+    if (paymentDetails) {
+      const cashAmt = Number(paymentDetails.cashAmount || 0);
+      const cardAmt = Number(paymentDetails.cardAmount || 0);
+      const mfsAmt = Number(paymentDetails.mfsAmount || 0);
+      const totalPaid = cashAmt + cardAmt + mfsAmt;
+
+      if (totalPaid > 0) {
+        const remainingDue = Number((absTotalSaleAmount - totalPaid).toFixed(2));
+
+        if (cashAmt > 0 && paymentDetails.cashAccountId) {
+          splitLines.push({
+            accountId: paymentDetails.cashAccountId,
+            amount: cashAmt,
+            description: `Cash Received - ${sale.saleNumber} - ${sale.client.name}`,
+          });
+        }
+        if (cardAmt > 0 && paymentDetails.cardAccountId) {
+          splitLines.push({
+            accountId: paymentDetails.cardAccountId,
+            amount: cardAmt,
+            description: `Card Payment Received - ${sale.saleNumber} - ${sale.client.name}`,
+          });
+        }
+        if (mfsAmt > 0 && paymentDetails.mfsAccountId) {
+          splitLines.push({
+            accountId: paymentDetails.mfsAccountId,
+            amount: mfsAmt,
+            description: `Digital Wallet/MFS Received - ${sale.saleNumber} - ${sale.client.name}`,
+          });
+        }
+
+        if (remainingDue > 0) {
+          const receivableAccountId = sale.client.chartOfAccountId || salesAccounts.receivableAccountId;
+          if (receivableAccountId) {
+            splitLines.push({
+              accountId: receivableAccountId,
+              amount: remainingDue,
+              description: `Accounts Receivable (Remaining Due) - ${sale.saleNumber} - ${sale.client.name}`,
+              clientId: sale.clientId,
+            });
+          }
+        }
+
+        // Adjust rounding errors on the last item to make sure sum equals absTotalSaleAmount exactly
+        if (splitLines.length > 0) {
+          const sumSplit = splitLines.reduce((sum, line) => sum + line.amount, 0);
+          const diff = Number((absTotalSaleAmount - sumSplit).toFixed(2));
+          if (diff !== 0) {
+            splitLines[splitLines.length - 1].amount = Number((splitLines[splitLines.length - 1].amount + diff).toFixed(2));
+          }
+        }
+      }
+    }
+
+    if (splitLines.length > 0) {
+      for (const line of splitLines) {
+        voucherLines.push({
+          lineNumber: lineNumber++,
+          debitAmount: isReturn ? 0 : line.amount,
+          creditAmount: isReturn ? line.amount : 0,
+          description: line.description,
+          chartOfAccountId: line.accountId,
+          clientId: line.clientId,
+        });
+      }
+    } else {
+      // 1. Payment/Receivable
+      voucherLines.push({
+        lineNumber: lineNumber++,
+        debitAmount: isReturn ? 0 : absTotalSaleAmount,
+        creditAmount: isReturn ? absTotalSaleAmount : 0,
+        description: debitDescription,
+        chartOfAccountId: debitAccountId,
+        clientId: debitClientId,
+      });
+    }
 
     // 2. Sales Revenue
     voucherLines.push({
@@ -1068,6 +1171,16 @@ export async function getSaleById(saleId: string) {
         tax: true,
         grandTotal: true,
         isTrash: true,
+        couponId: true,
+        paymentDetails: true,
+        coupon: {
+          select: {
+            id: true,
+            code: true,
+            discountType: true,
+            value: true,
+          },
+        },
         client: {
           select: {
             id: true,
@@ -1137,6 +1250,14 @@ export async function getSaleById(saleId: string) {
         tax: sale.tax ? Number(sale.tax) : null,
         grandTotal: Number(sale.grandTotal),
         isTrash: sale.isTrash,
+        couponId: sale.couponId,
+        paymentDetails: sale.paymentDetails ? (sale.paymentDetails as any) : null,
+        coupon: sale.coupon ? {
+          id: sale.coupon.id,
+          code: sale.coupon.code,
+          discountType: sale.coupon.discountType,
+          value: Number(sale.coupon.value),
+        } : null,
         client: sale.client as any,
         warehouse: sale.warehouse,
         createdByUser: sale.createdByUser,
@@ -1475,9 +1596,25 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
       if (validated.couponCode) {
         const dbCoupon = await tx.coupon.findUnique({
           where: { code: validated.couponCode.trim().toUpperCase() },
-          select: { id: true, status: true, expiryDate: true },
+          select: { id: true, status: true, expiryDate: true, usageLimit: true, userLimit: true },
         });
         if (dbCoupon && dbCoupon.status === "ACTIVE" && (!dbCoupon.expiryDate || dbCoupon.expiryDate >= new Date())) {
+          if (dbCoupon.usageLimit !== null) {
+            const totalUses = await tx.sale.count({
+              where: { couponId: dbCoupon.id, status: { not: "CANCELLED" } },
+            });
+            if (totalUses >= dbCoupon.usageLimit) {
+              throw new Error("This coupon's total usage limit has been reached.");
+            }
+          }
+          if (dbCoupon.userLimit !== null) {
+            const clientUses = await tx.sale.count({
+              where: { couponId: dbCoupon.id, clientId: validated.clientId, status: { not: "CANCELLED" } },
+            });
+            if (clientUses >= dbCoupon.userLimit) {
+              throw new Error("You have reached the maximum usage limit for this coupon.");
+            }
+          }
           resolvedCouponId = dbCoupon.id;
         }
       }
@@ -1497,6 +1634,7 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
           tax: tax ? new Prisma.Decimal(tax) : null,
           grandTotal: new Prisma.Decimal(grandTotal),
           createdBy: userId,
+          paymentDetails: validated.paymentDetails ? (validated.paymentDetails as any) : null,
           ...(resolvedCouponId ? { couponId: resolvedCouponId } : {}),
           items: {
             create: itemsToCreate.map((item) => ({

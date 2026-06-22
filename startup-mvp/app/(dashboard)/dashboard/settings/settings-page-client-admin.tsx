@@ -52,6 +52,7 @@ import { SlEnvolopeLetter } from "react-icons/sl";
 import TOS from "./_components/Tos";
 import Accounting from "./_components/Accounting";
 import PayrollSettings from "./_components/PayrollSettings";
+import Membership from "./_components/Membership";
 
 
 type SettingsSection = "profile" | 
@@ -80,7 +81,8 @@ type SettingsSection = "profile" |
                        "tos" | 
                        "preferences" |
                        "accounting" |
-                       "payroll";
+                       "payroll" |
+                       "membership";
 
 export default function SettingsPageClient() {
   const router = useRouter();
@@ -158,6 +160,7 @@ export default function SettingsPageClient() {
       category: "HR & Payroll",
       items: [
         { id: "payroll" as SettingsSection, label: "Payroll Settings", icon: Banknote, active: activeSection === "payroll" },
+        { id: "membership" as SettingsSection, label: "Membership Settings", icon: Users, active: activeSection === "membership" },
       ],
     },
     {
@@ -213,6 +216,8 @@ export default function SettingsPageClient() {
         return <Accounting />;
       case "payroll":
         return <PayrollSettings />;
+      case "membership":
+        return <Membership />;
       case "coverLetter":
       case "tos":
         return <TOS />;

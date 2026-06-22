@@ -1,0 +1,527 @@
+"use server";
+
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { 
+  startOfDay, 
+  endOfDay, 
+  subDays, 
+  startOfWeek, 
+  endOfWeek, 
+  subWeeks, 
+  startOfMonth, 
+  endOfMonth, 
+  subMonths, 
+  startOfYear, 
+  endOfYear, 
+  subYears, 
+  differenceInDays 
+} from "date-fns";
+
+export interface DateFilterRange {
+  from: string; // ISO string or YYYY-MM-DD
+  to: string;   // ISO string or YYYY-MM-DD
+}
+
+function getPeriodDates(filter: string, customRange?: DateFilterRange) {
+  const now = new Date();
+  let currentStart = startOfDay(now);
+  let currentEnd = endOfDay(now);
+  let prevStart = startOfDay(subDays(now, 1));
+  let prevEnd = endOfDay(subDays(now, 1));
+
+  if (filter === "today") {
+    currentStart = startOfDay(now);
+    currentEnd = endOfDay(now);
+    prevStart = startOfDay(subDays(now, 1));
+    prevEnd = endOfDay(subDays(now, 1));
+  } else if (filter === "this-week") {
+    currentStart = startOfWeek(now, { weekStartsOn: 1 });
+    currentEnd = endOfWeek(now, { weekStartsOn: 1 });
+    prevStart = startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
+    prevEnd = endOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
+  } else if (filter === "this-month") {
+    currentStart = startOfMonth(now);
+    currentEnd = endOfMonth(now);
+    prevStart = startOfMonth(subMonths(now, 1));
+    prevEnd = endOfMonth(subMonths(now, 1));
+  } else if (filter === "this-year") {
+    currentStart = startOfYear(now);
+    currentEnd = endOfYear(now);
+    prevStart = startOfYear(subYears(now, 1));
+    prevEnd = endOfYear(subYears(now, 1));
+  } else if (filter === "custom" && customRange) {
+    currentStart = startOfDay(new Date(customRange.from));
+    currentEnd = endOfDay(new Date(customRange.to));
+    const daysDiff = differenceInDays(currentEnd, currentStart) + 1;
+    prevStart = startOfDay(subDays(currentStart, daysDiff));
+    prevEnd = endOfDay(subDays(currentEnd, daysDiff));
+  }
+
+  return { currentStart, currentEnd, prevStart, prevEnd };
+}
+
+export async function getRealtimeDashboardStats(
+  warehouseId: string | "all",
+  filterType: "today" | "this-week" | "this-month" | "this-year" | "custom",
+  customRange?: DateFilterRange,
+  chartRange?: "7-days" | "last-month" | "3-months" | "last-year"
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const { currentStart, currentEnd, prevStart, prevEnd } = getPeriodDates(filterType, customRange);
+
+    const getSaleDue = (sale: any) => {
+      const grandTotal = Number(sale.grandTotal);
+      const details = sale.paymentDetails as any;
+      let initialPaid = 0;
+      let totalCollected = 0;
+      if (details) {
+        initialPaid = Number(details.cashAmount || 0) + Number(details.cardAmount || 0) + Number(details.mfsAmount || 0);
+        if (Array.isArray(details.dueCollections)) {
+          for (const col of details.dueCollections) {
+            totalCollected += Number(col.cashAmount || 0) + Number(col.cardAmount || 0) + Number(col.mfsAmount || 0);
+          }
+        }
+      }
+      return Math.max(0, grandTotal - initialPaid - totalCollected);
+    };
+
+    // Build Prisma query filter
+    const baseFilter: any = {
+      isTrash: false,
+    };
+    if (warehouseId !== "all") {
+      baseFilter.warehouseId = warehouseId;
+    }
+
+    const currentFilter = {
+      ...baseFilter,
+      createdAt: { gte: currentStart, lte: currentEnd },
+    };
+
+    const prevFilter = {
+      ...baseFilter,
+      createdAt: { gte: prevStart, lte: prevEnd },
+    };
+
+    const purchaseFilter: any = { isTrash: false };
+    if (warehouseId !== "all") {
+      purchaseFilter.warehouseId = warehouseId;
+    }
+
+    // 1. Fetch Current & Previous Sales Aggregates
+    const [currentSales, prevSales] = await Promise.all([
+      prisma.sale.findMany({
+        where: currentFilter,
+        select: {
+          grandTotal: true,
+          clientId: true,
+          paymentDetails: true,
+        },
+      }),
+      prisma.sale.findMany({
+        where: prevFilter,
+        select: {
+          grandTotal: true,
+          paymentDetails: true,
+        },
+      }),
+    ]);
+
+    // Revenue calculations
+    const currentRevenue = currentSales.reduce((acc, sale) => acc + Number(sale.grandTotal), 0);
+    const prevRevenue = prevSales.reduce((acc, sale) => acc + Number(sale.grandTotal), 0);
+    const revenueGrowth = prevRevenue > 0 ? ((currentRevenue - prevRevenue) / prevRevenue) * 100 : 0;
+
+    // Purchase calculations
+    const [currentPurchases, prevPurchases] = await Promise.all([
+      prisma.purchase.findMany({
+        where: {
+          ...purchaseFilter,
+          createdAt: { gte: currentStart, lte: currentEnd },
+        },
+        select: { grandTotal: true },
+      }),
+      prisma.purchase.findMany({
+        where: {
+          ...purchaseFilter,
+          createdAt: { gte: prevStart, lte: prevEnd },
+        },
+        select: { grandTotal: true },
+      }),
+    ]);
+    const currentPurchaseTotal = currentPurchases.reduce((acc, p) => acc + Number(p.grandTotal), 0);
+    const prevPurchaseTotal = prevPurchases.reduce((acc, p) => acc + Number(p.grandTotal), 0);
+    const purchaseGrowth = prevPurchaseTotal > 0 ? ((currentPurchaseTotal - prevPurchaseTotal) / prevPurchaseTotal) * 100 : 0;
+
+    // Due calculations
+    const currentDueTotal = currentSales.reduce((acc, sale) => acc + getSaleDue(sale), 0);
+    const prevDueTotal = prevSales.reduce((acc, sale) => acc + getSaleDue(sale), 0);
+    const dueGrowth = prevDueTotal > 0 ? ((currentDueTotal - prevDueTotal) / prevDueTotal) * 100 : 0;
+
+    // New Customers count (first sale placed ever)
+    const currentNewCustomers = await prisma.client.count({
+      where: {
+        createdAt: { gte: currentStart, lte: currentEnd },
+        status: "active",
+      },
+    });
+    const prevNewCustomers = await prisma.client.count({
+      where: {
+        createdAt: { gte: prevStart, lte: prevEnd },
+        status: "active",
+      },
+    });
+    const newCustomersGrowth = prevNewCustomers > 0 ? ((currentNewCustomers - prevNewCustomers) / prevNewCustomers) * 100 : 0;
+
+    // Expenses calculations
+    const [currentExpensesAgg, prevExpensesAgg] = await Promise.all([
+      prisma.voucherLine.aggregate({
+        where: {
+          Voucher: {
+            type: "PAYMENT",
+            createdAt: { gte: currentStart, lte: currentEnd },
+          },
+          debitAmount: { gt: 0 },
+        },
+        _sum: { debitAmount: true },
+      }),
+      prisma.voucherLine.aggregate({
+        where: {
+          Voucher: {
+            type: "PAYMENT",
+            createdAt: { gte: prevStart, lte: prevEnd },
+          },
+          debitAmount: { gt: 0 },
+        },
+        _sum: { debitAmount: true },
+      }),
+    ]);
+    const currentExpenseTotal = Number(currentExpensesAgg._sum?.debitAmount || 0);
+    const prevExpenseTotal = Number(prevExpensesAgg._sum?.debitAmount || 0);
+    const expenseGrowth = prevExpenseTotal > 0 ? ((currentExpenseTotal - prevExpenseTotal) / prevExpenseTotal) * 100 : 0;
+
+    // 2. Fetch Recent Orders (latest 3)
+    const recentOrders = await prisma.sale.findMany({
+      where: currentFilter,
+      orderBy: { createdAt: "desc" },
+      take: 3,
+      select: {
+        id: true,
+        saleNumber: true,
+        createdAt: true,
+        grandTotal: true,
+        status: true,
+        client: {
+          select: {
+            name: true,
+          },
+        },
+        items: {
+          take: 1,
+          select: {
+            description: true,
+            item: {
+              select: {
+                featuredImage: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // 3. Fetch Most Selling Products
+    const topSaleItems = await prisma.saleItem.groupBy({
+      by: ["itemId"],
+      where: {
+        sale: currentFilter,
+      },
+      _sum: {
+        quantity: true,
+      },
+      orderBy: {
+        _sum: {
+          quantity: "desc",
+        },
+      },
+      take: 3,
+    });
+
+    const mostSellingProducts = await Promise.all(
+      topSaleItems.map(async (group) => {
+        const item = await prisma.item.findUnique({
+          where: { id: group.itemId },
+          select: { id: true, name: true, code: true, featuredImage: true },
+        });
+        return {
+          id: item?.code || "N/A",
+          name: item?.name || "Unknown Item",
+          image: item?.featuredImage || null,
+          sales: Number(group._sum.quantity || 0),
+        };
+      })
+    );
+
+    // 4. Fetch Weekly Top Customers
+    const topClientsBySales = await prisma.sale.groupBy({
+      by: ["clientId"],
+      where: currentFilter,
+      _count: {
+        id: true,
+      },
+      orderBy: {
+        _count: {
+          id: "desc",
+        },
+      },
+      take: 3,
+    });
+
+    const topCustomers = await Promise.all(
+      topClientsBySales.map(async (group) => {
+        const client = await prisma.client.findUnique({
+          where: { id: group.clientId },
+          select: { id: true, name: true, image: true },
+        });
+        return {
+          id: client?.id || group.clientId,
+          name: client?.name || "Anonymous Customer",
+          image: client?.image || null,
+          orders: group._count.id,
+        };
+      })
+    );
+
+    // 5. Generate Trend points (SVG Charts: Order count and Income growth)
+    // Dynamic chart boundary calculation independent of top-level date filters
+    const now = new Date();
+    let chartStart = subDays(now, 7);
+
+
+
+    const chartData = [];
+    const selectedChartRange = chartRange || "7-days";
+
+    let stepsCount = 7;
+    if (selectedChartRange === "7-days") {
+      stepsCount = 7;
+      chartStart = subDays(now, 7);
+      for (let i = 0; i < stepsCount; i++) {
+        const stepStart = startOfDay(subDays(now, 6 - i));
+        const stepEnd = endOfDay(subDays(now, 6 - i));
+        
+        // Sales
+        const intervalSales = await prisma.sale.findMany({
+          where: { ...baseFilter, createdAt: { gte: stepStart, lte: stepEnd } },
+          select: { grandTotal: true },
+        });
+        const salesTotal = intervalSales.reduce((acc, s) => acc + Number(s.grandTotal), 0);
+
+        // Purchases
+        const intervalPurchases = await prisma.purchase.findMany({
+          where: { ...purchaseFilter, createdAt: { gte: stepStart, lte: stepEnd } },
+          select: { grandTotal: true },
+        });
+        const purchaseTotal = intervalPurchases.reduce((acc, p) => acc + Number(p.grandTotal), 0);
+
+        // Expenses (Payment Vouchers)
+        const intervalExpenses = await prisma.voucherLine.aggregate({
+          where: {
+            Voucher: {
+              type: "PAYMENT",
+              createdAt: { gte: stepStart, lte: stepEnd },
+            },
+            debitAmount: { gt: 0 },
+          },
+          _sum: { debitAmount: true },
+        });
+        const expenseTotal = Number(intervalExpenses._sum?.debitAmount || 0);
+
+        // Due (Client unpaid outstanding amount)
+        const intervalSalesForDue = await prisma.sale.findMany({
+          where: { ...baseFilter, createdAt: { gte: stepStart, lte: stepEnd } },
+          select: { grandTotal: true, paymentDetails: true },
+        });
+        const dueTotal = intervalSalesForDue.reduce((acc, s) => acc + getSaleDue(s), 0);
+
+        chartData.push({
+          label: stepStart.toLocaleDateString("en-US", { month: "short", day: "2-digit" }),
+          sales: salesTotal,
+          purchase: purchaseTotal,
+          expense: expenseTotal,
+          due: dueTotal,
+        });
+      }
+    } else if (selectedChartRange === "last-month") {
+      stepsCount = 4;
+      for (let i = 0; i < stepsCount; i++) {
+        const stepStart = startOfDay(subDays(now, (4 - i) * 7));
+        const stepEnd = endOfDay(subDays(now, (3 - i) * 7));
+        
+        const intervalSales = await prisma.sale.findMany({
+          where: { ...baseFilter, createdAt: { gte: stepStart, lte: stepEnd } },
+          select: { grandTotal: true },
+        });
+        const salesTotal = intervalSales.reduce((acc, s) => acc + Number(s.grandTotal), 0);
+
+        const intervalPurchases = await prisma.purchase.findMany({
+          where: { ...purchaseFilter, createdAt: { gte: stepStart, lte: stepEnd } },
+          select: { grandTotal: true },
+        });
+        const purchaseTotal = intervalPurchases.reduce((acc, p) => acc + Number(p.grandTotal), 0);
+
+        const intervalExpenses = await prisma.voucherLine.aggregate({
+          where: {
+            Voucher: {
+              type: "PAYMENT",
+              createdAt: { gte: stepStart, lte: stepEnd },
+            },
+            debitAmount: { gt: 0 },
+          },
+          _sum: { debitAmount: true },
+        });
+        const expenseTotal = Number(intervalExpenses._sum?.debitAmount || 0);
+
+        const intervalSalesForDue = await prisma.sale.findMany({
+          where: { ...baseFilter, createdAt: { gte: stepStart, lte: stepEnd } },
+          select: { grandTotal: true, paymentDetails: true },
+        });
+        const dueTotal = intervalSalesForDue.reduce((acc, s) => acc + getSaleDue(s), 0);
+
+        chartData.push({
+          label: `Week ${i + 1}`,
+          sales: salesTotal,
+          purchase: purchaseTotal,
+          expense: expenseTotal,
+          due: dueTotal,
+        });
+      }
+    } else if (selectedChartRange === "3-months") {
+      stepsCount = 12;
+      for (let i = 0; i < stepsCount; i++) {
+        const stepStart = startOfDay(subDays(now, (12 - i) * 7));
+        const stepEnd = endOfDay(subDays(now, (11 - i) * 7));
+        
+        const intervalSales = await prisma.sale.findMany({
+          where: { ...baseFilter, createdAt: { gte: stepStart, lte: stepEnd } },
+          select: { grandTotal: true },
+        });
+        const salesTotal = intervalSales.reduce((acc, s) => acc + Number(s.grandTotal), 0);
+
+        const intervalPurchases = await prisma.purchase.findMany({
+          where: { ...purchaseFilter, createdAt: { gte: stepStart, lte: stepEnd } },
+          select: { grandTotal: true },
+        });
+        const purchaseTotal = intervalPurchases.reduce((acc, p) => acc + Number(p.grandTotal), 0);
+
+        const intervalExpenses = await prisma.voucherLine.aggregate({
+          where: {
+            Voucher: {
+              type: "PAYMENT",
+              createdAt: { gte: stepStart, lte: stepEnd },
+            },
+            debitAmount: { gt: 0 },
+          },
+          _sum: { debitAmount: true },
+        });
+        const expenseTotal = Number(intervalExpenses._sum?.debitAmount || 0);
+
+        const intervalSalesForDue = await prisma.sale.findMany({
+          where: { ...baseFilter, createdAt: { gte: stepStart, lte: stepEnd } },
+          select: { grandTotal: true, paymentDetails: true },
+        });
+        const dueTotal = intervalSalesForDue.reduce((acc, s) => acc + getSaleDue(s), 0);
+
+        chartData.push({
+          label: `W${i + 1}`,
+          sales: salesTotal,
+          purchase: purchaseTotal,
+          expense: expenseTotal,
+          due: dueTotal,
+        });
+      }
+    } else if (selectedChartRange === "last-year") {
+      stepsCount = 12;
+      for (let i = 0; i < stepsCount; i++) {
+        const stepStart = startOfMonth(subMonths(now, 11 - i));
+        const stepEnd = endOfMonth(subMonths(now, 11 - i));
+        
+        const intervalSales = await prisma.sale.findMany({
+          where: { ...baseFilter, createdAt: { gte: stepStart, lte: stepEnd } },
+          select: { grandTotal: true },
+        });
+        const salesTotal = intervalSales.reduce((acc, s) => acc + Number(s.grandTotal), 0);
+
+        const intervalPurchases = await prisma.purchase.findMany({
+          where: { ...purchaseFilter, createdAt: { gte: stepStart, lte: stepEnd } },
+          select: { grandTotal: true },
+        });
+        const purchaseTotal = intervalPurchases.reduce((acc, p) => acc + Number(p.grandTotal), 0);
+
+        const intervalExpenses = await prisma.voucherLine.aggregate({
+          where: {
+            Voucher: {
+              type: "PAYMENT",
+              createdAt: { gte: stepStart, lte: stepEnd },
+            },
+            debitAmount: { gt: 0 },
+          },
+          _sum: { debitAmount: true },
+        });
+        const expenseTotal = Number(intervalExpenses._sum?.debitAmount || 0);
+
+        const intervalSalesForDue = await prisma.sale.findMany({
+          where: { ...baseFilter, createdAt: { gte: stepStart, lte: stepEnd } },
+          select: { grandTotal: true, paymentDetails: true },
+        });
+        const dueTotal = intervalSalesForDue.reduce((acc, s) => acc + getSaleDue(s), 0);
+
+        chartData.push({
+          label: stepStart.toLocaleDateString("en-US", { month: "short" }),
+          sales: salesTotal,
+          purchase: purchaseTotal,
+          expense: expenseTotal,
+          due: dueTotal,
+        });
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        revenue: currentRevenue,
+        revenueGrowth,
+        newCustomers: currentNewCustomers,
+        newCustomersGrowth,
+        purchaseTotal: currentPurchaseTotal,
+        purchaseGrowth,
+        dueTotal: currentDueTotal,
+        dueGrowth,
+        expenseTotal: currentExpenseTotal,
+        expenseGrowth,
+        recentOrders: recentOrders.map(o => ({
+          id: o.id,
+          orderId: o.saleNumber,
+          product: o.items[0]?.description || "General Goods",
+          productImage: o.items[0]?.item?.featuredImage || null,
+          customer: o.client.name,
+          date: o.createdAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+          status: o.status === "COMPLETED" ? "Shipped" : o.status === "DRAFT" ? "Pending" : "Canceled",
+          amount: Number(o.grandTotal),
+        })),
+        mostSellingProducts,
+        topCustomers,
+        chartData,
+      },
+    };
+  } catch (err) {
+    console.error("Dashboard Server Action Error:", err);
+    return { success: false, error: err instanceof Error ? err.message : "Failed to load database stats" };
+  }
+}

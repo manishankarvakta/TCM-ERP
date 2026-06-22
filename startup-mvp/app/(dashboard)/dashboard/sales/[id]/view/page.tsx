@@ -1,5 +1,6 @@
 import React from "react";
 import { getSaleById } from "../../_actions/sale.action";
+import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,40 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
   }
 
   const sale = result.sale;
+
+  const paymentDetails = (sale as any).paymentDetails as {
+    cashAmount?: number;
+    cashAccountId?: string;
+    cardAmount?: number;
+    cardAccountId?: string;
+    mfsAmount?: number;
+    mfsAccountId?: string;
+  } | null;
+
+  let cashAccount = null;
+  let cardAccount = null;
+  let mfsAccount = null;
+
+  if (paymentDetails) {
+    if (paymentDetails.cashAccountId) {
+      cashAccount = await prisma.chartOfAccount.findUnique({
+        where: { id: paymentDetails.cashAccountId },
+        select: { code: true, name: true }
+      });
+    }
+    if (paymentDetails.cardAccountId) {
+      cardAccount = await prisma.chartOfAccount.findUnique({
+        where: { id: paymentDetails.cardAccountId },
+        select: { code: true, name: true }
+      });
+    }
+    if (paymentDetails.mfsAccountId) {
+      mfsAccount = await prisma.chartOfAccount.findUnique({
+        where: { id: paymentDetails.mfsAccountId },
+        select: { code: true, name: true }
+      });
+    }
+  }
 
   const getStatusBadgeVariant = (status: SaleStatus) => {
     switch (status) {
@@ -234,7 +269,9 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
               </div>
               {sale.discount && sale.discount > 0 && (
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Discount</span>
+                  <span className="text-muted-foreground">
+                    Discount {(sale as any).coupon ? `(${(sale as any).coupon.code})` : ""}
+                  </span>
                   <span className="font-medium text-green-600">
                     -{formatCurrency(sale.discount)}
                   </span>
@@ -245,6 +282,38 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
                   <span className="text-muted-foreground">Tax</span>
                   <span className="font-medium">{formatCurrency(sale.tax)}</span>
                 </div>
+              )}
+              {paymentDetails && (Number(paymentDetails.cashAmount || 0) > 0 || Number(paymentDetails.cardAmount || 0) > 0 || Number(paymentDetails.mfsAmount || 0) > 0) && (
+                <>
+                  <Separator className="my-2" />
+                  <div className="space-y-1.5 pt-1">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Payment Split Details</p>
+                    {Number(paymentDetails.cashAmount || 0) > 0 && (
+                      <div className="flex justify-between items-start text-xs gap-2">
+                        <span className="text-muted-foreground text-left leading-normal">
+                          Cash {cashAccount ? `(${cashAccount.code} - ${cashAccount.name})` : ""}
+                        </span>
+                        <span className="font-semibold shrink-0">{formatCurrency(Number(paymentDetails.cashAmount))}</span>
+                      </div>
+                    )}
+                    {Number(paymentDetails.cardAmount || 0) > 0 && (
+                      <div className="flex justify-between items-start text-xs gap-2">
+                        <span className="text-muted-foreground text-left leading-normal">
+                          Card {cardAccount ? `(${cardAccount.code} - ${cardAccount.name})` : ""}
+                        </span>
+                        <span className="font-semibold shrink-0">{formatCurrency(Number(paymentDetails.cardAmount))}</span>
+                      </div>
+                    )}
+                    {Number(paymentDetails.mfsAmount || 0) > 0 && (
+                      <div className="flex justify-between items-start text-xs gap-2">
+                        <span className="text-muted-foreground text-left leading-normal">
+                          MFS {mfsAccount ? `(${mfsAccount.code} - ${mfsAccount.name})` : ""}
+                        </span>
+                        <span className="font-semibold shrink-0">{formatCurrency(Number(paymentDetails.mfsAmount))}</span>
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </CardContent>

@@ -47,6 +47,11 @@ const clientFormSchema = z.object({
   openingBalance: z.string().optional().or(z.literal("")),
   status: z.enum(["active", "inactive"]),
   clientType: z.enum(["regular", "wholesale"]),
+  membershipNumber: z.string().optional().or(z.literal("")),
+  membershipTier: z.enum(["NONE", "BRONZE", "SILVER", "GOLD", "PLATINUM"]),
+  membershipStatus: z.enum(["ACTIVE", "INACTIVE", "EXPIRED"]),
+  membershipPoints: z.string().optional().or(z.literal("")),
+  membershipExpiry: z.string().optional().or(z.literal("")),
   discounts: z.array(
     z.object({
       id: z.string(),
@@ -67,6 +72,7 @@ interface ClientFormProps {
   mode: "create" | "edit";
   initialData?: {
     id: string;
+    clientCode?: string | null;
     name: string | null;
     email: string;
     phone: string | null;
@@ -81,6 +87,11 @@ interface ClientFormProps {
     status: string;
     clientType?: string | null;
     itemDiscounts?: any[];
+    membershipNumber?: string | null;
+    membershipTier?: string | null;
+    membershipStatus?: string | null;
+    membershipPoints?: number | null;
+    membershipExpiry?: any;
   };
 }
 
@@ -145,6 +156,11 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
           openingBalance: initialData.openingBalance?.toString() || "0",
           status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
           clientType: (initialData.clientType === "wholesale" ? "wholesale" : "regular") as "regular" | "wholesale",
+          membershipNumber: initialData.membershipNumber || "",
+          membershipTier: (initialData.membershipTier || "NONE") as "NONE" | "BRONZE" | "SILVER" | "GOLD" | "PLATINUM",
+          membershipStatus: (initialData.membershipStatus || "INACTIVE") as "ACTIVE" | "INACTIVE" | "EXPIRED",
+          membershipPoints: initialData.membershipPoints?.toString() || "0",
+          membershipExpiry: initialData.membershipExpiry ? new Date(initialData.membershipExpiry).toISOString().split("T")[0] : "",
           discounts: initialData.itemDiscounts
             ? initialData.itemDiscounts.map((d: any) => {
                 const isVariant = !!d.variantId && !!d.variant;
@@ -182,6 +198,11 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
           openingBalance: "0",
           status: "active",
           clientType: "regular",
+          membershipNumber: "",
+          membershipTier: "NONE",
+          membershipStatus: "INACTIVE",
+          membershipPoints: "0",
+          membershipExpiry: "",
           discounts: [],
         },
   });
@@ -338,6 +359,11 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
         openingBalance: data.openingBalance ? parseFloat(data.openingBalance) : 0,
         status: data.status,
         clientType: data.clientType,
+        membershipNumber: data.membershipNumber || undefined,
+        membershipTier: data.membershipTier,
+        membershipStatus: data.membershipStatus,
+        membershipPoints: data.membershipPoints ? parseInt(data.membershipPoints, 10) : 0,
+        membershipExpiry: data.membershipExpiry ? new Date(data.membershipExpiry) : undefined,
         itemDiscounts: data.clientType === "wholesale" ? data.discounts : [],
         discounts: data.clientType === "wholesale" ? data.discounts : [],
       };
@@ -579,6 +605,100 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
                     {errors.status && (
                       <p className="text-sm text-destructive">{errors.status.message as string}</p>
                     )}
+                  </div>
+                </div>
+
+                <div className="border-t pt-4 mt-6">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">Membership Details</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="membershipNumber">Membership ID (Customer ID)</Label>
+                      <Input
+                        id="membershipNumber"
+                        placeholder="Auto-assigned (Customer ID)"
+                        value={initialData?.clientCode || "Auto-assigned (Customer ID)"}
+                        readOnly
+                        disabled={true}
+                        className="bg-muted cursor-not-allowed"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        The Customer ID (Client Code) is automatically used as the Membership ID.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="membershipTier">Membership Tier</Label>
+                      <Select
+                        defaultValue={watch("membershipTier") || "NONE"}
+                        onValueChange={(value) => setValue("membershipTier", value as any)}
+                        disabled={loading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Tier" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">None</SelectItem>
+                          <SelectItem value="BRONZE">Bronze</SelectItem>
+                          <SelectItem value="SILVER">Silver</SelectItem>
+                          <SelectItem value="GOLD">Gold</SelectItem>
+                          <SelectItem value="PLATINUM">Platinum</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {errors.membershipTier && (
+                        <p className="text-xs text-destructive">{errors.membershipTier.message as string}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="membershipStatus">Membership Status</Label>
+                      <Select
+                        defaultValue={watch("membershipStatus") || "INACTIVE"}
+                        onValueChange={(value) => setValue("membershipStatus", value as any)}
+                        disabled={loading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="INACTIVE">Inactive</SelectItem>
+                          <SelectItem value="ACTIVE">Active</SelectItem>
+                          <SelectItem value="EXPIRED">Expired</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {errors.membershipStatus && (
+                        <p className="text-xs text-destructive">{errors.membershipStatus.message as string}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="membershipPoints">Points</Label>
+                      <Input
+                        id="membershipPoints"
+                        type="number"
+                        placeholder="0"
+                        {...register("membershipPoints")}
+                        disabled={loading}
+                      />
+                      {errors.membershipPoints && (
+                        <p className="text-xs text-destructive">{errors.membershipPoints.message as string}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="membershipExpiry">Expiry Date</Label>
+                      <Input
+                        id="membershipExpiry"
+                        type="date"
+                        {...register("membershipExpiry")}
+                        disabled={loading}
+                      />
+                      {errors.membershipExpiry && (
+                        <p className="text-xs text-destructive">{errors.membershipExpiry.message as string}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

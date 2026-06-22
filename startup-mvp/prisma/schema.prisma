@@ -548,12 +548,18 @@ model Client {
   VoucherLine      VoucherLine[]
   clientType       String               @default("regular")
   itemDiscounts    ClientItemDiscount[]
+  membershipNumber String?              @unique
+  membershipTier   String               @default("NONE")
+  membershipStatus String               @default("INACTIVE")
+  membershipPoints Int                  @default(0)
+  membershipExpiry DateTime?
 
   @@index([status])
   @@index([createdBy])
   @@index([email])
   @@index([chartOfAccountId])
   @@index([clientCode])
+  @@index([membershipNumber])
 }
 
 model Supplier {
@@ -679,6 +685,7 @@ model Sale {
   items         SaleItem[]
   couponId      String?
   coupon        Coupon?    @relation(fields: [couponId], references: [id])
+  paymentDetails Json?      @map("payment_details")
 
   @@index([clientId])
   @@index([warehouseId])
@@ -698,6 +705,8 @@ model Coupon {
   value        Decimal   @db.Decimal(12, 2)
   expiryDate   DateTime?
   status       String    @default("ACTIVE") // "ACTIVE" or "INACTIVE"
+  usageLimit   Int?
+  userLimit    Int?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   sales        Sale[]

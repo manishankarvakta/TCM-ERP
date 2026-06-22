@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
-import AdminDashboard from "@/components/dashboard/AdminDashboard";
-import UserDashboard from "@/components/dashboard/UserDashboard";
+import { prisma } from "@/lib/prisma";
+import BeautifulDashboard from "@/components/dashboard/BeautifulDashboard";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default async function DashboardPage() {
@@ -21,13 +21,41 @@ export default async function DashboardPage() {
   }
 
   const userId = session.user.id;
-  const userRole = session.user.role?.toLowerCase();
+  const userName = session.user.name || "User";
+  const userRole = session.user.role?.toLowerCase() || "user";
 
-  // If user is admin or super-admin, show the Admin Dashboard
-  if (userRole === "admin" || userRole === "super-admin") {
-    return <AdminDashboard userId={userId} />;
-  }
+  // Fetch user default warehouse
+  const dbUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      defaultWarehouseId: true,
+      defaultWarehouse: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  });
 
-  // Otherwise, render the operational User Dashboard
-  return <UserDashboard userId={userId} />;
+  // Fetch list of active warehouses
+  const warehouses = await prisma.warehouse.findMany({
+    where: {
+      isTrash: false,
+    },
+    select: {
+      id: true,
+      name: true,
+    },
+  });
+
+  return (
+    <BeautifulDashboard 
+      userId={userId} 
+      userName={userName} 
+      userRole={userRole}
+      defaultWarehouse={dbUser?.defaultWarehouse || null}
+      warehouses={warehouses}
+    />
+  );
 }

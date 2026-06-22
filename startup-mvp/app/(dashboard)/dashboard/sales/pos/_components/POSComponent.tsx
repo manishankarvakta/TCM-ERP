@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { FaSearch, FaHandPaper, FaSync, FaPrint, FaPlus, FaMinus, FaTrashAlt, FaShoppingCart, FaCheckCircle, FaTimes, FaUndoAlt, FaShoppingBag, FaIndustry, FaTicketAlt, FaCreditCard, FaMoneyBillWave, FaMobileAlt, FaUsers, FaGlassCheers } from "react-icons/fa";
 import { createSale, getClientItemDiscounts, validateCoupon, voidSale, processSaleReturn, getLastSaleForUser, getSaleByNumber, getSalesByCustomer } from "../../_actions/sale.action";
+import { getOutstandingSales, collectCustomerDue } from "../../_actions/due-payment.action";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
 import { createClient } from "@/app/(dashboard)/dashboard/clients/_actions/client.action";
@@ -30,6 +31,7 @@ interface ItemVariant {
   salesPrice?: number | null;
   wholesalePrice?: number | null;
   wholesaleDiscountAmount?: number | null;
+  imageUrl?: string | null;
   stocks?: { warehouseId: string; quantity: number }[];
 }
 
@@ -121,6 +123,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   );
   
   const [discountAmount, setDiscountAmount] = useState<number>(0);
+  const [discountType, setDiscountType] = useState<"FLAT" | "PERCENTAGE">("FLAT");
+  const [discountValue, setDiscountValue] = useState<number>(0);
   const [taxPercent, setTaxPercent] = useState<number>(0);
   const [isReturnMode, setIsReturnMode] = useState<boolean>(false);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -131,9 +135,30 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [paidAmount, setPaidAmount] = useState<number>(0);
+  const [cashAmount, setCashAmount] = useState<number>(0);
+  const [cashAccountId, setCashAccountId] = useState<string>("");
+  const [cardAmount, setCardAmount] = useState<number>(0);
+  const [cardAccountId, setCardAccountId] = useState<string>("");
+  const [mfsAmount, setMfsAmount] = useState<number>(0);
+  const [mfsAccountId, setMfsAccountId] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isDueSale, setIsDueSale] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [clientDiscounts, setClientDiscounts] = useState<any[]>([]);
+
+  // Pay Due Modal states
+  const [isPayDueModalOpen, setIsPayDueModalOpen] = useState(false);
+  const [payDueClientId, setPayDueClientId] = useState("");
+  const [outstandingSales, setOutstandingSales] = useState<any[]>([]);
+  const [dueCashAmount, setDueCashAmount] = useState<number>(0);
+  const [dueCashAccountId, setDueCashAccountId] = useState<string>("");
+  const [dueCardAmount, setDueCardAmount] = useState<number>(0);
+  const [dueCardAccountId, setDueCardAccountId] = useState<string>("");
+  const [dueMfsAmount, setDueMfsAmount] = useState<number>(0);
+  const [dueMfsAccountId, setDueMfsAccountId] = useState<string>("");
+  const [lumpSumAmount, setLumpSumAmount] = useState<number>(0);
+  const [invoiceAllocations, setInvoiceAllocations] = useState<Record<string, number>>({});
+  const [isSubmittingDuePayment, setIsSubmittingDuePayment] = useState(false);
 
   // Filter payment methods based on selected warehouse
   const filteredPaymentAccounts = useMemo(() => {
@@ -167,13 +192,57 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
   useEffect(() => {
     if (isConfirmModalOpen && filteredPaymentAccounts.length > 0) {
+      const defaultCash = filteredPaymentAccounts.find(acc => acc.type === "CASH")?.id || "";
+      const defaultCard = filteredPaymentAccounts.find(acc => acc.type === "BANK")?.id || "";
+      const defaultMfs = filteredPaymentAccounts.find(acc => acc.type === "WALLET")?.id || "";
+      
+      if (!cashAccountId && defaultCash) setCashAccountId(defaultCash);
+      if (!cardAccountId && defaultCard) setCardAccountId(defaultCard);
+      if (!mfsAccountId && defaultMfs) setMfsAccountId(defaultMfs);
+
       const activeOption = filteredPaymentAccounts.find(acc => acc.id === paymentMethod);
       if (!activeOption) {
-        const firstCash = filteredPaymentAccounts.find(acc => acc.type === "CASH");
-        setPaymentMethod(firstCash ? firstCash.id : filteredPaymentAccounts[0].id);
+        setPaymentMethod(defaultCash || filteredPaymentAccounts[0].id);
       }
     }
-  }, [filteredPaymentAccounts, isConfirmModalOpen]);
+  }, [filteredPaymentAccounts, isConfirmModalOpen, cashAccountId, cardAccountId, mfsAccountId]);
+
+  useEffect(() => {
+    setPaidAmount(cashAmount + cardAmount + mfsAmount);
+  }, [cashAmount, cardAmount, mfsAmount]);
+
+  useEffect(() => {
+    if (payDueClientId) {
+      getOutstandingSales(payDueClientId).then(res => {
+        if (res.success && res.sales) {
+          setOutstandingSales(res.sales);
+          const initial: Record<string, number> = {};
+          res.sales.forEach(sale => {
+            initial[sale.id] = 0;
+          });
+          setInvoiceAllocations(initial);
+        } else {
+          setOutstandingSales([]);
+          setInvoiceAllocations({});
+        }
+      });
+    } else {
+      setOutstandingSales([]);
+      setInvoiceAllocations({});
+    }
+  }, [payDueClientId]);
+
+  useEffect(() => {
+    if (isPayDueModalOpen && filteredPaymentAccounts.length > 0) {
+      const defaultCash = filteredPaymentAccounts.find(acc => acc.type === "CASH")?.id || "";
+      const defaultCard = filteredPaymentAccounts.find(acc => acc.type === "BANK")?.id || "";
+      const defaultMfs = filteredPaymentAccounts.find(acc => acc.type === "WALLET")?.id || "";
+      
+      if (!dueCashAccountId && defaultCash) setDueCashAccountId(defaultCash);
+      if (!dueCardAccountId && defaultCard) setDueCardAccountId(defaultCard);
+      if (!dueMfsAccountId && defaultMfs) setDueMfsAccountId(defaultMfs);
+    }
+  }, [filteredPaymentAccounts, isPayDueModalOpen, dueCashAccountId, dueCardAccountId, dueMfsAccountId]);
 
   // Promo Code / Coupon states
   const [promoCode, setPromoCode] = useState("");
@@ -228,7 +297,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     email: "",
     phone: "",
     company: "",
-    address: ""
+    address: "",
+    membershipTier: "NONE"
   });
 
   // Sync state mode to URL search parameter
@@ -236,6 +306,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setOrderType(mode);
     setCart([]);
     setDiscountAmount(0);
+    setDiscountValue(0);
+    setDiscountType("FLAT");
     setIsReturnMode(false);
     
     const params = new URLSearchParams(window.location.search);
@@ -315,6 +387,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setSelectedClientId(val);
     if (!val) return;
     const client = clients.find((c) => c.id === val);
+    const walkwayCustomer = clients.find(c => c.name?.toLowerCase() === "walkway customer");
+    if (val === walkwayCustomer?.id || val === walkwayCustomerId) {
+      setIsDueSale(false);
+      setCashAmount(grandTotal);
+      setCardAmount(0);
+      setMfsAmount(0);
+    }
     const isWholesale = client
       ? !!(
           client.company?.toLowerCase().includes("wholesale") ||
@@ -438,8 +517,14 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     }
     return sum;
   }, 0);
-  const tax = itemVatTotal + (subTotal - discountAmount) * (taxPercent / 100);
-  const grandTotal = subTotal + tax - discountAmount;
+  const manualDiscountAmount = discountType === "PERCENTAGE"
+    ? Number((subTotal * (discountValue / 100)).toFixed(2))
+    : discountValue;
+
+  const effectiveDiscountAmount = appliedPromo ? discountAmount : manualDiscountAmount;
+
+  const tax = itemVatTotal + (subTotal - effectiveDiscountAmount) * (taxPercent / 100);
+  const grandTotal = subTotal + tax - effectiveDiscountAmount;
   const dueAmount = grandTotal - paidAmount;
 
   const handleAddToCart = (item: Item) => {
@@ -522,6 +607,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       variantSku: variant.sku,
       size: variant.size,
       color: variant.color,
+      imageUrl: variant.imageUrl || item.imageUrl,
       cartKey,
       cartQuantity: delta
     };
@@ -937,6 +1023,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setCart([]);
     setSearchQuery('');
     setDiscountAmount(0);
+    setDiscountValue(0);
+    setDiscountType("FLAT");
     setTaxPercent(0);
     setPaidAmount(0);
     setSuccessMsg('');
@@ -960,7 +1048,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       description: "Please wait while we verify your coupon code.",
     });
 
-    const result = await validateCoupon(code, subTotal);
+    const result = await validateCoupon(code, subTotal, selectedClientId);
     if (result.success && result.discountAmount !== undefined) {
       setDiscountAmount(result.discountAmount);
       setAppliedPromo(code);
@@ -1044,11 +1132,45 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       });
       return;
     }
-    setPaidAmount(grandTotal);
+    setCashAmount(grandTotal);
+    setCardAmount(0);
+    setMfsAmount(0);
+    setIsDueSale(false);
     setIsConfirmModalOpen(true);
   };
 
   const handleConfirmOrder = async () => {
+    // Due sale customer checks
+    const walkwayCustomer = clients.find(c => c.name?.toLowerCase() === "walkway customer");
+    if (isDueSale && (!selectedClientId || selectedClientId === walkwayCustomer?.id)) {
+      toast({
+        title: "Validation Error",
+        description: "Due Sales are not allowed for Walkway Customer. Please select a registered customer.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Payment validation
+    const totalPaid = cashAmount + cardAmount + mfsAmount;
+    if (!isDueSale && totalPaid < grandTotal) {
+      toast({
+        title: "Validation Error",
+        description: `Full payment of ৳${grandTotal.toFixed(2)} is required unless 'Due Sale' is enabled. Current paid amount is ৳${totalPaid.toFixed(2)}.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isDueSale && totalPaid > grandTotal) {
+      toast({
+        title: "Validation Error",
+        description: `Paid amount (৳${totalPaid.toFixed(2)}) cannot exceed the Grand Total (৳${grandTotal.toFixed(2)}) for a Due Sale.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsProcessing(true);
     try {
       const saleItems = cart.map((item) => ({
@@ -1060,18 +1182,28 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         amount: item.unitPrice * item.cartQuantity,
       }));
 
+      const primaryPaymentMethod = cashAmount > 0 ? cashAccountId : (cardAmount > 0 ? cardAccountId : (mfsAmount > 0 ? mfsAccountId : "SPLIT"));
+
       const res = await createSale({
         clientId: selectedClientId,
         warehouseId: selectedWarehouseId,
         date: new Date(),
         status: "COMPLETED",
         orderType: orderType as any,
-        notes: `POS Sale - Paid via ${paymentMethod}`,
+        notes: `POS Sale - Paid via Split Payment`,
         tax: tax,
-        discount: discountAmount,
+        discount: effectiveDiscountAmount,
         items: saleItems,
         couponCode: appliedPromo || undefined,
-        paymentMethod: paymentMethod,
+        paymentMethod: primaryPaymentMethod,
+        paymentDetails: {
+          cashAmount: cashAmount,
+          cashAccountId: cashAccountId || null,
+          cardAmount: cardAmount,
+          cardAccountId: cardAccountId || null,
+          mfsAmount: mfsAmount,
+          mfsAccountId: mfsAccountId || null,
+        }
       });
 
       if (res.success) {
@@ -1114,6 +1246,113 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     }
   };
 
+  const totalAllocated = useMemo(() => {
+    return Number(Object.values(invoiceAllocations).reduce((sum, val) => sum + val, 0).toFixed(2));
+  }, [invoiceAllocations]);
+
+  const totalCollected = useMemo(() => {
+    return Number((dueCashAmount + dueCardAmount + dueMfsAmount).toFixed(2));
+  }, [dueCashAmount, dueCardAmount, dueMfsAmount]);
+
+  const handleAutoAllocateFIFO = () => {
+    let tempAmount = lumpSumAmount;
+    const newAllocations: Record<string, number> = {};
+    for (const sale of outstandingSales) {
+      if (tempAmount <= 0) {
+        newAllocations[sale.id] = 0;
+      } else if (tempAmount >= sale.remainingDue) {
+        newAllocations[sale.id] = sale.remainingDue;
+        tempAmount = Number((tempAmount - sale.remainingDue).toFixed(2));
+      } else {
+        newAllocations[sale.id] = tempAmount;
+        tempAmount = 0;
+      }
+    }
+    setInvoiceAllocations(newAllocations);
+    setDueCashAmount(lumpSumAmount);
+    setDueCardAmount(0);
+    setDueMfsAmount(0);
+  };
+
+  const handleSubmitDuePayment = async () => {
+    if (totalCollected <= 0) {
+      toast({
+        title: "Validation Error",
+        description: "Payment amount must be greater than zero.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (Math.abs(totalCollected - totalAllocated) > 0.01) {
+      toast({
+        title: "Validation Error",
+        description: `Total collected amount (৳${totalCollected.toFixed(2)}) must equal the sum of invoice allocations (৳${totalAllocated.toFixed(2)}).`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const activeAllocations = Object.entries(invoiceAllocations)
+      .filter(([_, amt]) => amt > 0)
+      .map(([saleId, amt]) => ({
+        saleId,
+        amountToPay: amt,
+      }));
+
+    if (activeAllocations.length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "No invoice has been allocated for payment.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmittingDuePayment(true);
+    try {
+      const res = await collectCustomerDue({
+        clientId: payDueClientId,
+        cashAmount: dueCashAmount,
+        cashAccountId: dueCashAccountId || undefined,
+        cardAmount: dueCardAmount,
+        cardAccountId: dueCardAccountId || undefined,
+        mfsAmount: dueMfsAmount,
+        mfsAccountId: dueMfsAccountId || undefined,
+        allocations: activeAllocations,
+      });
+
+      if (res.success) {
+        toast({
+          title: "Success",
+          description: "Due payment collected successfully!",
+        });
+        setIsPayDueModalOpen(false);
+        setPayDueClientId("");
+        setOutstandingSales([]);
+        setLumpSumAmount(0);
+        setDueCashAmount(0);
+        setDueCardAmount(0);
+        setDueMfsAmount(0);
+      } else {
+        toast({
+          title: "Error collecting due",
+          description: (res as any).error || "Failed to process payment",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while collecting due.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingDuePayment(false);
+    }
+  };
+
   const handleAddCustomerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCustomerData.email) return;
@@ -1126,7 +1365,9 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         phone: newCustomerData.phone,
         company: newCustomerData.company,
         address: newCustomerData.address,
-        status: "active"
+        status: "active",
+        membershipTier: newCustomerData.membershipTier,
+        membershipStatus: newCustomerData.membershipTier !== "NONE" ? "ACTIVE" : "INACTIVE"
       });
 
       if (res.success && res.client) {
@@ -1142,7 +1383,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           email: "",
           phone: "",
           company: "",
-          address: ""
+          address: "",
+          membershipTier: "NONE"
         });
       } else {
         toast({
@@ -1316,6 +1558,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
               onClick={() => { setActionSaleNumber(""); setIsReturnModalOpen(true); }}
             >
               Return <FaUndoAlt className="w-4 h-4" />
+            </button>
+
+            <button 
+              className="flex items-center justify-center gap-2 h-12 px-6 bg-[#6366f1] text-white hover:bg-[#6366f1]/90 transition-colors border-r border-border min-w-[120px]"
+              onClick={() => { setPayDueClientId(""); setOutstandingSales([]); setIsPayDueModalOpen(true); }}
+            >
+              Pay Due <FaMoneyBillWave className="w-4 h-4" />
             </button>
             
             
@@ -1593,20 +1842,41 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 {/* Additional Manual Discount & Tax */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-1 block">Flat Discount (৳)</label>
-                    <Input 
-                      type="number" 
-                      value={discountAmount || ""}
-                      onChange={(e) => {
-                        setDiscountAmount(Number(e.target.value) || 0);
-                        if (appliedPromo) {
-                          setAppliedPromo(null);
-                          setPromoDiscountMsg("");
-                        }
-                      }}
-                      placeholder="Discount ৳"
-                      className="h-9 text-xs bg-background"
-                    />
+                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-1 block">Manual Discount</label>
+                    <div className="flex gap-1.5">
+                      <Select
+                        value={discountType}
+                        onValueChange={(value: "FLAT" | "PERCENTAGE") => {
+                          setDiscountType(value);
+                          setDiscountValue(0);
+                          if (appliedPromo) {
+                            setAppliedPromo(null);
+                            setPromoDiscountMsg("");
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-[65px] h-9 text-xs shrink-0">
+                          <SelectValue placeholder="Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="FLAT" className="text-xs">৳</SelectItem>
+                          <SelectItem value="PERCENTAGE" className="text-xs">%</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input 
+                        type="number" 
+                        value={discountValue || ""}
+                        onChange={(e) => {
+                          setDiscountValue(Number(e.target.value) || 0);
+                          if (appliedPromo) {
+                            setAppliedPromo(null);
+                            setPromoDiscountMsg("");
+                          }
+                        }}
+                        placeholder={discountType === "PERCENTAGE" ? "Discount %" : "Discount ৳"}
+                        className="h-9 text-xs bg-background flex-1"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-1 block">Tax</label>
@@ -1614,81 +1884,142 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                   </div>
                 </div>
 
-                {/* Payment Method Select Dropdown */}
-                <div>
-                  <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground block mb-2"><span className="flex items-center gap-2"><FaCreditCard /> Payment Method</span></label>
-                  <Select value={paymentMethod} onValueChange={(val) => setPaymentMethod(val)}>
-                    <SelectTrigger className="h-10 text-xs bg-background border-border">
-                      <SelectValue placeholder="Select payment method" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filteredPaymentAccounts.filter(acc => acc.type === "CASH").length > 0 && (
-                        <>
-                          <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/30">
-                            Cash Accounts
-                          </div>
-                          {filteredPaymentAccounts
-                            .filter(acc => acc.type === "CASH")
-                            .map((acc) => (
-                              <SelectItem key={acc.id} value={acc.id} className="text-xs">
-                                <span className="flex items-center gap-2"><FaMoneyBillWave /> {acc.code}</span> - {acc.name}
-                              </SelectItem>
-                            ))}
-                        </>
-                      )}
-                      {filteredPaymentAccounts.filter(acc => acc.type === "BANK").length > 0 && (
-                        <>
-                          <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/30 mt-1">
-                            Bank / Card List
-                          </div>
-                          {filteredPaymentAccounts
-                            .filter(acc => acc.type === "BANK")
-                            .map((acc) => (
-                              <SelectItem key={acc.id} value={acc.id} className="text-xs">
-                                <span className="flex items-center gap-2"><FaCreditCard /> {acc.code}</span> - {acc.name}
-                              </SelectItem>
-                            ))}
-                        </>
-                      )}
-                      {filteredPaymentAccounts.filter(acc => acc.type === "WALLET").length > 0 && (
-                        <>
-                          <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/30 mt-1">
-                            Digital Accounts / Wallets
-                          </div>
-                          {filteredPaymentAccounts
-                            .filter(acc => acc.type === "WALLET")
-                            .map((acc) => (
-                              <SelectItem key={acc.id} value={acc.id} className="text-xs">
-                                <span className="flex items-center gap-2"><FaMobileAlt /> {acc.code}</span> - {acc.name}
-                              </SelectItem>
-                            ))}
-                        </>
-                      )}
-                      {filteredPaymentAccounts.length === 0 && (
-                        <>
-                          <SelectItem value="CASH" className="text-xs"><span className="flex items-center gap-2"><FaMoneyBillWave /> Cash (Default)</span></SelectItem>
-                          <SelectItem value="CARD" className="text-xs"><span className="flex items-center gap-2"><FaCreditCard /> Card (Default)</span></SelectItem>
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
+                {/* Due Sale Checkbox */}
+                <div className="flex items-center gap-2 bg-muted/20 border border-border p-2.5 rounded-xl">
+                  <input
+                    type="checkbox"
+                    id="due-sale-checkbox"
+                    checked={isDueSale}
+                    disabled={selectedClientId === walkwayCustomerId || selectedClientId === clients.find(c => c.name?.toLowerCase() === "walkway customer")?.id}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setIsDueSale(checked);
+                      if (checked) {
+                        setCashAmount(0);
+                        setCardAmount(0);
+                        setMfsAmount(0);
+                      } else {
+                        setCashAmount(grandTotal);
+                        setCardAmount(0);
+                        setMfsAmount(0);
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <label 
+                    htmlFor="due-sale-checkbox" 
+                    className={`text-xs font-bold text-foreground select-none ${
+                      (selectedClientId === walkwayCustomerId || selectedClientId === clients.find(c => c.name?.toLowerCase() === "walkway customer")?.id)
+                        ? "opacity-50 cursor-not-allowed" 
+                        : "cursor-pointer"
+                    }`}
+                  >
+                    Due Sale (Allow credit / partial payment)
+                  </label>
                 </div>
 
-                {/* Paid Amount & Quick cash helpers */}
-                <div>
-                  <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground block mb-1"><span className="flex items-center gap-2"><FaMoneyBillWave /> Paid Amount</span></label>
-                  <div className="relative mb-2">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">৳</span>
-                    <Input 
-                      type="number" 
-                      value={paidAmount}
-                      onChange={(e) => setPaidAmount(Number(e.target.value) || 0)}
-                      className="text-lg font-bold pl-7 bg-background"
-                    />
-                  </div>
+                {/* Payment Method Select Dropdown & Inputs */}
+                <div className="space-y-3 pt-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground block mb-1">Payment Split</span>
                   
+                  {/* Cash Row */}
+                  <div className="flex items-center justify-between gap-3 min-w-0">
+                    <label className="text-xs font-semibold text-foreground w-[50px] shrink-0">Cash:</label>
+                    <div className="grid grid-cols-[1fr_110px] gap-2 flex-1 min-w-0">
+                      <Select value={cashAccountId} onValueChange={(val) => setCashAccountId(val)}>
+                        <SelectTrigger className="h-9 text-xs bg-background border-border w-full truncate">
+                          <SelectValue placeholder="Select Cash" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {filteredPaymentAccounts
+                            .filter((acc) => acc.type === "CASH")
+                            .map((acc) => (
+                              <SelectItem key={acc.id} value={acc.id} className="text-xs">
+                                {acc.code ? `${acc.code} - ` : ""}{acc.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="relative w-full">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">৳</span>
+                        <Input
+                          type="number"
+                          value={cashAmount || ""}
+                          onChange={(e) => setCashAmount(Number(e.target.value) || 0)}
+                          className="h-9 text-xs font-medium pl-6 bg-background text-right w-full"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card Row */}
+                  <div className="flex items-center justify-between gap-3 min-w-0">
+                    <label className="text-xs font-semibold text-foreground w-[50px] shrink-0">Card:</label>
+                    <div className="grid grid-cols-[1fr_110px] gap-2 flex-1 min-w-0">
+                      <Select value={cardAccountId} onValueChange={(val) => setCardAccountId(val)}>
+                        <SelectTrigger className="h-9 text-xs bg-background border-border w-full truncate">
+                          <SelectValue placeholder="Select Card / Bank" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {filteredPaymentAccounts
+                            .filter((acc) => acc.type === "BANK")
+                            .map((acc) => (
+                              <SelectItem key={acc.id} value={acc.id} className="text-xs">
+                                {acc.code ? `${acc.code} - ` : ""}{acc.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="relative w-full">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">৳</span>
+                        <Input
+                          type="number"
+                          value={cardAmount || ""}
+                          onChange={(e) => setCardAmount(Number(e.target.value) || 0)}
+                          className="h-9 text-xs font-medium pl-6 bg-background text-right w-full"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* MFS Row */}
+                  <div className="flex items-center justify-between gap-3 min-w-0">
+                    <label className="text-xs font-semibold text-foreground w-[50px] shrink-0">MFS:</label>
+                    <div className="grid grid-cols-[1fr_110px] gap-2 flex-1 min-w-0">
+                      <Select value={mfsAccountId} onValueChange={(val) => setMfsAccountId(val)}>
+                        <SelectTrigger className="h-9 text-xs bg-background border-border w-full truncate">
+                          <SelectValue placeholder="Select Wallet" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {filteredPaymentAccounts
+                            .filter((acc) => acc.type === "WALLET")
+                            .map((acc) => (
+                              <SelectItem key={acc.id} value={acc.id} className="text-xs">
+                                {acc.code ? `${acc.code} - ` : ""}{acc.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="relative w-full">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">৳</span>
+                        <Input
+                          type="number"
+                          value={mfsAmount || ""}
+                          onChange={(e) => setMfsAmount(Number(e.target.value) || 0)}
+                          className="h-9 text-xs font-medium pl-6 bg-background text-right w-full"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Paid Amount Display & Quick cash helpers */}
+                <div className="pt-2 border-t border-border/40">
                   {/* Quick Cash Payment Shortcuts */}
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide block">Quick Cash Shortcuts</span>
                     <div className="flex flex-wrap gap-1.5">
                       {[50, 100, 500, 1000].map((amt) => (
@@ -1698,7 +2029,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                           variant="outline"
                           size="sm"
                           className="h-8 text-xs font-medium px-2.5 border-border bg-muted/20 hover:bg-muted"
-                          onClick={() => setPaidAmount((prev) => prev + amt)}
+                          onClick={() => setCashAmount((prev) => prev + amt)}
                         >
                           +৳{amt}
                         </Button>
@@ -1708,7 +2039,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                         variant="outline"
                         size="sm"
                         className="h-8 text-xs font-semibold px-2.5 border-primary/20 text-primary hover:bg-primary/10"
-                        onClick={() => setPaidAmount(grandTotal)}
+                        onClick={() => {
+                          setCashAmount(grandTotal);
+                          setCardAmount(0);
+                          setMfsAmount(0);
+                        }}
                       >
                         Exact
                       </Button>
@@ -1717,7 +2052,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                         variant="outline"
                         size="sm"
                         className="h-8 text-xs font-semibold px-2.5 border-destructive/20 text-destructive hover:bg-destructive/10"
-                        onClick={() => setPaidAmount(0)}
+                        onClick={() => {
+                          setCashAmount(0);
+                          setCardAmount(0);
+                          setMfsAmount(0);
+                        }}
                       >
                         Clear
                       </Button>
@@ -1746,10 +2085,10 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                     <span>Subtotal:</span>
                     <span>৳{subTotal.toFixed(2)}</span>
                   </div>
-                  {discountAmount > 0 && (
+                  {effectiveDiscountAmount > 0 && (
                     <div className="flex justify-between text-xs font-semibold text-green-600">
                       <span>Discount:</span>
-                      <span>-৳{discountAmount.toFixed(2)}</span>
+                      <span>-৳{effectiveDiscountAmount.toFixed(2)}</span>
                     </div>
                   )}
                   {tax > 0 && (
@@ -1850,8 +2189,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                   <div key={v.id} className="flex items-center justify-between py-3 first:pt-0">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 bg-muted rounded-md overflow-hidden relative flex items-center justify-center text-[10px] text-muted-foreground font-semibold">
-                        {selectedItemForVariants.imageUrl ? (
-                          <img src={selectedItemForVariants.imageUrl} alt={v.sku} className="object-cover w-full h-full" />
+                        {v.imageUrl || selectedItemForVariants.imageUrl ? (
+                          <img src={v.imageUrl || selectedItemForVariants.imageUrl || undefined} alt={v.sku} className="object-cover w-full h-full" />
                         ) : (
                           <span>{v.sku.slice(-4)}</span>
                         )}
@@ -1942,6 +2281,24 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 onChange={e => setNewCustomerData(prev => ({ ...prev, address: e.target.value }))}
                 placeholder="Dhaka, Bangladesh"
               />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Membership Type</label>
+              <Select
+                value={newCustomerData.membershipTier}
+                onValueChange={value => setNewCustomerData(prev => ({ ...prev, membershipTier: value }))}
+              >
+                <SelectTrigger className="w-full text-xs">
+                  <SelectValue placeholder="Select Membership Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NONE" className="text-xs">None</SelectItem>
+                  <SelectItem value="BRONZE" className="text-xs">Bronze</SelectItem>
+                  <SelectItem value="SILVER" className="text-xs">Silver</SelectItem>
+                  <SelectItem value="GOLD" className="text-xs">Gold</SelectItem>
+                  <SelectItem value="PLATINUM" className="text-xs">Platinum</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <DialogFooter className="pt-2 border-t">
               <Button type="button" variant="outline" onClick={() => setIsAddCustomerOpen(false)}>
@@ -2217,6 +2574,267 @@ export default function POSComponent({ items, clients: initialClients, warehouse
               ))
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Collect Customer Due Dialog Modal */}
+      <Dialog open={isPayDueModalOpen} onOpenChange={setIsPayDueModalOpen}>
+        <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto bg-card text-card-foreground border border-border p-6">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-xl font-bold text-foreground">Collect Customer Due</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex flex-col md:flex-row gap-6 mt-2 max-h-[75vh]">
+            {/* Left Column: Customer Select & Outstanding Invoices */}
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+              {/* Customer Select */}
+              <div>
+                <label className="text-xs font-bold uppercase text-muted-foreground block mb-2">Select Customer</label>
+                <Select 
+                  value={payDueClientId} 
+                  onValueChange={(val) => {
+                    setPayDueClientId(val);
+                    setLumpSumAmount(0);
+                  }}
+                >
+                  <SelectTrigger className="h-10 text-xs bg-background border-border">
+                    <SelectValue placeholder="Select Customer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients
+                      .filter(c => c.name?.toLowerCase() !== "walkway customer")
+                      .map((c) => (
+                        <SelectItem key={c.id} value={c.id} className="text-xs">
+                          {c.name || c.email}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {payDueClientId && outstandingSales.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-xs font-bold uppercase text-muted-foreground block">Outstanding Invoices</span>
+                  <div className="border border-border rounded-xl overflow-hidden bg-background">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-muted/50 text-muted-foreground border-b border-border">
+                        <tr>
+                          <th className="py-2.5 px-3 font-semibold">Invoice No</th>
+                          <th className="py-2.5 px-3 font-semibold">Date</th>
+                          <th className="py-2.5 px-3 font-semibold text-right">Grand Total</th>
+                          <th className="py-2.5 px-3 font-semibold text-right">Remaining Due</th>
+                          <th className="py-2.5 px-3 font-semibold text-right w-[150px]">Paying Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {outstandingSales.map((sale) => {
+                          const paying = invoiceAllocations[sale.id] || 0;
+                          return (
+                            <tr key={sale.id} className="hover:bg-muted/10">
+                              <td className="py-2.5 px-3 font-mono font-bold text-foreground">{sale.saleNumber}</td>
+                              <td className="py-2.5 px-3 text-muted-foreground">{new Date(sale.date).toLocaleDateString()}</td>
+                              <td className="py-2.5 px-3 text-right text-muted-foreground">৳{sale.grandTotal.toFixed(2)}</td>
+                              <td className="py-2.5 px-3 text-right font-semibold text-destructive">৳{sale.remainingDue.toFixed(2)}</td>
+                              <td className="py-2.5 px-3 text-right">
+                                <div className="relative w-full">
+                                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">৳</span>
+                                  <Input
+                                    type="number"
+                                    value={paying || ""}
+                                    max={sale.remainingDue}
+                                    onChange={(e) => {
+                                      const val = Math.min(sale.remainingDue, Number(e.target.value) || 0);
+                                      setInvoiceAllocations(prev => ({
+                                        ...prev,
+                                        [sale.id]: val
+                                      }));
+                                    }}
+                                    className="h-8 text-xs font-semibold pl-5 bg-background text-right"
+                                    placeholder="0"
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {payDueClientId && outstandingSales.length === 0 && (
+                <div className="text-center py-12 border border-dashed rounded-xl text-muted-foreground text-sm font-medium">
+                  No outstanding dues found for this customer.
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: Collection Payment Splits & Totals Summary */}
+            <div className="w-full md:w-[360px] shrink-0 space-y-4 border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-6 overflow-y-auto pr-1">
+              {/* FIFO Section */}
+              <div className="bg-muted/30 border border-border p-4 rounded-xl space-y-3">
+                <span className="text-xs font-bold uppercase text-muted-foreground block">FIFO Auto-Allocation</span>
+                <div className="flex gap-3 items-end">
+                  <div className="flex-1">
+                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide block mb-1">Lump Sum Amount</label>
+                    <Input
+                      type="number"
+                      value={lumpSumAmount || ""}
+                      onChange={(e) => setLumpSumAmount(Number(e.target.value) || 0)}
+                      placeholder="Enter total amount to collect..."
+                      className="h-10 text-sm bg-background font-semibold"
+                      disabled={!payDueClientId || outstandingSales.length === 0}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleAutoAllocateFIFO}
+                    disabled={!payDueClientId || outstandingSales.length === 0}
+                    className={`bg-primary text-primary-foreground h-10 px-4 shrink-0 font-bold ${(!payDueClientId || outstandingSales.length === 0) ? "" : "animate-pulse hover:animate-none"}`}
+                  >
+                    Auto-Allocate
+                  </Button>
+                </div>
+              </div>
+
+              {/* Payment Splits */}
+              <div className="bg-muted/30 border border-border p-4 rounded-xl space-y-3">
+                <span className="text-xs font-bold uppercase text-muted-foreground block">Collection Payment Splits</span>
+                
+                {/* Cash Row */}
+                <div className="flex items-center justify-between gap-3 min-w-0">
+                  <label className="text-xs font-semibold text-foreground w-[50px] shrink-0">Cash:</label>
+                  <div className="grid grid-cols-[1fr_110px] gap-2 flex-1 min-w-0">
+                    <Select value={dueCashAccountId} onValueChange={(val) => setDueCashAccountId(val)} disabled={!payDueClientId || outstandingSales.length === 0}>
+                      <SelectTrigger className="h-9 text-xs bg-background border-border w-full truncate">
+                        <SelectValue placeholder="Select Cash" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredPaymentAccounts
+                          .filter(acc => acc.type === "CASH")
+                          .map(acc => (
+                            <SelectItem key={acc.id} value={acc.id} className="text-xs">
+                              {acc.code ? `${acc.code} - ` : ""}{acc.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="relative w-full">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">৳</span>
+                      <Input
+                        type="number"
+                        value={dueCashAmount || ""}
+                        onChange={(e) => setDueCashAmount(Number(e.target.value) || 0)}
+                        className="h-9 text-xs font-medium pl-6 bg-background text-right w-full"
+                        placeholder="0"
+                        disabled={!payDueClientId || outstandingSales.length === 0}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card Row */}
+                <div className="flex items-center justify-between gap-3 min-w-0">
+                  <label className="text-xs font-semibold text-foreground w-[50px] shrink-0">Card:</label>
+                  <div className="grid grid-cols-[1fr_110px] gap-2 flex-1 min-w-0">
+                    <Select value={dueCardAccountId} onValueChange={(val) => setDueCardAccountId(val)} disabled={!payDueClientId || outstandingSales.length === 0}>
+                      <SelectTrigger className="h-9 text-xs bg-background border-border w-full truncate">
+                        <SelectValue placeholder="Select Card Account" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredPaymentAccounts
+                          .filter(acc => acc.type === "BANK")
+                          .map(acc => (
+                            <SelectItem key={acc.id} value={acc.id} className="text-xs">
+                              {acc.code ? `${acc.code} - ` : ""}{acc.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="relative w-full">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">৳</span>
+                      <Input
+                        type="number"
+                        value={dueCardAmount || ""}
+                        onChange={(e) => setDueCardAmount(Number(e.target.value) || 0)}
+                        className="h-9 text-xs font-medium pl-6 bg-background text-right w-full"
+                        placeholder="0"
+                        disabled={!payDueClientId || outstandingSales.length === 0}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* MFS Row */}
+                <div className="flex items-center justify-between gap-3 min-w-0">
+                  <label className="text-xs font-semibold text-foreground w-[50px] shrink-0">MFS:</label>
+                  <div className="grid grid-cols-[1fr_110px] gap-2 flex-1 min-w-0">
+                    <Select value={dueMfsAccountId} onValueChange={(val) => setDueMfsAccountId(val)} disabled={!payDueClientId || outstandingSales.length === 0}>
+                      <SelectTrigger className="h-9 text-xs bg-background border-border w-full truncate">
+                        <SelectValue placeholder="Select Wallet Account" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredPaymentAccounts
+                          .filter(acc => acc.type === "WALLET")
+                          .map(acc => (
+                            <SelectItem key={acc.id} value={acc.id} className="text-xs">
+                              {acc.code ? `${acc.code} - ` : ""}{acc.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="relative w-full">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">৳</span>
+                      <Input
+                        type="number"
+                        value={dueMfsAmount || ""}
+                        onChange={(e) => setDueMfsAmount(Number(e.target.value) || 0)}
+                        className="h-9 text-xs font-medium pl-6 bg-background text-right w-full"
+                        placeholder="0"
+                        disabled={!payDueClientId || outstandingSales.length === 0}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Collections & Validation */}
+              <div className="bg-muted/20 border border-border p-4 rounded-xl space-y-2">
+                <span className="text-xs font-bold text-muted-foreground uppercase block">Summary</span>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground">Total Allocated:</span>
+                    <span className="font-semibold text-foreground">৳{totalAllocated.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm pt-1.5 border-t border-dashed border-border/80">
+                    <span className="text-muted-foreground font-semibold">Total Collected:</span>
+                    <span className="font-black text-primary">৳{totalCollected.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-6 flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsPayDueModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            {payDueClientId && outstandingSales.length > 0 && (
+              <Button
+                type="button"
+                onClick={handleSubmitDuePayment}
+                disabled={isSubmittingDuePayment || totalCollected <= 0 || Math.abs(totalCollected - totalAllocated) > 0.01}
+                className="bg-[#0f8c5a] text-white hover:bg-[#0f8c5a]/90 font-bold"
+              >
+                {isSubmittingDuePayment ? "Processing..." : "Collect Due"}
+              </Button>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

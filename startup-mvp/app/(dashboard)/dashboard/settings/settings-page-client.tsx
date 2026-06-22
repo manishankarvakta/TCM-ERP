@@ -76,7 +76,8 @@ type SettingsSection = "profile" |
                        "preferences" |
                        "inventory" |
                        "production" |
-                       "accounts-default";
+                       "accounts-default" |
+                       "membership";
 
 interface SettingsMenuItem {
   id: SettingsSection;

@@ -385,6 +385,11 @@ export async function createClient(input: {
   clientType?: string;
   itemDiscounts?: any;
   discounts?: any[];
+  membershipNumber?: string;
+  membershipTier?: string;
+  membershipStatus?: string;
+  membershipPoints?: number;
+  membershipExpiry?: Date;
 }) {
   try {
     const session = await auth();
@@ -543,6 +548,11 @@ export async function createClient(input: {
           createdBy: session.user.id,
           chartOfAccountId: chartOfAccount.id,
           clientType: input.clientType || "regular",
+          membershipNumber: clientCode,
+          membershipTier: input.membershipTier || "NONE",
+          membershipStatus: input.membershipStatus || (input.membershipTier && input.membershipTier !== "NONE" ? "ACTIVE" : "INACTIVE"),
+          membershipPoints: input.membershipPoints !== undefined ? Number(input.membershipPoints) : 0,
+          membershipExpiry: input.membershipExpiry ? new Date(input.membershipExpiry) : null,
           itemDiscounts: Array.isArray(discountsToUse) && discountsToUse.length > 0
             ? {
                 create: discountsToUse.map((discount: any) => ({
@@ -685,6 +695,11 @@ export async function updateClient(input: {
   clientType?: string;
   itemDiscounts?: any;
   discounts?: any[];
+  membershipNumber?: string;
+  membershipTier?: string;
+  membershipStatus?: string;
+  membershipPoints?: number;
+  membershipExpiry?: Date;
 }) {
   try {
     const session = await auth();
@@ -878,6 +893,11 @@ export async function updateClient(input: {
         image: input.image !== undefined ? (input.image || null) : undefined,
         openingBalance: input.openingBalance !== undefined ? input.openingBalance : undefined,
         clientType: input.clientType !== undefined ? input.clientType : undefined,
+        membershipNumber: clientCode,
+        membershipTier: input.membershipTier !== undefined ? input.membershipTier : undefined,
+        membershipStatus: input.membershipStatus !== undefined ? input.membershipStatus : (input.membershipTier !== undefined ? (input.membershipTier !== "NONE" ? "ACTIVE" : "INACTIVE") : undefined),
+        membershipPoints: input.membershipPoints !== undefined ? Number(input.membershipPoints) : undefined,
+        membershipExpiry: input.membershipExpiry !== undefined ? (input.membershipExpiry ? new Date(input.membershipExpiry) : null) : undefined,
       };
 
       if (input.status) {
