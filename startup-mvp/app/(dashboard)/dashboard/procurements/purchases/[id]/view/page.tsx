@@ -19,6 +19,7 @@ import { notFound } from "next/navigation";
 import type { PurchaseStatus } from "@prisma/client";
 import PurchaseStatusActions from "../../_components/purchase-status-actions";
 import PrintButton from "../../_components/print-button";
+import { numberToWords } from "@/lib/utils/number-to-words";
 
 interface PurchaseDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -419,6 +420,14 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
                 </div>
               </CardContent>
             </Card>
+          </div>
+
+          {/* Amount In Words */}
+          <div className="border-t border-b border-slate-200 py-3 mt-6 print:py-1.5 print:mt-2">
+            <p className="text-sm print:text-[11px] text-slate-800">
+              <span className="font-bold italic">In Words: </span>
+              <span className="italic">{numberToWords(purchase.grandTotal)}</span>
+            </p>
           </div>
         </CardContent>
       </Card>
