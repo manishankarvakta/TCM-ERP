@@ -558,20 +558,20 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
       {/* Print-only Signatures */}
       <div className="hidden print:block mt-12 pt-4">
         <div className="flex justify-between gap-8 text-center">
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col justify-end min-h-[50px]">
+            <p className="text-xs font-medium mb-1 text-slate-700">
+              {purchase.createdByUser?.name || purchase.createdByUser?.email || "N/A"}
+            </p>
             <div className="border-t border-slate-300 w-3/4 mx-auto pt-2">
               <p className="text-[10px] font-semibold uppercase text-slate-500">Prepared By</p>
-              <p className="text-xs font-medium mt-1 text-slate-700">
-                {purchase.createdByUser?.name || purchase.createdByUser?.email || "N/A"}
-              </p>
             </div>
           </div>
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col justify-end min-h-[50px]">
             <div className="border-t border-slate-300 w-3/4 mx-auto pt-2">
               <p className="text-[10px] font-semibold uppercase text-slate-500">Verified By</p>
             </div>
           </div>
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col justify-end min-h-[50px]">
             <div className="border-t border-slate-300 w-3/4 mx-auto pt-2">
               <p className="text-[10px] font-semibold uppercase text-slate-500">Approved By</p>
             </div>
