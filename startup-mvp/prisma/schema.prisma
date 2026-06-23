@@ -667,8 +667,8 @@ model Sale {
   notes         String?
   attachmentUrl String?
   subTotal      Decimal    @db.Decimal(12, 2)
-  discount      Decimal?   @db.Decimal(5, 2)
-  tax           Decimal?   @db.Decimal(5, 2)
+  discount      Decimal?   @db.Decimal(12, 2)
+  tax           Decimal?   @db.Decimal(12, 2)
   grandTotal    Decimal    @db.Decimal(12, 2)
   orderType     OrderType  @default(RETAIL)
   isTrash       Boolean    @default(false)

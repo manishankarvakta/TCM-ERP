@@ -1520,7 +1520,15 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
       // Fetch client info to check if they are classified as wholesale client
       const client = await tx.client.findUnique({
         where: { id: validated.clientId },
-        select: { name: true, email: true, company: true, clientCode: true }
+        select: {
+          name: true,
+          email: true,
+          company: true,
+          clientCode: true,
+          membershipTier: true,
+          membershipStatus: true,
+          membershipPoints: true,
+        }
       });
 
       const isWholesaleClient = client
@@ -1693,6 +1701,42 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
         
         const voucherResult = await createSaleAccountingVoucher(sale.id, tx, validated.paymentMethod || undefined);
         if (!voucherResult.success) throw new Error(voucherResult.error || "Failed to create accounting voucher");
+
+        // Award loyalty points if customer has active membership
+        if (client && client.membershipTier && client.membershipTier !== "NONE" && client.membershipStatus === "ACTIVE") {
+          const globalSetting = await tx.settings.findFirst({
+            where: {
+              code: "membership",
+              userId: null,
+              isGlobal: true,
+              isActive: true,
+            },
+            select: {
+              settings: true,
+            },
+            orderBy: {
+              createdAt: "desc",
+            },
+          });
+          let pointsSpentRatio = 100;
+          if (globalSetting && globalSetting.settings) {
+            const settings = globalSetting.settings as any;
+            if (settings.pointsSpentRatio && Number(settings.pointsSpentRatio) > 0) {
+              pointsSpentRatio = Number(settings.pointsSpentRatio);
+            }
+          }
+          const pointsEarned = Math.floor(grandTotal / pointsSpentRatio);
+          if (pointsEarned > 0) {
+            await tx.client.update({
+              where: { id: validated.clientId },
+              data: {
+                membershipPoints: {
+                  increment: pointsEarned
+                }
+              }
+            });
+          }
+        }
         
         // Re-fetch sale to get updated fields (completedAt, voucherId)
         return tx.sale.findUnique({
