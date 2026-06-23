@@ -43,6 +43,13 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
 
   const sale = result.sale;
 
+  const notesStr = sale.notes || "";
+  let extractedMembershipDiscount = 0;
+  const match = notesStr.match(/Includes Membership Discount of ৳([\d.]+)/);
+  if (match && match[1]) {
+    extractedMembershipDiscount = Number(match[1]);
+  }
+
   const paymentDetails = (sale as any).paymentDetails as {
     cashAmount?: number;
     cashAccountId?: string;
@@ -267,13 +274,23 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="font-medium">{formatCurrency(sale.subTotal)}</span>
               </div>
-              {sale.discount && sale.discount > 0 && (
+              {sale.discount && Number(sale.discount) > 0 && (Number(sale.discount) - extractedMembershipDiscount) > 0 && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
                     Discount {(sale as any).coupon ? `(${(sale as any).coupon.code})` : ""}
                   </span>
                   <span className="font-medium text-green-600">
-                    -{formatCurrency(sale.discount)}
+                    -{formatCurrency(Number(sale.discount) - extractedMembershipDiscount)}
+                  </span>
+                </div>
+              )}
+              {extractedMembershipDiscount > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    Membership Discount
+                  </span>
+                  <span className="font-medium text-amber-600">
+                    -{formatCurrency(extractedMembershipDiscount)}
                   </span>
                 </div>
               )}

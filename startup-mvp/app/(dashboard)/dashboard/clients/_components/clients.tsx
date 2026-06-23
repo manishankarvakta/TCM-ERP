@@ -54,6 +54,8 @@ interface Client {
   image: string | null;
   status: string;
   clientType?: string | null;
+  membershipTier?: string | null;
+  membershipPoints?: number | null;
   createdBy: string;
   dueAmount: number;
   createdByUser: {
@@ -356,6 +358,7 @@ export default function ClientsListClient({
               <TableHead>Phone</TableHead>
               <TableHead>Company</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead>Membership</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Due</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -364,7 +367,7 @@ export default function ClientsListClient({
           <TableBody>
             {initialClients.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed clients found" : "No clients found"}
                 </TableCell>
               </TableRow>
@@ -406,6 +409,20 @@ export default function ClientsListClient({
                         <Badge variant="outline" className="text-muted-foreground">
                           Regular
                         </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {client.membershipTier && client.membershipTier !== "NONE" ? (
+                        <div className="flex flex-col gap-0.5">
+                          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800 w-fit text-[10px] font-bold">
+                            {client.membershipTier}
+                          </Badge>
+                          <span className="text-[11px] text-muted-foreground font-medium">
+                            Points: {client.membershipPoints ?? 0}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
                       )}
                     </TableCell>
                     <TableCell>

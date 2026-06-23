@@ -123,6 +123,55 @@ export default async function ClientDetailsPage({ searchParams }: ClientDetailsP
                 </div>
 
                 <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Membership Tier</label>
+                  <div>
+                    {client.membershipTier && client.membershipTier !== "NONE" ? (
+                      <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800 capitalize font-bold">
+                        {client.membershipTier}
+                      </Badge>
+                    ) : (
+                      <span className="text-sm font-medium">-</span>
+                    )}
+                  </div>
+                </div>
+
+                {client.membershipTier && client.membershipTier !== "NONE" && (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-muted-foreground">Membership ID</label>
+                      <p className="text-sm font-medium">{client.membershipNumber || "-"}</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-muted-foreground">Loyalty Points</label>
+                      <p className="text-sm font-bold text-primary">{client.membershipPoints ?? 0} Points</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-muted-foreground">Membership Status</label>
+                      <div>
+                        {client.membershipStatus === "ACTIVE" ? (
+                          <Badge className="bg-green-100 text-green-800 hover:bg-green-100 border-green-200">Active</Badge>
+                        ) : client.membershipStatus === "EXPIRED" ? (
+                          <Badge variant="destructive">Expired</Badge>
+                        ) : (
+                          <Badge variant="secondary">Inactive</Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-muted-foreground">Membership Expiry</label>
+                      <p className="text-sm font-medium">
+                        {client.membershipExpiry
+                          ? format(new Date(client.membershipExpiry), "MMM d, yyyy")
+                          : "Never Expires"}
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Created By</label>
                   <p className="text-sm">{client.createdByUser.name || client.createdByUser.email}</p>
                 </div>

@@ -89,6 +89,8 @@ export async function getClients(
         status: true,
         createdBy: true,
         clientType: true,
+        membershipTier: true,
+        membershipPoints: true,
         createdByUser: {
           select: {
             id: true,
@@ -193,6 +195,11 @@ export async function getClientById(clientId: string) {
         openingBalance: true,
         status: true,
         clientType: true,
+        membershipNumber: true,
+        membershipTier: true,
+        membershipStatus: true,
+        membershipPoints: true,
+        membershipExpiry: true,
         itemDiscounts: {
           select: {
             id: true,

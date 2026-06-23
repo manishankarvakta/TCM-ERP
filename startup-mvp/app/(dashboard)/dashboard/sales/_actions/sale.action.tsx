@@ -146,7 +146,19 @@ export async function getClientsForSale() {
 
     let defaultClient = await prisma.client.findFirst({
       where: { name: { equals: "Walkway Customer", mode: "insensitive" } },
-      select: { id: true, name: true, email: true, company: true }
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        company: true,
+        clientCode: true,
+        clientType: true,
+        membershipNumber: true,
+        membershipTier: true,
+        membershipStatus: true,
+        membershipPoints: true,
+        membershipExpiry: true,
+      }
     });
 
     if (!defaultClient) {
@@ -163,7 +175,14 @@ export async function getClientsForSale() {
         id: newClient.id,
         name: newClient.name,
         email: newClient.email,
-        company: newClient.company
+        company: newClient.company,
+        clientCode: newClient.clientCode,
+        clientType: newClient.clientType,
+        membershipNumber: newClient.membershipNumber,
+        membershipTier: newClient.membershipTier,
+        membershipStatus: newClient.membershipStatus,
+        membershipPoints: newClient.membershipPoints,
+        membershipExpiry: newClient.membershipExpiry,
       };
     }
 
@@ -178,6 +197,11 @@ export async function getClientsForSale() {
         company: true,
         clientCode: true,
         clientType: true,
+        membershipNumber: true,
+        membershipTier: true,
+        membershipStatus: true,
+        membershipPoints: true,
+        membershipExpiry: true,
       },
       orderBy: {
         createdAt: "desc",
@@ -1188,6 +1212,9 @@ export async function getSaleById(saleId: string) {
             email: true,
             company: true,
             phone: true,
+            membershipTier: true,
+            membershipStatus: true,
+            membershipNumber: true,
           },
         },
         warehouse: {

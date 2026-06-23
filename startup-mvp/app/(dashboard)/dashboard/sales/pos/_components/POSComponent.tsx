@@ -11,6 +11,7 @@ import { getOutstandingSales, collectCustomerDue } from "../../_actions/due-paym
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
 import { createClient } from "@/app/(dashboard)/dashboard/clients/_actions/client.action";
+import { getMembershipSettingsAction } from "@/app/(dashboard)/dashboard/settings/_actions/membership-settings.action";
 import { ItemType } from "@prisma/client";
 import {
   Select,
@@ -61,6 +62,11 @@ interface Client {
   company: string | null;
   clientCode?: string | null;
   clientType?: string | null;
+  membershipNumber?: string | null;
+  membershipTier?: string | null;
+  membershipStatus?: string | null;
+  membershipPoints?: number | null;
+  membershipExpiry?: any;
 }
 
 interface Warehouse {
@@ -171,6 +177,16 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       return acc.warehouseIds.includes(selectedWarehouseId);
     });
   }, [paymentAccounts, selectedWarehouseId]);
+
+  const [membershipSettings, setMembershipSettings] = useState<any>(null);
+
+  useEffect(() => {
+    getMembershipSettingsAction().then(res => {
+      if (res.success && res.settings) {
+        setMembershipSettings(res.settings);
+      }
+    });
+  }, []);
 
   // Sync default payment option when filtered list changes
 
@@ -521,7 +537,23 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     ? Number((subTotal * (discountValue / 100)).toFixed(2))
     : discountValue;
 
-  const effectiveDiscountAmount = appliedPromo ? discountAmount : manualDiscountAmount;
+  const selectedClient = useMemo(() => {
+    return clients.find(c => c.id === selectedClientId);
+  }, [clients, selectedClientId]);
+
+  const isMember = !!(selectedClient && selectedClient.membershipTier && selectedClient.membershipTier !== "NONE" && selectedClient.membershipStatus === "ACTIVE");
+
+  const membershipDiscountAmount = useMemo(() => {
+    if (!isMember || !membershipSettings || !membershipSettings.enableThresholdDiscount) {
+      return 0;
+    }
+    if (subTotal >= membershipSettings.minPurchaseForDiscount) {
+      return Number((subTotal * (membershipSettings.discountPercentage / 100)).toFixed(2));
+    }
+    return 0;
+  }, [isMember, membershipSettings, subTotal]);
+
+  const effectiveDiscountAmount = (appliedPromo ? discountAmount : manualDiscountAmount) + membershipDiscountAmount;
 
   const tax = itemVatTotal + (subTotal - effectiveDiscountAmount) * (taxPercent / 100);
   const grandTotal = subTotal + tax - effectiveDiscountAmount;
@@ -1190,7 +1222,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         date: new Date(),
         status: "COMPLETED",
         orderType: orderType as any,
-        notes: `POS Sale - Paid via Split Payment`,
+        notes: `POS Sale - Paid via Split Payment${membershipDiscountAmount > 0 ? ` (Includes Membership Discount of ৳${membershipDiscountAmount.toFixed(2)})` : ""}`,
         tax: tax,
         discount: effectiveDiscountAmount,
         items: saleItems,
@@ -2081,10 +2113,16 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                     <span>Subtotal:</span>
                     <span>৳{subTotal.toFixed(2)}</span>
                   </div>
-                  {effectiveDiscountAmount > 0 && (
+                  {appliedPromo || manualDiscountAmount > 0 ? (
                     <div className="flex justify-between text-xs font-semibold text-green-600">
-                      <span>Discount:</span>
-                      <span>-৳{effectiveDiscountAmount.toFixed(2)}</span>
+                      <span>Discount{appliedPromo ? ` (${appliedPromo})` : ""}:</span>
+                      <span>-৳{(appliedPromo ? discountAmount : manualDiscountAmount).toFixed(2)}</span>
+                    </div>
+                  ) : null}
+                  {membershipDiscountAmount > 0 && (
+                    <div className="flex justify-between text-xs font-semibold text-amber-600">
+                      <span>Membership Discount ({membershipSettings?.discountPercentage}%):</span>
+                      <span>-৳{membershipDiscountAmount.toFixed(2)}</span>
                     </div>
                   )}
                   {tax > 0 && (
