@@ -429,6 +429,14 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
               <span className="italic">{numberToWords(purchase.grandTotal)}</span>
             </p>
           </div>
+
+          {/* Note / Terms */}
+          {purchase.notes && (
+            <div className="mt-4 print:mt-2 text-left">
+              <p className="text-xs font-semibold uppercase text-slate-500">Note / Terms:</p>
+              <p className="text-sm print:text-xs text-slate-700 mt-1 whitespace-pre-wrap">{purchase.notes}</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
