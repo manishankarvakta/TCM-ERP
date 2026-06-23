@@ -69,19 +69,19 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 print:space-y-3">
       {/* Print-only Invoice Header */}
-      <div className="hidden print:block border-b-2 border-slate-800 pb-4 mb-6">
+      <div className="hidden print:block border-b border-slate-300 pb-2 mb-3">
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">Ferrari Fashion</h1>
-            <p className="text-sm text-slate-600">House #14, Road #04, Sector #03</p>
-            <p className="text-sm text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
-            <p className="text-sm text-slate-600">Phone: +880 1841 556677</p>
+            <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
+            <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
+            <p className="text-xs text-slate-600">Phone: +880 1841 556677</p>
           </div>
           <div className="text-right">
             <h2 className="text-xl font-bold uppercase text-slate-800">Purchase Order</h2>
-            <div className="mt-2 text-sm space-y-1">
+            <div className="mt-2 text-xs space-y-0.5">
               <p><span className="font-semibold">PO Number:</span> {purchase.purchaseNumber}</p>
               <p><span className="font-semibold">Date:</span> {format(new Date(purchase.date), "dd MMM yyyy")}</p>
               <p><span className="font-semibold">Status:</span> {STATUS_LABELS[purchase.status]}</p>
@@ -143,7 +143,7 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
       )}
 
       {/* Print-only Metadata block (Supplier & Warehouse) */}
-      <div className="hidden print:grid print:grid-cols-2 print:gap-6 print:border print:border-slate-200 print:rounded-lg print:p-4 print:mb-6 text-sm">
+      <div className="hidden print:grid print:grid-cols-2 print:gap-4 print:border print:border-slate-200 print:rounded-lg print:p-3 print:mb-2 text-xs">
         <div>
           <h3 className="font-semibold text-slate-800 mb-1 uppercase tracking-wide text-xs">Supplier Details:</h3>
           <p className="font-bold text-slate-900">{purchase.supplier.name || purchase.supplier.company || purchase.supplier.email}</p>
@@ -313,17 +313,17 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
       </div>
 
       {/* Purchase Items */}
-      <Card className="print:shadow-none print:border-0 print:pt-4">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FiPackage className="h-5 w-5" />
+      <Card className="print:shadow-none print:border-0 print:pt-0">
+        <CardHeader className="print:p-0 print:pb-2">
+          <CardTitle className="flex items-center gap-2 print:text-base print:font-semibold">
+            <FiPackage className="h-5 w-5 print:hidden" />
             Purchase Items
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="print:hidden">
             {purchase.items.length} item{purchase.items.length !== 1 ? "s" : ""} in this purchase order
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="print:p-0">
           {purchase.items.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <FiPackage className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -344,7 +344,7 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
                 <TableBody>
                   {purchase.items.map((item) => (
                     <TableRow key={item.id}>
-                      <TableCell>
+                      <TableCell className="print:py-1.5 print:px-2">
                         {item.item ? (
                           <Link
                             href={`/dashboard/master/items/${item.item.id}`}
@@ -356,22 +356,22 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="print:py-1.5 print:px-2">
                         <div>
-                          <p className="font-medium">{item.description}</p>
+                          <p className="font-medium print:text-xs">{item.description}</p>
                           {item.item && (
-                            <p className="text-xs text-muted-foreground">{item.item.name}</p>
+                            <p className="text-xs text-muted-foreground print:text-[10px]">{item.item.name}</p>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">
                         {item.quantity.toFixed(2)}
                         {item.item?.unit?.symbol && ` ${item.item.unit.symbol}`}
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">
                         {formatCurrency(item.unitPrice)}
                       </TableCell>
-                      <TableCell className="text-right font-mono font-semibold">
+                      <TableCell className="text-right font-mono font-semibold print:py-1.5 print:px-2 print:text-xs">
                         {formatCurrency(item.amount)}
                       </TableCell>
                     </TableRow>
@@ -382,24 +382,24 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
           )}
 
           {/* Financial Summary Cards */}
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 print:grid-cols-3 print:gap-2">
+          <div className="mt-6 print:mt-2 grid grid-cols-1 md:grid-cols-3 gap-4 print:grid-cols-3 print:gap-2">
             <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
-              <CardContent className="pt-6 print:p-2">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Subtotal</p>
-                  <p className="text-2xl font-bold print:text-lg">
+              <CardContent className="pt-6 print:p-1">
+                <div className="space-y-1 print:space-y-0">
+                  <p className="text-sm font-medium text-muted-foreground print:text-xs">Subtotal</p>
+                  <p className="text-2xl font-bold print:text-sm">
                     {formatCurrency(purchase.subTotal)}
                   </p>
                 </div>
               </CardContent>
             </Card>
             <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
-              <CardContent className="pt-6 print:p-2">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">
+              <CardContent className="pt-6 print:p-1">
+                <div className="space-y-1 print:space-y-0">
+                  <p className="text-sm font-medium text-muted-foreground print:text-xs">
                     {purchase.discount && purchase.discount > 0 ? "Discount" : "Tax"}
                   </p>
-                  <p className="text-2xl font-bold print:text-lg">
+                  <p className="text-2xl font-bold print:text-sm">
                     {purchase.discount && purchase.discount > 0
                       ? `-${formatCurrency(purchase.discount)}`
                       : purchase.tax && purchase.tax > 0
@@ -410,10 +410,10 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
               </CardContent>
             </Card>
             <Card className="bg-primary/5 border-primary/20 print:bg-transparent print:shadow-none print:border-0">
-              <CardContent className="pt-6 print:p-2">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Grand Total</p>
-                  <p className="text-2xl font-bold text-primary print:text-slate-900 print:text-xl">
+              <CardContent className="pt-6 print:p-1">
+                <div className="space-y-1 print:space-y-0">
+                  <p className="text-sm font-medium text-muted-foreground print:text-xs">Grand Total</p>
+                  <p className="text-2xl font-bold text-primary print:text-slate-900 print:text-base">
                     {formatCurrency(purchase.grandTotal)}
                   </p>
                 </div>
@@ -556,28 +556,28 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
       </div>
 
       {/* Print-only Signatures */}
-      <div className="hidden print:block mt-24 pt-8">
+      <div className="hidden print:block mt-12 pt-4">
         <div className="flex justify-between gap-8 text-center">
           <div className="flex-1">
-            <div className="border-t border-slate-400 w-3/4 mx-auto pt-2">
-              <p className="text-xs font-semibold uppercase text-slate-600">Prepared By</p>
+            <div className="border-t border-slate-300 w-3/4 mx-auto pt-2">
+              <p className="text-[10px] font-semibold uppercase text-slate-500">Prepared By</p>
             </div>
           </div>
           <div className="flex-1">
-            <div className="border-t border-slate-400 w-3/4 mx-auto pt-2">
-              <p className="text-xs font-semibold uppercase text-slate-600">Verified By</p>
+            <div className="border-t border-slate-300 w-3/4 mx-auto pt-2">
+              <p className="text-[10px] font-semibold uppercase text-slate-500">Verified By</p>
             </div>
           </div>
           <div className="flex-1">
-            <div className="border-t border-slate-400 w-3/4 mx-auto pt-2">
-              <p className="text-xs font-semibold uppercase text-slate-600">Approved By</p>
+            <div className="border-t border-slate-300 w-3/4 mx-auto pt-2">
+              <p className="text-[10px] font-semibold uppercase text-slate-500">Approved By</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Print-only Footer */}
-      <div className="hidden print:block mt-12 text-center text-xs text-slate-400 pt-4 border-t border-slate-100">
+      <div className="hidden print:block mt-6 text-center text-[10px] text-slate-400 pt-2 border-t border-slate-100">
         <p>Generated by Ferrari Fashion ERP on {format(new Date(), "PPpp")}</p>
       </div>
     </div>
