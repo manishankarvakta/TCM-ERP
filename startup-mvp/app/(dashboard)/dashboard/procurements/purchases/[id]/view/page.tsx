@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { notFound } from "next/navigation";
 import type { PurchaseStatus } from "@prisma/client";
 import PurchaseStatusActions from "../../_components/purchase-status-actions";
+import PrintButton from "../../_components/print-button";
 
 interface PurchaseDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -80,13 +81,14 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
           </div>
           <p className="text-sm text-muted-foreground">Purchase Order Details</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 print:hidden">
           <Button variant="ghost" asChild>
             <Link href="/dashboard/procurements/purchases">
               <FiArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Link>
           </Button>
+          <PrintButton />
           <PurchaseStatusActions purchaseId={purchase.id} status={purchase.status} />
           {purchase.status === "DRAFT" 
           // || purchase.status === "APPROVED" 
