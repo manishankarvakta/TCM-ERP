@@ -1,23 +1,12 @@
 "use client";
 
-import React, { useRef, useTransition } from "react";
-import { useReactToPrint } from "react-to-print";
+import React, { useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { bulkUpdatePurchaseStatus } from "../_actions/purchase.action";
 import { useToast } from "@/hooks/use-toast";
-import { FiCheck, FiTruck, FiCornerUpLeft } from "react-icons/fi";
+import { FiCheck, FiTruck } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 import type { PurchaseStatus } from "@prisma/client";
-
-// Printable component for purchase details (placeholder implementation)
-const PrintPurchase = React.forwardRef<HTMLDivElement, { purchaseId: string }>((props, ref) => (
-  <div ref={ref} style={{ padding: "20px" }}>
-    <h2>Purchase Details</h2>
-    <p>Purchase ID: {props.purchaseId}</p>
-    {/* Additional purchase details can be added here */}
-  </div>
-));
-PrintPurchase.displayName = "PrintPurchase";
 
 export default function PurchaseStatusActions({
   purchaseId,
@@ -29,13 +18,6 @@ export default function PurchaseStatusActions({
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const router = useRouter();
-
-  // Print handling
-  const printRef = useRef<HTMLDivElement>(null);
-  const handlePrint = useReactToPrint({
-    content: () => printRef.current,
-    documentTitle: `Purchase_${purchaseId}`,
-  } as any);
 
   const handleUpdateStatus = async (newStatus: PurchaseStatus) => {
     startTransition(async () => {
@@ -78,24 +60,6 @@ export default function PurchaseStatusActions({
           Create GRN
         </Button>
       )}
-      {status === "RECEIVED" && (
-        <Button
-          onClick={() => router.push(`/dashboard/procurements/rtv/new?purchaseId=${purchaseId}`)}
-          disabled={isPending}
-          className="bg-red-600 hover:bg-red-700 text-white mr-2"
-        >
-          <FiCornerUpLeft className="mr-2 h-4 w-4" />
-          Return Items (RTV)
-        </Button>
-      )}
-      {/* Print button – available for any status */}
-      <Button onClick={handlePrint} disabled={isPending} className="bg-gray-600 hover:bg-gray-700 text-white">
-        Print Purchase
-      </Button>
-      {/* Hidden printable component */}
-      <div style={{ display: "none" }}>
-        <PrintPurchase ref={printRef} purchaseId={purchaseId} />
-      </div>
     </>
   );
 }
