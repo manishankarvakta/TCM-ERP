@@ -70,8 +70,28 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
 
   return (
     <div className="space-y-6">
+      {/* Print-only Invoice Header */}
+      <div className="hidden print:block border-b-2 border-slate-800 pb-4 mb-6">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">Ferrari Fashion</h1>
+            <p className="text-sm text-slate-600">House #14, Road #04, Sector #03</p>
+            <p className="text-sm text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
+            <p className="text-sm text-slate-600">Phone: +880 1841 556677</p>
+          </div>
+          <div className="text-right">
+            <h2 className="text-xl font-bold uppercase text-slate-800">Purchase Order</h2>
+            <div className="mt-2 text-sm space-y-1">
+              <p><span className="font-semibold">PO Number:</span> {purchase.purchaseNumber}</p>
+              <p><span className="font-semibold">Date:</span> {format(new Date(purchase.date), "dd MMM yyyy")}</p>
+              <p><span className="font-semibold">Status:</span> {STATUS_LABELS[purchase.status]}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between print:hidden">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold">{purchase.purchaseNumber}</h1>
@@ -105,7 +125,7 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
 
       {/* Status Alert */}
       {purchase.status === "PARTIALLY_RECEIVED" && (
-        <Card className="border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950">
+        <Card className="border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950 print:hidden">
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
               <FiAlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5" />
@@ -123,9 +143,9 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
       )}
 
       {/* Main Information Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:grid-cols-3 print:gap-4 print:space-y-0">
         {/* Purchase Information */}
-        <Card>
+        <Card className="print:shadow-none print:border-0">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FiFileText className="h-5 w-5" />
@@ -167,7 +187,7 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
         </Card>
 
         {/* Supplier Information */}
-        <Card>
+        <Card className="print:shadow-none print:border-0">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FiTruck className="h-5 w-5" />
@@ -205,7 +225,7 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
         </Card>
 
         {/* Warehouse & Financial Summary */}
-        <Card>
+        <Card className="print:shadow-none print:border-0">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FiHome className="h-5 w-5" />
@@ -265,7 +285,7 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
       </div>
 
       {/* Purchase Items */}
-      <Card>
+      <Card className="print:shadow-none print:border-0 print:pt-4">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FiPackage className="h-5 w-5" />
@@ -334,24 +354,24 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
           )}
 
           {/* Financial Summary Cards */}
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="bg-muted/50">
-              <CardContent className="pt-6">
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 print:grid-cols-3 print:gap-2">
+            <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
+              <CardContent className="pt-6 print:p-2">
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-muted-foreground">Subtotal</p>
-                  <p className="text-2xl font-bold">
+                  <p className="text-2xl font-bold print:text-lg">
                     {formatCurrency(purchase.subTotal)}
                   </p>
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-muted/50">
-              <CardContent className="pt-6">
+            <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
+              <CardContent className="pt-6 print:p-2">
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-muted-foreground">
                     {purchase.discount && purchase.discount > 0 ? "Discount" : "Tax"}
                   </p>
-                  <p className="text-2xl font-bold">
+                  <p className="text-2xl font-bold print:text-lg">
                     {purchase.discount && purchase.discount > 0
                       ? `-${formatCurrency(purchase.discount)}`
                       : purchase.tax && purchase.tax > 0
@@ -361,11 +381,11 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="pt-6">
+            <Card className="bg-primary/5 border-primary/20 print:bg-transparent print:shadow-none print:border-0">
+              <CardContent className="pt-6 print:p-2">
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-muted-foreground">Grand Total</p>
-                  <p className="text-2xl font-bold text-primary">
+                  <p className="text-2xl font-bold text-primary print:text-slate-900 print:text-xl">
                     {formatCurrency(purchase.grandTotal)}
                   </p>
                 </div>
@@ -376,7 +396,7 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
       </Card>
 
       {/* Status Timeline & Audit Information */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:hidden">
         {/* Status Timeline */}
         <Card>
           <CardHeader>
@@ -505,6 +525,32 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Print-only Signatures */}
+      <div className="hidden print:block mt-24 pt-8">
+        <div className="flex justify-between gap-8 text-center">
+          <div className="flex-1">
+            <div className="border-t border-slate-400 w-3/4 mx-auto pt-2">
+              <p className="text-xs font-semibold uppercase text-slate-600">Prepared By</p>
+            </div>
+          </div>
+          <div className="flex-1">
+            <div className="border-t border-slate-400 w-3/4 mx-auto pt-2">
+              <p className="text-xs font-semibold uppercase text-slate-600">Verified By</p>
+            </div>
+          </div>
+          <div className="flex-1">
+            <div className="border-t border-slate-400 w-3/4 mx-auto pt-2">
+              <p className="text-xs font-semibold uppercase text-slate-600">Approved By</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Print-only Footer */}
+      <div className="hidden print:block mt-12 text-center text-xs text-slate-400 pt-4 border-t border-slate-100">
+        <p>Generated by Ferrari Fashion ERP on {format(new Date(), "PPpp")}</p>
       </div>
     </div>
   );
