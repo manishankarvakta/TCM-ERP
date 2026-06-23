@@ -427,7 +427,7 @@ export default function CashBankFormDialog({
             {/* Common Fields */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="type">Account Type *</Label>
+                <Label htmlFor="account-type-select">Account Type *</Label>
                 <Controller
                   name="type"
                   control={control}
@@ -437,7 +437,7 @@ export default function CashBankFormDialog({
                       onValueChange={(value) => field.onChange(value as CashBankAccountType)}
                       disabled={loading}
                     >
-                      <SelectTrigger id="type">
+                      <SelectTrigger id="account-type-select">
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>

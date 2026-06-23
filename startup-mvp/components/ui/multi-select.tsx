@@ -104,10 +104,11 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
       selectedValues.length === options.filter((opt) => !opt.disabled).length;
 
     return (
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={setOpen} modal={true}>
         <PopoverTrigger asChild>
           <Button
             ref={ref}
+            type="button"
             variant="outline"
             role="combobox"
             aria-expanded={open}
@@ -167,7 +168,10 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
             <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <PopoverContent
+          className="w-[var(--radix-popover-trigger-width)] p-0"
+          align="start"
+        >
           <div className="flex flex-col">
             {/* Search input */}
             <div className="flex items-center border-b px-3 py-2">
@@ -175,7 +179,17 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
               <Input
                 placeholder="Search options..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setSearchQuery(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                  }
+                }}
+                onClick={(e) => e.stopPropagation()}
                 className="h-8 border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               />
             </div>
@@ -235,12 +249,8 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
                       <Checkbox
                         checked={isSelected}
                         disabled={isOptionDisabled}
-                        className="mr-2"
-                        onCheckedChange={() => {
-                          if (!isOptionDisabled) {
-                            handleToggle(option.value);
-                          }
-                        }}
+                        className="mr-2 pointer-events-none"
+                        tabIndex={-1}
                       />
                       <span className="text-left flex-1">{option.label}</span>
                     </div>
