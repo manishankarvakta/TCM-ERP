@@ -561,6 +561,9 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
           <div className="flex-1">
             <div className="border-t border-slate-300 w-3/4 mx-auto pt-2">
               <p className="text-[10px] font-semibold uppercase text-slate-500">Prepared By</p>
+              <p className="text-xs font-medium mt-1 text-slate-700">
+                {purchase.createdByUser?.name || purchase.createdByUser?.email || "N/A"}
+              </p>
             </div>
           </div>
           <div className="flex-1">
