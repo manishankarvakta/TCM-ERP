@@ -143,143 +143,78 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
       )}
 
       {/* Main Information Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:grid-cols-3 print:gap-4 print:space-y-0">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Purchase Information */}
-        <Card className="print:shadow-none print:border-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FiFileText className="h-5 w-5" />
-              Purchase Information
+        <Card className="print:shadow-none print:border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FiFileText className="h-4 w-4 text-muted-foreground" />
+              Purchase Details
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Purchase Number</p>
-              <p className="font-mono text-lg font-semibold">{purchase.purchaseNumber}</p>
-            </div>
-            <Separator />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Status</p>
-              <Badge variant={getStatusBadgeVariant(purchase.status)} className="text-sm">
-                {STATUS_LABELS[purchase.status]}
-              </Badge>
-            </div>
-            <Separator />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Purchase Date</p>
-              <p className="font-medium">
-                {format(new Date(purchase.date), "MMM d, yyyy")}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {format(new Date(purchase.date), "EEEE, h:mm a")}
-              </p>
+          <CardContent className="space-y-2 text-sm pb-4">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Order Date:</span>
+              <span className="font-medium">{format(new Date(purchase.date), "dd MMM yyyy")}</span>
             </div>
             {purchase.notes && (
-              <>
-                <Separator />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Notes</p>
-                  <p className="text-sm">{purchase.notes}</p>
-                </div>
-              </>
+              <div className="pt-2 border-t text-xs mt-2">
+                <span className="text-muted-foreground block mb-0.5 font-medium">Notes:</span>
+                <p className="text-muted-foreground italic leading-relaxed">{purchase.notes}</p>
+              </div>
             )}
           </CardContent>
         </Card>
 
         {/* Supplier Information */}
-        <Card className="print:shadow-none print:border-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FiTruck className="h-5 w-5" />
-              Supplier
+        <Card className="print:shadow-none print:border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FiTruck className="h-4 w-4 text-muted-foreground" />
+              Supplier Details
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Supplier Name</p>
+          <CardContent className="space-y-2 text-sm pb-4">
+            <div>
               <Link
                 href={`/dashboard/suppliers/${purchase.supplier.id}`}
-                className="font-semibold text-lg hover:underline block"
+                className="font-semibold text-primary hover:underline"
               >
-                {purchase.supplier.name || purchase.supplier.company || purchase.supplier.email}
+                {purchase.supplier.name || purchase.supplier.company}
               </Link>
               {purchase.supplier.company && purchase.supplier.name && (
-                <p className="text-xs text-muted-foreground">{purchase.supplier.company}</p>
+                <span className="text-xs text-muted-foreground block mt-0.5">{purchase.supplier.company}</span>
               )}
             </div>
-            <Separator />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Email</p>
-              <p className="text-sm">{purchase.supplier.email}</p>
+            <div className="text-xs text-muted-foreground space-y-0.5 pt-1 border-t mt-1">
+              <p>Email: {purchase.supplier.email}</p>
+              {purchase.supplier.phone && <p>Phone: {purchase.supplier.phone}</p>}
             </div>
-            {purchase.supplier.phone && (
-              <>
-                <Separator />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Phone</p>
-                  <p className="text-sm">{purchase.supplier.phone}</p>
-                </div>
-              </>
-            )}
           </CardContent>
         </Card>
 
-        {/* Warehouse & Financial Summary */}
-        <Card className="print:shadow-none print:border-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FiHome className="h-5 w-5" />
-              Warehouse & Summary
+        {/* Warehouse Information */}
+        <Card className="print:shadow-none print:border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FiHome className="h-4 w-4 text-muted-foreground" />
+              Delivery Warehouse
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-2 text-sm pb-4">
             {purchase.warehouse ? (
-              <>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Warehouse</p>
-                  <Link
-                    href={`/dashboard/master/warehouses/${purchase.warehouse.id}`}
-                    className="font-semibold hover:underline block"
-                  >
-                    {purchase.warehouse.name}
-                  </Link>
-                  <p className="text-xs text-muted-foreground font-mono">{purchase.warehouse.code}</p>
-                </div>
-                <Separator />
-              </>
+              <div>
+                <Link
+                  href={`/dashboard/master/warehouses/${purchase.warehouse.id}`}
+                  className="font-semibold text-primary hover:underline"
+                >
+                  {purchase.warehouse.name}
+                </Link>
+                <p className="text-xs text-muted-foreground font-mono mt-0.5">{purchase.warehouse.code}</p>
+              </div>
             ) : (
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-muted-foreground">Warehouse</p>
-                <p className="text-sm text-muted-foreground">Not assigned</p>
-              </div>
+              <span className="text-muted-foreground text-xs">Not assigned</span>
             )}
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Grand Total</p>
-              <p className="text-2xl font-bold text-primary">
-                {formatCurrency(purchase.grandTotal)}
-              </p>
-            </div>
-            <Separator />
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span className="font-medium">{formatCurrency(purchase.subTotal)}</span>
-              </div>
-              {purchase.discount && purchase.discount > 0 && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Discount</span>
-                  <span className="font-medium text-green-600">
-                    -{formatCurrency(purchase.discount)}
-                  </span>
-                </div>
-              )}
-              {purchase.tax && purchase.tax > 0 && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span className="font-medium">{formatCurrency(purchase.tax)}</span>
-                </div>
-              )}
-            </div>
           </CardContent>
         </Card>
       </div>
