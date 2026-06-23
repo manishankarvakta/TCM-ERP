@@ -310,6 +310,12 @@ export async function getReturnToVendorById(rtvId: string) {
 
     if (!rtv) return { success: false, error: "RTV not found", rtv: null };
 
+    // Fetch creator details
+    const creator = await prisma.user.findUnique({
+      where: { id: rtv.createdBy },
+      select: { name: true, email: true }
+    });
+
     return {
       success: true,
       rtv: {
@@ -317,6 +323,7 @@ export async function getReturnToVendorById(rtvId: string) {
         subTotal: Number(rtv.subTotal),
         tax: rtv.tax ? Number(rtv.tax) : null,
         grandTotal: Number(rtv.grandTotal),
+        creator: creator,
         items: rtv.items.map(i => ({
           ...i,
           quantity: Number(i.quantity),

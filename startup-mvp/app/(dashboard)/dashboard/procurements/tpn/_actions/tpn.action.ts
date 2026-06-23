@@ -376,16 +376,40 @@ export async function getTPNById(id: string) {
       include: {
         sourceWarehouse: { select: { name: true } },
         destinationWarehouse: { select: { name: true } },
+        createdByUser: { select: { name: true, email: true } },
         items: {
           include: {
-            item: { select: { name: true, code: true } },
-            variant: { select: { sku: true, size: true, color: true } },
+            item: { select: { name: true, code: true, costPrice: true } },
+            variant: { select: { sku: true, size: true, color: true, costPrice: true } },
           }
         },
       },
     });
 
-    return { success: true, data: tpn };
+    if (!tpn) {
+      return { success: false, error: "Failed to load TPN", data: null };
+    }
+
+    const items = tpn.items.map(item => {
+      const rate = Number(item.variant?.costPrice || item.item.costPrice || 0);
+      const amount = Number(item.quantity) * rate;
+      return {
+        ...item,
+        unitRate: rate,
+        amount: amount,
+      };
+    });
+
+    const grandTotal = items.reduce((sum, item) => sum + item.amount, 0);
+
+    return {
+      success: true,
+      data: {
+        ...tpn,
+        items,
+        grandTotal,
+      }
+    };
   } catch (error) {
     console.error("getTPNById error:", error);
     return { success: false, error: "Failed to load TPN", data: null };

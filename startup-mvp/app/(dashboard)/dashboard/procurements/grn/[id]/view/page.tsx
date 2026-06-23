@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 import { notFound } from "next/navigation";
 import type { GRNStatus } from "@prisma/client";
+import PrintButton from "@/app/(dashboard)/dashboard/procurements/purchases/_components/print-button";
 
 interface GRNDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -54,9 +55,29 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
   const sourceNumber = grn.purchase?.purchaseNumber || grn.tpn?.tpnNumber || "N/A";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 print:space-y-3">
+      {/* Print-only Invoice Header */}
+      <div className="hidden print:block border-b border-slate-300 pb-2 mb-3">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">Ferrari Fashion</h1>
+            <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
+            <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
+            <p className="text-xs text-slate-600">Phone: +880 1841 556677</p>
+          </div>
+          <div className="text-right">
+            <h2 className="text-xl font-bold uppercase text-slate-800">Goods Receipt Note</h2>
+            <div className="mt-2 text-xs space-y-0.5">
+              <p><span className="font-semibold">GRN Number:</span> {grn.grnNumber}</p>
+              <p><span className="font-semibold">Date:</span> {format(new Date(grn.date), "dd MMM yyyy")}</p>
+              <p><span className="font-semibold">Status:</span> {STATUS_LABELS[grn.status]}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between print:hidden">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold">{grn.grnNumber}</h1>
@@ -67,6 +88,7 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
           <p className="text-sm text-muted-foreground">Goods Receipt Note Details</p>
         </div>
         <div className="flex items-center gap-2">
+          <PrintButton />
           <Button variant="ghost" asChild>
             <Link href="/dashboard/procurements/grn">
               <FiArrowLeft className="mr-2 h-4 w-4" />
@@ -77,40 +99,40 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
       </div>
 
       {/* Main Information Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:grid-cols-3 print:gap-2 print:space-y-0">
         {/* GRN Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FiFileText className="h-5 w-5" />
+        <Card className="print:shadow-none print:border-0 print:bg-transparent">
+          <CardHeader className="print:p-1.5 print:pb-0">
+            <CardTitle className="flex items-center gap-2 print:text-xs">
+              <FiFileText className="h-5 w-5 print:h-4 print:w-4" />
               GRN Information
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">GRN Number</p>
-              <p className="font-mono text-lg font-semibold">{grn.grnNumber}</p>
+          <CardContent className="space-y-4 print:space-y-1 print:p-1.5">
+            <div className="space-y-1 print:space-y-0">
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px]">GRN Number</p>
+              <p className="font-mono text-lg font-semibold print:text-xs">{grn.grnNumber}</p>
             </div>
-            <Separator />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Status</p>
-              <Badge variant={getStatusBadgeVariant(grn.status)} className="text-sm">
+            <Separator className="print:my-1" />
+            <div className="space-y-1 print:space-y-0">
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Status</p>
+              <Badge variant={getStatusBadgeVariant(grn.status)} className="text-sm print:text-[10px] print:px-1.5 print:py-0">
                 {STATUS_LABELS[grn.status]}
               </Badge>
             </div>
-            <Separator />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Date</p>
-              <p className="font-medium">
+            <Separator className="print:my-1" />
+            <div className="space-y-1 print:space-y-0">
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Date</p>
+              <p className="font-medium print:text-xs">
                 {format(new Date(grn.date), "MMM d, yyyy")}
               </p>
             </div>
             {grn.notes && (
               <>
-                <Separator />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Notes</p>
-                  <p className="text-sm">{grn.notes}</p>
+                <Separator className="print:my-1" />
+                <div className="space-y-1 print:space-y-0">
+                  <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Notes</p>
+                  <p className="text-sm print:text-xs">{grn.notes}</p>
                 </div>
               </>
             )}
@@ -118,47 +140,47 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
         </Card>
 
         {/* Source Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FiPackage className="h-5 w-5" />
+        <Card className="print:shadow-none print:border-0 print:bg-transparent">
+          <CardHeader className="print:p-1.5 print:pb-0">
+            <CardTitle className="flex items-center gap-2 print:text-xs">
+              <FiPackage className="h-5 w-5 print:h-4 print:w-4" />
               Source Details
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Source Type</p>
-              <p className="font-medium">{sourceType}</p>
+          <CardContent className="space-y-4 print:space-y-1 print:p-1.5">
+            <div className="space-y-1 print:space-y-0">
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Source Type</p>
+              <p className="font-medium print:text-xs">{sourceType}</p>
             </div>
-            <Separator />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Source Document</p>
+            <Separator className="print:my-1" />
+            <div className="space-y-1 print:space-y-0">
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Source Document</p>
               {grn.purchaseId ? (
                 <Link
                   href={`/dashboard/procurements/purchases/${grn.purchaseId}/view`}
-                  className="font-mono text-primary hover:underline"
+                  className="font-mono text-primary print:text-slate-900 print:no-underline hover:underline print:text-xs"
                 >
                   {sourceNumber}
                 </Link>
               ) : grn.tpnId ? (
                 <Link
                   href={`/dashboard/inventory/transfers/${grn.tpnId}/view`}
-                  className="font-mono text-primary hover:underline"
+                  className="font-mono text-primary print:text-slate-900 print:no-underline hover:underline print:text-xs"
                 >
                   {sourceNumber}
                 </Link>
               ) : (
-                <p className="font-mono">{sourceNumber}</p>
+                <p className="font-mono print:text-xs">{sourceNumber}</p>
               )}
             </div>
             {grn.purchase?.supplier && (
               <>
-                <Separator />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Supplier</p>
+                <Separator className="print:my-1" />
+                <div className="space-y-1 print:space-y-0">
+                  <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Supplier</p>
                   <Link
                     href={`/dashboard/suppliers/${grn.purchase.supplier.id}`}
-                    className="font-medium hover:underline block"
+                    className="font-medium hover:underline block print:text-slate-900 print:no-underline print:text-xs"
                   >
                     {grn.purchase.supplier.name || grn.purchase.supplier.company || grn.purchase.supplier.email}
                   </Link>
@@ -167,10 +189,10 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
             )}
             {grn.tpn?.sourceWarehouse && (
               <>
-                <Separator />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Source Warehouse</p>
-                  <p className="font-medium">{grn.tpn.sourceWarehouse.name}</p>
+                <Separator className="print:my-1" />
+                <div className="space-y-1 print:space-y-0">
+                  <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Source Warehouse</p>
+                  <p className="font-medium print:text-xs">{grn.tpn.sourceWarehouse.name}</p>
                 </div>
               </>
             )}
@@ -178,40 +200,40 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
         </Card>
 
         {/* Warehouse Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FiHome className="h-5 w-5" />
+        <Card className="print:shadow-none print:border-0 print:bg-transparent">
+          <CardHeader className="print:p-1.5 print:pb-0">
+            <CardTitle className="flex items-center gap-2 print:text-xs">
+              <FiHome className="h-5 w-5 print:h-4 print:w-4" />
               Destination Warehouse
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Warehouse</p>
+          <CardContent className="space-y-4 print:space-y-1 print:p-1.5">
+            <div className="space-y-1 print:space-y-0">
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Warehouse</p>
               <Link
                 href={`/dashboard/master/warehouses/${grn.warehouse.id}`}
-                className="font-semibold hover:underline block"
+                className="font-semibold hover:underline block print:text-slate-900 print:no-underline print:text-xs"
               >
                 {grn.warehouse.name}
               </Link>
-              <p className="text-xs text-muted-foreground font-mono">{grn.warehouse.code}</p>
+              <p className="text-xs text-muted-foreground font-mono print:text-[10px]">{grn.warehouse.code}</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* GRN Items */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FiPackage className="h-5 w-5" />
+      <Card className="print:shadow-none print:border-0 print:bg-transparent">
+        <CardHeader className="print:p-1.5 print:pb-0">
+          <CardTitle className="flex items-center gap-2 print:text-xs">
+            <FiPackage className="h-5 w-5 print:h-4 print:w-4" />
             Received Items
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="print:hidden">
             {grn.items.length} item{grn.items.length !== 1 ? "s" : ""} in this receipt
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="print:p-1.5">
           {grn.items.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <FiPackage className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -222,19 +244,19 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Item Code</TableHead>
-                    <TableHead>Item Details</TableHead>
-                    <TableHead className="text-right">Received Quantity</TableHead>
+                    <TableHead className="print:py-1 print:px-2 print:text-xs">Item Code</TableHead>
+                    <TableHead className="print:py-1 print:px-2 print:text-xs">Item Details</TableHead>
+                    <TableHead className="text-right print:py-1 print:px-2 print:text-xs">Received Quantity</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {grn.items.map((item) => (
                     <TableRow key={item.id}>
-                      <TableCell>
+                      <TableCell className="print:py-1.5 print:px-2">
                         {item.item ? (
                           <Link
                             href={`/dashboard/master/items/${item.item.id}`}
-                            className="font-mono text-sm hover:underline"
+                            className="font-mono text-sm hover:underline print:text-slate-900 print:no-underline print:text-xs"
                           >
                             {item.item.code}
                           </Link>
@@ -242,15 +264,15 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="print:py-1.5 print:px-2">
                         <div>
-                          <p className="font-medium">
+                          <p className="font-medium print:text-xs">
                             {item.item?.name || "Unknown Item"}
                             {item.variant ? ` - ${(item.variant as any).name || (item.variant as any).sku || ""}` : ""}
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right font-mono font-semibold">
+                      <TableCell className="text-right font-mono font-semibold print:py-1.5 print:px-2 print:text-xs">
                         {Number(item.receivedQuantity).toFixed(2)}
                         {item.item?.unit?.symbol && ` ${item.item.unit.symbol}`}
                       </TableCell>
@@ -264,7 +286,7 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
       </Card>
 
       {/* Audit Information */}
-      <Card>
+      <Card className="print:hidden">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FiUser className="h-5 w-5" />
@@ -299,6 +321,35 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Print-only Signatures */}
+      <div className="hidden print:block mt-12 pt-4">
+        <div className="flex justify-between gap-8 text-center">
+          <div className="flex-1 flex flex-col justify-end min-h-[50px]">
+            <p className="text-xs font-medium mb-1 text-slate-700">
+              {grn.creator?.name || grn.creator?.email || "System"}
+            </p>
+            <div className="border-t border-slate-300 w-3/4 mx-auto pt-2">
+              <p className="text-[10px] font-semibold uppercase text-slate-500">Prepared By</p>
+            </div>
+          </div>
+          <div className="flex-1 flex flex-col justify-end min-h-[50px]">
+            <div className="border-t border-slate-300 w-3/4 mx-auto pt-2">
+              <p className="text-[10px] font-semibold uppercase text-slate-500">Verified By</p>
+            </div>
+          </div>
+          <div className="flex-1 flex flex-col justify-end min-h-[50px]">
+            <div className="border-t border-slate-300 w-3/4 mx-auto pt-2">
+              <p className="text-[10px] font-semibold uppercase text-slate-500">Approved By</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Print-only Footer */}
+      <div className="hidden print:block mt-6 text-center text-[10px] text-slate-400 pt-2 border-t border-slate-100">
+        <p>Generated by Ferrari Fashion ERP on {format(new Date(), "PPpp")}</p>
+      </div>
     </div>
   );
 }
