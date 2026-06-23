@@ -26,7 +26,13 @@ import {
   FiX,
   FiMoreVertical,
   FiRotateCw,
+  FiDownload,
+  FiPlus,
 } from "react-icons/fi";
+import Link from "next/link";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { exportToCSV } from "@/lib/utils/export-csv";
 import {
   deletePurchase,
   bulkUpdatePurchaseStatus,
@@ -47,6 +53,13 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { PurchaseStatus } from "@prisma/client";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Purchase {
   id: string;
@@ -87,6 +100,11 @@ interface PurchasesListClientProps {
     moveToTrash: boolean;
     deletePermanently: boolean;
   };
+  warehouses: Array<{ id: string; name: string; code: string }>;
+  selectedWarehouseId: string;
+  startDate: string;
+  endDate: string;
+  canChangeWarehouse: boolean;
 }
 
 const STATUS_LABELS: Record<PurchaseStatus, string> = {
@@ -105,6 +123,11 @@ export default function PurchasesListClient({
   isTrash = false,
   userId: providedUserId,
   permissions,
+  warehouses = [],
+  selectedWarehouseId,
+  startDate,
+  endDate,
+  canChangeWarehouse,
 }: PurchasesListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -114,6 +137,43 @@ export default function PurchasesListClient({
   const [selectedPurchases, setSelectedPurchases] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+
+  const [warehouseId, setWarehouseId] = useState(selectedWarehouseId);
+  const [startDateVal, setStartDateVal] = useState(startDate);
+  const [endDateVal, setEndDateVal] = useState(endDate);
+
+  const updateFilters = (newParams: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    
+    Object.entries(newParams).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    });
+
+    const tab = searchParams.get("tab") || "all";
+    params.set("tab", tab);
+    
+    router.push(`/dashboard/procurements/purchases?${params.toString()}`);
+  };
+
+  const handleWarehouseChange = (val: string) => {
+    setWarehouseId(val);
+    updateFilters({ warehouseId: val });
+  };
+
+  const handleStartDateChange = (val: string) => {
+    setStartDateVal(val);
+    updateFilters({ startDate: val });
+  };
+
+  const handleEndDateChange = (val: string) => {
+    setEndDateVal(val);
+    updateFilters({ endDate: val });
+  };
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -238,25 +298,67 @@ export default function PurchasesListClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by number or supplier..."
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="pl-10"
-          />
-          {search && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-              onClick={() => handleSearch("")}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="relative flex-1 min-w-[240px] max-w-sm">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by number or supplier..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="pl-10"
+            />
+            {search && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => handleSearch("")}
+              >
+                <FiX className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          {/* Warehouse Filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">Warehouse:</span>
+            <Select
+              value={warehouseId}
+              onValueChange={(val) => handleWarehouseChange(val)}
+              disabled={!canChangeWarehouse}
             >
-              <FiX className="h-4 w-4" />
-            </Button>
-          )}
+              <SelectTrigger className="w-[180px] h-9">
+                <SelectValue placeholder="Select warehouse" />
+              </SelectTrigger>
+              <SelectContent>
+                {canChangeWarehouse && <SelectItem value="all">All Warehouses</SelectItem>}
+                {warehouses.map((w) => (
+                  <SelectItem key={w.id} value={w.id}>
+                    {w.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Date Range Filters */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">From:</span>
+            <Input
+              type="date"
+              value={startDateVal}
+              onChange={(e) => handleStartDateChange(e.target.value)}
+              className="w-[140px] h-9"
+            />
+            <span className="text-sm font-medium text-muted-foreground">To:</span>
+            <Input
+              type="date"
+              value={endDateVal}
+              onChange={(e) => handleEndDateChange(e.target.value)}
+              className="w-[140px] h-9"
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -518,6 +620,109 @@ export default function PurchasesListClient({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+interface PurchasesHeaderActionsProps {
+  canCreate: boolean;
+  purchases: any[];
+}
+
+export function PurchasesHeaderActions({
+  canCreate,
+  purchases,
+}: PurchasesHeaderActionsProps) {
+  const { toast } = useToast();
+
+  const handleExportCSV = () => {
+    if (!purchases || purchases.length === 0) {
+      toast({
+        title: "No data",
+        description: "There are no purchases to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const csvData = purchases.map((purchase) => ({
+      "Purchase Number": purchase.purchaseNumber,
+      "Supplier": purchase.supplier?.name || purchase.supplier?.email || "Unknown",
+      "Warehouse": purchase.warehouse?.name || "-",
+      "Status": STATUS_LABELS[purchase.status as PurchaseStatus] || purchase.status,
+      "Date": format(new Date(purchase.date), "yyyy-MM-dd"),
+      "Total (BDT)": purchase.grandTotal.toFixed(2),
+    }));
+
+    exportToCSV(csvData, { filename: `purchases-report-${format(new Date(), "yyyy-MM-dd")}.csv` });
+  };
+
+  const handleExportPDF = () => {
+    if (!purchases || purchases.length === 0) {
+      toast({
+        title: "No data",
+        description: "There are no purchases to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const doc = new jsPDF();
+    
+    doc.setFontSize(18);
+    doc.text("Purchase Orders Report", 14, 22);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${format(new Date(), "yyyy-MM-dd HH:mm")}`, 14, 30);
+    
+    const tableData = purchases.map((p) => [
+      p.purchaseNumber,
+      p.supplier?.name || p.supplier?.email || "Unknown",
+      p.warehouse?.name || "-",
+      STATUS_LABELS[p.status as PurchaseStatus] || p.status,
+      format(new Date(p.date), "yyyy-MM-dd"),
+      `BDT ${p.grandTotal.toFixed(2)}`
+    ]);
+    
+    autoTable(doc, {
+      startY: 35,
+      head: [["Purchase #", "Supplier", "Warehouse", "Status", "Date", "Total"]],
+      body: tableData,
+      theme: "striped",
+      headStyles: { fillColor: [79, 70, 229] }, // indigo-600 color
+    });
+    
+    doc.save(`purchases-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline">
+            <FiDownload className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleExportCSV}>
+            Export to CSV
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleExportPDF}>
+            Export to PDF
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {canCreate && (
+        <Button asChild>
+          <Link href="/dashboard/procurements/purchases/add">
+            <FiPlus className="mr-2 h-4 w-4" />
+            Add Purchase
+          </Link>
+        </Button>
+      )}
     </div>
   );
 }

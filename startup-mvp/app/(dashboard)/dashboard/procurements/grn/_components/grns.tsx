@@ -33,7 +33,13 @@ import {
   FiX,
   FiMoreVertical,
   FiRotateCw,
+  FiDownload,
+  FiPlus,
 } from "react-icons/fi";
+import Link from "next/link";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { exportToCSV } from "@/lib/utils/export-csv";
 import {
   deleteGRN,
   bulkUpdateGRNStatus,
@@ -98,11 +104,11 @@ interface GRNsListClientProps {
     moveToTrash: boolean;
     deletePermanently: boolean;
   };
-  warehouses?: any[];
-  userContext?: {
-    isNormalUser: boolean;
-    defaultWarehouseId: string | null;
-  };
+  warehouses: Array<{ id: string; name: string; code: string }>;
+  selectedWarehouseId: string;
+  startDate: string;
+  endDate: string;
+  canChangeWarehouse: boolean;
 }
 
 const STATUS_LABELS: Record<GRNStatus, string> = {
@@ -119,7 +125,10 @@ export default function GRNsListClient({
   userId: providedUserId,
   permissions,
   warehouses = [],
-  userContext,
+  selectedWarehouseId,
+  startDate,
+  endDate,
+  canChangeWarehouse,
 }: GRNsListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -129,6 +138,43 @@ export default function GRNsListClient({
   const [selectedGRNs, setSelectedGRNs] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+
+  const [warehouseId, setWarehouseId] = useState(selectedWarehouseId);
+  const [startDateVal, setStartDateVal] = useState(startDate);
+  const [endDateVal, setEndDateVal] = useState(endDate);
+
+  const updateFilters = (newParams: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    
+    Object.entries(newParams).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    });
+
+    const tab = searchParams.get("tab") || "all";
+    params.set("tab", tab);
+    
+    router.push(`/dashboard/procurements/grn?${params.toString()}`);
+  };
+
+  const handleWarehouseChange = (val: string) => {
+    setWarehouseId(val);
+    updateFilters({ warehouseId: val });
+  };
+
+  const handleStartDateChange = (val: string) => {
+    setStartDateVal(val);
+    updateFilters({ startDate: val });
+  };
+
+  const handleEndDateChange = (val: string) => {
+    setEndDateVal(val);
+    updateFilters({ endDate: val });
+  };
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -253,53 +299,72 @@ export default function GRNsListClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by number or supplier..."
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="pl-10"
-          />
-          {search && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-              onClick={() => handleSearch("")}
-            >
-              <FiX className="h-4 w-4" />
-            </Button>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="relative flex-1 min-w-[240px] max-w-sm">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by number or supplier..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="pl-10"
+            />
+            {search && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => handleSearch("")}
+              >
+                <FiX className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          {/* Warehouse Filter */}
+          {!isTrash && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">Warehouse:</span>
+              <Select
+                value={warehouseId}
+                onValueChange={(val) => handleWarehouseChange(val)}
+                disabled={!canChangeWarehouse}
+              >
+                <SelectTrigger className="w-[180px] h-9">
+                  <SelectValue placeholder="Select warehouse" />
+                </SelectTrigger>
+                <SelectContent>
+                  {canChangeWarehouse && <SelectItem value="all">All Warehouses</SelectItem>}
+                  {warehouses.map((w) => (
+                    <SelectItem key={w.id} value={w.id}>
+                      {w.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Date Range Filters */}
+          {!isTrash && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">From:</span>
+              <Input
+                type="date"
+                value={startDateVal}
+                onChange={(e) => handleStartDateChange(e.target.value)}
+                className="w-[140px] h-9"
+              />
+              <span className="text-sm font-medium text-muted-foreground">To:</span>
+              <Input
+                type="date"
+                value={endDateVal}
+                onChange={(e) => handleEndDateChange(e.target.value)}
+                className="w-[140px] h-9"
+              />
+            </div>
           )}
         </div>
-
-        {!isTrash && (
-          <Select
-            value={searchParams.get("warehouseId") || (userContext?.isNormalUser ? userContext.defaultWarehouseId || "all" : "all")}
-            onValueChange={(val) => {
-              const params = new URLSearchParams(searchParams.toString());
-              if (val && val !== "all") {
-                params.set("warehouseId", val);
-              } else {
-                params.delete("warehouseId");
-              }
-              params.set("page", "1");
-              router.push(`/dashboard/procurements/grn?${params.toString()}`);
-            }}
-            disabled={userContext?.isNormalUser}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="All Warehouses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Warehouses</SelectItem>
-              {warehouses?.map(w => (
-                <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
 
         <div className="flex items-center gap-2">
           {selectedGRNs.size > 0 && (
@@ -555,6 +620,112 @@ export default function GRNsListClient({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+interface GRNsHeaderActionsProps {
+  canCreate: boolean;
+  grns: any[];
+}
+
+export function GRNsHeaderActions({
+  canCreate,
+  grns,
+}: GRNsHeaderActionsProps) {
+  const { toast } = useToast();
+
+  const handleExportCSV = () => {
+    if (!grns || grns.length === 0) {
+      toast({
+        title: "No data",
+        description: "There are no GRNs to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const csvData = grns.map((grn) => ({
+      "GRN Number": grn.grnNumber,
+      "Source Doc #": grn.source?.number || "-",
+      "Source Type": grn.source?.type || "-",
+      "Origin / Supplier": grn.source?.type === "TPN" ? "TPN Transfer" : grn.source?.supplier?.name || grn.source?.supplier?.company || "Unknown Supplier",
+      "Warehouse": grn.warehouse?.name || "-",
+      "Status": STATUS_LABELS[grn.status as GRNStatus] || grn.status,
+      "Date": format(new Date(grn.date), "yyyy-MM-dd"),
+      "Total (BDT)": grn.grandTotal.toFixed(2),
+    }));
+
+    exportToCSV(csvData, { filename: `grn-report-${format(new Date(), "yyyy-MM-dd")}.csv` });
+  };
+
+  const handleExportPDF = () => {
+    if (!grns || grns.length === 0) {
+      toast({
+        title: "No data",
+        description: "There are no GRNs to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const doc = new jsPDF();
+    
+    doc.setFontSize(18);
+    doc.text("Goods Receipt Notes (GRN) Report", 14, 22);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${format(new Date(), "yyyy-MM-dd HH:mm")}`, 14, 30);
+    
+    const tableData = grns.map((grn) => [
+      grn.grnNumber,
+      grn.source?.number || "-",
+      grn.source?.type === "TPN" ? "TPN Transfer" : grn.source?.supplier?.name || grn.source?.supplier?.company || "Unknown Supplier",
+      grn.warehouse?.name || "-",
+      STATUS_LABELS[grn.status as GRNStatus] || grn.status,
+      format(new Date(grn.date), "yyyy-MM-dd"),
+      `BDT ${grn.grandTotal.toFixed(2)}`
+    ]);
+    
+    autoTable(doc, {
+      startY: 35,
+      head: [["GRN #", "Source Doc #", "Origin / Supplier", "Warehouse", "Status", "Date", "Total"]],
+      body: tableData,
+      theme: "striped",
+      headStyles: { fillColor: [79, 70, 229] }, // indigo-600 color
+    });
+    
+    doc.save(`grn-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline">
+            <FiDownload className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleExportCSV}>
+            Export to CSV
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleExportPDF}>
+            Export to PDF
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {canCreate && (
+        <Button asChild>
+          <Link href="/dashboard/procurements/grn/add">
+            <FiPlus className="mr-2 h-4 w-4" />
+            Add GRN
+          </Link>
+        </Button>
+      )}
     </div>
   );
 }

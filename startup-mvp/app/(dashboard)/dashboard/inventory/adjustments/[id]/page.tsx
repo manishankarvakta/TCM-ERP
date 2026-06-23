@@ -4,9 +4,9 @@ import { getAdjustment } from "../_actions/adjustment.action";
 import AdjustmentDetails from "../_components/adjustment-details";
 
 interface PageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function AdjustmentDetailPage({ params }: PageProps) {

@@ -260,7 +260,9 @@ export async function getTPNs(
   limit: number = 10,
   search: string = "",
   status: "trash" | "all" = "all",
-  warehouseId?: string
+  warehouseId?: string,
+  startDate?: string,
+  endDate?: string
 ) {
   try {
     const session = await auth();
@@ -284,7 +286,15 @@ export async function getTPNs(
 
     const where: Prisma.TransferPurchaseNoteWhereInput = {
       isTrash: status === "trash",
-      ...(isNormalUser && user?.defaultWarehouseId ? { destinationWarehouseId: user.defaultWarehouseId } : warehouseId ? { destinationWarehouseId: warehouseId } : {}),
+      ...(isNormalUser && user?.defaultWarehouseId ? { destinationWarehouseId: user.defaultWarehouseId } : warehouseId && warehouseId !== "all" ? { destinationWarehouseId: warehouseId } : {}),
+      ...(startDate || endDate
+        ? {
+            date: {
+              ...(startDate ? { gte: new Date(new Date(startDate).setHours(0, 0, 0, 0)) } : {}),
+              ...(endDate ? { lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)) } : {}),
+            },
+          }
+        : {}),
     };
 
     if (search) {
@@ -302,15 +312,45 @@ export async function getTPNs(
       include: {
         sourceWarehouse: { select: { name: true } },
         destinationWarehouse: { select: { name: true } },
+        items: {
+          include: {
+            item: { select: { costPrice: true } },
+            variant: { select: { costPrice: true } },
+          }
+        }
       },
       orderBy: { createdAt: 'desc' },
+    });
+
+    const serializedTpns = tpns.map(tpn => {
+      const grandTotal = tpn.items.reduce((sum, item) => {
+        const rate = Number(item.variant?.costPrice || item.item.costPrice || 0);
+        return sum + (Number(item.quantity) * rate);
+      }, 0);
+      return {
+        id: tpn.id,
+        tpnNumber: tpn.tpnNumber,
+        sourceWarehouseId: tpn.sourceWarehouseId,
+        destinationWarehouseId: tpn.destinationWarehouseId,
+        date: tpn.date,
+        status: tpn.status,
+        notes: tpn.notes,
+        isTrash: tpn.isTrash,
+        createdBy: tpn.createdBy,
+        updatedBy: tpn.updatedBy,
+        createdAt: tpn.createdAt,
+        updatedAt: tpn.updatedAt,
+        sourceWarehouse: tpn.sourceWarehouse,
+        destinationWarehouse: tpn.destinationWarehouse,
+        grandTotal,
+      };
     });
 
     const totalPages = Math.ceil(total / limit);
 
     return { 
       success: true, 
-      data: tpns,
+      data: serializedTpns,
       pagination: { page, limit, total, totalPages },
     };
   } catch (error) {

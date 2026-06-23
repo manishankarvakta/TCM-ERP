@@ -1,10 +1,8 @@
 import React from "react";
 import { getTPNs } from "./_actions/tpn.action";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
-import { FiPlus } from "react-icons/fi";
-import TpnListClient from "./_components/tpn-list";
+import TpnListClient, { TPNsHeaderActions } from "./_components/tpn-list";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import { getActiveWarehouses } from "@/app/(dashboard)/dashboard/inventory/stock/_actions/stock.action";
@@ -16,6 +14,8 @@ interface TPNPageProps {
     search?: string;
     tab?: string;
     warehouseId?: string;
+    startDate?: string;
+    endDate?: string;
   }>;
 }
 
@@ -25,31 +25,46 @@ export default async function TPNPage({ searchParams }: TPNPageProps) {
   const search = params.search || "";
   const tab = params.tab || "all";
 
+  const todayStr = new Date().toISOString().split("T")[0];
+  const startDate = params.startDate || todayStr;
+  const endDate = params.endDate || todayStr;
+
   const session = await auth();
   const userId = session?.user?.id;
 
   const dbUser = userId ? await prisma.user.findUnique({
     where: { id: userId },
-    select: { role: true, defaultWarehouseId: true }
+    include: { defaultWarehouse: true },
   }) : null;
 
-  const userContext = {
-    isNormalUser: dbUser?.role !== "admin" && dbUser?.role !== "superadmin",
-    defaultWarehouseId: dbUser?.defaultWarehouseId || null,
-  };
+  const isNormalUser = dbUser?.role !== "admin" && dbUser?.role !== "superadmin";
+
+  const selectedWarehouseId = isNormalUser
+    ? (dbUser?.defaultWarehouseId || "")
+    : (params.warehouseId || "all");
 
   const status = tab === "trash" ? "trash" : "all";
-  const warehouseId = params.warehouseId || (userContext.isNormalUser ? userContext.defaultWarehouseId : undefined) || undefined;
 
-  const [result, warehousesResult, canView, canEdit, canMoveToTrash, canDeletePermanently, canApprove] = await Promise.all([
-    getTPNs(page, 10, search, status, warehouseId),
+  const [result, warehousesResult, canView, canCreate, canEdit, canMoveToTrash, canDeletePermanently, canApprove] = await Promise.all([
+    getTPNs(page, 10, search, status, selectedWarehouseId, startDate, endDate),
     getActiveWarehouses(),
     userId ? hasPermission(userId, "procurements.tpn", "view") : false,
+    userId ? hasPermission(userId, "procurements.tpn", "create") : false,
     userId ? hasPermission(userId, "procurements.tpn", "edit") : false,
     userId ? hasPermission(userId, "procurements.tpn", "move-to-trash") : false,
     userId ? hasPermission(userId, "procurements.tpn", "delete-permanently") : false,
     userId ? hasPermission(userId, "procurements.tpn", "approve") : false,
   ]);
+
+  const activeWarehouses = !isNormalUser
+    ? (warehousesResult.success ? warehousesResult.warehouses : [])
+    : dbUser?.defaultWarehouse
+    ? [{
+        id: dbUser.defaultWarehouse.id,
+        name: dbUser.defaultWarehouse.name,
+        code: dbUser.defaultWarehouse.code,
+      }]
+    : [];
 
   if (!result.success) {
     return (
@@ -77,22 +92,20 @@ export default async function TPNPage({ searchParams }: TPNPageProps) {
           <p className="text-sm text-muted-foreground">Manage warehouse transfers in your system</p>
         </div>
         {tab !== "trash" && (
-          <Button asChild>
-            <Link href="/dashboard/procurements/tpn/add">
-              <FiPlus className="mr-2 h-4 w-4" />
-              New Transfer Note
-            </Link>
-          </Button>
+          <TPNsHeaderActions
+            canCreate={canCreate}
+            tpns={result.data || []}
+          />
         )}
       </div>
 
       <Tabs defaultValue={tab} className="w-full">
         <TabsList>
           <TabsTrigger value="all" asChild>
-            <Link href="/dashboard/procurements/tpn?tab=all&page=1">All Transfers</Link>
+            <Link href={`/dashboard/procurements/tpn?tab=all&page=1&warehouseId=${selectedWarehouseId}&startDate=${startDate}&endDate=${endDate}`}>All Transfers</Link>
           </TabsTrigger>
           <TabsTrigger value="trash" asChild>
-            <Link href="/dashboard/procurements/tpn?tab=trash&page=1">Trash</Link>
+            <Link href={`/dashboard/procurements/tpn?tab=trash&page=1&warehouseId=${selectedWarehouseId}&startDate=${startDate}&endDate=${endDate}`}>Trash</Link>
           </TabsTrigger>
         </TabsList>
         <TabsContent value="all" className="mt-4">
@@ -116,8 +129,11 @@ export default async function TPNPage({ searchParams }: TPNPageProps) {
               deletePermanently: canDeletePermanently,
               approve: canApprove,
             }}
-            warehouses={warehousesResult?.success ? warehousesResult.warehouses : []}
-            userContext={userContext}
+            warehouses={activeWarehouses}
+            selectedWarehouseId={selectedWarehouseId}
+            startDate={startDate}
+            endDate={endDate}
+            canChangeWarehouse={!isNormalUser}
           />
         </TabsContent>
         <TabsContent value="trash" className="mt-4">
@@ -141,8 +157,11 @@ export default async function TPNPage({ searchParams }: TPNPageProps) {
               deletePermanently: canDeletePermanently,
               approve: canApprove,
             }}
-            warehouses={warehousesResult?.success ? warehousesResult.warehouses : []}
-            userContext={userContext}
+            warehouses={activeWarehouses}
+            selectedWarehouseId={selectedWarehouseId}
+            startDate={startDate}
+            endDate={endDate}
+            canChangeWarehouse={!isNormalUser}
           />
         </TabsContent>
       </Tabs>

@@ -22,6 +22,7 @@ interface AdjustmentDetailsProps {
 
 export default function AdjustmentDetails({ adjustment }: AdjustmentDetailsProps) {
   const router = useRouter();
+  const totalAmount = adjustment.items.reduce((sum: number, item: any) => sum + Number(item.amount), 0);
 
   return (
     <div className="space-y-6">
@@ -45,10 +46,10 @@ export default function AdjustmentDetails({ adjustment }: AdjustmentDetailsProps
             <CardTitle>General Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Date</p>
-                <p>{format(new Date(adjustment.date), "dd MMMM yyyy")}</p>
+                <p className="text-sm font-semibold">{format(new Date(adjustment.date), "dd MMMM yyyy")}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Status</p>
@@ -61,15 +62,19 @@ export default function AdjustmentDetails({ adjustment }: AdjustmentDetailsProps
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Warehouse</p>
-                <p>{adjustment.warehouse.name}</p>
+                <p className="text-sm font-semibold">{adjustment.warehouse.name}</p>
               </div>
               <div>
                  <p className="text-sm font-medium text-muted-foreground">Created By</p>
-                 <p>{adjustment.createdByUser.name}</p>
+                 <p className="text-sm font-semibold">{adjustment.createdByUser.name}</p>
               </div>
-               <div>
+              <div>
                  <p className="text-sm font-medium text-muted-foreground">Voucher</p>
-                 <p>{adjustment.voucher?.voucherNumber || "N/A"}</p>
+                 <p className="text-sm font-semibold">{adjustment.voucher?.voucherNumber || "N/A"}</p>
+              </div>
+              <div>
+                 <p className="text-sm font-medium text-muted-foreground">Total Value</p>
+                 <p className="text-sm font-bold text-indigo-600">৳{totalAmount.toFixed(2)}</p>
               </div>
             </div>
             {adjustment.notes && (
@@ -112,6 +117,10 @@ export default function AdjustmentDetails({ adjustment }: AdjustmentDetailsProps
                     <TableCell className="text-right">{Number(item.amount).toFixed(2)}</TableCell>
                   </TableRow>
                 ))}
+                <TableRow className="bg-muted/50 font-medium">
+                  <TableCell colSpan={4} className="text-right font-semibold">Total Value:</TableCell>
+                  <TableCell className="text-right font-bold text-indigo-600">৳{totalAmount.toFixed(2)}</TableCell>
+                </TableRow>
               </TableBody>
             </Table>
           </CardContent>

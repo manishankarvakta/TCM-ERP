@@ -36,6 +36,8 @@ export async function getAdjustments(
     warehouseId?: string;
     search?: string;
     status?: InventoryAdjustmentStatus;
+    startDate?: string;
+    endDate?: string;
   } = {}
 ) {
   try {
@@ -53,12 +55,18 @@ export async function getAdjustments(
     const isNormalUser = user?.role !== "admin" && user?.role !== "superadmin";
 
     const where: any = {};
-    if (filters.warehouseId) {
+    if (filters.warehouseId && filters.warehouseId !== "all") {
       where.warehouseId = filters.warehouseId;
     } else if (isNormalUser && user?.defaultWarehouseId) {
       where.warehouseId = user.defaultWarehouseId;
     }
     if (filters.status) where.status = filters.status;
+    if (filters.startDate || filters.endDate) {
+      where.date = {
+        ...(filters.startDate ? { gte: new Date(new Date(filters.startDate).setHours(0, 0, 0, 0)) } : {}),
+        ...(filters.endDate ? { lte: new Date(new Date(filters.endDate).setHours(23, 59, 59, 999)) } : {}),
+      };
+    }
     if (filters.search) {
       where.OR = [
         { adjustmentNumber: { contains: filters.search, mode: "insensitive" } },
@@ -72,7 +80,8 @@ export async function getAdjustments(
         include: {
           warehouse: { select: { name: true } },
           createdByUser: { select: { name: true } },
-          _count: { select: { items: true } }
+          _count: { select: { items: true } },
+          items: { select: { amount: true } }
         },
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
@@ -81,9 +90,18 @@ export async function getAdjustments(
       prisma.inventoryAdjustment.count({ where }),
     ]);
 
+    const formattedAdjustments = adjustments.map(adj => {
+      const grandTotal = adj.items.reduce((sum, item) => sum + Number(item.amount), 0);
+      const serialized = serialize(adj);
+      return {
+        ...serialized,
+        grandTotal,
+      };
+    });
+
     return {
       success: true,
-      adjustments: adjustments.map(serialize),
+      adjustments: formattedAdjustments,
       pagination: {
         page,
         limit,

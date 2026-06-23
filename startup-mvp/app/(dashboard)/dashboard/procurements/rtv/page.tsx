@@ -1,39 +1,61 @@
 import React from "react";
 import { getReturnsToVendor } from "./_actions/rtv.action";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { FiPlus } from "react-icons/fi";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import RTVListClient from "./_components/rtv-list-client";
+import RTVListClient, { RTVHeaderActions } from "./_components/rtv-list-client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getActiveWarehouses } from "@/app/(dashboard)/dashboard/inventory/stock/_actions/stock.action";
+import { hasPermission } from "@/lib/permissions";
 
-export default async function RTVPage({ searchParams }: { searchParams: Promise<{ page?: string; search?: string; warehouseId?: string }> }) {
+interface RTVPageProps {
+  searchParams: Promise<{
+    page?: string;
+    search?: string;
+    warehouseId?: string;
+    startDate?: string;
+    endDate?: string;
+  }>;
+}
+
+export default async function RTVPage({ searchParams }: RTVPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
   const search = params.search || "";
+
+  const todayStr = new Date().toISOString().split("T")[0];
+  const startDate = params.startDate || todayStr;
+  const endDate = params.endDate || todayStr;
 
   const session = await auth();
   const userId = session?.user?.id;
 
   const dbUser = userId ? await prisma.user.findUnique({
     where: { id: userId },
-    select: { role: true, defaultWarehouseId: true }
+    include: { defaultWarehouse: true },
   }) : null;
 
-  const userContext = {
-    isNormalUser: dbUser?.role !== "admin" && dbUser?.role !== "superadmin",
-    defaultWarehouseId: dbUser?.defaultWarehouseId || null,
-  };
+  const isNormalUser = dbUser?.role !== "admin" && dbUser?.role !== "superadmin";
 
-  const warehouseId = params.warehouseId || (userContext.isNormalUser ? userContext.defaultWarehouseId : undefined) || undefined;
+  const selectedWarehouseId = isNormalUser
+    ? (dbUser?.defaultWarehouseId || "")
+    : (params.warehouseId || "all");
 
-  const [result, warehousesResult] = await Promise.all([
-    getReturnsToVendor(page, 10, search, warehouseId),
+  const [result, warehousesResult, canView, canCreate] = await Promise.all([
+    getReturnsToVendor(page, 10, search, selectedWarehouseId, startDate, endDate),
     getActiveWarehouses(),
+    userId ? hasPermission(userId, "procurements.rtv", "view") : false,
+    userId ? hasPermission(userId, "procurements.rtv", "create") : false,
   ]);
+
+  const activeWarehouses = !isNormalUser
+    ? (warehousesResult.success ? warehousesResult.warehouses : [])
+    : dbUser?.defaultWarehouse
+    ? [{
+        id: dbUser.defaultWarehouse.id,
+        name: dbUser.defaultWarehouse.name,
+        code: dbUser.defaultWarehouse.code,
+      }]
+    : [];
 
   if (!result.success) {
     return (
@@ -51,20 +73,21 @@ export default async function RTVPage({ searchParams }: { searchParams: Promise<
           <h1 className="text-2xl font-semibold">Returns to Vendor (RTV)</h1>
           <p className="text-sm text-muted-foreground">Manage supplier returns</p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/procurements/rtv/new">
-            <FiPlus className="mr-2 h-4 w-4" aria-hidden="true" />
-            New Return
-          </Link>
-        </Button>
+        <RTVHeaderActions
+          canCreate={canCreate}
+          rtvs={result.rtvs || []}
+        />
       </div>
 
       <RTVListClient 
         initialData={result.rtvs || []} 
         pagination={result.pagination || { page: 1, limit: 10, total: 0, totalPages: 0 }} 
         searchStr={search} 
-        warehouses={warehousesResult?.success ? warehousesResult.warehouses : []}
-        userContext={userContext}
+        warehouses={activeWarehouses}
+        selectedWarehouseId={selectedWarehouseId}
+        startDate={startDate}
+        endDate={endDate}
+        canChangeWarehouse={!isNormalUser}
       />
     </div>
   );

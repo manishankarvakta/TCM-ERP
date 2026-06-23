@@ -425,7 +425,9 @@ export async function getGRNs(
   limit: number = 10,
   search: string = "",
   status: "all" | "trash" = "all",
-  warehouseId?: string
+  warehouseId?: string,
+  startDate?: string,
+  endDate?: string
 ) {
   try {
     const session = await auth();
@@ -438,9 +440,24 @@ export async function getGRNs(
 
     const skip = (page - 1) * limit;
 
+    let targetWarehouseId: string | undefined = undefined;
+    if (isNormalUser) {
+      targetWarehouseId = user?.defaultWarehouseId || undefined;
+    } else if (warehouseId && warehouseId !== "all") {
+      targetWarehouseId = warehouseId;
+    }
+
     const where: Prisma.GRNWhereInput = {
       isTrash: status === "trash",
-      ...(isNormalUser && user?.defaultWarehouseId ? { warehouseId: user.defaultWarehouseId } : warehouseId ? { warehouseId } : {}),
+      ...(targetWarehouseId ? { warehouseId: targetWarehouseId } : {}),
+      ...(startDate || endDate
+        ? {
+            date: {
+              ...(startDate ? { gte: new Date(new Date(startDate).setHours(0, 0, 0, 0)) } : {}),
+              ...(endDate ? { lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)) } : {}),
+            },
+          }
+        : {}),
       ...(search
         ? {
             OR: [

@@ -35,8 +35,14 @@ import {
   FiRotateCw,
   FiEye,
   FiTruck,
-  FiCheckSquare
+  FiCheckSquare,
+  FiDownload,
+  FiPlus
 } from "react-icons/fi";
+import Link from "next/link";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { exportToCSV } from "@/lib/utils/export-csv";
 import {
   deleteTPN,
   bulkUpdateTPNStatus,
@@ -68,6 +74,7 @@ interface TPN {
   isTrash: boolean;
   sourceWarehouse: { name: string } | null;
   destinationWarehouse: { name: string } | null;
+  grandTotal: number;
 }
 
 interface Pagination {
@@ -90,11 +97,11 @@ interface TpnListClientProps {
     deletePermanently: boolean;
     approve: boolean;
   };
-  warehouses?: any[];
-  userContext?: {
-    isNormalUser: boolean;
-    defaultWarehouseId: string | null;
-  };
+  warehouses: Array<{ id: string; name: string; code: string }>;
+  selectedWarehouseId: string;
+  startDate: string;
+  endDate: string;
+  canChangeWarehouse: boolean;
 }
 
 const STATUS_LABELS: Record<TransferStatus, string> = {
@@ -112,7 +119,10 @@ export default function TpnListClient({
   userId: providedUserId,
   permissions,
   warehouses = [],
-  userContext,
+  selectedWarehouseId,
+  startDate,
+  endDate,
+  canChangeWarehouse,
 }: TpnListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -124,6 +134,43 @@ export default function TpnListClient({
   const [selectedTPNs, setSelectedTPNs] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+
+  const [warehouseId, setWarehouseId] = useState(selectedWarehouseId);
+  const [startDateVal, setStartDateVal] = useState(startDate);
+  const [endDateVal, setEndDateVal] = useState(endDate);
+
+  const updateFilters = (newParams: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    
+    Object.entries(newParams).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    });
+
+    const tab = searchParams.get("tab") || "all";
+    params.set("tab", tab);
+    
+    router.push(`/dashboard/procurements/tpn?${params.toString()}`);
+  };
+
+  const handleWarehouseChange = (val: string) => {
+    setWarehouseId(val);
+    updateFilters({ warehouseId: val });
+  };
+
+  const handleStartDateChange = (val: string) => {
+    setStartDateVal(val);
+    updateFilters({ startDate: val });
+  };
+
+  const handleEndDateChange = (val: string) => {
+    setEndDateVal(val);
+    updateFilters({ endDate: val });
+  };
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -292,53 +339,72 @@ export default function TpnListClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by TPN number..."
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="pl-10"
-          />
-          {search && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-              onClick={() => handleSearch("")}
-            >
-              <FiX className="h-4 w-4" />
-            </Button>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="relative flex-1 min-w-[240px] max-w-sm">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by TPN number..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="pl-10"
+            />
+            {search && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => handleSearch("")}
+              >
+                <FiX className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          {/* Warehouse Filter */}
+          {!isTrash && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">Warehouse:</span>
+              <Select
+                value={warehouseId}
+                onValueChange={(val) => handleWarehouseChange(val)}
+                disabled={!canChangeWarehouse}
+              >
+                <SelectTrigger className="w-[180px] h-9">
+                  <SelectValue placeholder="Select warehouse" />
+                </SelectTrigger>
+                <SelectContent>
+                  {canChangeWarehouse && <SelectItem value="all">All Warehouses</SelectItem>}
+                  {warehouses.map((w) => (
+                    <SelectItem key={w.id} value={w.id}>
+                      {w.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Date Range Filters */}
+          {!isTrash && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">From:</span>
+              <Input
+                type="date"
+                value={startDateVal}
+                onChange={(e) => handleStartDateChange(e.target.value)}
+                className="w-[140px] h-9"
+              />
+              <span className="text-sm font-medium text-muted-foreground">To:</span>
+              <Input
+                type="date"
+                value={endDateVal}
+                onChange={(e) => handleEndDateChange(e.target.value)}
+                className="w-[140px] h-9"
+              />
+            </div>
           )}
         </div>
-
-        {!isTrash && (
-          <Select
-            value={searchParams.get("warehouseId") || (userContext?.isNormalUser ? userContext.defaultWarehouseId || "all" : "all")}
-            onValueChange={(val) => {
-              const params = new URLSearchParams(searchParams.toString());
-              if (val && val !== "all") {
-                params.set("warehouseId", val);
-              } else {
-                params.delete("warehouseId");
-              }
-              params.set("page", "1");
-              router.push(`/dashboard/procurements/tpn?${params.toString()}`);
-            }}
-            disabled={userContext?.isNormalUser}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="All Warehouses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Warehouses</SelectItem>
-              {warehouses?.map(w => (
-                <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
 
         <div className="flex items-center gap-2">
           {selectedTPNs.size > 0 && (
@@ -405,6 +471,7 @@ export default function TpnListClient({
               <TableHead>Date</TableHead>
               <TableHead>Source</TableHead>
               <TableHead>Destination</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -412,7 +479,7 @@ export default function TpnListClient({
           <TableBody>
             {initialTPNs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed transfer notes found" : "No transfer notes found"}
                 </TableCell>
               </TableRow>
@@ -439,6 +506,9 @@ export default function TpnListClient({
                     </TableCell>
                     <TableCell>{tpn.sourceWarehouse?.name}</TableCell>
                     <TableCell>{tpn.destinationWarehouse?.name}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      ৳{Number(tpn.grandTotal).toLocaleString()}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={
                         tpn.status === "RECEIVED" ? "default" : 
@@ -674,6 +744,109 @@ export default function TpnListClient({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+interface TPNsHeaderActionsProps {
+  canCreate: boolean;
+  tpns: any[];
+}
+
+export function TPNsHeaderActions({
+  canCreate,
+  tpns,
+}: TPNsHeaderActionsProps) {
+  const { toast } = useToast();
+
+  const handleExportCSV = () => {
+    if (!tpns || tpns.length === 0) {
+      toast({
+        title: "No data",
+        description: "There are no TPNs to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const csvData = tpns.map((tpn) => ({
+      "TPN Number": tpn.tpnNumber,
+      "Source Warehouse": tpn.sourceWarehouse?.name || "-",
+      "Destination Warehouse": tpn.destinationWarehouse?.name || "-",
+      "Amount (BDT)": Number(tpn.grandTotal || 0).toFixed(2),
+      "Status": STATUS_LABELS[tpn.status as TransferStatus] || tpn.status,
+      "Date": format(new Date(tpn.date), "yyyy-MM-dd"),
+    }));
+
+    exportToCSV(csvData, { filename: `tpn-report-${format(new Date(), "yyyy-MM-dd")}.csv` });
+  };
+
+  const handleExportPDF = () => {
+    if (!tpns || tpns.length === 0) {
+      toast({
+        title: "No data",
+        description: "There are no TPNs to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const doc = new jsPDF();
+    
+    doc.setFontSize(18);
+    doc.text("Transfer Purchase Notes (TPN) Report", 14, 22);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${format(new Date(), "yyyy-MM-dd HH:mm")}`, 14, 30);
+    
+    const tableData = tpns.map((tpn) => [
+      tpn.tpnNumber,
+      tpn.sourceWarehouse?.name || "-",
+      tpn.destinationWarehouse?.name || "-",
+      `BDT ${Number(tpn.grandTotal || 0).toFixed(2)}`,
+      STATUS_LABELS[tpn.status as TransferStatus] || tpn.status,
+      format(new Date(tpn.date), "yyyy-MM-dd")
+    ]);
+    
+    autoTable(doc, {
+      startY: 35,
+      head: [["TPN #", "Source Warehouse", "Destination Warehouse", "Amount", "Status", "Date"]],
+      body: tableData,
+      theme: "striped",
+      headStyles: { fillColor: [79, 70, 229] }, // indigo-600 color
+    });
+    
+    doc.save(`tpn-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline">
+            <FiDownload className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleExportCSV}>
+            Export to CSV
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleExportPDF}>
+            Export to PDF
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {canCreate && (
+        <Button asChild>
+          <Link href="/dashboard/procurements/tpn/add">
+            <FiPlus className="mr-2 h-4 w-4" />
+            Add TPN
+          </Link>
+        </Button>
+      )}
     </div>
   );
 }

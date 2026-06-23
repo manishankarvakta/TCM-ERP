@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { FiSearch, FiChevronLeft, FiChevronRight, FiEye } from "react-icons/fi";
+import { FiSearch, FiChevronLeft, FiChevronRight, FiEye, FiDownload, FiPlus } from "react-icons/fi";
 import { useDebounce } from "@/hooks/use-debounce";
 import Link from "next/link";
 import {
@@ -24,6 +24,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { exportToCSV } from "@/lib/utils/export-csv";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import type { ReturnToVendorStatus } from "@prisma/client";
 
 interface RTVListClientProps {
   initialData: any[];
@@ -34,18 +46,31 @@ interface RTVListClientProps {
     totalPages: number;
   };
   searchStr: string;
-  warehouses?: any[];
-  userContext?: {
-    isNormalUser: boolean;
-    defaultWarehouseId: string | null;
-  };
+  warehouses: Array<{ id: string; name: string; code: string }>;
+  selectedWarehouseId: string;
+  startDate: string;
+  endDate: string;
+  canChangeWarehouse: boolean;
 }
 
-export default function RTVListClient({ initialData, pagination, searchStr, warehouses = [], userContext }: RTVListClientProps) {
+export default function RTVListClient({
+  initialData,
+  pagination,
+  searchStr,
+  warehouses = [],
+  selectedWarehouseId,
+  startDate,
+  endDate,
+  canChangeWarehouse,
+}: RTVListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(searchStr);
   
+  const [warehouseId, setWarehouseId] = useState(selectedWarehouseId);
+  const [startDateVal, setStartDateVal] = useState(startDate);
+  const [endDateVal, setEndDateVal] = useState(endDate);
+
   const debouncedSearch = useDebounce(search, 300);
 
   useEffect(() => {
@@ -61,6 +86,36 @@ export default function RTVListClient({ initialData, pagination, searchStr, ware
     }
   }, [debouncedSearch, searchStr, searchParams, router]);
 
+  const updateFilters = (newParams: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    
+    Object.entries(newParams).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    });
+    
+    router.push(`/dashboard/procurements/rtv?${params.toString()}`);
+  };
+
+  const handleWarehouseChange = (val: string) => {
+    setWarehouseId(val);
+    updateFilters({ warehouseId: val });
+  };
+
+  const handleStartDateChange = (val: string) => {
+    setStartDateVal(val);
+    updateFilters({ startDate: val });
+  };
+
+  const handleEndDateChange = (val: string) => {
+    setEndDateVal(val);
+    updateFilters({ endDate: val });
+  };
+
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", newPage.toString());
@@ -69,41 +124,59 @@ export default function RTVListClient({ initialData, pagination, searchStr, ware
 
   return (
     <Card>
-      <div className="p-4 flex flex-col sm:flex-row gap-4 justify-between items-center border-b">
-        <div className="relative w-full sm:w-72">
-          <FiSearch className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <Input
-            placeholder="Search RTVs..."
-            className="pl-8"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="Search returns to vendor"
-          />
+      <div className="p-4 flex flex-wrap items-center justify-between gap-4 border-b">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="relative w-full sm:w-72">
+            <FiSearch className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <Input
+              placeholder="Search RTVs..."
+              className="pl-8"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search returns to vendor"
+            />
+          </div>
+
+          {/* Warehouse Filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">Warehouse:</span>
+            <Select
+              value={warehouseId}
+              onValueChange={(val) => handleWarehouseChange(val)}
+              disabled={!canChangeWarehouse}
+            >
+              <SelectTrigger className="w-[180px] h-9">
+                <SelectValue placeholder="Select warehouse" />
+              </SelectTrigger>
+              <SelectContent>
+                {canChangeWarehouse && <SelectItem value="all">All Warehouses</SelectItem>}
+                {warehouses.map((w) => (
+                  <SelectItem key={w.id} value={w.id}>
+                    {w.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Date Range Filters */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">From:</span>
+            <Input
+              type="date"
+              value={startDateVal}
+              onChange={(e) => handleStartDateChange(e.target.value)}
+              className="w-[140px] h-9"
+            />
+            <span className="text-sm font-medium text-muted-foreground">To:</span>
+            <Input
+              type="date"
+              value={endDateVal}
+              onChange={(e) => handleEndDateChange(e.target.value)}
+              className="w-[140px] h-9"
+            />
+          </div>
         </div>
-        <Select
-          value={searchParams.get("warehouseId") || (userContext?.isNormalUser ? userContext.defaultWarehouseId || "all" : "all")}
-          onValueChange={(val) => {
-            const params = new URLSearchParams(searchParams.toString());
-            if (val && val !== "all") {
-              params.set("warehouseId", val);
-            } else {
-              params.delete("warehouseId");
-            }
-            params.set("page", "1");
-            router.push(`/dashboard/procurements/rtv?${params.toString()}`);
-          }}
-          disabled={userContext?.isNormalUser}
-        >
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="All Warehouses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Warehouses</SelectItem>
-            {warehouses?.map(w => (
-              <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
       <CardContent className="p-0">
         <div className="rounded-md border-0 overflow-x-auto">
@@ -185,5 +258,108 @@ export default function RTVListClient({ initialData, pagination, searchStr, ware
         )}
       </CardContent>
     </Card>
+  );
+}
+
+interface RTVHeaderActionsProps {
+  canCreate: boolean;
+  rtvs: any[];
+}
+
+export function RTVHeaderActions({
+  canCreate,
+  rtvs,
+}: RTVHeaderActionsProps) {
+  const { toast } = useToast();
+
+  const handleExportCSV = () => {
+    if (!rtvs || rtvs.length === 0) {
+      toast({
+        title: "No data",
+        description: "There are no RTVs to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const csvData = rtvs.map((rtv) => ({
+      "RTV Number": rtv.rtvNumber,
+      "Supplier": rtv.supplier?.name || "-",
+      "Warehouse": rtv.warehouse?.name || "-",
+      "Amount (BDT)": Number(rtv.grandTotal).toFixed(2),
+      "Status": rtv.status,
+      "Date": format(new Date(rtv.date), "yyyy-MM-dd"),
+    }));
+
+    exportToCSV(csvData, { filename: `rtv-report-${format(new Date(), "yyyy-MM-dd")}.csv` });
+  };
+
+  const handleExportPDF = () => {
+    if (!rtvs || rtvs.length === 0) {
+      toast({
+        title: "No data",
+        description: "There are no RTVs to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const doc = new jsPDF();
+    
+    doc.setFontSize(18);
+    doc.text("Returns to Vendor (RTV) Report", 14, 22);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${format(new Date(), "yyyy-MM-dd HH:mm")}`, 14, 30);
+    
+    const tableData = rtvs.map((rtv) => [
+      rtv.rtvNumber,
+      rtv.supplier?.name || "-",
+      rtv.warehouse?.name || "-",
+      rtv.status,
+      format(new Date(rtv.date), "yyyy-MM-dd"),
+      `BDT ${Number(rtv.grandTotal).toFixed(2)}`
+    ]);
+    
+    autoTable(doc, {
+      startY: 35,
+      head: [["RTV #", "Supplier", "Warehouse", "Status", "Date", "Amount"]],
+      body: tableData,
+      theme: "striped",
+      headStyles: { fillColor: [79, 70, 229] }, // indigo-600 color
+    });
+    
+    doc.save(`rtv-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline">
+            <FiDownload className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleExportCSV}>
+            Export to CSV
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleExportPDF}>
+            Export to PDF
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {canCreate && (
+        <Button asChild>
+          <Link href="/dashboard/procurements/rtv/new">
+            <FiPlus className="mr-2 h-4 w-4" />
+            Add RTV
+          </Link>
+        </Button>
+      )}
+    </div>
   );
 }

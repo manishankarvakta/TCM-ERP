@@ -18,6 +18,10 @@ import { getAdjustment } from "@/app/(dashboard)/dashboard/inventory/adjustments
 import { getSaleById } from "@/app/(dashboard)/dashboard/sales/_actions/sale.action";
 import { getEmployeeById } from "@/app/(dashboard)/dashboard/employees/_actions/employee.action";
 import { getClientById } from "@/app/(dashboard)/dashboard/clients/_actions/client.action";
+import { getGRNById } from "@/app/(dashboard)/dashboard/procurements/grn/_actions/grn.action";
+import { getTPNById } from "@/app/(dashboard)/dashboard/procurements/tpn/_actions/tpn.action";
+import { getReturnToVendorById } from "@/app/(dashboard)/dashboard/procurements/rtv/_actions/rtv.action";
+import { getDamage } from "@/app/(dashboard)/dashboard/inventory/damage/_actions/damage.action";
 
 
 // Map route paths to display names
@@ -115,6 +119,10 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const [saleNumber, setSaleNumber] = useState<string | null>(null);
   const [employeeCode, setEmployeeCode] = useState<string | null>(null);
   const [clientCode, setClientCode] = useState<string | null>(null);
+  const [grnNumber, setGrnNumber] = useState<string | null>(null);
+  const [tpnNumber, setTpnNumber] = useState<string | null>(null);
+  const [rtvNumber, setRtvNumber] = useState<string | null>(null);
+  const [damageNumber, setDamageNumber] = useState<string | null>(null);
   const items = getBreadcrumbItems(pathname);
 
   // Check if we're on an inventory adjustment detail page
@@ -139,6 +147,109 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
     fetchAdjustment();
     return () => { cancelled = true; };
   }, [adjustmentId]);
+
+  // Check if we're on a GRN detail or view page
+  const isGRNDetailMatch = pathname.match(/^\/dashboard\/procurements\/grn\/([^\/]+)$/);
+  const isGRNViewMatch = pathname.match(/^\/dashboard\/procurements\/grn\/([^\/]+)\/view$/);
+  const grnId = isGRNDetailMatch?.[1] || isGRNViewMatch?.[1] || null;
+
+  // Fetch GRN number
+  useEffect(() => {
+    if (!grnId) return;
+
+    let cancelled = false;
+    async function fetchGRN() {
+      try {
+        const result = await getGRNById(grnId!);
+        if (!cancelled && result.success && result.grn) {
+          setGrnNumber(result.grn.grnNumber);
+        }
+      } catch (error) {
+        if (!cancelled) console.error("Error fetching GRN:", error);
+      }
+    }
+    fetchGRN();
+    return () => {
+      cancelled = true;
+    };
+  }, [grnId]);
+
+  // Check if we're on a TPN detail page
+  const isTPNDetailMatch = pathname.match(/^\/dashboard\/procurements\/tpn\/([^\/]+)$/);
+  const tpnId = isTPNDetailMatch?.[1] || null;
+
+  // Fetch TPN number
+  useEffect(() => {
+    if (!tpnId) return;
+
+    let cancelled = false;
+    async function fetchTPN() {
+      try {
+        const result = await getTPNById(tpnId!);
+        if (!cancelled && result.success && result.data) {
+          setTpnNumber(result.data.tpnNumber);
+        }
+      } catch (error) {
+        if (!cancelled) console.error("Error fetching TPN:", error);
+      }
+    }
+    fetchTPN();
+    return () => {
+      cancelled = true;
+    };
+  }, [tpnId]);
+
+  // Check if we're on an RTV detail or view page
+  const isRTVDetailMatch = pathname.match(/^\/dashboard\/procurements\/rtv\/([^\/]+)$/);
+  const isRTVViewMatch = pathname.match(/^\/dashboard\/procurements\/rtv\/([^\/]+)\/view$/);
+  const rtvId = isRTVDetailMatch?.[1] || isRTVViewMatch?.[1] || null;
+
+  // Fetch RTV number
+  useEffect(() => {
+    if (!rtvId) return;
+
+    let cancelled = false;
+    async function fetchRTV() {
+      try {
+        const result = await getReturnToVendorById(rtvId!);
+        if (!cancelled && result.success && result.rtv) {
+          setRtvNumber(result.rtv.rtvNumber);
+        }
+      } catch (error) {
+        if (!cancelled) console.error("Error fetching RTV:", error);
+      }
+    }
+    fetchRTV();
+    return () => {
+      cancelled = true;
+    };
+  }, [rtvId]);
+
+  // Check if we're on a Damage detail page
+  const isDamageDetailMatch = pathname.match(/^\/dashboard\/inventory\/damage\/([^\/]+)$/);
+  const isDamageEditMatch = pathname.match(/^\/dashboard\/inventory\/damage\/([^\/]+)\/edit$/);
+  const damageId = isDamageDetailMatch?.[1] || isDamageEditMatch?.[1] || null;
+
+  // Fetch Damage number
+  useEffect(() => {
+    if (!damageId) return;
+
+    let cancelled = false;
+    async function fetchDamage() {
+      try {
+        const result = await getDamage(damageId!);
+        if (!cancelled && result.success && result.damage) {
+          setDamageNumber(result.damage.damageNumber);
+        }
+      } catch (error) {
+        if (!cancelled) console.error("Error fetching Damage:", error);
+      }
+    }
+    fetchDamage();
+    return () => {
+      cancelled = true;
+    };
+  }, [damageId]);
 
   // Check if we're on a unit detail or edit page
   const isUnitDetailMatch = pathname.match(/^\/dashboard\/master\/units\/([^\/]+)$/);
@@ -172,9 +283,9 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
   const productionOrderId = isProductionOrderDetailMatch?.[1] || isProductionOrderEditMatch?.[1] || null;
 
   // Check if we're on a purchase detail, edit, or view page
-  const isPurchaseDetailMatch = pathname.match(/^\/dashboard\/purchases\/([^\/]+)$/);
-  const isPurchaseEditMatch = pathname.match(/^\/dashboard\/purchases\/([^\/]+)\/edit$/);
-  const isPurchaseViewMatch = pathname.match(/^\/dashboard\/purchases\/([^\/]+)\/view$/);
+  const isPurchaseDetailMatch = pathname.match(/^\/dashboard\/procurements\/purchases\/([^\/]+)$/);
+  const isPurchaseEditMatch = pathname.match(/^\/dashboard\/procurements\/purchases\/([^\/]+)\/edit$/);
+  const isPurchaseViewMatch = pathname.match(/^\/dashboard\/procurements\/purchases\/([^\/]+)\/view$/);
   const purchaseId = isPurchaseDetailMatch?.[1] || isPurchaseEditMatch?.[1] || isPurchaseViewMatch?.[1] || null;
 
   // Check if we're on a voucher detail page
@@ -813,6 +924,66 @@ export default function BreadcrumbNav({ className }: BreadcrumbNavProps) {
         currentLabel = adjustmentNumber;
      } else {
         currentLabel = "Adjustment Details";
+     }
+  }
+
+  if (isGRNDetailMatch || isGRNViewMatch) {
+     const grnItem = items.find(item => item.path === "/dashboard/procurements/grn");
+     if (grnItem) {
+        parentItem = grnItem;
+     } else {
+        parentItem = { path: "/dashboard/procurements/grn", label: "GRN" };
+     }
+
+     if (grnNumber) {
+        currentLabel = grnNumber;
+     } else {
+        currentLabel = "GRN Details";
+     }
+  }
+
+  if (isTPNDetailMatch) {
+     const tpnItem = items.find(item => item.path === "/dashboard/procurements/tpn");
+     if (tpnItem) {
+        parentItem = tpnItem;
+     } else {
+        parentItem = { path: "/dashboard/procurements/tpn", label: "TPN" };
+     }
+
+     if (tpnNumber) {
+        currentLabel = tpnNumber;
+     } else {
+        currentLabel = "TPN Details";
+     }
+  }
+
+  if (isRTVDetailMatch || isRTVViewMatch) {
+     const rtvItem = items.find(item => item.path === "/dashboard/procurements/rtv");
+     if (rtvItem) {
+        parentItem = rtvItem;
+     } else {
+        parentItem = { path: "/dashboard/procurements/rtv", label: "RTV" };
+     }
+
+     if (rtvNumber) {
+        currentLabel = rtvNumber;
+     } else {
+        currentLabel = "RTV Details";
+     }
+  }
+
+  if (isDamageDetailMatch || isDamageEditMatch) {
+     const damageItem = items.find(item => item.path === "/dashboard/inventory/damage");
+     if (damageItem) {
+        parentItem = damageItem;
+     } else {
+        parentItem = { path: "/dashboard/inventory/damage", label: "Damage" };
+     }
+
+     if (damageNumber) {
+        currentLabel = isDamageEditMatch ? `Edit ${damageNumber}` : damageNumber;
+     } else {
+        currentLabel = isDamageEditMatch ? "Edit Damage" : "Damage Details";
      }
   }
 

@@ -199,7 +199,10 @@ export async function getPurchases(
   page: number = 1,
   limit: number = 10,
   search: string = "",
-  status: "trash" | "all" = "all"
+  status: "trash" | "all" = "all",
+  warehouseId?: string,
+  startDate?: string,
+  endDate?: string
 ) {
   try {
     const session = await auth();
@@ -221,10 +224,24 @@ export async function getPurchases(
 
     const isNormalUser = user?.role !== "admin" && user?.role !== "superadmin";
 
+    let targetWarehouseId: string | undefined = undefined;
+    if (isNormalUser) {
+      targetWarehouseId = user?.defaultWarehouseId || undefined;
+    } else if (warehouseId && warehouseId !== "all") {
+      targetWarehouseId = warehouseId;
+    }
+
     const where: Prisma.PurchaseWhereInput = {
       isTrash: status === "trash",
-      ...(isNormalUser && user?.defaultWarehouseId ? { warehouseId: user.defaultWarehouseId } : {}),
+      ...(targetWarehouseId ? { warehouseId: targetWarehouseId } : {}),
     };
+
+    if (startDate || endDate) {
+      where.date = {
+        ...(startDate ? { gte: new Date(new Date(startDate).setHours(0, 0, 0, 0)) } : {}),
+        ...(endDate ? { lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)) } : {}),
+      };
+    }
 
     if (search) {
       where.OR = [

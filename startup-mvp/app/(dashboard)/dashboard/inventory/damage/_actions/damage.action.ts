@@ -35,6 +35,8 @@ export async function getDamages(
     search?: string;
     status?: InventoryDamageStatus;
     isTrash?: boolean;
+    startDate?: string;
+    endDate?: string;
   } = {}
 ) {
   try {
@@ -52,12 +54,18 @@ export async function getDamages(
     const isNormalUser = user?.role !== "admin" && user?.role !== "superadmin";
 
     const where: any = { isTrash: filters.isTrash ?? false };
-    if (filters.warehouseId) {
+    if (filters.warehouseId && filters.warehouseId !== "all") {
       where.warehouseId = filters.warehouseId;
     } else if (isNormalUser && user?.defaultWarehouseId) {
       where.warehouseId = user.defaultWarehouseId;
     }
     if (filters.status) where.status = filters.status;
+    if (filters.startDate || filters.endDate) {
+      where.date = {
+        ...(filters.startDate ? { gte: new Date(new Date(filters.startDate).setHours(0, 0, 0, 0)) } : {}),
+        ...(filters.endDate ? { lte: new Date(new Date(filters.endDate).setHours(23, 59, 59, 999)) } : {}),
+      };
+    }
     if (filters.search) {
       where.OR = [
         { damageNumber: { contains: filters.search, mode: "insensitive" } },
@@ -71,7 +79,8 @@ export async function getDamages(
         include: {
           warehouse: { select: { name: true } },
           createdByUser: { select: { name: true } },
-          _count: { select: { items: true } }
+          _count: { select: { items: true } },
+          items: { select: { amount: true } }
         },
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
@@ -80,9 +89,18 @@ export async function getDamages(
       prisma.inventoryDamage.count({ where }),
     ]);
 
+    const formattedDamages = damages.map(dmg => {
+      const grandTotal = dmg.items.reduce((sum, item) => sum + Number(item.amount), 0);
+      const serialized = serialize(dmg);
+      return {
+        ...serialized,
+        grandTotal,
+      };
+    });
+
     return {
       success: true,
-      damages: damages.map(serialize),
+      damages: formattedDamages,
       pagination: {
         page,
         limit,

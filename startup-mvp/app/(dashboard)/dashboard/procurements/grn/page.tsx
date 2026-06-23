@@ -2,13 +2,11 @@ import React from "react";
 import { getGRNs } from "./_actions/grn.action";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
-import GRNsListClient from "./_components/grns";
+import GRNsListClient, { GRNsHeaderActions } from "./_components/grns";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import { getActiveWarehouses } from "@/app/(dashboard)/dashboard/inventory/stock/_actions/stock.action";
 import { prisma } from "@/lib/prisma";
-import { Button } from "@/components/ui/button";
-import { FiPlus } from "react-icons/fi";
 
 interface GRNsPageProps {
   searchParams: Promise<{
@@ -16,6 +14,8 @@ interface GRNsPageProps {
     search?: string;
     tab?: string;
     warehouseId?: string;
+    startDate?: string;
+    endDate?: string;
   }>;
 }
 
@@ -25,24 +25,28 @@ export default async function GRNsPage({ searchParams }: GRNsPageProps) {
   const search = params.search || "";
   const tab = params.tab || "all";
 
+  const todayStr = new Date().toISOString().split("T")[0];
+  const startDate = params.startDate || todayStr;
+  const endDate = params.endDate || todayStr;
+
   const session = await auth();
   const userId = session?.user?.id;
 
-  const dbUser = userId ? await prisma.user.findUnique({
+  const user = userId ? await prisma.user.findUnique({
     where: { id: userId },
-    select: { role: true, defaultWarehouseId: true }
+    include: { defaultWarehouse: true },
   }) : null;
 
-  const userContext = {
-    isNormalUser: dbUser?.role !== "admin" && dbUser?.role !== "superadmin",
-    defaultWarehouseId: dbUser?.defaultWarehouseId || null,
-  };
+  const isNormalUser = user?.role !== "admin" && user?.role !== "superadmin";
+
+  const selectedWarehouseId = isNormalUser
+    ? (user?.defaultWarehouseId || "")
+    : (params.warehouseId || "all");
 
   const status = tab === "trash" ? "trash" : "all";
-  const warehouseId = params.warehouseId || (userContext.isNormalUser ? userContext.defaultWarehouseId : undefined) || undefined;
 
   const [result, warehousesResult, canView, canCreate, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
-    getGRNs(page, 10, search, status, warehouseId),
+    getGRNs(page, 10, search, status, selectedWarehouseId, startDate, endDate),
     getActiveWarehouses(),
     userId ? hasPermission(userId, "procurements.grn", "view") : false,
     userId ? hasPermission(userId, "procurements.grn", "create") : false,
@@ -50,6 +54,16 @@ export default async function GRNsPage({ searchParams }: GRNsPageProps) {
     userId ? hasPermission(userId, "procurements.grn", "move-to-trash") : false,
     userId ? hasPermission(userId, "procurements.grn", "delete-permanently") : false,
   ]);
+
+  const activeWarehouses = !isNormalUser
+    ? (warehousesResult.success ? warehousesResult.warehouses : [])
+    : user?.defaultWarehouse
+    ? [{
+        id: user.defaultWarehouse.id,
+        name: user.defaultWarehouse.name,
+        code: user.defaultWarehouse.code,
+      }]
+    : [];
 
   if (!result.success) {
     return (
@@ -76,23 +90,21 @@ export default async function GRNsPage({ searchParams }: GRNsPageProps) {
           <h1 className="text-2xl font-semibold">Goods Receipt Notes</h1>
           <p className="text-sm text-muted-foreground">Manage Goods Receipt Notes in your system</p>
         </div>
-        {tab !== "trash" && canCreate && (
-          <Button asChild>
-            <Link href="/dashboard/procurements/grn/add">
-              <FiPlus className="mr-2 h-4 w-4" />
-              Create GRN
-            </Link>
-          </Button>
+        {tab !== "trash" && (
+          <GRNsHeaderActions
+            canCreate={canCreate}
+            grns={result.grns || []}
+          />
         )}
       </div>
 
       <Tabs defaultValue={tab} className="w-full">
         <TabsList>
           <TabsTrigger value="all" asChild>
-            <Link href="/dashboard/procurements/grn?tab=all&page=1">All GRNs</Link>
+            <Link href={`/dashboard/procurements/grn?tab=all&page=1&warehouseId=${selectedWarehouseId}&startDate=${startDate}&endDate=${endDate}`}>All GRNs</Link>
           </TabsTrigger>
           <TabsTrigger value="trash" asChild>
-            <Link href="/dashboard/procurements/grn?tab=trash&page=1">Trash</Link>
+            <Link href={`/dashboard/procurements/grn?tab=trash&page=1&warehouseId=${selectedWarehouseId}&startDate=${startDate}&endDate=${endDate}`}>Trash</Link>
           </TabsTrigger>
         </TabsList>
         <TabsContent value="all" className="mt-4">
@@ -115,8 +127,11 @@ export default async function GRNsPage({ searchParams }: GRNsPageProps) {
               moveToTrash: canMoveToTrash,
               deletePermanently: canDeletePermanently,
             }}
-            warehouses={warehousesResult?.success ? warehousesResult.warehouses : []}
-            userContext={userContext}
+            warehouses={activeWarehouses}
+            selectedWarehouseId={selectedWarehouseId}
+            startDate={startDate}
+            endDate={endDate}
+            canChangeWarehouse={!isNormalUser}
           />
         </TabsContent>
         <TabsContent value="trash" className="mt-4">
@@ -139,8 +154,11 @@ export default async function GRNsPage({ searchParams }: GRNsPageProps) {
               moveToTrash: canMoveToTrash,
               deletePermanently: canDeletePermanently,
             }}
-            warehouses={warehousesResult?.success ? warehousesResult.warehouses : []}
-            userContext={userContext}
+            warehouses={activeWarehouses}
+            selectedWarehouseId={selectedWarehouseId}
+            startDate={startDate}
+            endDate={endDate}
+            canChangeWarehouse={!isNormalUser}
           />
         </TabsContent>
       </Tabs>

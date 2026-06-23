@@ -220,7 +220,14 @@ export async function createReturnToVendor(input: z.infer<typeof rtvSchema>) {
   }
 }
 
-export async function getReturnsToVendor(page = 1, limit = 10, search = "", warehouseId?: string) {
+export async function getReturnsToVendor(
+  page = 1,
+  limit = 10,
+  search = "",
+  warehouseId?: string,
+  startDate?: string,
+  endDate?: string
+) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -236,7 +243,15 @@ export async function getReturnsToVendor(page = 1, limit = 10, search = "", ware
 
     const skip = (page - 1) * limit;
     const where: Prisma.ReturnToVendorWhereInput = {
-      ...(isNormalUser && user?.defaultWarehouseId ? { warehouseId: user.defaultWarehouseId } : warehouseId ? { warehouseId } : {}),
+      ...(isNormalUser && user?.defaultWarehouseId ? { warehouseId: user.defaultWarehouseId } : warehouseId && warehouseId !== "all" ? { warehouseId } : {}),
+      ...(startDate || endDate
+        ? {
+            date: {
+              ...(startDate ? { gte: new Date(new Date(startDate).setHours(0, 0, 0, 0)) } : {}),
+              ...(endDate ? { lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)) } : {}),
+            },
+          }
+        : {}),
     };
     if (search) {
       where.OR = [
