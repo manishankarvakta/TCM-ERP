@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Combobox } from "@/components/ui/combobox";
+import SupplierDialog from "@/app/(dashboard)/dashboard/procurements/purchases/_components/supplierDialog";
 import {
   Table,
   TableBody,
@@ -23,7 +23,7 @@ import { ReturnToVendorStatus } from "@prisma/client";
 import { useToast } from "@/hooks/use-toast";
 import { FiTrash2, FiPlus, FiSearch, FiAlertCircle } from "react-icons/fi";
 import { format } from "date-fns";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getItemVariants } from "@/app/(dashboard)/dashboard/master/items/_actions/item.action";
@@ -59,6 +59,26 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [localSuppliers, setLocalSuppliers] = useState(suppliers);
+  const [isSupplierDialogOpen, setIsSupplierDialogOpen] = useState(false);
+
+  useEffect(() => {
+    setLocalSuppliers(suppliers);
+  }, [suppliers]);
+
+  const filteredSuppliers = useMemo(() => {
+    if (!supplierSearch) return localSuppliers;
+    const searchLower = supplierSearch.toLowerCase();
+    return localSuppliers.filter(
+      (s: any) =>
+        s.name?.toLowerCase().includes(searchLower) ||
+        s.email?.toLowerCase().includes(searchLower) ||
+        s.company?.toLowerCase().includes(searchLower) ||
+        (s.supplierCode?.toLowerCase().includes(searchLower) || false)
+    );
+  }, [localSuppliers, supplierSearch]);
 
   const [stockMap, setStockMap] = useState<Record<string, number>>({});
   const [skuModalOpen, setSkuModalOpen] = useState(false);
@@ -278,23 +298,79 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="supplierId">Supplier *</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="supplierId">Supplier *</Label>
+                <Dialog open={isSupplierDialogOpen} onOpenChange={setIsSupplierDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs text-blue-600 hover:text-blue-700" disabled={loading || !!purchase}>
+                      + Add Supplier
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Create New Supplier</DialogTitle>
+                      <DialogDescription>
+                        Fill in the details below. The supplier will be available instantly.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <SupplierDialog
+                      onCancel={() => setIsSupplierDialogOpen(false)}
+                      onCreated={(newSupplier: any) => {
+                        setLocalSuppliers((prev: any) => [newSupplier, ...prev]);
+                        setValue("supplierId", newSupplier.id, { shouldValidate: true, shouldDirty: true });
+                        setIsSupplierDialogOpen(false);
+                      }}
+                    />
+                  </DialogContent>
+                </Dialog>
+              </div>
               <Controller
                 name="supplierId"
                 control={control}
                 render={({ field }) => (
-                  <Combobox
-                    options={suppliers.map((s: any) => ({
-                      value: s.id,
-                      label: `${s.name} ${s.company ? `(${s.company})` : ""}`,
-                    }))}
+                  <Select
                     value={field.value}
                     onValueChange={field.onChange}
-                    placeholder="Select supplier"
-                    searchPlaceholder="Search supplier..."
-                    emptyMessage="No supplier found."
                     disabled={loading || !!purchase}
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select supplier" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      <div className="p-2">
+                        <div className="relative">
+                          <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10 pointer-events-none" />
+                          <Input
+                            placeholder="Search Supplier..."
+                            value={supplierSearch}
+                            onChange={(e) => {
+                              setSupplierSearch(e.target.value);
+                            }}
+                            onKeyDown={(e) => {
+                              e.stopPropagation();
+                              if (e.key === "Enter") {
+                                  e.preventDefault();
+                              }
+                            }}
+                            className="pl-8 h-8 text-xs"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      </div>
+                      <div className="max-h-[200px] overflow-y-auto">
+                        {filteredSuppliers.map((s: any) => (
+                          <SelectItem key={s.id} value={s.id} className="text-left">
+                            {s.supplierCode || "N/A"} - {s.name || s.email}
+                            {s.company && (
+                              <span className="block text-xs text-muted-foreground">
+                                {s.company}
+                              </span>
+                            )}
+                          </SelectItem>
+                        ))}
+                      </div>
+                    </SelectContent>
+                  </Select>
                 )}
               />
               {errors.supplierId && <p className="text-sm text-destructive">{errors.supplierId.message}</p>}
@@ -306,18 +382,22 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
                 name="warehouseId"
                 control={control}
                 render={({ field }) => (
-                  <Combobox
-                    options={warehouses.map((w: any) => ({
-                      value: w.id,
-                      label: w.name,
-                    }))}
-                    value={field.value}
+                  <Select
+                    value={field.value || ""}
                     onValueChange={field.onChange}
-                    placeholder="Select warehouse"
-                    searchPlaceholder="Search warehouse..."
-                    emptyMessage="No warehouse found."
                     disabled={loading || !!purchase}
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select warehouse" />
+                    </SelectTrigger>
+                    <SelectContent>
+                       {warehouses.map((w: any) => (
+                         <SelectItem key={w.id} value={w.id}>
+                           {w.name} ({w.code})
+                         </SelectItem>
+                       ))}
+                    </SelectContent>
+                  </Select>
                 )}
               />
               {errors.warehouseId && <p className="text-sm text-destructive">{errors.warehouseId.message}</p>}
