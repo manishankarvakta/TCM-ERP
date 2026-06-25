@@ -49,6 +49,16 @@ const accountingOperationSettingsSchema = z.object({
     fromAccountId: z.string().optional().default(""),
     toAccountId: z.string().optional().default(""),
   }),
+  payroll: z.object({
+    salaryExpenseAccountId: z.string().optional().default(""),
+    defaultSalaryPayableAccountId: z.string().optional().default(""),
+    taxPayableAccountId: z.string().optional().default(""),
+    pfPayableAccountId: z.string().optional().default(""),
+    defaultAdvanceAccountId: z.string().optional().default(""),
+    employerPfExpenseAccountId: z.string().optional().default(""),
+    employerPfPayableAccountId: z.string().optional().default(""),
+    festivalBonusExpenseAccountId: z.string().optional().default(""),
+  }),
 });
 
 /**

@@ -8,6 +8,7 @@ import { Prisma, PayrollStatus } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
 import { createVoucher, postVoucher, cancelVoucher } from "../../../accounts/vouchers/_actions/voucher.action";
 import { getPayrollSettings } from "@/lib/payroll-settings";
+import { getAccountingOperationSettings } from "@/lib/accounting-settings";
 import { validateHRMAccountingSetup } from "@/lib/hr/payroll-settings-guard";
 
 // ---------------------------------------------------------------------------
@@ -469,8 +470,10 @@ export async function postPayroll(payrollId: string, salaryExpenseAccountId: str
     if (payroll.status === "POSTED") return { success: false, error: "Already posted" };
     if (payroll.status !== "APPROVED") return { success: false, error: "Payroll must be approved before posting" };
 
-    // Load payroll settings for default accounts
+    // Load settings for calculation rules and default accounts
     const payrollSettings = await getPayrollSettings();
+    const accountingSettings = await getAccountingOperationSettings();
+    const accounts = accountingSettings.payroll;
 
     // Prepare Voucher Lines
     const voucherLines: any[] = [];
@@ -502,7 +505,7 @@ export async function postPayroll(payrollId: string, salaryExpenseAccountId: str
       if (Number(item.loanDeduction) > 0) {
         const advanceAcctId =
           item.employee.advanceAccountId ||
-          payrollSettings.accounts.defaultAdvanceAccountId;
+          accounts.defaultAdvanceAccountId;
         if (advanceAcctId) {
           voucherLines.push({
             lineNumber: lineNumber++,
@@ -512,13 +515,13 @@ export async function postPayroll(payrollId: string, salaryExpenseAccountId: str
             description: `Loan Deduction for ${item.employee.name} (${payroll.payrollNumber})`,
           });
         } else {
-          return { success: false, error: `Employee ${item.employee.name} has loan deductions but no Advance Account configured. Please set a Default Advance Account in Payroll Settings.` };
+          return { success: false, error: `Employee ${item.employee.name} has loan deductions but no Advance Account configured. Please set a Default Advance Account in Accounting Settings.` };
         }
       }
 
       // Credit: Tax Payable (if tax was deducted)
       if (Number(item.taxDeduction) > 0) {
-        const taxAcctId = payrollSettings.accounts.taxPayableAccountId;
+        const taxAcctId = accounts.taxPayableAccountId;
         if (taxAcctId) {
           voucherLines.push({
             lineNumber: lineNumber++,
@@ -533,7 +536,7 @@ export async function postPayroll(payrollId: string, salaryExpenseAccountId: str
 
       // Credit: PF Payable (if PF was deducted)
       if (Number(item.pfDeduction) > 0) {
-        const pfAcctId = payrollSettings.accounts.pfPayableAccountId;
+        const pfAcctId = accounts.pfPayableAccountId;
         if (pfAcctId) {
           voucherLines.push({
             lineNumber: lineNumber++,
@@ -549,8 +552,8 @@ export async function postPayroll(payrollId: string, salaryExpenseAccountId: str
       // Credit: Festival Bonus (if any) — credited to the default salary payable as bonus liability
       if (Number(item.bonus) > 0) {
         const bonusAcctId =
-          payrollSettings.accounts.festivalBonusExpenseAccountId ||
-          payrollSettings.accounts.defaultSalaryPayableAccountId;
+          accounts.festivalBonusExpenseAccountId ||
+          accounts.defaultSalaryPayableAccountId;
         if (bonusAcctId) {
           voucherLines.push({
             lineNumber: lineNumber++,
@@ -571,13 +574,13 @@ export async function postPayroll(payrollId: string, salaryExpenseAccountId: str
 
     if (
       totalEmployerPf > 0 &&
-      payrollSettings.accounts.employerPfExpenseAccountId &&
-      payrollSettings.accounts.employerPfPayableAccountId
+      accounts.employerPfExpenseAccountId &&
+      accounts.employerPfPayableAccountId
     ) {
       // DR: Employer PF Expense
       voucherLines.push({
         lineNumber: lineNumber++,
-        chartOfAccountId: payrollSettings.accounts.employerPfExpenseAccountId,
+        chartOfAccountId: accounts.employerPfExpenseAccountId,
         debitAmount: totalEmployerPf,
         creditAmount: 0,
         description: `Employer PF Contribution for ${payroll.payrollNumber}`,
@@ -585,7 +588,7 @@ export async function postPayroll(payrollId: string, salaryExpenseAccountId: str
       // CR: Employer PF Payable
       voucherLines.push({
         lineNumber: lineNumber++,
-        chartOfAccountId: payrollSettings.accounts.employerPfPayableAccountId,
+        chartOfAccountId: accounts.employerPfPayableAccountId,
         debitAmount: 0,
         creditAmount: totalEmployerPf,
         description: `Employer PF Payable for ${payroll.payrollNumber}`,
@@ -602,12 +605,12 @@ export async function postPayroll(payrollId: string, salaryExpenseAccountId: str
 
     // Use the passed-in salaryExpenseAccountId, fall back to payroll settings default
     const effectiveSalaryExpenseId =
-      salaryExpenseAccountId || payrollSettings.accounts.salaryExpenseAccountId;
+      salaryExpenseAccountId || accounts.salaryExpenseAccountId;
     if (!effectiveSalaryExpenseId) {
       return {
         success: false,
         error:
-          "No Salary Expense account configured. Please set one in Payroll Settings or select one when posting.",
+          "No Salary Expense account configured. Please configure one in Accounting Settings or select one when posting.",
       };
     }
 

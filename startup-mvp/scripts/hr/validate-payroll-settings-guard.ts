@@ -52,24 +52,21 @@ async function runTests() {
     }
   });
 
-  // Mock getPayrollSettings
+  // Mock accounting operation settings for payroll
   const mockSettings = {
-    accounts: {
+    payroll: {
       salaryExpenseAccountId: accExpense.id,
       defaultSalaryPayableAccountId: accPayable.id,
       defaultAdvanceAccountId: accAdvance.id,
     }
   };
 
-  // Create a temporary override for validateHRMAccountingSetup to use mock settings
-  // Wait, modifying the module at runtime might be tricky with tsx.
-  // Let's create actual DB settings!
-
+  // Create temporary accounting settings row
   const tempSettings = await prisma.settings.create({
     data: {
-      title: "Test Payroll Settings",
-      code: "PAYROLL_SETTINGS",
-      category: "HR",
+      title: "Test Accounting Operation Settings",
+      code: "accounting.operationAccounts",
+      category: "accounting",
       settings: mockSettings,
       isGlobal: true,
       isActive: true,
@@ -105,7 +102,7 @@ async function runTests() {
       where: { id: tempSettings.id },
       data: {
         settings: {
-          accounts: {
+          payroll: {
             salaryExpenseAccountId: accExpense.id,
             defaultSalaryPayableAccountId: "invalid_payable",
             defaultAdvanceAccountId: "invalid_advance",

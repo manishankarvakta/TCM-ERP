@@ -260,8 +260,71 @@ export async function validateOperationAccountSettings(
     throw new AccountNotConfiguredError("Receipt Cash");
   }
 
+  // Payroll validation rules (optional configuration, but validated if provided)
+  if (settings.payroll) {
+    if (settings.payroll.salaryExpenseAccountId) {
+      validationRules.push({
+        accountId: settings.payroll.salaryExpenseAccountId,
+        fieldName: "Payroll Salary Expense",
+        expectedType: AccountType.EXPENSE,
+        required: false,
+      });
+    }
+    if (settings.payroll.defaultSalaryPayableAccountId) {
+      validationRules.push({
+        accountId: settings.payroll.defaultSalaryPayableAccountId,
+        fieldName: "Payroll Default Salary Payable",
+        expectedType: AccountType.LIABILITY,
+        required: false,
+      });
+    }
+    if (settings.payroll.taxPayableAccountId) {
+      validationRules.push({
+        accountId: settings.payroll.taxPayableAccountId,
+        fieldName: "Payroll Tax Payable",
+        expectedType: AccountType.LIABILITY,
+        required: false,
+      });
+    }
+    if (settings.payroll.pfPayableAccountId) {
+      validationRules.push({
+        accountId: settings.payroll.pfPayableAccountId,
+        fieldName: "Payroll PF Payable",
+        expectedType: AccountType.LIABILITY,
+        required: false,
+      });
+    }
+    if (settings.payroll.employerPfExpenseAccountId) {
+      validationRules.push({
+        accountId: settings.payroll.employerPfExpenseAccountId,
+        fieldName: "Payroll Employer PF Expense",
+        expectedType: AccountType.EXPENSE,
+        required: false,
+      });
+    }
+    if (settings.payroll.employerPfPayableAccountId) {
+      validationRules.push({
+        accountId: settings.payroll.employerPfPayableAccountId,
+        fieldName: "Payroll Employer PF Payable",
+        expectedType: AccountType.LIABILITY,
+        required: false,
+      });
+    }
+    if (settings.payroll.festivalBonusExpenseAccountId) {
+      validationRules.push({
+        accountId: settings.payroll.festivalBonusExpenseAccountId,
+        fieldName: "Payroll Festival Bonus Expense",
+        expectedType: AccountType.EXPENSE,
+        required: false,
+      });
+    }
+  }
+
   // Fetch all accounts to validate
   const accountIds = validationRules.map(rule => rule.accountId);
+  if (settings.payroll?.defaultAdvanceAccountId) {
+    accountIds.push(settings.payroll.defaultAdvanceAccountId);
+  }
   const accounts = await prisma.chartOfAccount.findMany({
     where: {
       id: { in: accountIds },
@@ -294,6 +357,19 @@ export async function validateOperationAccountSettings(
         rule.expectedType,
         account.type,
         rule.fieldName
+      );
+    }
+  }
+
+  // Validate employee advance account allowing both ASSET and LIABILITY
+  if (settings.payroll?.defaultAdvanceAccountId) {
+    const advanceAccount = accountMap.get(settings.payroll.defaultAdvanceAccountId);
+    if (!advanceAccount) {
+      throw new AccountNotFoundValidationError(settings.payroll.defaultAdvanceAccountId, "Payroll Default Advance");
+    }
+    if (advanceAccount.type !== AccountType.ASSET && advanceAccount.type !== AccountType.LIABILITY) {
+      throw new Error(
+        `Payroll Default Advance account "${advanceAccount.name}" must be an ASSET or LIABILITY account, but is ${advanceAccount.type}`
       );
     }
   }

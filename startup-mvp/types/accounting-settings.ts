@@ -78,6 +78,20 @@ export interface ContraAccounts {
 }
 
 /**
+ * Payroll operation account mappings
+ */
+export interface PayrollAccounts {
+  salaryExpenseAccountId: string;
+  defaultSalaryPayableAccountId: string;
+  taxPayableAccountId: string;
+  pfPayableAccountId: string;
+  defaultAdvanceAccountId: string;
+  employerPfExpenseAccountId: string;
+  employerPfPayableAccountId: string;
+  festivalBonusExpenseAccountId: string;
+}
+
+/**
  * Complete accounting operation settings structure
  */
 export interface AccountingOperationSettings {
@@ -88,6 +102,7 @@ export interface AccountingOperationSettings {
   payment: PaymentAccounts;
   receipt: ReceiptAccounts;
   contra: ContraAccounts;
+  payroll: PayrollAccounts;
 }
 
 /**

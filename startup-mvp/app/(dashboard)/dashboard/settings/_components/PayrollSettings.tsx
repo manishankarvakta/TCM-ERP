@@ -21,16 +21,13 @@ import {
   FiAlertCircle,
   FiSave,
   FiInfo,
-  FiZap,
 } from "react-icons/fi";
 import {
   Banknote,
   Calculator,
   Clock,
   Calendar,
-  TrendingUp,
   ShieldCheck,
-  Wallet,
   AlertTriangle,
   Gift,
   Settings2,
@@ -47,15 +44,6 @@ import { getChartOfAccounts } from "../../accounts/chart-of-accounts/_actions/ch
 // ---------------------------------------------------------------------------
 
 const formSchema = z.object({
-  // Accounts
-  salaryExpenseAccountId:        z.string(),
-  defaultSalaryPayableAccountId: z.string(),
-  taxPayableAccountId:           z.string(),
-  pfPayableAccountId:            z.string(),
-  defaultAdvanceAccountId:       z.string(),
-  employerPfExpenseAccountId:    z.string(),
-  employerPfPayableAccountId:    z.string(),
-  festivalBonusExpenseAccountId: z.string(),
   // Schedule
   payFrequency:        z.enum(["monthly", "biweekly", "weekly"]),
   payDayOfMonth:       z.number().int().min(1).max(31),
@@ -130,14 +118,6 @@ export default function PayrollSettings() {
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      salaryExpenseAccountId:        "",
-      defaultSalaryPayableAccountId: "",
-      taxPayableAccountId:           "",
-      pfPayableAccountId:            "",
-      defaultAdvanceAccountId:       "",
-      employerPfExpenseAccountId:    "",
-      employerPfPayableAccountId:    "",
-      festivalBonusExpenseAccountId: "",
       payFrequency:        "monthly",
       payDayOfMonth:       25,
       attendanceCutoffDay: 24,
@@ -190,14 +170,6 @@ export default function PayrollSettings() {
           const s = settingsResult.settings;
           setIsGlobal(settingsResult.isGlobal ?? false);
           reset({
-            salaryExpenseAccountId:        s.accounts.salaryExpenseAccountId,
-            defaultSalaryPayableAccountId: s.accounts.defaultSalaryPayableAccountId,
-            taxPayableAccountId:           s.accounts.taxPayableAccountId,
-            pfPayableAccountId:            s.accounts.pfPayableAccountId,
-            defaultAdvanceAccountId:       s.accounts.defaultAdvanceAccountId,
-            employerPfExpenseAccountId:    s.accounts.employerPfExpenseAccountId,
-            employerPfPayableAccountId:    s.accounts.employerPfPayableAccountId,
-            festivalBonusExpenseAccountId: s.accounts.festivalBonusExpenseAccountId,
             payFrequency:        s.schedule.payFrequency,
             payDayOfMonth:       s.schedule.payDayOfMonth,
             attendanceCutoffDay: s.schedule.attendanceCutoffDay,
@@ -231,29 +203,6 @@ export default function PayrollSettings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-suggest accounts by name keyword matching
-  const onAutoSuggest = () => {
-    const find = (keywords: string[], types: AccountType[]) =>
-      accounts.find(
-        (a) => types.includes(a.type) &&
-               keywords.some((kw) => a.name.toLowerCase().includes(kw.toLowerCase()))
-      )?.id ?? "";
-
-    reset((prev) => ({
-      ...prev,
-      salaryExpenseAccountId:        find(["salary expense","salaries","wages"], [AccountType.EXPENSE]),
-      defaultSalaryPayableAccountId: find(["salary payable","salaries payable","wages payable"], [AccountType.LIABILITY]),
-      taxPayableAccountId:           find(["tax payable","income tax","withholding tax"], [AccountType.LIABILITY]),
-      pfPayableAccountId:            find(["provident fund","pf payable","employee pf"], [AccountType.LIABILITY]),
-      defaultAdvanceAccountId:       find(["advance","loan","employee advance"], [AccountType.LIABILITY, AccountType.ASSET]),
-      employerPfExpenseAccountId:    find(["employer pf","employer provident","company pf expense"], [AccountType.EXPENSE]),
-      employerPfPayableAccountId:    find(["employer pf payable","company pf payable"], [AccountType.LIABILITY]),
-      festivalBonusExpenseAccountId: find(["festival bonus","bonus expense","eid bonus"], [AccountType.EXPENSE]),
-    }));
-    setSuccess("Suggested accounts populated based on name matching!");
-    setTimeout(() => setSuccess(""), 3000);
-  };
-
   const onSubmit = async (data: FormData) => {
     try {
       setLoading(true);
@@ -262,16 +211,6 @@ export default function PayrollSettings() {
 
       const result = await updatePayrollSettings(
         {
-          accounts: {
-            salaryExpenseAccountId:        data.salaryExpenseAccountId,
-            defaultSalaryPayableAccountId: data.defaultSalaryPayableAccountId,
-            taxPayableAccountId:           data.taxPayableAccountId,
-            pfPayableAccountId:            data.pfPayableAccountId,
-            defaultAdvanceAccountId:       data.defaultAdvanceAccountId,
-            employerPfExpenseAccountId:    data.employerPfExpenseAccountId,
-            employerPfPayableAccountId:    data.employerPfPayableAccountId,
-            festivalBonusExpenseAccountId: data.festivalBonusExpenseAccountId,
-          },
           schedule: {
             payFrequency:        data.payFrequency,
             payDayOfMonth:       data.payDayOfMonth,
@@ -332,90 +271,32 @@ export default function PayrollSettings() {
           Payroll Settings
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Configure default accounts, calculation rules, schedule, and compliance settings
+          Configure pay schedule, calculation rules, statutory compliance, and loan policies
           for the payroll engine. Per-employee configurations always take precedence.
         </p>
       </div>
 
-      {/* Info + auto-suggest */}
+      {/* Info */}
       <div className="flex items-start gap-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-4 text-sm text-blue-800 dark:text-blue-300">
         <FiInfo className="mt-0.5 h-4 w-4 flex-shrink-0" />
         <div className="flex-1">
           <p className="font-medium">How these settings are used</p>
           <p className="mt-1 text-blue-700 dark:text-blue-400">
-            Accounts here are used as <strong>defaults</strong> during payroll posting.
             Allowance percentages apply only when an employee has no individual salary structure.
-            Employer PF and festival bonus only post if their expense accounts are configured.
+            Employer PF and festival bonus only post if their expense accounts are configured in Accounting Settings.
           </p>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={onAutoSuggest}
-          className="shrink-0 border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300">
-          <FiZap className="mr-1 h-3 w-3" /> Auto-suggest
-        </Button>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 
         {/* ================================================================
-            CARD 1 — Default Ledger Accounts
+            CARD 1 — Pay Schedule & Calendar
         ================================================================ */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <SectionBadge n={1} /> Default Ledger Accounts
-            </CardTitle>
-            <CardDescription>
-              Double-entry accounts used when payroll vouchers are posted.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pb-2">Employee Payroll</p>
-            <AccountRow name="salaryExpenseAccountId" label="Salary Expense" side="DR" sideColor="text-red-600"
-              description="Total gross salary cost" types={[AccountType.EXPENSE]}
-              icon={<TrendingUp className="h-4 w-4 text-red-500" />}
-              accounts={accounts} control={control} errors={errors} />
-            <AccountRow name="defaultSalaryPayableAccountId" label="Default Salary Payable" side="CR" sideColor="text-green-600"
-              description="Net salary owed to employees (fallback)" types={[AccountType.LIABILITY]}
-              icon={<Wallet className="h-4 w-4 text-green-500" />}
-              accounts={accounts} control={control} errors={errors} />
-            <AccountRow name="taxPayableAccountId" label="Employee Tax Payable" side="CR" sideColor="text-green-600"
-              description="Withheld income tax deductions" types={[AccountType.LIABILITY]}
-              icon={<ShieldCheck className="h-4 w-4 text-orange-500" />}
-              accounts={accounts} control={control} errors={errors} />
-            <AccountRow name="pfPayableAccountId" label="Employee PF Payable" side="CR" sideColor="text-green-600"
-              description="Employee provident fund deductions withheld" types={[AccountType.LIABILITY]}
-              icon={<ShieldCheck className="h-4 w-4 text-purple-500" />}
-              accounts={accounts} control={control} errors={errors} />
-            <AccountRow name="defaultAdvanceAccountId" label="Default Advance / Loan Account" side="CR" sideColor="text-green-600"
-              description="Loan installment deductions (fallback)" types={[AccountType.LIABILITY, AccountType.ASSET]}
-              icon={<Banknote className="h-4 w-4 text-blue-500" />}
-              accounts={accounts} control={control} errors={errors} />
-
-            <div className="pt-4">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pb-2">Employer Contributions</p>
-            </div>
-            <AccountRow name="employerPfExpenseAccountId" label="Employer PF Expense" side="DR" sideColor="text-red-600"
-              description="Company's PF matching contribution cost (only if Employer PF % > 0)" types={[AccountType.EXPENSE]}
-              icon={<Building2 className="h-4 w-4 text-red-400" />}
-              accounts={accounts} control={control} errors={errors} />
-            <AccountRow name="employerPfPayableAccountId" label="Employer PF Payable" side="CR" sideColor="text-green-600"
-              description="Company's PF contribution owed to fund" types={[AccountType.LIABILITY]}
-              icon={<Building2 className="h-4 w-4 text-indigo-500" />}
-              accounts={accounts} control={control} errors={errors} />
-            <AccountRow name="festivalBonusExpenseAccountId" label="Festival Bonus Expense" side="DR" sideColor="text-red-600"
-              description="Festival/Eid bonus cost (only posted when bonus run is triggered)" types={[AccountType.EXPENSE]}
-              icon={<Gift className="h-4 w-4 text-pink-500" />}
-              accounts={accounts} control={control} errors={errors} />
-          </CardContent>
-        </Card>
-
-        {/* ================================================================
-            CARD 2 — Pay Schedule & Calendar
-        ================================================================ */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <SectionBadge n={2} /> Pay Schedule & Calendar
+              <SectionBadge n={1} /> Pay Schedule & Calendar
             </CardTitle>
             <CardDescription>
               Controls payroll frequency, disbursement day, attendance cutoff, and the fiscal/tax year.
@@ -497,7 +378,7 @@ export default function PayrollSettings() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <SectionBadge n={3} /> Calculation Rules
+              <SectionBadge n={2} /> Calculation Rules
             </CardTitle>
             <CardDescription>
               OT multipliers, absent deduction basis, and default allowance percentages.
@@ -633,7 +514,7 @@ export default function PayrollSettings() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <SectionBadge n={4} /> Statutory & Compliance
+              <SectionBadge n={3} /> Statutory & Compliance
             </CardTitle>
             <CardDescription>
               Tax method and employer provident fund (PF) matching contribution.
@@ -705,7 +586,7 @@ export default function PayrollSettings() {
                   <span>
                     Employer PF will generate two additional voucher lines per payroll:
                     <strong> DR Employer PF Expense</strong> + <strong>CR Employer PF Payable</strong>.
-                    Configure the accounts above.
+                    Configure these accounts in Accounting Settings.
                   </span>
                 </div>
               )}
@@ -715,12 +596,12 @@ export default function PayrollSettings() {
         </Card>
 
         {/* ================================================================
-            CARD 5 — Festival Bonus & Loan Policy
+            CARD 4 — Festival Bonus & Loan Policy
         ================================================================ */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <SectionBadge n={5} /> Festival Bonus & Loan Policy
+              <SectionBadge n={4} /> Festival Bonus & Loan Policy
             </CardTitle>
             <CardDescription>
               Default festival bonus rate and company-wide loan limits.

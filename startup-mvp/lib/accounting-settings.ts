@@ -81,7 +81,31 @@ export async function getAccountingOperationSettings(): Promise<AccountingOperat
 
     return defaultSettings;
   } catch (error) {
-    console.error("Error getting accounting settings:", error);
+    try {
+      const globalSetting = await prisma.settings.findFirst({
+        where: {
+          code: ACCOUNTING_OPERATIONS_KEY,
+          userId: null,
+          isGlobal: true,
+          isActive: true,
+        },
+        select: {
+          settings: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      if (globalSetting && globalSetting.settings) {
+        return mergeWithDefaults(
+          globalSetting.settings as Partial<AccountingOperationSettings>,
+          createDefaultSettings()
+        );
+      }
+    } catch (fallbackError) {
+      console.error("Fallback error getting accounting settings:", fallbackError);
+    }
     return createDefaultSettings();
   }
 }
@@ -186,6 +210,16 @@ function createDefaultSettings(): AccountingOperationSettings {
       fromAccountId: "",
       toAccountId: "",
     },
+    payroll: {
+      salaryExpenseAccountId: "",
+      defaultSalaryPayableAccountId: "",
+      taxPayableAccountId: "",
+      pfPayableAccountId: "",
+      defaultAdvanceAccountId: "",
+      employerPfExpenseAccountId: "",
+      employerPfPayableAccountId: "",
+      festivalBonusExpenseAccountId: "",
+    },
   };
 }
 
@@ -232,6 +266,16 @@ function mergeWithDefaults(
     contra: {
       fromAccountId: partial.contra?.fromAccountId || defaults.contra.fromAccountId,
       toAccountId: partial.contra?.toAccountId || defaults.contra.toAccountId,
+    },
+    payroll: {
+      salaryExpenseAccountId: partial.payroll?.salaryExpenseAccountId || defaults.payroll.salaryExpenseAccountId,
+      defaultSalaryPayableAccountId: partial.payroll?.defaultSalaryPayableAccountId || defaults.payroll.defaultSalaryPayableAccountId,
+      taxPayableAccountId: partial.payroll?.taxPayableAccountId || defaults.payroll.taxPayableAccountId,
+      pfPayableAccountId: partial.payroll?.pfPayableAccountId || defaults.payroll.pfPayableAccountId,
+      defaultAdvanceAccountId: partial.payroll?.defaultAdvanceAccountId || defaults.payroll.defaultAdvanceAccountId,
+      employerPfExpenseAccountId: partial.payroll?.employerPfExpenseAccountId || defaults.payroll.employerPfExpenseAccountId,
+      employerPfPayableAccountId: partial.payroll?.employerPfPayableAccountId || defaults.payroll.employerPfPayableAccountId,
+      festivalBonusExpenseAccountId: partial.payroll?.festivalBonusExpenseAccountId || defaults.payroll.festivalBonusExpenseAccountId,
     },
   };
 }

@@ -198,6 +198,7 @@ export interface PayrollPolicySettings {
  * Complete Payroll Settings structure stored in the Settings table.
  */
 export interface PayrollSettings {
+  /** @deprecated Managed in Accounting Operation Settings instead */
   accounts: PayrollAccountSettings;
   schedule: PayrollScheduleSettings;
   calculation: PayrollCalculationSettings;

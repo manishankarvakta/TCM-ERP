@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getPayrollSettings } from "@/lib/payroll-settings";
+import { getAccountingOperationSettings } from "@/lib/accounting-settings";
 
 export type PayrollGuardContext =
   | "EMPLOYEE_CREATE"
@@ -27,8 +28,8 @@ export async function validateHRMAccountingSetup(
     missingSettings: [],
   };
 
-  const settings = await getPayrollSettings();
-  const accounts = settings.accounts;
+  const accountingSettings = await getAccountingOperationSettings();
+  const accounts = accountingSettings.payroll;
 
   // Helper to check if an account exists
   async function checkAccountExists(id: string, name: string) {

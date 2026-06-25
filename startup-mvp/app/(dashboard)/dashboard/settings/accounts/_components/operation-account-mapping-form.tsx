@@ -44,6 +44,16 @@ const operationSettingsSchema = z.object({
   receiptCashAccountId: z.string().min(1, "Required"),
   contraFromAccountId: z.string().optional(),
   contraToAccountId: z.string().optional(),
+
+  // Payroll
+  payrollSalaryExpenseAccountId: z.string().optional(),
+  payrollDefaultSalaryPayableAccountId: z.string().optional(),
+  payrollTaxPayableAccountId: z.string().optional(),
+  payrollPfPayableAccountId: z.string().optional(),
+  payrollDefaultAdvanceAccountId: z.string().optional(),
+  payrollEmployerPfExpenseAccountId: z.string().optional(),
+  payrollEmployerPfPayableAccountId: z.string().optional(),
+  payrollFestivalBonusExpenseAccountId: z.string().optional(),
 });
 
 type FormData = z.infer<typeof operationSettingsSchema>;
@@ -115,6 +125,14 @@ export default function OperationAccountMappingForm() {
             receiptCashAccountId: s.receipt.cashAccountId,
             contraFromAccountId: s.contra.fromAccountId,
             contraToAccountId: s.contra.toAccountId,
+            payrollSalaryExpenseAccountId: s.payroll?.salaryExpenseAccountId || "",
+            payrollDefaultSalaryPayableAccountId: s.payroll?.defaultSalaryPayableAccountId || "",
+            payrollTaxPayableAccountId: s.payroll?.taxPayableAccountId || "",
+            payrollPfPayableAccountId: s.payroll?.pfPayableAccountId || "",
+            payrollDefaultAdvanceAccountId: s.payroll?.defaultAdvanceAccountId || "",
+            payrollEmployerPfExpenseAccountId: s.payroll?.employerPfExpenseAccountId || "",
+            payrollEmployerPfPayableAccountId: s.payroll?.employerPfPayableAccountId || "",
+            payrollFestivalBonusExpenseAccountId: s.payroll?.festivalBonusExpenseAccountId || "",
           });
         }
       } catch (err) {
@@ -172,6 +190,16 @@ export default function OperationAccountMappingForm() {
           fromAccountId: data.contraFromAccountId || "",
           toAccountId: data.contraToAccountId || "",
         },
+        payroll: {
+          salaryExpenseAccountId: data.payrollSalaryExpenseAccountId || "",
+          defaultSalaryPayableAccountId: data.payrollDefaultSalaryPayableAccountId || "",
+          taxPayableAccountId: data.payrollTaxPayableAccountId || "",
+          pfPayableAccountId: data.payrollPfPayableAccountId || "",
+          defaultAdvanceAccountId: data.payrollDefaultAdvanceAccountId || "",
+          employerPfExpenseAccountId: data.payrollEmployerPfExpenseAccountId || "",
+          employerPfPayableAccountId: data.payrollEmployerPfPayableAccountId || "",
+          festivalBonusExpenseAccountId: data.payrollFestivalBonusExpenseAccountId || "",
+        },
       };
       
       const result = await updateAccountingOperationSettings(settings, isGlobal);
@@ -215,6 +243,14 @@ export default function OperationAccountMappingForm() {
       inventoryAdjustmentNegativeExpenseId: findAccount(["Adjustment Expense", "Other Expense"], AccountType.EXPENSE),
       paymentCashAccountId: findAccount(["Cash", "Bank", "Primary"], AccountType.ASSET),
       receiptCashAccountId: findAccount(["Cash", "Bank", "Primary"], AccountType.ASSET),
+      payrollSalaryExpenseAccountId: findAccount(["Salary Expense", "Salaries Expense", "Employee Cost"], AccountType.EXPENSE),
+      payrollDefaultSalaryPayableAccountId: findAccount(["Salaries Payable", "Salary Payable"], AccountType.LIABILITY),
+      payrollTaxPayableAccountId: findAccount(["Tax Payable", "Withholding Tax"], AccountType.LIABILITY),
+      payrollPfPayableAccountId: findAccount(["Employee PF Payable", "PF Payable", "Provident Fund", "Salaries Payable"], AccountType.LIABILITY),
+      payrollDefaultAdvanceAccountId: findAccount(["Salary Advance", "Employee Advance", "Advance"], AccountType.ASSET) || findAccount(["Accounts Payable", "Account Payable"], AccountType.LIABILITY),
+      payrollEmployerPfExpenseAccountId: findAccount(["Employer PF Expense", "PF Matching Expense", "PF Expense"], AccountType.EXPENSE),
+      payrollEmployerPfPayableAccountId: findAccount(["Employer PF Payable", "PF Matching Payable", "PF Payable"], AccountType.LIABILITY),
+      payrollFestivalBonusExpenseAccountId: findAccount(["Festival Bonus Expense", "Bonus Expense"], AccountType.EXPENSE),
     });
     setSuccess("Suggested accounts populated based on name matching!");
     setTimeout(() => setSuccess(""), 3000);
@@ -423,6 +459,107 @@ export default function OperationAccountMappingForm() {
                   name="inventoryAdjustmentNegativeExpenseId"
                   label="DR - Adjustment Expense"
                   types={[AccountType.EXPENSE]}
+                  accounts={accounts}
+                  loadingAccounts={loadingAccounts}
+                  control={control}
+                  errors={errors}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Payroll Operations */}
+        <section className="space-y-4">
+          <h3 className="text-lg font-semibold flex items-center gap-2 border-b pb-2">
+            <span className="bg-primary text-primary-foreground h-6 w-6 rounded-full flex items-center justify-center text-xs">5</span>
+            Payroll Operations
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3 bg-muted/30 p-4 rounded-lg h-full">
+              <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-2">Employee Payroll</p>
+              <div className="space-y-4">
+                <AccountSelector
+                  name="payrollSalaryExpenseAccountId"
+                  label="DR - Salary Expense"
+                  types={[AccountType.EXPENSE]}
+                  required={false}
+                  accounts={accounts}
+                  loadingAccounts={loadingAccounts}
+                  control={control}
+                  errors={errors}
+                />
+                <AccountSelector
+                  name="payrollDefaultSalaryPayableAccountId"
+                  label="CR - Default Salary Payable"
+                  types={[AccountType.LIABILITY]}
+                  required={false}
+                  accounts={accounts}
+                  loadingAccounts={loadingAccounts}
+                  control={control}
+                  errors={errors}
+                />
+                <AccountSelector
+                  name="payrollTaxPayableAccountId"
+                  label="CR - Employee Tax Payable"
+                  types={[AccountType.LIABILITY]}
+                  required={false}
+                  accounts={accounts}
+                  loadingAccounts={loadingAccounts}
+                  control={control}
+                  errors={errors}
+                />
+                <AccountSelector
+                  name="payrollPfPayableAccountId"
+                  label="CR - Employee PF Payable"
+                  types={[AccountType.LIABILITY]}
+                  required={false}
+                  accounts={accounts}
+                  loadingAccounts={loadingAccounts}
+                  control={control}
+                  errors={errors}
+                />
+                <AccountSelector
+                  name="payrollDefaultAdvanceAccountId"
+                  label="CR - Default Advance / Loan Account"
+                  types={[AccountType.ASSET, AccountType.LIABILITY]}
+                  required={false}
+                  accounts={accounts}
+                  loadingAccounts={loadingAccounts}
+                  control={control}
+                  errors={errors}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3 bg-muted/30 p-4 rounded-lg h-full">
+              <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-2">Employer Contributions</p>
+              <div className="space-y-4">
+                <AccountSelector
+                  name="payrollEmployerPfExpenseAccountId"
+                  label="DR - Employer PF Expense"
+                  types={[AccountType.EXPENSE]}
+                  required={false}
+                  accounts={accounts}
+                  loadingAccounts={loadingAccounts}
+                  control={control}
+                  errors={errors}
+                />
+                <AccountSelector
+                  name="payrollEmployerPfPayableAccountId"
+                  label="CR - Employer PF Payable"
+                  types={[AccountType.LIABILITY]}
+                  required={false}
+                  accounts={accounts}
+                  loadingAccounts={loadingAccounts}
+                  control={control}
+                  errors={errors}
+                />
+                <AccountSelector
+                  name="payrollFestivalBonusExpenseAccountId"
+                  label="DR - Festival Bonus Expense"
+                  types={[AccountType.EXPENSE]}
+                  required={false}
                   accounts={accounts}
                   loadingAccounts={loadingAccounts}
                   control={control}

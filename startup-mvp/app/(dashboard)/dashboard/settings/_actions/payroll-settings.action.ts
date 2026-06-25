@@ -9,6 +9,7 @@ import { z } from "zod";
 import {
   PAYROLL_SETTINGS_KEY,
   type PayrollSettings,
+  type PayrollAccountSettings,
 } from "@/types/payroll-settings";
 import { getPayrollSettingsFull } from "@/lib/payroll-settings";
 
@@ -58,7 +59,7 @@ const policySchema = z.object({
 });
 
 const payrollSettingsSchema = z.object({
-  accounts:    accountsSchema,
+  accounts:    accountsSchema.optional(),
   schedule:    scheduleSchema,
   calculation: calculationSchema,
   policy:      policySchema,
@@ -119,7 +120,7 @@ export async function getPayrollSettingsAction() {
  * Validates structure with Zod, validates account IDs exist, then upserts the Settings row.
  */
 export async function updatePayrollSettings(
-  settings: PayrollSettings,
+  settings: Omit<PayrollSettings, "accounts"> & { accounts?: PayrollAccountSettings },
   isGlobal: boolean = false
 ) {
   try {
@@ -129,8 +130,10 @@ export async function updatePayrollSettings(
     // Validate shape
     const validated = payrollSettingsSchema.parse(settings);
 
-    // Validate account IDs
-    await validateAccountIds(validated.accounts);
+    // Validate account IDs if provided
+    if (validated.accounts) {
+      await validateAccountIds(validated.accounts);
+    }
 
     const userId = isGlobal ? null : session.user.id;
 
@@ -141,10 +144,26 @@ export async function updatePayrollSettings(
     let result;
     const isUpdate = !!existing;
 
+    // Merge new settings with existing settings' accounts to prevent losing them
+    const existingSettings = existing?.settings as any;
+    const finalPayload = {
+      ...validated,
+      accounts: validated.accounts || existingSettings?.accounts || {
+        salaryExpenseAccountId: "",
+        defaultSalaryPayableAccountId: "",
+        taxPayableAccountId: "",
+        pfPayableAccountId: "",
+        defaultAdvanceAccountId: "",
+        employerPfExpenseAccountId: "",
+        employerPfPayableAccountId: "",
+        festivalBonusExpenseAccountId: "",
+      }
+    };
+
     if (existing) {
       result = await prisma.settings.update({
         where: { id: existing.id },
-        data: { settings: validated as Prisma.InputJsonValue, isGlobal },
+        data: { settings: finalPayload as Prisma.InputJsonValue, isGlobal },
       });
       await logItemUpdated(
         session.user.id,
@@ -159,7 +178,7 @@ export async function updatePayrollSettings(
           code: PAYROLL_SETTINGS_KEY,
           category: "payroll",
           title: "Payroll Settings",
-          settings: validated as Prisma.InputJsonValue,
+          settings: finalPayload as Prisma.InputJsonValue,
           isGlobal,
           userId,
           createdBy: session.user.id,
