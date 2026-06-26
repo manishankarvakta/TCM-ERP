@@ -26,37 +26,19 @@ import { TbLayoutColumns } from "react-icons/tb";
 
 // ─── Standard label printer paper sizes ───────────────────────────────────────
 type PaperSizeKey =
-  | "62x29"
-  | "62x100"
-  | "57x32"
-  | "100x150"
-  | "102x152"
-  | "50x25"
-  | "40x30"
-  | "38x19"
-  | "29x90"
-  | "54x101"
-  | "custom";
+  | "45x35"
+  | "38x25";
 
 interface PaperSizeOption {
   key: PaperSizeKey;
   label: string;
-  widthMm?: number;
-  heightMm?: number;
+  widthMm: number;
+  heightMm: number;
 }
 
 const PAPER_SIZES: PaperSizeOption[] = [
-  { key: "62x29",   label: "62 × 29 mm  (Brother DK-11209)",   widthMm: 62,  heightMm: 29  },
-  { key: "62x100",  label: "62 × 100 mm (Brother DK-11241)",  widthMm: 62,  heightMm: 100 },
-  { key: "57x32",   label: "57 × 32 mm  (Dymo 30252)",        widthMm: 57,  heightMm: 32  },
-  { key: "100x150", label: "100 × 150 mm (Shipping Label)",    widthMm: 100, heightMm: 150 },
-  { key: "102x152", label: "102 × 152 mm (4×6 inch)",         widthMm: 102, heightMm: 152 },
-  { key: "50x25",   label: "50 × 25 mm  (Small Item)",        widthMm: 50,  heightMm: 25  },
-  { key: "40x30",   label: "40 × 30 mm  (Jewelry / Mini)",    widthMm: 40,  heightMm: 30  },
-  { key: "38x19",   label: "38 × 19 mm  (Dymo 11353 Multi)",  widthMm: 38,  heightMm: 19  },
-  { key: "29x90",   label: "29 × 90 mm  (Brother DK-11208)",  widthMm: 29,  heightMm: 90  },
-  { key: "54x101",  label: "54 × 101 mm (Dymo 30321 Name Badge)", widthMm: 54, heightMm: 101 },
-  { key: "custom",  label: "Custom Size …" },
+  { key: "45x35", label: "45 × 35 mm (Rongta)", widthMm: 45, heightMm: 35 },
+  { key: "38x25", label: "38 × 25 mm (Zebra)",  widthMm: 38, heightMm: 25 },
 ];
 
 // ─── Layout options with icons ─────────────────────────────────────────────────
@@ -123,18 +105,13 @@ export default function BarcodePrintModal({ item, isOpen, onClose }: BarcodePrin
   const [showVariant, setShowVariant] = useState(true);
   const [showPrice, setShowPrice] = useState(true);
   const [showBarcodeText, setShowBarcodeText] = useState(true);
-  const [showImage, setShowImage] = useState(true);
   const [layout, setLayout] = useState<"1col" | "2col" | "3col" | "sheet">("1col");
 
   // Paper size
-  const [paperSizeKey, setPaperSizeKey] = useState<PaperSizeKey>("62x29");
-  const [customWidth, setCustomWidth] = useState<number>(62);
-  const [customHeight, setCustomHeight] = useState<number>(29);
+  const [paperSizeKey, setPaperSizeKey] = useState<PaperSizeKey>("45x35");
 
   const activePaperSize = PAPER_SIZES.find((p) => p.key === paperSizeKey)!;
-  const pageSizeMm = paperSizeKey === "custom"
-    ? { width: customWidth, height: customHeight }
-    : { width: activePaperSize.widthMm!, height: activePaperSize.heightMm! };
+  const pageSizeMm = { width: activePaperSize.widthMm, height: activePaperSize.heightMm };
 
   // Format Price helper
   const formatPrice = (price: any) => {
@@ -201,6 +178,15 @@ export default function BarcodePrintModal({ item, isOpen, onClose }: BarcodePrin
 
     setPrintRows(rows);
   }, [item, isOpen]);
+
+  // If a roll size is selected, force layout to "1col" if it was "2col" or "3col"
+  useEffect(() => {
+    if (paperSizeKey === "45x35" || paperSizeKey === "38x25") {
+      if (layout === "2col" || layout === "3col") {
+        setLayout("1col");
+      }
+    }
+  }, [paperSizeKey, layout]);
 
   // Quick helper: toggle selection for a row
   const toggleRow = (id: string) => {
@@ -285,21 +271,28 @@ export default function BarcodePrintModal({ item, isOpen, onClose }: BarcodePrin
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Print Type</span>
                 <div className="flex items-center gap-1.5">
-                  {LAYOUT_OPTIONS.map(({ value, icon: Icon, title }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      title={title}
-                      onClick={() => setLayout(value)}
-                      className={`flex items-center justify-center rounded-lg border p-2 h-9 w-9 transition-all ${
-                        layout === value
-                          ? "border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary"
-                          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-muted/40"
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </button>
-                  ))}
+                  {LAYOUT_OPTIONS.map(({ value, icon: Icon, title }) => {
+                    const isRollSize = paperSizeKey === "45x35" || paperSizeKey === "38x25";
+                    const isOptionDisabled = isRollSize && (value === "2col" || value === "3col");
+                    
+                    if (isOptionDisabled) return null;
+                    
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        title={title}
+                        onClick={() => setLayout(value)}
+                        className={`flex items-center justify-center rounded-lg border p-2 h-9 w-9 transition-all ${
+                          layout === value
+                            ? "border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary"
+                            : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-muted/40"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -323,37 +316,10 @@ export default function BarcodePrintModal({ item, isOpen, onClose }: BarcodePrin
                 </Select>
               </div>
 
-              {/* Custom size inputs (shown inline when custom selected) */}
-              {paperSizeKey === "custom" && (
-                <div className="flex items-center gap-1.5">
-                  <div className="flex flex-col gap-0.5">
-                    <Label className="text-[10px] text-muted-foreground">W&nbsp;mm</Label>
-                    <Input
-                      type="number" min={10} max={300}
-                      value={customWidth}
-                      onChange={(e) => setCustomWidth(Number(e.target.value) || 62)}
-                      className="h-9 w-16 text-xs px-2"
-                    />
-                  </div>
-                  <span className="text-muted-foreground text-xs mt-4">×</span>
-                  <div className="flex flex-col gap-0.5">
-                    <Label className="text-[10px] text-muted-foreground">H&nbsp;mm</Label>
-                    <Input
-                      type="number" min={10} max={500}
-                      value={customHeight}
-                      onChange={(e) => setCustomHeight(Number(e.target.value) || 29)}
-                      className="h-9 w-16 text-xs px-2"
-                    />
-                  </div>
-                </div>
-              )}
-
               {/* Dimension hint */}
-              {paperSizeKey !== "custom" && (
-                <span className="text-[10px] text-muted-foreground whitespace-nowrap pb-1">
-                  {activePaperSize.widthMm}&nbsp;×&nbsp;{activePaperSize.heightMm}&nbsp;mm
-                </span>
-              )}
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap pb-1">
+                {activePaperSize.widthMm}&nbsp;×&nbsp;{activePaperSize.heightMm}&nbsp;mm
+              </span>
             </div>
 
             {/* Quick Actions */}
@@ -375,10 +341,10 @@ export default function BarcodePrintModal({ item, isOpen, onClose }: BarcodePrin
             </div>
 
             {/* Selection Table */}
-            <div className="border border-border rounded-xl overflow-hidden bg-background">
+            <div className="border border-border rounded-xl overflow-y-auto bg-background max-h-[380px] scrollbar-thin">
               <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-muted/40 border-b border-border text-xs text-muted-foreground font-semibold uppercase tracking-wider">
+                <thead className="sticky top-0 bg-background z-10 shadow-[0_1px_0_0_rgba(0,0,0,0.1)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.1)]">
+                  <tr className="bg-muted/95 backdrop-blur-sm text-xs text-muted-foreground font-semibold uppercase tracking-wider">
                     <th className="py-3 px-4 text-left w-12">Print</th>
                     <th className="py-3 px-4 text-left w-14">Photo</th>
                     <th className="py-3 px-4 text-left">SKU/Item Details</th>
@@ -532,14 +498,6 @@ export default function BarcodePrintModal({ item, isOpen, onClose }: BarcodePrin
                   />
                   <Label htmlFor="showBarcodeText" className="text-xs cursor-pointer select-none">Barcode Numbers</Label>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="showImage"
-                    checked={showImage}
-                    onCheckedChange={(checked) => setShowImage(!!checked)}
-                  />
-                  <Label htmlFor="showImage" className="text-xs cursor-pointer select-none">Show Photo</Label>
-                </div>
               </div>
             </div>
 
@@ -553,9 +511,9 @@ export default function BarcodePrintModal({ item, isOpen, onClose }: BarcodePrin
                   {printableItems.length} labels queued
                 </span>
               </div>
-              <div className="p-4 bg-slate-100/50 dark:bg-slate-900/50 overflow-y-auto max-h-[30vh] border-b border-border flex justify-center">
+              <div className="p-4 bg-slate-100/50 dark:bg-slate-900/50 overflow-y-auto max-h-[40vh] border-b border-border flex flex-col items-center justify-start">
                 {printableItems.length > 0 ? (
-                  <div className="scale-75 origin-top min-w-[280px]">
+                  <div className="origin-top my-2">
                     <BarcodePrintTemplate
                       items={printableItems.slice(0, 3)} // limit preview to first 3 items to avoid UI lag
                       options={{
@@ -565,14 +523,14 @@ export default function BarcodePrintModal({ item, isOpen, onClose }: BarcodePrin
                         showVariant,
                         showPrice,
                         showBarcodeText,
-                        showImage,
+                        showImage: false,
                         layout,
                         pageSizeMm,
                       }}
                     />
                     {printableItems.length > 3 && (
-                      <div className="text-center text-[10px] text-muted-foreground mt-2 italic bg-muted/60 py-1 rounded">
-                        Showing 3 of {printableItems.length} labels in preview...
+                      <div className="text-center text-[10px] text-muted-foreground mt-2 italic bg-muted/60 py-1.5 px-2 rounded">
+                        Showing first 3 of {printableItems.length} labels in preview. All {printableItems.length} labels will print (one label per page).
                       </div>
                     )}
                   </div>
@@ -592,8 +550,8 @@ export default function BarcodePrintModal({ item, isOpen, onClose }: BarcodePrin
             Cancel
           </Button>
 
-          {/* Hidden printable target container (not displayed on screen, parsed by react-to-print) */}
-          <div className="hidden">
+          {/* Hidden printable target container (positioned offscreen, not display:none, to allow print engines to calculate pages correctly) */}
+          <div className="absolute -left-[9999px] -top-[9999px] opacity-0 pointer-events-none" aria-hidden="true">
             <div ref={componentRef}>
               <BarcodePrintTemplate
                 items={printableItems}
@@ -604,7 +562,7 @@ export default function BarcodePrintModal({ item, isOpen, onClose }: BarcodePrin
                   showVariant,
                   showPrice,
                   showBarcodeText,
-                  showImage,
+                  showImage: false,
                   layout,
                   pageSizeMm,
                 }}
