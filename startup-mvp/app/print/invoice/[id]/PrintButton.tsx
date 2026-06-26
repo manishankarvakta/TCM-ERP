@@ -8,14 +8,24 @@ export default function PrintButton() {
 
   useEffect(() => {
     setMounted(true);
-    // Don't auto-print if loaded inside an iframe to prevent double-printing!
+    
     const isInsideIframe = typeof window !== 'undefined' && window.self !== window.top;
-    if (isInsideIframe) return;
-
-    // Automatically open print dialog after a short delay to let fonts/styles load
+    
+    // Automatically open print dialog after a short delay to let fonts/styles/barcode load
     const timer = setTimeout(() => {
-      window.print();
-    }, 500);
+      if (isInsideIframe) {
+        // Trigger the parent window's callback to print the iframe content
+        if (window.parent && typeof (window.parent as any).triggerIframePrint === 'function') {
+          (window.parent as any).triggerIframePrint();
+          // Clean it up immediately to avoid duplicate triggering
+          delete (window.parent as any).triggerIframePrint;
+        }
+      } else {
+        // Standalone page print
+        window.print();
+      }
+    }, 800);
+
     return () => clearTimeout(timer);
   }, []);
 

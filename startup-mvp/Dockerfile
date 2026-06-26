@@ -86,11 +86,9 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
 COPY --from=builder /app/prisma ./prisma
 
-# Copy package.json
+# Copy package.json and prisma package
 COPY --from=builder /app/package.json ./package.json
-
-# Install Prisma CLI and tsx globally for runtime migrations and seeding
-RUN npm install -g prisma@6.18.0 tsx@latest
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
 # Copy entrypoint script
 COPY --from=builder /app/docker/entrypoint.sh /app/entrypoint.sh

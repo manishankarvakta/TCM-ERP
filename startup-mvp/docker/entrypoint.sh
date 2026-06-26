@@ -13,7 +13,7 @@ echo "✅ PostgreSQL is available"
 echo "🧱 Prisma client already generated during build"
 
 echo "🧱 Applying Prisma migrations (as root)..."
-prisma migrate deploy || echo "No new migrations or already applied"
+node node_modules/prisma/build/index.js migrate deploy || echo "No new migrations or already applied"
 
 echo "🚀 Starting application (as nextjs user)..."
 exec su-exec nextjs node server.js

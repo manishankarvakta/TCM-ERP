@@ -1115,23 +1115,38 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       oldIframe.remove();
     }
 
+    // Register callback for child iframe
+    (window as any).triggerIframePrint = () => {
+      const iframeElement = document.getElementById('print-invoice-iframe') as HTMLIFrameElement;
+      if (iframeElement && iframeElement.contentWindow) {
+        iframeElement.contentWindow.focus();
+        iframeElement.contentWindow.print();
+      }
+    };
+
     const iframe = document.createElement('iframe');
     iframe.id = 'print-invoice-iframe';
     iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
+    iframe.style.left = '-9999px';
+    iframe.style.top = '-9999px';
+    iframe.style.width = '800px';
+    iframe.style.height = '600px';
     iframe.style.border = '0';
     iframe.src = `/print/invoice/${saleId}`;
 
     document.body.appendChild(iframe);
 
+    // Fallback print triggers in case child script fails to call triggerIframePrint
     iframe.onload = () => {
-      if (iframe.contentWindow) {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-      }
+      setTimeout(() => {
+        const iframeElement = document.getElementById('print-invoice-iframe') as HTMLIFrameElement;
+        if (iframeElement && iframeElement.contentWindow && (window as any).triggerIframePrint) {
+          // If triggerIframePrint is still defined, it means it hasn't fired yet
+          iframeElement.contentWindow.focus();
+          iframeElement.contentWindow.print();
+          delete (window as any).triggerIframePrint;
+        }
+      }, 3000);
     };
   };
 
