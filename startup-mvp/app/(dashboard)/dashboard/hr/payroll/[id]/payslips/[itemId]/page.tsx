@@ -22,6 +22,10 @@ export default async function PayslipPage({ params }: PayslipPageProps) {
     return <div>Permission Denied</div>;
   }
 
+  const defaultPolicy = await prisma.salaryStructurePolicy.findFirst({
+    where: { isDefault: true, status: "active", isTrash: false }
+  });
+
   const payrollItem = await prisma.payrollItem.findUnique({
     where: { id: itemId, payrollId: id },
     include: {
@@ -38,7 +42,11 @@ export default async function PayslipPage({ params }: PayslipPageProps) {
       },
       employee: {
         include: {
-          employeeType: true
+          employeeType: {
+            include: {
+              salaryStructurePolicy: true
+            }
+          }
         }
       }
     }
@@ -47,6 +55,47 @@ export default async function PayslipPage({ params }: PayslipPageProps) {
   if (!payrollItem) {
     return notFound();
   }
+
+  const { calculateSalaryBreakdown } = await import("@/lib/hr-payroll/policy-calculation");
+
+  const basic = Number(payrollItem.basic);
+  const houseRent = Number(payrollItem.houseRent);
+  const medical = Number(payrollItem.medical);
+  const transport = Number(payrollItem.transport);
+  const foodAllowance = Number(payrollItem.foodAllowance);
+
+  const isFlat = houseRent === 0 && medical === 0 && transport === 0 && foodAllowance === 0;
+
+  let resBasic = basic;
+  let resHouseRent = houseRent;
+  let resMedical = medical;
+  let resTransport = transport;
+  let resFoodAllowance = foodAllowance;
+
+  if (isFlat) {
+    const gross = basic; // since others are 0, item.basic represents the gross base salary
+    const resolvedPolicy = payrollItem.employee?.employeeType?.salaryStructurePolicy || defaultPolicy || null;
+
+    const breakdown = calculateSalaryBreakdown({
+      grossSalary: gross,
+      salaryStructurePolicy: resolvedPolicy
+    });
+
+    resBasic = breakdown.basicSalary;
+    resHouseRent = breakdown.houseRent;
+    resMedical = breakdown.medical;
+    resTransport = breakdown.transport;
+    resFoodAllowance = breakdown.food;
+  }
+
+  const serializedPayrollItem = {
+    ...serializeDecimalAndDate(payrollItem),
+    basic: resBasic,
+    houseRent: resHouseRent,
+    medical: resMedical,
+    transport: resTransport,
+    foodAllowance: resFoodAllowance,
+  };
 
   // Get attendance summary for the month
   const startDate = new Date((payrollItem as any).payroll.year, (payrollItem as any).payroll.month - 1, 1);
@@ -78,7 +127,7 @@ export default async function PayslipPage({ params }: PayslipPageProps) {
   return (
     <PageGuard permissionKey="hr.payroll" requiredOperation="view">
       <PayslipClient 
-        payrollItem={serializeDecimalAndDate(payrollItem)}
+        payrollItem={serializedPayrollItem}
         attendanceSummary={serializeDecimalAndDate(attendanceSummary)}
         orgInfo={serializeDecimalAndDate(orgInfo)}
       />

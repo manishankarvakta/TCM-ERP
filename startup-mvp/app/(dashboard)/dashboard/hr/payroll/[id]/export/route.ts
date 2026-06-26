@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
+import { calculateSalaryBreakdown } from "@/lib/hr-payroll/policy-calculation";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // Allow more time for large exports
@@ -40,6 +41,11 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     if (!payroll) {
       return new NextResponse("Payroll not found", { status: 404 });
     }
+
+    // Load default active SalaryStructurePolicy
+    const defaultPolicy = await prisma.salaryStructurePolicy.findFirst({
+      where: { isDefault: true, status: "active", isTrash: false }
+    });
 
     // CSV Headers
     const headers = [
@@ -118,6 +124,23 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
                     name: true,
                     department: true,
                     designation: true,
+                    employeeType: {
+                      select: {
+                        id: true,
+                        name: true,
+                        salaryStructurePolicy: {
+                          select: {
+                            id: true,
+                            name: true,
+                            basicPercent: true,
+                            houseRentPercent: true,
+                            medicalPercent: true,
+                            transportPercent: true,
+                            foodPercent: true,
+                          }
+                        }
+                      }
+                    }
                   }
                 }
               },
@@ -135,18 +158,43 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
               const medical = Number(item.medical || 0);
               const transport = Number(item.transport || 0);
               const foodAllowance = Number(item.foodAllowance || 0);
-              const baseGrossSalary = basic + houseRent + medical + transport + foodAllowance;
+
+              const isFlat = houseRent === 0 && medical === 0 && transport === 0 && foodAllowance === 0;
+
+              let resBasic = basic;
+              let resHouseRent = houseRent;
+              let resMedical = medical;
+              let resTransport = transport;
+              let resFoodAllowance = foodAllowance;
+
+              if (isFlat) {
+                const gross = basic; // since others are 0, item.basic represents the gross base salary
+                const resolvedPolicy = item.employee?.employeeType?.salaryStructurePolicy || defaultPolicy || null;
+
+                const breakdown = calculateSalaryBreakdown({
+                  grossSalary: gross,
+                  salaryStructurePolicy: resolvedPolicy
+                });
+
+                resBasic = breakdown.basicSalary;
+                resHouseRent = breakdown.houseRent;
+                resMedical = breakdown.medical;
+                resTransport = breakdown.transport;
+                resFoodAllowance = breakdown.food;
+              }
+
+              const baseGrossSalary = resBasic + resHouseRent + resMedical + resTransport + resFoodAllowance;
 
               return [
                 escapeCsv(item.employee.employeeCode),
                 escapeCsv(item.employee.name),
                 escapeCsv(item.employee.department),
                 escapeCsv(item.employee.designation),
-                escapeCsv(basic.toString()),
-                escapeCsv(houseRent.toString()),
-                escapeCsv(medical.toString()),
-                escapeCsv(transport.toString()),
-                escapeCsv(foodAllowance.toString()),
+                escapeCsv(resBasic.toString()),
+                escapeCsv(resHouseRent.toString()),
+                escapeCsv(resMedical.toString()),
+                escapeCsv(resTransport.toString()),
+                escapeCsv(resFoodAllowance.toString()),
                 escapeCsv(baseGrossSalary.toString()),
                 escapeCsv(item.otAmount?.toString()),
                 escapeCsv(item.tiffinAllowance?.toString()),

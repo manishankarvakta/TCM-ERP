@@ -590,6 +590,13 @@ export async function getPayrollById(id: string) {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
 
+    // Load default active SalaryStructurePolicy
+    const defaultPolicy = await prisma.salaryStructurePolicy.findFirst({
+      where: { isDefault: true, status: "active", isTrash: false }
+    });
+
+    const { calculateSalaryBreakdown } = await import("@/lib/hr-payroll/policy-calculation");
+
     const payroll = await prisma.payroll.findUnique({
       where: { id },
       include: {
@@ -597,7 +604,31 @@ export async function getPayrollById(id: string) {
         approver: { select: { name: true } },
         items: {
           include: {
-            employee: { select: { id: true, name: true, employeeCode: true, designation: true } },
+            employee: {
+              select: {
+                id: true,
+                name: true,
+                employeeCode: true,
+                designation: true,
+                employeeType: {
+                  select: {
+                    id: true,
+                    name: true,
+                    salaryStructurePolicy: {
+                      select: {
+                        id: true,
+                        name: true,
+                        basicPercent: true,
+                        houseRentPercent: true,
+                        medicalPercent: true,
+                        transportPercent: true,
+                        foodPercent: true,
+                      }
+                    }
+                  }
+                }
+              }
+            },
           },
           orderBy: { employee: { name: "asc" } },
         },
@@ -610,29 +641,61 @@ export async function getPayrollById(id: string) {
     const serializedPayroll = {
       ...payroll,
       totalAmount: Number(payroll.totalAmount),
-      items: payroll.items.map(item => ({
-        ...item,
-        basic: Number(item.basic),
-        houseRent: Number(item.houseRent),
-        medical: Number(item.medical),
-        transport: Number(item.transport),
-        foodAllowance: Number(item.foodAllowance),
-        otAmount: Number(item.otAmount),
-        bonus: Number(item.bonus),
-        grossPay: Number(item.grossPay),
-        absentDeduction: Number(item.absentDeduction),
-        loanDeduction: Number(item.loanDeduction),
-        taxDeduction: Number(item.taxDeduction),
-        pfDeduction: Number(item.pfDeduction),
-        totalDeduction: Number(item.totalDeduction),
-        netPay: Number(item.netPay),
-        tiffinAllowance: Number(item.tiffinAllowance),
-        nightAllowance: Number(item.nightAllowance),
-        holidayAllowance: Number(item.holidayAllowance),
-        otherAllowance: Number(item.otherAllowance),
-        lateDeduction: Number(item.lateDeduction),
-        otherDeduction: Number(item.otherDeduction),
-      }))
+      items: payroll.items.map(item => {
+        const basic = Number(item.basic);
+        const houseRent = Number(item.houseRent);
+        const medical = Number(item.medical);
+        const transport = Number(item.transport);
+        const foodAllowance = Number(item.foodAllowance);
+
+        const isFlat = houseRent === 0 && medical === 0 && transport === 0 && foodAllowance === 0;
+
+        let resBasic = basic;
+        let resHouseRent = houseRent;
+        let resMedical = medical;
+        let resTransport = transport;
+        let resFoodAllowance = foodAllowance;
+
+        if (isFlat) {
+          const gross = basic; // since others are 0, item.basic represents the gross base salary
+          const resolvedPolicy = item.employee?.employeeType?.salaryStructurePolicy || defaultPolicy || null;
+
+          const breakdown = calculateSalaryBreakdown({
+            grossSalary: gross,
+            salaryStructurePolicy: resolvedPolicy
+          });
+
+          resBasic = breakdown.basicSalary;
+          resHouseRent = breakdown.houseRent;
+          resMedical = breakdown.medical;
+          resTransport = breakdown.transport;
+          resFoodAllowance = breakdown.food;
+        }
+
+        return {
+          ...item,
+          basic: resBasic,
+          houseRent: resHouseRent,
+          medical: resMedical,
+          transport: resTransport,
+          foodAllowance: resFoodAllowance,
+          otAmount: Number(item.otAmount),
+          bonus: Number(item.bonus),
+          grossPay: Number(item.grossPay),
+          absentDeduction: Number(item.absentDeduction),
+          loanDeduction: Number(item.loanDeduction),
+          taxDeduction: Number(item.taxDeduction),
+          pfDeduction: Number(item.pfDeduction),
+          totalDeduction: Number(item.totalDeduction),
+          netPay: Number(item.netPay),
+          tiffinAllowance: Number(item.tiffinAllowance),
+          nightAllowance: Number(item.nightAllowance),
+          holidayAllowance: Number(item.holidayAllowance),
+          otherAllowance: Number(item.otherAllowance),
+          lateDeduction: Number(item.lateDeduction),
+          otherDeduction: Number(item.otherDeduction),
+        };
+      })
     };
 
     return { success: true, payroll: serializedPayroll };

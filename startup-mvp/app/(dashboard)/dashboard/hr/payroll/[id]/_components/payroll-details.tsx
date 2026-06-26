@@ -236,10 +236,15 @@ export default function PayrollDetailsClient({
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[2200px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[180px]">Employee</TableHead>
+                  <TableHead className="w-[180px] min-w-[180px] max-w-[180px] sticky left-0 bg-background z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Employee</TableHead>
+                  <TableHead className="text-right">Basic (55%)</TableHead>
+                  <TableHead className="text-right">House Rent (26%)</TableHead>
+                  <TableHead className="text-right">Medical (5%)</TableHead>
+                  <TableHead className="text-right">Transport (4%)</TableHead>
+                  <TableHead className="text-right">Food (10%)</TableHead>
                   <TableHead className="text-right">Base Gross</TableHead>
                   <TableHead className="text-right">OT Pay</TableHead>
                   <TableHead className="text-right">Tiffin</TableHead>
@@ -251,9 +256,9 @@ export default function PayrollDetailsClient({
                   <TableHead className="text-right">Late Ded.</TableHead>
                   <TableHead className="text-right">Loan Ded.</TableHead>
                   <TableHead className="text-right">Tax/PF</TableHead>
-                  <TableHead className="text-right font-semibold text-destructive bg-destructive/5">Total Ded.</TableHead>
-                  <TableHead className="text-right font-bold text-primary bg-primary/10">Net Pay</TableHead>
-                  <TableHead className="w-[80px]"></TableHead>
+                  <TableHead className="w-[120px] min-w-[120px] max-w-[120px] text-right font-semibold text-destructive sticky right-[180px] bg-background z-20 border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">Total Ded.</TableHead>
+                  <TableHead className="w-[100px] min-w-[100px] max-w-[100px] text-right font-bold text-primary sticky right-[80px] bg-background z-20">Net Pay</TableHead>
+                  <TableHead className="w-[80px] min-w-[80px] max-w-[80px] sticky right-0 bg-background z-20"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -269,11 +274,16 @@ export default function PayrollDetailsClient({
                   const taxAndPf = Number(item.taxDeduction || 0) + Number(item.pfDeduction || 0);
 
                   return (
-                    <TableRow key={item.id}>
-                      <TableCell>
+                    <TableRow key={item.id} className="group">
+                      <TableCell className="w-[180px] min-w-[180px] max-w-[180px] sticky left-0 bg-background group-hover:bg-muted z-10 transition-colors border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                         <div className="font-medium">{item.employee.name}</div>
                         <div className="text-xs text-muted-foreground">{item.employee.employeeCode || "N/A"} • {item.employee.designation || "No Desig."}</div>
                       </TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.basic)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.houseRent)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.medical)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.transport)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.foodAllowance)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(baseGrossSalary)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(item.otAmount)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(item.tiffinAllowance)}</TableCell>
@@ -290,14 +300,16 @@ export default function PayrollDetailsClient({
                       <TableCell className="text-right">{formatCurrency(item.lateDeduction)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(item.loanDeduction)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(taxAndPf)}</TableCell>
-                      <TableCell className="text-right font-semibold text-destructive bg-destructive/5">
+                      <TableCell className="w-[120px] min-w-[120px] max-w-[120px] text-right font-semibold text-destructive sticky right-[180px] bg-background group-hover:bg-muted z-10 transition-colors border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                         <div>{formatCurrency(item.totalDeduction)}</div>
                         {Number(item.otherDeduction) > 0 && (
                           <div className="text-[10px] text-destructive mt-0.5">Oth: {formatCurrency(item.otherDeduction)}</div>
                         )}
                       </TableCell>
-                      <TableCell className="text-right font-bold text-primary bg-primary/10">{formatCurrency(item.netPay)}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="w-[100px] min-w-[100px] max-w-[100px] text-right font-bold text-primary sticky right-[80px] bg-background group-hover:bg-muted z-10 transition-colors">
+                        {formatCurrency(item.netPay)}
+                      </TableCell>
+                      <TableCell className="w-[80px] min-w-[80px] max-w-[80px] sticky right-0 bg-background group-hover:bg-muted z-10 transition-colors text-right">
                         <Button variant="ghost" size="sm" asChild className="h-8">
                           <a href={`/dashboard/hr/payroll/${payroll.id}/payslips/${item.id}`} target="_blank" rel="noreferrer">
                             Payslip
