@@ -23,8 +23,9 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FiCheck, FiFileText, FiSend, FiDownload } from "react-icons/fi";
+import { FiCheck, FiFileText, FiSend, FiDownload, FiPrinter } from "react-icons/fi";
 import { useToast } from "@/hooks/use-toast";
+import Link from "next/link";
 import { updatePayrollStatus, postPayroll, disbursePayroll } from "@/app/(dashboard)/dashboard/hr/payroll/_actions/payroll.action";
 import { format } from "date-fns";
 
@@ -145,6 +146,13 @@ export default function PayrollDetailsClient({
               <FiDownload className="mr-2 h-4 w-4" />
               Export CSV
             </a>
+          </Button>
+
+          <Button variant="outline" asChild>
+            <Link href={`/dashboard/hr/payroll/${payroll.id}/payslips/print`}>
+              <FiPrinter className="mr-2 h-4 w-4" />
+              Print all Payslip
+            </Link>
           </Button>
 
           {payroll.status === "DRAFT" && permissions.canApprove && (
