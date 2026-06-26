@@ -53,6 +53,8 @@ import TOS from "./_components/Tos";
 import Accounting from "./_components/Accounting";
 import PayrollSettings from "./_components/PayrollSettings";
 import Membership from "./_components/Membership";
+import POSSettings from "./_components/POSSettings";
+
 
 
 type SettingsSection = "profile" | 
@@ -82,7 +84,8 @@ type SettingsSection = "profile" |
                        "preferences" |
                        "accounting" |
                        "payroll" |
-                       "membership";
+                       "membership" |
+                       "pos";
 
 export default function SettingsPageClient() {
   const router = useRouter();
@@ -157,10 +160,15 @@ export default function SettingsPageClient() {
       ],
     },
     {
+      category: "POS",
+      items: [
+        { id: "pos" as SettingsSection, label: "POS Settings", icon: SettingsIcon, active: activeSection === "pos" },
+      ],
+    },
+    {
       category: "HR & Payroll",
       items: [
         { id: "payroll" as SettingsSection, label: "Payroll Settings", icon: Banknote, active: activeSection === "payroll" },
-        { id: "membership" as SettingsSection, label: "Membership Settings", icon: Users, active: activeSection === "membership" },
       ],
     },
     {
@@ -218,6 +226,8 @@ export default function SettingsPageClient() {
         return <PayrollSettings />;
       case "membership":
         return <Membership />;
+      case "pos":
+        return <POSSettings />;
       case "coverLetter":
       case "tos":
         return <TOS />;
