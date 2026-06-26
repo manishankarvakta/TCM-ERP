@@ -31,6 +31,7 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
   }
 
   const employee = result.employee;
+  const salaryStructure = (result as any).salaryStructure;
   const employeeStatus = employee.status || "active";
 
   return (
@@ -317,8 +318,115 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
                     ) : (
                       <p className="text-sm">-</p>
                     )}
-                  </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Salary Structure Breakdown Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b pb-2">
+                  <FiDollarSign className="text-primary" />
+                  <h3 className="font-semibold">Salary Structure Breakdown</h3>
+                </div>
+
+                {!employee.salary || Number(employee.salary) === 0 ? (
+                  <div className="p-4 text-sm rounded-lg bg-yellow-500/10 text-yellow-500 border border-yellow-500/25">
+                    Salary not configured for this employee.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row justify-between gap-4 p-4 rounded-lg border bg-muted/20">
+                      <div>
+                        <span className="text-xs text-muted-foreground uppercase font-medium">Structure Policy</span>
+                        <p className="text-sm font-semibold">{salaryStructure?.name || "Fallback"}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {salaryStructure?.isFallback 
+                            ? "Using hardcoded fallback policy (55/26/5/4/10)"
+                            : !employee.employeeType?.salaryStructurePolicyId
+                            ? "Using active default company policy"
+                            : "Using assigned employee type policy"
+                          }
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground uppercase font-medium">Gross Salary</span>
+                        <p className="text-sm font-semibold text-primary">
+                          ৳{Number(employee.salary).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Breakdown Table */}
+                    <div className="rounded-md border overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50 border-b">
+                          <tr>
+                            <th className="text-left p-3 font-medium text-muted-foreground">Salary Component</th>
+                            <th className="text-right p-3 font-medium text-muted-foreground">Percentage</th>
+                            <th className="text-right p-3 font-medium text-muted-foreground">Amount (BDT)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          <tr>
+                            <td className="p-3 font-medium">Basic Salary</td>
+                            <td className="text-right p-3 text-muted-foreground">{salaryStructure.basicPercent}%</td>
+                            <td className="text-right p-3 font-mono font-medium">
+                              ৳{((Number(employee.salary) * salaryStructure.basicPercent) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="p-3 font-medium">House Rent</td>
+                            <td className="text-right p-3 text-muted-foreground">{salaryStructure.houseRentPercent}%</td>
+                            <td className="text-right p-3 font-mono font-medium">
+                              ৳{((Number(employee.salary) * salaryStructure.houseRentPercent) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="p-3 font-medium">Medical Allowance</td>
+                            <td className="text-right p-3 text-muted-foreground">{salaryStructure.medicalPercent}%</td>
+                            <td className="text-right p-3 font-mono font-medium">
+                              ৳{((Number(employee.salary) * salaryStructure.medicalPercent) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="p-3 font-medium">Transport Allowance</td>
+                            <td className="text-right p-3 text-muted-foreground">{salaryStructure.transportPercent}%</td>
+                            <td className="text-right p-3 font-mono font-medium">
+                              ৳{((Number(employee.salary) * salaryStructure.transportPercent) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="p-3 font-medium">Food Allowance</td>
+                            <td className="text-right p-3 text-muted-foreground">{salaryStructure.foodPercent}%</td>
+                            <td className="text-right p-3 font-mono font-medium">
+                              ৳{((Number(employee.salary) * salaryStructure.foodPercent) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                          <tr className="bg-muted/30 border-t font-semibold">
+                            <td className="p-3">Base Gross Salary</td>
+                            <td className="text-right p-3">
+                              {salaryStructure.basicPercent + salaryStructure.houseRentPercent + salaryStructure.medicalPercent + salaryStructure.transportPercent + salaryStructure.foodPercent}%
+                            </td>
+                            <td className="text-right p-3 font-mono text-primary">
+                              ৳{Number(employee.salary).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Safe Percentage Warning */}
+                    {Math.abs((salaryStructure.basicPercent + salaryStructure.houseRentPercent + salaryStructure.medicalPercent + salaryStructure.transportPercent + salaryStructure.foodPercent) - 100) > 0.01 && (
+                      <div className="p-3 text-xs rounded-lg bg-red-500/10 text-red-500 border border-red-500/25">
+                        Warning: The total percentage of the salary structure components equals {salaryStructure.basicPercent + salaryStructure.houseRentPercent + salaryStructure.medicalPercent + salaryStructure.transportPercent + salaryStructure.foodPercent}%, which is not exactly 100%. Please review the policy mappings.
+                      </div>
+                    )}
+
+                    <p className="text-xs text-muted-foreground italic">
+                      “This breakdown is generated from the assigned salary structure. Payroll uses the same structure during payroll generation.”
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 

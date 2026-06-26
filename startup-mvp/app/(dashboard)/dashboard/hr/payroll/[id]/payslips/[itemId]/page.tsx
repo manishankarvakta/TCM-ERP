@@ -36,7 +36,11 @@ export default async function PayslipPage({ params }: PayslipPageProps) {
           createdAt: true
         }
       },
-      employee: true
+      employee: {
+        include: {
+          employeeType: true
+        }
+      }
     }
   });
 

@@ -65,14 +65,23 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
             <h1 className="text-2xl font-semibold">Employees</h1>
             <p className="text-sm text-muted-foreground">Manage employees in your system</p>
           </div>
-          {tab !== "trash" && canCreate && (
-            <Button asChild>
-              <Link href="/dashboard/employees/add">
-                <FiPlus className="mr-2 h-4 w-4" />
-                Add Employee
-              </Link>
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {canEdit && (
+              <Button variant="outline" asChild>
+                <Link href="/dashboard/employees/types">
+                  Employee Types Setup
+                </Link>
+              </Button>
+            )}
+            {tab !== "trash" && canCreate && (
+              <Button asChild>
+                <Link href="/dashboard/employees/add">
+                  <FiPlus className="mr-2 h-4 w-4" />
+                  Add Employee
+                </Link>
+              </Button>
+            )}
+          </div>
         </div>
 
         <Tabs defaultValue={tab} className="w-full">

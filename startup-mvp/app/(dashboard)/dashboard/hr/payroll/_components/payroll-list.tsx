@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { FiEye, FiSettings } from "react-icons/fi";
 import { format } from "date-fns";
@@ -26,6 +27,16 @@ interface Payroll {
   createdAt: Date;
   creator: { name: string };
   _count: { items: number };
+  totals?: {
+    baseGrossSalary: number;
+    grossPay: number;
+    totalDeduction: number;
+    netPay: number;
+    otAmount: number;
+    tiffinAllowance: number;
+    nightAllowance: number;
+    holidayAllowance: number;
+  };
 }
 
 interface Pagination {
@@ -52,6 +63,10 @@ export default function PayrollListClient({
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const formatCurrency = (amount: any) => {
+    return `৳${Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   const getStatusBadge = (status: PayrollStatus) => {
     switch (status) {
       case "DRAFT":
@@ -71,8 +86,77 @@ export default function PayrollListClient({
     return date.toLocaleString('default', { month: 'long' });
   };
 
+  // Aggregate totals
+  const aggregate = initialPayrolls.reduce(
+    (acc, pr) => {
+      acc.totalEmployees += pr._count.items;
+      acc.totalBaseGross += pr.totals?.baseGrossSalary || 0;
+      acc.totalEarnings += pr.totals?.grossPay || 0;
+      acc.totalDeductions += pr.totals?.totalDeduction || 0;
+      acc.totalNetPayable += Number(pr.totalAmount) || 0;
+      acc.totalOT += pr.totals?.otAmount || 0;
+      acc.totalAllowances +=
+        (pr.totals?.tiffinAllowance || 0) +
+        (pr.totals?.nightAllowance || 0) +
+        (pr.totals?.holidayAllowance || 0);
+      return acc;
+    },
+    {
+      totalEmployees: 0,
+      totalBaseGross: 0,
+      totalEarnings: 0,
+      totalDeductions: 0,
+      totalNetPayable: 0,
+      totalOT: 0,
+      totalAllowances: 0,
+    }
+  );
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {initialPayrolls.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Base Gross</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl font-bold">{formatCurrency(aggregate.totalBaseGross)}</div>
+              <p className="text-[10px] text-muted-foreground mt-1">For {aggregate.totalEmployees} employees total</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Earnings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl font-bold text-emerald-600">{formatCurrency(aggregate.totalEarnings)}</div>
+              <p className="text-[10px] text-muted-foreground mt-1">Incl. allowances & OT</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Deductions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl font-bold text-red-600">{formatCurrency(aggregate.totalDeductions)}</div>
+              <p className="text-[10px] text-muted-foreground mt-1">Incl. absent, late & loans</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-primary/5 border-primary/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-semibold text-primary uppercase tracking-wider">Total Net Payable</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl font-bold text-primary">{formatCurrency(aggregate.totalNetPayable)}</div>
+              <p className="text-[10px] text-primary/80 mt-1">
+                OT: {formatCurrency(aggregate.totalOT)} • Alw: {formatCurrency(aggregate.totalAllowances)}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="border rounded-lg">
         <Table>
           <TableHeader>

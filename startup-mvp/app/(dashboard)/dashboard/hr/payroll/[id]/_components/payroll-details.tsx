@@ -239,40 +239,74 @@ export default function PayrollDetailsClient({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[250px]">Employee</TableHead>
-                  <TableHead className="text-right">Basic</TableHead>
+                  <TableHead className="w-[180px]">Employee</TableHead>
+                  <TableHead className="text-right">Base Gross</TableHead>
                   <TableHead className="text-right">OT Pay</TableHead>
-                  <TableHead className="text-right font-semibold text-primary bg-primary/5">Gross</TableHead>
+                  <TableHead className="text-right">Tiffin</TableHead>
+                  <TableHead className="text-right">Night</TableHead>
+                  <TableHead className="text-right">Holiday</TableHead>
+                  <TableHead className="text-right">Bonus/Oth</TableHead>
+                  <TableHead className="text-right font-semibold text-primary bg-primary/5">Total Earnings</TableHead>
                   <TableHead className="text-right">Absent Ded.</TableHead>
+                  <TableHead className="text-right">Late Ded.</TableHead>
                   <TableHead className="text-right">Loan Ded.</TableHead>
+                  <TableHead className="text-right">Tax/PF</TableHead>
                   <TableHead className="text-right font-semibold text-destructive bg-destructive/5">Total Ded.</TableHead>
                   <TableHead className="text-right font-bold text-primary bg-primary/10">Net Pay</TableHead>
-                  <TableHead className="w-[100px]"></TableHead>
+                  <TableHead className="w-[80px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payroll.items.map((item: any) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <div className="font-medium">{item.employee.name}</div>
-                      <div className="text-xs text-muted-foreground">{item.employee.employeeCode || "N/A"} • {item.employee.designation || "No Desig."}</div>
-                    </TableCell>
-                    <TableCell className="text-right">{formatCurrency(item.basic)}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(item.otAmount)}</TableCell>
-                    <TableCell className="text-right font-semibold text-primary bg-primary/5">{formatCurrency(item.grossPay)}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(item.absentDeduction)}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(item.loanDeduction)}</TableCell>
-                    <TableCell className="text-right font-semibold text-destructive bg-destructive/5">{formatCurrency(item.totalDeduction)}</TableCell>
-                    <TableCell className="text-right font-bold text-primary bg-primary/10">{formatCurrency(item.netPay)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" asChild className="h-8">
-                        <a href={`/dashboard/hr/payroll/${payroll.id}/payslips/${item.id}`} target="_blank" rel="noreferrer">
-                          Payslip
-                        </a>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {payroll.items.map((item: any) => {
+                  const baseGrossSalary =
+                    Number(item.basic || 0) +
+                    Number(item.houseRent || 0) +
+                    Number(item.medical || 0) +
+                    Number(item.transport || 0) +
+                    Number(item.foodAllowance || 0);
+
+                  const bonusAndOth = Number(item.bonus || 0) + Number(item.otherAllowance || 0);
+                  const taxAndPf = Number(item.taxDeduction || 0) + Number(item.pfDeduction || 0);
+
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <div className="font-medium">{item.employee.name}</div>
+                        <div className="text-xs text-muted-foreground">{item.employee.employeeCode || "N/A"} • {item.employee.designation || "No Desig."}</div>
+                      </TableCell>
+                      <TableCell className="text-right">{formatCurrency(baseGrossSalary)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.otAmount)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.tiffinAllowance)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.nightAllowance)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.holidayAllowance)}</TableCell>
+                      <TableCell className="text-right">
+                        <div>{formatCurrency(bonusAndOth)}</div>
+                        {Number(item.otherAllowance) > 0 && (
+                          <div className="text-[10px] text-muted-foreground mt-0.5">Att. Bonus</div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-primary bg-primary/5">{formatCurrency(item.grossPay)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.absentDeduction)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.lateDeduction)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.loanDeduction)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(taxAndPf)}</TableCell>
+                      <TableCell className="text-right font-semibold text-destructive bg-destructive/5">
+                        <div>{formatCurrency(item.totalDeduction)}</div>
+                        {Number(item.otherDeduction) > 0 && (
+                          <div className="text-[10px] text-destructive mt-0.5">Oth: {formatCurrency(item.otherDeduction)}</div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-primary bg-primary/10">{formatCurrency(item.netPay)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" asChild className="h-8">
+                          <a href={`/dashboard/hr/payroll/${payroll.id}/payslips/${item.id}`} target="_blank" rel="noreferrer">
+                            Payslip
+                          </a>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

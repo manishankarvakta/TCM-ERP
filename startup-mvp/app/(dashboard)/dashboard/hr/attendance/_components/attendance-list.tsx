@@ -326,6 +326,9 @@ export default function AttendanceListClient({
                     {Number(record.otHours) > 0 && (
                       <div className="text-xs text-green-600">+{Number(record.otHours).toFixed(2)}h OT</div>
                     )}
+                    {Number((record as any).calculatedOvertimeAmount) > 0 && (
+                      <div className="text-[10px] text-orange-600 font-medium">+{Number((record as any).calculatedOvertimeAmount).toLocaleString()} BDT OT</div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant={
@@ -335,6 +338,17 @@ export default function AttendanceListClient({
                     }>
                       {record.status}
                     </Badge>
+                    {(Number((record as any).tiffinBillAmount) > 0 || 
+                      Number((record as any).nightBillAmount) > 0 || 
+                      Number((record as any).holidayBillAmount) > 0 || 
+                      ((record as any).lateMinutes || 0) > 0) && (
+                      <div className="text-[10px] text-muted-foreground mt-1 space-y-0.5 border-t pt-1 leading-tight font-sans">
+                        {Number((record as any).tiffinBillAmount) > 0 && <div>Tiffin: {Number((record as any).tiffinBillAmount)} BDT</div>}
+                        {Number((record as any).nightBillAmount) > 0 && <div>Night: {Number((record as any).nightBillAmount)} BDT</div>}
+                        {Number((record as any).holidayBillAmount) > 0 && <div>Holiday: {Number((record as any).holidayBillAmount)} BDT</div>}
+                        {((record as any).lateMinutes || 0) > 0 && <div>Late: {(record as any).lateMinutes} mins</div>}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs">

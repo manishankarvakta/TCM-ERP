@@ -59,7 +59,9 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold">Payroll Engine</h1>
-            <p className="text-sm text-muted-foreground">Generate, approve, and post monthly employee salaries</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Generate, approve, and post monthly employee salaries. Draft payroll uses current policy settings and stored attendance calculations.
+            </p>
           </div>
           <PayrollHeaderActions canCreate={canCreate} canEdit={canEdit} />
         </div>

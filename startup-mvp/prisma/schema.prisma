@@ -45,6 +45,7 @@ model User {
   hrLeaves                         LeaveApplication[]     @relation("LeaveHR")
   managedLeaves                    LeaveApplication[]     @relation("LeaveManager")
   createdLeaveTypes                LeaveType[]            @relation("LeaveTypeCreator")
+  createdEmployeeTypes             EmployeeType[]         @relation("EmployeeTypeCreator")
   createdNotifications             Notification[]         @relation("NotificationCreator")
   notifications                    Notification[]
   createdOrganizations             Organization[]         @relation("OrganizationCreator")
@@ -80,6 +81,13 @@ model User {
   createdGRNs                      GRN[]                  @relation("GRNCreator")
   updatedGRNs                      GRN[]                  @relation("GRNUpdater")
   inventoryDamages                 InventoryDamage[]
+  createdSalaryStructurePolicies   SalaryStructurePolicy[] @relation("SalaryStructurePolicyCreator")
+  createdAttendancePolicies        AttendancePolicy[]      @relation("AttendancePolicyCreator")
+  createdLatePolicies              LatePolicy[]            @relation("LatePolicyCreator")
+  createdOvertimePolicies          OvertimePolicy[]        @relation("OvertimePolicyCreator")
+  createdTiffinBillPolicies        TiffinBillPolicy[]      @relation("TiffinBillPolicyCreator")
+  createdNightBillPolicies         NightBillPolicy[]       @relation("NightBillPolicyCreator")
+  createdHolidayBillPolicies       HolidayBillPolicy[]     @relation("HolidayBillPolicyCreator")
 
   @@index([status])
   @@index([designationTemplateId])
@@ -111,6 +119,8 @@ model Employee {
   warehouseId            String?
   employmentType         EmploymentType?     @default(PERMANENT)
   type                   String?
+  employeeTypeId         String?
+  employeeType           EmployeeType?       @relation(fields: [employeeTypeId], references: [id], onDelete: Restrict)
   biometricDeviceId      String?
   nominee                Json?
   shiftId                String?
@@ -1134,6 +1144,41 @@ model LeaveType {
   creator      User               @relation("LeaveTypeCreator", fields: [createdBy], references: [id])
 }
 
+model EmployeeType {
+  id                      String                 @id @default(cuid())
+  name                    String
+  description             String?
+  status                  String                 @default("active") // "active" | "inactive"
+  isTrash                 Boolean                @default(false)
+  createdBy               String
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  employees               Employee[]
+  creator                 User                   @relation("EmployeeTypeCreator", fields: [createdBy], references: [id])
+  attendancePolicyId      String?
+  attendancePolicy        AttendancePolicy?      @relation(fields: [attendancePolicyId], references: [id])
+  latePolicyId            String?
+  latePolicy              LatePolicy?            @relation(fields: [latePolicyId], references: [id])
+  overtimePolicyId        String?
+  overtimePolicy          OvertimePolicy?        @relation(fields: [overtimePolicyId], references: [id])
+  tiffinBillPolicyId      String?
+  tiffinBillPolicy        TiffinBillPolicy?      @relation(fields: [tiffinBillPolicyId], references: [id])
+  nightBillPolicyId       String?
+  nightBillPolicy         NightBillPolicy?       @relation(fields: [nightBillPolicyId], references: [id])
+  holidayBillPolicyId     String?
+  holidayBillPolicy       HolidayBillPolicy?     @relation(fields: [holidayBillPolicyId], references: [id])
+  salaryStructurePolicyId String?
+  salaryStructurePolicy   SalaryStructurePolicy? @relation(fields: [salaryStructurePolicyId], references: [id])
+
+  @@index([attendancePolicyId])
+  @@index([latePolicyId])
+  @@index([overtimePolicyId])
+  @@index([tiffinBillPolicyId])
+  @@index([nightBillPolicyId])
+  @@index([holidayBillPolicyId])
+  @@index([salaryStructurePolicyId])
+}
+
 model LeaveApplication {
   id          String       @id @default(cuid())
   employeeId  String
@@ -1179,28 +1224,36 @@ model AttendanceLog {
 }
 
 model Attendance {
-  id                 String            @id @default(cuid())
-  employeeId         String
-  date               DateTime          @db.Date
-  shiftId            String?
-  checkIn            DateTime?
-  checkOut           DateTime?
-  workHours          Decimal           @default(0) @db.Decimal(5, 2)
-  otHours            Decimal           @default(0) @db.Decimal(5, 2)
-  status             AttendanceStatus
-  isManual           Boolean           @default(false)
-  notes              String?
-  isLocked           Boolean           @default(false)
-  createdBy          String?
-  updatedBy          String?
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  leaveApplicationId String?
-  creator            User?             @relation("AttendanceCreator", fields: [createdBy], references: [id])
-  employee           Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  leaveApplication   LeaveApplication? @relation(fields: [leaveApplicationId], references: [id])
-  shift              Shift?            @relation(fields: [shiftId], references: [id])
-  updater            User?             @relation("AttendanceUpdater", fields: [updatedBy], references: [id])
+  id                       String            @id @default(cuid())
+  employeeId               String
+  date                     DateTime          @db.Date
+  shiftId                  String?
+  checkIn                  DateTime?
+  checkOut                 DateTime?
+  workHours                Decimal           @default(0) @db.Decimal(5, 2)
+  otHours                  Decimal           @default(0) @db.Decimal(5, 2)
+  status                   AttendanceStatus
+  isManual                 Boolean           @default(false)
+  notes                    String?
+  isLocked                 Boolean           @default(false)
+  createdBy                String?
+  updatedBy                String?
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
+  leaveApplicationId       String?
+  creator                  User?             @relation("AttendanceCreator", fields: [createdBy], references: [id])
+  employee                 Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveApplication         LeaveApplication? @relation(fields: [leaveApplicationId], references: [id])
+  shift                    Shift?            @relation(fields: [shiftId], references: [id])
+  updater                  User?             @relation("AttendanceUpdater", fields: [updatedBy], references: [id])
+  lateMinutes              Int               @default(0)
+  lateCountValue           Decimal           @default(0) @db.Decimal(5, 2)
+  lateDeductionAmount      Decimal           @default(0) @db.Decimal(12, 2)
+  tiffinBillAmount         Decimal           @default(0) @db.Decimal(12, 2)
+  nightBillAmount          Decimal           @default(0) @db.Decimal(12, 2)
+  holidayBillAmount        Decimal           @default(0) @db.Decimal(12, 2)
+  calculatedOvertimeAmount Decimal           @default(0) @db.Decimal(12, 2)
+  policyCalculationNote    String?
 
   @@unique([employeeId, date])
   @@index([date])
@@ -1297,28 +1350,34 @@ model Payroll {
 }
 
 model PayrollItem {
-  id              String   @id @default(cuid())
-  payrollId       String
-  employeeId      String
-  basic           Decimal  @default(0) @db.Decimal(12, 2)
-  houseRent       Decimal  @default(0) @db.Decimal(12, 2)
-  medical         Decimal  @default(0) @db.Decimal(12, 2)
-  transport       Decimal  @default(0) @db.Decimal(12, 2)
-  foodAllowance   Decimal  @default(0) @db.Decimal(12, 2)
-  otAmount        Decimal  @default(0) @db.Decimal(12, 2)
-  bonus           Decimal  @default(0) @db.Decimal(12, 2)
-  grossPay        Decimal  @default(0) @db.Decimal(12, 2)
-  absentDeduction Decimal  @default(0) @db.Decimal(12, 2)
-  loanDeduction   Decimal  @default(0) @db.Decimal(12, 2)
-  taxDeduction    Decimal  @default(0) @db.Decimal(12, 2)
-  pfDeduction     Decimal  @default(0) @db.Decimal(12, 2)
-  totalDeduction  Decimal  @default(0) @db.Decimal(12, 2)
-  netPay          Decimal  @default(0) @db.Decimal(12, 2)
-  status          String   @default("unpaid")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  employee        Employee @relation(fields: [employeeId], references: [id])
-  payroll         Payroll  @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  id               String   @id @default(cuid())
+  payrollId        String
+  employeeId       String
+  basic            Decimal  @default(0) @db.Decimal(12, 2)
+  houseRent        Decimal  @default(0) @db.Decimal(12, 2)
+  medical          Decimal  @default(0) @db.Decimal(12, 2)
+  transport        Decimal  @default(0) @db.Decimal(12, 2)
+  foodAllowance    Decimal  @default(0) @db.Decimal(12, 2)
+  otAmount         Decimal  @default(0) @db.Decimal(12, 2)
+  bonus            Decimal  @default(0) @db.Decimal(12, 2)
+  grossPay         Decimal  @default(0) @db.Decimal(12, 2)
+  absentDeduction  Decimal  @default(0) @db.Decimal(12, 2)
+  loanDeduction    Decimal  @default(0) @db.Decimal(12, 2)
+  taxDeduction     Decimal  @default(0) @db.Decimal(12, 2)
+  pfDeduction      Decimal  @default(0) @db.Decimal(12, 2)
+  totalDeduction   Decimal  @default(0) @db.Decimal(12, 2)
+  netPay           Decimal  @default(0) @db.Decimal(12, 2)
+  status           String   @default("unpaid")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  employee         Employee @relation(fields: [employeeId], references: [id])
+  payroll          Payroll  @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  tiffinAllowance  Decimal  @default(0) @db.Decimal(12, 2)
+  nightAllowance   Decimal  @default(0) @db.Decimal(12, 2)
+  holidayAllowance Decimal  @default(0) @db.Decimal(12, 2)
+  otherAllowance   Decimal  @default(0) @db.Decimal(12, 2)
+  lateDeduction    Decimal  @default(0) @db.Decimal(12, 2)
+  otherDeduction   Decimal  @default(0) @db.Decimal(12, 2)
 
   @@unique([payrollId, employeeId])
   @@index([employeeId])
@@ -2042,4 +2101,189 @@ model BiometricCommand {
   @@index([status])
   @@index([commandType])
   @@index([createdAt])
+}
+
+model SalaryStructurePolicy {
+  id                String         @id @default(cuid())
+  name              String
+  description       String?
+  isDefault         Boolean        @default(false)
+  basedOn           String         @default("GROSS")
+  basicPercent      Decimal        @default(55.00) @db.Decimal(5, 2)
+  houseRentPercent  Decimal        @default(26.00) @db.Decimal(5, 2)
+  medicalPercent    Decimal        @default(5.00)  @db.Decimal(5, 2)
+  transportPercent  Decimal        @default(4.00)  @db.Decimal(5, 2)
+  foodPercent       Decimal        @default(10.00) @db.Decimal(5, 2)
+  status            String         @default("active")
+  isTrash           Boolean        @default(false)
+  createdBy         String?
+  creator           User?          @relation("SalaryStructurePolicyCreator", fields: [createdBy], references: [id])
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  employeeTypes     EmployeeType[]
+
+  @@index([status])
+  @@index([isTrash])
+  @@index([createdBy])
+}
+
+model AttendancePolicy {
+  id                           String         @id @default(cuid())
+  name                         String
+  description                  String?
+  isEnabled                    Boolean        @default(true)
+  isEligibleForAttendanceBonus Boolean        @default(false)
+  bonusCalculationType         String         @default("NONE")
+  attendanceBonusAmount        Decimal        @default(0) @db.Decimal(10, 2)
+  applyAbsentPenalty           Boolean        @default(true)
+  applyLatePenalty             Boolean        @default(true)
+  status                       String         @default("active")
+  isTrash                      Boolean        @default(false)
+  createdBy                    String?
+  creator                      User?          @relation("AttendancePolicyCreator", fields: [createdBy], references: [id])
+  createdAt                    DateTime       @default(now())
+  updatedAt                    DateTime       @updatedAt
+  employeeTypes                EmployeeType[]
+
+  @@index([status])
+  @@index([isTrash])
+  @@index([createdBy])
+}
+
+model LatePolicy {
+  id                            String         @id @default(cuid())
+  name                          String
+  description                   String?
+  isEnabled                     Boolean        @default(true)
+  resetLateEveryMonth           Boolean        @default(true)
+  lateCountPeriod               String         @default("MONTHLY")
+  enableLateToAbsentConversion  Boolean        @default(false)
+  lateDaysForOneAbsent          Int            @default(3)
+  lateCountForBonusLoss         Int            @default(3)
+  deductSalaryForLate           Boolean        @default(false)
+  deductAttendanceBonusForLate  Boolean        @default(true)
+  status                        String         @default("active")
+  isTrash                       Boolean        @default(false)
+  createdBy                     String?
+  creator                       User?          @relation("LatePolicyCreator", fields: [createdBy], references: [id])
+  createdAt                     DateTime       @default(now())
+  updatedAt                     DateTime       @updatedAt
+  employeeTypes                 EmployeeType[]
+
+  @@index([status])
+  @@index([isTrash])
+  @@index([createdBy])
+}
+
+model OvertimePolicy {
+  id                        String         @id @default(cuid())
+  name                      String
+  description               String?
+  isEligible                Boolean        @default(false)
+  calculationType           String         @default("FORMULA")
+  basicPercentageFromGross  Decimal        @default(60.00) @db.Decimal(5, 2)
+  monthlyWorkingDays        Int            @default(30)
+  hourBasis                 String         @default("ASSIGNED_SHIFT_HOUR")
+  fixedHourValue            Decimal?       @db.Decimal(5, 2)
+  multiplier                Decimal        @default(2.00) @db.Decimal(3, 2)
+  fixedOTRate               Decimal?       @db.Decimal(10, 2)
+  minimumOTMinutes          Int            @default(0)
+  status                    String         @default("active")
+  isTrash                   Boolean        @default(false)
+  createdBy                 String?
+  creator                   User?          @relation("OvertimePolicyCreator", fields: [createdBy], references: [id])
+  createdAt                 DateTime       @default(now())
+  updatedAt                 DateTime       @updatedAt
+  employeeTypes             EmployeeType[]
+
+  @@index([status])
+  @@index([isTrash])
+  @@index([createdBy])
+}
+
+model TiffinBillPolicy {
+  id             String         @id @default(cuid())
+  name           String
+  description    String?
+  isEligible     Boolean        @default(false)
+  allowAfterTime String?
+  amount         Decimal        @default(0) @db.Decimal(10, 2)
+  countType      String         @default("DAILY")
+  maxCountPerDay Int            @default(1)
+  status         String         @default("active")
+  isTrash        Boolean        @default(false)
+  createdBy      String?
+  creator        User?          @relation("TiffinBillPolicyCreator", fields: [createdBy], references: [id])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  employeeTypes  EmployeeType[]
+
+  @@index([status])
+  @@index([isTrash])
+  @@index([createdBy])
+}
+
+model NightBillPolicy {
+  id                        String         @id @default(cuid())
+  name                      String
+  description               String?
+  isEligible                Boolean        @default(false)
+  allowAfterTime            String?
+  amount                    Decimal        @default(0) @db.Decimal(10, 2)
+  countType                 String         @default("DAILY")
+  supportsOvernightCheckout Boolean        @default(true)
+  maxCountPerDay            Int            @default(1)
+  status                    String         @default("active")
+  isTrash                   Boolean        @default(false)
+  createdBy                 String?
+  creator                   User?          @relation("NightBillPolicyCreator", fields: [createdBy], references: [id])
+  createdAt                 DateTime       @default(now())
+  updatedAt                 DateTime       @updatedAt
+  employeeTypes             EmployeeType[]
+
+  @@index([status])
+  @@index([isTrash])
+  @@index([createdBy])
+}
+
+model HolidayBillPolicy {
+  id                    String         @id @default(cuid())
+  name                  String
+  description           String?
+  isEligible            Boolean        @default(false)
+  calculationType       String         @default("ONE_DAY_GROSS")
+  fixedAmount           Decimal?       @db.Decimal(10, 2)
+  allowWithOT           Boolean        @default(false)
+  includeWeekend        Boolean        @default(true)
+  includePublicHoliday  Boolean        @default(true)
+  status                String         @default("active")
+  isTrash               Boolean        @default(false)
+  createdBy             String?
+  creator               User?          @relation("HolidayBillPolicyCreator", fields: [createdBy], references: [id])
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  employeeTypes         EmployeeType[]
+
+  @@index([status])
+  @@index([isTrash])
+  @@index([createdBy])
+}
+
+model PayrollSetting {
+  id                         String   @id @default(cuid())
+  name                       String
+  defaultMonthlyWorkingDays  Int      @default(30)
+  defaultPayDivisor          Int      @default(30)
+  defaultCurrency            String   @default("BDT")
+  roundingMethod             String   @default("NONE")
+  allowNegativeNetSalary     Boolean  @default(false)
+  payrollLockAfterApproval   Boolean  @default(true)
+  recalculateLockedPayroll   Boolean  @default(false)
+  status                     String   @default("active")
+  isDefault                  Boolean  @default(true)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@index([status])
+  @@index([isDefault])
 }

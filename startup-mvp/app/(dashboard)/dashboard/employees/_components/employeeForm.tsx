@@ -20,6 +20,7 @@ import { FiAlertCircle, FiUser, FiMapPin, FiPhone, FiBriefcase, FiDollarSign, Fi
 import { createEmployee, updateEmployee } from "../_actions/employee.action";
 import { getWarehouses } from "../../master/warehouses/_actions/warehouse.action";
 import { getShifts } from "../../hr/shifts/_actions/shift.action";
+import { getEmployeeTypes } from "../types/_actions/employee-type.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { useEffect } from "react";
 import MediaSelector from "@/components/MediaSelector";
@@ -38,6 +39,7 @@ const employeeFormSchema = z.object({
   joiningDate: z.string().optional().or(z.literal("")),
   gender: z.string().optional().or(z.literal("")),
   type: z.string().optional().or(z.literal("")),
+  employeeTypeId: z.string().optional().or(z.literal("")),
   biometricDeviceId: z.string().optional().or(z.literal("")),
   dateOfBirth: z.string().optional().or(z.literal("")),
   nationalId: z.string().optional().or(z.literal("")),
@@ -96,6 +98,7 @@ interface EmployeeFormProps {
     photo: string | null;
     shiftId: string | null;
     type?: string | null;
+    employeeTypeId?: string | null;
     salaryPayableAccount: {
       id: string;
       code: string;
@@ -163,6 +166,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           photo: initialData.photo || "",
           shiftId: initialData.shiftId || "",
           type: initialData.type || "",
+          employeeTypeId: initialData.employeeTypeId || "",
           biometricDeviceId: (initialData as any).biometricDeviceId || "",
         }
       : {
@@ -199,12 +203,14 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           photo: "",
           shiftId: "",
           type: "",
+          employeeTypeId: "",
           biometricDeviceId: "",
         },
   });
 
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [shifts, setShifts] = useState<any[]>([]);
+  const [employeeTypes, setEmployeeTypes] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchData() {
@@ -217,9 +223,24 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
       if (shiftResult.success) {
         setShifts(shiftResult.shifts);
       }
+
+      const typeResult = await getEmployeeTypes(1, 100, "", "active");
+      if (typeResult.success && typeResult.employeeTypes) {
+        setEmployeeTypes(typeResult.employeeTypes);
+        
+        // Auto-match legacy type string to employeeTypeId if not set
+        if (initialData && !initialData.employeeTypeId && initialData.type) {
+          const matchedType = typeResult.employeeTypes.find(
+            (et: any) => et.name.toLowerCase() === initialData.type?.toLowerCase()
+          );
+          if (matchedType) {
+            setValue("employeeTypeId", matchedType.id);
+          }
+        }
+      }
     }
     fetchData();
-  }, []);
+  }, [initialData]);
 
 
   const onSubmit = async (data: EmployeeFormData) => {
@@ -565,21 +586,21 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="type">Type</Label>
+                      <Label htmlFor="employeeTypeId">Type</Label>
                       <Select
-                        defaultValue={watch("type") || ""}
-                        onValueChange={(value) => setValue("type", value)}
+                        value={watch("employeeTypeId") || ""}
+                        onValueChange={(value) => setValue("employeeTypeId", value)}
                         disabled={loading}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Management">Management</SelectItem>
-                          <SelectItem value="Executive">Executive</SelectItem>
-                          <SelectItem value="Staff">Staff</SelectItem>
-                          <SelectItem value="Manager">Manager</SelectItem>
-                          <SelectItem value="Sales Assistant">Sales Assistant</SelectItem>
+                          {employeeTypes.map((et) => (
+                            <SelectItem key={et.id} value={et.id}>
+                              {et.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>

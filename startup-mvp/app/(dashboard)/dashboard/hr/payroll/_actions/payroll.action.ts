@@ -66,14 +66,37 @@ export async function generatePayroll(month: number, year: number, options?: Gen
       return { success: false, error: `Payroll already generated for ${month}/${year}` };
     }
 
-    // Get all active employees with their salary info
+    // Get all active employees with their salary info and policies
     const employees = await prisma.employee.findMany({
       where: { status: "active" },
+      include: {
+        employeeType: {
+          include: {
+            attendancePolicy: true,
+            latePolicy: true,
+            overtimePolicy: true,
+            tiffinBillPolicy: true,
+            nightBillPolicy: true,
+            holidayBillPolicy: true,
+            salaryStructurePolicy: true,
+          }
+        }
+      }
     });
 
     if (employees.length === 0) {
       return { success: false, error: "No active employees found to generate payroll for" };
     }
+
+    // Load default salary structure policy if it exists
+    const defaultSalaryStructurePolicy = await prisma.salaryStructurePolicy.findFirst({
+      where: { isDefault: true, isTrash: false, status: "active" }
+    });
+
+    // Load active payroll setting to resolve late daily rate divisor
+    const activePayrollSetting = await prisma.payrollSetting.findFirst({
+      where: { status: "active", isDefault: true }
+    });
 
     // Load payroll settings for calculation rules
     const payrollSettings = await getPayrollSettings();
@@ -100,6 +123,15 @@ export async function generatePayroll(month: number, year: number, options?: Gen
         ? calc.standardWorkingDays
         : calendarDaysInMonth;
 
+    let resolvedLateDeductionDivisor = 30;
+    if (activePayrollSetting?.defaultPayDivisor) {
+      resolvedLateDeductionDivisor = activePayrollSetting.defaultPayDivisor;
+    } else if (activePayrollSetting?.defaultMonthlyWorkingDays) {
+      resolvedLateDeductionDivisor = activePayrollSetting.defaultMonthlyWorkingDays;
+    } else if (payDivisor) {
+      resolvedLateDeductionDivisor = payDivisor;
+    }
+
     // Fetch Attendance
     const attendanceRecords = await prisma.attendance.findMany({
       where: {
@@ -114,25 +146,47 @@ export async function generatePayroll(month: number, year: number, options?: Gen
 
     // Group attendance by employee
     const attendanceByEmployee = attendanceRecords.reduce((acc, curr) => {
-      if (!acc[curr.employeeId]) {
-        acc[curr.employeeId] = { absentDays: 0, otHours: 0 };
+      const empId = curr.employeeId;
+      if (!acc[empId]) {
+        acc[empId] = {
+          absentDays: 0,
+          otHours: 0,
+          lateCountTotal: 0,
+          totalCalculatedOvertimeAmount: 0,
+          totalTiffinAllowance: 0,
+          totalNightAllowance: 0,
+          totalHolidayAllowance: 0,
+        };
       }
       
       if (curr.status === "ABSENT") {
-        acc[curr.employeeId].absentDays += 1;
+        acc[empId].absentDays += 1;
       } else if (curr.status === "HALF_DAY") {
-        acc[curr.employeeId].absentDays += 0.5;
+        acc[empId].absentDays += 0.5;
       } else if (curr.status === "LEAVE") {
         // Only deduct if leave is unpaid
         const isPaid = curr.leaveApplication?.leaveType?.isPaid ?? true;
         if (!isPaid) {
-          acc[curr.employeeId].absentDays += 1;
+          acc[empId].absentDays += 1;
         }
       }
       
-      acc[curr.employeeId].otHours += Number(curr.otHours) || 0;
+      acc[empId].otHours += Number(curr.otHours) || 0;
+      acc[empId].lateCountTotal += Number(curr.lateCountValue) || 0;
+      acc[empId].totalCalculatedOvertimeAmount += Number(curr.calculatedOvertimeAmount) || 0;
+      acc[empId].totalTiffinAllowance += Number(curr.tiffinBillAmount) || 0;
+      acc[empId].totalNightAllowance += Number(curr.nightBillAmount) || 0;
+      acc[empId].totalHolidayAllowance += Number(curr.holidayBillAmount) || 0;
       return acc;
-    }, {} as Record<string, { absentDays: number; otHours: number }>);
+    }, {} as Record<string, {
+      absentDays: number;
+      otHours: number;
+      lateCountTotal: number;
+      totalCalculatedOvertimeAmount: number;
+      totalTiffinAllowance: number;
+      totalNightAllowance: number;
+      totalHolidayAllowance: number;
+    }>);
 
     // Fetch active loans
     const loans = await prisma.employeeLoan.findMany({
@@ -156,6 +210,9 @@ export async function generatePayroll(month: number, year: number, options?: Gen
       employeeSalaries.map((s) => [s.employeeId, s])
     );
 
+    // Load calculateLatePolicyPreview dynamically
+    const { calculateLatePolicyPreview } = await import("@/lib/hr-payroll/policy-calculation");
+
     // Calculate payroll items
     const payrollItemsData: Array<{
       employeeId: string;
@@ -173,47 +230,165 @@ export async function generatePayroll(month: number, year: number, options?: Gen
       pfDeduction: number;
       totalDeduction: number;
       netPay: number;
+      tiffinAllowance: number;
+      nightAllowance: number;
+      holidayAllowance: number;
+      otherAllowance: number;
+      lateDeduction: number;
+      otherDeduction: number;
       status: string;
     }> = [];
     let grandTotalAmount = 0;
 
     for (const emp of employees) {
-      const basic = Number(emp.salary) || 0;
-      if (basic <= 0) continue; // Skip if no salary setup
+      const rawSalary = Number(emp.salary) || 0;
+      if (rawSalary <= 0) continue; // Skip if no salary setup
 
-      // Load per-employee salary structure; fall back to global default %
+      // Resolve salary structure priority
+      let basic = 0;
+      let houseRent = 0;
+      let medical = 0;
+      let transport = 0;
+      let foodAllowance = 0;
+
+      const empTypePolicies = emp.employeeType;
       const empSalary = salaryByEmployee.get(emp.id);
-      const houseRent = empSalary
-        ? Number(empSalary.houseRent)
-        : basic * (calc.defaultHouseRentPct / 100);
-      const medical = empSalary
-        ? Number(empSalary.medical)
-        : basic * (calc.defaultMedicalPct / 100);
-      const transport = empSalary
-        ? Number(empSalary.transport)
-        : basic * (calc.defaultTransportPct / 100);
-      const foodAllowance = empSalary
-        ? Number(empSalary.foodAllowance)
-        : basic * (calc.defaultFoodAllowancePct / 100);
+
+      if (empTypePolicies?.salaryStructurePolicy) {
+        // Priority 1: EmployeeType SalaryStructurePolicy
+        const policy = empTypePolicies.salaryStructurePolicy;
+        const basicPercent = Number(policy.basicPercent) || 55;
+        const rentPercent = Number(policy.houseRentPercent) || 26;
+        const medicalPercent = Number(policy.medicalPercent) || 5;
+        const transportPercent = Number(policy.transportPercent) || 4;
+        const foodPercent = Number(policy.foodPercent) || 10;
+
+        basic = Number((rawSalary * (basicPercent / 100)).toFixed(2));
+        houseRent = Number((rawSalary * (rentPercent / 100)).toFixed(2));
+        medical = Number((rawSalary * (medicalPercent / 100)).toFixed(2));
+        transport = Number((rawSalary * (transportPercent / 100)).toFixed(2));
+        foodAllowance = Number((rawSalary * (foodPercent / 100)).toFixed(2));
+      } else if (defaultSalaryStructurePolicy) {
+        // Priority 2: Default SalaryStructurePolicy
+        const basicPercent = Number(defaultSalaryStructurePolicy.basicPercent) || 55;
+        const rentPercent = Number(defaultSalaryStructurePolicy.houseRentPercent) || 26;
+        const medicalPercent = Number(defaultSalaryStructurePolicy.medicalPercent) || 5;
+        const transportPercent = Number(defaultSalaryStructurePolicy.transportPercent) || 4;
+        const foodPercent = Number(defaultSalaryStructurePolicy.foodPercent) || 10;
+
+        basic = Number((rawSalary * (basicPercent / 100)).toFixed(2));
+        houseRent = Number((rawSalary * (rentPercent / 100)).toFixed(2));
+        medical = Number((rawSalary * (medicalPercent / 100)).toFixed(2));
+        transport = Number((rawSalary * (transportPercent / 100)).toFixed(2));
+        foodAllowance = Number((rawSalary * (foodPercent / 100)).toFixed(2));
+      } else if (empSalary) {
+        // Priority 3: Custom EmployeeSalary (legacy behavior)
+        basic = rawSalary;
+        houseRent = Number(empSalary.houseRent) || 0;
+        medical = Number(empSalary.medical) || 0;
+        transport = Number(empSalary.transport) || 0;
+        foodAllowance = Number(empSalary.foodAllowance) || 0;
+      } else {
+        // Priority 4: Fallback hardcoded 55/26/5/4/10
+        basic = Number((rawSalary * 0.55).toFixed(2));
+        houseRent = Number((rawSalary * 0.26).toFixed(2));
+        medical = Number((rawSalary * 0.05).toFixed(2));
+        transport = Number((rawSalary * 0.04).toFixed(2));
+        foodAllowance = Number((rawSalary * 0.10).toFixed(2));
+      }
+
       const taxPercentage = empSalary ? Number(empSalary.taxPercentage) : 0;
       const pfPercentage = empSalary ? Number(empSalary.pfPercentage) : 0;
 
       // Attendance values
-      const att = attendanceByEmployee[emp.id] || { absentDays: 0, otHours: 0 };
+      const att = attendanceByEmployee[emp.id] || {
+        absentDays: 0,
+        otHours: 0,
+        lateCountTotal: 0,
+        totalCalculatedOvertimeAmount: 0,
+        totalTiffinAllowance: 0,
+        totalNightAllowance: 0,
+        totalHolidayAllowance: 0,
+      };
 
-      // OT Amount — only hours exceeding dailyOtThresholdHours count as OT
-      const hourlyRate = basic / (payDivisor * calc.workingHoursPerDay);
-      const effectiveOtHours = Math.max(0, att.otHours - calc.dailyOtThresholdHours);
-      const otAmount = effectiveOtHours * hourlyRate * calc.otMultiplier;
+      // Aggregated policy allowances
+      const tiffinAllowance = att.totalTiffinAllowance;
+      const nightAllowance = att.totalNightAllowance;
+      const holidayAllowance = att.totalHolidayAllowance;
+
+      // OT Amount
+      let otAmount = 0;
+      if (empTypePolicies?.overtimePolicy?.isEligible) {
+        otAmount = att.totalCalculatedOvertimeAmount;
+      } else {
+        // Legacy fallback calculation
+        const hourlyRateForOT = basic / (payDivisor * calc.workingHoursPerDay);
+        const effectiveOtHours = Math.max(0, att.otHours - calc.dailyOtThresholdHours);
+        otAmount = Number((effectiveOtHours * hourlyRateForOT * calc.otMultiplier).toFixed(2));
+      }
 
       // Festival Bonus — only when explicitly requested via options
-      const bonus = options?.includeFestivalBonus
+      const festivalBonus = options?.includeFestivalBonus
         ? basic * (calc.defaultFestivalBonusPct / 100)
         : 0;
 
       // Absent Deduction
-      const dailyRate = basic / payDivisor;
-      const absentDeduction = att.absentDays * dailyRate;
+      const dailyRateForAbsent = basic / payDivisor;
+      let absentDeduction = 0;
+      const applyAbsentPenalty = empTypePolicies?.attendancePolicy 
+        ? empTypePolicies.attendancePolicy.applyAbsentPenalty 
+        : true;
+      if (applyAbsentPenalty) {
+        absentDeduction = Number((att.absentDays * dailyRateForAbsent).toFixed(2));
+      }
+
+      // Late policy monthly calculation
+      let lateDeduction = 0;
+      let attendanceBonusLost = false;
+      let convertedAbsentDays = 0;
+      const applyLatePenalty = empTypePolicies?.attendancePolicy
+        ? empTypePolicies.attendancePolicy.applyLatePenalty
+        : true;
+
+      if (applyLatePenalty && empTypePolicies?.latePolicy?.isEnabled) {
+        const latePolicy = empTypePolicies.latePolicy;
+        const dailyRateForLate = Number((rawSalary / resolvedLateDeductionDivisor).toFixed(2));
+        const lateRes = calculateLatePolicyPreview({
+          latePolicy: {
+            isEnabled: latePolicy.isEnabled,
+            enableLateToAbsentConversion: latePolicy.enableLateToAbsentConversion,
+            lateDaysForOneAbsent: latePolicy.lateDaysForOneAbsent,
+            lateCountForBonusLoss: latePolicy.lateCountForBonusLoss,
+            deductSalaryForLate: latePolicy.deductSalaryForLate,
+            deductAttendanceBonusForLate: latePolicy.deductAttendanceBonusForLate,
+          },
+          lateCountInPeriod: att.lateCountTotal,
+          dailyRate: dailyRateForLate,
+          attendanceBonusAmount: Number(empTypePolicies.attendancePolicy?.attendanceBonusAmount) || 0,
+        });
+
+        lateDeduction = lateRes.lateDeductionAmount;
+        attendanceBonusLost = lateRes.attendanceBonusLost;
+        convertedAbsentDays = lateRes.convertedAbsentDays;
+      }
+
+      // Attendance Bonus
+      let otherAllowance = 0;
+      let otherDeduction = 0;
+      if (empTypePolicies?.attendancePolicy?.isEnabled && empTypePolicies?.attendancePolicy?.isEligibleForAttendanceBonus) {
+        const bonusPolicy = empTypePolicies.attendancePolicy;
+        if (bonusPolicy.bonusCalculationType === "FIXED") {
+          const bonusAmt = Number(bonusPolicy.attendanceBonusAmount) || 0;
+          const hasAbsences = att.absentDays > 0;
+          const isBonusLost = attendanceBonusLost || (hasAbsences && applyAbsentPenalty);
+          
+          if (!isBonusLost) {
+            otherAllowance = bonusAmt;
+          } else {
+            otherDeduction = 0; // Lost bonus is set to 0. Since it's not added, no need for deduction.
+          }
+        }
+      }
 
       // Loan Deduction
       let loanDeduction = 0;
@@ -227,9 +402,17 @@ export async function generatePayroll(month: number, year: number, options?: Gen
       const taxDeduction = basic * (taxPercentage / 100);
       const pfDeduction  = basic * (pfPercentage / 100);
 
-      const grossPay       = basic + houseRent + medical + transport + foodAllowance + otAmount + bonus;
-      const totalDeduction = absentDeduction + loanDeduction + taxDeduction + pfDeduction;
-      // Apply net pay rounding from settings ("none" | "nearest10" | "nearest100")
+      // Final grossPay and deductions calculation
+      // Gross Pay = raw base Gross Salary + OT + Festival Bonus + Tiffin + Night + Holiday + Attendance Bonus (otherAllowance)
+      const grossPay = Number((
+        basic + houseRent + medical + transport + foodAllowance +
+        otAmount + festivalBonus + tiffinAllowance + nightAllowance + holidayAllowance + otherAllowance
+      ).toFixed(2));
+
+      const totalDeduction = Number((
+        absentDeduction + lateDeduction + loanDeduction + taxDeduction + pfDeduction + otherDeduction
+      ).toFixed(2));
+
       const rawNetPay = grossPay - totalDeduction;
       const netPay = applyNetPayRounding(rawNetPay, calc.netPayRounding);
 
@@ -243,7 +426,7 @@ export async function generatePayroll(month: number, year: number, options?: Gen
         transport,
         foodAllowance,
         otAmount,
-        bonus,
+        bonus: festivalBonus,
         grossPay,
         absentDeduction,
         loanDeduction,
@@ -251,6 +434,12 @@ export async function generatePayroll(month: number, year: number, options?: Gen
         pfDeduction,
         totalDeduction,
         netPay,
+        tiffinAllowance,
+        nightAllowance,
+        holidayAllowance,
+        otherAllowance,
+        lateDeduction,
+        otherDeduction,
         status: "unpaid",
       });
     }
@@ -324,14 +513,64 @@ export async function getPayrolls(page = 1, limit = 10, year?: number, status?: 
       include: {
         creator: { select: { name: true } },
         _count: { select: { items: true } },
+        items: {
+          select: {
+            basic: true,
+            houseRent: true,
+            medical: true,
+            transport: true,
+            foodAllowance: true,
+            grossPay: true,
+            totalDeduction: true,
+            netPay: true,
+            otAmount: true,
+            tiffinAllowance: true,
+            nightAllowance: true,
+            holidayAllowance: true,
+          }
+        }
       },
     });
 
     // Serialize Decimals for Client Components
-    const serializedPayrolls = payrolls.map(p => ({
-      ...p,
-      totalAmount: Number(p.totalAmount),
-    }));
+    const serializedPayrolls = payrolls.map(p => {
+      const totals = p.items.reduce(
+        (acc, item) => {
+          const basic = Number(item.basic || 0);
+          const houseRent = Number(item.houseRent || 0);
+          const medical = Number(item.medical || 0);
+          const transport = Number(item.transport || 0);
+          const foodAllowance = Number(item.foodAllowance || 0);
+          acc.baseGrossSalary += basic + houseRent + medical + transport + foodAllowance;
+          acc.grossPay += Number(item.grossPay || 0);
+          acc.totalDeduction += Number(item.totalDeduction || 0);
+          acc.netPay += Number(item.netPay || 0);
+          acc.otAmount += Number(item.otAmount || 0);
+          acc.tiffinAllowance += Number(item.tiffinAllowance || 0);
+          acc.nightAllowance += Number(item.nightAllowance || 0);
+          acc.holidayAllowance += Number(item.holidayAllowance || 0);
+          return acc;
+        },
+        {
+          baseGrossSalary: 0,
+          grossPay: 0,
+          totalDeduction: 0,
+          netPay: 0,
+          otAmount: 0,
+          tiffinAllowance: 0,
+          nightAllowance: 0,
+          holidayAllowance: 0,
+        }
+      );
+
+      const { items, ...restPayroll } = p;
+
+      return {
+        ...restPayroll,
+        totalAmount: Number(p.totalAmount),
+        totals,
+      };
+    });
 
     return {
       success: true,
@@ -387,6 +626,12 @@ export async function getPayrollById(id: string) {
         pfDeduction: Number(item.pfDeduction),
         totalDeduction: Number(item.totalDeduction),
         netPay: Number(item.netPay),
+        tiffinAllowance: Number(item.tiffinAllowance),
+        nightAllowance: Number(item.nightAllowance),
+        holidayAllowance: Number(item.holidayAllowance),
+        otherAllowance: Number(item.otherAllowance),
+        lateDeduction: Number(item.lateDeduction),
+        otherDeduction: Number(item.otherDeduction),
       }))
     };
 
@@ -698,6 +943,14 @@ export async function postPayroll(payrollId: string, salaryExpenseAccountId: str
       });
     });
 
+    await logItemUpdated(
+      session.user.id,
+      "Payroll",
+      payrollId,
+      ["status:POSTED", `voucherId:${vchResult.voucher.id}`],
+      `Payroll ${payroll.payrollNumber} Posted to Accounting`
+    );
+
     revalidateBothPaths(`hr/payroll/${payrollId}`);
     revalidateBothPaths("hr/payroll");
 
@@ -823,6 +1076,14 @@ export async function disbursePayroll(payrollId: string, cashBankAccountId: stri
       });
     });
 
+    await logItemUpdated(
+      session.user.id,
+      "Payroll",
+      payrollId,
+      ["status:PAID", `paymentVchId:${vchResult.voucher.id}`],
+      `Payroll ${payroll.payrollNumber} Disbursed (Paid)`
+    );
+
     revalidateBothPaths(`hr/payroll/${payrollId}`);
     revalidateBothPaths("hr/payroll");
 
@@ -906,6 +1167,14 @@ export async function voidPayroll(payrollId: string) {
         },
       });
     });
+
+    await logItemUpdated(
+      session.user.id,
+      "Payroll",
+      payrollId,
+      ["status:DRAFT", "voided:true"],
+      `Payroll ${payroll.payrollNumber} Voided (Reverted to Draft)`
+    );
 
     revalidateBothPaths(`hr/payroll/${payrollId}`);
     revalidateBothPaths("hr/payroll");

@@ -15,6 +15,7 @@ import {
 } from "@/lib/hr/shift-utils";
 import { Prisma } from "@prisma/client";
 import { startOfDay, endOfDay, isWeekend } from "date-fns";
+import { applyDailyAttendancePolicyValues } from "@/lib/hr-payroll/attendance-policy-service";
 
 /**
  * Log raw biometric/manual attendance punch
@@ -155,6 +156,15 @@ export async function processManualAttendance(input: {
         }
       });
       await logItemCreated(session.user.id, "Attendance", attendance.id, `Attendance for ${employee.name}`, attendance);
+    }
+
+    // Apply policy calculations to this attendance record
+    try {
+      await applyDailyAttendancePolicyValues(attendance.id, { force: true });
+      const reloaded = await prisma.attendance.findUnique({ where: { id: attendance.id } });
+      if (reloaded) attendance = reloaded;
+    } catch (err) {
+      console.error(`Failed to apply policy to manual attendance ${attendance.id}:`, err);
     }
 
     revalidateBothPaths("hr/attendance");
@@ -356,6 +366,25 @@ export async function processBulkAttendance(date: string, warehouseId?: string) 
         skipDuplicates: true
       });
       createdCount += res.count;
+    }
+
+    // Post-processing: Calculate and apply policy values for created bulk rows
+    const empIds = creates.map(c => c.employeeId);
+    const affectedAttendances = await prisma.attendance.findMany({
+      where: {
+        employeeId: { in: empIds },
+        date: targetDate,
+        isLocked: false,
+      },
+      select: { id: true }
+    });
+
+    for (const att of affectedAttendances) {
+      try {
+        await applyDailyAttendancePolicyValues(att.id);
+      } catch (err) {
+        console.error(`Failed to apply policy to bulk attendance ${att.id}:`, err);
+      }
     }
 
     try {

@@ -8,6 +8,7 @@ import {
   toBusinessDateOnly,
   ShiftPolicy
 } from "@/lib/hr/shift-utils";
+import { applyDailyAttendancePolicyValues } from "@/lib/hr-payroll/attendance-policy-service";
 import { startOfDay, endOfDay } from "date-fns";
 
 /**
@@ -222,6 +223,25 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
         }))
       );
       updatedCount += chunk.length;
+    }
+
+    // Post-processing: Calculate and apply policy values for affected rows
+    const affectedAttendances = await prisma.attendance.findMany({
+      where: {
+        employeeId: { in: empIdsFromLogs },
+        date: { in: targetDates },
+        isLocked: false,
+      },
+      select: { id: true }
+    });
+
+    console.log(`🔄 [PROCESS] Applying policy calculations to ${affectedAttendances.length} attendance records...`);
+    for (const att of affectedAttendances) {
+      try {
+        await applyDailyAttendancePolicyValues(att.id);
+      } catch (err) {
+        console.error(`Failed to apply policy to attendance ${att.id}:`, err);
+      }
     }
 
     const durationMs = Date.now() - startTimeExec;

@@ -212,6 +212,28 @@ export async function getEmployeeById(employeeId: string) {
         photo: true,
         shiftId: true, shift: { select: { id: true, name: true, startTime: true, endTime: true } },
         type: true,
+        employeeTypeId: true,
+        employeeType: {
+          select: {
+            id: true,
+            name: true,
+            salaryStructurePolicyId: true,
+            salaryStructurePolicy: {
+              select: {
+                id: true,
+                name: true,
+                basicPercent: true,
+                houseRentPercent: true,
+                medicalPercent: true,
+                transportPercent: true,
+                foodPercent: true,
+                isDefault: true,
+                status: true,
+                isTrash: true,
+              }
+            }
+          }
+        },
         biometricDeviceId: true,
         nominee: true,
         salaryPayableAccount: {
@@ -243,12 +265,63 @@ export async function getEmployeeById(employeeId: string) {
       };
     }
 
+    let resolvedPolicy = employee.employeeType?.salaryStructurePolicy || null;
+
+    if (!resolvedPolicy) {
+      // Find default active SalaryStructurePolicy
+      resolvedPolicy = await prisma.salaryStructurePolicy.findFirst({
+        where: { isDefault: true, status: "active", isTrash: false }
+      });
+    }
+
+    let salaryStructure = null;
+    if (resolvedPolicy) {
+      salaryStructure = {
+        id: resolvedPolicy.id,
+        name: resolvedPolicy.name,
+        basicPercent: Number(resolvedPolicy.basicPercent),
+        houseRentPercent: Number(resolvedPolicy.houseRentPercent),
+        medicalPercent: Number(resolvedPolicy.medicalPercent),
+        transportPercent: Number(resolvedPolicy.transportPercent),
+        foodPercent: Number(resolvedPolicy.foodPercent),
+        isDefault: resolvedPolicy.isDefault,
+        isFallback: false,
+      };
+    } else {
+      // Fallback
+      salaryStructure = {
+        id: "fallback-structure",
+        name: "Hardcoded Fallback Structure",
+        basicPercent: 55.00,
+        houseRentPercent: 26.00,
+        medicalPercent: 5.00,
+        transportPercent: 4.00,
+        foodPercent: 10.00,
+        isDefault: false,
+        isFallback: true,
+      };
+    }
+
+    const serializedEmployee = {
+      ...employee,
+      salary: employee.salary ? Number(employee.salary) : null,
+      employeeType: employee.employeeType ? {
+        ...employee.employeeType,
+        salaryStructurePolicy: employee.employeeType.salaryStructurePolicy ? {
+          ...employee.employeeType.salaryStructurePolicy,
+          basicPercent: Number(employee.employeeType.salaryStructurePolicy.basicPercent),
+          houseRentPercent: Number(employee.employeeType.salaryStructurePolicy.houseRentPercent),
+          medicalPercent: Number(employee.employeeType.salaryStructurePolicy.medicalPercent),
+          transportPercent: Number(employee.employeeType.salaryStructurePolicy.transportPercent),
+          foodPercent: Number(employee.employeeType.salaryStructurePolicy.foodPercent),
+        } : null
+      } : null
+    };
+
     return {
       success: true,
-      employee: {
-        ...employee,
-        salary: employee.salary ? Number(employee.salary) : null,
-      },
+      employee: serializedEmployee,
+      salaryStructure,
     };
   } catch (error) {
     console.error("getEmployeeById error:", error);
@@ -437,6 +510,7 @@ export async function createEmployee(input: {
   photo?: string;
   shiftId?: string;
   type?: string;
+  employeeTypeId?: string;
   biometricDeviceId?: string;
   nominee?: any;
 }) {
@@ -705,6 +779,18 @@ export async function createEmployee(input: {
        * - If COA creation fails, no partial data is saved
        * - All operations are atomic
        */
+      // Resolve dynamic employee type name for backward compatibility
+      let typeName = input.type || null;
+      if (input.employeeTypeId) {
+        const empType = await tx.employeeType.findUnique({
+          where: { id: input.employeeTypeId },
+          select: { name: true },
+        });
+        if (empType) {
+          typeName = empType.name;
+        }
+      }
+
       const employee = await tx.employee.create({
         data: {
           name: input.name,
@@ -724,7 +810,8 @@ export async function createEmployee(input: {
           warehouseId: input.warehouseId || null,
           photo: input.photo || null,
           shiftId: input.shiftId || null,
-          type: input.type || null,
+          type: typeName,
+          employeeTypeId: input.employeeTypeId || null,
           biometricDeviceId: input.biometricDeviceId || null,
           nominee: input.nominee || null,
           salaryPayableAccountId: salaryPayableCOA.id,
@@ -751,6 +838,7 @@ export async function createEmployee(input: {
           photo: true,
           shiftId: true,
           type: true,
+          employeeTypeId: true,
           nominee: true,
           salaryPayableAccount: {
             select: {
@@ -833,6 +921,7 @@ export async function updateEmployee(input: {
   photo?: string;
   shiftId?: string;
   type?: string;
+  employeeTypeId?: string;
   biometricDeviceId?: string;
   nominee?: any;
 }) {
@@ -1081,6 +1170,22 @@ export async function updateEmployee(input: {
         }
       }
 
+      // Resolve dynamic employee type name for backward compatibility
+      let typeName = input.type !== undefined ? (input.type || null) : undefined;
+      if (input.employeeTypeId !== undefined) {
+        if (input.employeeTypeId) {
+          const empType = await tx.employeeType.findUnique({
+            where: { id: input.employeeTypeId },
+            select: { name: true },
+          });
+          if (empType) {
+            typeName = empType.name;
+          }
+        } else {
+          typeName = null;
+        }
+      }
+
       // Build update data
       const updateData: any = {
         name: input.name !== undefined ? input.name : undefined,
@@ -1102,7 +1207,8 @@ export async function updateEmployee(input: {
         photo: input.photo !== undefined ? (input.photo || null) : undefined,
         shiftId: input.shiftId !== undefined ? (input.shiftId || null) : undefined,
         nominee: input.nominee !== undefined ? (input.nominee || null) : undefined,
-        type: input.type !== undefined ? (input.type || null) : undefined,
+        type: typeName,
+        employeeTypeId: input.employeeTypeId !== undefined ? (input.employeeTypeId || null) : undefined,
         biometricDeviceId: input.biometricDeviceId !== undefined ? (input.biometricDeviceId || null) : undefined,
       };
 
@@ -1139,6 +1245,8 @@ export async function updateEmployee(input: {
           warehouseId: true,
           photo: true,
           shiftId: true,
+          type: true,
+          employeeTypeId: true,
           user: {
             select: {
               id: true,

@@ -15,6 +15,10 @@ This index provides a map to all documentation files available in the project, c
 - **[Salary Voucher Guide](SALARY_VOUCHER_GUIDE.md)**: How to process salary vouchers.
 - **[Voucher Post Verification](VOUCHER_POST_VERIFICATION.md)**: Technical details on voucher posting logic.
 
+## 👥 Human Resources & Payroll
+- **[Employee Types & Policies Integration](EMPLOYEE_TYPES_AND_POLICIES_INTEGRATION.md)**: Developer guide to dynamic employee type mapping and payroll calculation rules.
+- **[Employee Types, Policies & Calculations Guide](EMPLOYEE_TYPES_POLICIES_AND_CALCULATIONS.md)**: Detailed system guide on policy models, parameters, database relations, calculations integration, and server actions.
+
 ## 📦 Inventory & Production
 - **[Production Module README](production/README.md)**: Overview of the production lifecycle.
 - **[BOM Module Docs](production/BOM_MODULE.md)**: Bill of Materials management.

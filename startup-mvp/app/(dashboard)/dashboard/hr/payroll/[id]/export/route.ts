@@ -49,18 +49,25 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       "Designation",
       "Basic Salary",
       "House Rent",
-      "Medical Allowance",
-      "Transport Allowance",
+      "Medical",
+      "Transport",
       "Food Allowance",
-      "Overtime Amount",
-      "Bonus",
-      "Gross Pay",
+      "Base Gross Salary",
+      "OT Pay",
+      "Tiffin Allowance",
+      "Night Allowance",
+      "Holiday Allowance",
+      "Festival Bonus",
+      "Other Allowance / Attendance Bonus",
+      "Total Earnings",
       "Absent Deduction",
+      "Late Deduction",
       "Loan Deduction",
       "Tax Deduction",
       "PF Deduction",
-      "Total Deduction",
-      "Net Pay",
+      "Other Deduction",
+      "Total Deductions",
+      "Net Payable",
       "Payment Status",
       "Payroll Status",
       "Payment Voucher",
@@ -122,31 +129,47 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
               break;
             }
 
-            const rowsStr = items.map((item: any) => [
-              escapeCsv(item.employee.employeeCode),
-              escapeCsv(item.employee.name),
-              escapeCsv(item.employee.department?.name),
-              escapeCsv(item.employee.designation),
-              escapeCsv(item.basic?.toString()),
-              escapeCsv(item.houseRent?.toString()),
-              escapeCsv(item.medical?.toString()),
-              escapeCsv(item.transport?.toString()),
-              escapeCsv(item.foodAllowance?.toString()),
-              escapeCsv(item.otAmount?.toString()),
-              escapeCsv(item.bonus?.toString()),
-              escapeCsv(item.grossPay?.toString()),
-              escapeCsv(item.absentDeduction?.toString()),
-              escapeCsv(item.loanDeduction?.toString()),
-              escapeCsv(item.taxDeduction?.toString()),
-              escapeCsv(item.pfDeduction?.toString()),
-              escapeCsv(item.totalDeduction?.toString()),
-              escapeCsv(item.netPay?.toString()),
-              escapeCsv(item.status),
-              escapeCsv(payroll.status),
-              escapeCsv(payroll.paymentVoucher?.voucherNumber),
-              escapeCsv(payroll.paymentVoucher?.date ? format(new Date(payroll.paymentVoucher.date), "yyyy-MM-dd") : null),
-              escapeCsv(paymentAccountName)
-            ].join(",")).join("\n") + "\n";
+            const rowsStr = items.map((item: any) => {
+              const basic = Number(item.basic || 0);
+              const houseRent = Number(item.houseRent || 0);
+              const medical = Number(item.medical || 0);
+              const transport = Number(item.transport || 0);
+              const foodAllowance = Number(item.foodAllowance || 0);
+              const baseGrossSalary = basic + houseRent + medical + transport + foodAllowance;
+
+              return [
+                escapeCsv(item.employee.employeeCode),
+                escapeCsv(item.employee.name),
+                escapeCsv(item.employee.department),
+                escapeCsv(item.employee.designation),
+                escapeCsv(basic.toString()),
+                escapeCsv(houseRent.toString()),
+                escapeCsv(medical.toString()),
+                escapeCsv(transport.toString()),
+                escapeCsv(foodAllowance.toString()),
+                escapeCsv(baseGrossSalary.toString()),
+                escapeCsv(item.otAmount?.toString()),
+                escapeCsv(item.tiffinAllowance?.toString()),
+                escapeCsv(item.nightAllowance?.toString()),
+                escapeCsv(item.holidayAllowance?.toString()),
+                escapeCsv(item.bonus?.toString()),
+                escapeCsv(item.otherAllowance?.toString()),
+                escapeCsv(item.grossPay?.toString()),
+                escapeCsv(item.absentDeduction?.toString()),
+                escapeCsv(item.lateDeduction?.toString()),
+                escapeCsv(item.loanDeduction?.toString()),
+                escapeCsv(item.taxDeduction?.toString()),
+                escapeCsv(item.pfDeduction?.toString()),
+                escapeCsv(item.otherDeduction?.toString()),
+                escapeCsv(item.totalDeduction?.toString()),
+                escapeCsv(item.netPay?.toString()),
+                escapeCsv(item.status),
+                escapeCsv(payroll.status),
+                escapeCsv(payroll.paymentVoucher?.voucherNumber),
+                escapeCsv(payroll.paymentVoucher?.date ? format(new Date(payroll.paymentVoucher.date), "yyyy-MM-dd") : null),
+                escapeCsv(paymentAccountName)
+              ].join(",");
+            }).join("\n") + "\n";
 
             controller.enqueue(encoder.encode(rowsStr));
             
