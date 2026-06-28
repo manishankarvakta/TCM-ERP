@@ -77,11 +77,11 @@ export default async function DeviceDetailsPage({ params }: DeviceDetailsPagePro
   }
 
   const device = deviceOverview.device;
-  const mappings = usersResult.success ? usersResult.mappings : [];
+  const mappings = (usersResult.success && usersResult.mappings) ? usersResult.mappings : [];
   const attendanceLogs = attendanceResult.success ? attendanceResult.logs : [];
   const rawLogs = rawLogsResult.success ? rawLogsResult.logs : [];
   const syncLogs = syncLogsResult.success ? syncLogsResult.logs : [];
-  const unmappedLogs = unmappedResult.success ? unmappedResult.logs : [];
+  const unmappedLogs = (unmappedResult.success && unmappedResult.logs) ? unmappedResult.logs : [];
   const syncCommands = syncCommandsResult.success ? (syncCommandsResult as any).commands : [];
 
   const online = isOnline(device.lastPingAt);

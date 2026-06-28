@@ -21,7 +21,7 @@ async function run() {
   console.log("PIN 9999 mapped to Employee ID:", emp.id);
 
   // Run the reprocess action
-  const res = await reprocessUnmappedPunches(device.id, device.serialNumber, '9999');
+  const res = await reprocessUnmappedPunches(device.id, device.serialNumber || '', '9999');
   console.log("Reprocess Result:", res);
 
   // Check AttendanceLog
@@ -32,7 +32,7 @@ async function run() {
   console.log("AttendanceLogs for Employee:", logs.length);
   
   // Try duplicate reprocess
-  const res2 = await reprocessUnmappedPunches(device.id, device.serialNumber, '9999');
+  const res2 = await reprocessUnmappedPunches(device.id, device.serialNumber || '', '9999');
   console.log("Duplicate Reprocess Result:", res2);
 
   process.exit(0);

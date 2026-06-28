@@ -378,7 +378,7 @@ async function generateCustomerAccountCode(tx?: Prisma.TransactionClient): Promi
  */
 export async function createClient(input: {
   name?: string;
-  email: string;
+  email?: string | null;
   phone?: string;
   address?: string;
   city?: string;
@@ -410,16 +410,18 @@ export async function createClient(input: {
     }
 
     // Check if email already exists
-    const existingClient = await prisma.client.findUnique({
-      where: { email: input.email },
-    });
+    if (input.email) {
+      const existingClient = await prisma.client.findUnique({
+        where: { email: input.email },
+      });
 
-    if (existingClient) {
-      return {
-        success: false,
-        error: "Client with this email already exists",
-        client: null,
-      };
+      if (existingClient) {
+        return {
+          success: false,
+          error: "Client with this email already exists",
+          client: null,
+        };
+      }
     }
 
     // Use transaction to ensure atomicity
@@ -516,7 +518,7 @@ export async function createClient(input: {
       }
 
       // Create Chart of Account for customer
-      const customerName = input.name || input.email;
+      const customerName = input.name || input.email || `Client ${clientCode}`;
       const accountName = `AR - ${customerName}`;
 
       // Generate a unique ID for ChartOfAccount (since schema doesn't have @default(cuid()))
@@ -541,7 +543,7 @@ export async function createClient(input: {
         data: {
           name: input.name || null,
           clientCode,
-          email: input.email,
+          email: input.email || null,
           phone: input.phone || null,
           address: input.address || null,
           city: input.city || null,
@@ -654,7 +656,7 @@ export async function createClient(input: {
       session.user.id,
       "Client",
       result.client.id,
-      result.client.name || result.client.email,
+      result.client.name || result.client.email || undefined,
       { 
         name: result.client.name, 
         email: result.client.email,
@@ -688,7 +690,7 @@ export async function createClient(input: {
 export async function updateClient(input: {
   id: string;
   name?: string;
-  email: string;
+  email?: string | null;
   phone?: string;
   address?: string;
   city?: string;
@@ -752,7 +754,7 @@ export async function updateClient(input: {
     }
 
     // Check if email is being changed and if new email already exists
-    if (input.email !== existingClient.email) {
+    if (input.email && input.email !== existingClient.email) {
       const emailExists = await prisma.client.findUnique({
         where: { email: input.email },
       });
@@ -769,11 +771,12 @@ export async function updateClient(input: {
     // Use transaction to ensure atomicity when creating missing account
     const result = await prisma.$transaction(async (tx) => {
       const discountsToUse = input.itemDiscounts !== undefined ? input.itemDiscounts : (input as any).discounts;
-      const clientName = input.name !== undefined ? (input.name || input.email) : (existingClient.name || existingClient.email);
-      let chartOfAccountId = existingClient.chartOfAccountId;
-      
-      // Generate client code if missing
+      // Generate client code if missing (moved up so we have a code for fallback name)
       let clientCode = existingClient.clientCode;
+      const clientName = input.name !== undefined 
+        ? (input.name || input.email || clientCode || "Client") 
+        : (existingClient.name || existingClient.email || existingClient.clientCode || "Client");
+      let chartOfAccountId = existingClient.chartOfAccountId;
       if (!clientCode) {
         clientCode = await generateClientCode(tx);
         
@@ -889,7 +892,7 @@ export async function updateClient(input: {
       // Build update data
       const updateData: Prisma.ClientUpdateInput = {
         name: input.name !== undefined ? (input.name || null) : undefined,
-        email: input.email,
+        email: input.email !== undefined ? (input.email || null) : undefined,
         phone: input.phone !== undefined ? (input.phone || null) : undefined,
         address: input.address !== undefined ? (input.address || null) : undefined,
         city: input.city !== undefined ? (input.city || null) : undefined,
@@ -977,7 +980,7 @@ export async function updateClient(input: {
 
       // Handle rename: Update COA name if client name changed and COA exists
       if (input.name !== undefined && input.name !== existingClient.name && chartOfAccountId) {
-        const updatedClientName = input.name || input.email;
+        const updatedClientName = input.name || input.email || clientCode || "Client";
         const accountName = `AR - ${updatedClientName}`;
         
         await tx.chartOfAccount.update({
@@ -1013,7 +1016,7 @@ export async function updateClient(input: {
       "Client",
       client.id,
       changes,
-      client.name || client.email,
+      client.name || client.email || undefined,
       { 
         name: client.name, 
         email: client.email,
@@ -1080,7 +1083,7 @@ export async function deleteClient(clientId: string) {
       session.user.id,
       "Client",
       clientId,
-      clientToDelete.name || clientToDelete.email,
+      clientToDelete.name || clientToDelete.email || undefined,
       { 
         name: clientToDelete.name, 
         email: clientToDelete.email,
@@ -1153,7 +1156,7 @@ export async function bulkUpdateClientStatus(
         "Client",
         client.id,
         ["status"],
-        client.name || client.email,
+        client.name || client.email || undefined,
         { name: client.name, email: client.email, status, changes: ["status"] }
       );
     }
@@ -1216,7 +1219,7 @@ export async function deleteClientsPermanently(clientIds: string[]) {
         session.user.id,
         "Client",
         client.id,
-        client.name || client.email,
+        client.name || client.email || undefined,
         { name: client.name, email: client.email }
       );
     }

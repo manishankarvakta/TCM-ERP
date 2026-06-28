@@ -43,7 +43,7 @@ interface Client {
   id: string;
   name: string | null;
   clientCode: string | null;
-  email: string;
+  email: string | null;
   phone: string | null;
   address: string | null;
   city: string | null;
@@ -235,7 +235,7 @@ export default function ClientsListClient({
     });
   };
 
-  const getInitials = (name: string | null, email: string) => {
+  const getInitials = (name: string | null, email: string | null) => {
     if (name) {
       return name
         .split(" ")
@@ -244,7 +244,10 @@ export default function ClientsListClient({
         .toUpperCase()
         .slice(0, 2);
     }
-    return email[0].toUpperCase();
+    if (email) {
+      return email[0].toUpperCase();
+    }
+    return "C";
   };
 
   const allSelected = initialClients.length > 0 && selectedClients.size === initialClients.length;
@@ -391,13 +394,13 @@ export default function ClientsListClient({
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={client.image || undefined} alt={client.name || client.email} />
+                          <AvatarImage src={client.image || undefined} alt={client.name || client.email || "Client"} />
                           <AvatarFallback>{getInitials(client.name, client.email)}</AvatarFallback>
                         </Avatar>
                         <span className="font-medium">{client.name || "No name"}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{client.email}</TableCell>
+                    <TableCell className="text-muted-foreground">{client.email || "-"}</TableCell>
                     <TableCell className="text-muted-foreground">{client.phone || "-"}</TableCell>
                     <TableCell className="text-muted-foreground">{client.company || "-"}</TableCell>
                     <TableCell>

@@ -538,7 +538,7 @@ model ProductionOrder {
 model Client {
   id               String               @id @default(cuid())
   name             String?
-  email            String               @unique
+  email            String?              @unique
   phone            String?
   address          String?
   city             String?

@@ -58,7 +58,7 @@ interface Item {
 interface Client {
   id: string;
   name: string | null;
-  email: string;
+  email: string | null;
   company: string | null;
   clientCode?: string | null;
   clientType?: string | null;
@@ -1402,13 +1402,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
   const handleAddCustomerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCustomerData.email) return;
+    if (!newCustomerData.phone) return;
 
     setNewCustomerLoading(true);
     try {
       const res = await createClient({
         name: newCustomerData.name,
-        email: newCustomerData.email,
+        email: newCustomerData.email || null,
         phone: newCustomerData.phone,
         company: newCustomerData.company,
         address: newCustomerData.address,
@@ -2298,21 +2298,21 @@ export default function POSComponent({ items, clients: initialClients, warehouse
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Email *</label>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Email</label>
               <Input 
                 type="email"
                 value={newCustomerData.email}
                 onChange={e => setNewCustomerData(prev => ({ ...prev, email: e.target.value }))}
                 placeholder="customer@domain.com"
-                required
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Phone</label>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Phone *</label>
               <Input 
                 value={newCustomerData.phone}
                 onChange={e => setNewCustomerData(prev => ({ ...prev, phone: e.target.value }))}
                 placeholder="+8801XXXXXXXXX"
+                required
               />
             </div>
             <div>

@@ -99,7 +99,7 @@ export const biometricWorker = new Worker(
     }
   },
   {
-    connection: redis,
+    connection: redis as any,
     concurrency: 1, // Process one sync at a time to maintain data integrity
   }
 );

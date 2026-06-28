@@ -4,7 +4,7 @@ import { redis } from "@/lib/redis";
 const QUEUE_NAME = "biometric-sync";
 
 export const biometricQueue = new Queue(QUEUE_NAME, {
-  connection: redis,
+  connection: redis as any,
   defaultJobOptions: {
     attempts: 3,
     backoff: {

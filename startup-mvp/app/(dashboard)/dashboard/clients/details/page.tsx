@@ -198,7 +198,7 @@ export default async function ClientDetailsPage({ searchParams }: ClientDetailsP
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={client.image}
-                        alt={client.name || client.email}
+                        alt={client.name || client.email || undefined}
                         className="w-full h-full object-cover"
                       />
                     </div>

@@ -6,7 +6,7 @@ async function run() {
   
   await prisma.biometricCommand.create({
     data: {
-      deviceId: device.id,
+      deviceId: device?.id || "",
       deviceSerialNumber: 'UEED252100146',
       commandType: 'CLEAR DATA',
       commandText: 'CLEAR DATA',

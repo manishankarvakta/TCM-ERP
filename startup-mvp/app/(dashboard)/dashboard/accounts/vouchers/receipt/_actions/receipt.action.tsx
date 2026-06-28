@@ -7,7 +7,7 @@ import { determineAccountType } from "@/lib/payment-account-config";
 interface ClientForReceipt {
   id: string;
   name: string | null;
-  email: string;
+  email: string | null;
   company: string | null;
   clientCode: string | null;
   chartOfAccountId: string | null;

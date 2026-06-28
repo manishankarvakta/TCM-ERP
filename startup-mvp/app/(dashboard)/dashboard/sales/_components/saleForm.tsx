@@ -74,7 +74,7 @@ interface SaleFormProps {
   clients: Array<{
     id: string;
     name: string | null;
-    email: string;
+    email: string | null;
     company: string | null;
   }>;
   items: Array<{

@@ -35,7 +35,7 @@ import {
 
 const clientFormSchema = z.object({
   name: z.string().optional().or(z.literal("")),
-  email: z.string().email("Invalid email address"),
+  email: z.string().email("Invalid email address").optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
   address: z.string().optional().or(z.literal("")),
   city: z.string().optional().or(z.literal("")),
@@ -74,7 +74,7 @@ interface ClientFormProps {
     id: string;
     clientCode?: string | null;
     name: string | null;
-    email: string;
+    email: string | null;
     phone: string | null;
     address: string | null;
     city: string | null;
@@ -144,7 +144,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
     defaultValues: initialData
       ? {
           name: initialData.name || "",
-          email: initialData.email,
+          email: initialData.email || "",
           phone: initialData.phone || "",
           address: initialData.address || "",
           city: initialData.city || "",
@@ -347,7 +347,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
 
       const submissionPayload = {
         name: data.name || undefined,
-        email: data.email,
+        email: data.email || null,
         phone: data.phone || undefined,
         address: data.address || undefined,
         city: data.city || undefined,
@@ -436,7 +436,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email *</Label>
+                    <Label htmlFor="email">Email</Label>
                     <Input
                       id="email"
                       type="email"

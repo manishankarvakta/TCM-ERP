@@ -32,11 +32,11 @@ async function run() {
   console.log("PIN 8888 mapped. Running Reprocess...");
 
   // Run the reprocess action
-  const res = await reprocessUnmappedPunches(device.id, device.serialNumber, '8888');
+  const res = await reprocessUnmappedPunches(device.id, device.serialNumber || '', '8888');
   console.log("Reprocess Result:", res);
 
   // Try duplicate reprocess
-  const res2 = await reprocessUnmappedPunches(device.id, device.serialNumber, '8888');
+  const res2 = await reprocessUnmappedPunches(device.id, device.serialNumber || '', '8888');
   console.log("Duplicate Reprocess Result:", res2);
 
   process.exit(0);
