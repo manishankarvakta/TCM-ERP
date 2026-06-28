@@ -125,6 +125,7 @@ export const MENU_TEMPLATE: MenuItemData[] = [
       { href: "/dashboard/hr/holidays", label: "Holidays", icon: "FiCalendar", module: "hr" },
       { href: "/dashboard/hr/attendance", label: "Attendance", icon: "FiClipboard", module: "hr" },
       { href: "/dashboard/hr/leave", label: "Leave", icon: "FiFileText", module: "hr" },
+      { href: "/dashboard/hr/resignation", label: "Resignation", icon: "FiFileText", module: "hr" },
       { href: "/dashboard/hr/payroll", label: "Payroll", icon: "FiDollarSign", module: "hr" },
       { href: "/dashboard/hr/loans", label: "Loans", icon: "FiCreditCard", module: "hr" },
       { href: "/dashboard/hr/biometric/devices", label: "Biometric Devices", icon: "FiCpu", module: "hr" },

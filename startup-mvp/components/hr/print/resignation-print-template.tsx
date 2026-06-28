@@ -13,20 +13,23 @@ export interface ResignationPrintTemplateProps {
 
 const ResignationPrintTemplate = forwardRef<HTMLDivElement, ResignationPrintTemplateProps>(
   ({ dateText, employeeName, sectionName, designation, reason, effectiveDate }, ref) => {
+    const hasData = !!(dateText || employeeName || sectionName || designation || reason || effectiveDate);
+
     return (
       <div
         ref={ref}
-        className="p-[15mm] bg-white text-black font-serif print:p-0 w-full max-w-[210mm] print:max-w-[180mm] mx-auto min-h-[297mm] print:min-h-[267mm] flex flex-col justify-between box-border"
+        className="px-[25mm] py-[25mm] bg-white text-black font-serif print:p-0 w-full max-w-[210mm] print:max-w-[180mm] mx-auto min-h-[297mm] print:min-h-[247mm] print:h-[247mm] flex flex-col justify-between box-border"
         style={{
           fontFamily: "'SolaimanLipi', 'SutonnyMJ', 'Vrinda', 'Arial', sans-serif",
+          pageBreakInside: "avoid",
         }}
       >
-        {/* Inject CSS print styles directly for strict A4 page boundary fitting */}
+        {/* Inject CSS print styles for strict A4 page boundary fitting */}
         <style dangerouslySetInnerHTML={{ __html: `
           @media print {
             @page {
               size: A4 portrait;
-              margin: 15mm !important;
+              margin: 25mm 20mm 20mm 20mm !important;
             }
             body {
               background: white !important;
@@ -37,102 +40,103 @@ const ResignationPrintTemplate = forwardRef<HTMLDivElement, ResignationPrintTemp
           }
         `}} />
 
-        {/* Top/Main section */}
-        <div>
-          {/* Date info on top-left (as shown in the PDF) */}
-          <div className="text-left text-base mb-4 flex items-end">
-            <span className="shrink-0 mr-2">তারিখঃ</span>
-            <span className="w-[150px] border-b border-dotted border-black min-h-[24px] px-2 text-lg font-bold">
-              {dateText || ""}
-            </span>
-          </div>
-
-          {/* Header/Address info */}
-          <div className="text-left text-base leading-relaxed space-y-1 mb-6">
-            <p className="text-lg">বরাবর</p>
-            <p className="text-lg">ব্যবস্থাপক</p>
-            <p className="text-lg">মানবসম্পদ বিভাগ</p>
-            <p className="text-lg font-bold">ফেরারী ফ্যাশন</p>
-            <p className="text-base">ইউনিক, বাইপাইল, আশুলিয়া, সাভার, ঢাকা।</p>
-          </div>
-
-          {/* Subject heading */}
-          <div className="mb-6">
-            <h1 className="text-lg font-bold border-b border-black pb-1 inline-block">
-              বিষয়ঃ চাকুরী হইতে অব্যাহতি প্রদান প্রসঙ্গে।
-            </h1>
-          </div>
-
-          {/* Body content */}
-          <div className="text-base space-y-5 leading-[2.2rem] text-justify">
-            <p className="text-lg">জনাব</p>
-            <p className="indent-12">
-              সবিনয় নিবেদন এই যে, আমি আপনার তৈরি পোশাক কারখানার একজন নিয়মিত শ্রমিক
-            </p>
-
-            <div className="flex items-end w-full flex-wrap gap-y-2">
-              <span className="shrink-0 mr-2">আমার নাম</span>
-              <span className="grow border-b border-dotted border-black min-h-[24px] px-2 text-lg font-bold">
-                {employeeName || ""}
-              </span>
-              <span className="shrink-0 mx-2">, সেকশন</span>
-              <span className="grow max-w-[200px] border-b border-dotted border-black min-h-[24px] px-2 text-lg font-bold text-center">
-                {sectionName || ""}
-              </span>
-              <span className="shrink-0 ml-1">,</span>
-            </div>
-
-            <div className="flex items-end w-full flex-wrap gap-y-2">
-              <span className="shrink-0 mr-2">পদবী</span>
-              <span className="grow max-w-[240px] border-b border-dotted border-black min-h-[24px] px-2 text-lg font-bold text-center">
-                {designation || ""}
-              </span>
-              <span className="shrink-0 mx-2">। আমার</span>
-              <span className="grow border-b border-dotted border-black min-h-[24px] px-2 text-lg">
-                {reason || ""}
-              </span>
-            </div>
-
-            <div className="flex items-end w-full flex-wrap gap-y-2">
-              {!reason && (
-                <span className="grow border-b border-dotted border-black min-h-[24px] w-full mr-2"></span>
+        {/* Form Body Container */}
+        <div className="flex-1 flex flex-col justify-between">
+          <div>
+            {/* 1. Date line */}
+            <div className="text-left text-lg mb-6 leading-relaxed">
+              {hasData && dateText ? (
+                <p>
+                  তারিখঃ <span className="border-b border-dotted border-black px-2 font-bold">{dateText}</span>
+                </p>
+              ) : (
+                <p>তারিখ........................</p>
               )}
-              <span className="shrink-0 mr-2">কারনে আগামী</span>
-              <span className="grow max-w-[160px] border-b border-dotted border-black min-h-[24px] px-2 text-lg font-bold text-center">
-                {effectiveDate || ""}
-              </span>
-              <span className="shrink-0 mx-2">ইং</span>
-              <span className="shrink-0">তারিখ হইতে কাজ চালিয়ে যাওয়া সমভাব হবে না।</span>
             </div>
 
-            <p className="text-justify leading-relaxed">
-              অতএব জনাবের নিকট আকুল আবেদন উক্ত তারিখ থেকে অব্যাহতি প্রদানে মর্জি হয়।
-            </p>
-          </div>
-        </div>
+            {/* 2. Recipient Address */}
+            <div className="text-left text-lg leading-[2.2rem] mb-8 space-y-1">
+              <p>বরাবর</p>
+              <p>ব্যবস্থাপক</p>
+              <p>মানবসম্পদ বিভাগ</p>
+              <p className="font-semibold">ফেরারী ফ্যাশন</p>
+              <p>ইউনিক, বাইপাইল, আশুলিয়া, সাভার, ঢাকা ।</p>
+            </div>
 
-        {/* Bottom / Signature / Approvals section */}
-        <div className="mt-12">
-          {/* Sincerely section */}
-          <div className="mb-10 text-left w-[180px] text-base space-y-3">
-            <p className="text-lg">বিনীত</p>
-            <div className="border-b border-dotted border-black w-full h-[24px] mt-4"></div>
+            {/* 3. Subject Line (Bold, No Underline, Space before Dari) */}
+            <div className="mb-8">
+              <p className="text-lg font-bold">
+                বিষয়ঃ চাকুরী হইতে অব্যাহতি প্রদান প্রসঙ্গে ।
+              </p>
+            </div>
+
+            {/* 4. Body Content */}
+            <div className="text-lg space-y-6 leading-[2.6rem] text-justify">
+              <p>জনাব</p>
+              
+              {!hasData ? (
+                /* Strict Blank Form Layout matching the Screenshot */
+                <div className="space-y-6">
+                  <p className="indent-12">
+                    সবিনয় নিবেদন এই যে, আমি আপনার তৈরি পোশাক কারখানার একজন নিয়মিত শ্রমিক
+                  </p>
+                  <p>
+                    আমার নাম ................................................., সেকশন .......................................,
+                  </p>
+                  <p>
+                    পদবী ...........................................................। আমার .........................................
+                  </p>
+                  <p>
+                    .........................................................কারনে আগামী ................................... ইং
+                  </p>
+                  <p>
+                    তারিখ হইতে কাজ চালিয়ে যাওয়া সমভাব হবে না।
+                  </p>
+                </div>
+              ) : (
+                /* Dynamic Filled Layout */
+                <div className="space-y-6">
+                  <p className="indent-12 text-justify">
+                    সবিনয় নিবেদন এই যে, আমি আপনার তৈরি পোশাক কারখানার একজন নিয়মিত শ্রমিক। আমার নাম{" "}
+                    <span className="border-b border-dotted border-black px-2 font-bold">{employeeName || "................................................."}</span>
+                    , সেকশন{" "}
+                    <span className="border-b border-dotted border-black px-2 font-bold">{sectionName || "......................................."}</span>
+                    , পদবী{" "}
+                    <span className="border-b border-dotted border-black px-2 font-bold">{designation || "..........................................................."}</span>
+                    । আমার{" "}
+                    <span className="border-b border-dotted border-black px-2 font-bold">{reason || "........................................................."}</span>{" "}
+                    কারনে আগামী{" "}
+                    <span className="border-b border-dotted border-black px-2 font-bold">{effectiveDate || "..................................."}</span> ইং তারিখ হইতে কাজ চালিয়ে যাওয়া সমভাব হবে না।
+                  </p>
+                </div>
+              )}
+
+              <p className="leading-relaxed mt-4">
+                অতএব জনাবের নিকট আকুল আবেদন উক্ত তারিখ থেকে অব্যাহতি প্রদানে মর্জি হয়।
+              </p>
+            </div>
           </div>
 
-          {/* Verification / Approval Signatures */}
-          <div className="border-t border-black pt-6">
-            <div className="flex justify-between items-center text-center text-base font-bold">
-              <div className="w-[150px]">
-                <div className="h-[30px]"></div>
-                <p className="border-t border-black pt-2">সুপারভাইজার</p>
-              </div>
-              <div className="w-[150px]">
-                <div className="h-[30px]"></div>
-                <p className="border-t border-black pt-2">সেকসন প্রধান</p>
-              </div>
-              <div className="w-[150px]">
-                <div className="h-[30px]"></div>
-                <p className="border-t border-black pt-2">এডমিন</p>
+          {/* 5. Footer / Signature Section */}
+          <div className="mt-auto">
+            {/* Sincerely segment */}
+            <div className="mb-14 text-left w-[200px] text-lg space-y-4">
+              <p>বিনীত</p>
+              <p className="tracking-widest">................................</p>
+            </div>
+
+            {/* Verification Signatures at the bottom (No borders, spaced columns) */}
+            <div className="w-full mt-10">
+              <div className="flex justify-between items-center text-center text-lg font-semibold">
+                <div className="w-[180px]">
+                  <p>সুপারভাইজার</p>
+                </div>
+                <div className="w-[180px]">
+                  <p>সেকসন প্রধান</p>
+                </div>
+                <div className="w-[180px]">
+                  <p>এডমিন</p>
+                </div>
               </div>
             </div>
           </div>

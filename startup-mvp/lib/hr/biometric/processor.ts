@@ -120,7 +120,7 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
 
     for (const empId in groupedLogs) {
       const employee = employeeById.get(empId);
-      if (!employee) continue;
+      if (!employee || employee.status !== "active") continue;
 
       processedEmployees.add(empId);
 

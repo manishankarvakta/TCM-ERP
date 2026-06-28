@@ -71,6 +71,10 @@ export async function processManualAttendance(input: {
 
     if (!employee) return { success: false, error: "Employee not found" };
 
+    if (employee.status !== "active") {
+      return { success: false, error: "Cannot process attendance for inactive or resigned employee" };
+    }
+
     let checkInDate = input.checkIn ? new Date(input.checkIn) : null;
     let checkOutDate = input.checkOut ? new Date(input.checkOut) : null;
 
