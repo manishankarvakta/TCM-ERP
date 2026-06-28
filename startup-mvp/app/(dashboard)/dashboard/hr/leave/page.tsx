@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import LeaveApplicationsListClient from "./_components/leave-applications-list";
+import LeaveFormPrintButton from "./_components/leave-form-print-button";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import { LeaveStatus } from "@prisma/client";
@@ -62,6 +63,7 @@ export default async function LeavePage({ searchParams }: LeavePageProps) {
               </Link>
             </Button>
           )}
+          <LeaveFormPrintButton />
           <Button asChild>
             <Link href="/dashboard/hr/leave/apply">
               <FiPlus className="mr-2 h-4 w-4" />
