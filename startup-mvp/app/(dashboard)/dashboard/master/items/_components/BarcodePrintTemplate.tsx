@@ -25,16 +25,30 @@ export function BarcodeSvg({ value, displayValue = false, pageSizeMm, options, h
 
   useEffect(() => {
     if (svgRef.current && value) {
-      // Determine dynamic barcode settings based on page size
+      // Determine dynamic barcode settings based on page size and barcode value length
       let width = 1.3;
       let height = 40;
       let fontSize = 10;
       let margin = 2;
 
+      // 1. Calculate dynamic width scale based on label width and character length (prevents clipping)
       if (pageSizeMm) {
-        const { width: pW, height: pH } = pageSizeMm;
-        
-        // Adjust height based on label physical height
+        const { width: pW } = pageSizeMm;
+        const padMm = pW === 38 ? 4.4 : (pW === 45 ? 6.4 : 6);
+        const availWidthPx = (pW - padMm) * 3.78;
+        const estimatedModules = value.length === 13 && /^\d+$/.test(value) ? 95 : (35 + 11 * value.length);
+        const calculatedWidth = availWidthPx / estimatedModules;
+        width = Math.max(0.7, Math.min(1.3, calculatedWidth));
+      } else {
+        const availWidthPx = (62 - 6) * 3.78;
+        const estimatedModules = value.length === 13 && /^\d+$/.test(value) ? 95 : (35 + 11 * value.length);
+        const calculatedWidth = availWidthPx / estimatedModules;
+        width = Math.max(0.7, Math.min(1.35, calculatedWidth));
+      }
+
+      // 2. Adjust height based on label physical height and options config
+      if (pageSizeMm) {
+        const { height: pH } = pageSizeMm;
         if (pH <= 26) {
           height = 15; // ultra-compact height for Zebra 38x25
           fontSize = 7.5;
@@ -60,15 +74,8 @@ export function BarcodeSvg({ value, displayValue = false, pageSizeMm, options, h
             if (!options.showPrice) height += 10;
           }
         }
-
-        // Adjust width scale based on label physical width to prevent clipping
-        if (pW <= 40) {
-          width = 0.85; // narrow scale for Zebra 38x25
-        } else if (pW <= 50) {
-          width = 1.05;
-        }
       } else {
-        // Fallback default sheet size
+        // Fallback default sheet size height calculations
         if (options) {
           if (!options.showCompany) height += 10;
           if (!options.showName) height += 12;
