@@ -192,10 +192,10 @@ export default function UploadDialog({
         prev.map((u) => (u.id === upload.id ? { ...u, status: "uploading" } : u))
       );
 
-      // Convert file to base64
-      const arrayBuffer = await upload.file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const fileData = buffer.toString('base64');
+      // Prepare form data for standard binary upload
+      const formData = new FormData();
+      formData.append("file", upload.file);
+      formData.append("path", "");
 
       // Simulate progress for better UX
       let progress = 0;
@@ -217,14 +217,8 @@ export default function UploadDialog({
         }
       }, 200);
 
-      // Upload file via server action
-      const result = await uploadFileServerSide({
-        path: "",
-        name: upload.file.name,
-        fileData,
-        contentType: upload.file.type || "application/octet-stream",
-        size: upload.file.size,
-      });
+      // Upload file via server action using FormData
+      const result = await uploadFileServerSide(formData);
 
       clearInterval(progressInterval);
 

@@ -72,32 +72,35 @@ function buildStorageKey(userId: string, path: string, filename: string): string
 
 import { revalidatePath } from "next/cache";
 
-/**
- * Upload file directly via server (no presigned URLs)
- */
-export async function uploadFileServerSide(input: {
-  path: string;
-  name: string;
-  fileData: string; // Base64 encoded file data
-  contentType: string;
-  size: number;
-}): Promise<ActionResult<{ fileId: string; key: string }>> {
+export async function uploadFileServerSide(
+  formData: FormData
+): Promise<ActionResult<{ fileId: string; key: string }>> {
   try {
-    console.log("uploadFileServerSide started for file:", { name: input.name, path: input.path, contentType: input.contentType, size: input.size });
+    const file = formData.get("file") as File;
+    const path = (formData.get("path") as string) || "";
+
+    if (!file) {
+      throw new Error("No file uploaded");
+    }
+
+    const name = file.name;
+    const contentType = file.type || "application/octet-stream";
+    const size = file.size;
+
+    console.log("uploadFileServerSide started for file:", { name, path, contentType, size });
     
     console.log("uploadFileServerSide: Resolving authenticated user...");
     const user = await getAuthenticatedUser();
     console.log("uploadFileServerSide: User resolved as:", user.id);
-    
-    const { path, name, fileData, contentType, size } = input;
 
     // Build storage key
     const storageKey = buildStorageKey(user.id, path, name);
     console.log("uploadFileServerSide: Storage key resolved as:", storageKey);
 
-    // Convert base64 to buffer
-    console.log("uploadFileServerSide: Decoding base64 data to buffer...");
-    const buffer = Buffer.from(fileData, 'base64');
+    // Convert Web File Blob to Node Buffer
+    console.log("uploadFileServerSide: Converting file to arrayBuffer and buffer...");
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
     console.log("uploadFileServerSide: Buffer created. Length:", buffer.length);
 
     // Upload to local storage internally
