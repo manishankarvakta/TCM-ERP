@@ -46,42 +46,45 @@ export function BarcodeSvg({ value, displayValue = false, pageSizeMm, options, h
         width = Math.max(0.7, Math.min(1.35, calculatedWidth));
       }
 
-      // 2. Adjust height based on label physical height and options config
+      // 2. Adjust height dynamically based on label physical height and options config
       if (pageSizeMm) {
         const { height: pH } = pageSizeMm;
-        if (pH <= 26) {
-          height = 15; // ultra-compact height for Zebra 38x25
-          fontSize = 7.5;
-          margin = 1;
-
-          if (options) {
-            // Apply bonus height if fields are hidden (for 38x25mm Zebra)
-            if (!options.showCompany) height += 4;
-            if (!options.showName) height += 5;
-            if (!options.showVariant || !hasVariant) height += 4;
-            if (!options.showPrice) height += 5;
-          }
-        } else if (pH <= 36) {
-          height = 26;
-          fontSize = 9;
-          margin = 1;
-
-          if (options) {
-            // Apply bonus height if fields are hidden (for 45x35mm Rongta)
-            if (!options.showCompany) height += 8;
-            if (!options.showName) height += 10;
-            if (!options.showVariant || !hasVariant) height += 8;
-            if (!options.showPrice) height += 10;
-          }
+        const padMm = pH === 25 ? 2.2 : (pH === 35 ? 3.2 : 2.5);
+        const padPx = 2 * padMm * 3.78;
+        const totalHeightPx = pH * 3.78;
+        
+        let reservedPx = padPx + 8; // start with padding + safety margin
+        if (options) {
+          if (options.showCompany) reservedPx += 14;
+          if (options.showName) reservedPx += 16;
+          if (options.showVariant && hasVariant) reservedPx += 12;
+          if (options.showPrice) reservedPx += 16;
         }
+        if (displayValue) reservedPx += 10; // barcode text space
+        
+        const remainingPx = totalHeightPx - reservedPx;
+        
+        // Clamp height between 12px (min readable) and 70% of total label height
+        height = Math.max(12, Math.min(totalHeightPx * 0.7, remainingPx));
+        
+        // Scale font size based on height
+        fontSize = Math.max(7, Math.min(10, height * 0.4));
+        margin = height < 20 ? 1 : 2;
       } else {
         // Fallback default sheet size height calculations
+        let reservedPx = 20; // safety margin
         if (options) {
-          if (!options.showCompany) height += 10;
-          if (!options.showName) height += 12;
-          if (!options.showVariant || !hasVariant) height += 10;
-          if (!options.showPrice) height += 12;
+          if (options.showCompany) reservedPx += 16;
+          if (options.showName) reservedPx += 20;
+          if (options.showVariant && hasVariant) reservedPx += 14;
+          if (options.showPrice) reservedPx += 20;
         }
+        if (displayValue) reservedPx += 12;
+        
+        // A4 sheet height defaults to 42mm (~158px) per cell
+        const remainingPx = 158 - reservedPx;
+        height = Math.max(20, Math.min(60, remainingPx));
+        fontSize = Math.max(8, Math.min(10, height * 0.3));
       }
 
       try {
@@ -159,9 +162,9 @@ const BarcodePrintTemplate = forwardRef<HTMLDivElement, BarcodePrintTemplateProp
     let labelClass = "label-item bg-white text-black border border-slate-300 rounded-md shadow-sm flex flex-col justify-between text-center overflow-hidden page-break-inside-avoid print:border-transparent print:shadow-none ";
 
     let labelStyle: React.CSSProperties = {};
-    const isSmallLabel = options.layout !== "sheet" && options.pageSizeMm && (options.pageSizeMm.width <= 40 || options.pageSizeMm.height <= 30);
+    const isSmallLabel = options.pageSizeMm && (options.pageSizeMm.width <= 40 || options.pageSizeMm.height <= 30);
 
-    if (options.layout !== "sheet" && options.pageSizeMm) {
+    if (options.pageSizeMm) {
       // Keep clear safe spacing (padding) around the design to prevent printing cutoffs
       let pad = "2.5mm";
       if (options.pageSizeMm.width === 38 && options.pageSizeMm.height === 25) {
