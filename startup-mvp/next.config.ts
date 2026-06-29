@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
 
 // Parse allowed origins for Server Actions dynamically from environment variables
-const allowedOrigins: string[] = ['localhost:3000', 'localhost:3001', 'localhost:3002'];
+const allowedOrigins: string[] = [
+  'localhost:3000',
+  'localhost:3001',
+  'localhost:3002',
+  'fferp.aamardokan.online',
+  'ferrarifashionbd.cloud',
+  'www.fferp.aamardokan.online',
+  'www.ferrarifashionbd.cloud'
+];
 
 const addHostFromUrl = (urlString?: string) => {
   if (!urlString) return;
