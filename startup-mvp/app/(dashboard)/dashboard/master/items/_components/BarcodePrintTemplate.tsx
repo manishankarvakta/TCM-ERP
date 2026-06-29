@@ -157,12 +157,13 @@ interface BarcodePrintTemplateProps {
 
 const BarcodePrintTemplate = forwardRef<HTMLDivElement, BarcodePrintTemplateProps>(
   ({ items, options }, ref) => {
+    const isSmallLabel = options.pageSizeMm && (options.pageSizeMm.width <= 40 || options.pageSizeMm.height <= 30);
+
     // Determine CSS layout based on settings
     let gridClass = "grid gap-2 ";
     let labelClass = `label-item bg-white text-black border border-slate-300 rounded-md shadow-sm flex flex-col justify-center items-center ${isSmallLabel ? "gap-y-0.5" : "gap-y-1"} text-center overflow-hidden page-break-inside-avoid print:border-transparent print:shadow-none `;
 
     let labelStyle: React.CSSProperties = {};
-    const isSmallLabel = options.pageSizeMm && (options.pageSizeMm.width <= 40 || options.pageSizeMm.height <= 30);
 
     if (options.pageSizeMm) {
       // Keep clear safe spacing (padding) around the design to prevent printing cutoffs
