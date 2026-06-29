@@ -7,9 +7,20 @@ interface BarcodeSvgProps {
   value: string;
   displayValue: boolean;
   pageSizeMm?: { width: number; height: number };
+  options?: {
+    showCompany: boolean;
+    showName: boolean;
+    showVariant: boolean;
+    showPrice: boolean;
+    showBarcodeText: boolean;
+    showImage: boolean;
+    layout: "1col" | "2col" | "3col" | "sheet";
+    companyName: string;
+  };
+  hasVariant?: boolean;
 }
 
-export function BarcodeSvg({ value, displayValue = false, pageSizeMm }: BarcodeSvgProps) {
+export function BarcodeSvg({ value, displayValue = false, pageSizeMm, options, hasVariant = false }: BarcodeSvgProps) {
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
@@ -28,10 +39,26 @@ export function BarcodeSvg({ value, displayValue = false, pageSizeMm }: BarcodeS
           height = 15; // ultra-compact height for Zebra 38x25
           fontSize = 7.5;
           margin = 1;
+
+          if (options) {
+            // Apply bonus height if fields are hidden (for 38x25mm Zebra)
+            if (!options.showCompany) height += 4;
+            if (!options.showName) height += 5;
+            if (!options.showVariant || !hasVariant) height += 4;
+            if (!options.showPrice) height += 5;
+          }
         } else if (pH <= 36) {
           height = 26;
           fontSize = 9;
           margin = 1;
+
+          if (options) {
+            // Apply bonus height if fields are hidden (for 45x35mm Rongta)
+            if (!options.showCompany) height += 8;
+            if (!options.showName) height += 10;
+            if (!options.showVariant || !hasVariant) height += 8;
+            if (!options.showPrice) height += 10;
+          }
         }
 
         // Adjust width scale based on label physical width to prevent clipping
@@ -39,6 +66,14 @@ export function BarcodeSvg({ value, displayValue = false, pageSizeMm }: BarcodeS
           width = 0.85; // narrow scale for Zebra 38x25
         } else if (pW <= 50) {
           width = 1.05;
+        }
+      } else {
+        // Fallback default sheet size
+        if (options) {
+          if (!options.showCompany) height += 10;
+          if (!options.showName) height += 12;
+          if (!options.showVariant || !hasVariant) height += 10;
+          if (!options.showPrice) height += 12;
         }
       }
 
@@ -79,7 +114,7 @@ export function BarcodeSvg({ value, displayValue = false, pageSizeMm }: BarcodeS
         }
       }
     }
-  }, [value, displayValue, pageSizeMm]);
+  }, [value, displayValue, pageSizeMm, options, hasVariant]);
 
   return <svg ref={svgRef} className="mx-auto" />;
 }
@@ -294,6 +329,8 @@ const BarcodePrintTemplate = forwardRef<HTMLDivElement, BarcodePrintTemplateProp
                   value={item.barcode}
                   displayValue={options.showBarcodeText}
                   pageSizeMm={options.pageSizeMm}
+                  options={options}
+                  hasVariant={!!(item.color || item.size)}
                 />
               </div>
 
