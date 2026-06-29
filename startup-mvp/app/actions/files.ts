@@ -542,7 +542,7 @@ export async function listFolder(input: {
   createdAt: Date;
   updatedAt: Date;
   usageCount?: number;
-  usages?: string[];
+  usages?: FileUsage[] | string[];
   owner: {
     id: string;
     name: string | null;
@@ -603,7 +603,7 @@ export async function listFolder(input: {
         ...file,
         storageKey: file.storageKey || undefined,
         usageCount: fileUsages.length,
-        usages: fileUsages.map(u => `${u.module}: ${u.name}`),
+        usages: fileUsages,
       };
     });
 
