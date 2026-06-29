@@ -285,9 +285,7 @@ const BarcodePrintTemplate = forwardRef<HTMLDivElement, BarcodePrintTemplateProp
                   </div>
                 )}
 
-                <div className={`${isSmallLabel ? "text-[7px] mt-0" : "text-[8px] mt-0.5"} font-mono text-slate-500 truncate`}>
-                  Code: {item.code}
-                </div>
+                {/* Product Code removed as requested */}
               </div>
 
               {/* Barcode Render */}
