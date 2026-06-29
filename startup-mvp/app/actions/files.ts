@@ -19,13 +19,21 @@ type ActionResult<T = unknown> = {
  * Helper function to verify user is authenticated
  */
 async function getAuthenticatedUser(): Promise<{ id: string }> {
-  const session = await auth();
-  
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized: User must be logged in");
+  try {
+    console.log("getAuthenticatedUser: Calling auth()...");
+    const session = await auth();
+    console.log("getAuthenticatedUser: session parsed:", session ? { id: session.user?.id, email: session.user?.email, role: session.user?.role } : "null");
+    
+    if (!session?.user?.id) {
+      console.warn("getAuthenticatedUser: No user ID found in session");
+      throw new Error("Unauthorized: User must be logged in");
+    }
+    
+    return { id: session.user.id };
+  } catch (error) {
+    console.error("getAuthenticatedUser exception:", error);
+    throw error;
   }
-  
-  return { id: session.user.id };
 }
 
 /**
@@ -75,26 +83,39 @@ export async function uploadFileServerSide(input: {
   size: number;
 }): Promise<ActionResult<{ fileId: string; key: string }>> {
   try {
+    console.log("uploadFileServerSide started for file:", { name: input.name, path: input.path, contentType: input.contentType, size: input.size });
+    
+    console.log("uploadFileServerSide: Resolving authenticated user...");
     const user = await getAuthenticatedUser();
+    console.log("uploadFileServerSide: User resolved as:", user.id);
+    
     const { path, name, fileData, contentType, size } = input;
 
     // Build storage key
     const storageKey = buildStorageKey(user.id, path, name);
+    console.log("uploadFileServerSide: Storage key resolved as:", storageKey);
 
     // Convert base64 to buffer
+    console.log("uploadFileServerSide: Decoding base64 data to buffer...");
     const buffer = Buffer.from(fileData, 'base64');
+    console.log("uploadFileServerSide: Buffer created. Length:", buffer.length);
 
     // Upload to local storage internally
+    console.log("uploadFileServerSide: Saving file to disk...");
     await storage.saveFile(storageKey, buffer);
+    console.log("uploadFileServerSide: File successfully saved to disk.");
 
     // Check if file already exists
+    console.log("uploadFileServerSide: Querying database for existing storage key...");
     const existingFile = await prisma.file.findUnique({
       where: { storageKey },
     });
+    console.log("uploadFileServerSide: Existing file query result:", existingFile ? "Found" : "Not Found");
 
     let dbFile;
     if (existingFile) {
       // Update existing file
+      console.log("uploadFileServerSide: Updating existing file record in DB...");
       dbFile = await prisma.file.update({
         where: { storageKey },
         data: {
@@ -104,6 +125,7 @@ export async function uploadFileServerSide(input: {
         },
       });
 
+      console.log("uploadFileServerSide: Creating user log for FILE_UPDATED...");
       await createUserLog({
         userId: user.id,
         action: "FILE_UPDATED",
@@ -112,6 +134,7 @@ export async function uploadFileServerSide(input: {
       });
     } else {
       // Create new file record
+      console.log("uploadFileServerSide: Creating new file record in DB...");
       dbFile = await prisma.file.create({
         data: {
           ownerId: user.id,
@@ -124,6 +147,7 @@ export async function uploadFileServerSide(input: {
         },
       });
 
+      console.log("uploadFileServerSide: Creating user log for FILE_UPLOADED...");
       await createUserLog({
         userId: user.id,
         action: "FILE_UPLOADED",
@@ -133,14 +157,16 @@ export async function uploadFileServerSide(input: {
     }
 
     // Revalidate the whole layout to ensure UI consistency
+    console.log("uploadFileServerSide: Triggering layout revalidation...");
     revalidatePath("/", "layout");
+    console.log("uploadFileServerSide: Layout revalidated successfully.");
 
     return {
       success: true,
       data: { fileId: dbFile.id, key: storageKey },
     };
   } catch (error) {
-    console.error("uploadFileServerSide error:", error);
+    console.error("CRITICAL EXCEPTION inside uploadFileServerSide:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to upload file",
