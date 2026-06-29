@@ -49,6 +49,8 @@ interface FileItem {
   isFolder: boolean;
   createdAt: Date;
   updatedAt: Date;
+  usageCount?: number;
+  usages?: string[];
   owner?: {
     id: string;
     name: string | null;
@@ -337,9 +339,19 @@ export default function FileList({
                 </TableCell>
                 <TableCell>
                   {!file.isFolder ? (
-                    <span className="text-sm text-muted-foreground">
-                      {formatBytes(file.size)}
-                    </span>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-sm text-muted-foreground">
+                        {formatBytes(file.size)}
+                      </span>
+                      {file.usageCount !== undefined && file.usageCount > 0 && (
+                        <span 
+                          className="inline-flex items-center w-max px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" 
+                          title={`Used in:\n${file.usages?.join("\n") || ""}`}
+                        >
+                          Used: {file.usageCount}
+                        </span>
+                      )}
+                    </div>
                   ) : (
                     <span className="text-sm text-muted-foreground">—</span>
                   )}

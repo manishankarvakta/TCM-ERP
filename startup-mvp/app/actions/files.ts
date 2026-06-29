@@ -310,9 +310,225 @@ export async function confirmUpload(input: {
   }
 }
 
-/**
- * List files and folders in a directory
- */
+interface FileUsage {
+  module: string;
+  name: string;
+  id: string;
+}
+
+export async function getFileUsages(storageKey: string): Promise<FileUsage[]> {
+  const usages: FileUsage[] = [];
+
+  const addUsage = (module: string, name: string | null | undefined, id: string) => {
+    usages.push({
+      module,
+      name: name || "Unnamed",
+      id,
+    });
+  };
+
+  try {
+    // 1. Check Users
+    const users = await prisma.user.findMany({
+      where: { image: { contains: storageKey } },
+      select: { id: true, name: true, email: true }
+    });
+    users.forEach(u => addUsage("User", u.name || u.email, u.id));
+
+    // 2. Check Items (featuredImage or images Json)
+    const items = await prisma.item.findMany({
+      select: { id: true, name: true, featuredImage: true, images: true }
+    });
+    items.forEach(item => {
+      let isUsed = false;
+      if (item.featuredImage && item.featuredImage.includes(storageKey)) {
+        isUsed = true;
+      } else if (item.images) {
+        let imageArray: any[] = [];
+        if (Array.isArray(item.images)) {
+          imageArray = item.images;
+        } else if (typeof item.images === "string") {
+          try {
+            imageArray = JSON.parse(item.images);
+          } catch {}
+        }
+        if (Array.isArray(imageArray)) {
+          isUsed = imageArray.some(img => {
+            if (typeof img === "string") {
+              return img.includes(storageKey);
+            } else if (img && typeof img === "object" && img.url) {
+              return img.url.includes(storageKey);
+            }
+            return false;
+          });
+        }
+      }
+      if (isUsed) {
+        addUsage("Item", item.name, item.id);
+      }
+    });
+
+    // 3. Check Employees
+    const employees = await prisma.employee.findMany({
+      where: { photo: { contains: storageKey } },
+      select: { id: true, name: true }
+    });
+    employees.forEach(e => addUsage("Employee", e.name, e.id));
+
+    // 4. Check Clients
+    const clients = await prisma.client.findMany({
+      where: { image: { contains: storageKey } },
+      select: { id: true, name: true, company: true }
+    });
+    clients.forEach(c => addUsage("Client", c.name || c.company, c.id));
+
+    // 5. Check Suppliers
+    const suppliers = await prisma.supplier.findMany({
+      where: { image: { contains: storageKey } },
+      select: { id: true, name: true, company: true }
+    });
+    suppliers.forEach(s => addUsage("Supplier", s.name || s.company, s.id));
+
+    // 6. Check Purchases
+    const purchases = await prisma.purchase.findMany({
+      where: { attachmentUrl: { contains: storageKey } },
+      select: { id: true, purchaseNumber: true }
+    });
+    purchases.forEach(p => addUsage("Purchase", p.purchaseNumber, p.id));
+
+    // 7. Check Sales
+    const sales = await prisma.sale.findMany({
+      where: { attachmentUrl: { contains: storageKey } },
+      select: { id: true, saleNumber: true }
+    });
+    sales.forEach(s => addUsage("Sale", s.saleNumber, s.id));
+
+  } catch (error) {
+    console.error("Error checking file usage:", error);
+  }
+
+  return usages;
+}
+
+async function getBulkFileUsages(storageKeys: string[]): Promise<Record<string, FileUsage[]>> {
+  const usageMap: Record<string, FileUsage[]> = {};
+  storageKeys.forEach(k => {
+    usageMap[k] = [];
+  });
+
+  const addUsage = (key: string, module: string, name: string | null | undefined, id: string) => {
+    if (usageMap[key]) {
+      usageMap[key].push({
+        module,
+        name: name || "Unnamed",
+        id,
+      });
+    }
+  };
+
+  try {
+    // 1. Fetch Users
+    const users = await prisma.user.findMany({
+      where: { image: { not: null } },
+      select: { id: true, name: true, email: true, image: true }
+    });
+    users.forEach(u => {
+      const matchedKey = storageKeys.find(k => u.image?.includes(k));
+      if (matchedKey) addUsage(matchedKey, "User", u.name || u.email, u.id);
+    });
+
+    // 2. Fetch Items
+    const items = await prisma.item.findMany({
+      select: { id: true, name: true, featuredImage: true, images: true }
+    });
+    items.forEach(item => {
+      storageKeys.forEach(key => {
+        let isUsed = false;
+        if (item.featuredImage && item.featuredImage.includes(key)) {
+          isUsed = true;
+        } else if (item.images) {
+          let imageArray: any[] = [];
+          if (Array.isArray(item.images)) {
+            imageArray = item.images;
+          } else if (typeof item.images === "string") {
+            try {
+              imageArray = JSON.parse(item.images);
+            } catch {}
+          }
+          if (Array.isArray(imageArray)) {
+            isUsed = imageArray.some(img => {
+              if (typeof img === "string") {
+                return img.includes(key);
+              } else if (img && typeof img === "object" && img.url) {
+                return img.url.includes(key);
+              }
+              return false;
+            });
+          }
+        }
+        if (isUsed) {
+          addUsage(key, "Item", item.name, item.id);
+        }
+      });
+    });
+
+    // 3. Fetch Employees
+    const employees = await prisma.employee.findMany({
+      where: { photo: { not: null } },
+      select: { id: true, name: true, photo: true }
+    });
+    employees.forEach(e => {
+      const matchedKey = storageKeys.find(k => e.photo?.includes(k));
+      if (matchedKey) addUsage(matchedKey, "Employee", e.name, e.id);
+    });
+
+    // 4. Fetch Clients
+    const clients = await prisma.client.findMany({
+      where: { image: { not: null } },
+      select: { id: true, name: true, company: true, image: true }
+    });
+    clients.forEach(c => {
+      const matchedKey = storageKeys.find(k => c.image?.includes(k));
+      if (matchedKey) addUsage(matchedKey, "Client", c.name || c.company, c.id);
+    });
+
+    // 5. Fetch Suppliers
+    const suppliers = await prisma.supplier.findMany({
+      where: { image: { not: null } },
+      select: { id: true, name: true, company: true, image: true }
+    });
+    suppliers.forEach(s => {
+      const matchedKey = storageKeys.find(k => s.image?.includes(k));
+      if (matchedKey) addUsage(matchedKey, "Supplier", s.name || s.company, s.id);
+    });
+
+    // 6. Fetch Purchases
+    const purchases = await prisma.purchase.findMany({
+      where: { attachmentUrl: { not: null } },
+      select: { id: true, purchaseNumber: true, attachmentUrl: true }
+    });
+    purchases.forEach(p => {
+      const matchedKey = storageKeys.find(k => p.attachmentUrl?.includes(k));
+      if (matchedKey) addUsage(matchedKey, "Purchase", p.purchaseNumber, p.id);
+    });
+
+    // 7. Fetch Sales
+    const sales = await prisma.sale.findMany({
+      where: { attachmentUrl: { not: null } },
+      select: { id: true, saleNumber: true, attachmentUrl: true }
+    });
+    sales.forEach(s => {
+      const matchedKey = storageKeys.find(k => s.attachmentUrl?.includes(k));
+      if (matchedKey) addUsage(matchedKey, "Sale", s.saleNumber, s.id);
+    });
+
+  } catch (error) {
+    console.error("Error in getBulkFileUsages:", error);
+  }
+
+  return usageMap;
+}
+
 export async function listFolder(input: {
   path: string;
 }): Promise<ActionResult<{ files: Array<{
@@ -325,6 +541,8 @@ export async function listFolder(input: {
   storageKey?: string;
   createdAt: Date;
   updatedAt: Date;
+  usageCount?: number;
+  usages?: string[];
   owner: {
     id: string;
     name: string | null;
@@ -371,11 +589,23 @@ export async function listFolder(input: {
       ],
     });
 
+    // Collect all non-null storage keys to run bulk usages scan
+    const storageKeys = files
+      .map(f => f.storageKey)
+      .filter((key): key is string => !!key);
+
+    const bulkUsages = await getBulkFileUsages(storageKeys);
+
     // Normalize storageKey nulls to undefined for compatibility with UI types
-    const sanitizedFiles = files.map((file) => ({
-      ...file,
-      storageKey: file.storageKey || undefined,
-    }));
+    const sanitizedFiles = files.map((file) => {
+      const fileUsages = file.storageKey ? (bulkUsages[file.storageKey] || []) : [];
+      return {
+        ...file,
+        storageKey: file.storageKey || undefined,
+        usageCount: fileUsages.length,
+        usages: fileUsages.map(u => `${u.module}: ${u.name}`),
+      };
+    });
 
     // Log the action
     await createUserLog({
@@ -411,6 +641,16 @@ export async function deleteFile(input: {
 
     // Verify ownership
     await verifyFileOwnership(user.id, key);
+
+    // Check if the file is used in other modules before deleting
+    const usages = await getFileUsages(key);
+    if (usages.length > 0) {
+      const formattedUsages = usages.map(u => `${u.module}: ${u.name}`).join(", ");
+      return {
+        success: false,
+        error: `This file cannot be deleted because it is in use by: ${formattedUsages}`,
+      };
+    }
 
     // Get file info for logging
     const file = await prisma.file.findUnique({

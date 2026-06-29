@@ -50,6 +50,8 @@ interface FileItem {
   isFolder: boolean;
   createdAt: Date;
   updatedAt: Date;
+  usageCount?: number;
+  usages?: string[];
   owner?: {
     id: string;
     name: string | null;
