@@ -942,7 +942,7 @@ export async function getDownloadUrl(input: {
       }
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const appUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const url = `${appUrl}/api/files/${key}?download=1`;
 
     // Log the action
@@ -1008,7 +1008,7 @@ export async function getPublicUrl(input: {
     }
 
     // Generate API proxy URL (goes through Next.js, which fetches from local storage internally)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const appUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const url = `${appUrl}/api/files/${key}`;
 
     // Log the action
