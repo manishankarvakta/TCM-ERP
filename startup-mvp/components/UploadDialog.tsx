@@ -217,10 +217,20 @@ export default function UploadDialog({
         }
       }, 200);
 
-      // Upload file via server action using FormData
-      const result = await uploadFileServerSide(formData);
+      // Upload file via API Route Handler using FormData
+      const response = await fetch("/api/files/upload", {
+        method: "POST",
+        body: formData,
+      });
 
       clearInterval(progressInterval);
+
+      if (!response.ok) {
+        const errResult = await response.json().catch(() => ({}));
+        throw new Error(errResult.error || `Upload failed with status ${response.status}`);
+      }
+
+      const result = await response.json();
 
       if (!result.success || !result.data) {
         throw new Error(result.error || "Failed to upload file");
