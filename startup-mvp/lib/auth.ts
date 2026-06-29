@@ -115,6 +115,7 @@ async function validateDatabaseSession(sessionId: string | null | undefined, use
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   session: {
     strategy: "jwt", // Credentials provider requires JWT strategy
   },
