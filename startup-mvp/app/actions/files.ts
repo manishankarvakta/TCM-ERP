@@ -76,10 +76,16 @@ export async function uploadFileServerSide(
   formData: FormData
 ): Promise<ActionResult<{ fileId: string; key: string }>> {
   try {
+    console.log("uploadFileServerSide: Received FormData. Keys:", Array.from(formData.keys()));
+    for (const key of formData.keys()) {
+      const val = formData.get(key);
+      console.log(`uploadFileServerSide: key="${key}" type="${typeof val}" isBlob=${val instanceof Blob} isFile=${val ? val.constructor.name : 'null'}`);
+    }
+
     const file = formData.get("file") as File;
     const path = (formData.get("path") as string) || "";
 
-    if (!file) {
+    if (!file || (typeof file === "string")) {
       throw new Error("No file uploaded");
     }
 
