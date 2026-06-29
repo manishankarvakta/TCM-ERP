@@ -159,7 +159,7 @@ const BarcodePrintTemplate = forwardRef<HTMLDivElement, BarcodePrintTemplateProp
   ({ items, options }, ref) => {
     // Determine CSS layout based on settings
     let gridClass = "grid gap-2 ";
-    let labelClass = "label-item bg-white text-black border border-slate-300 rounded-md shadow-sm flex flex-col justify-between text-center overflow-hidden page-break-inside-avoid print:border-transparent print:shadow-none ";
+    let labelClass = `label-item bg-white text-black border border-slate-300 rounded-md shadow-sm flex flex-col justify-center items-center ${isSmallLabel ? "gap-y-0.5" : "gap-y-1"} text-center overflow-hidden page-break-inside-avoid print:border-transparent print:shadow-none `;
 
     let labelStyle: React.CSSProperties = {};
     const isSmallLabel = options.pageSizeMm && (options.pageSizeMm.width <= 40 || options.pageSizeMm.height <= 30);
@@ -283,15 +283,15 @@ const BarcodePrintTemplate = forwardRef<HTMLDivElement, BarcodePrintTemplateProp
             <div key={idx} className={labelClass} style={labelStyle}>
               {/* Company Title */}
               {options.showCompany && (
-                <div className={`${isSmallLabel ? "text-[8px] pb-0.5 mb-0.5" : "text-[10px] pb-0.5 mb-1"} font-bold tracking-wider uppercase text-slate-800 border-b border-dashed border-slate-200 truncate`}>
+                <div className={`${isSmallLabel ? "text-[8px] pb-0.5 w-full" : "text-[10px] pb-0.5 w-full"} font-bold tracking-wider uppercase text-slate-800 border-b border-dashed border-slate-200 truncate`}>
                   {options.companyName}
                 </div>
               )}
 
               {/* Product Info */}
-              <div className="flex-1 flex flex-col justify-center min-h-0">
+              <div className="w-full flex flex-col justify-center min-h-0">
                 {options.showImage && item.image ? (
-                  <div className={`flex items-center gap-2 justify-center ${isSmallLabel ? "mb-0.5" : "mb-1"}`}>
+                  <div className="flex items-center gap-2 justify-center w-full">
                     <div className={`${isSmallLabel ? "w-6 h-6" : "w-8 h-8"} rounded border border-slate-200 overflow-hidden bg-slate-50 shrink-0`}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
@@ -304,7 +304,7 @@ const BarcodePrintTemplate = forwardRef<HTMLDivElement, BarcodePrintTemplateProp
                       )}
 
                       {options.showVariant && (item.color || item.size) && (
-                        <div className={`${isSmallLabel ? "text-[7px]" : "text-[9px]"} text-slate-600 font-medium mt-0.5 truncate`}>
+                        <div className={`${isSmallLabel ? "text-[7px]" : "text-[9px]"} text-slate-600 font-medium truncate`}>
                           {item.color && <span>Col: {item.color}</span>}
                           {item.color && item.size && <span className="mx-1">|</span>}
                           {item.size && <span>Size: {item.size}</span>}
@@ -313,7 +313,7 @@ const BarcodePrintTemplate = forwardRef<HTMLDivElement, BarcodePrintTemplateProp
                     </div>
                   </div>
                 ) : (
-                  <div className={`text-center ${isSmallLabel ? "mb-0.5" : "mb-1"}`}>
+                  <div className="text-center w-full">
                     {options.showName && (
                       <div className={`${isSmallLabel ? "text-[8.5px] leading-none font-bold" : "text-xs leading-tight font-semibold"} text-slate-900 truncate`}>
                         {item.name}
@@ -321,7 +321,7 @@ const BarcodePrintTemplate = forwardRef<HTMLDivElement, BarcodePrintTemplateProp
                     )}
 
                     {options.showVariant && (item.color || item.size) && (
-                      <div className={`${isSmallLabel ? "text-[7.5px]" : "text-[9px]"} text-slate-600 font-medium mt-0.5 truncate`}>
+                      <div className={`${isSmallLabel ? "text-[7.5px]" : "text-[9px]"} text-slate-600 font-medium truncate`}>
                         {item.color && <span>Col: {item.color}</span>}
                         {item.color && item.size && <span className="mx-1">|</span>}
                         {item.size && <span>Size: {item.size}</span>}
@@ -334,7 +334,7 @@ const BarcodePrintTemplate = forwardRef<HTMLDivElement, BarcodePrintTemplateProp
               </div>
 
               {/* Barcode Render */}
-              <div className={`${isSmallLabel ? "my-0.5" : "my-1"} shrink-0`}>
+              <div className="shrink-0 w-full">
                 <BarcodeSvg
                   value={item.barcode}
                   displayValue={options.showBarcodeText}
@@ -346,7 +346,7 @@ const BarcodePrintTemplate = forwardRef<HTMLDivElement, BarcodePrintTemplateProp
 
               {/* Price Details */}
               {options.showPrice && item.price && (
-                <div className={`${isSmallLabel ? "text-[9px] mt-0.5 pt-0.5" : "text-xs mt-1 pt-0.5"} font-black text-slate-950 border-t border-dashed border-slate-200`}>
+                <div className={`${isSmallLabel ? "text-[9px] pt-0.5 w-full" : "text-xs pt-0.5 w-full"} font-black text-slate-950 border-t border-dashed border-slate-200`}>
                   Price: {item.price}
                 </div>
               )}
