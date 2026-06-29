@@ -51,7 +51,7 @@ interface FileItem {
   createdAt: Date;
   updatedAt: Date;
   usageCount?: number;
-  usages?: string[];
+  usages?: Array<{ module: string; name: string; id: string }> | string[];
   owner?: {
     id: string;
     name: string | null;

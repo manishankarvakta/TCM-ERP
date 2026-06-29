@@ -20,6 +20,8 @@ interface FileItem {
   isFolder: boolean;
   createdAt: Date;
   updatedAt: Date;
+  usageCount?: number;
+  usages?: Array<{ module: string; name: string; id: string }> | string[];
   owner?: {
     id: string;
     name: string | null;
@@ -27,6 +29,27 @@ interface FileItem {
     image: string | null;
   };
 }
+
+const getReferenceLink = (module: string, id: string): string => {
+  switch (module.toLowerCase()) {
+    case "item":
+      return `/dashboard/master/items/${id}/edit`;
+    case "user":
+      return `/dashboard/users/${id}`;
+    case "employee":
+      return `/dashboard/employees/${id}`;
+    case "client":
+      return `/dashboard/clients/${id}`;
+    case "supplier":
+      return `/dashboard/suppliers/${id}`;
+    case "purchase":
+      return `/dashboard/procurements/purchases/${id}`;
+    case "sale":
+      return `/dashboard/sales/${id}`;
+    default:
+      return "#";
+  }
+};
 
 interface FilePreviewDialogProps {
   file: FileItem | null;
@@ -296,6 +319,41 @@ export default function FilePreviewDialog({
                       </Button>
                     </div>
                   </div>
+                  {/* Usage References */}
+                  {file.usageCount !== undefined && file.usageCount > 0 && (
+                    <div className="pt-2 border-t mt-2">
+                      <p className="text-xs text-muted-foreground mb-1.5 font-semibold">
+                        Used in ({file.usageCount})
+                      </p>
+                      <div className="max-h-32 overflow-y-auto space-y-1.5 border rounded-md p-2 bg-muted/20">
+                        {file.usages && (file.usages as any[]).map((usage: any, idx: number) => {
+                          const module = typeof usage === "string" ? usage.split(":")[0]?.trim() : usage.module;
+                          const name = typeof usage === "string" ? usage.split(":")[1]?.trim() : usage.name;
+                          const id = typeof usage === "string" ? null : usage.id;
+                          const link = id ? getReferenceLink(module, id) : "#";
+
+                          return (
+                            <div key={idx} className="text-xs flex items-center justify-between gap-2 py-0.5">
+                              <span className="text-muted-foreground font-medium">{module}:</span>
+                              {id ? (
+                                <a 
+                                  href={link} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="text-blue-600 dark:text-blue-400 hover:underline font-semibold truncate max-w-[150px]"
+                                  title={`Open ${name} in a new tab`}
+                                >
+                                  {name}
+                                </a>
+                              ) : (
+                                <span className="font-medium truncate max-w-[150px]">{name}</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

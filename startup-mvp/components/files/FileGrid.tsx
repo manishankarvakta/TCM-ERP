@@ -42,7 +42,7 @@ interface FileItem {
   createdAt: Date;
   updatedAt: Date;
   usageCount?: number;
-  usages?: string[];
+  usages?: Array<{ module: string; name: string; id: string }> | string[];
   owner?: {
     id: string;
     name: string | null;
@@ -286,7 +286,7 @@ export default function FileGrid({
                           {file.usageCount !== undefined && file.usageCount > 0 && (
                             <span 
                               className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" 
-                              title={`Used in:\n${file.usages?.join("\n") || ""}`}
+                              title={`Used in:\n${file.usages?.map(u => typeof u === "string" ? u : `${u.module}: ${u.name}`).join("\n") || ""}`}
                             >
                               Used: {file.usageCount}
                             </span>
