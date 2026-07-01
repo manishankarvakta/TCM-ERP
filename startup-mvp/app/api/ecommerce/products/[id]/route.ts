@@ -11,10 +11,11 @@ export async function GET(
     const { id } = await params;
     
     // Build visibility filters
-    const visibilityFilter = {
+    const visibilityFilter: any = {
       isEnableEcom: true,
       isTrash: false,
       status: "active",
+      itemType: "RETAIL",
       OR: [
         { categoryId: null },
         { category: { status: "active" } }

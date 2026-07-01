@@ -63,14 +63,22 @@ export default async function CategoryDetailsPage({ params }: CategoryDetailsPag
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-1">
-                <span className="text-sm font-medium text-muted-foreground">Description</span>
-                <p className="text-base">{category.description || "No description provided."}</p>
-              </div>
-              <div className="space-y-1">
-                <span className="text-sm font-medium text-muted-foreground">Last Updated</span>
-                <p className="text-base">{format(new Date(category.updatedAt), "PPP p")}</p>
+            <div className="flex flex-col md:flex-row gap-6">
+              {(category as any).image && (
+                <div className="w-full md:w-48 h-48 rounded-lg border overflow-hidden shrink-0 bg-muted/20">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={(category as any).image} alt={category.name} className="w-full h-full object-cover" />
+                </div>
+              )}
+              <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-1">
+                  <span className="text-sm font-medium text-muted-foreground">Description</span>
+                  <p className="text-base">{category.description || "No description provided."}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-sm font-medium text-muted-foreground">Last Updated</span>
+                  <p className="text-base">{format(new Date(category.updatedAt), "PPP p")}</p>
+                </div>
               </div>
             </div>
           </CardContent>

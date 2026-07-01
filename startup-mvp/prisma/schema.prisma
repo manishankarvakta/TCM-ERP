@@ -296,6 +296,7 @@ model Category {
   name        String
   description String?
   slug        String?  @unique
+  image       String?
   status      String   @default("active")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

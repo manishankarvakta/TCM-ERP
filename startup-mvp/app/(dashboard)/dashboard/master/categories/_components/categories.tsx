@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw } from "react-icons/fi";
+import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw, FiImage } from "react-icons/fi";
 import { deleteCategory, bulkUpdateCategoryStatus, deleteCategoriesPermanently } from "../_actions/category.action";
 import {
   AlertDialog,
@@ -42,6 +42,7 @@ interface Category {
   name: string;
   description: string | null;
   status: string;
+  image?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -345,6 +346,7 @@ export default function CategoriesListClient({
                   aria-label="Select all"
                 />
               </TableHead>
+              <TableHead className="w-16">Photo</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Status</TableHead>
@@ -355,7 +357,7 @@ export default function CategoriesListClient({
           <TableBody>
             {initialCategories.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   No categories found
                 </TableCell>
               </TableRow>
@@ -371,6 +373,16 @@ export default function CategoriesListClient({
                         onCheckedChange={(checked) => handleSelectCategory(category.id, checked as boolean)}
                         aria-label={`Select ${category.name}`}
                       />
+                    </TableCell>
+                    <TableCell>
+                      <div className="w-10 h-10 rounded border bg-muted overflow-hidden flex items-center justify-center">
+                        {category.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={category.image} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <FiImage className="text-muted-foreground" />
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="font-medium">{category.name}</TableCell>
                     <TableCell className="text-muted-foreground">

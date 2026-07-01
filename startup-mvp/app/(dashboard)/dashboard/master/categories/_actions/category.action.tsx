@@ -70,6 +70,7 @@ export async function getCategories(
         name: true,
         description: true,
         status: true,
+        image: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -128,6 +129,7 @@ export async function getCategoryById(categoryId: string) {
         name: true,
         description: true,
         status: true,
+        image: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -162,6 +164,7 @@ export async function createCategory(input: {
   name: string;
   description?: string;
   status?: "active" | "inactive";
+  image?: string | null;
 }) {
   try {
     const session = await auth();
@@ -193,12 +196,14 @@ export async function createCategory(input: {
         name: input.name,
         description: input.description || null,
         status: input.status || "active",
+        image: input.image || null,
       },
       select: {
         id: true,
         name: true,
         description: true,
         status: true,
+        image: true,
         createdAt: true,
       },
     });
@@ -209,7 +214,7 @@ export async function createCategory(input: {
       "Category",
       category.id,
       category.name,
-      { name: category.name, description: category.description }
+      { name: category.name, description: category.description, image: category.image }
     );
 
     // Revalidate categories page
@@ -237,6 +242,7 @@ export async function updateCategory(input: {
   name: string;
   description?: string;
   status?: "active" | "inactive";
+  image?: string | null;
 }) {
   try {
     const session = await auth();
@@ -252,7 +258,7 @@ export async function updateCategory(input: {
     // Check if category exists
     const existingCategory = await prisma.category.findUnique({
       where: { id: input.id },
-      select: { id: true, name: true, description: true, status: true },
+      select: { id: true, name: true, description: true, status: true, image: true },
     });
 
     if (!existingCategory) {
@@ -286,9 +292,11 @@ export async function updateCategory(input: {
       name: string;
       description?: string | null;
       status?: string;
+      image?: string | null;
     } = {
       name: input.name,
       description: input.description || null,
+      image: input.image !== undefined ? input.image : undefined,
     };
 
     if (input.status !== undefined) {
@@ -304,6 +312,7 @@ export async function updateCategory(input: {
         name: true,
         description: true,
         status: true,
+        image: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -314,6 +323,7 @@ export async function updateCategory(input: {
     if (input.name !== existingCategory.name) changes.push("name");
     if (input.description !== existingCategory.description) changes.push("description");
     if (input.status !== undefined && input.status !== existingCategory.status) changes.push("status");
+    if (input.image !== undefined && input.image !== existingCategory.image) changes.push("image");
 
     await logItemUpdated(
       session.user.id,
@@ -321,7 +331,7 @@ export async function updateCategory(input: {
       category.id,
       changes,
       category.name,
-      { name: category.name, description: category.description, changes }
+      { name: category.name, description: category.description, image: category.image, changes }
     );
 
     // Revalidate categories page

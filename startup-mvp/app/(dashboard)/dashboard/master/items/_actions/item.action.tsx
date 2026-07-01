@@ -91,6 +91,53 @@ async function generateUniqueItemBarcode(): Promise<string> {
 }
 
 /**
+ * Convert a string into a clean URL-friendly slug
+ */
+function slugify(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")           // Replace spaces with -
+    .replace(/[^\w\-]+/g, "")       // Remove all non-word chars
+    .replace(/\-\-+/g, "-")         // Replace multiple - with single -
+    .replace(/^-+/, "")             // Trim - from start of text
+    .replace(/-+$/, "");            // Trim - from end of text
+}
+
+/**
+ * Generate a unique slug for an item, appending a numeric suffix if necessary
+ */
+async function generateUniqueSlug(name: string, excludeItemId?: string): Promise<string> {
+  const baseSlug = slugify(name) || "item";
+  
+  const existingItems = await prisma.item.findMany({
+    where: {
+      slug: {
+        startsWith: baseSlug,
+      },
+      id: excludeItemId ? { not: excludeItemId } : undefined,
+    },
+    select: {
+      slug: true,
+    },
+  });
+
+  const slugs = new Set(existingItems.map(item => item.slug).filter(Boolean) as string[]);
+  
+  if (!slugs.has(baseSlug)) {
+    return baseSlug;
+  }
+
+  let counter = 1;
+  while (slugs.has(`${baseSlug}-${counter}`)) {
+    counter++;
+  }
+  return `${baseSlug}-${counter}`;
+}
+
+
+/**
  * Get active categories for dropdown
  */
 export async function getActiveCategories() {
@@ -254,6 +301,7 @@ export async function getItems(
       select: {
         id: true,
         code: true,
+        slug: true,
         name: true,
         description: true,
         itemType: true,
@@ -352,6 +400,7 @@ export async function getItemById(itemId: string) {
       select: {
         id: true,
         code: true,
+        slug: true,
         name: true,
         description: true,
         itemType: true,
@@ -824,6 +873,9 @@ export async function createItem(input: {
     // Generate code
     const code = await generateItemCode(input.itemType);
 
+    // Generate unique slug from name
+    const slug = await generateUniqueSlug(input.name);
+
     // Handle item base barcode
     let finalBarcode = input.barcode;
     if (!finalBarcode) {
@@ -854,6 +906,7 @@ export async function createItem(input: {
     const item = await prisma.item.create({
       data: {
         code,
+        slug,
         name: input.name,
         description: input.description || null,
         itemType: input.itemType,
@@ -893,6 +946,7 @@ export async function createItem(input: {
       select: {
         id: true,
         code: true,
+        slug: true,
         name: true,
         description: true,
         itemType: true,
@@ -1085,6 +1139,7 @@ export async function updateItem(input: {
         featuredImage: true,
         status: true,
         barcode: true,
+        slug: true,
       },
     });
 
@@ -1155,9 +1210,13 @@ export async function updateItem(input: {
       }
     }
 
+    // Generate unique slug from name
+    const slug = await generateUniqueSlug(input.name, input.id);
+
     // Prepare update data
     const updateData: Prisma.ItemUpdateInput = {
       name: input.name,
+      slug,
       description: input.description || null,
       itemType: input.itemType,
       category: input.categoryId ? { connect: { id: input.categoryId } } : { disconnect: true },
@@ -1259,6 +1318,7 @@ export async function updateItem(input: {
       select: {
         id: true,
         code: true,
+        slug: true,
         name: true,
         description: true,
         itemType: true,
@@ -1296,6 +1356,7 @@ export async function updateItem(input: {
     // Log item update - track what actually changed
     const changes: string[] = [];
     if (input.name !== existingItem.name) changes.push("name");
+    if (slug !== existingItem.slug) changes.push("slug");
     if (input.description !== existingItem.description) changes.push("description");
     if (input.itemType !== existingItem.itemType) changes.push("itemType");
     if (input.categoryId !== existingItem.categoryId) changes.push("categoryId");

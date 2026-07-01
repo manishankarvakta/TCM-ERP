@@ -105,6 +105,12 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
                 <h1 className="text-2xl font-bold tracking-tight">{item.name}</h1>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-sm font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">{item.code}</span>
+                  {item.slug && (
+                    <>
+                      <Separator orientation="vertical" className="h-4" />
+                      <span className="text-sm font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">Slug: {item.slug}</span>
+                    </>
+                  )}
                   {item.barcode && (
                     <>
                       <Separator orientation="vertical" className="h-4" />
@@ -166,6 +172,14 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
                           <span className="inline-block text-xs font-mono bg-muted px-2 py-0.5 rounded border border-border mt-1">{item.barcode}</span>
                         ) : (
                           <span className="text-xs text-muted-foreground italic block mt-1">None assigned</span>
+                        )}
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Slug (URL Key)</label>
+                        {item.slug ? (
+                          <span className="inline-block text-xs font-mono bg-muted px-2 py-0.5 rounded border border-border mt-1">{item.slug}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic block mt-1">None generated</span>
                         )}
                       </div>
                     </div>

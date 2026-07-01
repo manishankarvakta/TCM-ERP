@@ -35,6 +35,7 @@ export async function GET(req: Request) {
       { isEnableEcom: true },
       { isTrash: false },
       { status: "active" },
+      { itemType: "RETAIL" },
       {
         OR: [
           { categoryId: null },
