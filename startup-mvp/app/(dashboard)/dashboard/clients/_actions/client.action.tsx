@@ -279,7 +279,7 @@ export async function getClientById(clientId: string) {
  * Helper function to find Accounts Receivable parent account
  * @param tx Optional transaction client - if provided, uses transaction for consistency
  */
-async function findAccountsReceivableParent(tx?: Prisma.TransactionClient): Promise<string | null> {
+export async function findAccountsReceivableParent(tx?: Prisma.TransactionClient): Promise<string | null> {
   const client = tx || prisma;
   const account = await client.chartOfAccount.findFirst({
     where: {
@@ -303,7 +303,7 @@ async function findAccountsReceivableParent(tx?: Prisma.TransactionClient): Prom
  * Format: CLI{NNNNNNN} (e.g., CLI1000001, CLI1000002, CLI1000003)
  * @param tx Optional transaction client - if provided, uses transaction for consistency
  */
-async function generateClientCode(tx?: Prisma.TransactionClient): Promise<string> {
+export async function generateClientCode(tx?: Prisma.TransactionClient): Promise<string> {
   const prefix = "CLI";
   const client = tx || prisma;
 
@@ -341,7 +341,7 @@ async function generateClientCode(tx?: Prisma.TransactionClient): Promise<string
  * Format: AR-{YYYY}-{NNNN} (e.g., AR-2025-0001)
  * @param tx Optional transaction client - if provided, uses transaction for consistency
  */
-async function generateCustomerAccountCode(tx?: Prisma.TransactionClient): Promise<string> {
+export async function generateCustomerAccountCode(tx?: Prisma.TransactionClient): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `AR-${year}-`;
   const client = tx || prisma;

@@ -56,6 +56,7 @@ export const MENU_TEMPLATE: MenuItemData[] = [
     subMenu: [
       { href: "/dashboard/sales", label: "Sales", icon: "FiDollarSign", module: "sales" },
       { href: "/dashboard/sales/pos", label: "POS", icon: "FiShoppingBag", module: "sales" },
+      { href: "/dashboard/sales/ecommerce", label: "E-commerce Orders", icon: "FiShoppingBag", module: "sales" },
       { href: "/dashboard/sales/coupons", label: "Coupons", icon: "FiTag", module: "sales" },
     ],
   },

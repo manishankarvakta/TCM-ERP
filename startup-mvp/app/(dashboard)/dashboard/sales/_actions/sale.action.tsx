@@ -24,7 +24,7 @@ const saleSchema = z.object({
   warehouseId: z.string().min(1, "Warehouse is required"),
   date: z.coerce.date(),
   status: z.nativeEnum(SaleStatus),
-  orderType: z.enum(["RETAIL", "READY_PRODUCT", "WHOLESALE"]).optional().default("RETAIL"),
+  orderType: z.enum(["RETAIL", "READY_PRODUCT", "WHOLESALE", "ECOM"]).optional().default("RETAIL"),
   notes: z.string().optional().nullable(),
   attachmentUrl: z
     .string()
@@ -77,7 +77,7 @@ function serializeSale(sale: {
   };
 }
 
-async function generateSaleNumber(tx?: Prisma.TransactionClient): Promise<string> {
+export async function generateSaleNumber(tx?: Prisma.TransactionClient): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `SAL-${year}-`;
   const client = tx || prisma;
@@ -680,13 +680,16 @@ async function validateSaleAccounts(
  * Debit: COGS (if configured)
  * Credit: Inventory (if configured)
  */
-async function createSaleAccountingVoucher(
+export async function createSaleAccountingVoucher(
   saleId: string,
   tx?: Prisma.TransactionClient,
   paymentMethod?: string
 ): Promise<{ success: boolean; error?: string; voucherId?: string }> {
   try {
-    const session = await auth();
+    let session = null;
+    try {
+      session = await auth();
+    } catch (_) {}
     const userId = session?.user?.id || "system";
 
     const client = tx || prisma;

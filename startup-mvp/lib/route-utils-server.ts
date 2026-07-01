@@ -35,10 +35,14 @@ export function revalidateBothPaths(path: string, type?: "page" | "layout"): voi
   // Remove leading slash from path if present
   const cleanPath = path.startsWith("/") ? path.slice(1) : path;
   
-  // Revalidate admin path
-  nextRevalidatePath(`/dashboard/${cleanPath}`, type);
-  
-  // Revalidate dashboard path
-  nextRevalidatePath(`/dashboard/${cleanPath}`, type);
+  try {
+    // Revalidate admin path
+    nextRevalidatePath(`/dashboard/${cleanPath}`, type);
+    
+    // Revalidate dashboard path
+    nextRevalidatePath(`/dashboard/${cleanPath}`, type);
+  } catch (_) {
+    // Ignore static generation store missing error during CLI/test script runs
+  }
 }
 

@@ -295,6 +295,7 @@ model Category {
   id          String   @id @default(cuid())
   name        String
   description String?
+  slug        String?  @unique
   status      String   @default("active")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -307,6 +308,7 @@ model Category {
 model Item {
   id                      String                    @id @default(cuid())
   code                    String                    @unique
+  slug                    String?                   @unique
   description             String?
   unitId                  String
   costPrice               Decimal                   @db.Decimal(12, 2)
@@ -567,6 +569,13 @@ model Client {
   membershipStatus String               @default("INACTIVE")
   membershipPoints Int                  @default(0)
   membershipExpiry DateTime?
+  passwordHash            String?
+  isLoginEnabled          Boolean              @default(false)
+  lastLoginAt             DateTime?
+  phoneVerifiedAt         DateTime?
+  resetPasswordToken      String?
+  resetPasswordExpiresAt  DateTime?
+  addresses               ClientAddress[]
 
   @@index([status])
   @@index([createdBy])
@@ -574,6 +583,28 @@ model Client {
   @@index([chartOfAccountId])
   @@index([clientCode])
   @@index([membershipNumber])
+}
+
+model ClientAddress {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  recipientName String
+  phone         String
+  addressLine   String
+  area          String?
+  city          String?
+  district      String?
+  division      String?
+  country       String   @default("Bangladesh")
+  isDefault     Boolean  @default(false)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([isDefault])
 }
 
 model Supplier {
@@ -700,6 +731,11 @@ model Sale {
   couponId      String?
   coupon        Coupon?    @relation(fields: [couponId], references: [id])
   paymentDetails Json?      @map("payment_details")
+  deliveryCharge  Decimal?   @default(0) @db.Decimal(12, 2)
+  deliveryAddress Json?
+  deliveryStatus  String?    @default("PENDING")
+  courierName     String?
+  trackingNumber  String?
 
   @@index([clientId])
   @@index([warehouseId])
@@ -1576,6 +1612,7 @@ enum OrderType {
   RETAIL
   WHOLESALE
   RETURN
+  ECOM
 }
 
 enum ItemType {
