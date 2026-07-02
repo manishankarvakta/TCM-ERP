@@ -1761,3 +1761,45 @@ export async function getItemVariants(itemId: string) {
     };
   }
 }
+
+/**
+ * Toggle e-commerce enabled state for an item
+ */
+export async function toggleItemEcom(itemId: string, enabled: boolean) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    // Update item
+    const item = await prisma.item.update({
+      where: { id: itemId },
+      data: { isEnableEcom: enabled },
+      select: { id: true, name: true, isEnableEcom: true }
+    });
+
+    // Log the update
+    await logItemUpdated(
+      session.user.id,
+      "Item",
+      item.id,
+      ["isEnableEcom"],
+      item.name,
+      { name: item.name, isEnableEcom: item.isEnableEcom, changes: ["isEnableEcom"] }
+    );
+
+    // Revalidate paths
+    revalidateBothPaths("master/items");
+    revalidateBothPaths(`master/items/${item.id}`);
+
+    return { success: true, item };
+  } catch (error) {
+    console.error("toggleItemEcom error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to toggle e-commerce status",
+    };
+  }
+}
+

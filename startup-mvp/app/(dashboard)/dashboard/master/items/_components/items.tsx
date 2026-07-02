@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw, FiShoppingCart, FiImage } from "react-icons/fi";
-import { deleteItem, bulkUpdateItemStatus, deleteItemsPermanently } from "../_actions/item.action";
+import { deleteItem, bulkUpdateItemStatus, deleteItemsPermanently, toggleItemEcom } from "../_actions/item.action";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -109,6 +109,36 @@ export default function ItemsListClient({
   const [bulkAction, setBulkAction] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const [togglingEcomId, setTogglingEcomId] = useState<string | null>(null);
+
+  const handleToggleEcom = async (itemId: string, currentStatus: boolean) => {
+    try {
+      setTogglingEcomId(itemId);
+      const newStatus = !currentStatus;
+      const result = await toggleItemEcom(itemId, newStatus);
+      if (result.success) {
+        toast({
+          title: "E-commerce status updated",
+          description: `Successfully ${newStatus ? "enabled" : "disabled"} E-commerce service.`,
+        });
+        router.refresh();
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to update E-commerce status",
+          variant: "destructive",
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingEcomId(null);
+    }
+  };
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -320,7 +350,22 @@ export default function ItemsListClient({
                       </div>
                     </TableCell>
                     <TableCell>
-                      {item.isEnableEcom ? <FiShoppingCart className="text-green-600 h-4 w-4" /> : <FiX className="text-muted-foreground h-4 w-4" />}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleEcom(item.id, item.isEnableEcom)}
+                        disabled={togglingEcomId === item.id}
+                        className={cn(
+                          "p-1.5 rounded-lg border border-transparent hover:border-border hover:bg-muted/50 transition-all focus:outline-none focus:ring-2 focus:ring-primary/20",
+                          togglingEcomId === item.id && "opacity-50 cursor-not-allowed"
+                        )}
+                        title={item.isEnableEcom ? "Disable E-commerce service" : "Enable E-commerce service"}
+                      >
+                        {item.isEnableEcom ? (
+                          <FiShoppingCart className="text-green-600 h-4 w-4" />
+                        ) : (
+                          <FiX className="text-muted-foreground h-4 w-4" />
+                        )}
+                      </button>
                     </TableCell>
                     <TableCell>
                       <Badge variant={item.status === "active" ? "default" : "secondary"} className="capitalize">{item.status}</Badge>

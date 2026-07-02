@@ -51,6 +51,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     const headers = [
       "Employee Code",
       "Employee Name",
+      "Employee Phone",
       "Department",
       "Designation",
       "Basic Salary",
@@ -122,6 +123,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
                   select: {
                     employeeCode: true,
                     name: true,
+                    phone: true,
                     department: true,
                     designation: true,
                     employeeType: {
@@ -188,6 +190,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
               return [
                 escapeCsv(item.employee.employeeCode),
                 escapeCsv(item.employee.name),
+                escapeCsv(item.employee.phone),
                 escapeCsv(item.employee.department),
                 escapeCsv(item.employee.designation),
                 escapeCsv(resBasic.toString()),
