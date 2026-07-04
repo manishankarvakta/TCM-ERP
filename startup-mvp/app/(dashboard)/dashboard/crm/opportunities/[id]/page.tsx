@@ -284,30 +284,57 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                 </CardContent>
             </Card>
 
-            <Card className="shadow-sm border-slate-200 overflow-hidden">
-                <CardHeader className="bg-slate-50/50 border-b py-4 flex flex-row items-center justify-between space-y-0">
-                    <CardTitle className="text-base font-semibold">Customer</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 text-sm pt-4">
-                    {opportunity.contact ? (
+            {opportunity.lead && (
+                <Card className="shadow-sm border-slate-200 overflow-hidden">
+                    <CardHeader className="bg-slate-50/50 border-b py-4 flex flex-row items-center justify-between space-y-0">
+                        <CardTitle className="text-base font-semibold">Source Lead Contact</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-sm pt-4">
                         <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                                {opportunity.contact.firstName?.[0]}
+                            <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                                {opportunity.lead.name?.[0] || "L"}
                             </div>
                             <div className="min-w-0">
-                                <p className="font-semibold truncate">
-                                    {opportunity.contact.firstName} {opportunity.contact.lastName}
-                                </p>
-                                <p className="text-xs text-muted-foreground truncate italic">
-                                    {opportunity.contact.email}
+                                <Link 
+                                    href={`/dashboard/crm/leads/${opportunity.lead.id}`}
+                                    className="font-semibold hover:underline text-primary block truncate"
+                                >
+                                    {opportunity.lead.name}
+                                </Link>
+                                <p className="text-xs text-muted-foreground font-mono">
+                                    {opportunity.lead.leadNumber}
                                 </p>
                             </div>
                         </div>
-                    ) : (
-                        <p className="text-muted-foreground italic text-center py-2">No contact linked</p>
-                    )}
-                </CardContent>
-            </Card>
+                        <div className="pt-2 border-t space-y-2 text-xs text-muted-foreground">
+                            {opportunity.lead.email && (
+                                <div className="flex justify-between">
+                                    <span>Email:</span>
+                                    <span className="font-medium text-slate-700">{opportunity.lead.email}</span>
+                                </div>
+                            )}
+                            {opportunity.lead.phone && (
+                                <div className="flex justify-between">
+                                    <span>Phone:</span>
+                                    <span className="font-medium text-slate-700">{opportunity.lead.phone}</span>
+                                </div>
+                            )}
+                            {opportunity.lead.alternativePhone && (
+                                <div className="flex justify-between">
+                                    <span>Alt Phone:</span>
+                                    <span className="font-medium text-slate-700">{opportunity.lead.alternativePhone}</span>
+                                </div>
+                            )}
+                            {opportunity.lead.source && (
+                                <div className="flex justify-between">
+                                    <span>Source:</span>
+                                    <span className="font-medium text-slate-700">{opportunity.lead.source}</span>
+                                </div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             <Card className="shadow-sm border-slate-200 overflow-hidden">
                 <CardHeader className="bg-slate-50/50 border-b py-4">

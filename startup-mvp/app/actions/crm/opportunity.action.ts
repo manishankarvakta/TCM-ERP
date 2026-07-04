@@ -166,7 +166,9 @@ export async function getOpportunityById(id: string) {
         // @ts-ignore
         User: {
             select: { name: true, email: true }
-        }
+        },
+        // @ts-ignore
+        Lead: true,
       },
     });
 
@@ -186,9 +188,12 @@ export async function getOpportunityById(id: string) {
       } : null,
       // @ts-ignore
       owner: opportunity.User,
+      // @ts-ignore
+      lead: opportunity.Lead || null,
       Client: undefined,
       Contact: undefined,
       User: undefined,
+      Lead: undefined,
       opportunityNumber: opportunity.opportunityNumber,
     };
 
