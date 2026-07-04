@@ -41,16 +41,16 @@ export default function HomePage() {
         <div className="space-y-6">
           <blockquote className="text-lg leading-relaxed">
             <p className="text-foreground">
-              "This library has saved me countless hours of work and helped me deliver stunning designs to my clients faster than ever before."
+              "TS CRM has been a game-changer for our business. It's intuitive, powerful, and has helped us streamline our operations and improve productivity."
             </p>
             <footer className="mt-4">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-sm font-semibold text-primary">SD</span>
+                  <span className="text-sm font-semibold text-primary">MV</span>
                 </div>
                 <div>
-                  <div className="font-semibold text-foreground">Sofia Davis</div>
-                  <div className="text-sm text-muted-foreground">Product Designer</div>
+                  <div className="font-semibold text-foreground">Manishankar Vakta</div>
+                  <div className="text-sm text-muted-foreground">CEO of TechSoul</div>
                 </div>
               </div>
             </footer>

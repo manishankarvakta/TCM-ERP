@@ -22,7 +22,7 @@ export default function SetupPage() {
     password: "",
     confirmPassword: "",
     name: "Admin User",
-    organizationName: "My Organization",
+    organizationName: "TS-CRM",
   });
 
   // Check if setup is already done
