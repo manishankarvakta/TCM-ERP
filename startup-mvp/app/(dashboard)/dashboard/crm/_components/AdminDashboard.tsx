@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { getAdminCrmMetrics } from "@/app/actions/crm/crm-dashboard.action";
-import { FiTrendingUp, FiTarget, FiDollarSign, FiUsers, FiActivity, FiPieChart, FiBarChart2, FiArrowUpRight, FiArrowDownRight } from "react-icons/fi";
+import { FiTrendingUp, FiTarget, FiDollarSign, FiUsers, FiActivity, FiPieChart, FiBarChart2, FiArrowUpRight, FiArrowDownRight, FiUser } from "react-icons/fi";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatCompactCurrency } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -19,7 +19,11 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend
+  Legend,
+  BarChart,
+  Bar,
+  RadialBarChart,
+  RadialBar
 } from 'recharts';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981', '#06b6d4'];
@@ -320,15 +324,12 @@ export function AdminDashboard() {
             {metrics.recentLeads.length > 0 ? (
                 metrics.recentLeads.map((lead: any, idx: number) => (
                     <div key={lead.id} className="relative pl-8 pb-6 last:pb-0">
-                        {/* Timeline Connector */}
                         {idx !== metrics.recentLeads.length - 1 && (
                           <div className="absolute left-[15px] top-[30px] bottom-0 w-0.5 bg-slate-100 dark:bg-slate-800" />
                         )}
-                        {/* Timeline Icon */}
                         <div className="absolute left-0 top-0 h-8 w-8 rounded-full border-2 border-white dark:border-slate-900 bg-slate-50 dark:bg-slate-800 flex items-center justify-center z-10 shadow-sm">
                           <FiUsers className="w-3.5 h-3.5 text-slate-500" />
                         </div>
-                        
                         <Link href={`/dashboard/crm/leads/${lead.id}`} className="block">
                           <div className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-primary/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-all group">
                               <div className="flex justify-between items-start mb-1">
@@ -352,6 +353,117 @@ export function AdminDashboard() {
                 </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Client & Team Progress Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Client Progress Chart */}
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[420px]">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <FiUsers className="text-primary" /> Client Progress
+            </h3>
+            <span className="text-xs text-slate-400 font-medium">by Opportunities</span>
+          </div>
+          {metrics.clientProgress?.length > 0 ? (
+            <div className="flex-1 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={metrics.clientProgress}
+                  layout="vertical"
+                  margin={{ top: 0, right: 20, left: 4, bottom: 0 }}
+                  barSize={12}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }}
+                    width={90}
+                  />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }}
+                    labelStyle={{ color: '#94a3b8', marginBottom: '4px' }}
+                    formatter={(value: any, name: string) => [
+                      value,
+                      name === 'won' ? '✅ Won' : name === 'active' ? '🔵 Active' : 'Total'
+                    ]}
+                  />
+                  <Legend
+                    iconSize={8}
+                    iconType="circle"
+                    formatter={(value) => value === 'won' ? 'Won' : value === 'active' ? 'Active' : 'Total'}
+                    wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }}
+                  />
+                  <Bar dataKey="active" stackId="a" fill="#6366f1" radius={[0,0,0,0]} />
+                  <Bar dataKey="won" stackId="a" fill="#10b981" radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-center">
+              <FiUsers className="h-8 w-8 text-slate-300 mb-2" />
+              <p className="text-sm text-slate-500">No client data available yet.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Team Performance Chart */}
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[420px]">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <FiUser className="text-primary" /> Team Performance
+            </h3>
+            <span className="text-xs text-slate-400 font-medium">Leads & Opportunities</span>
+          </div>
+          {metrics.teamProgress?.length > 0 ? (
+            <div className="flex-1 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={metrics.teamProgress}
+                  layout="vertical"
+                  margin={{ top: 0, right: 20, left: 4, bottom: 0 }}
+                  barSize={12}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }}
+                    width={90}
+                  />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }}
+                    labelStyle={{ color: '#94a3b8', marginBottom: '4px' }}
+                    formatter={(value: any, name: string) => [
+                      value,
+                      name === 'leads' ? '🎯 Leads' : '💼 Opportunities'
+                    ]}
+                  />
+                  <Legend
+                    iconSize={8}
+                    iconType="circle"
+                    formatter={(value) => value === 'leads' ? 'Leads' : 'Opportunities'}
+                    wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }}
+                  />
+                  <Bar dataKey="leads" stackId="b" fill="#8b5cf6" radius={[0,0,0,0]} />
+                  <Bar dataKey="opportunities" stackId="b" fill="#f59e0b" radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-center">
+              <FiUser className="h-8 w-8 text-slate-300 mb-2" />
+              <p className="text-sm text-slate-500">No team data available yet.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

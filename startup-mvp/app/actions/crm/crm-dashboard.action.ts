@@ -35,7 +35,10 @@ export async function getAdminCrmMetrics() {
       openOpportunities,
       recentLeads,
       leadsBySource,
-      recentWonOpportunities
+      recentWonOpportunities,
+      clientOpportunities,
+      teamLeads,
+      teamOpportunities
     ] = await Promise.all([
       // Total Pipeline Value (Open)
       prisma.opportunity.aggregate({
@@ -92,6 +95,32 @@ export async function getAdminCrmMetrics() {
           createdAt: { gte: sixMonthsAgo } 
         },
         select: { value: true, createdAt: true }
+      }),
+
+      // Client Progress: top clients by opportunity count + total value
+      prisma.client.findMany({
+        take: 8,
+        select: {
+          id: true,
+          name: true,
+          Opportunity: {
+            select: { value: true, stage: true }
+          }
+        }
+      }),
+
+      // Team Leads: leads grouped by owner (user)
+      prisma.lead.groupBy({
+        by: ['ownerId'],
+        _count: { id: true },
+        where: { isTrash: false }
+      }),
+
+      // Team Opportunities: opportunities grouped by owner (user)
+      prisma.opportunity.groupBy({
+        by: ['ownerId'],
+        _count: { id: true },
+        _sum: { value: true }
       })
     ]);
 
@@ -143,6 +172,50 @@ export async function getAdminCrmMetrics() {
       value: source._count.id
     })).sort((a, b) => b.value - a.value);
 
+    // Build Client Progress Data
+    const clientProgress = clientOpportunities
+      .map(client => {
+        const total = client.Opportunity.length;
+        const won = client.Opportunity.filter((o: any) => o.stage === 'WON').length;
+        const value = client.Opportunity.reduce((sum: number, o: any) => sum + Number(o.value || 0), 0);
+        return {
+          name: client.name,
+          total,
+          won,
+          active: client.Opportunity.filter((o: any) => o.stage !== 'WON' && o.stage !== 'LOST').length,
+          value
+        };
+      })
+      .filter(c => c.total > 0)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 7);
+
+    // Build Team Progress Data — fetch user names
+    const allOwnerIds = Array.from(new Set([
+      ...teamLeads.map(l => l.ownerId).filter(Boolean),
+      ...teamOpportunities.map(o => o.ownerId).filter(Boolean)
+    ])) as string[];
+
+    const teamUsers = await prisma.user.findMany({
+      where: { id: { in: allOwnerIds } },
+      select: { id: true, name: true }
+    });
+
+    const teamProgress = teamUsers
+      .map(user => {
+        const leadsRow = teamLeads.find(l => l.ownerId === user.id);
+        const oppsRow = teamOpportunities.find(o => o.ownerId === user.id);
+        return {
+          name: user.name || 'Unknown',
+          leads: leadsRow?._count.id || 0,
+          opportunities: oppsRow?._count.id || 0,
+          value: Number(oppsRow?._sum?.value || 0)
+        };
+      })
+      .filter(u => u.leads > 0 || u.opportunities > 0)
+      .sort((a, b) => (b.leads + b.opportunities) - (a.leads + a.opportunities))
+      .slice(0, 7);
+
     const metrics = {
       pipelineValue: totalOpportunities._sum.value || 0,
       pipelineCount: totalOpportunities._count || 0,
@@ -154,7 +227,9 @@ export async function getAdminCrmMetrics() {
       funnel: stageCounts,
       recentLeads,
       revenueByMonth,
-      leadSources
+      leadSources,
+      clientProgress,
+      teamProgress
     };
 
     return serializeData({ success: true, metrics });
@@ -163,6 +238,7 @@ export async function getAdminCrmMetrics() {
     return serializeData({ success: false, error: "Failed to fetch admin metrics" });
   }
 }
+
 
 /**
  * Get personalized metrics for the User CRM Dashboard (or all for Admin)
