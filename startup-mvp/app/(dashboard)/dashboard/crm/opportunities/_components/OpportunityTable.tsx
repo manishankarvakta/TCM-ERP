@@ -19,7 +19,7 @@ import {
 import { format } from "date-fns";
 import { OpportunityStage } from "@prisma/client";
 import Link from "next/link";
-import { FiMoreVertical, FiEdit, FiFileText, FiEye } from "react-icons/fi";
+import { FiMoreVertical, FiEdit, FiFileText, FiEye, FiCalendar } from "react-icons/fi";
 
 interface Opportunity {
   id: string;
@@ -32,6 +32,8 @@ interface Opportunity {
   contact: { firstName: string; lastName: string } | null;
   createdAt: Date;
   lead?: { id: string; leadNumber: string | null; name: string } | null;
+  leadActiveEvents?: number;
+  leadActiveEventsList?: { id: string; subject: string; type: string; dueDate: string | null; status: string }[];
 }
 
 interface OpportunityTableProps {
@@ -68,7 +70,7 @@ export default function OpportunityTable({ opportunities, onEdit, onRefresh }: O
         <TableBody>
           {opportunities.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="h-24 text-center">
+              <TableCell colSpan={8} className="h-24 text-center">
                 No opportunities found.
               </TableCell>
             </TableRow>
@@ -94,16 +96,33 @@ export default function OpportunityTable({ opportunities, onEdit, onRefresh }: O
                   </div>
                 </TableCell>
                 <TableCell>
-                  {opp.lead ? (
-                    <Link
-                      href={`/dashboard/crm/leads/${opp.lead.id}`}
-                      className="font-medium hover:underline text-primary font-mono text-xs"
-                    >
-                      {opp.lead.leadNumber || opp.lead.name || "View Lead"}
-                    </Link>
-                  ) : (
-                    <span className="text-muted-foreground text-xs italic">-</span>
-                  )}
+                  <div className="flex flex-col gap-1">
+                    {opp.lead ? (
+                      <Link
+                        href={`/dashboard/crm/leads/${opp.lead.id}`}
+                        className="font-medium hover:underline text-primary font-mono text-xs"
+                      >
+                        {opp.lead.leadNumber || opp.lead.name || "View Lead"}
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground text-xs italic">-</span>
+                    )}
+                    {opp.lead && (opp.leadActiveEvents ?? 0) > 0 && (
+                      <Link
+                        href={`/dashboard/crm/leads/${opp.lead.id}?tab=events`}
+                        title={opp.leadActiveEventsList?.map(e => `• ${e.subject || e.type}`).join('\n')}
+                        className="flex items-center gap-1 w-fit"
+                      >
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1.5 py-0 h-5 gap-1 border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-400 font-semibold hover:bg-amber-100 transition-colors"
+                        >
+                          <FiCalendar className="h-2.5 w-2.5" />
+                          {opp.leadActiveEvents} active event{(opp.leadActiveEvents ?? 0) > 1 ? 's' : ''}
+                        </Badge>
+                      </Link>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   {opp.value ? `$${Number(opp.value ?? 0).toLocaleString() ?? "0"}` : "-"}

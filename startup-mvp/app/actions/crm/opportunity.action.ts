@@ -92,7 +92,18 @@ export async function getOpportunities(
           },
           // @ts-ignore
           Lead: {
-             select: { id: true, leadNumber: true, name: true }
+             select: {
+               id: true,
+               leadNumber: true,
+               name: true,
+               Activity: {
+                 where: {
+                   status: { notIn: ['DONE', 'COMPLETED', 'CANCELED'] },
+                   dueDate: { gte: new Date() }
+                 },
+                 select: { id: true, subject: true, type: true, dueDate: true, status: true }
+               }
+             }
           }
         },
         orderBy,
@@ -114,7 +125,24 @@ export async function getOpportunities(
       // @ts-ignore
       owner: o.User,
       // @ts-ignore
-      lead: o.Lead || null,
+      lead: o.Lead ? {
+        // @ts-ignore
+        id: o.Lead.id,
+        // @ts-ignore
+        leadNumber: o.Lead.leadNumber,
+        // @ts-ignore
+        name: o.Lead.name,
+      } : null,
+      // @ts-ignore
+      leadActiveEvents: o.Lead?.Activity?.length ?? 0,
+      // @ts-ignore
+      leadActiveEventsList: (o.Lead?.Activity || []).map((a: any) => ({
+        id: a.id,
+        subject: a.subject,
+        type: a.type,
+        dueDate: a.dueDate,
+        status: a.status,
+      })),
       Client: undefined,
       Contact: undefined,
       User: undefined,
