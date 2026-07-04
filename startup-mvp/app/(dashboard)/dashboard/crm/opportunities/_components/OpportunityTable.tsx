@@ -31,6 +31,7 @@ interface Opportunity {
   client: { name: string; company: string | null };
   contact: { firstName: string; lastName: string } | null;
   createdAt: Date;
+  lead?: { id: string; leadNumber: string | null; name: string } | null;
 }
 
 interface OpportunityTableProps {
@@ -57,6 +58,7 @@ export default function OpportunityTable({ opportunities, onEdit, onRefresh }: O
           <TableRow>
             <TableHead>Opportunity</TableHead>
             <TableHead>Account / Contact</TableHead>
+            <TableHead>Lead</TableHead>
             <TableHead>Amount</TableHead>
             <TableHead>Stage</TableHead>
             <TableHead>Exp. Close</TableHead>
@@ -66,7 +68,7 @@ export default function OpportunityTable({ opportunities, onEdit, onRefresh }: O
         <TableBody>
           {opportunities.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="h-24 text-center">
+              <TableCell colSpan={7} className="h-24 text-center">
                 No opportunities found.
               </TableCell>
             </TableRow>
@@ -90,6 +92,18 @@ export default function OpportunityTable({ opportunities, onEdit, onRefresh }: O
                       {opp.contact ? `${opp.contact.firstName} ${opp.contact.lastName}` : "No contact"}
                     </span>
                   </div>
+                </TableCell>
+                <TableCell>
+                  {opp.lead ? (
+                    <Link
+                      href={`/dashboard/crm/leads/${opp.lead.id}`}
+                      className="font-medium hover:underline text-primary font-mono text-xs"
+                    >
+                      {opp.lead.leadNumber || opp.lead.name || "View Lead"}
+                    </Link>
+                  ) : (
+                    <span className="text-muted-foreground text-xs italic">-</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   {opp.value ? `$${Number(opp.value ?? 0).toLocaleString() ?? "0"}` : "-"}

@@ -575,6 +575,7 @@ model Lead {
   User             User       @relation(fields: [ownerId], references: [id])
   Note             Note[]
   Task             Task[]
+  Opportunity      Opportunity[]
   
   categoryId String?
   Category   Category?  @relation(fields: [categoryId], references: [id])
@@ -665,12 +666,16 @@ model Opportunity {
   Task              Task[]
   Quotation         Quotation[]
   Project           Project[]
+  
+  leadId            String?
+  Lead              Lead?            @relation(fields: [leadId], references: [id])
 
   @@index([clientId])
   @@index([contactId])
   @@index([ownerId])
   @@index([stage])
   @@index([opportunityNumber])
+  @@index([leadId])
 }
 
 model Order {

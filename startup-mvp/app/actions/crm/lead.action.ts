@@ -815,6 +815,7 @@ export async function convertLeadToOpportunity(leadId: string, input: {
           stage: OpportunityStage.DISCOVERY,
           ownerId: session.user.id,
           opportunityNumber,
+          leadId,
         }
       });
 

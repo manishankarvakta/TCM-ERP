@@ -89,6 +89,10 @@ export async function getOpportunities(
           // @ts-ignore
           User: {
              select: { id: true, name: true, email: true, image: true }
+          },
+          // @ts-ignore
+          Lead: {
+             select: { id: true, leadNumber: true, name: true }
           }
         },
         orderBy,
@@ -109,9 +113,12 @@ export async function getOpportunities(
       } : null,
       // @ts-ignore
       owner: o.User,
+      // @ts-ignore
+      lead: o.Lead || null,
       Client: undefined,
       Contact: undefined,
       User: undefined,
+      Lead: undefined,
       opportunityNumber: o.opportunityNumber,
     }));
 
