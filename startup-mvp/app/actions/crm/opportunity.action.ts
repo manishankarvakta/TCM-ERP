@@ -92,25 +92,28 @@ export async function getOpportunities(
           },
           // @ts-ignore
           Lead: {
-             select: {
-               id: true,
-               leadNumber: true,
-               name: true,
-               Activity: {
-                 where: {
-                   status: { notIn: ['DONE', 'COMPLETED', 'CANCELED'] },
-                   dueDate: { gte: new Date() }
-                 },
-                 select: { id: true, subject: true, type: true, dueDate: true, status: true }
-               }
-             }
+             select: { id: true, leadNumber: true, name: true }
           }
         },
         orderBy,
       }),
     ]);
 
-    const mappedOpportunities = opportunities.map(o => ({
+    const leadIds = opportunities.map((o: any) => o.Lead?.id).filter(Boolean);
+    
+    const activeActivities = leadIds.length > 0 ? await prisma.activity.findMany({
+      where: {
+        contextType: 'lead',
+        contextId: { in: leadIds },
+        status: { notIn: ['DONE', 'COMPLETED', 'CANCELED'] },
+        dueDate: { gte: new Date() }
+      },
+      select: { id: true, subject: true, type: true, dueDate: true, status: true, contextId: true }
+    }) : [];
+
+    const mappedOpportunities = opportunities.map(o => {
+      const leadActivities = o.Lead ? activeActivities.filter(a => a.contextId === o.Lead.id) : [];
+      return {
       ...o,
       value: o.value ? Number(o.value) : null,
       // @ts-ignore
@@ -133,10 +136,8 @@ export async function getOpportunities(
         // @ts-ignore
         name: o.Lead.name,
       } : null,
-      // @ts-ignore
-      leadActiveEvents: o.Lead?.Activity?.length ?? 0,
-      // @ts-ignore
-      leadActiveEventsList: (o.Lead?.Activity || []).map((a: any) => ({
+      leadActiveEvents: leadActivities.length,
+      leadActiveEventsList: leadActivities.map(a => ({
         id: a.id,
         subject: a.subject,
         type: a.type,
@@ -148,7 +149,7 @@ export async function getOpportunities(
       User: undefined,
       Lead: undefined,
       opportunityNumber: o.opportunityNumber,
-    }));
+    }});
 
     return serializeData({
       success: true,
