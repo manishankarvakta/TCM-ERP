@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TECHSOUL",
-  description: "Interior design and project management platform",
+  title: "TS CRM",
+  description: "TS CRM is a game-changer for any business looking to streamline their operations and improve productivity.",
   icons: {
     icon: "/site-icon.png",
     apple: "/site-icon.png",
