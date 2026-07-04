@@ -31,37 +31,40 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex bg-[url('/auth-bg.jpg')] bg-cover bg-center min-h-screen">
       {/* Left Side - Branding & Testimonial */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-muted/30 p-8 lg:p-12">
-        <div>
+      <div className="hidden lg:flex lg:w-1/2 flex-col bg-white/10 backdrop-blur-sm dark:bg-black/30 dark:backdrop-blur-sm justify-between border-r border-white/10 p-8 lg:p-12 relative text-white">
+
+        <div className="relative z-10">
           <Link href="/" className="inline-flex items-center hover:opacity-80 transition-opacity mb-8">
-            <Logo width={200} height={100} />
+            <div className="invert dark:invert-0">
+              <Logo width={200} height={100} />
+            </div>
           </Link>
         </div>
         
-        <div className="space-y-6">
+        <div className="space-y-6 relative z-10">
           <blockquote className="text-lg leading-relaxed">
-            <p className="text-foreground">
+            <p className="text-zinc-100">
               "TS CRM has been a game-changer for our business. It's intuitive, powerful, and has helped us streamline our operations and improve productivity."
             </p>
             <footer className="mt-4">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-sm font-semibold text-primary">MV</span>
+                <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center">
+                  <span className="text-sm font-semibold text-white">MV</span>
                 </div>
                 <div>
-                  <div className="font-semibold text-foreground">Manishankar Vakta</div>
-                  <div className="text-sm text-muted-foreground">CEO of TechSoul</div>
+                  <div className="font-semibold text-zinc-100">Manishankar Vakta</div>
+                  <div className="text-sm text-zinc-400">CEO of TechSoul</div>
                 </div>
               </div>
             </footer>
           </blockquote>
         </div>
 
-        <div className="text-sm text-muted-foreground flex flex-col items-start gap-2">
+        <div className="text-sm text-zinc-400 flex flex-col items-start gap-2 relative z-10">
           <p>© 2025 All rights reserved.</p>
           <div className="flex items-center gap-2">
             <span>Powered by</span>
-            <Link href="https://techsoulbd.com">Techsoul</Link>
+            <Link href="https://techsoulbd.com" className="text-zinc-300 hover:text-white transition-colors">Techsoul</Link>
           </div>
         </div>
       </div>
