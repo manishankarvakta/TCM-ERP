@@ -135,6 +135,8 @@ export default function NotificationDropdown() {
         return <XCircle className={cn(iconSize, !isRead ? "text-red-500" : "text-muted-foreground")} />;
       case "SUCCESS":
         return <CheckCircle className={cn(iconSize, !isRead ? "text-green-500" : "text-muted-foreground")} />;
+      case "EVENT_INVITE":
+        return <CheckCircle2 className={cn(iconSize, !isRead ? "text-blue-500" : "text-muted-foreground")} />;
       default:
         return <Bell className={cn(iconSize, !isRead ? "text-primary" : "text-muted-foreground")} />;
     }
@@ -154,6 +156,8 @@ export default function NotificationDropdown() {
         return "Error:";
       case "SUCCESS":
         return "Success:";
+      case "EVENT_INVITE":
+        return "Event Invite:";
       default:
         return "Notification:";
     }
@@ -213,7 +217,9 @@ export default function NotificationDropdown() {
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary" />
+            <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-destructive text-[9px] font-black text-destructive-foreground ring-2 ring-background">
+              {unreadCount > 10 ? "10+" : unreadCount}
+            </span>
           )}
         </Button>
       </DropdownMenuTrigger>

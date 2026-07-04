@@ -39,6 +39,23 @@ export async function createSystemEvent(data: {
         ownerId: user.id
     });
 
+    if (data.attendees && data.attendees.length > 0) {
+        const { createNotification } = await import("@/lib/system/notifications");
+        for (const attendeeId of data.attendees) {
+            if (attendeeId !== user.id) {
+                await createNotification({
+                    recipientId: attendeeId,
+                    type: 'EVENT_INVITE' as any,
+                    title: 'New Event Assigned',
+                    message: `You have been assigned to event: ${data.title}`,
+                    entityType: data.entityType,
+                    entityId: data.entityId,
+                    createdBy: user.id
+                }).catch(console.error);
+            }
+        }
+    }
+
     revalidatePath(`/dashboard/crm/${data.entityType}s/${data.entityId}`);
     return { success: true, data: event };
 }
