@@ -16,6 +16,7 @@ import NoteManager from "../../activities/_components/NoteManager";
 import DocManager from "../../activities/_components/DocManager";
 import { LeadStatusBadge } from "../_components/LeadStatusBadge";
 import { LeadConversionButton } from "../_components/LeadConversionButton";
+import { LeadEditButton } from "../_components/LeadEditButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -31,7 +32,10 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const session = await auth();
   if (!session?.user) return redirect("/login");
 
-  const canView = await checkPermission(session.user.id, "crm.leads", "view");
+  const [canView, canEdit] = await Promise.all([
+    checkPermission(session.user.id, "crm.leads", "view"),
+    checkPermission(session.user.id, "crm.leads", "edit"),
+  ]);
   if (!canView) {
       return (
         <div className="p-6">
@@ -77,6 +81,11 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
+  const startingDateObj = lead.startingDate ? new Date(lead.startingDate) : null;
+  const daysActive = startingDateObj 
+    ? Math.max(0, Math.floor((new Date().getTime() - startingDateObj.getTime()) / (1000 * 60 * 60 * 24)))
+    : null;
+
   return (
     <div className="space-y-6 max-w-full mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-background/50 ">
@@ -97,6 +106,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {canEdit && <LeadEditButton lead={lead} />}
           <LeadConversionButton leadId={lead.id} leadName={lead.name} currentStatus={lead.status} />
         </div>
       </div>
@@ -255,6 +265,18 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                     <CardTitle className="text-base font-semibold">Lead Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm pt-4">
+                     {lead.status === "UNQUALIFIED" && lead.closingReason && (
+                        <div className="flex items-start gap-3 bg-destructive/5 border border-destructive/20 p-3 rounded-lg">
+                            <div className="bg-destructive/10 p-2 rounded text-destructive shrink-0">
+                                <Clock className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-xs text-destructive-foreground uppercase tracking-wider font-bold">Closing Reason</p>
+                                <p className="text-sm text-destructive mt-1 font-medium">{lead.closingReason}</p>
+                            </div>
+                        </div>
+                     )}
+
                      {lead.Category && (
                         <div className="flex items-center gap-3">
                             <div className="bg-slate-100 p-2 rounded">
@@ -323,6 +345,22 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                         </div>
                     )}
 
+                    <div className="flex items-center gap-3">
+                        <div className="bg-slate-100 p-2 rounded">
+                            <PhoneIcon className="h-4 w-4 text-slate-600" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Alternative Phone</p>
+                            {lead.alternativePhone ? (
+                                <a href={`tel:${lead.alternativePhone}`} className="font-medium hover:underline">
+                                    {lead.alternativePhone}
+                                </a>
+                            ) : (
+                                <span className="text-muted-foreground italic text-xs">Not provided</span>
+                            )}
+                        </div>
+                    </div>
+
                     {lead.company && (
                          <div className="pt-4 border-t flex items-center gap-3">
                             <div className="bg-slate-100 p-2 rounded">
@@ -386,6 +424,25 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                     </div>
 
                     <div className="pt-4 border-t space-y-4">
+                        {lead.startingDate && (
+                            <div className="flex items-center gap-3">
+                                <div className="bg-slate-100 p-2 rounded">
+                                    <CalendarDays className="h-4 w-4 text-slate-600" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Starting Date</p>
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                        <span className="font-medium">{format(new Date(lead.startingDate), "PP")}</span>
+                                        {daysActive !== null && (
+                                            <span className="text-[10px] font-semibold text-primary bg-primary/5 border border-primary/20 px-1.5 py-0.5 rounded">
+                                                {daysActive === 0 ? "Started today" : `${daysActive} day${daysActive > 1 ? "s" : ""} active`}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex items-center gap-3">
                             <div className="bg-slate-100 p-2 rounded">
                                 <Calendar className="h-4 w-4 text-slate-600" />

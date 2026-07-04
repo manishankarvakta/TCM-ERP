@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { FiMoreVertical, FiEdit, FiTrendingUp, FiArchive, FiUser, FiCheckCircle, FiEye, FiTrash2, FiRefreshCw, FiAlertTriangle, FiGlobe, FiFacebook } from "react-icons/fi";
@@ -93,11 +94,42 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
   const [isBulkActionLoading, setIsBulkActionLoading] = useState(false);
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
 
+  // Unqualified Lead States
+  const [unqualifiedLead, setUnqualifiedLead] = useState<{ id: string } | null>(null);
+  const [closingReason, setClosingReason] = useState<string>("");
+
   const handleStatusUpdate = async (leadId: string, newStatus: LeadStatus) => {
+    if (newStatus === LeadStatus.UNQUALIFIED) {
+      setUnqualifiedLead({ id: leadId });
+      setClosingReason("");
+      return;
+    }
+
     try {
       const result = await updateLeadStatus(leadId, newStatus);
       if (result.success) {
         toast.success(`Status updated to ${statusMap[newStatus].label}`);
+        onRefresh();
+      } else {
+        toast.error(result.error || "Failed to update status");
+      }
+    } catch (error) {
+      toast.error("An error occurred");
+    }
+  };
+
+  const handleUnqualifiedSubmit = async () => {
+    if (!unqualifiedLead || !closingReason.trim()) {
+      toast.error("Closing reason is required");
+      return;
+    }
+
+    try {
+      const result = await updateLeadStatus(unqualifiedLead.id, LeadStatus.UNQUALIFIED, closingReason);
+      if (result.success) {
+        toast.success("Lead marked as Unqualified");
+        setUnqualifiedLead(null);
+        setClosingReason("");
         onRefresh();
       } else {
         toast.error(result.error || "Failed to update status");
@@ -260,6 +292,7 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
               </TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Contact Info</TableHead>
+              <TableHead>Source</TableHead>
               <TableHead>Company</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Opportunity</TableHead>
@@ -272,7 +305,7 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
           <TableBody>
             {leads.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="h-24 text-center">
+                <TableCell colSpan={11} className="h-24 text-center">
                   {isTrashView ? "Trash is empty." : "No leads found."}
                 </TableCell>
               </TableRow>
@@ -329,6 +362,15 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
                           )}
                       </div>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {lead.source ? (
+                      <span className="font-semibold bg-muted text-muted-foreground px-2 py-0.5 rounded text-xs border">
+                        {lead.source}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground italic">-</span>
+                    )}
                   </TableCell>
                   <TableCell>{lead.company || "-"}</TableCell>
                   <TableCell>
@@ -517,6 +559,29 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
                       <Button variant="destructive" onClick={handleBulkDeletePermanently} disabled={isBulkActionLoading}>
                           {isBulkActionLoading ? "Deleting..." : "Delete Permanently"}
                       </Button>
+                  </DialogFooter>
+              </DialogContent>
+          </Dialog>
+
+          <Dialog open={!!unqualifiedLead} onOpenChange={(open) => !open && setUnqualifiedLead(null)}>
+              <DialogContent className="sm:max-w-sm">
+                  <DialogHeader>
+                      <DialogTitle>Lead Closing Reason</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                      <div className="grid gap-2">
+                          <Label htmlFor="closingReason">Why is this lead unqualified? *</Label>
+                          <Textarea 
+                              id="closingReason" 
+                              value={closingReason} 
+                              onChange={(e) => setClosingReason(e.target.value)}
+                              placeholder="e.g. Budget constraint, lost to competitor, no response..."
+                          />
+                      </div>
+                  </div>
+                  <DialogFooter>
+                      <Button variant="outline" onClick={() => setUnqualifiedLead(null)}>Cancel</Button>
+                      <Button onClick={handleUnqualifiedSubmit}>Submit</Button>
                   </DialogFooter>
               </DialogContent>
           </Dialog>

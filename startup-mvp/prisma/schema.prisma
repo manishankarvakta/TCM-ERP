@@ -556,29 +556,33 @@ model JournalEntryLine {
 }
 
 model Lead {
-  id         String     @id @default(cuid())
-  leadNumber String?    @unique
-  name       String
-  email      String?    @unique
-  phone      String
-  company    String?
-  source     String?
-  website    String?
-  facebook   String?
-  status     LeadStatus @default(NEW)
-  ownerId    String
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  isTrash    Boolean    @default(false)
-  deletedAt  DateTime?
-  User       User       @relation(fields: [ownerId], references: [id])
-  Note       Note[]
-  Task       Task[]
+  id               String     @id @default(cuid())
+  leadNumber       String?    @unique
+  name             String
+  email            String?    @unique
+  phone            String
+  alternativePhone String?
+  company          String?
+  source           String?
+  website          String?
+  facebook         String?
+  status           LeadStatus @default(NEW)
+  ownerId          String
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  isTrash          Boolean    @default(false)
+  deletedAt        DateTime?
+  User             User       @relation(fields: [ownerId], references: [id])
+  Note             Note[]
+  Task             Task[]
   
   categoryId String?
   Category   Category?  @relation(fields: [categoryId], references: [id])
   reference  String?
   photo      String?
+  
+  startingDate  DateTime?  @default(now())
+  closingReason String?
 
   @@index([ownerId])
   @@index([status])
