@@ -276,12 +276,12 @@ export async function getUserCrmMetrics(isAdminView: boolean = false, selectedUs
         take: 5
       }),
 
-      // Upcoming Events (Today) where user is owner or assignee
+      // Upcoming Events where user is owner or assignee
       prisma.activity.findMany({
         where: {
           type: { in: ['EVENT_SCHEDULED', 'LOG_CALL', 'LOG_EMAIL'] },
           ...eventFilter,
-          dueDate: { gte: todayStart, lte: todayEnd }
+          dueDate: { gte: todayStart }
         },
         include: {
           Owner: { select: { name: true } },

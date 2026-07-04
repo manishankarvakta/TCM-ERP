@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Bell, Info, AlertTriangle, XCircle, CheckCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,6 +42,9 @@ export default function NotificationDropdown() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Track previous unread count using a ref for stable access inside polling
+  const prevUnreadCountRef = useRef(0);
+
   // Poll for new notifications every 10 seconds
   useEffect(() => {
     // Initial load
@@ -66,20 +69,29 @@ export default function NotificationDropdown() {
         const newNotifications = result.data || [];
         
         // Check if there are new unread notifications
-        const previousUnreadCount = notifications.filter((n: Notification) => !n.isRead).length;
         const newUnreadCount = newNotifications.filter((n: Notification) => !n.isRead).length;
+        const prevCount = prevUnreadCountRef.current;
         
         // Update notifications
         setNotifications(newNotifications);
         
-        // Show toast if new unread notifications arrived (only if not silent and count increased)
-        if (!silent && newUnreadCount > previousUnreadCount && previousUnreadCount > 0) {
-          const newCount = newUnreadCount - previousUnreadCount;
-          toast({
-            title: "New notification",
-            description: `You have ${newCount} new notification${newCount > 1 ? "s" : ""}`,
-          });
+        // Show toast popup when count increases (works for both silent polling and initial load)
+        if (newUnreadCount > prevCount && prevCount >= 0) {
+          const newCount = newUnreadCount - prevCount;
+          // Only show toast if this isn't the very first load (prevCount > 0)
+          if (prevCount > 0) {
+            const latest = newNotifications.find((n: Notification) => !n.isRead);
+            toast({
+              title: "🔔 New Notification",
+              description: latest
+                ? latest.title || `You have ${newCount} new notification${newCount > 1 ? "s" : ""}`
+                : `You have ${newCount} new notification${newCount > 1 ? "s" : ""}`,
+            });
+          }
         }
+
+        // Update the ref with the latest count
+        prevUnreadCountRef.current = newUnreadCount;
       }
     } catch (error) {
       console.error("Error loading notifications:", error);
