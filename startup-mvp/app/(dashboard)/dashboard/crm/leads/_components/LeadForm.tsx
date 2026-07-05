@@ -11,7 +11,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle, FiUpload, FiTrash2 } from "react-icons/fi";
 import { createLead, updateLead, getActiveCategories } from "@/app/actions/crm/lead.action";
 import { uploadFileServerSide } from "@/app/actions/files";
-import { type LeadStatus } from "@prisma/client";
 import {
   Select,
   SelectContent,
