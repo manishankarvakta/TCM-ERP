@@ -458,8 +458,8 @@ async function executePgDump(
       const fileStream = fs.createWriteStream(outputPath);
       
       // For docker exec, we don't use -f because we'll pipe the stdout to the host file
-      // We also don't need -h localhost since we're inside the container
-      const dockerPgArgs = pgArgs.filter(arg => arg !== '-h' && arg !== config.host);
+      // We also don't need -h and -p since we're inside the container
+      const dockerPgArgs = pgArgs.filter(arg => arg !== '-h' && arg !== config.host && arg !== '-p' && arg !== config.port.toString());
       
       const dockerArgs = [
         'exec',

@@ -429,23 +429,34 @@ async function executePgRestore(
   const config = parsePostgresConfig();
   const manager = getRestoreManager();
 
-  // Build pg_restore command
-  const args = [
-    `-h ${config.host}`,
-    `-p ${config.port}`,
-    `-U ${config.user}`,
-    `-d ${config.database}`,
+  const pgArgs = [
+    `-h`, config.host,
+    `-p`, config.port.toString(),
+    `-U`, config.user,
+    `-d`, config.database,
     '--no-owner',
     '--no-acl',
   ];
 
   if (cleanDatabase) {
-    args.push('--clean'); // Drop objects before recreating
+    pgArgs.push('--clean');
   }
 
-  args.push(dumpPath);
-
-  const command = `pg_restore ${args.join(' ')}`;
+  let useDocker = false;
+  try {
+    await execAsync('pg_restore --version');
+    manager.addLog(restoreId, 'Using host pg_restore...');
+  } catch (error) {
+    if (config.containerName) {
+      manager.addLog(restoreId, `pg_restore not found on host. Falling back to Docker container: ${config.containerName}`);
+      useDocker = true;
+    } else {
+      throw new Error(
+        'pg_restore command not found on host and no POSTGRES_CONTAINER specified in .env. ' +
+        'Please install PostgreSQL client tools or configure a Docker container.'
+      );
+    }
+  }
 
   try {
     // Update progress as restore runs
@@ -459,13 +470,64 @@ async function executePgRestore(
       }
     }, 2000);
 
-    await execAsync(command, {
-      env: {
-        ...process.env,
-        PGPASSWORD: config.password,
-      },
-      maxBuffer: 100 * 1024 * 1024, // 100MB buffer
-    });
+    if (!useDocker) {
+      // Standard host-based pg_restore
+      const commandArgs = pgArgs.map(arg => arg.includes(' ') ? `"${arg}"` : arg);
+      const command = `pg_restore ${commandArgs.join(' ')} "${dumpPath}"`;
+
+      await execAsync(command, {
+        env: {
+          ...process.env,
+          PGPASSWORD: config.password,
+        },
+        maxBuffer: 100 * 1024 * 1024, // 100MB buffer
+      });
+    } else {
+      // Docker-based pg_restore
+      await new Promise<void>((resolve, reject) => {
+        const { spawn } = require('child_process');
+        const fs = require('fs');
+
+        const fileStream = fs.createReadStream(dumpPath);
+
+        const dockerPgArgs = pgArgs.filter(arg => arg !== '-h' && arg !== config.host && arg !== '-p' && arg !== config.port.toString());
+        
+        const dockerArgs = [
+          'exec',
+          '-i',
+          '-e', `PGPASSWORD=${config.password}`,
+          config.containerName!,
+          'pg_restore',
+          ...dockerPgArgs
+        ];
+
+        manager.addLog(restoreId, `Executing: docker ${dockerArgs.join(' ')} < [dump_file]`);
+
+        const child = spawn('docker', dockerArgs);
+        
+        fileStream.pipe(child.stdin);
+
+        let stderr = '';
+        child.stderr.on('data', (data: Buffer) => {
+          stderr += data.toString();
+        });
+
+        child.on('close', (code: number) => {
+          if (code === 0 || code === 1) { 
+            if (code === 1) {
+               manager.addLog(restoreId, `pg_restore completed with warnings: ${stderr}`, 'warn');
+            }
+            resolve();
+          } else {
+            reject(new Error(`Docker pg_restore failed with code ${code}: ${stderr}`));
+          }
+        });
+
+        child.on('error', (err: Error) => {
+          reject(new Error(`Failed to start Docker process: ${err.message}`));
+        });
+      });
+    }
 
     clearInterval(updateInterval);
     manager.updateProgress(restoreId, { progress: progressEnd });
@@ -473,17 +535,17 @@ async function executePgRestore(
     // Distinguish between minor warnings (exit code 1) and fatal errors
     const isFatal = 
       error.code !== 1 || 
-      error.message.includes('could not connect') || 
-      error.message.includes('database does not exist') ||
-      error.message.includes('role') ||
-      error.message.includes('FATAL:');
+      error.message?.includes('could not connect') || 
+      error.message?.includes('database does not exist') ||
+      error.message?.includes('role') ||
+      error.message?.includes('FATAL:');
 
     if (isFatal) {
-      if (error.message.includes('command not found') || error.code === 'ENOENT') {
+      if (error.message?.includes('command not found') || error.code === 'ENOENT') {
         throw new Error('pg_restore command not found. Please install PostgreSQL client tools.');
       }
 
-      if (error.message.includes('password authentication failed')) {
+      if (error.message?.includes('password authentication failed')) {
         throw new Error('Database authentication failed.');
       }
 

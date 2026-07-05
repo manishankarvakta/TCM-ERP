@@ -36,12 +36,29 @@ export async function GET(
   // Create SSE stream
   const stream = new ReadableStream({
     start(controller) {
+      let isClosed = false;
       const encoder = new TextEncoder();
+
+      const safeClose = () => {
+        if (!isClosed) {
+          isClosed = true;
+          try {
+            controller.close();
+          } catch (e) {
+            // Ignore if already closed
+          }
+        }
+      };
 
       // Send data helper
       const sendData = (data: any) => {
+        if (isClosed) return;
         const message = `data: ${JSON.stringify(data)}\n\n`;
-        controller.enqueue(encoder.encode(message));
+        try {
+          controller.enqueue(encoder.encode(message));
+        } catch (e) {
+          isClosed = true;
+        }
       };
 
       // Send initial progress
@@ -57,18 +74,23 @@ export async function GET(
         // Close stream when restore is completed or failed
         if (progress.status === 'COMPLETED' || progress.status === 'FAILED') {
           setTimeout(() => {
-            controller.close();
+            safeClose();
           }, 1000); // Give client time to receive final update
         }
       });
 
       // Keep-alive ping to prevent connection timeout
       const keepAliveInterval = setInterval(() => {
+        if (isClosed) {
+          clearInterval(keepAliveInterval);
+          return;
+        }
         try {
           // Send comment as keep-alive (doesn't trigger 'message' event in client)
           controller.enqueue(encoder.encode(': keep-alive\n\n'));
         } catch (error) {
           // Connection closed
+          isClosed = true;
           clearInterval(keepAliveInterval);
         }
       }, SSE_KEEPALIVE_INTERVAL);
@@ -78,7 +100,7 @@ export async function GET(
         console.log(`[SSE] Client disconnected from restore ${restoreId}`);
         clearInterval(keepAliveInterval);
         unsubscribe();
-        controller.close();
+        safeClose();
       });
 
       // Auto-close after timeout if restore is stuck
@@ -98,7 +120,7 @@ export async function GET(
         }
         clearInterval(keepAliveInterval);
         unsubscribe();
-        controller.close();
+        safeClose();
       }, 60 * 60 * 1000); // 1 hour timeout
 
       // Cleanup timeout on manual close
