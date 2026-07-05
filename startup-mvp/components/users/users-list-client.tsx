@@ -359,6 +359,7 @@ export default function UsersListClient({
               <TableHead>Role</TableHead>
               <TableHead>Incharge</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Is Logged</TableHead>
               <TableHead>Joined</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -366,7 +367,7 @@ export default function UsersListClient({
           <TableBody>
             {initialUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed users found" : "No users found"}
                 </TableCell>
               </TableRow>
@@ -404,19 +405,22 @@ export default function UsersListClient({
                       {user.incharge ? (user.incharge.name || user.incharge.email) : "-"}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
+                      <div>
                         {userStatus === "trash" ? (
                           <Badge variant="destructive">Trash</Badge>
                         ) : userStatus === "inactive" ? (
                           <Badge variant="secondary">Inactive</Badge>
                         ) : (
-                          <>
-                            <div className={`h-2 w-2 rounded-full ${isLoggedIn ? "bg-green-500" : "bg-gray-300"}`} />
-                            <span className="text-sm text-muted-foreground">
-                              {isLoggedIn ? "Active" : "Offline"}
-                            </span>
-                          </>
+                          <Badge variant="outline" className="border-green-500 text-green-600">Active</Badge>
                         )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <div className={`h-2 w-2 rounded-full ${isLoggedIn ? "bg-green-500" : "bg-gray-300"}`} />
+                        <span className="text-sm font-medium text-muted-foreground">
+                          {isLoggedIn ? "Online" : "Offline"}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">

@@ -33,6 +33,7 @@ const userFormSchema = z.object({
     .optional()
     .or(z.literal("")),
   role: z.enum(["user", "admin"]),
+  status: z.enum(["active", "inactive"]),
   image: z.string().url("Invalid image URL").optional().or(z.literal("")),
   inchargeId: z.string().optional().or(z.literal("")),
 });
@@ -46,6 +47,7 @@ interface UserFormProps {
     name: string | null;
     email: string;
     role: string;
+    status?: string;
     image: string | null;
     inchargeId?: string | null;
     incharge?: {
@@ -78,6 +80,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           email: initialData.email,
           password: "",
           role: (initialData.role as "user" | "admin") || "user",
+          status: (initialData.status as "active" | "inactive") || "active",
           image: initialData.image || "",
           inchargeId: initialData.inchargeId || "",
         }
@@ -86,6 +89,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           email: "",
           password: "",
           role: "user",
+          status: "active",
           image: "",
           inchargeId: "",
         },
@@ -126,6 +130,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           email: data.email,
           password: data.password!,
           role: data.role,
+          status: data.status,
           image: data.image || undefined,
           inchargeId: data.inchargeId && data.inchargeId.length > 0 ? data.inchargeId : undefined,
         });
@@ -142,6 +147,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           email: data.email,
           password: data.password && data.password.length > 0 ? data.password : undefined,
           role: data.role,
+          status: data.status,
           image: data.image || undefined,
           inchargeId: data.inchargeId && data.inchargeId.length > 0 ? data.inchargeId : undefined,
         });
@@ -226,7 +232,8 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
                   )}
                 </div>
 
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
                   <Select
                     defaultValue={initialData?.role || "user"}
@@ -243,6 +250,26 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
                   </Select>
                   {errors.role && (
                     <p className="text-sm text-destructive">{errors.role.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    defaultValue={initialData?.status || "active"}
+                    onValueChange={(value) => setValue("status", value as "active" | "inactive")}
+                    disabled={loading}
+                  >
+                    <SelectTrigger id="status">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.status && (
+                    <p className="text-sm text-destructive">{errors.status.message}</p>
                   )}
                 </div>
 
@@ -305,6 +332,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
                   {errors.inchargeId && (
                     <p className="text-sm text-destructive">{errors.inchargeId.message}</p>
                   )}
+                </div>
                 </div>
 
                 <div className="flex items-center gap-3 pt-4">
