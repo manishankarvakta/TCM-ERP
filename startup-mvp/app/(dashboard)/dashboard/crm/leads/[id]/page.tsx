@@ -25,7 +25,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FileManager from "../../activities/_components/FileManager";
-import { FiFacebook } from "react-icons/fi";
+import { FiLink } from "react-icons/fi";
 import { BackButton } from "@/components/ui/back-button";
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -404,15 +404,32 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                     )}
 
                     {lead.facebook && (
-                        <div className="pt-4 border-t flex items-center gap-3">
-                             <div className="bg-slate-100 p-2 rounded">
-                                <FiFacebook className="h-4 w-4 text-slate-600" />
+                        <div className="pt-4 border-t flex items-start gap-3">
+                             <div className="bg-slate-100 p-2 rounded mt-0.5">
+                                <FiLink className="h-4 w-4 text-slate-600" />
                             </div>
-                            <div className="min-w-0">
-                                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Facebook</p>
-                                <a href={lead.facebook} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline truncate block">
-                                    Facebook Profile
-                                </a>
+                            <div className="min-w-0 flex-1 space-y-1.5">
+                                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Social Links</p>
+                                <div className="flex flex-col gap-1">
+                                    {lead.facebook.split(',').map((link: string, i: number) => {
+                                        const trimmed = link.trim();
+                                        if (!trimmed) return null;
+                                        // Attempt to extract domain for better label
+                                        let label = "Link " + (i + 1);
+                                        try {
+                                            const url = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
+                                            label = url.hostname.replace('www.', '');
+                                        } catch (e) {}
+                                        return (
+                                            <a key={i} href={trimmed.startsWith('http') ? trimmed : `https://${trimmed}`} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline truncate text-primary inline-flex items-center gap-1.5">
+                                                <svg className="h-3 w-3 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                </svg>
+                                                {label}
+                                            </a>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
                     )}

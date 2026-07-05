@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TagInput } from "@/components/ui/tag-input";
 import { toast } from "sonner";
 
 const LEAD_SOURCES = [
@@ -267,8 +268,19 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="facebook">FB Page/Profile Link</Label>
-          <Input id="facebook" {...register("facebook")} disabled={loading} placeholder="https://facebook.com/profile" />
+          <Label htmlFor="facebook">Social Links (FB, IG, etc)</Label>
+          <Controller
+            name="facebook"
+            control={control}
+            render={({ field }) => (
+              <TagInput
+                value={field.value || ""}
+                onChange={field.onChange}
+                disabled={loading}
+                placeholder="https://facebook.com/..., press Enter"
+              />
+            )}
+          />
           {errors.facebook && <p className="text-xs text-destructive">{errors.facebook.message}</p>}
         </div>
         <div className="space-y-2">
