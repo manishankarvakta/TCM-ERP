@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -46,7 +46,9 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<any>(null);
   const [leads, setLeads] = useState<any[]>(initialLeads);
-  const [pagination, setPagination] = useState<Pagination>(initialPagination);
+  
+  const page = parseInt(searchParams.get("page") || "1", 10);
+  const [pagination, setPagination] = useState<Pagination>({ ...initialPagination, page: page });
   const [isPending, startTransition] = useTransition();
 
   const [view, setView] = useState<ViewMode>((searchParams.get("view") as ViewMode) || "table");
@@ -65,11 +67,11 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
   // Reset trash view if filters change significantly, or easier: reset other filters when entering trash?
   // Let's keep it simple.
 
-  const fetchLeads = (page: number = 1) => {
+  const fetchLeads = (pageToFetch: number = page) => {
     startTransition(async () => {
-      console.log("fetchLeads calling getLeads with:", { page, search: debouncedSearch, status: statusFilter, sortBy, sortOrder, dateFrom, dateTo, isTrashView });
+      console.log("fetchLeads calling getLeads with:", { page: pageToFetch, search: debouncedSearch, status: statusFilter, sortBy, sortOrder, dateFrom, dateTo, isTrashView });
       const result = await getLeads(
-        page, 
+        pageToFetch, 
         view === "kanban" ? 100 : 10, 
         debouncedSearch, 
         statusFilter, 
@@ -90,37 +92,57 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
     });
   };
 
+  // Update URL when filters change
   useEffect(() => {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(searchParams.toString());
     
-    // Always include current filters in URL
-    if (debouncedSearch) params.set("search", debouncedSearch);
-    if (view !== "table") params.set("view", view);
-    if (sortBy !== "createdAt") params.set("sortBy", sortBy);
-    if (sortOrder !== "desc") params.set("sortOrder", sortOrder);
-    if (statusFilter !== "all") params.set("status", statusFilter);
-    if (dateFrom) params.set("dateFrom", dateFrom);
-    if (dateTo) params.set("dateTo", dateTo);
-    // Maybe track trash view in URL? 
-    // For now keeping it local state to avoid complex URL permutations unless requested.
-    
-    const queryString = params.toString();
-    const currentQueryString = searchParams.toString();
+    let filtersChanged = false;
 
-    // Only update URL if it's different from current
-    if (queryString !== currentQueryString) {
-      console.log("LeadManager filters changed, updating URL with:", queryString);
-      router.push(`/dashboard/crm/leads?${queryString}`, { scroll: false });
+    if (debouncedSearch && params.get("search") !== debouncedSearch) { params.set("search", debouncedSearch); filtersChanged = true; }
+    else if (!debouncedSearch && params.has("search")) { params.delete("search"); filtersChanged = true; }
+
+    if (view !== "table" && params.get("view") !== view) { params.set("view", view); filtersChanged = true; }
+    else if (view === "table" && params.has("view")) { params.delete("view"); filtersChanged = true; }
+
+    if (sortBy !== "createdAt" && params.get("sortBy") !== sortBy) { params.set("sortBy", sortBy); filtersChanged = true; }
+    else if (sortBy === "createdAt" && params.has("sortBy")) { params.delete("sortBy"); filtersChanged = true; }
+
+    if (sortOrder !== "desc" && params.get("sortOrder") !== sortOrder) { params.set("sortOrder", sortOrder); filtersChanged = true; }
+    else if (sortOrder === "desc" && params.has("sortOrder")) { params.delete("sortOrder"); filtersChanged = true; }
+
+    if (statusFilter !== "all" && params.get("status") !== statusFilter) { params.set("status", statusFilter); filtersChanged = true; }
+    else if (statusFilter === "all" && params.has("status")) { params.delete("status"); filtersChanged = true; }
+
+    if (dateFrom && params.get("dateFrom") !== dateFrom) { params.set("dateFrom", dateFrom); filtersChanged = true; }
+    else if (!dateFrom && params.has("dateFrom")) { params.delete("dateFrom"); filtersChanged = true; }
+
+    if (dateTo && params.get("dateTo") !== dateTo) { params.set("dateTo", dateTo); filtersChanged = true; }
+    else if (!dateTo && params.has("dateTo")) { params.delete("dateTo"); filtersChanged = true; }
+
+    // If filters changed, reset page to 1
+    if (filtersChanged) {
+      params.delete("page");
+      router.push(`/dashboard/crm/leads?${params.toString()}`, { scroll: false });
     }
-    
-    // Fetch leads whenever dependencies change, including isTrashView
-    fetchLeads(1);
-  }, [debouncedSearch, view, sortBy, sortOrder, statusFilter, dateFrom, dateTo, isTrashView]);
+  }, [debouncedSearch, view, sortBy, sortOrder, statusFilter, dateFrom, dateTo, isTrashView, router, searchParams]);
+
+  // Main fetch effect, triggers when URL page changes or filters change
+  useEffect(() => {
+    fetchLeads(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedSearch, view, sortBy, sortOrder, statusFilter, dateFrom, dateTo, isTrashView]);
+
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (newPage > 1) params.set("page", newPage.toString());
+    else params.delete("page");
+    router.push(`/dashboard/crm/leads?${params.toString()}`, { scroll: false });
+  };
 
   const handleCreateSuccess = () => {
     setIsDrawerOpen(false);
     setEditingLead(null);
-    fetchLeads(pagination.page);
+    fetchLeads(page);
     toast.success("Lead created successfully");
   };
 
@@ -154,7 +176,7 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
                 </Button>
             )}
           
-          <Button variant="outline" size="icon" onClick={() => fetchLeads(pagination.page)} disabled={isPending}>
+          <Button variant="outline" size="icon" onClick={() => fetchLeads(page)} disabled={isPending}>
             <FiRefreshCcw className={isPending ? "animate-spin" : ""} />
           </Button>
           {!isTrashView && canCreate && (
@@ -268,7 +290,7 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
               leads={leads}
               owners={initialOwners}
               onEdit={(lead) => { setEditingLead(lead); setIsDrawerOpen(true); }}
-              onRefresh={() => fetchLeads(pagination.page)}
+              onRefresh={() => fetchLeads(page)}
               isTrashView={isTrashView}
             />
           )}
@@ -282,7 +304,7 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
             <LeadKanban 
                 initialLeads={leads} 
                 canCreate={canCreate} 
-                onRefresh={() => fetchLeads(pagination.page)} 
+                onRefresh={() => fetchLeads(page)} 
             />
           )}
           {isTrashView && view !== "table" && (
@@ -299,7 +321,7 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
             <Button
             variant="outline"
             size="sm"
-            onClick={() => fetchLeads(pagination.page - 1)}
+            onClick={() => handlePageChange(page - 1)}
             disabled={pagination.page <= 1 || isPending}
             >
             Previous
@@ -310,7 +332,7 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
             <Button
             variant="outline"
             size="sm"
-            onClick={() => fetchLeads(pagination.page + 1)}
+            onClick={() => handlePageChange(page + 1)}
             disabled={pagination.page >= pagination.totalPages || isPending}
             >
             Next

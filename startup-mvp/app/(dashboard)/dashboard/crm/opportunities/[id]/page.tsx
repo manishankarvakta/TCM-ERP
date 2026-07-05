@@ -23,6 +23,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PromoteToProject from "./_components/PromoteToProject";
+import { BackButton } from "@/components/ui/back-button";
 
 export default async function OpportunityDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -78,11 +79,10 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
     <div className="space-y-6 max-w-full mx-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-border/40">
         <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" asChild className="rounded-xl h-12 w-12 hover:bg-muted">
-                <Link href="/dashboard/crm/opportunities">
-                    <ArrowLeftIcon className="h-5 w-5" />
-                </Link>
-            </Button>
+            <BackButton 
+              fallbackUrl="/dashboard/crm/opportunities" 
+              className="rounded-xl h-12 w-12 hover:bg-muted" 
+            />
             <div>
             <div className="flex items-center gap-3">
                 <h1 className="text-3xl font-black uppercase tracking-tighter">{opportunity.title}</h1>

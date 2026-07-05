@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FileManager from "../../activities/_components/FileManager";
 import { FiFacebook } from "react-icons/fi";
+import { BackButton } from "@/components/ui/back-button";
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -90,11 +91,10 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     <div className="space-y-6 max-w-full mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-background/50 ">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild className="shrink-0">
-              <Link href="/dashboard/crm/leads">
-                  <ArrowLeftIcon className="h-4 w-4" />
-              </Link>
-          </Button>
+          <BackButton 
+            fallbackUrl="/dashboard/crm/leads" 
+            className="shrink-0" 
+          />
           <div className="min-w-0">
              <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate max-w-[200px] sm:max-w-[400px]">{lead.name}</h1>

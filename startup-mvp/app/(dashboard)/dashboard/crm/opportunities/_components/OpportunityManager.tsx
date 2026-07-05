@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { OpportunityStage } from "@prisma/client";
@@ -43,7 +43,9 @@ export default function OpportunityManager() {
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 10, total: 0, totalPages: 0 });
+  
+  const page = parseInt(searchParams.get("page") || "1", 10);
+  const [pagination, setPagination] = useState<Pagination>({ page: page, limit: 10, total: 0, totalPages: 0 });
   const [isPending, startTransition] = useTransition();
 
   const [view, setView] = useState<ViewMode>((searchParams.get("view") as ViewMode) || "table");
@@ -56,10 +58,10 @@ export default function OpportunityManager() {
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const debouncedSearch = useDebounce(search, 500);
 
-  const fetchOpportunities = (page: number = 1) => {
+  const fetchOpportunities = (pageToFetch: number = page) => {
     startTransition(async () => {
       const result = await getOpportunities(
-        page, 
+        pageToFetch, 
         view === "kanban" ? 100 : 10, 
         debouncedSearch, 
         stageFilter, 
@@ -97,28 +99,52 @@ export default function OpportunityManager() {
     fetchClientsAndUsers();
   }, []);
 
+  // Update URL when filters change
   useEffect(() => {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(searchParams.toString());
     
-    if (debouncedSearch) params.set("search", debouncedSearch);
-    if (view !== "table") params.set("view", view);
-    if (sortBy !== "updatedAt") params.set("sortBy", sortBy);
-    if (sortOrder !== "desc") params.set("sortOrder", sortOrder);
-    if (stageFilter !== "all") params.set("stage", stageFilter);
-    if (dateFrom) params.set("dateFrom", dateFrom);
-    if (dateTo) params.set("dateTo", dateTo);
+    let filtersChanged = false;
 
-    const queryString = params.toString();
-    const currentQueryString = searchParams.toString();
+    if (debouncedSearch && params.get("search") !== debouncedSearch) { params.set("search", debouncedSearch); filtersChanged = true; }
+    else if (!debouncedSearch && params.has("search")) { params.delete("search"); filtersChanged = true; }
 
-    if (queryString !== currentQueryString) {
-      router.push(`/dashboard/crm/opportunities?${queryString}`, { scroll: false });
-      fetchOpportunities(1);
-    } else {
-      // First load or refresh with same params
-      fetchOpportunities(pagination.page);
+    if (view !== "table" && params.get("view") !== view) { params.set("view", view); filtersChanged = true; }
+    else if (view === "table" && params.has("view")) { params.delete("view"); filtersChanged = true; }
+
+    if (sortBy !== "updatedAt" && params.get("sortBy") !== sortBy) { params.set("sortBy", sortBy); filtersChanged = true; }
+    else if (sortBy === "updatedAt" && params.has("sortBy")) { params.delete("sortBy"); filtersChanged = true; }
+
+    if (sortOrder !== "desc" && params.get("sortOrder") !== sortOrder) { params.set("sortOrder", sortOrder); filtersChanged = true; }
+    else if (sortOrder === "desc" && params.has("sortOrder")) { params.delete("sortOrder"); filtersChanged = true; }
+
+    if (stageFilter !== "all" && params.get("stage") !== stageFilter) { params.set("stage", stageFilter); filtersChanged = true; }
+    else if (stageFilter === "all" && params.has("stage")) { params.delete("stage"); filtersChanged = true; }
+
+    if (dateFrom && params.get("dateFrom") !== dateFrom) { params.set("dateFrom", dateFrom); filtersChanged = true; }
+    else if (!dateFrom && params.has("dateFrom")) { params.delete("dateFrom"); filtersChanged = true; }
+
+    if (dateTo && params.get("dateTo") !== dateTo) { params.set("dateTo", dateTo); filtersChanged = true; }
+    else if (!dateTo && params.has("dateTo")) { params.delete("dateTo"); filtersChanged = true; }
+
+    // If filters changed, reset page to 1
+    if (filtersChanged) {
+      params.delete("page");
+      router.push(`/dashboard/crm/opportunities?${params.toString()}`, { scroll: false });
     }
-  }, [debouncedSearch, view, sortBy, sortOrder, stageFilter, dateFrom, dateTo]);
+  }, [debouncedSearch, view, sortBy, sortOrder, stageFilter, dateFrom, dateTo, router, searchParams]);
+
+  // Main fetch effect, triggers when URL page changes
+  useEffect(() => {
+    fetchOpportunities(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedSearch, view, sortBy, sortOrder, stageFilter, dateFrom, dateTo]);
+
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (newPage > 1) params.set("page", newPage.toString());
+    else params.delete("page");
+    router.push(`/dashboard/crm/opportunities?${params.toString()}`, { scroll: false });
+  };
 
   return (
     <div className="space-y-6">
@@ -138,7 +164,7 @@ export default function OpportunityManager() {
             </TabsList>
           </Tabs>
           
-          <Button variant="outline" size="icon" onClick={() => fetchOpportunities(pagination.page)} disabled={isPending}>
+          <Button variant="outline" size="icon" onClick={() => fetchOpportunities(page)} disabled={isPending}>
             <FiRefreshCcw className={isPending ? "animate-spin" : ""} />
           </Button>
           <Button onClick={() => { setEditingOpp(null); setIsDialogOpen(true); }} className="gap-2">
@@ -248,7 +274,7 @@ export default function OpportunityManager() {
             <OpportunityTable
               opportunities={opportunities}
               onEdit={(opp) => { setEditingOpp(opp); setIsDialogOpen(true); }}
-              onRefresh={() => fetchOpportunities(pagination.page)}
+              onRefresh={() => fetchOpportunities(page)}
             />
           )}
           {view === "grid" && (
@@ -272,7 +298,7 @@ export default function OpportunityManager() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => fetchOpportunities(pagination.page - 1)}
+            onClick={() => handlePageChange(page - 1)}
             disabled={pagination.page <= 1 || isPending}
           >
             Previous
@@ -283,7 +309,7 @@ export default function OpportunityManager() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => fetchOpportunities(pagination.page + 1)}
+            onClick={() => handlePageChange(page + 1)}
             disabled={pagination.page >= pagination.totalPages || isPending}
           >
             Next
@@ -294,7 +320,7 @@ export default function OpportunityManager() {
       <OpportunitySheet 
         isOpen={isDialogOpen} 
         onOpenChange={setIsDialogOpen}
-        onSuccess={() => { setIsDialogOpen(false); fetchOpportunities(pagination.page); }}
+        onSuccess={() => { setIsDialogOpen(false); fetchOpportunities(page); }}
         clients={clients}
         users={users}
         editingOpp={editingOpp}
