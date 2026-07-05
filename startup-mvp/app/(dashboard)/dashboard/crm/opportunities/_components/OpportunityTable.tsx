@@ -15,11 +15,16 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { OpportunityStage } from "@prisma/client";
 import Link from "next/link";
-import { FiMoreVertical, FiEdit, FiFileText, FiEye, FiCalendar } from "react-icons/fi";
+import { FiMoreVertical, FiEdit, FiFileText, FiEye, FiCalendar, FiCheckCircle } from "react-icons/fi";
 
 interface Opportunity {
   id: string;
@@ -40,6 +45,7 @@ interface OpportunityTableProps {
   opportunities: Opportunity[];
   onEdit: (opp: Opportunity) => void;
   onRefresh: () => void;
+  onStatusUpdate?: (id: string, stage: OpportunityStage) => void;
 }
 
 const stageMap: Record<OpportunityStage, { label: string; variant: "default" | "secondary" | "outline" | "destructive" | "success" }> = {
@@ -50,9 +56,10 @@ const stageMap: Record<OpportunityStage, { label: string; variant: "default" | "
   [OpportunityStage.NEGOTIATION]: { label: "Negotiation", variant: "outline" },
   [OpportunityStage.WON]: { label: "Won", variant: "success" },
   [OpportunityStage.LOST]: { label: "Lost", variant: "destructive" },
+  [OpportunityStage.UNQUALIFIED]: { label: "Unqualified", variant: "destructive" },
 };
 
-export default function OpportunityTable({ opportunities, onEdit, onRefresh }: OpportunityTableProps) {
+export default function OpportunityTable({ opportunities, onEdit, onRefresh, onStatusUpdate }: OpportunityTableProps) {
   return (
     <div className="rounded-md border">
       <Table>
@@ -153,6 +160,25 @@ export default function OpportunityTable({ opportunities, onEdit, onRefresh }: O
                         <FiEdit className="mr-2 h-4 w-4" />
                         Edit
                       </DropdownMenuItem>
+                      
+                      {onStatusUpdate && (
+                          <DropdownMenuSub>
+                              <DropdownMenuSubTrigger>
+                                  <FiCheckCircle className="mr-2 h-4 w-4" />
+                                  Status
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent>
+                                  <DropdownMenuRadioGroup value={opp.stage} onValueChange={(val) => onStatusUpdate(opp.id, val as OpportunityStage)}>
+                                      {Object.entries(stageMap).map(([stage, { label }]) => (
+                                          <DropdownMenuRadioItem key={stage} value={stage}>
+                                              {label}
+                                          </DropdownMenuRadioItem>
+                                      ))}
+                                  </DropdownMenuRadioGroup>
+                              </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                      )}
+
                       <DropdownMenuItem onClick={() => {}}>
                         <FiFileText className="mr-2 h-4 w-4" />
                         Create Quotation

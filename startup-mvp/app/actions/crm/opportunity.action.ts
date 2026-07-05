@@ -496,7 +496,7 @@ export async function updateOpportunity(id: string, input: {
 /**
  * Update opportunity stage
  */
-export async function updateOpportunityStage(opportunityId: string, stage: OpportunityStage) {
+export async function updateOpportunityStage(opportunityId: string, stage: OpportunityStage, closingReason?: string) {
   try {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
@@ -510,15 +510,20 @@ export async function updateOpportunityStage(opportunityId: string, stage: Oppor
     // Get old stage
     const oldOpp = await prisma.opportunity.findUnique({
         where: { id: opportunityId },
-        select: { stage: true, contactId: true }
+        select: { stage: true, contactId: true, leadId: true }
     });
+
+    const dataToUpdate: any = { stage };
+    if (closingReason !== undefined) {
+        dataToUpdate.closingReason = closingReason;
+    }
 
     const opportunity = await prisma.opportunity.update({
       where: { id: opportunityId },
-      data: { stage },
+      data: dataToUpdate,
     });
 
-    await logItemUpdated(session.user.id, "Opportunity", opportunityId, ["stage"], opportunity.title, { stage });
+    await logItemUpdated(session.user.id, "Opportunity", opportunityId, ["stage", "closingReason"], opportunity.title, dataToUpdate);
     
     // Log to Timeline
     if (oldOpp && oldOpp.stage !== stage) {
@@ -531,6 +536,16 @@ export async function updateOpportunityStage(opportunityId: string, stage: Oppor
             description: `Stage changed to ${stage}`,
             metadata: { 
                 changes: [{ field: "stage", from: oldOpp.stage, to: stage }]
+            }
+        });
+    }
+
+    if (stage === 'UNQUALIFIED' && oldOpp?.leadId) {
+        await prisma.lead.update({
+            where: { id: oldOpp.leadId },
+            data: {
+                status: 'UNQUALIFIED',
+                closingReason: closingReason || undefined
             }
         });
     }

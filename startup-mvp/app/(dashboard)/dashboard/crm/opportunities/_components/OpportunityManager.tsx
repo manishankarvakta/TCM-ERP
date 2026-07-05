@@ -11,6 +11,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -20,7 +29,7 @@ import { toast } from "sonner";
 import OpportunityTable from "./OpportunityTable";
 import OpportunityGrid from "./OpportunityGrid";
 import { OpportunityKanban } from "@/components/crm/kanban/OpportunityKanban";
-import { getOpportunities } from "@/app/actions/crm/opportunity.action";
+import { getOpportunities, updateOpportunityStage } from "@/app/actions/crm/opportunity.action";
 import { getClients } from "@/app/(dashboard)/dashboard/crm/clients/_actions/client.action";
 import { getActiveUsers } from "@/app/actions/user.action";
 import OpportunitySheet from "./OpportunitySheet";
@@ -43,6 +52,9 @@ export default function OpportunityManager() {
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  
+  const [unqualifiedOpp, setUnqualifiedOpp] = useState<{ id: string } | null>(null);
+  const [closingReason, setClosingReason] = useState<string>("");
   
   const page = parseInt(searchParams.get("page") || "1", 10);
   const [pagination, setPagination] = useState<Pagination>({ page: page, limit: 10, total: 0, totalPages: 0 });
@@ -79,6 +91,45 @@ export default function OpportunityManager() {
         toast.error(result.error || "Failed to load opportunities");
       }
     });
+  };
+
+  const handleStatusUpdate = async (id: string, stage: OpportunityStage) => {
+    if (stage === 'UNQUALIFIED') {
+      setUnqualifiedOpp({ id });
+      setClosingReason("");
+      return;
+    }
+    try {
+      const result = await updateOpportunityStage(id, stage);
+      if (result.success) {
+        toast.success("Stage updated successfully");
+        fetchOpportunities(page);
+      } else {
+        toast.error(result.error || "Failed to update stage");
+      }
+    } catch (e) {
+      toast.error("An error occurred");
+    }
+  };
+
+  const handleUnqualifiedSubmit = async () => {
+    if (!unqualifiedOpp || !closingReason.trim()) {
+      toast.error("Closing reason is required");
+      return;
+    }
+    try {
+      const result = await updateOpportunityStage(unqualifiedOpp.id, 'UNQUALIFIED', closingReason);
+      if (result.success) {
+        toast.success("Opportunity marked as Unqualified");
+        setUnqualifiedOpp(null);
+        setClosingReason("");
+        fetchOpportunities(page);
+      } else {
+        toast.error(result.error || "Failed to update stage");
+      }
+    } catch (e) {
+      toast.error("An error occurred");
+    }
   };
 
   useEffect(() => {
@@ -275,12 +326,15 @@ export default function OpportunityManager() {
               opportunities={opportunities}
               onEdit={(opp) => { setEditingOpp(opp); setIsDialogOpen(true); }}
               onRefresh={() => fetchOpportunities(page)}
+              onStatusUpdate={handleStatusUpdate}
             />
           )}
           {view === "grid" && (
             <OpportunityGrid 
               opportunities={opportunities}
               onEdit={(opp) => { setEditingOpp(opp); setIsDialogOpen(true); }}
+              onRefresh={() => fetchOpportunities(page)}
+              onStatusUpdate={handleStatusUpdate}
             />
           )}
           {view === "kanban" && (
@@ -325,6 +379,29 @@ export default function OpportunityManager() {
         users={users}
         editingOpp={editingOpp}
       />
+
+      <Dialog open={!!unqualifiedOpp} onOpenChange={(open) => !open && setUnqualifiedOpp(null)}>
+          <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                  <DialogTitle>Opportunity Closing Reason</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                      <Label htmlFor="closingReason">Why is this opportunity unqualified? *</Label>
+                      <Textarea 
+                          id="closingReason" 
+                          value={closingReason} 
+                          onChange={(e) => setClosingReason(e.target.value)}
+                          placeholder="e.g. Budget constraint, lost to competitor..."
+                      />
+                  </div>
+              </div>
+              <DialogFooter>
+                  <Button variant="outline" onClick={() => setUnqualifiedOpp(null)}>Cancel</Button>
+                  <Button onClick={handleUnqualifiedSubmit}>Submit</Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
     </div>
   );
 }

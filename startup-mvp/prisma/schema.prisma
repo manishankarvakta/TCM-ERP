@@ -667,6 +667,8 @@ model Opportunity {
   Quotation         Quotation[]
   Project           Project[]
   
+  closingReason     String?
+  
   leadId            String?
   Lead              Lead?            @relation(fields: [leadId], references: [id])
 
@@ -1411,6 +1413,7 @@ enum OpportunityStage {
   NEGOTIATION
   WON
   LOST
+  UNQUALIFIED
 }
 
 enum OrderStatus {
