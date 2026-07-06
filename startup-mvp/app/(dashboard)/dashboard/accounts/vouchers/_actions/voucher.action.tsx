@@ -227,6 +227,11 @@ export async function listVouchers(
           { grns: { some: { warehouseId } } },
           { returnToVendors: { some: { warehouseId } } },
           {
+            User_Voucher_createdByToUser: {
+              defaultWarehouseId: warehouseId,
+            },
+          },
+          {
             VoucherLine: {
               some: {
                 ChartOfAccount: {
