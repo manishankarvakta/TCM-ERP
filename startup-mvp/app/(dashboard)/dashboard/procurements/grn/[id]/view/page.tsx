@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { notFound } from "next/navigation";
 import type { GRNStatus } from "@prisma/client";
 import PrintButton from "@/app/(dashboard)/dashboard/procurements/purchases/_components/print-button";
+import GRNStatusActions from "../../_components/grn-status-actions";
 
 interface GRNDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -39,6 +40,22 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
   }
 
   const grn = result.grn;
+
+  const formatCurrency = (amount: number) => {
+    return `৳${amount.toLocaleString("en-BD", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  const totalAmount = grn.items.reduce((sum, item) => {
+    const unitPrice = item.purchaseItem 
+      ? Number(item.purchaseItem.unitPrice) 
+      : (item.variant?.costPrice 
+          ? Number(item.variant.costPrice) 
+          : (item.item?.costPrice ? Number(item.item.costPrice) : 0));
+    return sum + (Number(item.receivedQuantity) * unitPrice);
+  }, 0);
 
   const getStatusBadgeVariant = (status: GRNStatus) => {
     switch (status) {
@@ -88,6 +105,7 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
           <p className="text-sm text-muted-foreground">Goods Receipt Note Details</p>
         </div>
         <div className="flex items-center gap-2">
+          <GRNStatusActions grnId={grn.id} status={grn.status} />
           <PrintButton />
           <Button variant="ghost" asChild>
             <Link href="/dashboard/procurements/grn">
@@ -204,7 +222,7 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
           <CardHeader className="print:p-1.5 print:pb-0">
             <CardTitle className="flex items-center gap-2 print:text-xs">
               <FiHome className="h-5 w-5 print:h-4 print:w-4" />
-              Destination Warehouse
+              Destination & Finance
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 print:space-y-1 print:p-1.5">
@@ -218,6 +236,29 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
               </Link>
               <p className="text-xs text-muted-foreground font-mono print:text-[10px]">{grn.warehouse.code}</p>
             </div>
+
+            <Separator className="print:my-1" />
+            <div className="space-y-1 print:space-y-0">
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Total Receipt Value</p>
+              <p className="text-2xl font-bold text-primary print:text-xs">
+                {formatCurrency(totalAmount)}
+              </p>
+            </div>
+
+            {grn.voucherId && (
+              <>
+                <Separator className="print:my-1 print:hidden" />
+                <div className="space-y-1 print:space-y-0 print:hidden">
+                  <p className="text-sm font-medium text-muted-foreground">Linked Accounting Voucher</p>
+                  <Link
+                    href={`/dashboard/accounts/vouchers/${grn.voucherId}`}
+                    className="font-semibold hover:underline block text-primary font-mono text-sm"
+                  >
+                    View Voucher
+                  </Link>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -247,37 +288,54 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
                     <TableHead className="print:py-1 print:px-2 print:text-xs">Item Code</TableHead>
                     <TableHead className="print:py-1 print:px-2 print:text-xs">Item Details</TableHead>
                     <TableHead className="text-right print:py-1 print:px-2 print:text-xs">Received Quantity</TableHead>
+                    <TableHead className="text-right print:py-1 print:px-2 print:text-xs">Unit Price</TableHead>
+                    <TableHead className="text-right print:py-1 print:px-2 print:text-xs">Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {grn.items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="print:py-1.5 print:px-2">
-                        {item.item ? (
-                          <Link
-                            href={`/dashboard/master/items/${item.item.id}`}
-                            className="font-mono text-sm hover:underline print:text-slate-900 print:no-underline print:text-xs"
-                          >
-                            {item.item.code}
-                          </Link>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="print:py-1.5 print:px-2">
-                        <div>
-                          <p className="font-medium print:text-xs">
-                            {item.item?.name || "Unknown Item"}
-                            {item.variant ? ` - ${(item.variant as any).name || (item.variant as any).sku || ""}` : ""}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-mono font-semibold print:py-1.5 print:px-2 print:text-xs">
-                        {Number(item.receivedQuantity).toFixed(2)}
-                        {item.item?.unit?.symbol && ` ${item.item.unit.symbol}`}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {grn.items.map((item) => {
+                    const unitPrice = item.purchaseItem 
+                      ? Number(item.purchaseItem.unitPrice) 
+                      : (item.variant?.costPrice 
+                          ? Number(item.variant.costPrice) 
+                          : (item.item?.costPrice ? Number(item.item.costPrice) : 0));
+                    const amount = Number(item.receivedQuantity) * unitPrice;
+
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell className="print:py-1.5 print:px-2">
+                          {item.item ? (
+                            <Link
+                              href={`/dashboard/master/items/${item.item.id}`}
+                              className="font-mono text-sm hover:underline print:text-slate-900 print:no-underline print:text-xs"
+                            >
+                              {item.item.code}
+                            </Link>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="print:py-1.5 print:px-2">
+                          <div>
+                            <p className="font-medium print:text-xs">
+                              {item.item?.name || "Unknown Item"}
+                              {item.variant ? ` - ${(item.variant as any).name || (item.variant as any).sku || ""}` : ""}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-semibold print:py-1.5 print:px-2 print:text-xs">
+                          {Number(item.receivedQuantity).toFixed(2)}
+                          {item.item?.unit?.symbol && ` ${item.item.unit.symbol}`}
+                        </TableCell>
+                        <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">
+                          {formatCurrency(unitPrice)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-semibold print:py-1.5 print:px-2 print:text-xs">
+                          {formatCurrency(amount)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
