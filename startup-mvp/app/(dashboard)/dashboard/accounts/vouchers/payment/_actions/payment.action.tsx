@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 interface SupplierForPayment {
   id: string;
   name: string | null;
-  email: string;
+  email: string | null;
   company: string | null;
   supplierCode: string | null;
   chartOfAccountId: string | null;

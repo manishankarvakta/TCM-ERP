@@ -14,8 +14,8 @@ import { createSupplier } from "../../../suppliers/_actions/supplier.action";
 
 const supplierSchema = z.object({
   name: z.string().min(1, "Name required"),
-  email: z.string().email("Invalid email"),
-  phone: z.string().optional(),
+  email: z.string().email("Invalid email").optional().or(z.literal("")),
+  phone: z.string().min(1, "Phone number is required"),
   company: z.string().optional(),
 });
 
@@ -40,7 +40,7 @@ export default function SupplierDialog({ onCreated, onCancel }: SupplierDialogPr
     try {
       const res = await createSupplier({
         name: data.name,
-        email: data.email,
+        email: data.email || null,
         phone: data.phone,
         company: data.company,
         status: "active",
@@ -66,7 +66,7 @@ export default function SupplierDialog({ onCreated, onCancel }: SupplierDialogPr
         {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
       </div>
       <div className="space-y-2">
-        <Label htmlFor="email">Email *</Label>
+        <Label htmlFor="email">Email</Label>
         <Input id="email" {...register("email")} placeholder="supplier@example.com" />
         {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
       </div>
@@ -75,7 +75,7 @@ export default function SupplierDialog({ onCreated, onCancel }: SupplierDialogPr
         <Input id="company" {...register("company")} placeholder="Company Name" />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="phone">Phone</Label>
+        <Label htmlFor="phone">Phone *</Label>
         <Input id="phone" {...register("phone")} placeholder="+1 234 567 890" />
       </div>
       <DialogFooter>

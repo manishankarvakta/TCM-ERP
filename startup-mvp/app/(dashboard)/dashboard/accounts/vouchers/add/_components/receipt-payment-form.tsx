@@ -82,7 +82,7 @@ interface AccountOption {
 interface SupplierOption {
   id: string;
   name: string | null;
-  email: string;
+  email: string | null;
   company: string | null;
 }
 

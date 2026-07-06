@@ -24,8 +24,8 @@ import { getBasePathFromPathname } from "@/lib/route-utils-client";
 
 const supplierFormSchema = z.object({
   name: z.string().optional().or(z.literal("")),
-  email: z.string().email("Invalid email address"),
-  phone: z.string().optional().or(z.literal("")),
+  email: z.string().email("Invalid email address").optional().or(z.literal("")),
+  phone: z.string().min(1, "Phone number is required"),
   address: z.string().optional().or(z.literal("")),
   city: z.string().optional().or(z.literal("")),
   state: z.string().optional().or(z.literal("")),
@@ -44,7 +44,7 @@ interface SupplierFormProps {
   initialData?: {
     id: string;
     name: string | null;
-    email: string;
+    email: string | null;
     phone: string | null;
     address: string | null;
     city: string | null;
@@ -75,7 +75,7 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
     defaultValues: initialData
       ? {
           name: initialData.name || "",
-          email: initialData.email,
+          email: initialData.email || "",
           phone: initialData.phone || "",
           address: initialData.address || "",
           city: initialData.city || "",
@@ -111,8 +111,8 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
       if (mode === "create") {
         const result = await createSupplier({
           name: data.name || undefined,
-          email: data.email,
-          phone: data.phone || undefined,
+          email: data.email || null,
+          phone: data.phone,
           address: data.address || undefined,
           city: data.city || undefined,
           state: data.state || undefined,
@@ -134,8 +134,8 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
         const result = await updateSupplier({
           id: initialData!.id,
           name: data.name || undefined,
-          email: data.email,
-          phone: data.phone || undefined,
+          email: data.email || null,
+          phone: data.phone,
           address: data.address || undefined,
           city: data.city || undefined,
           state: data.state || undefined,
@@ -200,7 +200,7 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email *</Label>
+                    <Label htmlFor="email">Email</Label>
                     <Input
                       id="email"
                       type="email"
@@ -216,7 +216,7 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
+                    <Label htmlFor="phone">Phone *</Label>
                     <Input
                       id="phone"
                       type="tel"

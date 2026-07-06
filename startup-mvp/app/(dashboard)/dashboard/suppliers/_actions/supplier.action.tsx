@@ -334,8 +334,8 @@ async function generateSupplierAccountCode(tx?: Prisma.TransactionClient): Promi
  */
 export async function createSupplier(input: {
   name?: string;
-  email: string;
-  phone?: string;
+  email?: string | null;
+  phone: string;
   address?: string;
   city?: string;
   state?: string;
@@ -357,17 +357,19 @@ export async function createSupplier(input: {
       };
     }
 
-    // Check if email already exists
-    const existingSupplier = await prisma.supplier.findUnique({
-      where: { email: input.email },
-    });
+    // Check if email already exists if provided
+    if (input.email) {
+      const existingSupplier = await prisma.supplier.findUnique({
+        where: { email: input.email },
+      });
 
-    if (existingSupplier) {
-      return {
-        success: false,
-        error: "Supplier with this email already exists",
-        supplier: null,
-      };
+      if (existingSupplier) {
+        return {
+          success: false,
+          error: "Supplier with this email already exists",
+          supplier: null,
+        };
+      }
     }
 
     // Use transaction to ensure atomicity
@@ -463,7 +465,7 @@ export async function createSupplier(input: {
       }
 
       // Create Chart of Account for supplier
-      const supplierName = input.name || input.email;
+      const supplierName = input.name || input.email || "Unnamed Supplier";
       const accountName = `AP - ${supplierName}`;
       const coaId = `coa_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
@@ -485,7 +487,7 @@ export async function createSupplier(input: {
         data: {
           name: input.name || null,
           supplierCode,
-          email: input.email,
+          email: input.email || null,
           phone: input.phone || null,
           address: input.address || null,
           city: input.city || null,
@@ -534,7 +536,7 @@ export async function createSupplier(input: {
           date: new Date(),
           type: "JOURNAL",
           reference: "OPENING-BALANCE",
-          description: `Opening Balance for Supplier: ${input.name || input.email}`,
+          description: `Opening Balance for Supplier: ${input.name || input.email || "Unnamed Supplier"}`,
           isSystemAction: true,
           lines: [
             {
@@ -572,7 +574,7 @@ export async function createSupplier(input: {
       session.user.id,
       "Supplier",
       result.supplier.id,
-      result.supplier.name || result.supplier.email,
+      result.supplier.name || result.supplier.email || undefined,
       { 
         name: result.supplier.name, 
         email: result.supplier.email,
@@ -606,8 +608,8 @@ export async function createSupplier(input: {
 export async function updateSupplier(input: {
   id: string;
   name?: string;
-  email: string;
-  phone?: string;
+  email?: string | null;
+  phone: string;
   address?: string;
   city?: string;
   state?: string;
@@ -660,7 +662,7 @@ export async function updateSupplier(input: {
     }
 
     // Check if email is being changed and if new email already exists
-    if (input.email !== existingSupplier.email) {
+    if (input.email && input.email !== existingSupplier.email) {
       const emailExists = await prisma.supplier.findUnique({
         where: { email: input.email },
       });
@@ -676,7 +678,7 @@ export async function updateSupplier(input: {
 
     // Use transaction to ensure atomicity when creating missing account
     const result = await prisma.$transaction(async (tx) => {
-      const supplierName = input.name !== undefined ? (input.name || input.email) : (existingSupplier.name || existingSupplier.email);
+      const supplierName = input.name !== undefined ? (input.name || input.email || "Unnamed Supplier") : (existingSupplier.name || existingSupplier.email || "Unnamed Supplier");
       let chartOfAccountId = existingSupplier.chartOfAccountId;
       
       // Generate supplier code if missing
@@ -793,8 +795,8 @@ export async function updateSupplier(input: {
       // Build update data
       const updateData: Prisma.SupplierUpdateInput = {
         name: input.name !== undefined ? (input.name || null) : undefined,
-        email: input.email,
-        phone: input.phone !== undefined ? (input.phone || null) : undefined,
+        email: input.email !== undefined ? (input.email || null) : undefined,
+        phone: input.phone,
         address: input.address !== undefined ? (input.address || null) : undefined,
         city: input.city !== undefined ? (input.city || null) : undefined,
         state: input.state !== undefined ? (input.state || null) : undefined,
@@ -880,7 +882,7 @@ export async function updateSupplier(input: {
       "Supplier",
       supplier.id,
       changes,
-      supplier.name || supplier.email,
+      supplier.name || supplier.email || undefined,
       { 
         name: supplier.name, 
         email: supplier.email,
@@ -964,7 +966,7 @@ export async function deleteSupplier(supplierId: string) {
       session.user.id,
       "Supplier",
       supplierId,
-      supplierToDelete.name || supplierToDelete.email,
+      supplierToDelete.name || supplierToDelete.email || undefined,
       { 
         name: supplierToDelete.name, 
         email: supplierToDelete.email,
@@ -1037,7 +1039,7 @@ export async function bulkUpdateSupplierStatus(
         "Supplier",
         supplier.id,
         ["status"],
-        supplier.name || supplier.email,
+        supplier.name || supplier.email || undefined,
         { name: supplier.name, email: supplier.email, status, changes: ["status"] }
       );
     }
@@ -1100,7 +1102,7 @@ export async function deleteSuppliersPermanently(supplierIds: string[]) {
         session.user.id,
         "Supplier",
         supplier.id,
-        supplier.name || supplier.email,
+        supplier.name || supplier.email || undefined,
         { name: supplier.name, email: supplier.email }
       );
     }

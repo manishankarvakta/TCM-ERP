@@ -77,7 +77,7 @@ interface PurchaseFormProps {
   suppliers: Array<{
     id: string;
     name: string | null;
-    email: string;
+    email: string | null;
     company: string | null;
     supplierCode: string | null;
   }>;
@@ -240,7 +240,7 @@ export default function PurchaseForm({
     return localSuppliers.filter(
       (s) =>
         (s.name?.toLowerCase().includes(searchLower) || false) ||
-        s.email.toLowerCase().includes(searchLower) ||
+        (s.email?.toLowerCase().includes(searchLower) || false) ||
         (s.company?.toLowerCase().includes(searchLower) || false) ||
         (s.supplierCode?.toLowerCase().includes(searchLower) || false)
     );

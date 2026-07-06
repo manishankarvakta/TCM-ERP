@@ -40,7 +40,7 @@ type PaymentVoucherFormData = z.infer<typeof paymentVoucherSchema>;
 interface SupplierOption {
   id: string;
   name: string | null;
-  email: string;
+  email: string | null;
   company: string | null;
   supplierCode: string | null;
   chartOfAccountId: string | null;

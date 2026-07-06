@@ -134,7 +134,7 @@ export default async function SupplierDetailsPage({ searchParams }: SupplierDeta
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={supplier.image}
-                        alt={supplier.name || supplier.email}
+                        alt={supplier.name || supplier.email || ""}
                         className="w-full h-full object-cover"
                       />
                     </div>
