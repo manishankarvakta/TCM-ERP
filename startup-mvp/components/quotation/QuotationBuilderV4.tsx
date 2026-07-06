@@ -846,7 +846,7 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="pb-6">
+    <div className="relative">
       {/* ── Sticky identity header ─────────────────────────────────────────── */}
       <QuotationHeaderBar
         quotationNumber={quotationNumber}
@@ -870,7 +870,7 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
 
       <form
         onSubmit={handleSubmit((data) => buildAndSubmit(data as any))}
-        className="flex flex-col gap-4 md:flex-row md:items-start"
+        className="flex flex-col gap-4 md:flex-row md:items-stretch relative"
       >
         {/* ── Main document area ────────────────────────────────────────────── */}
         <div className="flex-1 min-w-0 space-y-4">

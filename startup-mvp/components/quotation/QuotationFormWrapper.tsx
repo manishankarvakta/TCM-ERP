@@ -57,7 +57,7 @@ export function QuotationFormWrapper({ quotationId, initialData, title }: Quotat
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="h-full">
       <div className="max-w-7xl mx-auto">
         {title && <h1 className="text-4xl font-bold mb-8 xs:text-xl">{title}</h1>}
         
