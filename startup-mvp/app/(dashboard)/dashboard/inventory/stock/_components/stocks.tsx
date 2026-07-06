@@ -185,19 +185,6 @@ export default function StocksListClient({
           )}
         </div>
 
-        <Select value={itemFilter} onValueChange={handleItemFilter}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filter by item" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Items</SelectItem>
-            {items.map((item) => (
-              <SelectItem key={item.id} value={item.id}>
-                {item.name} ({item.code})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
 
         <Select value={warehouseFilter} onValueChange={handleWarehouseFilter} disabled={isNormalUser}>
           <SelectTrigger className="w-[200px]">

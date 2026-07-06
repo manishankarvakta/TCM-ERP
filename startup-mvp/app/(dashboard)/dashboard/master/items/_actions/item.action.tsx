@@ -456,6 +456,13 @@ export async function getItemById(itemId: string) {
             costPrice: true,
             salesPrice: true,
             image: true,
+            stocks: {
+              select: {
+                id: true,
+                warehouseId: true,
+                quantity: true,
+              }
+            }
           },
         },
       },
@@ -486,6 +493,10 @@ export async function getItemById(itemId: string) {
         salesPrice: v.salesPrice ? Number(v.salesPrice) : null,
         wholesalePrice: (v as any).wholesalePrice ? Number((v as any).wholesalePrice) : null,
         wholesaleDiscountAmount: (v as any).wholesaleDiscountAmount ? Number((v as any).wholesaleDiscountAmount) : null,
+        stocks: v.stocks ? v.stocks.map((s) => ({
+          ...s,
+          quantity: Number(s.quantity),
+        })) : [],
       })) : [],
     };
 

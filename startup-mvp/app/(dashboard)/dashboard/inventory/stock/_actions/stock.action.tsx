@@ -1038,8 +1038,19 @@ export async function getStocks(
 
     if (filters.search) {
       where.OR = [
+        // 1. Direct Item match (simple items)
         { item: { name: { contains: filters.search, mode: "insensitive" } } },
         { item: { code: { contains: filters.search, mode: "insensitive" } } },
+        { item: { barcode: { contains: filters.search, mode: "insensitive" } } },
+
+        // 2. Variant match (SKUs / barcodes / parent details)
+        { variant: { sku: { contains: filters.search, mode: "insensitive" } } },
+        { variant: { barcode: { contains: filters.search, mode: "insensitive" } } },
+        { variant: { item: { name: { contains: filters.search, mode: "insensitive" } } } },
+        { variant: { item: { code: { contains: filters.search, mode: "insensitive" } } } },
+        { variant: { item: { barcode: { contains: filters.search, mode: "insensitive" } } } },
+
+        // 3. Warehouse match
         { warehouse: { name: { contains: filters.search, mode: "insensitive" } } },
         { warehouse: { code: { contains: filters.search, mode: "insensitive" } } },
       ];

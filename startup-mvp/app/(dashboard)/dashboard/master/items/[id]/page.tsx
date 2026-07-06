@@ -1,5 +1,7 @@
 import React from "react";
 import { getItemById, getItemWarehouseStock } from "../_actions/item.action";
+import SKUVariantMatrix from "../_components/sku-variant-matrix";
+import { prisma } from "@/lib/prisma";
 import PageGuard from "@/components/permissions/page-guard";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,6 +52,12 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
   const stockResult = await getItemWarehouseStock(id);
   const warehouseStocks = stockResult.success ? stockResult.stocks : [];
   const warehouseStocksMessage = stockResult.message || null;
+
+  const warehouses = await prisma.warehouse.findMany({
+    where: { isTrash: false, status: "active" },
+    select: { id: true, name: true, code: true },
+    orderBy: { name: "asc" }
+  });
   
   const session = await auth();
   const userId = session?.user?.id;
@@ -443,133 +451,14 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
 
             {/* SKU Variants Table */}
             {hasVariants && (
-              <Card className="border-border/60">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-md bg-muted">
-                        <FiGrid className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-base">SKU Variant Matrix</CardTitle>
-                        <CardDescription className="mt-0.5">
-                          {item.variants.length} active size-color variants
-                        </CardDescription>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="font-semibold text-xs">
-                      {item.variants.length} SKUs
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-y border-border bg-muted/50">
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Photo</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Color</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Size</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">SKU Code</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Barcode</th>
-                          <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Cost</th>
-                          <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sales</th>
-                          {isVatEnabled && (
-                            <th className="text-right py-3 px-4 text-xs font-semibold text-orange-600 uppercase tracking-wide">incl. VAT</th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {item.variants.map((v: any, idx: number) => {
-                          const variantSalesPrice = v.salesPrice ? Number(v.salesPrice) : (item.salesPrice ? Number(item.salesPrice) : null);
-                          const priceInclVat = variantSalesPrice && isVatEnabled
-                            ? variantSalesPrice * (1 + vatPercentage / 100)
-                            : null;
-                          return (
-                            <tr key={v.id || idx} className="hover:bg-muted/20 transition-colors group">
-                              {/* Photo */}
-                              <td className="py-3 px-4">
-                                {v.image ? (
-                                  <div className="w-10 h-10 rounded-lg border border-border overflow-hidden bg-muted shrink-0">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                      src={v.image}
-                                      alt={`${v.color} ${v.size}`}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  </div>
-                                ) : (
-                                  <div className="w-10 h-10 rounded-lg border border-dashed border-border bg-muted/40 flex items-center justify-center text-muted-foreground">
-                                    <FiImage className="h-4 w-4" />
-                                  </div>
-                                )}
-                              </td>
-                              {/* Color */}
-                              <td className="py-3 px-4">
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className="w-3 h-3 rounded-full border border-border shrink-0"
-                                    style={{ backgroundColor: v.color.toLowerCase() }}
-                                  />
-                                  <span className="font-medium text-foreground">{v.color}</span>
-                                </div>
-                              </td>
-                              {/* Size */}
-                              <td className="py-3 px-4">
-                                <Badge variant="outline" className="text-xs font-bold">{v.size}</Badge>
-                              </td>
-                              {/* SKU */}
-                              <td className="py-3 px-4">
-                                <code className="text-xs bg-muted px-2 py-1 rounded font-mono text-foreground">{v.sku}</code>
-                              </td>
-                              {/* Barcode */}
-                              <td className="py-3 px-4">
-                                {v.barcode ? (
-                                  <span className="text-xs font-mono text-muted-foreground tracking-wider">{v.barcode}</span>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground italic">—</span>
-                                )}
-                              </td>
-                              {/* Cost */}
-                              <td className="py-3 px-4 text-right">
-                                <span className="text-sm font-medium text-muted-foreground">
-                                  {v.costPrice ? formatPrice(v.costPrice) : <span className="text-xs italic text-muted-foreground">Base</span>}
-                                </span>
-                              </td>
-                              {/* Sales */}
-                              <td className="py-3 px-4 text-right">
-                                <span className="text-sm font-bold text-primary">
-                                  {v.salesPrice ? formatPrice(v.salesPrice) : <span className="text-xs italic text-muted-foreground">Base</span>}
-                                </span>
-                              </td>
-                              {/* Price incl. VAT */}
-                              {isVatEnabled && (
-                                <td className="py-3 px-4 text-right">
-                                  {priceInclVat ? (
-                                    <span className="text-sm font-bold text-orange-600">
-                                      {formatPrice(priceInclVat)}
-                                    </span>
-                                  ) : (
-                                    <span className="text-xs italic text-muted-foreground">—</span>
-                                  )}
-                                </td>
-                              )}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  {isVatEnabled && (
-                    <div className="px-4 py-3 border-t border-border bg-orange-50/50 dark:bg-orange-950/10">
-                      <p className="text-xs text-orange-700 dark:text-orange-400 font-medium flex items-center gap-1.5">
-                        <FiPercent className="h-3 w-3" />
-                        Prices in the "incl. VAT" column include {vatPercentage}% VAT added on top of the sales price.
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <SKUVariantMatrix
+                variants={item.variants}
+                warehouses={warehouses}
+                isVatEnabled={isVatEnabled}
+                vatPercentage={vatPercentage}
+                itemSalesPrice={item.salesPrice}
+                featuredImage={item.featuredImage}
+              />
             )}
 
             {/* Stock Information Card */}
