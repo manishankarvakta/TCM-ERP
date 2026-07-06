@@ -26,7 +26,6 @@ async function generateItemCode(itemType: ItemType): Promise<string> {
   const lastItem = await prisma.item.findFirst({
     where: { 
       code: { startsWith: pattern },
-      isTrash: false,
     },
     orderBy: { code: "desc" },
   });
