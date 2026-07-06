@@ -1095,7 +1095,7 @@ export async function downloadQuotationPDF(quotation: Quotation | any, filename?
     // Sanitize client name for filesystem
     clientName = clientName.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').toLowerCase();
 
-    const name = filename || `quotation-${clientName}-${quotation.quotationNumber || 'export'}.pdf`;
+    const name = filename || `${clientName}-${quotation.quotationNumber || 'export'}.pdf`;
     doc.save(name);
   } catch (error) {
     console.error('Error generating PDF:', error);

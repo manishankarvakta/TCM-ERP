@@ -262,7 +262,7 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
             </div>
             <div className="relative z-10 bg-white/5 backdrop-blur-2xl p-10 rounded-[2rem] border border-white/10 shadow-2xl text-right min-w-[340px] transform hover:scale-105 transition-all duration-500 ring-1 ring-white/20">
               <p className="text-xs font-bold text-blue-300 uppercase tracking-[0.2em] mb-4">Grand Total</p>
-              <p className="text-5xl md:text-6xl font-black text-white tracking-tighter">{formatCurrency(Number(quotation.grandTotal || quotation.total))}</p>
+              <p className="text-3xl md:text-3xl font-black text-white tracking-tighter">{formatCurrency(Number(quotation.grandTotal || quotation.total))}</p>
               <div className="mt-8 flex items-center justify-end gap-2 text-blue-200 text-xs font-medium uppercase tracking-widest">
                 <span className="bg-blue-500/20 px-4 py-2 rounded-full border border-blue-400/20 flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
