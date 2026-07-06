@@ -198,21 +198,27 @@ const buildSubmitPayload = (data: QuotationFormValues, sections: any[], mode: Qu
   // Extract legacy fields from sections if they exist
   let coverLetter = data.coverLetter || '';
   let tos = data.tos || '';
+  let subject = data.subject || '';
   
   const coverSection = sections.find(s => s.sectionType === 'COVER');
-  if (coverSection?.metadata?.cover?.coverLetter) {
-    coverLetter = coverSection.metadata.cover.coverLetter;
+  if (coverSection?.metadata) {
+    if (coverSection.metadata.coverLetter) coverLetter = coverSection.metadata.coverLetter;
+    else if (coverSection.metadata.coverIntro) coverLetter = coverSection.metadata.coverIntro;
+
+    if (coverSection.metadata.subject) subject = coverSection.metadata.subject;
+    else if (coverSection.metadata.coverTitle) subject = coverSection.metadata.coverTitle;
   }
   
-  const termsSection = sections.find(s => s.sectionType === 'TERMS');
-  if (termsSection?.metadata?.terms?.terms) {
-    tos = termsSection.metadata.terms.terms;
+  const termsSection = sections.find(s => s.sectionType === 'TERMS' || s.sectionType === 'LEGAL_TERMS');
+  if (termsSection?.metadata) {
+    if (termsSection.metadata.tos) tos = termsSection.metadata.tos;
+    else if (termsSection.metadata.content) tos = termsSection.metadata.content;
   }
 
   return {
   quotationNumber: data.quotationNumber,
   date: data.date,
-  subject: data.subject,
+  subject: subject,
   submittedTo: data.clientName || '',
   coverLetter,
   financialStatement: data.financialStatement || '',

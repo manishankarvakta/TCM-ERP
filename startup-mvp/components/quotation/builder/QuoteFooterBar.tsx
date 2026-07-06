@@ -129,7 +129,7 @@ export function QuoteFooterBar({
           {/* Grand total — always shown, prominent */}
           <div className="ml-auto flex shrink-0 flex-col items-end">
             <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Grand Total</span>
-            <span className="text-lg font-bold text-primary leading-tight">
+            <span className="text-md font-bold text-primary leading-tight">
               {formatCurrency(grandTotal, currency)}
             </span>
           </div>
