@@ -57,18 +57,25 @@ export async function getContraAccounts(): Promise<{
 
       if (user?.defaultWarehouseId) {
         whereClause.CashBankAccount = {
-          warehouses: {
-            some: {
-              id: user.defaultWarehouseId,
+          OR: [
+            {
+              warehouses: {
+                none: {}, // Global accounts
+              },
             },
-          },
+            {
+              warehouses: {
+                some: {
+                  id: user.defaultWarehouseId,
+                },
+              },
+            },
+          ],
         };
       } else {
         whereClause.CashBankAccount = {
           warehouses: {
-            some: {
-              id: "none",
-            },
+            none: {}, // Only global accounts if no default warehouse
           },
         };
       }

@@ -23,14 +23,17 @@ import { createVoucher, postVoucher } from "../../../../vouchers/_actions/vouche
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType } from "@prisma/client";
 
-// Form validation schema
+// Form validation schema with refinement for From ≠ To
 const depositVoucherSchema = z.object({
-  fromAccountId: z.string().min(1, "Source Cash account is required"),
-  toAccountId: z.string().min(1, "Destination Bank account is required"),
+  fromAccountId: z.string().min(1, "Source account is required"),
+  toAccountId: z.string().min(1, "Destination account is required"),
   amount: z.number().positive("Amount must be greater than 0"),
   date: z.string().min(1, "Date is required"),
   reference: z.string().optional(),
   description: z.string().optional(),
+}).refine((data) => data.fromAccountId !== data.toAccountId, {
+  message: "Source and Destination accounts must be different",
+  path: ["toAccountId"],
 });
 
 type DepositVoucherFormData = z.infer<typeof depositVoucherSchema>;
@@ -47,10 +50,11 @@ export default function DepositsVoucherForm() {
   const pathname = usePathname();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [accounts, setAccounts] = useState<{
-    cashAndWallets: AccountOption[];
-    bankAccounts: AccountOption[];
-  }>({ cashAndWallets: [], bankAccounts: [] });
+  const [contraAccounts, setContraAccounts] = useState<{
+    cash: AccountOption[];
+    bank: AccountOption[];
+    digitalWallet: AccountOption[];
+  }>({ cash: [], bank: [], digitalWallet: [] });
   const [loadingData, setLoadingData] = useState(true);
   
   // Balance states
@@ -65,10 +69,7 @@ export default function DepositsVoucherForm() {
       try {
         const result = await getContraAccounts();
         if (result.success && result.accounts) {
-          setAccounts({
-            cashAndWallets: [...result.accounts.cash, ...result.accounts.digitalWallet],
-            bankAccounts: result.accounts.bank,
-          });
+          setContraAccounts(result.accounts);
         }
       } catch (err) {
         console.error("Failed to fetch accounts:", err);
@@ -102,6 +103,19 @@ export default function DepositsVoucherForm() {
   const watchedFromAccountId = watch("fromAccountId");
   const watchedToAccountId = watch("toAccountId");
   const watchedAmount = watch("amount");
+
+  // Helper to find account details
+  const getAccountDetails = (id: string) => {
+    const allAccounts = [
+      ...contraAccounts.cash,
+      ...contraAccounts.bank,
+      ...contraAccounts.digitalWallet,
+    ];
+    return allAccounts.find(a => a.id === id);
+  };
+
+  const fromAccount = getAccountDetails(watchedFromAccountId);
+  const toAccount = getAccountDetails(watchedToAccountId);
 
   // Fetch balance when From account changes
   useEffect(() => {
@@ -152,15 +166,17 @@ export default function DepositsVoucherForm() {
       setLoading(true);
       setError("");
 
-      const fromAcc = accounts.cashAndWallets.find(a => a.id === data.fromAccountId);
-      const toAcc = accounts.bankAccounts.find(a => a.id === data.toAccountId);
+      const fromAcc = getAccountDetails(data.fromAccountId);
+      const toAcc = getAccountDetails(data.toAccountId);
 
       if (!fromAcc || !toAcc) {
         throw new Error("Invalid account selection");
       }
 
-      // Check if depositing amount exceeds cash balance
-      if (fromAccountBalance !== null && data.amount > fromAccountBalance) {
+      // Check if depositing amount exceeds source account balance (only check if cash account)
+      const isCashSource = contraAccounts.cash.some(a => a.id === data.fromAccountId) || 
+                           contraAccounts.digitalWallet.some(a => a.id === data.fromAccountId);
+      if (isCashSource && fromAccountBalance !== null && data.amount > fromAccountBalance) {
         throw new Error(`Insufficient funds. Available balance in ${fromAcc.name} is ৳${fromAccountBalance.toFixed(2)}`);
       }
 
@@ -170,14 +186,14 @@ export default function DepositsVoucherForm() {
           lineNumber: 1,
           debitAmount: data.amount,
           creditAmount: 0,
-          description: `Cash deposit to ${toAcc.name}`,
+          description: `Transfer to ${toAcc.name}`,
           chartOfAccountId: toAcc.id,
         },
         {
           lineNumber: 2,
           debitAmount: 0,
           creditAmount: data.amount,
-          description: `Cash deposit from ${fromAcc.name}`,
+          description: `Transfer from ${fromAcc.name}`,
           chartOfAccountId: fromAcc.id,
         },
       ];
@@ -233,6 +249,92 @@ export default function DepositsVoucherForm() {
     return null;
   };
 
+  const renderAccountSelect = (
+    name: "fromAccountId" | "toAccountId",
+    label: string,
+    placeholder: string,
+    excludeAccountId?: string,
+    balance?: number | null,
+    loadingBalance?: boolean
+  ) => (
+    <div className="space-y-2">
+      <Label htmlFor={name}>{label} *</Label>
+      <Controller
+        name={name}
+        control={control}
+        render={({ field }) => (
+          <Select
+            value={field.value}
+            onValueChange={field.onChange}
+            disabled={loading}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={placeholder} />
+            </SelectTrigger>
+            <SelectContent>
+              {contraAccounts.cash.length === 0 && 
+               contraAccounts.bank.length === 0 && 
+               contraAccounts.digitalWallet.length === 0 ? (
+                <SelectItem value="none" disabled>
+                  No accounts available
+                </SelectItem>
+              ) : (
+                <>
+                  {contraAccounts.cash.length > 0 && (
+                    <>
+                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b">
+                        CASH ACCOUNTS
+                      </div>
+                      {contraAccounts.cash
+                        .filter((acc) => acc.id !== excludeAccountId)
+                        .map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.code} - {account.name}
+                          </SelectItem>
+                        ))}
+                    </>
+                  )}
+                  {contraAccounts.bank.length > 0 && (
+                    <>
+                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b border-t mt-1">
+                        BANK ACCOUNTS
+                      </div>
+                      {contraAccounts.bank
+                        .filter((acc) => acc.id !== excludeAccountId)
+                        .map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.code} - {account.name}
+                          </SelectItem>
+                        ))}
+                    </>
+                  )}
+                  {contraAccounts.digitalWallet.length > 0 && (
+                    <>
+                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b border-t mt-1">
+                        DIGITAL WALLETS
+                      </div>
+                      {contraAccounts.digitalWallet
+                        .filter((acc) => acc.id !== excludeAccountId)
+                        .map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.code} - {account.name}
+                          </SelectItem>
+                        ))}
+                    </>
+                  )}
+                </>
+              )}
+            </SelectContent>
+          </Select>
+        )}
+      />
+      {renderBalance(balance ?? null, loadingBalance ?? false)}
+      {errors[name] && (
+        <p className="text-xs text-destructive mt-1">{errors[name]?.message}</p>
+      )}
+    </div>
+  );
+
   if (loadingData) {
     return (
       <Card>
@@ -254,7 +356,7 @@ export default function DepositsVoucherForm() {
           <div>
             <CardTitle>Cash Deposit (Contra Voucher)</CardTitle>
             <CardDescription>
-              Record a transfer of physical cash or digital wallet balance into your bank account.
+              Record a transfer of physical cash, digital wallet balance, or bank funds.
             </CardDescription>
           </div>
         </CardHeader>
@@ -269,79 +371,25 @@ export default function DepositsVoucherForm() {
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Source Cash Account Selection */}
-                <div className="space-y-2">
-                  <Label htmlFor="fromAccountId">Source Account (Cash / Digital Wallet) *</Label>
-                  <Controller
-                    name="fromAccountId"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        disabled={loading}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select cash account..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {accounts.cashAndWallets.length === 0 ? (
-                            <SelectItem value="none" disabled>
-                              No cash accounts available
-                            </SelectItem>
-                          ) : (
-                            accounts.cashAndWallets.map((account) => (
-                              <SelectItem key={account.id} value={account.id}>
-                                {account.code} - {account.name}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {renderBalance(fromAccountBalance, loadingFromBalance)}
-                  {errors.fromAccountId && (
-                    <p className="text-xs text-destructive mt-1">{errors.fromAccountId.message}</p>
-                  )}
-                </div>
+                {/* Source Selection */}
+                {renderAccountSelect(
+                  "fromAccountId",
+                  "Source Account (Transfer From)",
+                  "Select source account...",
+                  watchedToAccountId,
+                  fromAccountBalance,
+                  loadingFromBalance
+                )}
 
-                {/* Destination Bank Account Selection */}
-                <div className="space-y-2">
-                  <Label htmlFor="toAccountId">Destination Account (Bank) *</Label>
-                  <Controller
-                    name="toAccountId"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        disabled={loading}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select bank account..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {accounts.bankAccounts.length === 0 ? (
-                            <SelectItem value="none" disabled>
-                              No bank accounts available
-                            </SelectItem>
-                          ) : (
-                            accounts.bankAccounts.map((account) => (
-                              <SelectItem key={account.id} value={account.id}>
-                                {account.code} - {account.name}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {renderBalance(toAccountBalance, loadingToBalance)}
-                  {errors.toAccountId && (
-                    <p className="text-xs text-destructive mt-1">{errors.toAccountId.message}</p>
-                  )}
-                </div>
+                {/* Destination Selection */}
+                {renderAccountSelect(
+                  "toAccountId",
+                  "Destination Account (Deposit To)",
+                  "Select destination account...",
+                  watchedFromAccountId,
+                  toAccountBalance,
+                  loadingToBalance
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
