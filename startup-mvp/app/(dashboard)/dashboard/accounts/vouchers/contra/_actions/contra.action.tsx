@@ -42,13 +42,41 @@ export async function getContraAccounts(): Promise<{
       };
     }
 
+    const isAdmin = session.user.role?.toLowerCase() === "admin" || session.user.role?.toLowerCase() === "super-admin";
+    const whereClause: any = {
+      type: "ASSET",
+      status: "active",
+      isControl: false,
+    };
+
+    if (!isAdmin) {
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { defaultWarehouseId: true },
+      });
+
+      if (user?.defaultWarehouseId) {
+        whereClause.CashBankAccount = {
+          warehouses: {
+            some: {
+              id: user.defaultWarehouseId,
+            },
+          },
+        };
+      } else {
+        whereClause.CashBankAccount = {
+          warehouses: {
+            some: {
+              id: "none",
+            },
+          },
+        };
+      }
+    }
+
     // Fetch ASSET accounts from Chart of Accounts
     const accounts = await prisma.chartOfAccount.findMany({
-      where: {
-        type: "ASSET",
-        status: "active",
-        isControl: false,
-      },
+      where: whereClause,
       select: {
         id: true,
         code: true,
