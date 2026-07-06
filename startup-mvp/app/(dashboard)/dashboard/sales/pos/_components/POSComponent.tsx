@@ -1567,11 +1567,9 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           description: "New client registered successfully!"
         });
         const newClientObj = res.client as Client;
-        setClients(prev => {
-          const updated = [newClientObj, ...prev];
-          changeCustomerAndSyncMode(newClientObj.id, updated);
-          return updated;
-        });
+        setClients(prev => [newClientObj, ...prev]);
+        const updatedList = [newClientObj, ...clients];
+        changeCustomerAndSyncMode(newClientObj.id, updatedList);
         setIsAddCustomerOpen(false);
         setNewCustomerData({
           name: "",
