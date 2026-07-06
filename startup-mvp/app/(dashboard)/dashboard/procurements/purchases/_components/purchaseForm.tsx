@@ -385,9 +385,7 @@ export default function PurchaseForm({
   }, [watchedWarehouseId]);
 
   // Create a stable dependency key for items that only changes when quantity or unitPrice changes
-  const itemsCalcKey = useMemo(() => {
-    return watchedItems.map((item, idx) => `${idx}:${item.quantity}:${item.unitPrice}`).join('|');
-  }, [watchedItems]);
+  const itemsCalcKey = watchedItems.map((item, idx) => `${idx}:${item.quantity}:${item.unitPrice}`).join('|');
 
   // Recalculate amounts whenever quantity or unitPrice changes
   React.useEffect(() => {

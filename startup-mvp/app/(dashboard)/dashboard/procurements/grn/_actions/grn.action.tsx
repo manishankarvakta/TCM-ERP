@@ -124,6 +124,7 @@ async function createGRNAccountingVoucher(
     const totalRawMaterialCost = itemsByType.RAW_MATERIAL.reduce((sum, item) => sum + item.totalCost, 0);
     const totalFGCost = itemsByType.READY_PRODUCT.reduce((sum, item) => sum + item.totalCost, 0);
     const totalRetailCost = itemsByType.RETAIL.reduce((sum, item) => sum + item.totalCost, 0);
+    const totalWholesaleCost = itemsByType.WHOLESALE.reduce((sum, item) => sum + item.totalCost, 0);
 
     if (totalRawMaterialCost > 0 && productionAccounts) {
       voucherLines.push({
@@ -156,6 +157,17 @@ async function createGRNAccountingVoucher(
         chartOfAccountId: purchaseAccounts.inventoryAccountId,
       });
       totalInventoryDebit += totalRetailCost;
+    }
+
+    if (totalWholesaleCost > 0) {
+      voucherLines.push({
+        lineNumber: lineNumber++,
+        debitAmount: totalWholesaleCost,
+        creditAmount: 0,
+        description: `Wholesale Inventory - ${grn.grnNumber}`,
+        chartOfAccountId: purchaseAccounts.inventoryAccountId,
+      });
+      totalInventoryDebit += totalWholesaleCost;
     }
 
     if (totalInventoryDebit > 0) {
