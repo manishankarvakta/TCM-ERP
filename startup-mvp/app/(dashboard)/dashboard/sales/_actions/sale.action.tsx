@@ -373,6 +373,7 @@ export async function getItemsForSale() {
         images: true,
         isVatEnabled: true,
         vatPercentage: true,
+        trackInventory: true,
         stocks: {
           select: {
             warehouseId: true,
@@ -419,6 +420,7 @@ export async function getItemsForSale() {
         imageUrl: item.featuredImage || (Array.isArray(item.images) && item.images.length > 0 ? (item.images[0] as string) : null) || null,
         isVatEnabled: item.isVatEnabled || false,
         vatPercentage: item.vatPercentage ? Number(item.vatPercentage) : 0,
+        trackInventory: item.trackInventory,
         stocks: item.stocks.map(s => ({
             warehouseId: s.warehouseId,
             quantity: Number(s.quantity)

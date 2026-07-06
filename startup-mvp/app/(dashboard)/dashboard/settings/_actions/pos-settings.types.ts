@@ -12,6 +12,8 @@ export const posSettingsSchema = z.object({
   showBiller: z.boolean().default(true),
   showTaxDetails: z.boolean().default(true),
   showBarcode: z.boolean().default(false),
+  allowNegativeSale: z.boolean().default(false),
+  allowDueSale: z.boolean().default(true),
 });
 
 export type POSSettings = z.infer<typeof posSettingsSchema>;
@@ -26,4 +28,6 @@ export const DEFAULT_POS_SETTINGS: POSSettings = {
   showBiller: true,
   showTaxDetails: true,
   showBarcode: false,
+  allowNegativeSale: false,
+  allowDueSale: true,
 };

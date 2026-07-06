@@ -53,6 +53,7 @@ interface Item {
   variants?: ItemVariant[];
   isVatEnabled?: boolean;
   vatPercentage?: number;
+  trackInventory: boolean;
 }
 
 interface Client {
@@ -101,9 +102,10 @@ interface POSComponentProps {
     defaultWarehouseId?: string | null;
   } | null;
   isWholesaleAllowed?: boolean;
+  posSettings?: any;
 }
 
-export default function POSComponent({ items, clients: initialClients, warehouses, paymentAccounts = [], currentUser, isWholesaleAllowed = false }: POSComponentProps) {
+export default function POSComponent({ items, clients: initialClients, warehouses, paymentAccounts = [], currentUser, isWholesaleAllowed = false, posSettings }: POSComponentProps) {
 
 
   const router = useRouter();
@@ -522,9 +524,19 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       const matchesOrderType = orderType === "RETAIL"
         ? (item.itemType === "RETAIL" || item.itemType === "READY_PRODUCT")
         : item.itemType === "WHOLESALE";
-      return matchesSearch && matchesCategory && matchesOrderType;
+
+      const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
+      let hasStock = true;
+      if (!isNegativeSaleAllowed && item.trackInventory) {
+        const itemStock = item.variants && item.variants.length > 0
+          ? item.variants.reduce((acc, v) => acc + (v.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0), 0)
+          : (item.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0);
+        hasStock = itemStock > 0;
+      }
+
+      return matchesSearch && matchesCategory && matchesOrderType && hasStock;
     });
-  }, [items, searchQuery, filterType, orderType]);
+  }, [items, searchQuery, filterType, orderType, posSettings, selectedWarehouseId]);
 
   const subTotal = cart.reduce((sum, item) => sum + item.unitPrice * item.cartQuantity, 0);
   const itemVatTotal = cart.reduce((sum, item) => {
@@ -693,6 +705,19 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           v => v.barcode === barcode || v.sku === barcode
         );
         if (matchedVariant) {
+          const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
+          if (!isNegativeSaleAllowed && item.trackInventory) {
+            const variantStock = matchedVariant.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
+            if (variantStock <= 0) {
+              toast({
+                title: "Stock Alert",
+                description: `Cannot add: ${item.description} (${matchedVariant.color} / ${matchedVariant.size}) is out of stock.`,
+                variant: "destructive"
+              });
+              return;
+            }
+          }
+
           toast({
             title: "SKU Scanned",
             description: `Added: ${item.description} (${matchedVariant.color} / ${matchedVariant.size})`,
@@ -706,6 +731,19 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
     const matchedItem = items.find(i => i.code === barcode);
     if (matchedItem) {
+      const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
+      if (!isNegativeSaleAllowed && matchedItem.trackInventory) {
+        const itemStock = matchedItem.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
+        if (itemStock <= 0) {
+          toast({
+            title: "Stock Alert",
+            description: `Cannot add: ${matchedItem.description} is out of stock.`,
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+
       toast({
         title: "Product Scanned",
         description: `Added: ${matchedItem.description}`,
@@ -738,6 +776,20 @@ export default function POSComponent({ items, clients: initialClients, warehouse
             ? (item.itemType === "RETAIL" || item.itemType === "READY_PRODUCT")
             : item.itemType === "WHOLESALE";
           if (matchesOrderType) {
+            const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
+            if (!isNegativeSaleAllowed && item.trackInventory) {
+              const variantStock = matchedVariant.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
+              if (variantStock <= 0) {
+                toast({
+                  title: "Stock Alert",
+                  description: `Cannot add: ${item.description} (${matchedVariant.color} / ${matchedVariant.size}) is out of stock.`,
+                  variant: "destructive"
+                });
+                setSearchQuery("");
+                return;
+              }
+            }
+
             toast({
               title: "SKU Found",
               description: `Added: ${item.description} (${matchedVariant.color} / ${matchedVariant.size})`,
@@ -758,6 +810,20 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         ? (matchedItem.itemType === "RETAIL" || matchedItem.itemType === "READY_PRODUCT")
         : matchedItem.itemType === "WHOLESALE";
       if (matchesOrderType) {
+        const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
+        if (!isNegativeSaleAllowed && matchedItem.trackInventory) {
+          const itemStock = matchedItem.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
+          if (itemStock <= 0) {
+            toast({
+              title: "Stock Alert",
+              description: `Cannot add: ${matchedItem.description} is out of stock.`,
+              variant: "destructive"
+            });
+            setSearchQuery("");
+            return;
+          }
+        }
+
         toast({
           title: "Product Found",
           description: `Added: ${matchedItem.description}`,
@@ -1928,38 +1994,40 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 </div>
 
                 {/* Due Sale Checkbox */}
-                <div className="flex items-center gap-2 bg-muted/20 border border-border p-2.5 rounded-xl">
-                  <input
-                    type="checkbox"
-                    id="due-sale-checkbox"
-                    checked={isDueSale}
-                    disabled={selectedClientId === walkwayCustomerId || selectedClientId === clients.find(c => c.name?.toLowerCase() === "walkway customer")?.id}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setIsDueSale(checked);
-                      if (checked) {
-                        setCashAmount(0);
-                        setCardAmount(0);
-                        setMfsAmount(0);
-                      } else {
-                        setCashAmount(grandTotal);
-                        setCardAmount(0);
-                        setMfsAmount(0);
-                      }
-                    }}
-                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                  <label 
-                    htmlFor="due-sale-checkbox" 
-                    className={`text-xs font-bold text-foreground select-none ${
-                      (selectedClientId === walkwayCustomerId || selectedClientId === clients.find(c => c.name?.toLowerCase() === "walkway customer")?.id)
-                        ? "opacity-50 cursor-not-allowed" 
-                        : "cursor-pointer"
-                    }`}
-                  >
-                    Due Sale (Allow credit / partial payment)
-                  </label>
-                </div>
+                {(posSettings?.allowDueSale ?? true) && (
+                  <div className="flex items-center gap-2 bg-muted/20 border border-border p-2.5 rounded-xl">
+                    <input
+                      type="checkbox"
+                      id="due-sale-checkbox"
+                      checked={isDueSale}
+                      disabled={selectedClientId === walkwayCustomerId || selectedClientId === clients.find(c => c.name?.toLowerCase() === "walkway customer")?.id}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setIsDueSale(checked);
+                        if (checked) {
+                          setCashAmount(0);
+                          setCardAmount(0);
+                          setMfsAmount(0);
+                        } else {
+                          setCashAmount(grandTotal);
+                          setCardAmount(0);
+                          setMfsAmount(0);
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <label 
+                      htmlFor="due-sale-checkbox" 
+                      className={`text-xs font-bold text-foreground select-none ${
+                        (selectedClientId === walkwayCustomerId || selectedClientId === clients.find(c => c.name?.toLowerCase() === "walkway customer")?.id)
+                          ? "opacity-50 cursor-not-allowed" 
+                          : "cursor-pointer"
+                      }`}
+                    >
+                      Due Sale (Allow credit / partial payment)
+                    </label>
+                  </div>
+                )}
 
                 {/* Payment Method Select Dropdown & Inputs */}
                 <div className="space-y-3 pt-2">
@@ -2234,7 +2302,15 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           {selectedItemForVariants && (
             <div className="space-y-4">
               <div className="max-h-[350px] overflow-y-auto space-y-2 pr-1 divide-y divide-border">
-                {selectedItemForVariants.variants?.map((v) => (
+                {selectedItemForVariants.variants
+                  ?.filter((v) => {
+                    const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
+                    if (isNegativeSaleAllowed) return true;
+                    if (!selectedItemForVariants.trackInventory) return true;
+                    const variantStock = v.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
+                    return variantStock > 0;
+                  })
+                  ?.map((v) => (
                   <div key={v.id} className="flex items-center justify-between py-3 first:pt-0">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 bg-muted rounded-md overflow-hidden relative flex items-center justify-center text-[10px] text-muted-foreground font-semibold">

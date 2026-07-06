@@ -360,6 +360,42 @@ export default function POSSettingsPanel() {
                         )}
                       />
                     </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="allowNegativeSale">Allow Negative Sale</Label>
+                        <p className="text-xs text-muted-foreground">Show 0 stock items and SKUs in POS</p>
+                      </div>
+                      <Controller
+                        name="allowNegativeSale"
+                        control={posForm.control}
+                        render={({ field }) => (
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            id="allowNegativeSale"
+                          />
+                        )}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="allowDueSale">Allow Due Sale</Label>
+                        <p className="text-xs text-muted-foreground">Show credit/partial payment options in POS</p>
+                      </div>
+                      <Controller
+                        name="allowDueSale"
+                        control={posForm.control}
+                        render={({ field }) => (
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            id="allowDueSale"
+                          />
+                        )}
+                      />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
