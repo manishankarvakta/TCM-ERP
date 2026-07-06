@@ -533,7 +533,7 @@ export default function ExpensesVoucherForm() {
                                   <div className="relative">
                                     <Input
                                       type="number"
-                                      step="1"
+                                      step="any"
                                       min="0"
                                       placeholder="0.00"
                                       className="text-right font-mono focus:bg-background bg-muted/20"

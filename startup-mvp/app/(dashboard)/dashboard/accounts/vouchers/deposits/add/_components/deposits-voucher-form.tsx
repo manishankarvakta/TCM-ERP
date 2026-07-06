@@ -431,7 +431,7 @@ export default function DepositsVoucherForm() {
                   <Input
                     id="amount"
                     type="number"
-                    step="0.01"
+                    step="any"
                     placeholder="৳ 0.00"
                     disabled={loading}
                     {...register("amount", { valueAsNumber: true })}

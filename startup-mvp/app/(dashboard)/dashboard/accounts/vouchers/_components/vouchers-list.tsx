@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -70,6 +71,9 @@ interface VouchersListClientProps {
     edit: boolean;
     create: boolean;
   };
+  warehouses?: Array<{ id: string; name: string; code: string }>;
+  selectedWarehouseId?: string;
+  isAdmin?: boolean;
 }
 
 export default function VouchersListClient({
@@ -78,6 +82,9 @@ export default function VouchersListClient({
   initialSearch,
   userId,
   permissions,
+  warehouses = [],
+  selectedWarehouseId = "",
+  isAdmin = false,
 }: VouchersListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -92,6 +99,21 @@ export default function VouchersListClient({
       params.set("search", value);
     } else {
       params.delete("search");
+    }
+    params.set("page", "1");
+    const tab = searchParams.get("tab") || "all";
+    if (tab) {
+      params.set("tab", tab);
+    }
+    router.push(`/dashboard/accounts/vouchers?${params.toString()}`);
+  };
+
+  const handleWarehouseChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value && value !== "all") {
+      params.set("warehouseId", value);
+    } else {
+      params.delete("warehouseId");
     }
     params.set("page", "1");
     const tab = searchParams.get("tab") || "all";
@@ -154,8 +176,8 @@ export default function VouchersListClient({
 
   return (
     <div className="space-y-4">
-      {/* Search */}
-      <div className="flex items-center gap-2">
+      {/* Search & Warehouse Filter */}
+      <div className="flex flex-col md:flex-row md:items-center gap-4">
         <div className="relative flex-1 max-w-sm">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -174,6 +196,31 @@ export default function VouchersListClient({
               <FiX className="h-4 w-4" />
             </Button>
           )}
+        </div>
+
+        <div className="w-full md:w-[220px]">
+          <Select
+            value={selectedWarehouseId || "all"}
+            onValueChange={handleWarehouseChange}
+            disabled={!isAdmin}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Filter by Warehouse" />
+            </SelectTrigger>
+            <SelectContent>
+              {isAdmin && (
+                <SelectItem value="all">All Warehouses</SelectItem>
+              )}
+              {warehouses.map((w) => (
+                <SelectItem key={w.id} value={w.id}>
+                  {w.name} ({w.code})
+                </SelectItem>
+              ))}
+              {!isAdmin && warehouses.length === 0 && (
+                <SelectItem value="none">No Warehouse Assigned</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

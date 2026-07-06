@@ -133,7 +133,8 @@ export async function listVouchers(
   status: "draft" | "posted" | "cancelled" | "all" = "all",
   type?: string,
   dateFrom?: Date | string,
-  dateTo?: Date | string
+  dateTo?: Date | string,
+  warehouseId?: string
 ) {
   try {
     const session = await auth();
@@ -209,6 +210,36 @@ export async function listVouchers(
         // Set to end of day
         toDate.setHours(23, 59, 59, 999);
         where.date.lte = toDate;
+      }
+    }
+
+    // Warehouse filter
+    if (warehouseId) {
+      if (warehouseId === "none") {
+        where.id = "none";
+      } else {
+        where.OR = [
+          { sales: { some: { warehouseId } } },
+          { purchases: { some: { warehouseId } } },
+          { productionOrders: { some: { warehouseId } } },
+          { inventoryAdjustment: { warehouseId } },
+          { inventoryDamage: { warehouseId } },
+          { grns: { some: { warehouseId } } },
+          { returnToVendors: { some: { warehouseId } } },
+          {
+            VoucherLine: {
+              some: {
+                ChartOfAccount: {
+                  CashBankAccount: {
+                    warehouses: {
+                      some: { id: warehouseId },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        ];
       }
     }
 

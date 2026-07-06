@@ -7,6 +7,7 @@ import VoucherQuickCreate from "./_components/voucher-quick-create";
 import PageGuard from "@/components/permissions/page-guard";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 
 interface VouchersPageProps {
   searchParams: Promise<{
@@ -16,6 +17,7 @@ interface VouchersPageProps {
     type?: string;
     dateFrom?: string;
     dateTo?: string;
+    warehouseId?: string;
   }>;
 }
 
@@ -27,16 +29,40 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
 
   const session = await auth();
   const userId = session?.user?.id;
+  const userRole = session?.user?.role || "";
+  const isAdmin = userRole.toLowerCase() === "admin" || userRole.toLowerCase() === "super-admin";
+
+  let userWarehouseId = "";
+  if (userId && !isAdmin) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { defaultWarehouseId: true },
+    });
+    userWarehouseId = user?.defaultWarehouseId || "none";
+  }
+
+  const selectedWarehouseId = isAdmin ? params.warehouseId : userWarehouseId;
 
   const status = tab === "trash" ? "cancelled" : tab === "draft" ? "draft" : tab === "posted" ? "posted" : "all";
   
   // Check permissions on server side
   const [result, canView, canEdit, canCreate] = await Promise.all([
-    listVouchers(page, 10, search, status, params.type, params.dateFrom, params.dateTo),
+    listVouchers(page, 10, search, status, params.type, params.dateFrom, params.dateTo, selectedWarehouseId),
     userId ? hasPermission(userId, "accounts.vouchers", "view") : false,
     userId ? hasPermission(userId, "accounts.vouchers", "edit") : false,
     userId ? hasPermission(userId, "accounts.vouchers", "create") : false,
   ]);
+
+  // Fetch active warehouses
+  const allWarehouses = await prisma.warehouse.findMany({
+    where: { status: "active", isTrash: false },
+    select: { id: true, name: true, code: true },
+    orderBy: { name: "asc" },
+  });
+
+  const warehouses = isAdmin 
+    ? allWarehouses 
+    : allWarehouses.filter((w) => w.id === userWarehouseId);
 
   // Handle errors
   if (!result.success) {
@@ -103,6 +129,9 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
                 edit: canEdit,
                 create: canCreate,
               }}
+              warehouses={warehouses}
+              selectedWarehouseId={selectedWarehouseId || ""}
+              isAdmin={isAdmin}
             />
           </TabsContent>
           <TabsContent value="draft" className="mt-4">
@@ -121,6 +150,9 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
                 edit: canEdit,
                 create: canCreate,
               }}
+              warehouses={warehouses}
+              selectedWarehouseId={selectedWarehouseId || ""}
+              isAdmin={isAdmin}
             />
           </TabsContent>
           <TabsContent value="posted" className="mt-4">
@@ -139,6 +171,9 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
                 edit: canEdit,
                 create: canCreate,
               }}
+              warehouses={warehouses}
+              selectedWarehouseId={selectedWarehouseId || ""}
+              isAdmin={isAdmin}
             />
           </TabsContent>
           <TabsContent value="cancelled" className="mt-4">
@@ -157,6 +192,9 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
                 edit: canEdit,
                 create: canCreate,
               }}
+              warehouses={warehouses}
+              selectedWarehouseId={selectedWarehouseId || ""}
+              isAdmin={isAdmin}
             />
           </TabsContent>
         </Tabs>
