@@ -238,6 +238,28 @@ export default function BeautifulDashboard({
             </Link>
           )}
 
+          {/* Deposit Link */}
+          {permissions.canViewExpenses && (
+            <Link 
+              href="/dashboard/accounts/vouchers/deposits/add"
+              className="flex items-center gap-2 bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800/80 px-4 h-10 rounded-xl shadow-sm border border-slate-100 dark:border-zinc-800/80 text-blue-600 dark:text-blue-400 font-semibold text-sm transition-colors"
+            >
+              <TrendingUp className="h-4 w-4 text-blue-500" />
+              <span>Deposit</span>
+            </Link>
+          )}
+
+          {/* Payment Link */}
+          {permissions.canViewExpenses && (
+            <Link 
+              href="/dashboard/accounts/vouchers/payments/add"
+              className="flex items-center gap-2 bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800/80 px-4 h-10 rounded-xl shadow-sm border border-slate-100 dark:border-zinc-800/80 text-rose-600 dark:text-rose-400 font-semibold text-sm transition-colors"
+            >
+              <TrendingDown className="h-4 w-4 text-rose-500" />
+              <span>Payment</span>
+            </Link>
+          )}
+
           {/* Warehouse Dropdown */}
           <div className="relative">
             <button 
