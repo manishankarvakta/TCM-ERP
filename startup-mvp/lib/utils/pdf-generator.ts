@@ -492,23 +492,7 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
         yPos = boxY + boxHeight + 10;
     }
 
-    // Terms & Conditions (Embedded in cover letter for short ones, or dynamic)
-    if (quotation.tos) {
-        doc.setFontSize(12);
-        doc.setTextColor(10, 37, 64);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Terms & Conditions', margin + 10, yPos);
-        yPos += 10;
-        doc.setFontSize(9);
-        doc.setTextColor(100, 116, 139);
-        doc.setFont('helvetica', 'normal');
-        const termsLines = doc.splitTextToSize(stripHtmlAndPreserveLineBreaks(quotation.tos), pageWidth - 2 * margin - 20);
-        termsLines.slice(0, 15).forEach((line: string) => { // Show preview in cover letter if short
-            ensurePageSpace(5);
-            doc.text(line, margin + 10, yPos);
-            yPos += 4.5;
-        });
-    }
+
   };
 
   // NEW SEQUENCE: 2 FRONT PAGES ALWAYS
@@ -550,18 +534,11 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
 
       const isPricing = sType === 'PRICING' || sType === 'SUMMARY' || sType === 'CUSTOM';
 
-      // Section Prefix (e.g., Section 1)
-      doc.setFontSize(8);
-      doc.setTextColor(37, 99, 235); // Blue-600
-      doc.setFont('helvetica', 'bold');
-      doc.text(`SECTION ${sectionIndex + 1}`, margin + 5, yPos);
-      yPos += 8;
-
       // Section title
       doc.setFontSize(28);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(10, 37, 64); // Navy
-      doc.text(section.title || `Section ${sectionIndex + 1}`, margin + 5, yPos);
+      doc.text(section.title || section.sectionName || 'Section', margin + 5, yPos);
       doc.setTextColor(0, 0, 0); // Reset to black
       yPos += 12;
       
