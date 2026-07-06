@@ -248,24 +248,9 @@ import { determineAccountType } from "@/lib/payment-account-config";
 export async function getPaymentAccountsFromCOA(): Promise<{
   success: boolean;
   accounts: {
-    cash: Array<{
-      id: string;
-      code: string;
-      name: string;
-      description?: string | null;
-    }>;
-    bank: Array<{
-      id: string;
-      code: string;
-      name: string;
-      description?: string | null;
-    }>;
-    digitalWallet: Array<{
-      id: string;
-      code: string;
-      name: string;
-      description?: string | null;
-    }>;
+    cash: Array<{ id: string; code: string; name: string; description?: string | null }>;
+    bank: Array<{ id: string; code: string; name: string; description?: string | null }>;
+    digitalWallet: Array<{ id: string; code: string; name: string; description?: string | null }>;
   };
   error?: string;
 }> {
@@ -277,6 +262,17 @@ export async function getPaymentAccountsFromCOA(): Promise<{
         error: "Unauthorized",
         accounts: { cash: [], bank: [], digitalWallet: [] },
       };
+    }
+
+    const isAdmin = session.user.role?.toLowerCase() === "admin" || session.user.role?.toLowerCase() === "super-admin";
+    let defaultWarehouseId: string | null = null;
+
+    if (!isAdmin) {
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { defaultWarehouseId: true },
+      });
+      defaultWarehouseId = user?.defaultWarehouseId || null;
     }
 
     // Fetch ASSET accounts from Chart of Accounts
@@ -294,6 +290,11 @@ export async function getPaymentAccountsFromCOA(): Promise<{
         CashBankAccount: {
           select: {
             type: true,
+            warehouses: {
+              select: {
+                id: true,
+              },
+            },
           },
         },
       },
@@ -318,7 +319,6 @@ export async function getPaymentAccountsFromCOA(): Promise<{
 
       if (!accountType) return; // Skip if not a known payment account type
 
-      // Add to appropriate array
       const accountData = {
         id: account.id,
         code: account.code,
@@ -326,12 +326,19 @@ export async function getPaymentAccountsFromCOA(): Promise<{
         description: account.description,
       };
 
-      if (accountType === "CASH") {
-        cash.push(accountData);
-      } else if (accountType === "BANK") {
-        bank.push(accountData);
-      } else if (accountType === "DIGITAL_WALLET") {
-        digitalWallet.push(accountData);
+      // Check if user is admin or if account is global (no linked warehouses) or matches user's warehouse
+      const warehouses = account.CashBankAccount?.warehouses || [];
+      const isGlobal = warehouses.length === 0;
+      const isLinkedToUserWarehouse = defaultWarehouseId ? warehouses.some(w => w.id === defaultWarehouseId) : false;
+
+      if (isAdmin || isGlobal || isLinkedToUserWarehouse) {
+        if (accountType === "CASH") {
+          cash.push(accountData);
+        } else if (accountType === "BANK") {
+          bank.push(accountData);
+        } else if (accountType === "DIGITAL_WALLET") {
+          digitalWallet.push(accountData);
+        }
       }
     });
 
