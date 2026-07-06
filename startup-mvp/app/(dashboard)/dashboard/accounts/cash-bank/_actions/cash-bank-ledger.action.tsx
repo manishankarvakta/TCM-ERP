@@ -165,11 +165,10 @@ export async function getCashLedger(
           },
         },
       },
-      orderBy: {
-        JournalEntry: {
-          date: "asc",
-        },
-      },
+      orderBy: [
+        { JournalEntry: { date: "desc" } },
+        { JournalEntry: { entryNumber: "desc" } },
+      ],
     });
 
     // Calculate summary totals
@@ -424,11 +423,10 @@ export async function getBankLedger(
           },
         },
       },
-      orderBy: {
-        JournalEntry: {
-          date: "asc",
-        },
-      },
+      orderBy: [
+        { JournalEntry: { date: "desc" } },
+        { JournalEntry: { entryNumber: "desc" } },
+      ],
     });
 
     // Calculate summary totals

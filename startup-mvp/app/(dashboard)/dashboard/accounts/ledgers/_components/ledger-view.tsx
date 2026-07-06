@@ -257,7 +257,7 @@ export default function LedgerView({
               ) : (
                 ledger.map((entry, index) => {
                   const runningBalance = ledger
-                    .slice(0, index + 1)
+                    .slice(index)
                     .reduce((sum, e) => sum + e.debitAmount - e.creditAmount, 0);
                   
                   return (

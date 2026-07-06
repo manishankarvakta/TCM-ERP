@@ -177,11 +177,10 @@ export async function getAccountLedger(
           },
         },
       },
-      orderBy: {
-        JournalEntry: {
-          date: "asc",
-        },
-      },
+      orderBy: [
+        { JournalEntry: { date: "desc" } },
+        { JournalEntry: { entryNumber: "desc" } },
+      ],
     });
 
     // Calculate summary totals
@@ -453,11 +452,10 @@ export async function getCustomerLedger(
           },
         },
       },
-      orderBy: {
-        JournalEntry: {
-          date: "asc",
-        },
-      },
+      orderBy: [
+        { JournalEntry: { date: "desc" } },
+        { JournalEntry: { entryNumber: "desc" } },
+      ],
     });
 
     // Calculate summary totals
@@ -683,11 +681,10 @@ export async function getSupplierLedger(
           },
         },
       },
-      orderBy: {
-        JournalEntry: {
-          date: "asc",
-        },
-      },
+      orderBy: [
+        { JournalEntry: { date: "desc" } },
+        { JournalEntry: { entryNumber: "desc" } },
+      ],
     });
 
     // Calculate summary totals
@@ -953,11 +950,10 @@ export async function getEmployeeLedger(
           },
         },
       },
-      orderBy: {
-        JournalEntry: {
-          date: "asc",
-        },
-      },
+      orderBy: [
+        { JournalEntry: { date: "asc" } },
+        { JournalEntry: { entryNumber: "asc" } },
+      ],
     });
 
     // Calculate summary totals
@@ -1015,7 +1011,7 @@ export async function getEmployeeLedger(
 
     return {
       success: true,
-      ledger: formattedLedger,
+      ledger: formattedLedger.reverse(),
       summary: {
         totalDebit,
         totalCredit,
@@ -1224,11 +1220,10 @@ export async function getEmployeeAdvanceLedger(
           },
         },
       },
-      orderBy: {
-        JournalEntry: {
-          date: "asc",
-        },
-      },
+      orderBy: [
+        { JournalEntry: { date: "asc" } },
+        { JournalEntry: { entryNumber: "asc" } },
+      ],
     });
 
     // Calculate summary totals
@@ -1286,7 +1281,7 @@ export async function getEmployeeAdvanceLedger(
 
     return {
       success: true,
-      ledger: formattedLedger,
+      ledger: formattedLedger.reverse(),
       summary: {
         totalDebit,
         totalCredit,

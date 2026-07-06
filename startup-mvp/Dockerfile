@@ -56,6 +56,8 @@ COPY . .
 # Disable telemetry
 ENV NEXT_TELEMETRY_DISABLED=1
 
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 # Prisma is already generated, so just build
 RUN npm run build
 
