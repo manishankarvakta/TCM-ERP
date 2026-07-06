@@ -36,6 +36,8 @@ export default function BeautifulDashboard({
   const [permissions, setPermissions] = useState({
     canViewWholesale: false,
     canViewExpenses: false,
+    canViewDeposits: false,
+    canViewPayments: false,
   });
 
   // State for Warehouse selection
@@ -120,11 +122,13 @@ export default function BeautifulDashboard({
   useEffect(() => {
     async function checkPerms() {
       try {
-        const [canViewWholesale, canViewExpenses] = await Promise.all([
+        const [canViewWholesale, canViewExpenses, canViewDeposits, canViewPayments] = await Promise.all([
           hasPermission(userId, "sales.pos", "wholesale"),
-          hasPermission(userId, "accounts.vouchers", "create"),
+          hasPermission(userId, "accounts.vouchers", "create-expense"),
+          hasPermission(userId, "accounts.vouchers", "create-deposit"),
+          hasPermission(userId, "accounts.vouchers", "create-payment"),
         ]);
-        setPermissions({ canViewWholesale, canViewExpenses });
+        setPermissions({ canViewWholesale, canViewExpenses, canViewDeposits, canViewPayments });
       } catch (err) {
         console.error("Failed to check permissions:", err);
       }
@@ -239,7 +243,7 @@ export default function BeautifulDashboard({
           )}
 
           {/* Deposit Link */}
-          {permissions.canViewExpenses && (
+          {permissions.canViewDeposits && (
             <Link 
               href="/dashboard/accounts/vouchers/deposits/add"
               className="flex items-center gap-2 bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800/80 px-4 h-10 rounded-xl shadow-sm border border-slate-100 dark:border-zinc-800/80 text-blue-600 dark:text-blue-400 font-semibold text-sm transition-colors"
@@ -250,7 +254,7 @@ export default function BeautifulDashboard({
           )}
 
           {/* Payment Link */}
-          {permissions.canViewExpenses && (
+          {permissions.canViewPayments && (
             <Link 
               href="/dashboard/accounts/vouchers/payments/add"
               className="flex items-center gap-2 bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800/80 px-4 h-10 rounded-xl shadow-sm border border-slate-100 dark:border-zinc-800/80 text-rose-600 dark:text-rose-400 font-semibold text-sm transition-colors"

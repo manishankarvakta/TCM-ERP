@@ -43,7 +43,10 @@ export type CustomOperation =
   | "view_quick_actions_widget"
   | "view_recent_activity_widget"
   | "wholesale"
-  | "sync";
+  | "sync"
+  | "create-expense"
+  | "create-deposit"
+  | "create-payment";
 
 // Standard operations for pages (as per requirements)
 export type StandardOperation = "create" | "view" | "edit" | "move-to-trash" | "delete-permanently";
@@ -420,6 +423,9 @@ export const OPERATIONS: Record<Operation, OperationMetadata> = {
   view_recent_activity_widget: { id: "view_recent_activity_widget", label: "Recent Activity Widget", category: "custom" },
   wholesale: { id: "wholesale", label: "Wholesale", description: "Enable wholesale mode", category: "custom" },
   sync: { id: "sync", label: "Sync", description: "Sync data from external devices", category: "custom" },
+  "create-expense": { id: "create-expense", label: "Create Expense", description: "Create expense vouchers via dashboard", category: "custom" },
+  "create-deposit": { id: "create-deposit", label: "Create Deposit", description: "Create deposit (contra) vouchers via dashboard", category: "custom" },
+  "create-payment": { id: "create-payment", label: "Create Payment", description: "Create payment vouchers via dashboard", category: "custom" },
 };
 
 // Helper function to get all modules
@@ -599,7 +605,7 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "accounts.vouchers",
         path: "/dashboard/accounts/vouchers",
         label: "Vouchers",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently", "create-expense", "create-deposit", "create-payment"],
       },
       {
         permissionKey: "accounts.trial-balance",
