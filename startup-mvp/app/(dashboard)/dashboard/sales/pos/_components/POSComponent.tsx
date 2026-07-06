@@ -590,6 +590,23 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
     const delta = isReturnMode ? -1 : 1;
     const cartKey = item.id;
+
+    // Stock check for simple item addition
+    const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
+    if (!isNegativeSaleAllowed && item.trackInventory && !isReturnMode) {
+      const availableStock = item.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
+      const existing = cart.find((i) => i.cartKey === cartKey);
+      const currentQty = existing ? existing.cartQuantity : 0;
+      if (currentQty + 1 > availableStock) {
+        toast({
+          title: "Stock Alert",
+          description: `Cannot add more of: ${item.description || item.name || "item"}. Available stock: ${availableStock}.`,
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
     const itemToAdd: CartItem = { 
       ...item, 
       unitPrice: priceToUse,
@@ -644,6 +661,22 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     const delta = isReturnMode ? -quantity : quantity;
     const cartKey = `${item.id}-${variant.id}`;
 
+    // Stock check for variant item addition
+    const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
+    if (!isNegativeSaleAllowed && item.trackInventory && !isReturnMode) {
+      const variantStock = variant.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
+      const existing = cart.find((i) => i.cartKey === cartKey);
+      const currentQty = existing ? existing.cartQuantity : 0;
+      if (currentQty + quantity > variantStock) {
+        toast({
+          title: "Stock Alert",
+          description: `Cannot add more of: ${item.description || item.name || "item"} (${variant.color} / ${variant.size}). Available stock: ${variantStock}.`,
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
     const itemToAdd: CartItem = {
       ...item,
       unitPrice: priceToUse,
@@ -672,7 +705,29 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   };
 
   const handleUpdateQuantity = (cartKey: string, delta: number) => {
+    const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
+
     setCart((prev) => {
+      const item = prev.find((i) => i.cartKey === cartKey);
+      if (item && delta > 0 && !isNegativeSaleAllowed && item.trackInventory && !isReturnMode) {
+        let availableStock = 0;
+        if (item.variantId) {
+          const variant = items.find(it => it.id === item.id)?.variants?.find(v => v.id === item.variantId);
+          availableStock = variant?.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
+        } else {
+          availableStock = items.find(it => it.id === item.id)?.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
+        }
+
+        if (item.cartQuantity + delta > availableStock) {
+          toast({
+            title: "Stock Alert",
+            description: `Cannot exceed available stock of ${availableStock} for ${item.description || item.name || "item"}.`,
+            variant: "destructive"
+          });
+          return prev;
+        }
+      }
+
       return prev.map((i) => {
         if (i.cartKey === cartKey) {
           const newQ = i.cartQuantity + delta;
@@ -684,7 +739,29 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   };
 
   const handleCustomQuantitySet = (cartKey: string, qty: number) => {
+    const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
+
     setCart((prev) => {
+      const item = prev.find((i) => i.cartKey === cartKey);
+      if (item && !isNegativeSaleAllowed && item.trackInventory && !isReturnMode) {
+        let availableStock = 0;
+        if (item.variantId) {
+          const variant = items.find(it => it.id === item.id)?.variants?.find(v => v.id === item.variantId);
+          availableStock = variant?.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
+        } else {
+          availableStock = items.find(it => it.id === item.id)?.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
+        }
+
+        if (qty > availableStock) {
+          toast({
+            title: "Stock Alert",
+            description: `Cannot exceed available stock of ${availableStock} for ${item.description || item.name || "item"}. Setting to max available.`,
+            variant: "destructive"
+          });
+          qty = availableStock;
+        }
+      }
+
       return prev.map((i) => {
         if (i.cartKey === cartKey) {
           return { ...i, cartQuantity: qty };
