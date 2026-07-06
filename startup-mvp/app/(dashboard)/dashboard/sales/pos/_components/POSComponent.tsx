@@ -401,11 +401,12 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     }
   }, [clients]);
 
-  const changeCustomerAndSyncMode = (val: string) => {
+  const changeCustomerAndSyncMode = (val: string, customClients?: Client[]) => {
     setSelectedClientId(val);
     if (!val) return;
-    const client = clients.find((c) => c.id === val);
-    const walkwayCustomer = clients.find(c => c.name?.toLowerCase() === "walkway customer");
+    const clientsList = customClients || clients;
+    const client = clientsList.find((c) => c.id === val);
+    const walkwayCustomer = clientsList.find(c => c.name?.toLowerCase() === "walkway customer");
     if (val === walkwayCustomer?.id || val === walkwayCustomerId) {
       setIsDueSale(false);
       setCashAmount(grandTotal);
@@ -1565,8 +1566,12 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           title: "Success",
           description: "New client registered successfully!"
         });
-        setClients(prev => [res.client as Client, ...prev]);
-        changeCustomerAndSyncMode(res.client.id);
+        const newClientObj = res.client as Client;
+        setClients(prev => {
+          const updated = [newClientObj, ...prev];
+          changeCustomerAndSyncMode(newClientObj.id, updated);
+          return updated;
+        });
         setIsAddCustomerOpen(false);
         setNewCustomerData({
           name: "",
