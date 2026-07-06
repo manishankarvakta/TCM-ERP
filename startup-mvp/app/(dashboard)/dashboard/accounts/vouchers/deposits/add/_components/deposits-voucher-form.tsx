@@ -45,16 +45,19 @@ interface AccountOption {
   description?: string | null;
 }
 
+interface AccountGroup {
+  cash: AccountOption[];
+  bank: AccountOption[];
+  digitalWallet: AccountOption[];
+}
+
 export default function DepositsVoucherForm() {
   const router = useRouter();
   const pathname = usePathname();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [contraAccounts, setContraAccounts] = useState<{
-    cash: AccountOption[];
-    bank: AccountOption[];
-    digitalWallet: AccountOption[];
-  }>({ cash: [], bank: [], digitalWallet: [] });
+  const [contraAccounts, setContraAccounts] = useState<AccountGroup>({ cash: [], bank: [], digitalWallet: [] });
+  const [destinationAccounts, setDestinationAccounts] = useState<AccountGroup>({ cash: [], bank: [], digitalWallet: [] });
   const [loadingData, setLoadingData] = useState(true);
   
   // Balance states
@@ -70,6 +73,7 @@ export default function DepositsVoucherForm() {
         const result = await getContraAccounts();
         if (result.success && result.accounts) {
           setContraAccounts(result.accounts);
+          setDestinationAccounts(result.allAccounts || result.accounts);
         }
       } catch (err) {
         console.error("Failed to fetch accounts:", err);
@@ -107,9 +111,9 @@ export default function DepositsVoucherForm() {
   // Helper to find account details
   const getAccountDetails = (id: string) => {
     const allAccounts = [
-      ...contraAccounts.cash,
-      ...contraAccounts.bank,
-      ...contraAccounts.digitalWallet,
+      ...destinationAccounts.cash,
+      ...destinationAccounts.bank,
+      ...destinationAccounts.digitalWallet,
     ];
     return allAccounts.find(a => a.id === id);
   };
@@ -253,6 +257,7 @@ export default function DepositsVoucherForm() {
     name: "fromAccountId" | "toAccountId",
     label: string,
     placeholder: string,
+    optionsList: AccountGroup,
     excludeAccountId?: string,
     balance?: number | null,
     loadingBalance?: boolean
@@ -272,20 +277,20 @@ export default function DepositsVoucherForm() {
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>
             <SelectContent>
-              {contraAccounts.cash.length === 0 && 
-               contraAccounts.bank.length === 0 && 
-               contraAccounts.digitalWallet.length === 0 ? (
+              {optionsList.cash.length === 0 && 
+               optionsList.bank.length === 0 && 
+               optionsList.digitalWallet.length === 0 ? (
                 <SelectItem value="none" disabled>
                   No accounts available
                 </SelectItem>
               ) : (
                 <>
-                  {contraAccounts.cash.length > 0 && (
+                  {optionsList.cash.length > 0 && (
                     <>
                       <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b">
                         CASH ACCOUNTS
                       </div>
-                      {contraAccounts.cash
+                      {optionsList.cash
                         .filter((acc) => acc.id !== excludeAccountId)
                         .map((account) => (
                           <SelectItem key={account.id} value={account.id}>
@@ -294,12 +299,12 @@ export default function DepositsVoucherForm() {
                         ))}
                     </>
                   )}
-                  {contraAccounts.bank.length > 0 && (
+                  {optionsList.bank.length > 0 && (
                     <>
                       <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b border-t mt-1">
                         BANK ACCOUNTS
                       </div>
-                      {contraAccounts.bank
+                      {optionsList.bank
                         .filter((acc) => acc.id !== excludeAccountId)
                         .map((account) => (
                           <SelectItem key={account.id} value={account.id}>
@@ -308,12 +313,12 @@ export default function DepositsVoucherForm() {
                         ))}
                     </>
                   )}
-                  {contraAccounts.digitalWallet.length > 0 && (
+                  {optionsList.digitalWallet.length > 0 && (
                     <>
                       <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b border-t mt-1">
                         DIGITAL WALLETS
                       </div>
-                      {contraAccounts.digitalWallet
+                      {optionsList.digitalWallet
                         .filter((acc) => acc.id !== excludeAccountId)
                         .map((account) => (
                           <SelectItem key={account.id} value={account.id}>
@@ -376,6 +381,7 @@ export default function DepositsVoucherForm() {
                   "fromAccountId",
                   "Source Account (Transfer From)",
                   "Select source account...",
+                  contraAccounts, // Filtered by own warehouse (for normal users)
                   watchedToAccountId,
                   fromAccountBalance,
                   loadingFromBalance
@@ -386,6 +392,7 @@ export default function DepositsVoucherForm() {
                   "toAccountId",
                   "Destination Account (Deposit To)",
                   "Select destination account...",
+                  destinationAccounts, // Unfiltered (shows all warehouses/global accounts)
                   watchedFromAccountId,
                   toAccountBalance,
                   loadingToBalance

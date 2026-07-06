@@ -11,24 +11,14 @@ import { determineAccountType } from "@/lib/payment-account-config";
 export async function getContraAccounts(): Promise<{
   success: boolean;
   accounts: {
-    cash: Array<{
-      id: string;
-      code: string;
-      name: string;
-      description?: string | null;
-    }>;
-    bank: Array<{
-      id: string;
-      code: string;
-      name: string;
-      description?: string | null;
-    }>;
-    digitalWallet: Array<{
-      id: string;
-      code: string;
-      name: string;
-      description?: string | null;
-    }>;
+    cash: Array<{ id: string; code: string; name: string; description?: string | null }>;
+    bank: Array<{ id: string; code: string; name: string; description?: string | null }>;
+    digitalWallet: Array<{ id: string; code: string; name: string; description?: string | null }>;
+  };
+  allAccounts?: {
+    cash: Array<{ id: string; code: string; name: string; description?: string | null }>;
+    bank: Array<{ id: string; code: string; name: string; description?: string | null }>;
+    digitalWallet: Array<{ id: string; code: string; name: string; description?: string | null }>;
   };
   error?: string;
 }> {
@@ -43,47 +33,23 @@ export async function getContraAccounts(): Promise<{
     }
 
     const isAdmin = session.user.role?.toLowerCase() === "admin" || session.user.role?.toLowerCase() === "super-admin";
-    const whereClause: any = {
-      type: "ASSET",
-      status: "active",
-      isControl: false,
-    };
+    let defaultWarehouseId: string | null = null;
 
     if (!isAdmin) {
       const user = await prisma.user.findUnique({
         where: { id: session.user.id },
         select: { defaultWarehouseId: true },
       });
-
-      if (user?.defaultWarehouseId) {
-        whereClause.CashBankAccount = {
-          OR: [
-            {
-              warehouses: {
-                none: {}, // Global accounts
-              },
-            },
-            {
-              warehouses: {
-                some: {
-                  id: user.defaultWarehouseId,
-                },
-              },
-            },
-          ],
-        };
-      } else {
-        whereClause.CashBankAccount = {
-          warehouses: {
-            none: {}, // Only global accounts if no default warehouse
-          },
-        };
-      }
+      defaultWarehouseId = user?.defaultWarehouseId || null;
     }
 
     // Fetch ASSET accounts from Chart of Accounts
     const accounts = await prisma.chartOfAccount.findMany({
-      where: whereClause,
+      where: {
+        type: "ASSET",
+        status: "active",
+        isControl: false,
+      },
       select: {
         id: true,
         code: true,
@@ -92,6 +58,11 @@ export async function getContraAccounts(): Promise<{
         CashBankAccount: {
           select: {
             type: true,
+            warehouses: {
+              select: {
+                id: true,
+              },
+            },
           },
         },
       },
@@ -105,6 +76,10 @@ export async function getContraAccounts(): Promise<{
     const bank: Array<{ id: string; code: string; name: string; description?: string | null }> = [];
     const digitalWallet: Array<{ id: string; code: string; name: string; description?: string | null }> = [];
 
+    const allCash: Array<{ id: string; code: string; name: string; description?: string | null }> = [];
+    const allBank: Array<{ id: string; code: string; name: string; description?: string | null }> = [];
+    const allDigitalWallet: Array<{ id: string; code: string; name: string; description?: string | null }> = [];
+
     accounts.forEach((account) => {
       // Determine account type using pattern matching configuration
       const accountType = determineAccountType({
@@ -116,7 +91,6 @@ export async function getContraAccounts(): Promise<{
 
       if (!accountType) return; // Skip if not a known payment account type
 
-      // Add to appropriate array
       const accountData = {
         id: account.id,
         code: account.code,
@@ -124,12 +98,28 @@ export async function getContraAccounts(): Promise<{
         description: account.description,
       };
 
+      // Add to global lists (Destination gets all accounts across all warehouses)
       if (accountType === "CASH") {
-        cash.push(accountData);
+        allCash.push(accountData);
       } else if (accountType === "BANK") {
-        bank.push(accountData);
+        allBank.push(accountData);
       } else if (accountType === "DIGITAL_WALLET") {
-        digitalWallet.push(accountData);
+        allDigitalWallet.push(accountData);
+      }
+
+      // Check if user is admin or if account is global (no linked warehouses) or matches user's warehouse
+      const warehouses = account.CashBankAccount?.warehouses || [];
+      const isGlobal = warehouses.length === 0;
+      const isLinkedToUserWarehouse = defaultWarehouseId ? warehouses.some(w => w.id === defaultWarehouseId) : false;
+
+      if (isAdmin || isGlobal || isLinkedToUserWarehouse) {
+        if (accountType === "CASH") {
+          cash.push(accountData);
+        } else if (accountType === "BANK") {
+          bank.push(accountData);
+        } else if (accountType === "DIGITAL_WALLET") {
+          digitalWallet.push(accountData);
+        }
       }
     });
 
@@ -139,6 +129,11 @@ export async function getContraAccounts(): Promise<{
         cash,
         bank,
         digitalWallet,
+      },
+      allAccounts: {
+        cash: allCash,
+        bank: allBank,
+        digitalWallet: allDigitalWallet,
       },
     };
   } catch (error) {
