@@ -397,9 +397,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     );
     if (walkway) {
       setWalkwayCustomerId(walkway.id);
-      setSelectedClientId(walkway.id);
+      if (!selectedClientId) {
+        setSelectedClientId(walkway.id);
+      }
     }
-  }, [clients]);
+  }, [clients, selectedClientId]);
 
   const changeCustomerAndSyncMode = (val: string, customClients?: Client[]) => {
     setSelectedClientId(val);
