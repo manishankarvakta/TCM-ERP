@@ -259,6 +259,44 @@ const buildSubmitPayload = (data: QuotationFormValues, sections: any[], mode: Qu
       amount: item.amount ?? 0,
       itemId: item.itemId || null,
     })),
+    groups: (section.groups || []).map((group: any, groupIndex: number) => ({
+      code: group.code || null,
+      description: group.description || '',
+      quantity: group.quantity ?? 0,
+      number: group.number ?? null,
+      sortOrder: group.sortOrder ?? groupIndex,
+      moduleGroupId: group.moduleGroupId || null,
+      baseUnit: group.baseUnit || null,
+      baseUnitPrice: group.baseUnitPrice ?? null,
+      items: (group.items || []).map((item: any, itemIndex: number) => ({
+        sl: item.sl ?? itemIndex + 1,
+        no: item.no != null ? String(item.no) : null,
+        code: item.code || null,
+        description: item.description || null,
+        unit: item.unit || null,
+        unitPrice: item.unitPrice ?? 0,
+        quantity: item.quantity ?? 0,
+        discount: item.discount ?? 0,
+        amount: item.amount ?? 0,
+        itemId: item.itemId || null,
+      })),
+    })),
+    categoryGroups: (section.categoryGroups || []).map((catGroup: any, catIndex: number) => ({
+      categoryId: catGroup.categoryId || null,
+      sortOrder: catGroup.sortOrder ?? catIndex,
+      items: (catGroup.items || []).map((item: any, itemIndex: number) => ({
+        sl: item.sl ?? itemIndex + 1,
+        no: item.no != null ? String(item.no) : null,
+        code: item.code || null,
+        description: item.description || null,
+        unit: item.unit || null,
+        unitPrice: item.unitPrice ?? 0,
+        quantity: item.quantity ?? 0,
+        discount: item.discount ?? 0,
+        amount: item.amount ?? 0,
+        itemId: item.itemId || null,
+      })),
+    })),
   })),
 };};
 
@@ -802,7 +840,7 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="pb-24">
+    <div className="pb-6">
       {/* ── Sticky identity header ─────────────────────────────────────────── */}
       <QuotationHeaderBar
         quotationNumber={quotationNumber}

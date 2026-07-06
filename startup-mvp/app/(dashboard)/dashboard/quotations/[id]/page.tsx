@@ -29,16 +29,20 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
 
   const quotation = result.data;
   
-  const hasDynamicCover = quotation.section?.some((s: any) => s.sectionType === 'COVER' && s.isEnabled !== false);
-  const hasDynamicTerms = quotation.section?.some((s: any) => s.sectionType === 'TERMS' && s.isEnabled !== false);
+  // A section type is considered a "dynamic cover" if it handles the intro content
+  const hasDynamicCover = quotation.section?.some(
+    (s: any) => (s.sectionType === 'COVER' || s.sectionType === 'COVER_LETTER') && s.isEnabled !== false
+  );
+  // A section type is considered a "dynamic terms" if it handles legal content
+  const hasDynamicTerms = quotation.section?.some(
+    (s: any) => (s.sectionType === 'TERMS' || s.sectionType === 'LEGAL_TERMS') && s.isEnabled !== false
+  );
 
   // Check if user has approve permission
   const session = await auth();
   const canApprove = session?.user?.id 
     ? await hasPermission(session.user.id, 'quotations.quotations', 'approve')
     : false;
-
-  console.log('quotation', quotation);
   // Note: PDF download will need to be handled in a client component
   // This is a server component, so we'll create a separate client component for the download button
 
@@ -48,7 +52,7 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
         {/* Top Navigation & Actions */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <Link href="/dashboard/quotations">
-            <Button variant="ghost" className="hover:bg-white text-gray-600">
+            <Button variant="outline" className="bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900 shadow-sm transition-colors">
               <FiArrowLeft className="w-4 h-4 mr-2" />
               Back to Quotations
             </Button>
@@ -62,19 +66,30 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
         </div>
 
         {/* PROPOSAL DOCUMENT CONTAINER */}
-        <div className="bg-white shadow-2xl shadow-gray-200/50 rounded-2xl overflow-hidden border border-gray-100">
+        <div className="bg-white shadow-2xl shadow-blue-900/5 rounded-3xl overflow-hidden border border-gray-100/80 ring-1 ring-gray-900/5 relative">
           
           {/* 1. COVER SECTION */}
-          <div className="relative bg-[#0A2540] text-white p-12 md:p-20 overflow-hidden min-h-[500px] flex flex-col justify-between">
-            {/* Mesh Surface Graphic Background */}
-            <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
-               <svg className="absolute w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                 <path d="M0 100 C 20 0 50 0 100 100 Z" fill="rgba(255,255,255,0.05)" />
-                 <path d="M0 100 C 50 50 80 50 100 0 Z" fill="rgba(255,255,255,0.03)" />
+          <div className="relative bg-gradient-to-br from-[#091523] via-[#0A2540] to-[#173354] text-white p-12 md:p-24 overflow-hidden min-h-[600px] flex flex-col justify-between">
+            {/* Premium Mesh Surface Graphic Background */}
+            <div className="absolute inset-0 opacity-30 pointer-events-none overflow-hidden">
+               <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-blue-500/10 blur-[120px] rounded-full translate-x-1/3 -translate-y-1/3" />
+               <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-indigo-500/10 blur-[100px] rounded-full -translate-x-1/4 translate-y-1/4" />
+               <svg className="absolute w-full h-full opacity-40" viewBox="0 0 100 100" preserveAspectRatio="none">
+                 <path d="M0 100 C 20 0 50 0 100 100 Z" fill="url(#grad1)" />
+                 <path d="M0 100 C 50 50 80 50 100 0 Z" fill="url(#grad2)" />
+                 <defs>
+                   <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                     <stop offset="0%" stopColor="rgba(255,255,255,0.05)" />
+                     <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+                   </linearGradient>
+                   <linearGradient id="grad2" x1="100%" y1="0%" x2="0%" y2="100%">
+                     <stop offset="0%" stopColor="rgba(255,255,255,0.05)" />
+                     <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+                   </linearGradient>
+                 </defs>
                </svg>
-               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.1)_0%,transparent_70%)]" />
                {/* Animated-style grid */}
-               <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+               <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
             </div>
 
             <div className="relative z-10 flex justify-between items-start mb-20">
@@ -107,21 +122,25 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
               </p>
             </div>
 
-            <div className="relative z-10 mt-20 flex flex-wrap gap-12 border-t border-white/10 pt-10">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3">Prepared For</p>
-                <p className="text-lg font-bold">{quotation.client?.name || quotation.client?.company || 'N/A'}</p>
-                <p className="text-sm text-white/60">{quotation.client?.company}</p>
+            <div className="relative z-10 mt-24 flex flex-wrap gap-16 border-t border-white/10 pt-12">
+              <div className="group">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-300/60 mb-4 flex items-center gap-2">
+                  <span className="w-4 h-px bg-blue-300/40"></span> Prepared For
+                </p>
+                <p className="text-xl font-bold text-white group-hover:text-blue-200 transition-colors">{quotation.client?.name || quotation.client?.company || 'N/A'}</p>
+                <p className="text-sm text-blue-100/60 mt-1">{quotation.client?.company}</p>
               </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3">Prepared By</p>
-                <p className="text-lg font-bold">{quotation.submittedBy?.name || 'Authorized Representative'}</p>
-                <p className="text-sm text-white/60">{quotation.organization?.name || 'Our Organization'}</p>
+              <div className="group">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-300/60 mb-4 flex items-center gap-2">
+                  <span className="w-4 h-px bg-blue-300/40"></span> Prepared By
+                </p>
+                <p className="text-xl font-bold text-white group-hover:text-blue-200 transition-colors">{quotation.submittedBy?.name || 'Authorized Representative'}</p>
+                <p className="text-sm text-blue-100/60 mt-1">{quotation.organization?.name || 'Our Organization'}</p>
               </div>
             </div>
           </div>
 
-          {/* 2. COVER LETTER SECTION */}
+          {/* 2. COVER LETTER SECTION — shown only when there is no dynamic COVER/COVER_LETTER section */}
           {!hasDynamicCover && (quotation.coverLetter || (quotation as any).financialStatement) && (
             <div className="p-12 md:p-20 border-b border-gray-100">
               <div className="max-w-3xl">
@@ -151,7 +170,7 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                 const sectionIndex = index; // Keep 0-indexed for display logic if needed
                 
                 return (
-                  <div key={section.id || sectionIndex} className="p-12 md:p-20 border-b border-gray-100 last:border-b-0">
+                  <div key={section.id || sectionIndex} className="p-12 md:p-20 border-b border-gray-100 last:border-b-0 print:break-inside-avoid print:p-8">
                     <div className="mb-10">
                       <div className="flex justify-between items-end">
                         <div>
@@ -165,14 +184,16 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                           </div>
                         )}
                       </div>
-                      {section.note && section.sectionType === 'PRICING' && (
-                        <p className="text-gray-500 mt-4 max-w-2xl">{section.note}</p>
+                      {section.note && (
+                        <p className="text-gray-500 mt-4 max-w-2xl leading-relaxed">{section.note}</p>
                       )}
                     </div>
 
                     {/* Unified Section Content Renderer (Metadata-driven) */}
                     <SectionViewRenderer section={section} quotation={quotation} />
 
+                    {/* Render items/groups tables ONLY for PRICING-type sections */}
+                    {(section.sectionType === 'PRICING' || !section.sectionType) && (
                     <div className="space-y-12">
                       {/* Groups Rendering */}
                       {section.groups && section.groups.length > 0 && (
@@ -212,6 +233,7 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                       {/* Direct Items */}
                       {section.items && section.items.length > 0 && renderTable(section.items)}
                     </div>
+                    )}
 
                     {/* Section Subtotal - Only for PRICING type sections */}
                     {section.sectionType === 'PRICING' && (
@@ -229,25 +251,33 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
           )}
 
           {/* 4. GRAND TOTAL SECTION */}
-          <div className="bg-[#0A2540] p-12 md:p-20 text-white flex flex-col md:flex-row justify-between items-center gap-8">
-            <div>
-              <h2 className="text-3xl font-bold mb-2 text-white">Final Project Investment</h2>
-              <p className="text-white/60">This includes all specified phases and deliverables mentioned above.</p>
+          <div className="bg-gradient-to-r from-[#091523] to-[#0A2540] p-12 md:p-24 text-white flex flex-col md:flex-row justify-between items-center gap-12 relative overflow-hidden">
+             {/* Decorative glow */}
+             <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/10 blur-[100px] rounded-full translate-x-1/4 -translate-y-1/4" />
+             <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-indigo-500/10 blur-[100px] rounded-full -translate-x-1/4 translate-y-1/4" />
+             
+            <div className="relative z-10">
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white tracking-tight">Final Project Investment</h2>
+              <p className="text-blue-100/70 text-lg max-w-md leading-relaxed">This includes all specified phases and deliverables mentioned above.</p>
             </div>
-            <div className="bg-white/10 backdrop-blur-xl p-8 rounded-3xl border border-white/20 text-right min-w-[300px]">
-              <p className="text-sm font-bold text-blue-300 uppercase tracking-widest mb-2">Grand Total</p>
-              <p className="text-5xl font-black text-white">{formatCurrency(Number(quotation.total))}</p>
-              <div className="mt-4 flex items-center justify-end gap-2 text-blue-200 text-sm italic">
-                <span>Inclusive of all taxes as per agreement</span>
+            <div className="relative z-10 bg-white/5 backdrop-blur-2xl p-10 rounded-[2rem] border border-white/10 shadow-2xl text-right min-w-[340px] transform hover:scale-105 transition-all duration-500 ring-1 ring-white/20">
+              <p className="text-xs font-bold text-blue-300 uppercase tracking-[0.2em] mb-4">Grand Total</p>
+              <p className="text-5xl md:text-6xl font-black text-white tracking-tighter">{formatCurrency(Number(quotation.grandTotal || quotation.total))}</p>
+              <div className="mt-8 flex items-center justify-end gap-2 text-blue-200 text-xs font-medium uppercase tracking-widest">
+                <span className="bg-blue-500/20 px-4 py-2 rounded-full border border-blue-400/20 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                  Inclusive of all taxes
+                </span>
               </div>
             </div>
           </div>
         </div>
         
         {/* Helper for Terms & Conditions or Footer */}
+        {/* Terms & Conditions — shown only when there is no dynamic TERMS/LEGAL_TERMS section */}
         {!hasDynamicTerms && quotation.tos && (
           <div className="mt-12 max-w-3xl mx-auto text-center px-4">
-             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Terms & Conditions</h3>
+             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Terms &amp; Conditions</h3>
              <div className="text-xs text-gray-400 leading-relaxed text-left max-h-40 overflow-y-auto p-6 bg-white rounded-xl border border-gray-100" dangerouslySetInnerHTML={{ __html: replaceQuotationTemplates(quotation.tos, quotation) }} />
           </div>
         )}
@@ -261,28 +291,28 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
 function renderTable(items: any[]) {
   if (!items || items.length === 0) return null;
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left">
+    <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm mt-4 print:break-inside-avoid">
+      <table className="w-full text-left border-collapse">
         <thead>
-          <tr className="border-b border-gray-100">
-            <th className="py-4 px-2 text-xs font-bold text-gray-400 uppercase tracking-widest">SL</th>
-            <th className="py-4 px-2 text-xs font-bold text-gray-400 uppercase tracking-widest">Description</th>
-            <th className="py-4 px-2 text-xs font-bold text-gray-400 uppercase tracking-widest text-right">Qty</th>
-            <th className="py-4 px-2 text-xs font-bold text-gray-400 uppercase tracking-widest text-right">Unit Price</th>
-            <th className="py-4 px-2 text-xs font-bold text-gray-400 uppercase tracking-widest text-right">Amount</th>
+          <tr className="bg-gray-50/80 border-b border-gray-100">
+            <th className="py-5 px-6 text-[11px] font-bold text-gray-500 uppercase tracking-widest">SL</th>
+            <th className="py-5 px-6 text-[11px] font-bold text-gray-500 uppercase tracking-widest">Description</th>
+            <th className="py-5 px-6 text-[11px] font-bold text-gray-500 uppercase tracking-widest text-right">Qty</th>
+            <th className="py-5 px-6 text-[11px] font-bold text-gray-500 uppercase tracking-widest text-right">Unit Price</th>
+            <th className="py-5 px-6 text-[11px] font-bold text-gray-500 uppercase tracking-widest text-right">Amount</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
           {items.map((item, idx) => (
-            <tr key={item.id || idx} className="group hover:bg-gray-50/50 transition-colors">
-              <td className="py-4 px-2 text-sm text-gray-500 font-medium">{item.sl || idx + 1}</td>
-              <td className="py-4 px-2">
-                <div className="text-sm font-bold text-[#0A2540]">{item.code && <span className="text-blue-600 mr-2">[{item.code}]</span>}{item.description}</div>
-                {item.no && <div className="text-[10px] text-gray-400 mt-1 uppercase">ID: {item.no}</div>}
+            <tr key={item.id || idx} className="group hover:bg-blue-50/30 transition-all duration-300 print:break-inside-avoid">
+              <td className="py-5 px-6 text-sm text-gray-400 font-semibold">{item.sl || idx + 1}</td>
+              <td className="py-5 px-6">
+                <div className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{item.code && <span className="text-blue-500 mr-2 opacity-80">[{item.code}]</span>}{item.description}</div>
+                {item.no && <div className="text-[10px] text-gray-400 mt-1.5 uppercase font-medium tracking-wider">ID: {item.no}</div>}
               </td>
-              <td className="py-4 px-2 text-sm text-gray-600 text-right">{Number(item.quantity)}</td>
-              <td className="py-4 px-2 text-sm text-gray-600 text-right font-mono">{formatCurrency(Number(item.unitPrice))}</td>
-              <td className="py-4 px-2 text-sm font-bold text-[#0A2540] text-right font-mono">{formatCurrency(Number(item.amount))}</td>
+              <td className="py-5 px-6 text-sm text-gray-600 text-right font-medium">{Number(item.quantity)}</td>
+              <td className="py-5 px-6 text-sm text-gray-500 text-right font-mono tracking-tight">{formatCurrency(Number(item.unitPrice))}</td>
+              <td className="py-5 px-6 text-sm font-bold text-gray-900 text-right font-mono tracking-tight">{formatCurrency(Number(item.amount))}</td>
             </tr>
           ))}
         </tbody>

@@ -42,7 +42,7 @@ export function QuoteFooterBar({
   const subtotal = grandTotal + discount - shippingCharges;
 
   return (
-    <div className="fixed bottom-0 right-0 z-50 w-full lg:w-[calc(100%-16rem)] border-t bg-background/95 backdrop-blur-sm shadow-[0_-2px_12px_rgb(0,0,0,0.06)]">
+    <div className="sticky bottom-0 z-50 w-full border-t bg-background/95 backdrop-blur-sm shadow-[0_-2px_12px_rgb(0,0,0,0.06)]">
       <div className="mx-auto flex max-w-screen-2xl items-center gap-4 px-4 py-2.5 sm:px-6">
         {/* Section count */}
         <div className="flex shrink-0 items-center gap-4">

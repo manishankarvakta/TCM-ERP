@@ -319,38 +319,50 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
     doc.setGState(new (doc as any).GState({opacity: 1.0}));
     yPos += 15;
 
-    // Side by sidePrepared info
+    // Side by side Prepared info
+    const leftX = margin + 5;
+    const rightX = pageWidth * 0.55;
+    const maxLeftWidth = rightX - leftX - 10;
+    const maxRightWidth = pageWidth - rightX - margin;
+
     // Left: Prepared For
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(255, 255, 255);
     doc.setGState(new (doc as any).GState({opacity: 0.4}));
-    doc.text('PREPARED FOR', margin + 5, yPos);
-    doc.setGState(new (doc as any).GState({opacity: 1.0}));
-    yPos += 6;
-    doc.setFontSize(14);
-    doc.text(quotation.client?.name || quotation.client?.company || 'N/A', margin + 5, yPos);
-    yPos += 5;
-    doc.setFontSize(9);
-    doc.setGState(new (doc as any).GState({opacity: 0.6}));
-    doc.text(quotation.client?.company || '', margin + 5, yPos);
-    doc.setGState(new (doc as any).GState({opacity: 1.0}));
-
+    doc.text('PREPARED FOR', leftX, yPos);
+    
     // Right: Prepared By
-    const rightX = pageWidth * 0.55;
-    let preparedY = pageHeight - 50;
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-    doc.setGState(new (doc as any).GState({opacity: 0.4}));
-    doc.text('PREPARED BY', rightX, preparedY);
+    doc.text('PREPARED BY', rightX, yPos);
     doc.setGState(new (doc as any).GState({opacity: 1.0}));
-    preparedY += 6;
+    yPos += 7;
+
+    // Names
     doc.setFontSize(14);
-    doc.text(quotation.submittedBy?.name || 'Authorized Representative', rightX, preparedY);
-    preparedY += 5;
+    const clientNameStr = quotation.client?.name || quotation.client?.company || 'N/A';
+    const repNameStr = quotation.submittedBy?.name || 'Authorized Representative';
+    
+    const clientNameLines = doc.splitTextToSize(clientNameStr, maxLeftWidth);
+    const repNameLines = doc.splitTextToSize(repNameStr, maxRightWidth);
+    
+    doc.text(clientNameLines, leftX, yPos);
+    doc.text(repNameLines, rightX, yPos);
+    
+    yPos += Math.max(clientNameLines.length, repNameLines.length) * 6;
+
+    // Companies
     doc.setFontSize(9);
     doc.setGState(new (doc as any).GState({opacity: 0.6}));
-    doc.text(orgName, rightX, preparedY);
+    const clientCompanyStr = quotation.client?.company || '';
+    const orgNameStr = orgName || '';
+    
+    const clientCompanyLines = doc.splitTextToSize(clientCompanyStr, maxLeftWidth);
+    const orgNameLines = doc.splitTextToSize(orgNameStr, maxRightWidth);
+    
+    if (clientCompanyStr && clientCompanyStr !== clientNameStr) {
+      doc.text(clientCompanyLines, leftX, yPos);
+    }
+    doc.text(orgNameLines, rightX, yPos);
     doc.setGState(new (doc as any).GState({opacity: 1.0}));
   };
 
@@ -371,21 +383,36 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
     // Side-by-side Prepared info (Mini version)
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
+    const maxLeftWidth2 = (pageWidth * 0.55) - (margin + 10) - 10;
+    const maxRightWidth2 = pageWidth - (pageWidth * 0.55) - margin - 10;
+    
     doc.text('PREPARED FOR', margin + 10, yPos);
     doc.text('PREPARED BY', pageWidth * 0.55, yPos);
     yPos += 5;
     
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-    doc.text(quotation.client?.name || quotation.client?.company || 'N/A', margin + 10, yPos);
-    doc.text(quotation.submittedBy?.name || 'Authorized Representative', pageWidth * 0.55, yPos);
-    yPos += 5;
+    const clientNameStr2 = quotation.client?.name || quotation.client?.company || 'N/A';
+    const repNameStr2 = quotation.submittedBy?.name || 'Authorized Representative';
+    const cLines2 = doc.splitTextToSize(clientNameStr2, maxLeftWidth2);
+    const rLines2 = doc.splitTextToSize(repNameStr2, maxRightWidth2);
+    
+    doc.text(cLines2, margin + 10, yPos);
+    doc.text(rLines2, pageWidth * 0.55, yPos);
+    yPos += Math.max(cLines2.length, rLines2.length) * 5;
     
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
-    doc.text(quotation.client?.company || '', margin + 10, yPos);
-    doc.text(orgName, pageWidth * 0.55, yPos);
-    yPos += 15;
+    const clientCompStr2 = quotation.client?.company || '';
+    const orgNameStr2 = orgName || '';
+    const ccLines2 = doc.splitTextToSize(clientCompStr2, maxLeftWidth2);
+    const orgLines2 = doc.splitTextToSize(orgNameStr2, maxRightWidth2);
+    
+    if (clientCompStr2 && clientCompStr2 !== clientNameStr2) {
+      doc.text(ccLines2, margin + 10, yPos);
+    }
+    doc.text(orgLines2, pageWidth * 0.55, yPos);
+    yPos += Math.max(ccLines2.length, orgLines2.length) * 4 + 10;
 
     // Cover Letter Content
     doc.setFontSize(10);
@@ -403,8 +430,13 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
         });
     } else {
         ensurePageSpace(10);
-        doc.text('We are pleased to present this proposal for your consideration. Our team has carefully reviewed your requirements and prepared this comprehensive offer to address your needs.', margin + 10, yPos);
-        yPos += 6;
+        const defaultText = 'We are pleased to present this proposal for your consideration. Our team has carefully reviewed your requirements and prepared this comprehensive offer to address your needs.';
+        const defaultLines = doc.splitTextToSize(defaultText, pageWidth - 2 * margin - 20);
+        defaultLines.forEach((line: string) => {
+            ensurePageSpace(6);
+            doc.text(line, margin + 10, yPos);
+            yPos += 6;
+        });
     }
     yPos += 15;
 
@@ -469,7 +501,7 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
       const sType = section.sectionType || 'PRICING';
       
       // Skip COVER sections since they are rendered at the start globally now
-      if (sType === 'COVER' || sType === 'COVER_LETTER') {
+      if (sType === 'COVER') {
         continue; 
       }
 
@@ -745,33 +777,69 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
           yPos += 45;
         }
 
+        // 9. Cover Letter (Dynamic Section)
+        if (sType === 'COVER_LETTER') {
+          const content = section.content || section.note || '';
+          if (content) {
+            ensurePageSpace(10);
+            const cleanContent = String(content).replace(/<[^>]*>?/gm, ''); // basic HTML strip
+            const lines = doc.splitTextToSize(cleanContent, pageWidth - 2 * margin - 10);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(60, 60, 60);
+            lines.forEach((line: string) => {
+              ensurePageSpace(6);
+              doc.text(line, margin + 10, yPos);
+              yPos += 5.5;
+            });
+            yPos += 10;
+          }
+        }
       } else {
         // Render as standard Pricing Table
         const tableData: any[] = [];
         let sectionTotal = 0;
         let slCounter = 1;
 
-        const sortedDirectItems = [...(section.items || [])].sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        const processItems = (items: any[], prefix = '') => {
+          if (!items) return;
+          const sortedItems = [...items].sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+          sortedItems.forEach((item: any) => {
+            try {
+              const itemCode = item.code ? `[${String(item.code)}] ` : '';
+              const itemDescription = prefix + itemCode + String(item.description || '');
+              
+              const row = [
+                slCounter++,
+                itemDescription,
+                Number(item.quantity || 0),
+                formatCurrencyTk(Number(item.unitPrice || 0)),
+                formatCurrencyTk(Number(item.amount || 0)),
+              ];
+              
+              tableData.push(row);
+              sectionTotal += Number(item.amount || 0);
+            } catch (itemError) {
+              console.error('Error processing item:', itemError, item);
+            }
+          });
+        };
+
+        if (section.groups && section.groups.length > 0) {
+          section.groups.forEach((group: any) => {
+             tableData.push([{ content: group.description || 'Group', colSpan: 5, styles: { fontStyle: 'bold', fillColor: [249, 250, 251], textColor: [10, 37, 64] } }]);
+             processItems(group.items, '  ');
+          });
+        }
         
-        sortedDirectItems.forEach((item: any) => {
-          try {
-            const itemCode = item.code ? `[${String(item.code)}] ` : '';
-            const itemDescription = itemCode + String(item.description || '');
-            
-            const row = [
-              slCounter++,
-              itemDescription,
-              Number(item.quantity || 0),
-              formatCurrencyTk(Number(item.unitPrice || 0)),
-              formatCurrencyTk(Number(item.amount || 0)),
-            ];
-            
-            tableData.push(row);
-            sectionTotal += Number(item.amount || 0);
-          } catch (itemError) {
-            console.error('Error processing direct item:', itemError, item);
-          }
-        });
+        if (section.categoryGroups && section.categoryGroups.length > 0) {
+          section.categoryGroups.forEach((catGroup: any) => {
+             const catName = catGroup.category?.name || 'Category';
+             tableData.push([{ content: catName, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [249, 250, 251], textColor: [10, 37, 64] } }]);
+             processItems(catGroup.items, '  ');
+          });
+        }
+
+        processItems(section.items, '');
 
         if (section.discount) {
           sectionTotal = Math.max(0, sectionTotal - Number(section.discount));
@@ -780,13 +848,13 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
         const finalTotal = section.grandTotal != null ? Number(section.grandTotal || 0) : sectionTotal;
 
         tableData.push([
-          { content: 'Total:', colSpan: 7, styles: { halign: 'right', fontStyle: 'bold', fontSize: 9, font: 'helvetica' } },
+          { content: 'Total:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fontSize: 9, font: 'helvetica' } },
           { content: formatCurrencyTk(finalTotal), styles: { halign: 'right', fontStyle: 'bold', fontSize: 9, font: 'helvetica' } },
         ]);
 
         if (section.note) {
           tableData.push([
-            { content: `Note: ${String(section.note)}`, colSpan: 8, styles: { fontStyle: 'italic', fontSize: 8, halign: 'left', textColor: [80, 80, 80] } },
+            { content: `Note: ${String(section.note)}`, colSpan: 5, styles: { fontStyle: 'italic', fontSize: 8, halign: 'left', textColor: [80, 80, 80] } },
           ]);
         }
 
@@ -797,17 +865,17 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
           : `Prepared By: ${String(preparedByName)}`;
         
         tableData.push([
-          { content: preparedByText, colSpan: 8, styles: { fontSize: 8, halign: 'left' } },
+          { content: preparedByText, colSpan: 5, styles: { fontSize: 8, halign: 'left' } },
         ]);
 
         try {
           if (tableData.length === 0) {
-            tableData.push([{ content: 'No items in this section', colSpan: 8, styles: { halign: 'center', fontStyle: 'italic', fontSize: 8 } }]);
+            tableData.push([{ content: 'No items in this section', colSpan: 5, styles: { halign: 'center', fontStyle: 'italic', fontSize: 8 } }]);
           }
 
           autoTable(doc, {
             startY: yPos,
-            pageBreak: 'avoid',
+            pageBreak: 'auto',
             head: [['SL', 'Description', 'Qty', 'Unit Price', 'Amount']],
             body: tableData,
             theme: 'grid',
@@ -1019,7 +1087,15 @@ export async function downloadQuotationPDF(quotation: Quotation | any, filename?
       throw new Error('Quotation data is required');
     }
     const doc = await generateQuotationPDF(quotation);
-    const name = filename || `quotation-${quotation.quotationNumber || 'quotation'}.pdf`;
+    
+    let clientName = 'client';
+    if (quotation.client) {
+        clientName = quotation.client.name || quotation.client.company || 'client';
+    }
+    // Sanitize client name for filesystem
+    clientName = clientName.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').toLowerCase();
+
+    const name = filename || `quotation-${clientName}-${quotation.quotationNumber || 'export'}.pdf`;
     doc.save(name);
   } catch (error) {
     console.error('Error generating PDF:', error);
