@@ -75,6 +75,30 @@ export function SummarySection({ data, onChange, readOnly = false }: SummarySect
   const update = <K extends keyof SummarySectionData>(field: K, value: SummarySectionData[K]) =>
     onChange({ ...data, [field]: value });
 
+  if (readOnly) {
+    return (
+      <div className="space-y-6 text-sm">
+        {data.projectOverview && (
+          <div>
+            <span className="font-semibold text-[#0A2540] mb-2 block tracking-tight uppercase text-xs">Project Overview</span>
+            <div className="text-gray-600 leading-relaxed whitespace-pre-wrap">
+              {data.projectOverview}
+            </div>
+          </div>
+        )}
+        
+        {data.financialStatement && (
+          <div>
+            <span className="font-semibold text-[#0A2540] mb-2 block tracking-tight uppercase text-xs">Financial Statement</span>
+            <div className="text-gray-600 leading-relaxed whitespace-pre-wrap">
+              {data.financialStatement}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       {/* Project overview */}

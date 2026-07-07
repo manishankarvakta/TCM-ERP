@@ -131,6 +131,20 @@ export function CoverSection({ data, onChange, readOnly = false, context }: Cove
           </div>
         )}
         
+        {data.preparedBy && (
+          <div>
+            <span className="font-semibold text-[#0A2540] mb-2 block tracking-tight uppercase text-xs">Prepared By</span>
+            <div className="text-gray-800 text-base">{data.preparedBy}</div>
+          </div>
+        )}
+        
+        {data.validUntil && (
+          <div>
+            <span className="font-semibold text-[#0A2540] mb-2 block tracking-tight uppercase text-xs">Valid Until</span>
+            <div className="text-gray-800 text-base">{data.validUntil}</div>
+          </div>
+        )}
+
         {data.coverLetter && (
           <div>
             <span className="font-semibold text-[#0A2540] mb-2 block tracking-tight uppercase text-xs">Cover Letter</span>

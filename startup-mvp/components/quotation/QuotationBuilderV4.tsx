@@ -198,21 +198,27 @@ const buildSubmitPayload = (data: QuotationFormValues, sections: any[], mode: Qu
   // Extract legacy fields from sections if they exist
   let coverLetter = data.coverLetter || '';
   let tos = data.tos || '';
+  let subject = data.subject || '';
   
   const coverSection = sections.find(s => s.sectionType === 'COVER');
-  if (coverSection?.metadata?.cover?.coverLetter) {
-    coverLetter = coverSection.metadata.cover.coverLetter;
+  if (coverSection?.metadata) {
+    if (coverSection.metadata.coverLetter) coverLetter = coverSection.metadata.coverLetter;
+    else if (coverSection.metadata.coverIntro) coverLetter = coverSection.metadata.coverIntro;
+
+    if (coverSection.metadata.subject) subject = coverSection.metadata.subject;
+    else if (coverSection.metadata.coverTitle) subject = coverSection.metadata.coverTitle;
   }
   
-  const termsSection = sections.find(s => s.sectionType === 'TERMS');
-  if (termsSection?.metadata?.terms?.terms) {
-    tos = termsSection.metadata.terms.terms;
+  const termsSection = sections.find(s => s.sectionType === 'TERMS' || s.sectionType === 'LEGAL_TERMS');
+  if (termsSection?.metadata) {
+    if (termsSection.metadata.tos) tos = termsSection.metadata.tos;
+    else if (termsSection.metadata.content) tos = termsSection.metadata.content;
   }
 
   return {
   quotationNumber: data.quotationNumber,
   date: data.date,
-  subject: data.subject,
+  subject: subject,
   submittedTo: data.clientName || '',
   coverLetter,
   financialStatement: data.financialStatement || '',
@@ -258,6 +264,44 @@ const buildSubmitPayload = (data: QuotationFormValues, sections: any[], mode: Qu
       discount: item.discount ?? 0,
       amount: item.amount ?? 0,
       itemId: item.itemId || null,
+    })),
+    groups: (section.groups || []).map((group: any, groupIndex: number) => ({
+      code: group.code || null,
+      description: group.description || '',
+      quantity: group.quantity ?? 0,
+      number: group.number ?? null,
+      sortOrder: group.sortOrder ?? groupIndex,
+      moduleGroupId: group.moduleGroupId || null,
+      baseUnit: group.baseUnit || null,
+      baseUnitPrice: group.baseUnitPrice ?? null,
+      items: (group.items || []).map((item: any, itemIndex: number) => ({
+        sl: item.sl ?? itemIndex + 1,
+        no: item.no != null ? String(item.no) : null,
+        code: item.code || null,
+        description: item.description || null,
+        unit: item.unit || null,
+        unitPrice: item.unitPrice ?? 0,
+        quantity: item.quantity ?? 0,
+        discount: item.discount ?? 0,
+        amount: item.amount ?? 0,
+        itemId: item.itemId || null,
+      })),
+    })),
+    categoryGroups: (section.categoryGroups || []).map((catGroup: any, catIndex: number) => ({
+      categoryId: catGroup.categoryId || null,
+      sortOrder: catGroup.sortOrder ?? catIndex,
+      items: (catGroup.items || []).map((item: any, itemIndex: number) => ({
+        sl: item.sl ?? itemIndex + 1,
+        no: item.no != null ? String(item.no) : null,
+        code: item.code || null,
+        description: item.description || null,
+        unit: item.unit || null,
+        unitPrice: item.unitPrice ?? 0,
+        quantity: item.quantity ?? 0,
+        discount: item.discount ?? 0,
+        amount: item.amount ?? 0,
+        itemId: item.itemId || null,
+      })),
     })),
   })),
 };};
@@ -802,7 +846,7 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="pb-24">
+    <div className="relative">
       {/* ── Sticky identity header ─────────────────────────────────────────── */}
       <QuotationHeaderBar
         quotationNumber={quotationNumber}
@@ -826,7 +870,7 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
 
       <form
         onSubmit={handleSubmit((data) => buildAndSubmit(data as any))}
-        className="flex flex-col gap-4 md:flex-row md:items-start"
+        className="flex flex-col gap-4 md:flex-row md:items-stretch relative"
       >
         {/* ── Main document area ────────────────────────────────────────────── */}
         <div className="flex-1 min-w-0 space-y-4">
@@ -927,7 +971,7 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
       </form>
 
       {/* ── Sticky footer — outside the <form> so it spans full width ─────── */}
-      <QuoteFooterBar
+      {/* <QuoteFooterBar
         grandTotal={grandTotal}
         discount={discount}
         shippingCharges={shippingCharges}
@@ -937,7 +981,7 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
         onSectionClick={handleSectionClick}
         onSaveDraft={handleSaveDraft}
         onSubmit={handleFooterSubmit}
-      />
+      /> */}
     </div>
   );
 }
