@@ -308,12 +308,12 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
     doc.setFontSize(22);
     doc.text(dateText, pageWidth - margin - 5, yPos + 5, { align: 'right' });
 
-    yPos += 70;
+    yPos += 25;
 
     // 4. Accent Bar (Blue)
     doc.setFillColor(0, 122, 255); // Vibrant Blue
     doc.rect(margin + 5, yPos, 15, 2, 'F');
-    yPos += 15;
+    yPos += 40;
 
     // 5. Main Document Title
     doc.setTextColor(255, 255, 255);
@@ -323,7 +323,7 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
     const titleLines = doc.splitTextToSize('Software Development Proposal', 150);
     titleLines.forEach((line: string) => {
       doc.text(line, margin + 5, yPos);
-      yPos += 18;
+      yPos += 26;
     });
 
     yPos += 5;
@@ -390,6 +390,7 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
     }
     doc.text(orgNameLines, rightX, yPos);
     doc.setGState(new (doc as any).GState({opacity: 1.0}));
+
   };
 
   const generateCoverLetter = () => {
@@ -398,47 +399,39 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
     doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
     // Using a clean layout without border for documents
-    yPos = 40;
+    yPos = 25;
 
-    doc.setFontSize(22);
+    doc.setFontSize(11);
     doc.setTextColor(10, 37, 64);
     doc.setFont('helvetica', 'bold');
-    doc.text('Introduction', margin + 10, yPos);
-    yPos += 15;
-
-    // Side-by-side Prepared info (Mini version)
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
-    const maxLeftWidth2 = (pageWidth * 0.55) - (margin + 10) - 10;
-    const maxRightWidth2 = pageWidth - (pageWidth * 0.55) - margin - 10;
+    doc.text('To,', margin + 10, yPos);
     
-    doc.text('PREPARED FOR', margin + 10, yPos);
-    doc.text('PREPARED BY', pageWidth * 0.55, yPos);
-    yPos += 5;
-    
+    // Add date on the right
     doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(60, 60, 60);
+    const dateText = formatDate(quotation.date);
+    doc.text(`Date: ${dateText}`, pageWidth - margin - 5, yPos, { align: 'right' });
+    
+    yPos += 7;
+    
+    const clientName = quotation.client?.name || '';
+    const clientCompany = quotation.client?.company || '';
+    const clientEmail = quotation.client?.email || '';
+    const clientPhone = quotation.client?.phone || '';
+    
+    doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    const clientNameStr2 = quotation.client?.name || quotation.client?.company || 'N/A';
-    const repNameStr2 = quotation.submittedBy?.name || 'Authorized Representative';
-    const cLines2 = doc.splitTextToSize(clientNameStr2, maxLeftWidth2);
-    const rLines2 = doc.splitTextToSize(repNameStr2, maxRightWidth2);
+    doc.setFontSize(10);
+    if (clientName) { doc.text(clientName, margin + 10, yPos); yPos += 5; }
+    if (clientCompany && clientCompany !== clientName) { doc.text(clientCompany, margin + 10, yPos); yPos += 5; }
     
-    doc.text(cLines2, margin + 10, yPos);
-    doc.text(rLines2, pageWidth * 0.55, yPos);
-    yPos += Math.max(cLines2.length, rLines2.length) * 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(60, 60, 60);
+    if (clientEmail) { doc.text(`Email: ${clientEmail}`, margin + 10, yPos); yPos += 5; }
+    if (clientPhone) { doc.text(`Phone: ${clientPhone}`, margin + 10, yPos); yPos += 5; }
     
-    doc.setFontSize(8);
-    doc.setTextColor(120, 120, 120);
-    const clientCompStr2 = quotation.client?.company || '';
-    const orgNameStr2 = orgName || '';
-    const ccLines2 = doc.splitTextToSize(clientCompStr2, maxLeftWidth2);
-    const orgLines2 = doc.splitTextToSize(orgNameStr2, maxRightWidth2);
-    
-    if (clientCompStr2 && clientCompStr2 !== clientNameStr2) {
-      doc.text(ccLines2, margin + 10, yPos);
-    }
-    doc.text(orgLines2, pageWidth * 0.55, yPos);
-    yPos += Math.max(ccLines2.length, orgLines2.length) * 4 + 10;
+    yPos += 15;
 
     // Cover Letter Content
     doc.setFontSize(10);
@@ -499,6 +492,11 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
   await generateCoverPageLayout();
   generateCoverLetter();
 
+  // Force page 3 for all subsequent content (Project Summary, Pricing, etc)
+  doc.addPage();
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  yPos = margin + 10;
 
 
   // ============================================
@@ -513,29 +511,37 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
       const section = sections[sectionIndex];
       const sType = section.sectionType || 'PRICING';
       
-      // Skip COVER sections since they are rendered at the start globally now
-      if (sType === 'COVER') {
+      // Skip COVER and CLIENT_INFO sections since they are rendered at the start globally now or hidden
+      if (sType === 'COVER' || sType === 'CLIENT_INFO') {
         continue; 
       }
+
+      const isPricing = sType === 'PRICING' || sType === 'SUMMARY' || sType === 'CUSTOM';
+      const forceNewPage = isPricing || sType === 'LEGAL_TERMS';
 
       // Ensure enough space for the section header + some initial content
       const startOfPage = yPos <= margin + 10;
       
-      ensurePageSpace(80);
-      
-      // If we didn't just start a new page, draw a subtle divider
-      if (!startOfPage && yPos > margin + 10) {
-          yPos += 10;
-          doc.setDrawColor(241, 245, 249);
-          doc.setLineWidth(0.5);
-          doc.line(margin + 20, yPos, pageWidth - margin - 20, yPos);
-          yPos += 15;
+      if (forceNewPage && !startOfPage) {
+        doc.addPage();
+        doc.setFillColor(255, 255, 255);
+        doc.rect(0, 0, pageWidth, pageHeight, "F");
+        yPos = margin + 10;
+      } else {
+        ensurePageSpace(80);
+        
+        // If we didn't just start a new page and it's not pricing, draw a subtle divider
+        if (!startOfPage && yPos > margin + 10) {
+            yPos += 10;
+            doc.setDrawColor(241, 245, 249);
+            doc.setLineWidth(0.5);
+            doc.line(margin + 20, yPos, pageWidth - margin - 20, yPos);
+            yPos += 15;
+        }
       }
 
-      const isPricing = sType === 'PRICING' || sType === 'SUMMARY' || sType === 'CUSTOM';
-
       // Section title
-      doc.setFontSize(28);
+      doc.setFontSize(22);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(10, 37, 64); // Navy
       doc.text(section.title || section.sectionName || 'Section', margin + 5, yPos);
@@ -565,38 +571,7 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
 
         const metadata = section.metadata || {};
 
-        // 10. Client Info Rendering
-        if (sType === 'CLIENT_INFO') {
-          const cInfo = metadata.clientInfo || metadata;
-          if (cInfo) {
-            ensurePageSpace(30);
-            const fields = [
-              { label: 'Company Name', value: cInfo.companyName },
-              { label: 'Contact Person', value: cInfo.contactPerson },
-              { label: 'Email', value: cInfo.email },
-              { label: 'Phone', value: cInfo.phone },
-              { label: 'Industry', value: cInfo.industry },
-              { label: 'Address', value: cInfo.address },
-            ];
 
-            doc.setFontSize(10);
-            fields.forEach(f => {
-              if (f.value) {
-                ensurePageSpace(10);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(10, 37, 64);
-                doc.text(`${f.label}:`, margin + 10, yPos);
-                
-                doc.setFont('helvetica', 'normal');
-                doc.setTextColor(60, 60, 60);
-                const lines = doc.splitTextToSize(String(f.value), pageWidth - margin - 60);
-                doc.text(lines, margin + 45, yPos);
-                yPos += Math.max(lines.length * 5, 8);
-              }
-            });
-            yPos += 5;
-          }
-        }
 
         // 11. Project Summary Rendering
         if (sType === 'PROJECT_SUMMARY') {
@@ -723,36 +698,47 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
                 yPos += 5;
                 ensurePageSpace(30);
                 const startY = yPos;
+                let maxIncY = startY;
+                let maxExcY = startY;
+
                 if (inc.length > 0) {
+                    let curY = startY;
                     doc.setFont('helvetica', 'bold');
                     doc.setTextColor(16, 185, 129); // Emerald-500
-                    doc.text('Inclusions:', margin + 10, yPos);
+                    doc.text('Inclusions:', margin + 10, curY);
                     doc.setFont('helvetica', 'normal');
                     doc.setTextColor(0, 0, 0);
-                    yPos += 6;
+                    curY += 6;
                     inc.forEach((item: string) => {
-                        ensurePageSpace(6);
-                        doc.text(`+ ${item}`, margin + 15, yPos);
-                        yPos += 5;
+                        const lines = doc.splitTextToSize(`+ ${item}`, (pageWidth / 2) - margin - 15);
+                        lines.forEach((line: string) => {
+                             doc.text(line, margin + 15, curY);
+                             curY += 5;
+                        });
                     });
+                    maxIncY = curY;
                 }
                 
                 if (exc.length > 0) {
-                    const excY = inc.length > 0 ? yPos + 5 : startY;
-                    yPos = excY;
-                    ensurePageSpace(15);
+                    let curY = startY;
+                    const rightX = (pageWidth / 2) + 5;
                     doc.setFont('helvetica', 'bold');
                     doc.setTextColor(239, 68, 68); // Red-500
-                    doc.text('Exclusions:', margin + 10, yPos);
+                    doc.text('Exclusions:', rightX, curY);
                     doc.setFont('helvetica', 'normal');
                     doc.setTextColor(0, 0, 0);
-                    yPos += 6;
+                    curY += 6;
                     exc.forEach((item: string) => {
-                        ensurePageSpace(6);
-                        doc.text(`- ${item}`, margin + 15, yPos);
-                        yPos += 5;
+                        const lines = doc.splitTextToSize(`- ${item}`, (pageWidth / 2) - margin - 15);
+                        lines.forEach((line: string) => {
+                             doc.text(line, rightX + 5, curY);
+                             curY += 5;
+                        });
                     });
+                    maxExcY = curY;
                 }
+                
+                yPos = Math.max(maxIncY, maxExcY) + 5;
             }
         }
 
@@ -981,18 +967,19 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
             body: tableData,
             theme: 'grid',
             headStyles: {
-              fillColor: [255, 255, 255],
-              textColor: [156, 163, 175], // Gray-400
+              fillColor: [249, 250, 251],
+              textColor: [107, 114, 128], // Gray-500
               fontStyle: 'bold',
-              fontSize: 7,
-              lineWidth: 0,
-              lineColor: [255, 255, 255],
+              fontSize: 8,
+              lineWidth: 0.1,
+              lineColor: [229, 231, 235], // Gray-200
             },
             styles: {
               fontSize: 9,
-              cellPadding: 4,
-              lineWidth: 0,
-              textColor: [75, 85, 99], // Gray-600
+              cellPadding: 5,
+              lineWidth: 0.1,
+              lineColor: [243, 244, 246], // Gray-100
+              textColor: [55, 65, 81], // Gray-700
               overflow: 'linebreak',
             },
             columnStyles: {
@@ -1011,13 +998,6 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
                if (data.section === 'head') {
                  data.cell.styles.cellPadding = { top: 10, bottom: 5, left: 2, right: 2 };
                }
-            },
-            willDrawCell: (data) => {
-              if (data.section === 'body') {
-                doc.setDrawColor(249, 250, 251); // Gray-50
-                doc.setLineWidth(0.1);
-                doc.line(data.cell.x, data.cell.y + data.cell.height, data.cell.x + data.cell.width, data.cell.y + data.cell.height);
-              }
             }
           });
         } catch (tableError) {
@@ -1121,63 +1101,6 @@ export async function generateQuotationPDF(quotation: Quotation | any): Promise<
       }
     });
   }
-
-  // ============================================
-  // FINAL GRAND TOTAL BLOCK (Navy) - MATCH WEB UI
-  // ============================================
-  doc.addPage();
-  doc.setFillColor(10, 37, 64);
-  doc.rect(0, 0, pageWidth, pageHeight, 'F');
-  
-  yPos = pageHeight / 2 - 60;
-  
-  // Left side: Text
-  doc.setFontSize(24);
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Final Project Investment', margin + 10, yPos);
-  yPos += 12;
-  
-  doc.setFontSize(10);
-  doc.setTextColor(200, 200, 200);
-  doc.setFont('helvetica', 'normal');
-  doc.text('This includes all specified phases and deliverables mentioned above.', margin + 10, yPos);
-  
-  yPos += 30;
-
-  // Right side (Box): Grand Total
-  const boxW = 100;
-  const boxH = 50;
-  const boxX = pageWidth - margin - boxW - 5;
-  const boxY = yPos - 10;
-  
-  doc.setGState(new (doc as any).GState({opacity: 0.1}));
-  doc.setFillColor(255, 255, 255);
-  doc.roundedRect(boxX, boxY, boxW, boxH, 8, 8, 'F');
-  doc.setGState(new (doc as any).GState({opacity: 1.0}));
-  
-  doc.setFontSize(10);
-  doc.setTextColor(147, 197, 253); // blue-300
-  doc.setFont('helvetica', 'bold');
-  doc.text('GRAND TOTAL', boxX + 15, boxY + 15);
-  
-  doc.setFontSize(32);
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  const totalAmountStr = formatCurrencyTk(Number(quotation.grandTotal || quotation.total || 0));
-  doc.text(totalAmountStr, boxX + 15, boxY + 32);
-  
-  doc.setFontSize(8);
-  doc.setTextColor(191, 219, 254); // blue-200
-  doc.setFont('helvetica', 'normal');
-  doc.text('Inclusive of all taxes as per agreement', boxX + 15, boxY + 42);
-
-  // Bottom text
-  yPos = pageHeight - 40;
-  doc.setFontSize(9);
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Thank you for choosing Techsoul.', pageWidth / 2, yPos, { align: 'center' });
 
   return doc;
 }
