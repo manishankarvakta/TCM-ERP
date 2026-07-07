@@ -251,8 +251,7 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
           )}
 
           {/* 4. GRAND TOTAL SECTION */}
-          <div className="bg-gradient-to-r from-[#091523] to-[#0A2540] p-12 md:p-24 text-white flex flex-col md:flex-row justify-between items-center gap-12 relative overflow-hidden">
-             {/* Decorative glow */}
+          {/* <div className="bg-gradient-to-r from-[#091523] to-[#0A2540] p-12 md:p-24 text-white flex flex-col md:flex-row justify-between items-center gap-12 relative overflow-hidden">
              <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/10 blur-[100px] rounded-full translate-x-1/4 -translate-y-1/4" />
              <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-indigo-500/10 blur-[100px] rounded-full -translate-x-1/4 translate-y-1/4" />
              
@@ -270,7 +269,7 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
                 </span>
               </div>
             </div>
-          </div>
+          </div> */}
         </div>
         
         {/* Helper for Terms & Conditions or Footer */}

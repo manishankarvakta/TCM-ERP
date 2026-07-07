@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { PenSquare, User, Briefcase, CalendarDays, FileSignature } from 'lucide-react';
+import { PenSquare, User, Briefcase, CalendarDays, FileSignature, Upload } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 import { useRef } from 'react';
 
@@ -52,6 +52,18 @@ export function AcceptanceSection({
   readOnly = false,
 }: AcceptanceSectionProps) {
   const sigCanvas = useRef<SignatureCanvas>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        update('signatureDataUrl', reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const update = <K extends keyof AcceptanceData>(field: K, value: AcceptanceData[K]) =>
     onChange({ ...data, [field]: value });
@@ -207,6 +219,7 @@ export function AcceptanceSection({
             />
             {!readOnly && (
               <Button
+                type="button"
                 variant="destructive"
                 size="sm"
                 className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -241,20 +254,39 @@ export function AcceptanceSection({
             
             {!readOnly && (
               <div className="flex justify-between items-center px-1">
-                <p className="text-xs text-muted-foreground">Sign in the box above</p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => {
-                    if (sigCanvas.current) {
-                      sigCanvas.current.clear();
+                <p className="text-xs text-muted-foreground">Sign in the box above or upload</p>
+                <div className="flex gap-2">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-3 w-3 mr-1" /> Upload
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      if (sigCanvas.current) {
+                        sigCanvas.current.clear();
+                      }
                       update('signatureDataUrl', '');
-                    }
-                  }}
-                >
-                  Clear
-                </Button>
+                    }}
+                  >
+                    Clear
+                  </Button>
+                </div>
               </div>
             )}
           </div>

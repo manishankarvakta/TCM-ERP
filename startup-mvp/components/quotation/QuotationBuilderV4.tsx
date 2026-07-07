@@ -971,7 +971,7 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
       </form>
 
       {/* ── Sticky footer — outside the <form> so it spans full width ─────── */}
-      <QuoteFooterBar
+      {/* <QuoteFooterBar
         grandTotal={grandTotal}
         discount={discount}
         shippingCharges={shippingCharges}
@@ -981,7 +981,7 @@ export function QuotationBuilderV4({ initialData, onSubmit }: QuotationBuilderV4
         onSectionClick={handleSectionClick}
         onSaveDraft={handleSaveDraft}
         onSubmit={handleFooterSubmit}
-      />
+      /> */}
     </div>
   );
 }
