@@ -38,6 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { FiSearch, FiEdit, FiPower, FiMoreVertical, FiPlus, FiTrash2 } from "react-icons/fi";
 import {
   createEmployeeDeviceMapping,
@@ -97,6 +98,12 @@ export default function MappingListClient({
   const [search, setSearch] = useState(initialSearch);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+
+  const employeeOptions = employees.map((emp) => ({
+    label: emp.name,
+    value: emp.id,
+    description: emp.employeeCode || undefined,
+  }));
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
@@ -334,21 +341,13 @@ export default function MappingListClient({
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="employeeId">Employee</Label>
-                <Select
+                <SearchableSelect
+                  options={employeeOptions}
                   value={form.watch("employeeId")}
-                  onValueChange={(val) => form.setValue("employeeId", val)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Employee (Future: Searchable)" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {employees.map((emp) => (
-                      <SelectItem key={emp.id} value={emp.id}>
-                        {emp.name} {emp.employeeCode ? `(${emp.employeeCode})` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onValueChange={(val) => form.setValue("employeeId", val || "")}
+                  placeholder="Select Employee..."
+                  searchPlaceholder="Search employees..."
+                />
                 {form.formState.errors.employeeId && (
                   <p className="text-xs text-destructive">{form.formState.errors.employeeId.message}</p>
                 )}

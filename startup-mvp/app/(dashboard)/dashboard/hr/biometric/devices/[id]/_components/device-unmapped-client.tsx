@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { 
@@ -29,6 +29,12 @@ export default function DeviceUnmappedClient({
   employees: any[] 
 }) {
   const { toast } = useToast();
+  
+  const employeeOptions = employees.map(e => ({
+    label: e.name,
+    value: e.id,
+    description: e.employeeCode || undefined
+  }));
   const [mapModalOpen, setMapModalOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState<any>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
@@ -152,18 +158,12 @@ export default function DeviceUnmappedClient({
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Select Employee</label>
-              <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Search or select employee..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map(e => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {e.name} ({e.employeeCode || "No Code"})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={employeeOptions}
+                value={selectedEmployeeId}
+                onValueChange={(val) => setSelectedEmployeeId(val || "")}
+                placeholder="Search or select employee..."
+              />
             </div>
             
             <div className="text-sm border-t pt-4">
