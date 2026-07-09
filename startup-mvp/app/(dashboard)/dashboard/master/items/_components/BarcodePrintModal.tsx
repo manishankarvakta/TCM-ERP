@@ -177,7 +177,7 @@ export default function BarcodePrintModal({ item, isOpen, onClose }: BarcodePrin
     }
 
     setPrintRows(rows);
-  }, [item, isOpen]);
+  }, [item.id, isOpen]);
 
   // If a roll size is selected, force layout to "1col" if it was "2col" or "3col"
   useEffect(() => {
@@ -336,6 +336,9 @@ export default function BarcodePrintModal({ item, isOpen, onClose }: BarcodePrin
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setAllCopies(5)} className="text-xs h-7">
                   Set Copies to 5
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setAllCopies(1)} className="text-xs h-7">
+                  Reset Qty
                 </Button>
               </div>
             </div>
