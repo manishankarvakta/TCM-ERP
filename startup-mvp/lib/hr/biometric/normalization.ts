@@ -58,11 +58,22 @@ class FingerTecAdapter implements BiometricAdapter {
     }));
   }
 }
+class HikvisionAdapter implements BiometricAdapter {
+  normalize(rawData: any[]): NormalizedPunch[] {
+    return rawData.map((item) => ({
+      biometricDeviceId: String(item.employeeNoString || item.employeeNo || item.biometricDeviceId || item.EnrollNumber),
+      timestamp: new Date(item.time || item.timestamp || `${item.Date} ${item.Time}`),
+      deviceId: item.deviceId,
+      vendor: "Hikvision",
+    }));
+  }
+}
 
 export const adapters: Record<string, BiometricAdapter> = {
   ZKTeco: new ZKTecoAdapter(),
   eSSL: new ESSlAdapter(),
   FingerTec: new FingerTecAdapter(),
+  Hikvision: new HikvisionAdapter(),
 };
 
 /**

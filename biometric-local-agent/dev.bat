@@ -1,0 +1,3 @@
+@echo off
+echo Starting agent in development mode (hot-reload watch)...
+npm run dev

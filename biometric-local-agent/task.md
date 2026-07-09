@@ -1,0 +1,50 @@
+# Biometric Local Agent Tasks
+
+- `[x]` Step 1: Initialize local agent directory and standard configuration files
+    - `[x]` Create `biometric-local-agent/package.json`
+    - `[x]` Create `biometric-local-agent/tsconfig.json`
+    - `[x]` Create `biometric-local-agent/.env.example` and `.env`
+    - `[x]` Create `biometric-local-agent/gateway.config.json`
+- `[x]` Step 2: Create bootstrap files
+    - `[x]` Create system check (`src/bootstrap/check-system.ts`)
+    - `[x]` Create folder ensure utility (`src/bootstrap/ensure-folders.ts`)
+- `[x]` Step 3: Implement core utilities & storage layer
+    - `[x]` Create logger (`src/logger.ts`)
+    - `[x]` Create config loader (`src/config.ts`)
+    - `[x]` Create unique hash util (`src/utils/hash.ts`)
+    - `[x]` Create atomic JSON DB storage (`src/storage/json-db.ts`)
+    - `[x]` Create attendance store (`src/storage/attendance-store.ts`)
+- `[x]` Step 4: Implement device communication layer
+    - `[x]` Create digest authentication helper (`src/utils/digest-auth.ts`)
+    - `[x]` Create ZKTeco adapter (`src/devices/zkteco-adapter.ts`)
+    - `[x]` Create Hikvision adapter (`src/devices/hikvision-adapter.ts`)
+    - `[x]` Create adapter factory (`src/devices/adapter-factory.ts`)
+- `[x]` Step 5: Implement workers
+    - `[x]` Create config-worker (`src/workers/config-worker.ts`)
+    - `[x]` Create sync-worker (`src/workers/sync-worker.ts`)
+    - `[x]` Create retry-worker (`src/workers/retry-worker.ts`)
+    - `[x]` Create heartbeat-worker (`src/workers/heartbeat-worker.ts`)
+    - `[x]` Create status-worker (`src/workers/status-worker.ts`)
+- `[x]` Step 6: Create entry point and startup scripts
+    - `[x]` Create entry point (`src/index.ts`)
+    - `[x]` Create `install-and-run.sh`
+    - `[x]` Create `start.sh` and `start.bat`
+- `[x]` Step 7: Verify execution
+    - `[x]` Run compilation check
+    - `[x]` Run local agent startup test
+- `[x]` Step 8: Implement server-side user mapping endpoints
+    - `[x]` Create `GET /api/biometric/gateway/user-mappings` route
+    - `[x]` Create `POST /api/biometric/gateway/user-mappings/status` route
+- `[x]` Step 9: Add `pullUsers` to adapters & factory
+    - `[x]` Implement `pullUsers` in `src/devices/zkteco-adapter.ts`
+    - `[x]` Implement `pullUsers` in `src/devices/hikvision-adapter.ts`
+    - `[x]` Implement `pullUsers` in `src/devices/adapter-factory.ts`
+- `[x]` Step 10: Create and schedule user mapping verification worker
+    - `[x]` Implement `src/workers/user-worker.ts`
+    - `[x]` Register and schedule user mapping worker in `src/index.ts`
+- `[x]` Step 11: Create OS startup auto-boot configurations
+    - `[x]` Implement `setup-startup.sh` (macOS/Linux)
+    - `[x]` Implement `setup-startup.bat` (Windows)
+- `[x]` Step 12: Verify execution of Phase 2 features
+    - `[x]` Run TypeScript typecheck on local agent
+    - `[x]` Run TypeScript typecheck on Next.js ERP
