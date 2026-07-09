@@ -59,7 +59,7 @@ export async function processNormalizedChunk(input: {
   
   // Pre-load common data to optimize chunk processing
   const deviceMaps = await prisma.employeeDeviceMap.findMany({
-    select: { deviceUserId: true, deviceId: true, employeeId: true, isActive: true }
+    select: { id: true, deviceUserId: true, deviceId: true, employeeId: true, isActive: true }
   });
 
   const employees = await prisma.employee.findMany({
@@ -86,20 +86,77 @@ export async function processNormalizedChunk(input: {
     let isDisabledAccess = false;
 
     // 1. Try to find in EmployeeDeviceMap
-    if (input.deviceId) {
-      const mapEntry = deviceMaps.find(m => m.deviceId === input.deviceId && m.deviceUserId === log.biometricDeviceId);
-      if (mapEntry) {
-        if (!mapEntry.isActive) {
-          isDisabledAccess = true;
-        } else {
-          employeeId = mapEntry.employeeId;
-        }
+    let mapEntry = input.deviceId
+      ? deviceMaps.find(m => m.deviceId === input.deviceId && m.deviceUserId === log.biometricDeviceId)
+      : undefined;
+
+    if (mapEntry) {
+      if (!mapEntry.isActive) {
+        isDisabledAccess = true;
+      } else {
+        employeeId = mapEntry.employeeId;
       }
     }
 
-    // 2. Fallback to Employee.biometricDeviceId (only if not found in device map at all)
+    // 2. Auto-generate map if employee exists with this biometric ID
     if (!employeeId && !isDisabledAccess) {
-      employeeId = empFallbackMap.get(log.biometricDeviceId);
+      const matchingEmployeeId = empFallbackMap.get(log.biometricDeviceId);
+      if (matchingEmployeeId) {
+        // Enforce "one employee will have one map" -> Check if employee already has a map
+        const existingEmpMap = deviceMaps.find(m => m.employeeId === matchingEmployeeId);
+        
+        if (existingEmpMap) {
+          // Update the existing mapping to point to the new device / deviceUserId
+          try {
+            await prisma.employeeDeviceMap.update({
+              where: { id: existingEmpMap.id },
+              data: {
+                deviceId: input.deviceId || existingEmpMap.deviceId,
+                deviceUserId: log.biometricDeviceId,
+                isActive: true,
+                syncStatus: "SYNCED"
+              }
+            });
+            
+            // Update local memory list
+            existingEmpMap.deviceId = input.deviceId || existingEmpMap.deviceId;
+            existingEmpMap.deviceUserId = log.biometricDeviceId;
+            existingEmpMap.isActive = true;
+            
+            employeeId = matchingEmployeeId;
+            console.log(`[SYNC] Updated existing EmployeeDeviceMap ID:${existingEmpMap.id} for employee:${employeeId} to deviceUserId:${log.biometricDeviceId}`);
+          } catch (err) {
+            console.error("[SYNC] Failed to update existing mapping:", err);
+          }
+        } else if (input.deviceId) {
+          // Auto-generate a new EmployeeDeviceMap in the DB
+          try {
+            const newMap = await prisma.employeeDeviceMap.create({
+              data: {
+                deviceId: input.deviceId,
+                deviceUserId: log.biometricDeviceId,
+                employeeId: matchingEmployeeId,
+                isActive: true,
+                syncStatus: "SYNCED"
+              }
+            });
+            
+            // Add to local list to prevent duplicate creation in this loop
+            deviceMaps.push({
+              id: newMap.id,
+              deviceId: input.deviceId,
+              deviceUserId: log.biometricDeviceId,
+              employeeId: matchingEmployeeId,
+              isActive: true
+            });
+            
+            employeeId = matchingEmployeeId;
+            console.log(`[SYNC] Auto-generated new EmployeeDeviceMap for employee:${employeeId} device:${input.deviceId} pin:${log.biometricDeviceId}`);
+          } catch (err) {
+            console.error("[SYNC] Failed to auto-generate mapping:", err);
+          }
+        }
+      }
     }
 
     if (isDisabledAccess || !employeeId) {

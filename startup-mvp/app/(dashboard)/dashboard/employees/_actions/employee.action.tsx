@@ -111,6 +111,15 @@ export async function getEmployees(
             deviceUserId: true,
           },
         },
+        attendanceLogs: {
+          orderBy: {
+            timestamp: "desc"
+          },
+          take: 2,
+          select: {
+            timestamp: true
+          }
+        },
         salaryPayableAccount: {
           select: {
             id: true,
@@ -236,6 +245,15 @@ export async function getEmployeeById(employeeId: string) {
         },
         biometricDeviceId: true,
         nominee: true,
+        attendanceLogs: {
+          orderBy: {
+            timestamp: "desc"
+          },
+          take: 2,
+          select: {
+            timestamp: true
+          }
+        },
         salaryPayableAccount: {
           select: {
             id: true,
@@ -1681,4 +1699,111 @@ export async function deleteEmployeesPermanently(employeeIds: string[]) {
     };
   }
 }
+
+/**
+ * Synchronize employee biometric IDs with device mappings
+ */
+export async function syncEmployeeBiometricIds() {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const hasManagePerm = await hasPermission(session.user.id, "peoples.employees", "edit");
+    if (!hasManagePerm) {
+      return { success: false, error: "Forbidden: insufficient permissions" };
+    }
+
+    // 1. Fetch all active employees
+    const activeEmployees = await prisma.employee.findMany({
+      where: { status: "active" },
+      select: { id: true, name: true, employeeCode: true, biometricDeviceId: true }
+    });
+
+    // 2. Fetch all active biometric devices
+    const activeDevices = await prisma.biometricDevice.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true }
+    });
+
+    if (activeDevices.length === 0) {
+      return { success: false, error: "No active biometric devices found." };
+    }
+
+    let createdMappingsCount = 0;
+    let updatedEmployeePinsCount = 0;
+
+    for (const employee of activeEmployees) {
+      // Step A: If employee has biometricDeviceId set, make sure mapping exists on all active devices
+      if (employee.biometricDeviceId && /^\d+$/.test(employee.biometricDeviceId)) {
+        for (const device of activeDevices) {
+          const existingMap = await prisma.employeeDeviceMap.findUnique({
+            where: {
+              employeeId_deviceId: {
+                employeeId: employee.id,
+                deviceId: device.id
+              }
+            }
+          });
+
+          if (!existingMap) {
+            // Check if deviceUserId is already in use on this device
+            const deviceUserIdInUse = await prisma.employeeDeviceMap.findUnique({
+              where: {
+                deviceId_deviceUserId: {
+                  deviceId: device.id,
+                  deviceUserId: employee.biometricDeviceId
+                }
+              }
+            });
+
+            if (!deviceUserIdInUse) {
+              await prisma.employeeDeviceMap.create({
+                data: {
+                  employeeId: employee.id,
+                  deviceId: device.id,
+                  deviceUserId: employee.biometricDeviceId,
+                  isActive: true,
+                  syncStatus: "READY"
+                }
+              });
+              createdMappingsCount++;
+            }
+          }
+        }
+      }
+      
+      // Step B: If employee does NOT have biometricDeviceId set, check if they have mappings in EmployeeDeviceMap
+      if (!employee.biometricDeviceId) {
+        const mappings = await prisma.employeeDeviceMap.findMany({
+          where: { employeeId: employee.id, isActive: true },
+          select: { deviceUserId: true }
+        });
+
+        // Find the first mapping with a valid numeric deviceUserId
+        const validMapping = mappings.find(m => m.deviceUserId && /^\d+$/.test(m.deviceUserId));
+        if (validMapping) {
+          await prisma.employee.update({
+            where: { id: employee.id },
+            data: { biometricDeviceId: validMapping.deviceUserId }
+          });
+          updatedEmployeePinsCount++;
+        }
+      }
+    }
+
+    revalidatePath("/dashboard/employees");
+    revalidatePath("/dashboard/hr/biometric/mapping");
+
+    return { 
+      success: true, 
+      message: `Sync completed. Created ${createdMappingsCount} device mappings, updated ${updatedEmployeePinsCount} employee biometric PINs.` 
+    };
+  } catch (error: any) {
+    console.error("syncEmployeeBiometricIds error:", error);
+    return { success: false, error: error.message || "Failed to sync biometric IDs" };
+  }
+}
+
 

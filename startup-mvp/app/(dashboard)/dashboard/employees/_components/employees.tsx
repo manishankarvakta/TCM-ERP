@@ -39,6 +39,38 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
+export function getEmployeeDutyStatus(attendanceLogs?: { timestamp: Date | string }[]): boolean {
+  if (!attendanceLogs || attendanceLogs.length === 0) return false;
+
+  const latestPunch = new Date(attendanceLogs[0].timestamp);
+  const now = new Date();
+
+  // If latest punch is older than 14 hours, they are automatically off duty
+  const hoursSinceLatest = (now.getTime() - latestPunch.getTime()) / (1000 * 60 * 60);
+  if (hoursSinceLatest > 14) {
+    return false;
+  }
+
+  // If we only have 1 punch and it's within 14 hours, they are on duty
+  if (attendanceLogs.length === 1) {
+    return true;
+  }
+
+  // If we have 2 punches, check if they occurred on the same calendar date
+  const prevPunch = new Date(attendanceLogs[1].timestamp);
+  
+  const latestDateString = latestPunch.getFullYear() + "-" + latestPunch.getMonth() + "-" + latestPunch.getDate();
+  const prevDateString = prevPunch.getFullYear() + "-" + prevPunch.getMonth() + "-" + prevPunch.getDate();
+
+  if (latestDateString === prevDateString) {
+    // Both punches are on the same day -> Even count -> Checked out
+    return false;
+  }
+
+  // Punches are on different days -> Latest punch is the start of a new day -> Checked in
+  return true;
+}
+
 interface Employee {
   id: string;
   name: string;
@@ -77,6 +109,9 @@ interface Employee {
   updatedAt: Date;
   deviceMappings?: {
     deviceUserId: string;
+  }[];
+  attendanceLogs?: {
+    timestamp: Date;
   }[];
 }
 
@@ -391,12 +426,23 @@ export default function EmployeesListClient({
                       />
                     </TableCell>
                     <TableCell>
-                      <div className="w-10 h-10 rounded border bg-muted overflow-hidden flex items-center justify-center mx-auto">
-                        {employee.photo ? (
-                          <img src={employee.photo} alt={employee.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <FiImage className="text-muted-foreground" />
-                        )}
+                      <div className="flex items-center justify-center gap-3">
+                        <span 
+                          className={cn(
+                            "w-2.5 h-2.5 rounded-full shrink-0",
+                            getEmployeeDutyStatus(employee.attendanceLogs)
+                              ? "bg-emerald-500 animate-pulse"
+                              : "bg-muted-foreground/30"
+                          )} 
+                          title={getEmployeeDutyStatus(employee.attendanceLogs) ? "On Duty" : "Off Duty"}
+                        />
+                        <div className="w-10 h-10 rounded border bg-muted overflow-hidden flex items-center justify-center">
+                          {employee.photo ? (
+                            <img src={employee.photo} alt={employee.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <FiImage className="text-muted-foreground" />
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>

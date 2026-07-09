@@ -13,6 +13,7 @@ interface MappingPageProps {
     page?: string;
     search?: string;
     tab?: string;
+    deviceId?: string;
   }>;
 }
 
@@ -21,6 +22,7 @@ export default async function EmployeeDeviceMappingPage({ searchParams }: Mappin
   const page = parseInt(params.page || "1");
   const search = params.search || "";
   const tab = params.tab || "all";
+  const deviceId = params.deviceId || "";
 
   const session = await auth();
   const userId = session?.user?.id;
@@ -29,7 +31,7 @@ export default async function EmployeeDeviceMappingPage({ searchParams }: Mappin
 
   // Check permissions on server side
   const [result, canView, canManage] = await Promise.all([
-    getEmployeeDeviceMappings(page, 10, search, status),
+    getEmployeeDeviceMappings(page, 10, search, status, deviceId),
     userId ? hasPermission(userId, "hr.biometric.view", "view") : false,
     userId ? hasPermission(userId, "hr.biometric.manage", "manage") : false,
   ]);
@@ -79,13 +81,13 @@ export default async function EmployeeDeviceMappingPage({ searchParams }: Mappin
         <Tabs defaultValue={tab} className="w-full">
           <TabsList>
             <TabsTrigger value="all" asChild>
-              <Link href="/dashboard/hr/biometric/mapping?tab=all&page=1">All</Link>
+              <Link href={`/dashboard/hr/biometric/mapping?tab=all&page=1${deviceId ? `&deviceId=${deviceId}` : ""}`}>All</Link>
             </TabsTrigger>
             <TabsTrigger value="active" asChild>
-              <Link href="/dashboard/hr/biometric/mapping?tab=active&page=1">Active</Link>
+              <Link href={`/dashboard/hr/biometric/mapping?tab=active&page=1${deviceId ? `&deviceId=${deviceId}` : ""}`}>Active</Link>
             </TabsTrigger>
             <TabsTrigger value="inactive" asChild>
-              <Link href="/dashboard/hr/biometric/mapping?tab=inactive&page=1">Inactive</Link>
+              <Link href={`/dashboard/hr/biometric/mapping?tab=inactive&page=1${deviceId ? `&deviceId=${deviceId}` : ""}`}>Inactive</Link>
             </TabsTrigger>
           </TabsList>
           
@@ -99,6 +101,7 @@ export default async function EmployeeDeviceMappingPage({ searchParams }: Mappin
                 totalPages: 0,
               }}
               initialSearch={search}
+              initialDeviceId={deviceId}
               employees={employees}
               devices={devices}
               permissions={{

@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import EmployeesListClient from "./_components/employees";
+import SyncBiometricButton from "./_components/sync-biometric-button";
 import PageGuard from "@/components/permissions/page-guard";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
@@ -66,6 +67,9 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
             <p className="text-sm text-muted-foreground">Manage employees in your system</p>
           </div>
           <div className="flex gap-2">
+            {canEdit && (
+              <SyncBiometricButton />
+            )}
             {canEdit && (
               <Button variant="outline" asChild>
                 <Link href="/dashboard/employees/types">

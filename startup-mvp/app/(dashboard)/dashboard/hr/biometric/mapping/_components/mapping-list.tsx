@@ -77,6 +77,7 @@ interface MappingListClientProps {
   initialMappings: MappingWithRelations[];
   initialPagination: Pagination;
   initialSearch: string;
+  initialDeviceId?: string;
   employees: any[];
   devices: any[];
   permissions?: {
@@ -89,6 +90,7 @@ export default function MappingListClient({
   initialMappings = [],
   initialPagination,
   initialSearch,
+  initialDeviceId = "",
   employees,
   devices,
   permissions,
@@ -113,7 +115,7 @@ export default function MappingListClient({
     resolver: zodResolver(employeeDeviceMappingSchema as any),
     defaultValues: {
       employeeId: "",
-      deviceId: "",
+      deviceId: initialDeviceId || "",
       deviceUserId: "",
       isActive: true,
     },
@@ -131,7 +133,7 @@ export default function MappingListClient({
   const openAddModal = () => {
     setModalMode("create");
     setEditingId(null);
-    form.reset({ employeeId: "", deviceId: "", deviceUserId: "", isActive: true });
+    form.reset({ employeeId: "", deviceId: initialDeviceId || "", deviceUserId: "", isActive: true });
     setIsModalOpen(true);
   };
 

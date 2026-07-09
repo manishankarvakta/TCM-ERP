@@ -10,6 +10,38 @@ import { format } from "date-fns";
 import { notFound } from "next/navigation";
 import PageGuard from "@/components/permissions/page-guard";
 
+export function getEmployeeDutyStatus(attendanceLogs?: { timestamp: Date | string }[]): boolean {
+  if (!attendanceLogs || attendanceLogs.length === 0) return false;
+
+  const latestPunch = new Date(attendanceLogs[0].timestamp);
+  const now = new Date();
+
+  // If latest punch is older than 14 hours, they are automatically off duty
+  const hoursSinceLatest = (now.getTime() - latestPunch.getTime()) / (1000 * 60 * 60);
+  if (hoursSinceLatest > 14) {
+    return false;
+  }
+
+  // If we only have 1 punch and it's within 14 hours, they are on duty
+  if (attendanceLogs.length === 1) {
+    return true;
+  }
+
+  // If we have 2 punches, check if they occurred on the same calendar date
+  const prevPunch = new Date(attendanceLogs[1].timestamp);
+  
+  const latestDateString = latestPunch.getFullYear() + "-" + latestPunch.getMonth() + "-" + latestPunch.getDate();
+  const prevDateString = prevPunch.getFullYear() + "-" + prevPunch.getMonth() + "-" + prevPunch.getDate();
+
+  if (latestDateString === prevDateString) {
+    // Both punches are on the same day -> Even count -> Checked out
+    return false;
+  }
+
+  // Punches are on different days -> Latest punch is the start of a new day -> Checked in
+  return true;
+}
+
 interface EmployeeDetailsPageProps {
   searchParams: Promise<{
     id?: string;
@@ -434,6 +466,18 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
             <div className="lg:col-span-1 space-y-6">
               <Card className="overflow-hidden max-w-[200px] mx-auto">
                 <div className="aspect-[4/5] relative bg-muted flex items-center justify-center">
+                  {/* Status Indicator Overlaid on Photo */}
+                  <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-background/80 backdrop-blur-sm px-2 py-1 rounded-full shadow-sm border border-border/50">
+                    <span className={`w-2 h-2 rounded-full ${
+                      getEmployeeDutyStatus((employee as any).attendanceLogs)
+                        ? "bg-emerald-500 animate-pulse"
+                        : "bg-muted-foreground/30"
+                    }`} />
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                      {getEmployeeDutyStatus((employee as any).attendanceLogs) ? "ON" : "OFF"}
+                    </span>
+                  </div>
+
                   {employee.photo ? (
                     <img src={employee.photo} alt={employee.name} className="w-full h-full object-cover" />
                   ) : (

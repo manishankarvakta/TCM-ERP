@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       vendor,
       rawData,
       deviceId,
-      syncedBy: "API_BRIDGE",
+      syncedBy: null,
     });
 
     if (!result.success) {
