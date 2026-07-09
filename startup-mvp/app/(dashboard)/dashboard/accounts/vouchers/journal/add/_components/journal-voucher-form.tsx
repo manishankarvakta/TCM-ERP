@@ -423,6 +423,9 @@ export default function JournalVoucherForm() {
                                     <Select
                                       value={field.value}
                                       onValueChange={field.onChange}
+                                      onOpenChange={(open) => {
+                                        if (!open) setAccountSearch("");
+                                      }}
                                       disabled={loading}
                                     >
                                       <SelectTrigger className="w-full border-muted-foreground/20 focus:ring-1 focus:ring-ring">
@@ -455,15 +458,7 @@ export default function JournalVoucherForm() {
                                                   value={account.id}
                                                   className="text-left cursor-pointer py-2 focus:bg-accent"
                                                 >
-                                                  <div className="flex items-center justify-between w-full gap-2">
-                                                    <div className="flex flex-col">
-                                                      <span className="font-medium text-sm">{account.name}</span>
-                                                      <span className="font-mono text-xs text-muted-foreground">{account.code}</span>
-                                                    </div>
-                                                    <Badge variant="outline" className="text-[10px] h-5 opacity-50">
-                                                      {account.type.substring(0,3)}
-                                                    </Badge>
-                                                  </div>
+                                                  <span className="text-sm font-medium">{account.code} - {account.name}</span>
                                                 </SelectItem>
                                               ))}
                                             </div>

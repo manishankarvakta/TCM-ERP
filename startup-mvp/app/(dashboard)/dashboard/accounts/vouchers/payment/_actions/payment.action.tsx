@@ -264,7 +264,7 @@ export async function getPaymentAccountsFromCOA(): Promise<{
       };
     }
 
-    const isAdmin = session.user.role?.toLowerCase() === "admin" || session.user.role?.toLowerCase() === "super-admin";
+    const isAdmin = session.user.role?.toLowerCase() === "admin" || session.user.role?.toLowerCase() === "super-admin" || session.user.role?.toLowerCase() === "superadmin";
     let defaultWarehouseId: string | null = null;
 
     if (!isAdmin) {
@@ -326,12 +326,11 @@ export async function getPaymentAccountsFromCOA(): Promise<{
         description: account.description,
       };
 
-      // Check if user is admin or if account is global (no linked warehouses) or matches user's warehouse
+      // Check if user is admin or if account matches user's warehouse
       const warehouses = account.CashBankAccount?.warehouses || [];
-      const isGlobal = warehouses.length === 0;
       const isLinkedToUserWarehouse = defaultWarehouseId ? warehouses.some(w => w.id === defaultWarehouseId) : false;
 
-      if (isAdmin || isGlobal || isLinkedToUserWarehouse) {
+      if (isAdmin || isLinkedToUserWarehouse) {
         if (accountType === "CASH") {
           cash.push(accountData);
         } else if (accountType === "BANK") {

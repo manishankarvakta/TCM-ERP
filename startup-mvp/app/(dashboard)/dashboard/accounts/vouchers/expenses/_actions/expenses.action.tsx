@@ -33,6 +33,17 @@ export async function getAccountsForExpenses(): Promise<{
       };
     }
 
+    const isAdmin = session.user.role?.toLowerCase() === "admin" || session.user.role?.toLowerCase() === "super-admin" || session.user.role?.toLowerCase() === "superadmin";
+    let defaultWarehouseId: string | null = null;
+
+    if (!isAdmin) {
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { defaultWarehouseId: true },
+      });
+      defaultWarehouseId = user?.defaultWarehouseId || null;
+    }
+
     // 1. Fetch Credit Accounts (Cash, Bank, Digital Wallets)
     const assetAccounts = await prisma.chartOfAccount.findMany({
       where: {
@@ -48,6 +59,11 @@ export async function getAccountsForExpenses(): Promise<{
         CashBankAccount: {
           select: {
             type: true,
+            warehouses: {
+              select: {
+                id: true,
+              },
+            },
           },
         },
       },
@@ -78,12 +94,19 @@ export async function getAccountsForExpenses(): Promise<{
         description: account.description,
       };
 
-      if (accountType === "CASH") {
-        cash.push(accountData);
-      } else if (accountType === "BANK") {
-        bank.push(accountData);
-      } else if (accountType === "DIGITAL_WALLET") {
-        digitalWallet.push(accountData);
+      // @ts-ignore - Prisma relation type fix
+      const warehouses = account.CashBankAccount?.warehouses || [];
+      const isGlobal = warehouses.length === 0;
+      const isLinkedToUserWarehouse = defaultWarehouseId ? warehouses.some((w: any) => w.id === defaultWarehouseId) : false;
+
+      if (isAdmin || isGlobal || isLinkedToUserWarehouse) {
+        if (accountType === "CASH") {
+          cash.push(accountData);
+        } else if (accountType === "BANK") {
+          bank.push(accountData);
+        } else if (accountType === "DIGITAL_WALLET") {
+          digitalWallet.push(accountData);
+        }
       }
     });
 

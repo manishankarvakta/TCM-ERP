@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { FiAlertCircle, FiArrowRight, FiLoader, FiDollarSign } from "react-icons/fi";
+import { FiAlertCircle, FiArrowRight, FiLoader, FiDollarSign, FiSearch } from "react-icons/fi";
 import { getContraAccounts, getAccountBalance } from "../../_actions/contra.action";
 import { createVoucher, postVoucher } from "../../../../vouchers/_actions/voucher.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
@@ -64,6 +64,8 @@ export default function ContraVoucherForm() {
   const [toAccountBalance, setToAccountBalance] = useState<number | null>(null);
   const [loadingFromBalance, setLoadingFromBalance] = useState(false);
   const [loadingToBalance, setLoadingToBalance] = useState(false);
+  const [fromSearch, setFromSearch] = useState("");
+  const [toSearch, setToSearch] = useState("");
 
   // Fetch contra accounts on mount
   useEffect(() => {
@@ -243,87 +245,120 @@ export default function ContraVoucherForm() {
     excludeAccountId?: string,
     balance?: number | null,
     loadingBalance?: boolean
-  ) => (
-    <div className="space-y-2">
-      <Label htmlFor={name}>{label} *</Label>
-      <Controller
-        name={name}
-        control={control}
-        render={({ field }) => (
-          <Select
-            value={field.value}
-            onValueChange={field.onChange}
-            disabled={loading}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={placeholder} />
-            </SelectTrigger>
-            <SelectContent>
-              {contraAccounts.cash.length === 0 && 
-               contraAccounts.bank.length === 0 && 
-               contraAccounts.digitalWallet.length === 0 ? (
-                <SelectItem value="none" disabled>
-                  No accounts available
-                </SelectItem>
-              ) : (
-                <>
-                  {contraAccounts.cash.length > 0 && (
-                    <>
-                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b">
-                        CASH ACCOUNTS
-                      </div>
-                      {contraAccounts.cash
-                        .filter((acc) => acc.id !== excludeAccountId)
-                        .map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.code} - {account.name}
-                          </SelectItem>
-                        ))}
-                    </>
-                  )}
-                  {contraAccounts.bank.length > 0 && (
-                    <>
-                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b border-t mt-1">
-                        BANK ACCOUNTS
-                      </div>
-                      {contraAccounts.bank
-                        .filter((acc) => acc.id !== excludeAccountId)
-                        .map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.code} - {account.name}
-                          </SelectItem>
-                        ))}
-                    </>
-                  )}
-                  {contraAccounts.digitalWallet.length > 0 && (
-                     <>
-                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b border-t mt-1">
-                        DIGITAL WALLETS
-                      </div>
-                      {contraAccounts.digitalWallet
-                        .filter((acc) => acc.id !== excludeAccountId)
-                        .map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.code} - {account.name}
-                          </SelectItem>
-                        ))}
-                    </>
-                  )}
-                </>
-              )}
-            </SelectContent>
-          </Select>
-        )}
-      />
-      
-      {/* Balance Display */}
-      {fieldBalanceDisplay(balance, loadingBalance)}
+  ) => {
+    const searchQuery = name === "fromAccountId" ? fromSearch : toSearch;
+    const setSearchQuery = name === "fromAccountId" ? setFromSearch : setToSearch;
 
-      {errors[name] && (
-        <p className="text-sm text-destructive">{errors[name]?.message}</p>
-      )}
-    </div>
-  );
+    const filterList = (list: ContraAccountOption[]) => {
+      let result = list.filter((acc) => acc.id !== excludeAccountId);
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        result = result.filter(
+          (acc) =>
+            acc.code.toLowerCase().includes(query) ||
+            acc.name.toLowerCase().includes(query)
+        );
+      }
+      return result;
+    };
+
+    const cashAccounts = filterList(contraAccounts.cash);
+    const bankAccounts = filterList(contraAccounts.bank);
+    const walletAccounts = filterList(contraAccounts.digitalWallet);
+
+    const hasAccounts = cashAccounts.length > 0 || bankAccounts.length > 0 || walletAccounts.length > 0;
+
+    return (
+      <div className="space-y-2">
+        <Label htmlFor={name}>{label} *</Label>
+        <Controller
+          name={name}
+          control={control}
+          render={({ field }) => (
+            <Select
+              value={field.value}
+              onValueChange={field.onChange}
+              onOpenChange={(open) => {
+                if (!open) setSearchQuery("");
+              }}
+              disabled={loading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={placeholder} />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                <div className="p-2 sticky top-0 bg-popover z-10 border-b">
+                  <div className="relative">
+                    <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground w-3.5 h-3.5" />
+                    <Input
+                      placeholder="Filter accounts..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      className="pl-8 h-8 text-xs bg-muted/50"
+                    />
+                  </div>
+                </div>
+                <div className="pt-1">
+                  {!hasAccounts ? (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground text-center">
+                      No accounts found
+                    </div>
+                  ) : (
+                    <>
+                      {cashAccounts.length > 0 && (
+                        <>
+                          <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/30 uppercase tracking-wider">
+                            CASH ACCOUNTS
+                          </div>
+                          {cashAccounts.map((account) => (
+                            <SelectItem key={account.id} value={account.id} className="text-left cursor-pointer py-2 focus:bg-accent">
+                              <span className="text-sm font-medium">{account.code} - {account.name}</span>
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      {bankAccounts.length > 0 && (
+                        <>
+                          <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/30 uppercase tracking-wider mt-1">
+                            BANK ACCOUNTS
+                          </div>
+                          {bankAccounts.map((account) => (
+                            <SelectItem key={account.id} value={account.id} className="text-left cursor-pointer py-2 focus:bg-accent">
+                              <span className="text-sm font-medium">{account.code} - {account.name}</span>
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      {walletAccounts.length > 0 && (
+                        <>
+                          <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/30 uppercase tracking-wider mt-1">
+                            DIGITAL WALLETS
+                          </div>
+                          {walletAccounts.map((account) => (
+                            <SelectItem key={account.id} value={account.id} className="text-left cursor-pointer py-2 focus:bg-accent">
+                              <span className="text-sm font-medium">{account.code} - {account.name}</span>
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              </SelectContent>
+            </Select>
+          )}
+        />
+        
+        {/* Balance Display */}
+        {fieldBalanceDisplay(balance, loadingBalance)}
+
+        {errors[name] && (
+          <p className="text-sm text-destructive">{errors[name]?.message}</p>
+        )}
+      </div>
+    );
+  };
 
   const fieldBalanceDisplay = (balance: number | null | undefined, isLoading: boolean | undefined) => {
     if (isLoading) {

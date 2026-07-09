@@ -32,7 +32,7 @@ export async function getContraAccounts(): Promise<{
       };
     }
 
-    const isAdmin = session.user.role?.toLowerCase() === "admin" || session.user.role?.toLowerCase() === "super-admin";
+    const isAdmin = session.user.role?.toLowerCase() === "admin" || session.user.role?.toLowerCase() === "super-admin" || session.user.role?.toLowerCase() === "superadmin";
     let defaultWarehouseId: string | null = null;
 
     if (!isAdmin) {
@@ -112,6 +112,7 @@ export async function getContraAccounts(): Promise<{
       const isGlobal = warehouses.length === 0;
       const isLinkedToUserWarehouse = defaultWarehouseId ? warehouses.some(w => w.id === defaultWarehouseId) : false;
 
+      // Source Account options (cash, bank, digitalWallet arrays) should list user's warehouse accounts, global (all warehouse) accounts, or all for Admin
       if (isAdmin || isGlobal || isLinkedToUserWarehouse) {
         if (accountType === "CASH") {
           cash.push(accountData);

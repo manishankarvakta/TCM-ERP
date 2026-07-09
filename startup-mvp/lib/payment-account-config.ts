@@ -33,17 +33,28 @@ export interface PaymentAccountOption {
 export function determineAccountType(account: {
   code: string;
   name: string;
-  CashBankAccount?: { type: 'CASH' | 'BANK' } | null;
+  CashBankAccount?: { type: string } | null;
 }): PaymentAccountType | null {
-  // 1. Check if CashBankAccount relation exists (highest priority)
-  if (account.CashBankAccount) {
-    return account.CashBankAccount.type;
-  }
-
   const code = account.code.toUpperCase();
   const name = account.name.toLowerCase();
 
-  // 2. Check code prefixes for CASH
+  // 1. Check name keywords first for DIGITAL_WALLET (overriding wrong DB classifications like bKash/Nagad set as CASH)
+  const isWallet = name.includes("bkash") || name.includes("nagad") || name.includes("rocket") || name.includes("upay") || name.includes("wallet");
+  if (isWallet || (account.CashBankAccount && (account.CashBankAccount.type === 'MFS' || account.CashBankAccount.type === 'DIGITAL_WALLET'))) {
+    return 'DIGITAL_WALLET';
+  }
+
+  // 2. Check if CashBankAccount relation exists
+  if (account.CashBankAccount) {
+    if (account.CashBankAccount.type === 'CASH') {
+      return 'CASH';
+    }
+    if (account.CashBankAccount.type === 'BANK') {
+      return 'BANK';
+    }
+  }
+
+  // 3. Fallback to code prefixes/name keywords matching
   if (PAYMENT_ACCOUNT_PATTERNS.cash.codePrefixes.some((prefix) => code.startsWith(prefix))) {
     return 'CASH';
   }

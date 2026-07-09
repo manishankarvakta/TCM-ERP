@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { FiAlertCircle, FiCheck, FiLoader, FiTrendingUp, FiTrendingDown, FiDollarSign } from "react-icons/fi";
+import { FiAlertCircle, FiCheck, FiLoader, FiTrendingUp, FiTrendingDown, FiDollarSign, FiSearch } from "react-icons/fi";
 import { getSuppliersForPayment, getSupplierFinancialInfo, getPaymentAccountsFromCOA } from "../../_actions/payment.action";
 import { createVoucher, postVoucher } from "../../../_actions/voucher.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
@@ -78,6 +78,40 @@ export default function PaymentVoucherForm() {
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierOption | null>(null);
   const [financialInfo, setFinancialInfo] = useState<SupplierFinancialInfo | null>(null);
   const [loadingFinancialInfo, setLoadingFinancialInfo] = useState(false);
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [accountSearch, setAccountSearch] = useState("");
+
+  // Filtered suppliers based on search
+  const filteredSuppliers = useMemo(() => {
+    if (!supplierSearch) return suppliers;
+    const query = supplierSearch.toLowerCase();
+    return suppliers.filter(
+      (s) =>
+        (s.name && s.name.toLowerCase().includes(query)) ||
+        (s.email && s.email.toLowerCase().includes(query)) ||
+        (s.company && s.company.toLowerCase().includes(query)) ||
+        (s.supplierCode && s.supplierCode.toLowerCase().includes(query))
+    );
+  }, [suppliers, supplierSearch]);
+
+  // Filtered payment accounts based on search
+  const filteredPaymentAccounts = useMemo(() => {
+    const filterList = (list: PaymentAccountOption[]) => {
+      if (!accountSearch) return list;
+      const query = accountSearch.toLowerCase();
+      return list.filter(
+        (a) =>
+          a.code.toLowerCase().includes(query) ||
+          a.name.toLowerCase().includes(query)
+      );
+    };
+
+    return {
+      cash: filterList(paymentAccounts.cash),
+      bank: filterList(paymentAccounts.bank),
+      digitalWallet: filterList(paymentAccounts.digitalWallet),
+    };
+  }, [paymentAccounts, accountSearch]);
 
   // Fetch suppliers and payment accounts on mount
   useEffect(() => {
@@ -278,25 +312,44 @@ export default function PaymentVoucherForm() {
                     <Select
                       value={field.value}
                       onValueChange={field.onChange}
+                      onOpenChange={(open) => {
+                        if (!open) setSupplierSearch("");
+                      }}
                       disabled={loading}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select a supplier" />
                       </SelectTrigger>
-                      <SelectContent>
-                        {suppliers.length === 0 ? (
-                          <SelectItem value="none" disabled>
-                            No suppliers available
-                          </SelectItem>
-                        ) : (
-                          suppliers.map((supplier) => (
-                            <SelectItem key={supplier.id} value={supplier.id}>
-                              {supplier.name || supplier.email}
-                              {supplier.company && ` (${supplier.company})`}
-                              {supplier.supplierCode && ` - ${supplier.supplierCode}`}
-                            </SelectItem>
-                          ))
-                        )}
+                      <SelectContent className="max-h-[300px]">
+                        <div className="p-2 sticky top-0 bg-popover z-10 border-b">
+                          <div className="relative">
+                            <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground w-3.5 h-3.5" />
+                            <Input
+                              placeholder="Filter suppliers..."
+                              value={supplierSearch}
+                              onChange={(e) => setSupplierSearch(e.target.value)}
+                              onKeyDown={(e) => e.stopPropagation()}
+                              className="pl-8 h-8 text-xs bg-muted/50"
+                            />
+                          </div>
+                        </div>
+                        <div className="pt-1">
+                          {filteredSuppliers.length === 0 ? (
+                            <div className="px-2 py-1.5 text-xs text-muted-foreground text-center">
+                              No suppliers found
+                            </div>
+                          ) : (
+                            filteredSuppliers.map((supplier) => (
+                              <SelectItem key={supplier.id} value={supplier.id} className="text-left cursor-pointer py-2 focus:bg-accent">
+                                <span className="text-sm font-medium">
+                                  {supplier.name || supplier.email}
+                                  {supplier.company && ` (${supplier.company})`}
+                                  {supplier.supplierCode && ` - ${supplier.supplierCode}`}
+                                </span>
+                              </SelectItem>
+                            ))
+                          )}
+                        </div>
                       </SelectContent>
                     </Select>
                   )}
@@ -330,58 +383,75 @@ export default function PaymentVoucherForm() {
                     <Select
                       value={field.value}
                       onValueChange={field.onChange}
+                      onOpenChange={(open) => {
+                        if (!open) setAccountSearch("");
+                      }}
                       disabled={loading}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select payment account" />
                       </SelectTrigger>
-                      <SelectContent>
-                        {paymentAccounts.cash.length === 0 &&
-                         paymentAccounts.bank.length === 0 &&
-                         paymentAccounts.digitalWallet.length === 0 ? (
-                          <SelectItem value="none" disabled>
-                            No payment accounts available
-                          </SelectItem>
-                        ) : (
-                          <>
-                            {paymentAccounts.cash.length > 0 && (
-                              <>
-                                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b">
-                                  CASH ACCOUNTS
-                                </div>
-                                {paymentAccounts.cash.map((account) => (
-                                  <SelectItem key={account.id} value={account.id}>
-                                    {account.code} - {account.name}
-                                  </SelectItem>
-                                ))}
-                              </>
-                            )}
-                            {paymentAccounts.bank.length > 0 && (
-                              <>
-                                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b border-t mt-1">
-                                  BANK ACCOUNTS
-                                </div>
-                                {paymentAccounts.bank.map((account) => (
-                                  <SelectItem key={account.id} value={account.id}>
-                                    {account.code} - {account.name}
-                                  </SelectItem>
-                                ))}
-                              </>
-                            )}
-                            {paymentAccounts.digitalWallet.length > 0 && (
-                              <>
-                                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b border-t mt-1">
-                                  DIGITAL WALLETS
-                                </div>
-                                {paymentAccounts.digitalWallet.map((account) => (
-                                  <SelectItem key={account.id} value={account.id}>
-                                    {account.code} - {account.name}
-                                  </SelectItem>
-                                ))}
-                              </>
-                            )}
-                          </>
-                        )}
+                      <SelectContent className="max-h-[300px]">
+                        <div className="p-2 sticky top-0 bg-popover z-10 border-b">
+                          <div className="relative">
+                            <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground w-3.5 h-3.5" />
+                            <Input
+                              placeholder="Filter payment accounts..."
+                              value={accountSearch}
+                              onChange={(e) => setAccountSearch(e.target.value)}
+                              onKeyDown={(e) => e.stopPropagation()}
+                              className="pl-8 h-8 text-xs bg-muted/50"
+                            />
+                          </div>
+                        </div>
+                        <div className="pt-1">
+                          {filteredPaymentAccounts.cash.length === 0 &&
+                           filteredPaymentAccounts.bank.length === 0 &&
+                           filteredPaymentAccounts.digitalWallet.length === 0 ? (
+                            <div className="px-2 py-1.5 text-xs text-muted-foreground text-center">
+                              No payment accounts found
+                            </div>
+                          ) : (
+                            <>
+                              {filteredPaymentAccounts.cash.length > 0 && (
+                                <>
+                                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/30 uppercase tracking-wider">
+                                    CASH ACCOUNTS
+                                  </div>
+                                  {filteredPaymentAccounts.cash.map((account) => (
+                                    <SelectItem key={account.id} value={account.id} className="text-left cursor-pointer py-2 focus:bg-accent">
+                                      <span className="text-sm font-medium">{account.code} - {account.name}</span>
+                                    </SelectItem>
+                                  ))}
+                                </>
+                              )}
+                              {filteredPaymentAccounts.bank.length > 0 && (
+                                <>
+                                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/30 uppercase tracking-wider mt-1">
+                                    BANK ACCOUNTS
+                                  </div>
+                                  {filteredPaymentAccounts.bank.map((account) => (
+                                    <SelectItem key={account.id} value={account.id} className="text-left cursor-pointer py-2 focus:bg-accent">
+                                      <span className="text-sm font-medium">{account.code} - {account.name}</span>
+                                    </SelectItem>
+                                  ))}
+                                </>
+                              )}
+                              {filteredPaymentAccounts.digitalWallet.length > 0 && (
+                                <>
+                                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/30 uppercase tracking-wider mt-1">
+                                    DIGITAL WALLETS
+                                  </div>
+                                  {filteredPaymentAccounts.digitalWallet.map((account) => (
+                                    <SelectItem key={account.id} value={account.id} className="text-left cursor-pointer py-2 focus:bg-accent">
+                                      <span className="text-sm font-medium">{account.code} - {account.name}</span>
+                                    </SelectItem>
+                                  ))}
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </SelectContent>
                     </Select>
                   )}
