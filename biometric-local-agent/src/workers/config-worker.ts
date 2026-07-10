@@ -34,7 +34,7 @@ export class ConfigWorker {
     // 1. Fetch from live server
     const serverResult = await getDeviceConfig();
 
-    if (serverResult.success && serverResult.devices.length > 0) {
+    if (serverResult.success) {
       logger.info(`ConfigWorker: Successfully fetched ${serverResult.devices.length} devices from live server.`);
       this.mergeAndSaveDevices(serverResult.devices);
       return;

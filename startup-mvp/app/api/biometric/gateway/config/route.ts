@@ -13,24 +13,13 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Invalid token" }, { status: 403 });
     }
 
-    const gatewayId = req.headers.get("x-gateway-id");
-
     // 2. Fetch active biometric devices
     const dbDevices = await prisma.biometricDevice.findMany({
       where: { isActive: true },
     });
 
-    // 3. Filter devices mapping to this gateway location
-    const filtered = dbDevices.filter((d) => {
-      if (!gatewayId) return true;
-      if (d.location && d.location.toLowerCase() === gatewayId.toLowerCase()) return true;
-      if (d.name && d.name.toLowerCase().includes(gatewayId.toLowerCase())) return true;
-      // If location is blank, expose it to all gateways
-      return !d.location;
-    });
-
-    // 4. Map db schema to agent expected structure
-    const devices = filtered.map((d) => ({
+    // 3. Map db schema to agent expected structure (no filtering by gatewayId needed)
+    const devices = dbDevices.map((d) => ({
       deviceId: d.id,
       vendor: d.vendor,
       name: d.name,
