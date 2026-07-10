@@ -13,9 +13,12 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Invalid token" }, { status: 403 });
     }
 
-    // 2. Fetch active biometric devices
+    // 2. Fetch active biometric devices with TCP/IP connection mode
     const dbDevices = await prisma.biometricDevice.findMany({
-      where: { isActive: true },
+      where: { 
+        isActive: true,
+        connectionMode: "TCP_IP"
+      },
     });
 
     // 3. Map db schema to agent expected structure (no filtering by gatewayId needed)
