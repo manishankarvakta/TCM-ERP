@@ -37,11 +37,41 @@ export async function GET(
   const stream = new ReadableStream({
     start(controller) {
       const encoder = new TextEncoder();
+      let isClosed = false;
+      let unsubscribe: (() => void) | null = null;
+      let keepAliveInterval: NodeJS.Timeout | null = null;
+      let timeoutId: NodeJS.Timeout | null = null;
+
+      const cleanup = () => {
+        if (isClosed) return;
+        isClosed = true;
+
+        if (keepAliveInterval) clearInterval(keepAliveInterval);
+        if (timeoutId) clearTimeout(timeoutId);
+        if (unsubscribe) {
+          try {
+            unsubscribe();
+          } catch (e) {
+            // Ignore
+          }
+        }
+
+        try {
+          controller.close();
+        } catch (e) {
+          // Ignore
+        }
+      };
 
       // Send data helper
       const sendData = (data: any) => {
-        const message = `data: ${JSON.stringify(data)}\n\n`;
-        controller.enqueue(encoder.encode(message));
+        if (isClosed) return;
+        try {
+          const message = `data: ${JSON.stringify(data)}\n\n`;
+          controller.enqueue(encoder.encode(message));
+        } catch (error) {
+          cleanup();
+        }
       };
 
       // Send initial progress
@@ -51,38 +81,35 @@ export async function GET(
       }
 
       // Subscribe to progress updates
-      const unsubscribe = manager.subscribeToProgress(restoreId, (progress) => {
+      unsubscribe = manager.subscribeToProgress(restoreId, (progress) => {
         sendData(progress);
 
         // Close stream when restore is completed or failed
         if (progress.status === 'COMPLETED' || progress.status === 'FAILED') {
           setTimeout(() => {
-            controller.close();
+            cleanup();
           }, 1000); // Give client time to receive final update
         }
       });
 
       // Keep-alive ping to prevent connection timeout
-      const keepAliveInterval = setInterval(() => {
+      keepAliveInterval = setInterval(() => {
+        if (isClosed) return;
         try {
-          // Send comment as keep-alive (doesn't trigger 'message' event in client)
           controller.enqueue(encoder.encode(': keep-alive\n\n'));
         } catch (error) {
-          // Connection closed
-          clearInterval(keepAliveInterval);
+          cleanup();
         }
       }, SSE_KEEPALIVE_INTERVAL);
 
       // Cleanup on connection close
       request.signal.addEventListener('abort', () => {
         console.log(`[SSE] Client disconnected from restore ${restoreId}`);
-        clearInterval(keepAliveInterval);
-        unsubscribe();
-        controller.close();
+        cleanup();
       });
 
       // Auto-close after timeout if restore is stuck
-      const timeoutId = setTimeout(() => {
+      timeoutId = setTimeout(() => {
         const currentProgress = manager.getProgress(restoreId);
         if (
           currentProgress &&
@@ -96,15 +123,8 @@ export async function GET(
             error: 'Restore operation timed out',
           });
         }
-        clearInterval(keepAliveInterval);
-        unsubscribe();
-        controller.close();
+        cleanup();
       }, 60 * 60 * 1000); // 1 hour timeout
-
-      // Cleanup timeout on manual close
-      request.signal.addEventListener('abort', () => {
-        clearTimeout(timeoutId);
-      });
     },
   });
 
