@@ -48,8 +48,14 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
     );
   }
 
-  // Serialize Decimal objects for Client Components
-  const serializedInvoices = serializeData(result.invoices || []);
+  // Serialize Decimal objects for Client Components and map Order/Client relations
+  const serializedInvoices = serializeData(result.invoices || []).map((inv: any) => ({
+    ...inv,
+    order: inv.Order ? {
+      ...inv.Order,
+      client: inv.Order.Client,
+    } : null,
+  }));
 
   return (
     <div className="space-y-6">

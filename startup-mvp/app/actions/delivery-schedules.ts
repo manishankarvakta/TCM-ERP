@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { serializeData } from "@/lib/utils/serialization";
 
 interface ScheduleItemInput {
   orderItemId: string;
@@ -276,9 +277,14 @@ export async function getDeliverySchedules(
     ]);
 
     console.log(`[DeliverySchedule] Found ${total} schedules total`);
+    const serializedSchedules = serializeData(schedules).map((sch: any) => ({
+      ...sch,
+      order: sch.Order,
+      items: sch.DeliveryScheduleItem || [],
+    }));
     return {
       success: true,
-      schedules,
+      schedules: serializedSchedules,
       pagination: {
         page,
         limit,
@@ -315,7 +321,13 @@ export async function getDeliverySchedule(id: string) {
 
     if (!schedule) throw new Error("Schedule not found");
 
-    return { success: true, schedule };
+    const serializedSchedule = serializeData(schedule);
+    if (serializedSchedule) {
+      serializedSchedule.order = serializedSchedule.Order;
+      serializedSchedule.items = serializedSchedule.DeliveryScheduleItem || [];
+    }
+
+    return { success: true, schedule: serializedSchedule };
   } catch (error) {
     return { success: false, error: "Failed to fetch schedule" };
   }
