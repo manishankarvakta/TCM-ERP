@@ -34,7 +34,7 @@ const parseAltPhone = (raw: string | null | undefined) => {
     const [num, type] = raw.split("|");
     let label = "Alternative";
     if (type === "whatsapp") label = "WhatsApp";
-    if (type === "contact") label = "Contact Info";
+    if (type === "contact") label = "Contact Person";
     if (type === "alternative") label = "Alternative";
     return { num, label };
   }

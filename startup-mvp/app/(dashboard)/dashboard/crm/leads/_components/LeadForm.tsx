@@ -271,7 +271,7 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                <SelectItem value="contact">Contact Info</SelectItem>
+                <SelectItem value="contact">Contact Person</SelectItem>
                 <SelectItem value="alternative">Alternative</SelectItem>
               </SelectContent>
             </Select>
