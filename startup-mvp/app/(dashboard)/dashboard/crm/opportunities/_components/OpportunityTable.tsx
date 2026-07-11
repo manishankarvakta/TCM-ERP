@@ -179,9 +179,11 @@ export default function OpportunityTable({ opportunities, onEdit, onRefresh, onS
                           </DropdownMenuSub>
                       )}
 
-                      <DropdownMenuItem onClick={() => {}}>
-                        <FiFileText className="mr-2 h-4 w-4" />
-                        Create Quotation
+                      <DropdownMenuItem asChild>
+                        <Link href={`/dashboard/quotations/new?opportunityId=${opp.id}`} className="flex items-center w-full cursor-pointer">
+                          <FiFileText className="mr-2 h-4 w-4" />
+                          Create Quotation
+                        </Link>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

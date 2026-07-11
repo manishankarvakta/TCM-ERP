@@ -24,6 +24,7 @@ import { EmptyState } from "@/components/crm/EmptyState";
 import { FiUser } from "react-icons/fi";
 import { updateLeadStatus, getLeads } from "@/app/actions/crm/lead.action";
 import { toast } from "sonner";
+import LeadConversionDialog from "./LeadConversionDialog";
 import { useDroppable } from "@dnd-kit/core";
 import {
   Dialog,
@@ -98,6 +99,7 @@ function KanbanColumn({ id, title, leads }: ColumnProps) {
 export default function LeadKanban({ initialLeads, canCreate, onRefresh }: Props) {
   const [leads, setLeads] = useState<any[]>(initialLeads);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [conversionLead, setConversionLead] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     setLeads(initialLeads);
@@ -183,6 +185,12 @@ export default function LeadKanban({ initialLeads, canCreate, onRefresh }: Props
     if (newStatus === LeadStatus.UNQUALIFIED) {
       setUnqualifiedLead({ id: currentActiveId });
       setClosingReason("");
+      setActiveId(null);
+      return;
+    }
+
+    if (newStatus === LeadStatus.CONVERTED) {
+      setConversionLead({ id: currentActiveId, name: activeLead.name });
       setActiveId(null);
       return;
     }
@@ -273,6 +281,14 @@ export default function LeadKanban({ initialLeads, canCreate, onRefresh }: Props
               </DialogFooter>
           </DialogContent>
       </Dialog>
+
+      <LeadConversionDialog
+        isOpen={!!conversionLead}
+        leadId={conversionLead?.id || null}
+        leadName={conversionLead?.name || ""}
+        onClose={() => setConversionLead(null)}
+        onSuccess={onRefresh}
+      />
     </>
   );
 }
