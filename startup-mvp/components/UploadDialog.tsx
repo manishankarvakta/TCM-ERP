@@ -20,6 +20,128 @@ import { useToast } from "@/hooks/use-toast";
 import { formatBytes } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
+// Client-side image compression helper to optimize profile pictures to max 500KB
+function compressImage(file: File, maxSizeBytes: number): Promise<File> {
+  return new Promise((resolve) => {
+    let resolved = false;
+    const safeResolve = (result: File) => {
+      if (resolved) return;
+      resolved = true;
+      resolve(result);
+    };
+
+    // Timeout fallback: if compression takes more than 3 seconds, fallback to original file
+    const timeoutId = setTimeout(() => {
+      console.warn("Image compression timed out after 3s, uploading original file");
+      safeResolve(file);
+    }, 3000);
+
+    const finish = (result: File) => {
+      clearTimeout(timeoutId);
+      safeResolve(result);
+    };
+
+    // If not in browser environment or not an image, skip compression
+    if (typeof window === "undefined" || typeof document === "undefined" || !file.type.startsWith("image/")) {
+      return finish(file);
+    }
+
+    // If already smaller than max size, skip compression
+    if (file.size <= maxSizeBytes) {
+      return finish(file);
+    }
+
+    try {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      
+      img.onload = () => {
+        try {
+          // Free memory immediately
+          URL.revokeObjectURL(objectUrl);
+
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+
+          // Limit maximum dimensions to a reasonable size (e.g. 1000px)
+          const MAX_DIMENSION = 1000;
+          if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+            if (width > height) {
+              height = Math.round((height * MAX_DIMENSION) / width);
+              width = MAX_DIMENSION;
+            } else {
+              width = Math.round((width * MAX_DIMENSION) / height);
+              height = MAX_DIMENSION;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            console.warn("Failed to get 2d context, uploading original image");
+            return finish(file);
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+
+          let quality = 0.85;
+          let blob: Blob | null = null;
+          
+          try {
+            // Compress recursively in a synchronous loop to prevent hanging callbacks
+            do {
+              const dataUrl = canvas.toDataURL("image/jpeg", quality);
+              const arr = dataUrl.split(',');
+              const mime = arr[0].match(/:(.*?);/)?.[1] || "image/jpeg";
+              const bstr = atob(arr[1]);
+              let n = bstr.length;
+              const u8arr = new Uint8Array(n);
+              while (n--) {
+                u8arr[n] = bstr.charCodeAt(n);
+              }
+              blob = new Blob([u8arr], { type: mime });
+              
+              quality -= 0.1;
+            } while (blob.size > maxSizeBytes && quality > 0.15);
+
+            const baseName = file.name.substring(0, file.name.lastIndexOf(".")) || file.name;
+            const newName = `${baseName}_optimized.jpg`;
+            const compressedFile = new window.File([blob], newName, {
+              type: "image/jpeg",
+              lastModified: Date.now(),
+            });
+            finish(compressedFile);
+          } catch (loopErr) {
+            console.error("Error in compression loop:", loopErr);
+            finish(file);
+          }
+        } catch (onloadErr) {
+          console.error("Error inside img.onload:", onloadErr);
+          finish(file);
+        }
+      };
+
+      img.onerror = (err) => {
+        console.error("Image failed to load for compression:", err);
+        try {
+          URL.revokeObjectURL(objectUrl);
+        } catch (_) {}
+        finish(file);
+      };
+
+      // Set src after handlers to avoid race conditions
+      img.src = objectUrl;
+    } catch (err) {
+      console.error("Error setting up image compression:", err);
+      finish(file);
+    }
+  });
+}
+
+
 interface UploadDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -191,8 +313,22 @@ export default function UploadDialog({
         prev.map((u) => (u.id === upload.id ? { ...u, status: "uploading" } : u))
       );
 
+      // Compress image to max 500KB if it's an image
+      let fileToUpload = upload.file;
+      if (fileToUpload.type.startsWith("image/")) {
+        try {
+          fileToUpload = await compressImage(fileToUpload, 500 * 1024); // 500 KB limit
+          // Update file in uploads state so that UX shows the optimized size/details
+          setUploads((prev) =>
+            prev.map((u) => (u.id === upload.id ? { ...u, file: fileToUpload } : u))
+          );
+        } catch (compressErr) {
+          console.error("Image compression failed, using original file:", compressErr);
+        }
+      }
+
       // Convert file to base64
-      const arrayBuffer = await upload.file.arrayBuffer();
+      const arrayBuffer = await fileToUpload.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       const fileData = buffer.toString('base64');
 
@@ -207,8 +343,8 @@ export default function UploadDialog({
                 ? {
                     ...u,
                     progress,
-                    uploadedBytes: Math.floor((progress / 100) * upload.file.size),
-                    totalBytes: upload.file.size,
+                    uploadedBytes: Math.floor((progress / 100) * fileToUpload.size),
+                    totalBytes: fileToUpload.size,
                   }
                 : u
             )
@@ -219,10 +355,10 @@ export default function UploadDialog({
       // Upload file via server action (internal MinIO connection)
       const result = await uploadFileServerSide({
         path: "",
-        name: upload.file.name,
+        name: fileToUpload.name,
         fileData,
-        contentType: upload.file.type || "application/octet-stream",
-        size: upload.file.size,
+        contentType: fileToUpload.type || "application/octet-stream",
+        size: fileToUpload.size,
       });
 
       clearInterval(progressInterval);
@@ -246,8 +382,8 @@ export default function UploadDialog({
                 ...u,
                 status: "success",
                 progress: 100,
-                uploadedBytes: upload.file.size,
-                totalBytes: upload.file.size,
+                uploadedBytes: fileToUpload.size,
+                totalBytes: fileToUpload.size,
                 url: fileUrl,
               }
             : u

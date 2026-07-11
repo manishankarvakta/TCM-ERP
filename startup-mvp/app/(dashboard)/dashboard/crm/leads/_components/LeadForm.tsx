@@ -61,7 +61,19 @@ interface LeadFormProps {
   initialData?: any; // To be typed if needed
 }
 
+const parseAlternativePhone = (rawPhone: string | null | undefined) => {
+  if (!rawPhone) return { num: "", type: "alternative" };
+  if (rawPhone.includes("|")) {
+    const parts = rawPhone.split("|");
+    return { num: parts[0] || "", type: parts[1] || "alternative" };
+  }
+  return { num: rawPhone, type: "alternative" };
+};
+
 export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormProps) {
+  const parsedAlt = parseAlternativePhone(initialData?.alternativePhone);
+  const [altPhoneNum, setAltPhoneNum] = useState(parsedAlt.num);
+  const [altPhoneType, setAltPhoneType] = useState(parsedAlt.type);
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
@@ -171,9 +183,14 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
       const { firstName, lastName, notes, ...rest } = data;
       const leadName = `${firstName} ${lastName}`.trim();
 
+      // Combine altPhoneNum and altPhoneType into alternativePhone string format: "number|type"
+      const finalAltPhone = altPhoneNum.trim()
+        ? `${altPhoneNum.trim()}|${altPhoneType}`
+        : "";
+
       const payload = {
         ...rest,
-        alternativePhone: rest.alternativePhone || undefined,
+        alternativePhone: finalAltPhone,
         startingDate: rest.startingDate ? new Date(rest.startingDate) : undefined,
       };
 
@@ -235,7 +252,30 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
         </div>
         <div className="space-y-2">
           <Label htmlFor="alternativePhone">Alternative Phone</Label>
-          <Input id="alternativePhone" {...register("alternativePhone")} disabled={loading} placeholder="+1 234 567 891" />
+          <div className="flex gap-2">
+            <Input 
+              id="alternativePhone" 
+              value={altPhoneNum}
+              onChange={(e) => setAltPhoneNum(e.target.value)}
+              disabled={loading} 
+              placeholder="+1 234 567 891" 
+              className="flex-1"
+            />
+            <Select
+              value={altPhoneType}
+              onValueChange={altPhoneType => setAltPhoneType(altPhoneType)}
+              disabled={loading}
+            >
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                <SelectItem value="contact">Contact Info</SelectItem>
+                <SelectItem value="alternative">Alternative</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           {errors.alternativePhone && <p className="text-xs text-destructive">{errors.alternativePhone.message}</p>}
         </div>
       </div>
