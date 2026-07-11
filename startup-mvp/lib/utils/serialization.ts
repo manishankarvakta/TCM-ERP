@@ -15,8 +15,16 @@ export function serializeData<T>(data: T): any {
   }
 
   // Handle Prisma Decimal
-  if (data && typeof data === 'object' && (data instanceof Prisma.Decimal || (data as any).d && (data as any).s)) {
-    return Number(data) as unknown as T;
+  if (data && typeof data === 'object') {
+    const isDecimal = 
+      data instanceof Prisma.Decimal || 
+      (data.constructor && data.constructor.name === 'Decimal') ||
+      (typeof (data as any).toNumber === 'function' && (data as any).d !== undefined) ||
+      ((data as any).d !== undefined && (data as any).s !== undefined && (data as any).e !== undefined);
+      
+    if (isDecimal) {
+      return Number(data) as unknown as T;
+    }
   }
 
   // Handle Objects

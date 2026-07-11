@@ -22,6 +22,8 @@ interface Opportunity {
 interface OpportunityGridProps {
   opportunities: Opportunity[];
   onEdit: (opp: Opportunity) => void;
+  onRefresh?: () => void;
+  onStatusUpdate?: (id: string, stage: OpportunityStage) => void;
 }
 
 const stageMap: Record<OpportunityStage, { label: string; variant: "default" | "secondary" | "outline" | "destructive" | "success" }> = {
@@ -32,9 +34,10 @@ const stageMap: Record<OpportunityStage, { label: string; variant: "default" | "
   [OpportunityStage.NEGOTIATION]: { label: "Negotiation", variant: "outline" },
   [OpportunityStage.WON]: { label: "Won", variant: "success" },
   [OpportunityStage.LOST]: { label: "Lost", variant: "destructive" },
+  [OpportunityStage.UNQUALIFIED]: { label: "Unqualified", variant: "destructive" },
 };
 
-export default function OpportunityGrid({ opportunities, onEdit }: OpportunityGridProps) {
+export default function OpportunityGrid({ opportunities, onEdit, onRefresh, onStatusUpdate }: OpportunityGridProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {opportunities.map((opp) => (

@@ -89,13 +89,31 @@ export async function getOpportunities(
           // @ts-ignore
           User: {
              select: { id: true, name: true, email: true, image: true }
+          },
+          // @ts-ignore
+          Lead: {
+             select: { id: true, leadNumber: true, name: true }
           }
         },
         orderBy,
       }),
     ]);
 
-    const mappedOpportunities = opportunities.map(o => ({
+    const leadIds = opportunities.map((o: any) => o.Lead?.id).filter(Boolean);
+    
+    const activeActivities = leadIds.length > 0 ? await prisma.activity.findMany({
+      where: {
+        contextType: 'lead',
+        contextId: { in: leadIds },
+        status: { notIn: ['DONE', 'COMPLETED', 'CANCELED'] },
+        dueDate: { gte: new Date() }
+      },
+      select: { id: true, subject: true, type: true, dueDate: true, status: true, contextId: true }
+    }) : [];
+
+    const mappedOpportunities = opportunities.map(o => {
+      const leadActivities = o.Lead ? activeActivities.filter(a => a.contextId === o.Lead.id) : [];
+      return {
       ...o,
       value: o.value ? Number(o.value) : null,
       // @ts-ignore
@@ -109,11 +127,29 @@ export async function getOpportunities(
       } : null,
       // @ts-ignore
       owner: o.User,
+      // @ts-ignore
+      lead: o.Lead ? {
+        // @ts-ignore
+        id: o.Lead.id,
+        // @ts-ignore
+        leadNumber: o.Lead.leadNumber,
+        // @ts-ignore
+        name: o.Lead.name,
+      } : null,
+      leadActiveEvents: leadActivities.length,
+      leadActiveEventsList: leadActivities.map(a => ({
+        id: a.id,
+        subject: a.subject,
+        type: a.type,
+        dueDate: a.dueDate,
+        status: a.status,
+      })),
       Client: undefined,
       Contact: undefined,
       User: undefined,
+      Lead: undefined,
       opportunityNumber: o.opportunityNumber,
-    }));
+    }});
 
     return serializeData({
       success: true,
@@ -159,7 +195,9 @@ export async function getOpportunityById(id: string) {
         // @ts-ignore
         User: {
             select: { name: true, email: true }
-        }
+        },
+        // @ts-ignore
+        Lead: true,
       },
     });
 
@@ -179,9 +217,12 @@ export async function getOpportunityById(id: string) {
       } : null,
       // @ts-ignore
       owner: opportunity.User,
+      // @ts-ignore
+      lead: opportunity.Lead || null,
       Client: undefined,
       Contact: undefined,
       User: undefined,
+      Lead: undefined,
       opportunityNumber: opportunity.opportunityNumber,
     };
 
@@ -455,7 +496,7 @@ export async function updateOpportunity(id: string, input: {
 /**
  * Update opportunity stage
  */
-export async function updateOpportunityStage(opportunityId: string, stage: OpportunityStage) {
+export async function updateOpportunityStage(opportunityId: string, stage: OpportunityStage, closingReason?: string) {
   try {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
@@ -469,15 +510,20 @@ export async function updateOpportunityStage(opportunityId: string, stage: Oppor
     // Get old stage
     const oldOpp = await prisma.opportunity.findUnique({
         where: { id: opportunityId },
-        select: { stage: true, contactId: true }
+        select: { stage: true, contactId: true, leadId: true }
     });
+
+    const dataToUpdate: any = { stage };
+    if (closingReason !== undefined) {
+        dataToUpdate.closingReason = closingReason;
+    }
 
     const opportunity = await prisma.opportunity.update({
       where: { id: opportunityId },
-      data: { stage },
+      data: dataToUpdate,
     });
 
-    await logItemUpdated(session.user.id, "Opportunity", opportunityId, ["stage"], opportunity.title, { stage });
+    await logItemUpdated(session.user.id, "Opportunity", opportunityId, ["stage", "closingReason"], opportunity.title, dataToUpdate);
     
     // Log to Timeline
     if (oldOpp && oldOpp.stage !== stage) {
@@ -490,6 +536,16 @@ export async function updateOpportunityStage(opportunityId: string, stage: Oppor
             description: `Stage changed to ${stage}`,
             metadata: { 
                 changes: [{ field: "stage", from: oldOpp.stage, to: stage }]
+            }
+        });
+    }
+
+    if (stage === 'UNQUALIFIED' && oldOpp?.leadId) {
+        await prisma.lead.update({
+            where: { id: oldOpp.leadId },
+            data: {
+                status: 'UNQUALIFIED',
+                closingReason: closingReason || undefined
             }
         });
     }

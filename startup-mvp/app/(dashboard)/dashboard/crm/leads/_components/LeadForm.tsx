@@ -11,7 +11,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle, FiUpload, FiTrash2 } from "react-icons/fi";
 import { createLead, updateLead, getActiveCategories } from "@/app/actions/crm/lead.action";
 import { uploadFileServerSide } from "@/app/actions/files";
-import { type LeadStatus } from "@prisma/client";
 import {
   Select,
   SelectContent,
@@ -19,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TagInput } from "@/components/ui/tag-input";
 import { toast } from "sonner";
 
 const LEAD_SOURCES = [
@@ -26,6 +26,9 @@ const LEAD_SOURCES = [
   "Referral",
   "Cold Call",
   "LinkedIn",
+  "Facebook",
+  "X",
+  "Instagram",
   "Partner",
   "Email Campaign",
   "Event",
@@ -38,6 +41,7 @@ const leadSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
   phone: z.string().min(1, "Phone number is required"),
+  alternativePhone: z.string().optional().or(z.literal("")),
   company: z.string().optional().or(z.literal("")),
   source: z.string().optional().or(z.literal("")),
   website: z.string().optional().or(z.literal("")),
@@ -46,6 +50,7 @@ const leadSchema = z.object({
   categoryId: z.string().optional().or(z.literal("")),
   reference: z.string().optional().or(z.literal("")),
   photo: z.string().optional().or(z.literal("")),
+  startingDate: z.string().optional().or(z.literal("")),
 });
 
 type LeadFormData = z.infer<typeof leadSchema>;
@@ -79,6 +84,7 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
       lastName: "",
       email: "",
       phone: "",
+      alternativePhone: "",
       company: "",
       source: "",
       website: "",
@@ -87,6 +93,7 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
       categoryId: "",
       reference: "",
       photo: "",
+      startingDate: new Date().toISOString().split("T")[0],
     };
 
     const nameParts = (initialData.name || "").split(" ");
@@ -96,6 +103,7 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
       lastName: nameParts.slice(1).join(" ") || "",
       email: initialData.email || "",
       phone: initialData.phone || "",
+      alternativePhone: initialData.alternativePhone || "",
       company: initialData.company || "",
       source: initialData.source || "",
       website: initialData.website || "",
@@ -104,6 +112,7 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
       categoryId: initialData.categoryId || "",
       reference: initialData.reference || "",
       photo: initialData.photo || "",
+      startingDate: initialData.startingDate ? new Date(initialData.startingDate).toISOString().split("T")[0] : "",
     };
   };
 
@@ -162,17 +171,23 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
       const { firstName, lastName, notes, ...rest } = data;
       const leadName = `${firstName} ${lastName}`.trim();
 
+      const payload = {
+        ...rest,
+        alternativePhone: rest.alternativePhone || undefined,
+        startingDate: rest.startingDate ? new Date(rest.startingDate) : undefined,
+      };
+
       let result;
       if (initialData?.id) {
         // Update existing lead
         result = await updateLead(initialData.id, {
-          ...rest,
+          ...payload,
           name: leadName,
         });
       } else {
         // Create new lead
         result = await createLead({
-          ...rest,
+          ...payload,
           notes,
           name: leadName,
         });
@@ -219,16 +234,16 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
           {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="company">Company</Label>
-          <Input id="company" {...register("company")} disabled={loading} placeholder="Acme Corp" />
+          <Label htmlFor="alternativePhone">Alternative Phone</Label>
+          <Input id="alternativePhone" {...register("alternativePhone")} disabled={loading} placeholder="+1 234 567 891" />
+          {errors.alternativePhone && <p className="text-xs text-destructive">{errors.alternativePhone.message}</p>}
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" {...register("email")} disabled={loading} placeholder="jane.doe@example.com" />
-          {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+          <Label htmlFor="company">Company</Label>
+          <Input id="company" {...register("company")} disabled={loading} placeholder="Acme Corp" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="website">Website</Label>
@@ -239,8 +254,32 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="facebook">FB Page/Profile Link</Label>
-          <Input id="facebook" {...register("facebook")} disabled={loading} placeholder="https://facebook.com/profile" />
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" type="email" {...register("email")} disabled={loading} placeholder="jane.doe@example.com" />
+          {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="startingDate">Lead Starting Date</Label>
+          <Input id="startingDate" type="date" {...register("startingDate")} disabled={loading} />
+          {errors.startingDate && <p className="text-xs text-destructive">{errors.startingDate.message}</p>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="facebook">Social Links (FB, IG, etc)</Label>
+          <Controller
+            name="facebook"
+            control={control}
+            render={({ field }) => (
+              <TagInput
+                value={field.value || ""}
+                onChange={field.onChange}
+                disabled={loading}
+                placeholder="https://facebook.com/..., press Enter"
+              />
+            )}
+          />
           {errors.facebook && <p className="text-xs text-destructive">{errors.facebook.message}</p>}
         </div>
         <div className="space-y-2">

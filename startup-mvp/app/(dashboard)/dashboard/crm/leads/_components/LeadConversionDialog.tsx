@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -51,12 +51,19 @@ export default function LeadConversionDialog({
     reset,
   } = useForm<any>({
     resolver: zodResolver(conversionSchema),
-    defaultValues: {
-      opportunityTitle: `${leadName} - Project`,
-      opportunityAmount: 0,
-      expectedCloseDate: "",
-    },
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      const thirtyDaysLater = new Date();
+      thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+      reset({
+        opportunityTitle: `${leadName} - Project`,
+        opportunityAmount: 0,
+        expectedCloseDate: thirtyDaysLater.toISOString().split('T')[0],
+      });
+    }
+  }, [isOpen, leadName, reset]);
 
   const onSubmit = async (data: ConversionFormData) => {
     if (!leadId) return;

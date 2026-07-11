@@ -11,18 +11,25 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+
 export function UserDashboard({ isAdmin = false, selectedUserId }: { isAdmin?: boolean; selectedUserId?: string }) {
   const [metrics, setMetrics] = useState<any>(null);
   const [isPending, startTransition] = useTransition();
+  const [taskFilter, setTaskFilter] = useState("all");
+  const [taskDate, setTaskDate] = useState("");
+  const [eventFilter, setEventFilter] = useState("all");
+  const [eventDate, setEventDate] = useState("");
 
   useEffect(() => {
     startTransition(async () => {
-      const result = await getUserCrmMetrics(isAdmin, selectedUserId);
+      const result = await getUserCrmMetrics(isAdmin, selectedUserId, taskFilter, taskDate, eventFilter, eventDate);
       if (result.success) {
         setMetrics(result.metrics);
       }
     });
-  }, [isAdmin, selectedUserId]);
+  }, [isAdmin, selectedUserId, taskFilter, taskDate, eventFilter, eventDate]);
 
   if (!metrics && isPending) {
     return <UserDashboardSkeleton />;
@@ -143,15 +150,44 @@ export function UserDashboard({ isAdmin = false, selectedUserId }: { isAdmin?: b
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Card 1: Assign Tasks */}
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[450px] overflow-hidden">
-              <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <FiCheckSquare className="text-primary" /> Assign Tasks
-                  </h3>
-                  {(metrics.todayTasks.length > 0 || metrics.overdueTasks.length > 0) && (
-                      <Badge className="bg-primary/10 text-primary border-0 rounded-full px-2">
-                          {metrics.todayTasks.length + metrics.overdueTasks.length}
-                      </Badge>
-                  )}
+              <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <FiCheckSquare className="text-primary" /> Assign Tasks
+                      </h3>
+                      {(metrics.todayTasks.length > 0 || metrics.overdueTasks.length > 0) && (
+                          <Badge className="bg-primary/10 text-primary border-0 rounded-full px-2">
+                              {metrics.todayTasks.length + metrics.overdueTasks.length}
+                          </Badge>
+                      )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                      <Select value={taskFilter} onValueChange={setTaskFilter}>
+                        <SelectTrigger className="h-7 text-xs w-[130px]">
+                           <SelectValue placeholder="Filter Tasks" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Default (Today & Overdue)</SelectItem>
+                          <SelectItem value="missed">Missed / Overdue</SelectItem>
+                          <SelectItem value="soon">Follow-Up Soon (7 Days)</SelectItem>
+                          <SelectItem value="long">Long Follow-Up (1-3 Mo)</SelectItem>
+                          <SelectItem value="custom">Specific Date</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {taskFilter === "custom" && (
+                          <Input 
+                            type="date" 
+                            className="h-7 text-xs w-[120px]" 
+                            value={taskDate} 
+                            onChange={(e) => setTaskDate(e.target.value)} 
+                            onClick={(e) => {
+                                try {
+                                    (e.target as HTMLInputElement).showPicker?.();
+                                } catch (err) {}
+                            }}
+                          />
+                      )}
+                  </div>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                   {metrics.overdueTasks.length === 0 && metrics.todayTasks.length === 0 ? (
@@ -254,15 +290,44 @@ export function UserDashboard({ isAdmin = false, selectedUserId }: { isAdmin?: b
 
           {/* Card 2: Upcoming Events */}
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[450px] overflow-hidden">
-              <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <FiCalendar className="text-primary" /> Upcoming Events
-                  </h3>
-                   {metrics.upcomingEvents.length > 0 && (
-                      <Badge className="bg-primary/10 text-primary border-0 rounded-full px-2">
-                          {metrics.upcomingEvents.length}
-                      </Badge>
-                  )}
+              <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <FiCalendar className="text-primary" /> Upcoming Events
+                      </h3>
+                       {metrics.upcomingEvents.length > 0 && (
+                          <Badge className="bg-primary/10 text-primary border-0 rounded-full px-2">
+                              {metrics.upcomingEvents.length}
+                          </Badge>
+                      )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                      <Select value={eventFilter} onValueChange={setEventFilter}>
+                        <SelectTrigger className="h-7 text-xs w-[130px]">
+                           <SelectValue placeholder="Filter Events" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Default (Today)</SelectItem>
+                          <SelectItem value="missed">Missed / Overdue</SelectItem>
+                          <SelectItem value="soon">Follow-Up Soon (7 Days)</SelectItem>
+                          <SelectItem value="long">Long Follow-Up (1-3 Mo)</SelectItem>
+                          <SelectItem value="custom">Specific Date</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {eventFilter === "custom" && (
+                          <Input 
+                            type="date" 
+                            className="h-7 text-xs w-[120px]" 
+                            value={eventDate} 
+                            onChange={(e) => setEventDate(e.target.value)} 
+                            onClick={(e) => {
+                                try {
+                                    (e.target as HTMLInputElement).showPicker?.();
+                                } catch (err) {}
+                            }}
+                          />
+                      )}
+                  </div>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                   {metrics.upcomingEvents.length === 0 ? (
@@ -282,15 +347,17 @@ export function UserDashboard({ isAdmin = false, selectedUserId }: { isAdmin?: b
                           const isDeadline = typeLower.includes('deadline');
                           const isMeeting = typeLower.includes('meeting') || typeLower.includes('scheduled');
                           const isDone = event.status === 'DONE' || event.status === 'COMPLETED';
+                          const isMissed = event.isMissed;
                           
-                          const statusColor = isDone ? 'text-gray-500 bg-gray-50 border-gray-200 dark:bg-gray-500/10 dark:border-gray-500/20' 
+                          const statusColor = isMissed ? 'text-red-500 bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800/40' 
+                                            : isDone ? 'text-gray-500 bg-gray-50 border-gray-200 dark:bg-gray-500/10 dark:border-gray-500/20' 
                                             : isCall ? 'text-emerald-500 bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20' 
                                             : isEmail ? 'text-cyan-500 bg-cyan-50 border-cyan-200 dark:bg-cyan-500/10 dark:border-cyan-500/20'
                                             : isTask ? 'text-amber-500 bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20'
                                             : isDeadline ? 'text-rose-500 bg-rose-50 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20'
                                             : 'text-purple-500 bg-purple-50 border-purple-200 dark:bg-purple-500/10 dark:border-purple-500/20'; // Default to meeting/other
                           
-                          const titleColor = isDone ? 'text-slate-500 line-through' : 'text-slate-900 dark:text-slate-50';
+                          const titleColor = isMissed ? 'text-red-600 dark:text-red-400 font-black' : isDone ? 'text-slate-500 line-through' : 'text-slate-900 dark:text-slate-50';
                           
                           return (
                           <div key={`event-${event.id}`} className="flex items-start gap-4 p-3 rounded-lg border border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-800/30 hover:shadow-sm transition-shadow">
@@ -310,15 +377,19 @@ export function UserDashboard({ isAdmin = false, selectedUserId }: { isAdmin?: b
                               <div className="min-w-0 flex-1">
                                   <div className="flex items-start justify-between gap-2">
                                       <Link href={event.moduleUrl || "/dashboard/crm/activities"} className="hover:underline group-hover:text-primary transition-colors flex-1">
-                                          <p className={`text-sm font-bold break-words line-clamp-1 ${titleColor}`}>{event.title}</p>
+                                          <p className={`text-sm break-words line-clamp-1 ${titleColor}`}>
+                                              {isMissed && <span className="text-red-600 dark:text-red-500 mr-1 font-bold">[MISSED]</span>}
+                                              {event.title}
+                                          </p>
                                       </Link>
-                                      {event.moduleName && (
-                                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-[18px] bg-white dark:bg-slate-800/50 text-slate-500 shrink-0 font-medium border-slate-200 dark:border-slate-700">
-                                              {event.moduleName}
-                                          </Badge>
-                                      )}
                                   </div>
-                                  <div className="flex flex-col gap-1.5 mt-2">
+                                  <div className="flex flex-col gap-1.5 mt-1">
+                                      {event.moduleName && (
+                                          <div className="text-[11px] font-bold text-primary mb-0.5 flex items-center gap-1">
+                                              <span className="w-1.5 h-1.5 rounded-full bg-primary/60 inline-block"></span>
+                                              {event.moduleName}
+                                          </div>
+                                      )}
                                       <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium whitespace-nowrap overflow-hidden">
                                            <FiUser className="w-3 h-3 shrink-0" />
                                            <span className="truncate">

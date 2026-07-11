@@ -105,13 +105,13 @@ export const SECTION_REGISTRY: Record<SectionType, SectionConfig> = {
     accentColor: 'border-l-blue-400 dark:border-l-blue-500',
     mode: 'TEMPLATE',
     defaultMetadata: {},
-    component: ({ section, onUpdate, readOnly }: SectionRenderProps) => (
+    component: ({ metaData, onUpdate, readOnly }: SectionRenderProps) => (
       <CoverSection
         data={{ 
-          subject: (section as any).subject, 
-          coverLetter: (section as any).coverLetter, 
-          preparedBy: (section as any).preparedBy, 
-          validUntil: (section as any).validUntil 
+          subject: metaData('subject') || metaData('coverTitle'), 
+          coverLetter: metaData('coverLetter') || metaData('coverIntro'), 
+          preparedBy: metaData('preparedBy'), 
+          validUntil: metaData('validUntil') || metaData('expiredDate')
         }}
         onChange={(data: any) => onUpdate(data)}
         readOnly={readOnly}
@@ -176,8 +176,8 @@ export const SECTION_REGISTRY: Record<SectionType, SectionConfig> = {
     defaultMetadata: {
       milestones: []
     },
-    component: ({ section, onUpdate, readOnly }: SectionRenderProps) => (
-      <TimelineSection milestones={(section as any).milestones ?? []} onChange={(milestones: any) => onUpdate({ milestones: milestones as any })} readOnly={readOnly} />
+    component: ({ metaData, onUpdate, readOnly }: SectionRenderProps) => (
+      <TimelineSection milestones={metaData('milestones') ?? []} onChange={(milestones: any) => onUpdate({ milestones: milestones as any })} readOnly={readOnly} />
     )
   },
 
@@ -196,13 +196,13 @@ export const SECTION_REGISTRY: Record<SectionType, SectionConfig> = {
       refundPolicy: '',
       terminationPolicy: ''
     },
-    component: ({ section, onUpdate, readOnly }: SectionRenderProps) => (
+    component: ({ section, metaData, onUpdate, readOnly }: SectionRenderProps) => (
       <TermsSection
         data={{ 
-          tos: (section as any).tos ?? (section as any).content ?? (section as any).metadata?.tos ?? '',
-          paymentTerms: (section as any).paymentTerms ?? (section as any).metadata?.paymentTerms ?? '',
-          refundPolicy: (section as any).metadata?.refundPolicy ?? '',
-          terminationPolicy: (section as any).metadata?.terminationPolicy ?? '',
+          tos: metaData('tos') ?? metaData('content') ?? '',
+          paymentTerms: metaData('paymentTerms') ?? '',
+          refundPolicy: metaData('refundPolicy') ?? '',
+          terminationPolicy: metaData('terminationPolicy') ?? '',
         }}
         onChange={(data: any) => onUpdate({ 
           tos: data.tos, 
@@ -233,14 +233,14 @@ export const SECTION_REGISTRY: Record<SectionType, SectionConfig> = {
     accentColor: 'border-l-purple-400 dark:border-l-purple-500',
     mode: 'TEMPLATE',
     defaultMetadata: {},
-    component: ({ section, onUpdate, readOnly }: SectionRenderProps) => (
+    component: ({ metaData, onUpdate, readOnly }: SectionRenderProps) => (
       <AcceptanceSection
         data={{ 
-          acceptanceText: (section as any).acceptanceText, 
-          signatoryName: (section as any).signatoryName, 
-          signatoryDesignation: (section as any).signatoryDesignation, 
-          signatureDate: (section as any).signatureDate, 
-          signatureDataUrl: (section as any).signatureDataUrl 
+          acceptanceText: metaData('acceptanceText'), 
+          signatoryName: metaData('signatoryName'), 
+          signatoryDesignation: metaData('signatoryDesignation'), 
+          signatureDate: metaData('signatureDate'), 
+          signatureDataUrl: metaData('signatureDataUrl') 
         }}
         onChange={(data: any) => onUpdate(data)}
         readOnly={readOnly}
@@ -401,9 +401,9 @@ export const SECTION_REGISTRY: Record<SectionType, SectionConfig> = {
     accentColor: 'border-l-indigo-400 dark:border-l-indigo-500',
     mode: 'INPUT',
     defaultMetadata: {},
-    component: ({ section, onUpdate, readOnly }: SectionRenderProps) => (
+    component: ({ metaData, onUpdate, readOnly }: SectionRenderProps) => (
       <SummarySection
-        data={{ projectOverview: (section as any).projectOverview, financialStatement: (section as any).financialStatement }}
+        data={{ projectOverview: metaData('projectOverview'), financialStatement: metaData('financialStatement') }}
         onChange={(data: any) => onUpdate(data)}
         readOnly={readOnly}
       />

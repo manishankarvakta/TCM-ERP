@@ -18,7 +18,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { PenSquare, User, Briefcase, CalendarDays, FileSignature } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { PenSquare, User, Briefcase, CalendarDays, FileSignature, Upload } from 'lucide-react';
+import SignatureCanvas from 'react-signature-canvas';
+import { useRef } from 'react';
 
 // ── Data shape ────────────────────────────────────────────────────────────────
 
@@ -48,6 +51,20 @@ export function AcceptanceSection({
   onChange,
   readOnly = false,
 }: AcceptanceSectionProps) {
+  const sigCanvas = useRef<SignatureCanvas>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        update('signatureDataUrl', reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const update = <K extends keyof AcceptanceData>(field: K, value: AcceptanceData[K]) =>
     onChange({ ...data, [field]: value });
 
@@ -193,30 +210,84 @@ export function AcceptanceSection({
         </Label>
 
         {data.signatureDataUrl ? (
-          // Render captured signature
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={data.signatureDataUrl}
-            alt="Client signature"
-            className="h-28 w-full rounded-lg border object-contain bg-white dark:bg-white/5"
-          />
-        ) : (
-          <div
-            className={[
-              'flex h-28 w-full flex-col items-center justify-center',
-              'rounded-lg border border-dashed bg-muted/20 text-center',
-            ].join(' ')}
-          >
-            <FileSignature className="mb-1.5 h-6 w-6 text-muted-foreground/50" />
-            <p className="text-xs text-muted-foreground">
-              {readOnly
-                ? 'No signature captured'
-                : 'Signature pad — integrate react-signature-canvas here'}
-            </p>
+          <div className="relative group rounded-lg border bg-white dark:bg-white/5 p-2 w-full sm:w-96">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={data.signatureDataUrl}
+              alt="Client signature"
+              className="h-28 w-full object-contain mix-blend-multiply"
+            />
             {!readOnly && (
-              <p className="mt-0.5 text-[10px] text-muted-foreground/70">
-                Set <code className="font-mono">signatureDataUrl</code> to a base64 PNG to display a captured signature.
-              </p>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => update('signatureDataUrl', '')}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2 w-full sm:w-96">
+            <div className="h-32 rounded-lg border border-dashed bg-white dark:bg-zinc-900 overflow-hidden touch-none relative">
+              {readOnly ? (
+                <div className="flex h-full w-full flex-col items-center justify-center bg-muted/20 text-center">
+                  <FileSignature className="mb-1.5 h-6 w-6 text-muted-foreground/50" />
+                  <p className="text-xs text-muted-foreground">No signature captured</p>
+                </div>
+              ) : (
+                <SignatureCanvas
+                  ref={sigCanvas}
+                  canvasProps={{ className: 'w-full h-full' }}
+                  backgroundColor="transparent"
+                  penColor="black"
+                  onEnd={() => {
+                    if (sigCanvas.current && !sigCanvas.current.isEmpty()) {
+                      update('signatureDataUrl', sigCanvas.current.toDataURL('image/png'));
+                    }
+                  }}
+                />
+              )}
+            </div>
+            
+            {!readOnly && (
+              <div className="flex justify-between items-center px-1">
+                <p className="text-xs text-muted-foreground">Sign in the box above or upload</p>
+                <div className="flex gap-2">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-3 w-3 mr-1" /> Upload
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      if (sigCanvas.current) {
+                        sigCanvas.current.clear();
+                      }
+                      update('signatureDataUrl', '');
+                    }}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
         )}

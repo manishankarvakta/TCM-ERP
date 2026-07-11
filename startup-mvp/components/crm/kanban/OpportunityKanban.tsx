@@ -64,6 +64,7 @@ const STAGES: OpportunityStage[] = [
   "NEGOTIATION",
   "WON",
   "LOST",
+  "UNQUALIFIED",
 ];
 
 const STAGE_LABELS: Record<OpportunityStage, string> = {
@@ -74,6 +75,7 @@ const STAGE_LABELS: Record<OpportunityStage, string> = {
   NEGOTIATION: "Negotiation",
   WON: "Won",
   LOST: "Lost",
+  UNQUALIFIED: "Unqualified",
 };
 
 export function OpportunityKanban({ initialOpportunities, initialPagination, clients, canCreate }: Props) {

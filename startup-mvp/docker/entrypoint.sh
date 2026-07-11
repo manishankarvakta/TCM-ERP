@@ -8,10 +8,11 @@ done
 
 echo "✅ PostgreSQL is available"
 
-echo "🧱 Prisma client already generated during build"
+echo "🧱 Generating Prisma client (as root)..."
+npx prisma generate
 
 echo "🧱 Applying Prisma migrations (as root)..."
-prisma migrate deploy || echo "No new migrations or already applied"
+npx prisma migrate deploy || echo "No new migrations or already applied"
 
 echo "📁 Ensuring volume and temp directory permissions..."
 mkdir -p /app/uploads /app/backups /app/tmp

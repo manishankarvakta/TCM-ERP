@@ -605,6 +605,7 @@ export async function createQuotation(data: any) {
         subject: data.subject || '',
         date: data.date ? new Date(data.date) : new Date(),
         coverLetter: coverLetterContent || null,
+        financialStatement: data.financialStatement || null,
         tos: tosContent || null,
         total: total > 0 ? new Prisma.Decimal(total) : new Prisma.Decimal(0),
         discount: data.discount ? new Prisma.Decimal(data.discount) : new Prisma.Decimal(0),
@@ -918,6 +919,10 @@ export async function updateQuotation(id: string, data: any) {
     const coverLetterContent = coverLetterResult.success && coverLetterResult.coverLetter
       ? coverLetterResult.coverLetter.content
       : data.coverLetter || null;
+
+    // ── Delete existing sections before re-creating to prevent duplication ──
+    // Section has onDelete: Cascade so child records (items, groups) are auto-deleted.
+    await prisma.section.deleteMany({ where: { quotationId: id } });
 
     // Update quotation with new sections
     const quotation = await prisma.quotation.update({

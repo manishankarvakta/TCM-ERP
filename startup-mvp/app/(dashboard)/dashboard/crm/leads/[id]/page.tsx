@@ -16,6 +16,7 @@ import NoteManager from "../../activities/_components/NoteManager";
 import DocManager from "../../activities/_components/DocManager";
 import { LeadStatusBadge } from "../_components/LeadStatusBadge";
 import { LeadConversionButton } from "../_components/LeadConversionButton";
+import { LeadEditButton } from "../_components/LeadEditButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -24,14 +25,18 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FileManager from "../../activities/_components/FileManager";
-import { FiFacebook } from "react-icons/fi";
+import { FiLink } from "react-icons/fi";
+import { BackButton } from "@/components/ui/back-button";
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user) return redirect("/login");
 
-  const canView = await checkPermission(session.user.id, "crm.leads", "view");
+  const [canView, canEdit] = await Promise.all([
+    checkPermission(session.user.id, "crm.leads", "view"),
+    checkPermission(session.user.id, "crm.leads", "edit"),
+  ]);
   if (!canView) {
       return (
         <div className="p-6">
@@ -77,15 +82,19 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
+  const startingDateObj = lead.startingDate ? new Date(lead.startingDate) : null;
+  const daysActive = startingDateObj 
+    ? Math.max(0, Math.floor((new Date().getTime() - startingDateObj.getTime()) / (1000 * 60 * 60 * 24)))
+    : null;
+
   return (
     <div className="space-y-6 max-w-full mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-background/50 ">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild className="shrink-0">
-              <Link href="/dashboard/crm/leads">
-                  <ArrowLeftIcon className="h-4 w-4" />
-              </Link>
-          </Button>
+          <BackButton 
+            fallbackUrl="/dashboard/crm/leads" 
+            className="shrink-0" 
+          />
           <div className="min-w-0">
              <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate max-w-[200px] sm:max-w-[400px]">{lead.name}</h1>
@@ -97,6 +106,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {canEdit && <LeadEditButton lead={lead} />}
           <LeadConversionButton leadId={lead.id} leadName={lead.name} currentStatus={lead.status} />
         </div>
       </div>
@@ -255,6 +265,18 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                     <CardTitle className="text-base font-semibold">Lead Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm pt-4">
+                     {lead.status === "UNQUALIFIED" && lead.closingReason && (
+                        <div className="flex items-start gap-3 bg-destructive/5 border border-destructive/20 p-3 rounded-lg">
+                            <div className="bg-destructive/10 p-2 rounded text-destructive shrink-0">
+                                <Clock className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-xs text-destructive-foreground uppercase tracking-wider font-bold">Closing Reason</p>
+                                <p className="text-sm text-destructive mt-1 font-medium">{lead.closingReason}</p>
+                            </div>
+                        </div>
+                     )}
+
                      {lead.Category && (
                         <div className="flex items-center gap-3">
                             <div className="bg-slate-100 p-2 rounded">
@@ -316,12 +338,44 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                             </div>
                             <div className="min-w-0">
                                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Phone</p>
-                                <a href={`tel:${lead.phone}`} className="font-medium hover:underline">
+                                <a
+                                    href={`https://wa.me/${lead.phone.replace(/\D/g, '')}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-medium hover:underline flex items-center gap-1.5 text-green-600 hover:text-green-700"
+                                >
+                                    <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                                    </svg>
                                     {lead.phone}
                                 </a>
                             </div>
                         </div>
                     )}
+
+                    <div className="flex items-center gap-3">
+                        <div className="bg-slate-100 p-2 rounded">
+                            <PhoneIcon className="h-4 w-4 text-slate-600" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Alternative Phone</p>
+                            {lead.alternativePhone ? (
+                                <a
+                                    href={`https://wa.me/${lead.alternativePhone.replace(/\D/g, '')}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-medium hover:underline flex items-center gap-1.5 text-green-600 hover:text-green-700"
+                                >
+                                    <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                                    </svg>
+                                    {lead.alternativePhone}
+                                </a>
+                            ) : (
+                                <span className="text-muted-foreground italic text-xs">Not provided</span>
+                            )}
+                        </div>
+                    </div>
 
                     {lead.company && (
                          <div className="pt-4 border-t flex items-center gap-3">
@@ -350,15 +404,32 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                     )}
 
                     {lead.facebook && (
-                        <div className="pt-4 border-t flex items-center gap-3">
-                             <div className="bg-slate-100 p-2 rounded">
-                                <FiFacebook className="h-4 w-4 text-slate-600" />
+                        <div className="pt-4 border-t flex items-start gap-3">
+                             <div className="bg-slate-100 p-2 rounded mt-0.5">
+                                <FiLink className="h-4 w-4 text-slate-600" />
                             </div>
-                            <div className="min-w-0">
-                                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Facebook</p>
-                                <a href={lead.facebook} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline truncate block">
-                                    Facebook Profile
-                                </a>
+                            <div className="min-w-0 flex-1 space-y-1.5">
+                                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Social Links</p>
+                                <div className="flex flex-col gap-1">
+                                    {lead.facebook.split(',').map((link: string, i: number) => {
+                                        const trimmed = link.trim();
+                                        if (!trimmed) return null;
+                                        // Attempt to extract domain for better label
+                                        let label = "Link " + (i + 1);
+                                        try {
+                                            const url = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
+                                            label = url.hostname.replace('www.', '');
+                                        } catch (e) {}
+                                        return (
+                                            <a key={i} href={trimmed.startsWith('http') ? trimmed : `https://${trimmed}`} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline truncate text-primary inline-flex items-center gap-1.5">
+                                                <svg className="h-3 w-3 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                </svg>
+                                                {label}
+                                            </a>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -386,6 +457,25 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                     </div>
 
                     <div className="pt-4 border-t space-y-4">
+                        {lead.startingDate && (
+                            <div className="flex items-center gap-3">
+                                <div className="bg-slate-100 p-2 rounded">
+                                    <CalendarDays className="h-4 w-4 text-slate-600" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Starting Date</p>
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                        <span className="font-medium">{format(new Date(lead.startingDate), "PP")}</span>
+                                        {daysActive !== null && (
+                                            <span className="text-[10px] font-semibold text-primary bg-primary/5 border border-primary/20 px-1.5 py-0.5 rounded">
+                                                {daysActive === 0 ? "Started today" : `${daysActive} day${daysActive > 1 ? "s" : ""} active`}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex items-center gap-3">
                             <div className="bg-slate-100 p-2 rounded">
                                 <Calendar className="h-4 w-4 text-slate-600" />

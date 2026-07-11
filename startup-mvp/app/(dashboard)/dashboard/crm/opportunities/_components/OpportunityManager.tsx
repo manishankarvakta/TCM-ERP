@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { OpportunityStage } from "@prisma/client";
@@ -11,6 +11,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -20,7 +29,7 @@ import { toast } from "sonner";
 import OpportunityTable from "./OpportunityTable";
 import OpportunityGrid from "./OpportunityGrid";
 import { OpportunityKanban } from "@/components/crm/kanban/OpportunityKanban";
-import { getOpportunities } from "@/app/actions/crm/opportunity.action";
+import { getOpportunities, updateOpportunityStage } from "@/app/actions/crm/opportunity.action";
 import { getClients } from "@/app/(dashboard)/dashboard/crm/clients/_actions/client.action";
 import { getActiveUsers } from "@/app/actions/user.action";
 import OpportunitySheet from "./OpportunitySheet";
@@ -43,7 +52,12 @@ export default function OpportunityManager() {
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 10, total: 0, totalPages: 0 });
+  
+  const [unqualifiedOpp, setUnqualifiedOpp] = useState<{ id: string } | null>(null);
+  const [closingReason, setClosingReason] = useState<string>("");
+  
+  const page = parseInt(searchParams.get("page") || "1", 10);
+  const [pagination, setPagination] = useState<Pagination>({ page: page, limit: 10, total: 0, totalPages: 0 });
   const [isPending, startTransition] = useTransition();
 
   const [view, setView] = useState<ViewMode>((searchParams.get("view") as ViewMode) || "table");
@@ -56,10 +70,10 @@ export default function OpportunityManager() {
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const debouncedSearch = useDebounce(search, 500);
 
-  const fetchOpportunities = (page: number = 1) => {
+  const fetchOpportunities = (pageToFetch: number = page) => {
     startTransition(async () => {
       const result = await getOpportunities(
-        page, 
+        pageToFetch, 
         view === "kanban" ? 100 : 10, 
         debouncedSearch, 
         stageFilter, 
@@ -77,6 +91,45 @@ export default function OpportunityManager() {
         toast.error(result.error || "Failed to load opportunities");
       }
     });
+  };
+
+  const handleStatusUpdate = async (id: string, stage: OpportunityStage) => {
+    if (stage === 'UNQUALIFIED') {
+      setUnqualifiedOpp({ id });
+      setClosingReason("");
+      return;
+    }
+    try {
+      const result = await updateOpportunityStage(id, stage);
+      if (result.success) {
+        toast.success("Stage updated successfully");
+        fetchOpportunities(page);
+      } else {
+        toast.error(result.error || "Failed to update stage");
+      }
+    } catch (e) {
+      toast.error("An error occurred");
+    }
+  };
+
+  const handleUnqualifiedSubmit = async () => {
+    if (!unqualifiedOpp || !closingReason.trim()) {
+      toast.error("Closing reason is required");
+      return;
+    }
+    try {
+      const result = await updateOpportunityStage(unqualifiedOpp.id, 'UNQUALIFIED', closingReason);
+      if (result.success) {
+        toast.success("Opportunity marked as Unqualified");
+        setUnqualifiedOpp(null);
+        setClosingReason("");
+        fetchOpportunities(page);
+      } else {
+        toast.error(result.error || "Failed to update stage");
+      }
+    } catch (e) {
+      toast.error("An error occurred");
+    }
   };
 
   useEffect(() => {
@@ -97,28 +150,52 @@ export default function OpportunityManager() {
     fetchClientsAndUsers();
   }, []);
 
+  // Update URL when filters change
   useEffect(() => {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(searchParams.toString());
     
-    if (debouncedSearch) params.set("search", debouncedSearch);
-    if (view !== "table") params.set("view", view);
-    if (sortBy !== "updatedAt") params.set("sortBy", sortBy);
-    if (sortOrder !== "desc") params.set("sortOrder", sortOrder);
-    if (stageFilter !== "all") params.set("stage", stageFilter);
-    if (dateFrom) params.set("dateFrom", dateFrom);
-    if (dateTo) params.set("dateTo", dateTo);
+    let filtersChanged = false;
 
-    const queryString = params.toString();
-    const currentQueryString = searchParams.toString();
+    if (debouncedSearch && params.get("search") !== debouncedSearch) { params.set("search", debouncedSearch); filtersChanged = true; }
+    else if (!debouncedSearch && params.has("search")) { params.delete("search"); filtersChanged = true; }
 
-    if (queryString !== currentQueryString) {
-      router.push(`/dashboard/crm/opportunities?${queryString}`, { scroll: false });
-      fetchOpportunities(1);
-    } else {
-      // First load or refresh with same params
-      fetchOpportunities(pagination.page);
+    if (view !== "table" && params.get("view") !== view) { params.set("view", view); filtersChanged = true; }
+    else if (view === "table" && params.has("view")) { params.delete("view"); filtersChanged = true; }
+
+    if (sortBy !== "updatedAt" && params.get("sortBy") !== sortBy) { params.set("sortBy", sortBy); filtersChanged = true; }
+    else if (sortBy === "updatedAt" && params.has("sortBy")) { params.delete("sortBy"); filtersChanged = true; }
+
+    if (sortOrder !== "desc" && params.get("sortOrder") !== sortOrder) { params.set("sortOrder", sortOrder); filtersChanged = true; }
+    else if (sortOrder === "desc" && params.has("sortOrder")) { params.delete("sortOrder"); filtersChanged = true; }
+
+    if (stageFilter !== "all" && params.get("stage") !== stageFilter) { params.set("stage", stageFilter); filtersChanged = true; }
+    else if (stageFilter === "all" && params.has("stage")) { params.delete("stage"); filtersChanged = true; }
+
+    if (dateFrom && params.get("dateFrom") !== dateFrom) { params.set("dateFrom", dateFrom); filtersChanged = true; }
+    else if (!dateFrom && params.has("dateFrom")) { params.delete("dateFrom"); filtersChanged = true; }
+
+    if (dateTo && params.get("dateTo") !== dateTo) { params.set("dateTo", dateTo); filtersChanged = true; }
+    else if (!dateTo && params.has("dateTo")) { params.delete("dateTo"); filtersChanged = true; }
+
+    // If filters changed, reset page to 1
+    if (filtersChanged) {
+      params.delete("page");
+      router.push(`/dashboard/crm/opportunities?${params.toString()}`, { scroll: false });
     }
-  }, [debouncedSearch, view, sortBy, sortOrder, stageFilter, dateFrom, dateTo]);
+  }, [debouncedSearch, view, sortBy, sortOrder, stageFilter, dateFrom, dateTo, router, searchParams]);
+
+  // Main fetch effect, triggers when URL page changes
+  useEffect(() => {
+    fetchOpportunities(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedSearch, view, sortBy, sortOrder, stageFilter, dateFrom, dateTo]);
+
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (newPage > 1) params.set("page", newPage.toString());
+    else params.delete("page");
+    router.push(`/dashboard/crm/opportunities?${params.toString()}`, { scroll: false });
+  };
 
   return (
     <div className="space-y-6">
@@ -138,7 +215,7 @@ export default function OpportunityManager() {
             </TabsList>
           </Tabs>
           
-          <Button variant="outline" size="icon" onClick={() => fetchOpportunities(pagination.page)} disabled={isPending}>
+          <Button variant="outline" size="icon" onClick={() => fetchOpportunities(page)} disabled={isPending}>
             <FiRefreshCcw className={isPending ? "animate-spin" : ""} />
           </Button>
           <Button onClick={() => { setEditingOpp(null); setIsDialogOpen(true); }} className="gap-2">
@@ -248,13 +325,16 @@ export default function OpportunityManager() {
             <OpportunityTable
               opportunities={opportunities}
               onEdit={(opp) => { setEditingOpp(opp); setIsDialogOpen(true); }}
-              onRefresh={() => fetchOpportunities(pagination.page)}
+              onRefresh={() => fetchOpportunities(page)}
+              onStatusUpdate={handleStatusUpdate}
             />
           )}
           {view === "grid" && (
             <OpportunityGrid 
               opportunities={opportunities}
               onEdit={(opp) => { setEditingOpp(opp); setIsDialogOpen(true); }}
+              onRefresh={() => fetchOpportunities(page)}
+              onStatusUpdate={handleStatusUpdate}
             />
           )}
           {view === "kanban" && (
@@ -272,7 +352,7 @@ export default function OpportunityManager() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => fetchOpportunities(pagination.page - 1)}
+            onClick={() => handlePageChange(page - 1)}
             disabled={pagination.page <= 1 || isPending}
           >
             Previous
@@ -283,7 +363,7 @@ export default function OpportunityManager() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => fetchOpportunities(pagination.page + 1)}
+            onClick={() => handlePageChange(page + 1)}
             disabled={pagination.page >= pagination.totalPages || isPending}
           >
             Next
@@ -294,11 +374,34 @@ export default function OpportunityManager() {
       <OpportunitySheet 
         isOpen={isDialogOpen} 
         onOpenChange={setIsDialogOpen}
-        onSuccess={() => { setIsDialogOpen(false); fetchOpportunities(pagination.page); }}
+        onSuccess={() => { setIsDialogOpen(false); fetchOpportunities(page); }}
         clients={clients}
         users={users}
         editingOpp={editingOpp}
       />
+
+      <Dialog open={!!unqualifiedOpp} onOpenChange={(open) => !open && setUnqualifiedOpp(null)}>
+          <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                  <DialogTitle>Opportunity Closing Reason</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                      <Label htmlFor="closingReason">Why is this opportunity unqualified? *</Label>
+                      <Textarea 
+                          id="closingReason" 
+                          value={closingReason} 
+                          onChange={(e) => setClosingReason(e.target.value)}
+                          placeholder="e.g. Budget constraint, lost to competitor..."
+                      />
+                  </div>
+              </div>
+              <DialogFooter>
+                  <Button variant="outline" onClick={() => setUnqualifiedOpp(null)}>Cancel</Button>
+                  <Button onClick={handleUnqualifiedSubmit}>Submit</Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
     </div>
   );
 }

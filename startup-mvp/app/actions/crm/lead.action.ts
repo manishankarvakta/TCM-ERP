@@ -243,6 +243,7 @@ export async function createLead(input: {
   name: string;
   email?: string;
   phone: string;
+  alternativePhone?: string;
   company?: string;
   source?: string;
   website?: string;
@@ -252,6 +253,7 @@ export async function createLead(input: {
   categoryId?: string;
   reference?: string;
   photo?: string;
+  startingDate?: Date;
 }) {
   try {
     const session = await auth();
@@ -309,11 +311,13 @@ export async function createLead(input: {
     const sanitizedData: any = {
       ...leadData,
       email: sanitizedEmail,
+      alternativePhone: leadData.alternativePhone || null,
       website: leadData.website || null,
       facebook: leadData.facebook || null,
       categoryId: leadData.categoryId || null,
       reference: leadData.reference || null,
       photo: leadData.photo || null,
+      startingDate: leadData.startingDate || new Date(),
     };
 
     const lead = await prisma.lead.create({
@@ -420,6 +424,7 @@ export async function updateLead(leadId: string, input: {
   name?: string;
   email?: string;
   phone?: string;
+  alternativePhone?: string;
   company?: string;
   source?: string;
   website?: string;
@@ -427,6 +432,8 @@ export async function updateLead(leadId: string, input: {
   categoryId?: string;
   reference?: string;
   photo?: string;
+  startingDate?: Date;
+  closingReason?: string;
 }) {
   try {
     const session = await auth();
@@ -482,11 +489,14 @@ export async function updateLead(leadId: string, input: {
     const sanitizedInput: any = {
       ...input,
       email: sanitizedEmail,
+      alternativePhone: input.alternativePhone === "" ? null : input.alternativePhone,
       website: input.website === "" ? null : input.website,
       facebook: input.facebook === "" ? null : input.facebook,
       categoryId: input.categoryId === "" ? null : input.categoryId,
       reference: input.reference === "" ? null : input.reference,
       photo: input.photo === "" ? null : input.photo,
+      startingDate: input.startingDate || undefined,
+      closingReason: input.closingReason === "" ? null : input.closingReason,
     };
 
     const lead = await prisma.lead.update({
@@ -566,7 +576,7 @@ export async function updateLead(leadId: string, input: {
  * Update lead status
  * Rule: status must use enum
  */
-export async function updateLeadStatus(leadId: string, status: LeadStatus) {
+export async function updateLeadStatus(leadId: string, status: LeadStatus, closingReason?: string) {
   try {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
@@ -577,9 +587,16 @@ export async function updateLeadStatus(leadId: string, status: LeadStatus) {
       return { success: false, error: "Permission Denied: crm.leads.edit" };
     }
 
+    if (status === "UNQUALIFIED" && (!closingReason || !closingReason.trim())) {
+      return { success: false, error: "Closing reason is required when marking a lead as unqualified" };
+    }
+
     const lead = await prisma.lead.update({
       where: { id: leadId },
-      data: { status },
+      data: { 
+        status,
+        closingReason: status === "UNQUALIFIED" ? closingReason : null,
+      },
     });
 
     await logItemUpdated(session.user.id, "Lead", leadId, ["status"], lead.name, { status });
@@ -591,13 +608,14 @@ export async function updateLeadStatus(leadId: string, status: LeadStatus) {
       entityId: leadId,
       eventType: "LEAD_STATUS_CHANGED",
       actorId: session.user.id,
-      description: `Lead status changed to ${status}.`,
+      description: `Lead status changed to ${status}.${closingReason ? ` Reason: ${closingReason}` : ""}`,
       metadata: { 
         changes: [{
           field: "status",
-          from: lead.status === status ? "Unknown" : "Old Status", // optimization: createLeadStatus doesn't fetch old status explicitly but prisma update returns new one. To be strictly correct we should fetch old one or accept we only know new. Actually updateLeadStatus DOES NOT fetch old status.
+          from: lead.status === status ? "Unknown" : "Old Status",
           to: status
-        }]
+        }],
+        closingReason: closingReason || undefined,
        }
     });
     
@@ -797,6 +815,7 @@ export async function convertLeadToOpportunity(leadId: string, input: {
           stage: OpportunityStage.DISCOVERY,
           ownerId: session.user.id,
           opportunityNumber,
+          leadId,
         }
       });
 

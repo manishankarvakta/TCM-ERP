@@ -70,7 +70,7 @@ async function main() {
     console.log("\n🏢 Seeding Organization...");
     const organization = {
       id: "default-org",
-      name: "My Organization",
+      name: "TS-CRM",
       details: "Default organization",
       address: null,
       phone: null,

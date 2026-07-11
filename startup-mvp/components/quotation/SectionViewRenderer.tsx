@@ -22,16 +22,47 @@ export function SectionViewRenderer({ section, quotation }: SectionViewRendererP
   
   // Helpers for the components
   const metaData = (key: string) => {
-    const data = normalizedMetadata[key] ?? {};
+    const data = normalizedMetadata[key];
+    
+    // If the data is missing, return undefined so fallbacks (like ?? '') work
+    if (data === undefined || data === null) {
+      return undefined;
+    }
+
     if (quotation) {
-      // Create a copy and dynamically replace strings
-      const replacedData = { ...data };
-      Object.keys(replacedData).forEach(k => {
-        if (typeof replacedData[k] === 'string') {
-          replacedData[k] = replaceQuotationTemplates(replacedData[k], quotation);
-        }
-      });
-      return replacedData;
+      // If it's a primitive string, just replace and return
+      if (typeof data === 'string') {
+        return replaceQuotationTemplates(data, quotation);
+      }
+      
+      // If it's an array, we might need to replace strings inside it, but for now just return it
+      // or map over it if needed. Most metadata arrays contain objects (like milestones).
+      if (Array.isArray(data)) {
+        return data.map(item => {
+          if (typeof item === 'string') return replaceQuotationTemplates(item, quotation);
+          if (typeof item === 'object' && item !== null) {
+            const replaced = { ...item };
+            Object.keys(replaced).forEach(k => {
+              if (typeof replaced[k] === 'string') {
+                replaced[k] = replaceQuotationTemplates(replaced[k], quotation);
+              }
+            });
+            return replaced;
+          }
+          return item;
+        });
+      }
+
+      // If it's an object, replace string values
+      if (typeof data === 'object' && data !== null) {
+        const replacedData = { ...data };
+        Object.keys(replacedData).forEach(k => {
+          if (typeof replacedData[k] === 'string') {
+            replacedData[k] = replaceQuotationTemplates(replacedData[k], quotation);
+          }
+        });
+        return replacedData;
+      }
     }
     return data;
   };

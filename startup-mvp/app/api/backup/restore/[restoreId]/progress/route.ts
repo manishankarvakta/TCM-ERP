@@ -36,6 +36,7 @@ export async function GET(
   // Create SSE stream
   const stream = new ReadableStream({
     start(controller) {
+      let isClosed = false;
       const encoder = new TextEncoder();
       let isClosed = false;
       let unsubscribe: (() => void) | null = null;
@@ -63,14 +64,33 @@ export async function GET(
         }
       };
 
+      const safeClose = () => {
+        if (!isClosed) {
+          isClosed = true;
+          try {
+            controller.close();
+          } catch (e) {
+            // Ignore if already closed
+          }
+        }
+      };
+
       // Send data helper
       const sendData = (data: any) => {
         if (isClosed) return;
+<<<<<<< HEAD
         try {
           const message = `data: ${JSON.stringify(data)}\n\n`;
           controller.enqueue(encoder.encode(message));
         } catch (error) {
           cleanup();
+=======
+        const message = `data: ${JSON.stringify(data)}\n\n`;
+        try {
+          controller.enqueue(encoder.encode(message));
+        } catch (e) {
+          isClosed = true;
+>>>>>>> 4ad3d1a5cf2ce2fb4ed496f7b788e565b63db387
         }
       };
 
@@ -87,25 +107,49 @@ export async function GET(
         // Close stream when restore is completed or failed
         if (progress.status === 'COMPLETED' || progress.status === 'FAILED') {
           setTimeout(() => {
+<<<<<<< HEAD
             cleanup();
+=======
+            safeClose();
+>>>>>>> 4ad3d1a5cf2ce2fb4ed496f7b788e565b63db387
           }, 1000); // Give client time to receive final update
         }
       });
 
       // Keep-alive ping to prevent connection timeout
+<<<<<<< HEAD
       keepAliveInterval = setInterval(() => {
         if (isClosed) return;
+=======
+      const keepAliveInterval = setInterval(() => {
+        if (isClosed) {
+          clearInterval(keepAliveInterval);
+          return;
+        }
+>>>>>>> 4ad3d1a5cf2ce2fb4ed496f7b788e565b63db387
         try {
           controller.enqueue(encoder.encode(': keep-alive\n\n'));
         } catch (error) {
+<<<<<<< HEAD
           cleanup();
+=======
+          // Connection closed
+          isClosed = true;
+          clearInterval(keepAliveInterval);
+>>>>>>> 4ad3d1a5cf2ce2fb4ed496f7b788e565b63db387
         }
       }, SSE_KEEPALIVE_INTERVAL);
 
       // Cleanup on connection close
       request.signal.addEventListener('abort', () => {
         console.log(`[SSE] Client disconnected from restore ${restoreId}`);
+<<<<<<< HEAD
         cleanup();
+=======
+        clearInterval(keepAliveInterval);
+        unsubscribe();
+        safeClose();
+>>>>>>> 4ad3d1a5cf2ce2fb4ed496f7b788e565b63db387
       });
 
       // Auto-close after timeout if restore is stuck
@@ -123,7 +167,13 @@ export async function GET(
             error: 'Restore operation timed out',
           });
         }
+<<<<<<< HEAD
         cleanup();
+=======
+        clearInterval(keepAliveInterval);
+        unsubscribe();
+        safeClose();
+>>>>>>> 4ad3d1a5cf2ce2fb4ed496f7b788e565b63db387
       }, 60 * 60 * 1000); // 1 hour timeout
     },
   });

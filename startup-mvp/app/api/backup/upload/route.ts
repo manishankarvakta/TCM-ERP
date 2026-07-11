@@ -86,10 +86,24 @@ export async function POST(request: NextRequest) {
     
     tempFilePath = path.join(tempDir, `upload-${Date.now()}-${filename}`);
     
-    // Write file to disk
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await fs.writeFile(tempFilePath, buffer);
+    // Write file to disk using streams to prevent memory issues with large files
+    const fileStream = file.stream();
+    const writeStream = require('fs').createWriteStream(tempFilePath);
+    
+    // We need to consume the ReadableStream and write chunks
+    const reader = fileStream.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      writeStream.write(value);
+    }
+    writeStream.end();
+    
+    // Wait for the stream to finish writing
+    await new Promise((resolve, reject) => {
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
+    });
 
     console.log('[API] File saved to temp location, validating...');
 

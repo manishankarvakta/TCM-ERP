@@ -71,7 +71,7 @@ export default function NoteManager({ entityId, entityType, notes }: NoteManager
                             Add Note
                         </Button>
                     </SheetTrigger>
-                    <SheetContent className="sm:max-w-md">
+                    <SheetContent className="sm:max-w-md overflow-y-auto">
                         <SheetHeader className="mb-4">
                             <SheetTitle>{selectedNote ? "Edit Note" : "Create New Note"}</SheetTitle>
                         </SheetHeader>

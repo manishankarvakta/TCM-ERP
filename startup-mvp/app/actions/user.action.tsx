@@ -589,6 +589,7 @@ export async function getUserById(userId: string) {
         name: true,
         email: true,
         role: true,
+        status: true,
         image: true,
         inchargeId: true,
         User: {
@@ -700,6 +701,7 @@ export async function createUser(input: {
   email: string;
   password: string;
   role: "user" | "admin";
+  status?: string;
   image?: string;
   inchargeId?: string;
 }) {
@@ -747,6 +749,7 @@ export async function createUser(input: {
         email: input.email,
         password: hashedPassword,
         role: input.role,
+        status: input.status || "active",
         image: input.image || null,
         inchargeId: input.inchargeId || null,
       },
@@ -789,6 +792,7 @@ export async function updateUser(input: {
   email: string;
   password?: string;
   role: "user" | "admin";
+  status?: string;
   image?: string;
   inchargeId?: string;
 }) {
@@ -847,6 +851,7 @@ export async function updateUser(input: {
       name: string;
       email: string;
       role: string;
+      status?: string;
       image?: string | null;
       password?: string;
       inchargeId?: string | null;
@@ -856,6 +861,10 @@ export async function updateUser(input: {
       role: input.role,
       image: input.image || null,
     };
+
+    if (input.status) {
+      updateData.status = input.status;
+    }
 
     // Handle inchargeId (can be undefined, null, or empty string)
     if (input.inchargeId !== undefined) {

@@ -35,7 +35,10 @@ export async function getAdminCrmMetrics() {
       openOpportunities,
       recentLeads,
       leadsBySource,
-      recentWonOpportunities
+      recentWonOpportunities,
+      clientOpportunities,
+      teamLeads,
+      teamOpportunities
     ] = await Promise.all([
       // Total Pipeline Value (Open)
       prisma.opportunity.aggregate({
@@ -92,6 +95,32 @@ export async function getAdminCrmMetrics() {
           createdAt: { gte: sixMonthsAgo } 
         },
         select: { value: true, createdAt: true }
+      }),
+
+      // Client Progress: top clients by opportunity count + total value
+      prisma.client.findMany({
+        take: 8,
+        select: {
+          id: true,
+          name: true,
+          Opportunity: {
+            select: { value: true, stage: true }
+          }
+        }
+      }),
+
+      // Team Leads: leads grouped by owner (user)
+      prisma.lead.groupBy({
+        by: ['ownerId'],
+        _count: { id: true },
+        where: { isTrash: false }
+      }),
+
+      // Team Opportunities: opportunities grouped by owner (user)
+      prisma.opportunity.groupBy({
+        by: ['ownerId'],
+        _count: { id: true },
+        _sum: { value: true }
       })
     ]);
 
@@ -143,6 +172,50 @@ export async function getAdminCrmMetrics() {
       value: source._count.id
     })).sort((a, b) => b.value - a.value);
 
+    // Build Client Progress Data
+    const clientProgress = clientOpportunities
+      .map(client => {
+        const total = client.Opportunity.length;
+        const won = client.Opportunity.filter((o: any) => o.stage === 'WON').length;
+        const value = client.Opportunity.reduce((sum: number, o: any) => sum + Number(o.value || 0), 0);
+        return {
+          name: client.name,
+          total,
+          won,
+          active: client.Opportunity.filter((o: any) => o.stage !== 'WON' && o.stage !== 'LOST').length,
+          value
+        };
+      })
+      .filter(c => c.total > 0)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 7);
+
+    // Build Team Progress Data — fetch user names
+    const allOwnerIds = Array.from(new Set([
+      ...teamLeads.map(l => l.ownerId).filter(Boolean),
+      ...teamOpportunities.map(o => o.ownerId).filter(Boolean)
+    ])) as string[];
+
+    const teamUsers = await prisma.user.findMany({
+      where: { id: { in: allOwnerIds } },
+      select: { id: true, name: true }
+    });
+
+    const teamProgress = teamUsers
+      .map(user => {
+        const leadsRow = teamLeads.find(l => l.ownerId === user.id);
+        const oppsRow = teamOpportunities.find(o => o.ownerId === user.id);
+        return {
+          name: user.name || 'Unknown',
+          leads: leadsRow?._count.id || 0,
+          opportunities: oppsRow?._count.id || 0,
+          value: Number(oppsRow?._sum?.value || 0)
+        };
+      })
+      .filter(u => u.leads > 0 || u.opportunities > 0)
+      .sort((a, b) => (b.leads + b.opportunities) - (a.leads + a.opportunities))
+      .slice(0, 7);
+
     const metrics = {
       pipelineValue: totalOpportunities._sum.value || 0,
       pipelineCount: totalOpportunities._count || 0,
@@ -154,7 +227,9 @@ export async function getAdminCrmMetrics() {
       funnel: stageCounts,
       recentLeads,
       revenueByMonth,
-      leadSources
+      leadSources,
+      clientProgress,
+      teamProgress
     };
 
     return serializeData({ success: true, metrics });
@@ -164,10 +239,18 @@ export async function getAdminCrmMetrics() {
   }
 }
 
+
 /**
  * Get personalized metrics for the User CRM Dashboard (or all for Admin)
  */
-export async function getUserCrmMetrics(isAdminView: boolean = false, selectedUserId?: string) {
+export async function getUserCrmMetrics(
+  isAdminView: boolean = false, 
+  selectedUserId?: string,
+  taskFilterType: string = "all",
+  taskCustomDate?: string,
+  eventFilterType: string = "all",
+  eventCustomDate?: string
+) {
   try {
     const session = await auth();
     if (!session?.user) return serializeData({ success: false, error: "Unauthorized" });
@@ -218,6 +301,67 @@ export async function getUserCrmMetrics(isAdminView: boolean = false, selectedUs
     };
     const userFilter = fetchAll ? {} : { userId: targetUserId };
 
+    // Task Date Filtering Logic
+    let taskDateFilter: any = { gte: todayStart, lte: todayEnd }; // default to today for 'todayTasks'
+    let overdueTaskDateFilter: any = { lt: todayStart }; // default for overdue
+    let isTaskCustomFilter = false;
+
+    if (taskFilterType === "missed") {
+        taskDateFilter = { lt: todayStart };
+        overdueTaskDateFilter = { lt: todayStart };
+        isTaskCustomFilter = true;
+    } else if (taskFilterType === "soon") {
+        const soonEnd = new Date(now);
+        soonEnd.setDate(now.getDate() + 7);
+        taskDateFilter = { gte: todayStart, lte: soonEnd };
+        overdueTaskDateFilter = undefined; // don't show overdue if filtering for future
+        isTaskCustomFilter = true;
+    } else if (taskFilterType === "long") {
+        const longStart = new Date(now);
+        longStart.setDate(now.getDate() + 30);
+        const longEnd = new Date(now);
+        longEnd.setDate(now.getDate() + 90);
+        taskDateFilter = { gte: longStart, lte: longEnd };
+        overdueTaskDateFilter = undefined;
+        isTaskCustomFilter = true;
+    } else if (taskFilterType === "custom" && taskCustomDate) {
+        const customStart = new Date(taskCustomDate);
+        customStart.setHours(0, 0, 0, 0);
+        const customEnd = new Date(taskCustomDate);
+        customEnd.setHours(23, 59, 59, 999);
+        taskDateFilter = { gte: customStart, lte: customEnd };
+        overdueTaskDateFilter = undefined;
+        isTaskCustomFilter = true;
+    }
+
+    // Event Date Filtering Logic
+    let eventDateFilter: any = { gte: todayStart, lte: todayEnd }; // default to today's events
+    let isEventCustomFilter = false;
+
+    if (eventFilterType === "missed") {
+        eventDateFilter = { lt: todayStart };
+        isEventCustomFilter = true;
+    } else if (eventFilterType === "soon") {
+        const soonEnd = new Date(now);
+        soonEnd.setDate(now.getDate() + 7);
+        eventDateFilter = { gte: todayStart, lte: soonEnd };
+        isEventCustomFilter = true;
+    } else if (eventFilterType === "long") {
+        const longStart = new Date(now);
+        longStart.setDate(now.getDate() + 30);
+        const longEnd = new Date(now);
+        longEnd.setDate(now.getDate() + 90);
+        eventDateFilter = { gte: longStart, lte: longEnd };
+        isEventCustomFilter = true;
+    } else if (eventFilterType === "custom" && eventCustomDate) {
+        const customStart = new Date(eventCustomDate);
+        customStart.setHours(0, 0, 0, 0);
+        const customEnd = new Date(eventCustomDate);
+        customEnd.setHours(23, 59, 59, 999);
+        eventDateFilter = { gte: customStart, lte: customEnd };
+        isEventCustomFilter = true;
+    }
+
     const [
       myOpportunities,
       overdueTasks,
@@ -241,11 +385,29 @@ export async function getUserCrmMetrics(isAdminView: boolean = false, selectedUs
       }),
 
       // Overdue Tasks assigned to or created by user
+      (overdueTaskDateFilter && taskFilterType === "all") ? prisma.task.findMany({
+        where: {
+          ...taskFilter,
+          status: { notIn: ['completed', 'cancelled'] },
+          dueDate: overdueTaskDateFilter
+        },
+        include: {
+          User: { select: { name: true } },
+          Assignee: { select: { name: true } },
+          Lead: { select: { id: true, name: true } },
+          Opportunity: { select: { id: true, title: true } },
+          Contact: { select: { id: true, firstName: true, lastName: true } }
+        },
+        orderBy: { dueDate: 'asc' },
+        take: isTaskCustomFilter ? 20 : 5
+      }) : Promise.resolve([]),
+
+      // Tasks Due Today or Filtered Tasks
       prisma.task.findMany({
         where: {
           ...taskFilter,
           status: { notIn: ['completed', 'cancelled'] },
-          dueDate: { lt: todayStart }
+          dueDate: taskDateFilter
         },
         include: {
           User: { select: { name: true } },
@@ -258,37 +420,20 @@ export async function getUserCrmMetrics(isAdminView: boolean = false, selectedUs
         take: 5
       }),
 
-      // Tasks Due Today
-      prisma.task.findMany({
-        where: {
-          ...taskFilter,
-          status: { notIn: ['completed', 'cancelled'] },
-          dueDate: { gte: todayStart, lte: todayEnd }
-        },
-        include: {
-          User: { select: { name: true } },
-          Assignee: { select: { name: true } },
-          Lead: { select: { id: true, name: true } },
-          Opportunity: { select: { id: true, title: true } },
-          Contact: { select: { id: true, firstName: true, lastName: true } }
-        },
-        orderBy: { dueDate: 'asc' },
-        take: 5
-      }),
-
-      // Upcoming Events (Today) where user is owner or assignee
+      // Upcoming Events where user is owner or assignee (or Filtered Events)
       prisma.activity.findMany({
         where: {
           type: { in: ['EVENT_SCHEDULED', 'LOG_CALL', 'LOG_EMAIL'] },
           ...eventFilter,
-          dueDate: { gte: todayStart, lte: todayEnd }
+          status: { notIn: ['DONE', 'COMPLETED'] },
+          dueDate: eventDateFilter
         },
         include: {
           Owner: { select: { name: true } },
           AssignedTo: { select: { name: true } }
         },
         orderBy: { dueDate: 'asc' },
-        take: 5
+        take: isEventCustomFilter ? 20 : 5
       }),
 
       // Recently assigned leads (needs attention)
@@ -402,7 +547,8 @@ export async function getUserCrmMetrics(isAdminView: boolean = false, selectedUs
         owner: e.Owner?.name,
         assignees: Array.from(new Set(assigneeNames)),
         moduleName,
-        moduleUrl
+        moduleUrl,
+        isMissed: e.dueDate && new Date(e.dueDate) < todayStart && e.status !== 'DONE' && e.status !== 'COMPLETED'
       };
     }));
 
@@ -415,6 +561,8 @@ export async function getUserCrmMetrics(isAdminView: boolean = false, selectedUs
       overdueTasks,
       todayTasks,
       upcomingEvents: mappedUpcomingEvents,
+      isTaskCustomFilter,
+      isEventCustomFilter,
       newAssignedLeads: recentAssignedLeads,
       importantNotes,
       newAssignedOpportunities

@@ -25,6 +25,16 @@ import { FiUser } from "react-icons/fi";
 import { updateLeadStatus, getLeads } from "@/app/actions/crm/lead.action";
 import { toast } from "sonner";
 import { useDroppable } from "@dnd-kit/core";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   initialLeads: any[];
@@ -115,6 +125,36 @@ export default function LeadKanban({ initialLeads, canCreate, onRefresh }: Props
     setActiveId(event.active.id as string);
   };
 
+  const [unqualifiedLead, setUnqualifiedLead] = useState<{ id: string } | null>(null);
+  const [closingReason, setClosingReason] = useState<string>("");
+
+  const handleUnqualifiedSubmit = async () => {
+    if (!unqualifiedLead || !closingReason.trim()) {
+      toast.error("Closing reason is required");
+      return;
+    }
+
+    const prevLeads = [...leads];
+    setLeads((prev) =>
+      prev.map((l) => l.id === unqualifiedLead.id ? { ...l, status: LeadStatus.UNQUALIFIED } : l)
+    );
+
+    try {
+      const result = await updateLeadStatus(unqualifiedLead.id, LeadStatus.UNQUALIFIED, closingReason);
+      if (result.success) {
+        toast.success("Lead moved to Unqualified");
+        setUnqualifiedLead(null);
+        setClosingReason("");
+        onRefresh();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to move lead");
+      setLeads(prevLeads);
+    }
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) {
@@ -136,6 +176,13 @@ export default function LeadKanban({ initialLeads, canCreate, onRefresh }: Props
         : leads.find(l => l.id === overId)?.status;
 
     if (!newStatus || activeLead.status === newStatus) {
+      setActiveId(null);
+      return;
+    }
+
+    if (newStatus === LeadStatus.UNQUALIFIED) {
+      setUnqualifiedLead({ id: currentActiveId });
+      setClosingReason("");
       setActiveId(null);
       return;
     }
@@ -175,32 +222,57 @@ export default function LeadKanban({ initialLeads, canCreate, onRefresh }: Props
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="flex gap-4 overflow-x-auto pb-6 h-[calc(100vh-250px)]">
-        {columns.map((column) => (
-          <KanbanColumn
-            key={column.id}
-            id={column.id}
-            title={column.title}
-            leads={column.leads}
-          />
-        ))}
-      </div>
+    <>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex gap-4 overflow-x-auto pb-6 h-[calc(100vh-250px)]">
+          {columns.map((column) => (
+            <KanbanColumn
+              key={column.id}
+              id={column.id}
+              title={column.title}
+              leads={column.leads}
+            />
+          ))}
+        </div>
 
-      <DragOverlay dropAnimation={{
-        sideEffects: defaultDropAnimationSideEffects({
-          styles: { active: { opacity: "0.5" } }
-        })
-      }}>
-        {activeId && activeLead ? (
-          <LeadKanbanCard lead={activeLead} isOverlay />
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+        <DragOverlay dropAnimation={{
+          sideEffects: defaultDropAnimationSideEffects({
+            styles: { active: { opacity: "0.5" } }
+          })
+        }}>
+          {activeId && activeLead ? (
+            <LeadKanbanCard lead={activeLead} isOverlay />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      <Dialog open={!!unqualifiedLead} onOpenChange={(open) => !open && setUnqualifiedLead(null)}>
+          <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                  <DialogTitle>Lead Closing Reason</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                      <Label htmlFor="closingReason">Why is this lead unqualified? *</Label>
+                      <Textarea 
+                          id="closingReason" 
+                          value={closingReason} 
+                          onChange={(e) => setClosingReason(e.target.value)}
+                          placeholder="e.g. Budget constraint, lost to competitor, no response..."
+                      />
+                  </div>
+              </div>
+              <DialogFooter>
+                  <Button variant="outline" onClick={() => setUnqualifiedLead(null)}>Cancel</Button>
+                  <Button onClick={handleUnqualifiedSubmit}>Submit</Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
+    </>
   );
 }

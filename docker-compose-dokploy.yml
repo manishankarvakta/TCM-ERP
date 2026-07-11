@@ -1,5 +1,5 @@
-# Production Docker Compose with Absolute Paths
-# Data persists FOREVER at fixed locations, regardless of code changes
+# Production Docker Compose with Named Volumes
+# Data persists FOREVER in Docker-managed named volumes, safe for Dokploy
 
 services:
   ts-crm-postgres:
@@ -9,11 +9,10 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-ts-crm}
+      POSTGRES_DB: ${POSTGRES_DB:-startup_mvp}
     volumes:
-      # ABSOLUTE PATH - Data stays here forever
-      # Even if you delete entire project directory
-      - /var/lib/ts-crm/postgres:/var/lib/postgresql/data
+      # Named volume managed by Docker (safe for Dokploy)
+      - ts-crm-postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
@@ -31,10 +30,10 @@ services:
     expose:
       - "3000"
     volumes:
-      - /var/lib/ts-crm/uploads:/app/uploads
-      - /var/lib/ts-crm/backups:/app/backups
+      - ts-crm-uploads-data:/app/uploads
+      - ts-crm-backups-data:/app/backups
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@ts-crm-postgres:5432/${POSTGRES_DB:-ts-crm}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@ts-crm-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required}
       NEXTAUTH_URL: ${NEXTAUTH_URL:?NEXTAUTH_URL is required}
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
@@ -70,8 +69,8 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
-      # ABSOLUTE PATH - Cache data stays here
-      - /var/lib/ts-crm/redis:/data
+      # Named volume for Redis
+      - ts-crm-redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -85,3 +84,9 @@ networks:
     driver: bridge
   dokploy-network:
     external: true
+
+volumes:
+  ts-crm-postgres-data:
+  ts-crm-uploads-data:
+  ts-crm-backups-data:
+  ts-crm-redis-data:

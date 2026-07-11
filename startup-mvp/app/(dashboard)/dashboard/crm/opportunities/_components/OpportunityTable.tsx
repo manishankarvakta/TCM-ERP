@@ -15,11 +15,16 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { OpportunityStage } from "@prisma/client";
 import Link from "next/link";
-import { FiMoreVertical, FiEdit, FiFileText, FiEye } from "react-icons/fi";
+import { FiMoreVertical, FiEdit, FiFileText, FiEye, FiCalendar, FiCheckCircle } from "react-icons/fi";
 
 interface Opportunity {
   id: string;
@@ -31,12 +36,16 @@ interface Opportunity {
   client: { name: string; company: string | null };
   contact: { firstName: string; lastName: string } | null;
   createdAt: Date;
+  lead?: { id: string; leadNumber: string | null; name: string } | null;
+  leadActiveEvents?: number;
+  leadActiveEventsList?: { id: string; subject: string; type: string; dueDate: string | null; status: string }[];
 }
 
 interface OpportunityTableProps {
   opportunities: Opportunity[];
   onEdit: (opp: Opportunity) => void;
   onRefresh: () => void;
+  onStatusUpdate?: (id: string, stage: OpportunityStage) => void;
 }
 
 const stageMap: Record<OpportunityStage, { label: string; variant: "default" | "secondary" | "outline" | "destructive" | "success" }> = {
@@ -47,9 +56,10 @@ const stageMap: Record<OpportunityStage, { label: string; variant: "default" | "
   [OpportunityStage.NEGOTIATION]: { label: "Negotiation", variant: "outline" },
   [OpportunityStage.WON]: { label: "Won", variant: "success" },
   [OpportunityStage.LOST]: { label: "Lost", variant: "destructive" },
+  [OpportunityStage.UNQUALIFIED]: { label: "Unqualified", variant: "destructive" },
 };
 
-export default function OpportunityTable({ opportunities, onEdit, onRefresh }: OpportunityTableProps) {
+export default function OpportunityTable({ opportunities, onEdit, onRefresh, onStatusUpdate }: OpportunityTableProps) {
   return (
     <div className="rounded-md border">
       <Table>
@@ -57,6 +67,7 @@ export default function OpportunityTable({ opportunities, onEdit, onRefresh }: O
           <TableRow>
             <TableHead>Opportunity</TableHead>
             <TableHead>Account / Contact</TableHead>
+            <TableHead>Lead</TableHead>
             <TableHead>Amount</TableHead>
             <TableHead>Stage</TableHead>
             <TableHead>Exp. Close</TableHead>
@@ -66,7 +77,7 @@ export default function OpportunityTable({ opportunities, onEdit, onRefresh }: O
         <TableBody>
           {opportunities.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="h-24 text-center">
+              <TableCell colSpan={8} className="h-24 text-center">
                 No opportunities found.
               </TableCell>
             </TableRow>
@@ -89,6 +100,35 @@ export default function OpportunityTable({ opportunities, onEdit, onRefresh }: O
                     <span className="text-muted-foreground">
                       {opp.contact ? `${opp.contact.firstName} ${opp.contact.lastName}` : "No contact"}
                     </span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-col gap-1">
+                    {opp.lead ? (
+                      <Link
+                        href={`/dashboard/crm/leads/${opp.lead.id}`}
+                        className="font-medium hover:underline text-primary font-mono text-xs"
+                      >
+                        {opp.lead.leadNumber || opp.lead.name || "View Lead"}
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground text-xs italic">-</span>
+                    )}
+                    {opp.lead && (opp.leadActiveEvents ?? 0) > 0 && (
+                      <Link
+                        href={`/dashboard/crm/leads/${opp.lead.id}?tab=events`}
+                        title={opp.leadActiveEventsList?.map(e => `• ${e.subject || e.type}`).join('\n')}
+                        className="flex items-center gap-1 w-fit"
+                      >
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1.5 py-0 h-5 gap-1 border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-400 font-semibold hover:bg-amber-100 transition-colors"
+                        >
+                          <FiCalendar className="h-2.5 w-2.5" />
+                          {opp.leadActiveEvents} active event{(opp.leadActiveEvents ?? 0) > 1 ? 's' : ''}
+                        </Badge>
+                      </Link>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell>
@@ -120,6 +160,25 @@ export default function OpportunityTable({ opportunities, onEdit, onRefresh }: O
                         <FiEdit className="mr-2 h-4 w-4" />
                         Edit
                       </DropdownMenuItem>
+                      
+                      {onStatusUpdate && (
+                          <DropdownMenuSub>
+                              <DropdownMenuSubTrigger>
+                                  <FiCheckCircle className="mr-2 h-4 w-4" />
+                                  Status
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent>
+                                  <DropdownMenuRadioGroup value={opp.stage} onValueChange={(val) => onStatusUpdate(opp.id, val as OpportunityStage)}>
+                                      {Object.entries(stageMap).map(([stage, { label }]) => (
+                                          <DropdownMenuRadioItem key={stage} value={stage}>
+                                              {label}
+                                          </DropdownMenuRadioItem>
+                                      ))}
+                                  </DropdownMenuRadioGroup>
+                              </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                      )}
+
                       <DropdownMenuItem onClick={() => {}}>
                         <FiFileText className="mr-2 h-4 w-4" />
                         Create Quotation
