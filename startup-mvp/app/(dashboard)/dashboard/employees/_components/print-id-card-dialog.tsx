@@ -89,7 +89,7 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
               gap: 15mm !important;
               position: absolute !important;
               left: 50% !important;
-              top: 0 !important;
+              top: 1in !important;
               transform: translateX(-50%) !important;
               width: auto !important;
               height: auto !important;
