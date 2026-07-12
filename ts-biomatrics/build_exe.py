@@ -34,6 +34,7 @@ def build():
         str(pyinstaller_bin),
         "--noconsole",
         "--onefile",
+        "--noconfirm",
         f"--icon={icon_path}",
         f"--add-data={add_data_flag}",
         "--name=TS-Biomatrics",
