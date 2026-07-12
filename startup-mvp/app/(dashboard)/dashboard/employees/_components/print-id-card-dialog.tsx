@@ -37,6 +37,16 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
       .toUpperCase();
   };
 
+  // Helper to convert string to Title Case (Camel Case)
+  const toTitleCase = (str?: string) => {
+    if (!str) return "";
+    return str
+      .split(" ")
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+  };
+
   // Safe parse emergency contact
   const getEmergencyContact = () => {
     if (!employee.emergencyContact) return null;
@@ -168,36 +178,41 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
               {/* Content Area */}
               <div className="flex-1 flex flex-col justify-between items-center z-10 relative h-full">
                 
-                {/* Header section: Centered Logo */}
-                <div className="flex items-center justify-center">
-                  <img src="/logo.png" alt="logo" className="h-[10mm] max-w-[42mm] object-contain" />
-                </div>
-
-                {/* Profile Avatar */}
-                <div className="flex flex-col items-center">
-                  <div className="w-[24mm] h-[24mm] rounded-full border-[2.5px] border-[#2b3b7c] shadow bg-white overflow-hidden flex items-center justify-center">
-                    <Avatar className="w-full h-full rounded-none">
-                      <AvatarImage src={employee.photo || undefined} className="object-cover w-full h-full" />
-                      <AvatarFallback className="text-[16px] font-bold bg-slate-100 text-[#2b3b7c]">
-                        {getInitials(employee.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                  </div>
-                </div>
-
-                {/* Profile details */}
-                <div className="flex flex-col items-center text-center px-3">
-                  <h2 className="text-[11.5px] font-extrabold text-[#2b3b7c] uppercase tracking-tight line-clamp-2 max-w-[48mm]">
-                    {employee.name}
-                  </h2>
-                  <p className="text-[7px] font-medium text-slate-700 uppercase tracking-wider mt-0.5 truncate max-w-[48mm]">
-                    {employee.designation || "Job Position"}
-                  </p>
+                {/* Top Group: Logo, Avatar, Details with narrow gaps */}
+                <div className="flex flex-col items-center justify-start gap-1 w-full">
                   
-                  {/* Blood Group */}
-                  <p className="text-[6px] text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
-                    Blood Group: <span className="text-rose-600 font-bold">{employee.bloodGroup || "-"}</span>
-                  </p>
+                  {/* Header section: Centered Logo */}
+                  <div className="flex items-center justify-center">
+                    <img src="/logo.png" alt="logo" className="h-[10mm] max-w-[42mm] object-contain" />
+                  </div>
+
+                  {/* Profile Avatar */}
+                  <div className="flex flex-col items-center mt-1">
+                    <div className="w-[24mm] h-[24mm] rounded-full border-[2.5px] border-[#2b3b7c] shadow bg-white overflow-hidden flex items-center justify-center">
+                      <Avatar className="w-full h-full rounded-none">
+                        <AvatarImage src={employee.photo || undefined} className="object-cover w-full h-full" />
+                        <AvatarFallback className="text-[16px] font-bold bg-slate-100 text-[#2b3b7c]">
+                          {getInitials(employee.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
+                  </div>
+
+                  {/* Profile details */}
+                  <div className="flex flex-col items-center text-center px-3 mt-1">
+                    <h2 className="text-[11.5px] font-extrabold text-[#2b3b7c] tracking-tight line-clamp-2 max-w-[48mm]">
+                      {toTitleCase(employee.name)}
+                    </h2>
+                    <p className="text-[7px] font-medium text-slate-700 uppercase tracking-wider mt-0.5 truncate max-w-[48mm]">
+                      {employee.designation || "Job Position"}
+                    </p>
+                    
+                    {/* Blood Group */}
+                    <p className="text-[6px] text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
+                      Blood Group: <span className="text-rose-600 font-bold">{employee.bloodGroup || "-"}</span>
+                    </p>
+                  </div>
+
                 </div>
 
                 {/* Employee ID & Issue Date */}
