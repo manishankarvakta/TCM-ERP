@@ -8,6 +8,15 @@ def build():
     
     # Path setups
     root = Path(__file__).resolve().parent
+    
+    # Auto re-execute within local virtual environment if called globally
+    venv_python = root / "venv" / ("Scripts" if os.name == 'nt' else "bin") / ("python.exe" if os.name == 'nt' else "python")
+    in_venv = sys.prefix != sys.base_prefix
+    if not in_venv and venv_python.exists():
+        print(f"Global python detected. Re-executing inside virtual environment: {venv_python}")
+        result = subprocess.run([str(venv_python)] + sys.argv)
+        sys.exit(result.returncode)
+        
     icon_path = root / "app" / "resources" / "images" / "AppIcon.ico"
     main_script = root / "app" / "main.py"
     
@@ -16,7 +25,11 @@ def build():
         sys.exit(1)
         
     print("Installing PyInstaller and build dependencies...")
-    subprocess.run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt", "pyinstaller", "Pillow"], check=True)
+    try:
+        subprocess.run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt", "pyinstaller", "Pillow"], check=True)
+    except subprocess.CalledProcessError:
+        print("Standard installation failed. Retrying with --break-system-packages flag...")
+        subprocess.run([sys.executable, "-m", "pip", "install", "--break-system-packages", "-r", "requirements.txt", "pyinstaller", "Pillow"], check=True)
     
     print("\nCompiling executable using PyInstaller...")
     # Add resources folder to PyInstaller bundle data
