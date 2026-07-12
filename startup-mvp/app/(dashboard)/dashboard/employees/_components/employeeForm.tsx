@@ -38,6 +38,7 @@ const employeeFormSchema = z.object({
   salary: z.coerce.number().optional().or(z.literal(0)),
   joiningDate: z.string().optional().or(z.literal("")),
   gender: z.string().optional().or(z.literal("")),
+  bloodGroup: z.string().optional().or(z.literal("")),
   type: z.string().optional().or(z.literal("")),
   employeeTypeId: z.string().optional().or(z.literal("")),
   biometricDeviceId: z.string().optional().or(z.literal("")),
@@ -89,6 +90,7 @@ interface EmployeeFormProps {
     salary: any;
     joiningDate: Date | null;
     gender: string | null;
+    bloodGroup: string | null;
     dateOfBirth: Date | null;
     nationalId: string | null;
     address: any;
@@ -142,6 +144,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           salary: initialData.salary ? Number(initialData.salary) : 0,
           joiningDate: initialData.joiningDate ? new Date(initialData.joiningDate).toISOString().split("T")[0] : "",
           gender: initialData.gender || "",
+          bloodGroup: (initialData as any).bloodGroup || "",
           dateOfBirth: initialData.dateOfBirth ? new Date(initialData.dateOfBirth).toISOString().split("T")[0] : "",
           nationalId: initialData.nationalId || "",
           address: initialData.address || {
@@ -179,6 +182,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           salary: 0,
           joiningDate: "",
           gender: "",
+          bloodGroup: "",
           dateOfBirth: "",
           nationalId: "",
           address: {
@@ -420,8 +424,8 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                         </div>
                       </div>
 
-                      {/* Row 3: Gender and Date of Birth */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Row 3: Gender, Blood Group and Date of Birth */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="gender">Gender</Label>
                           <Select
@@ -436,6 +440,29 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                               <SelectItem value="Male">Male</SelectItem>
                               <SelectItem value="Female">Female</SelectItem>
                               <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="bloodGroup">Blood Group</Label>
+                          <Select
+                            defaultValue={watch("bloodGroup") || ""}
+                            onValueChange={(value) => setValue("bloodGroup", value)}
+                            disabled={loading}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select blood group" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="A+">A+</SelectItem>
+                              <SelectItem value="A-">A-</SelectItem>
+                              <SelectItem value="B+">B+</SelectItem>
+                              <SelectItem value="B-">B-</SelectItem>
+                              <SelectItem value="AB+">AB+</SelectItem>
+                              <SelectItem value="AB-">AB-</SelectItem>
+                              <SelectItem value="O+">O+</SelectItem>
+                              <SelectItem value="O-">O-</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>

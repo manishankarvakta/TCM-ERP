@@ -115,6 +115,7 @@ model Employee {
   designation            String?
   emergencyContact       Json?
   gender                 String?
+  bloodGroup             String?
   joiningDate            DateTime?
   nationalId             String?
   photo                  String?
@@ -141,6 +142,7 @@ model Employee {
   overtimes              Overtime[]
   payrollItems           PayrollItem[]
   deviceMappings         EmployeeDeviceMap[]
+  assistedSales          Sale[]              @relation("SaleSalesAssistant")
 
   @@index([userId])
   @@index([status])
@@ -737,6 +739,8 @@ model Sale {
   deliveryStatus  String?    @default("PENDING")
   courierName     String?
   trackingNumber  String?
+  salesAssistantId String?
+  salesAssistant   Employee?  @relation("SaleSalesAssistant", fields: [salesAssistantId], references: [id])
 
   @@index([clientId])
   @@index([warehouseId])
@@ -747,6 +751,7 @@ model Sale {
   @@index([saleNumber])
   @@index([createdBy])
   @@index([couponId])
+  @@index([salesAssistantId])
 }
 
 model Coupon {

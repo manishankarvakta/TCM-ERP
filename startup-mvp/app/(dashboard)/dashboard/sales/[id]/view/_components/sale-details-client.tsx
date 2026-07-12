@@ -226,6 +226,24 @@ export default function SaleDetailsClient({
                 </div>
               </>
             )}
+            {sale.createdByUser && (
+              <>
+                <Separator />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">Biller / Cashier</p>
+                  <p className="text-sm font-medium">{sale.createdByUser.name}</p>
+                </div>
+              </>
+            )}
+            {sale.salesAssistant && (
+              <>
+                <Separator />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">Sales Assistant</p>
+                  <p className="text-sm font-semibold text-primary">{sale.salesAssistant.name}</p>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 

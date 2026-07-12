@@ -85,6 +85,14 @@ interface CartItem extends Item {
   cartKey: string;
 }
 
+interface ActiveSalesman {
+  id: string;
+  name: string;
+  email: string | null;
+  warehouseId: string | null;
+  userId: string | null;
+}
+
 interface POSComponentProps {
   items: Item[];
   clients: Client[];
@@ -103,9 +111,10 @@ interface POSComponentProps {
   } | null;
   isWholesaleAllowed?: boolean;
   posSettings?: any;
+  activeSalesmen?: ActiveSalesman[];
 }
 
-export default function POSComponent({ items, clients: initialClients, warehouses, paymentAccounts = [], currentUser, isWholesaleAllowed = false, posSettings }: POSComponentProps) {
+export default function POSComponent({ items, clients: initialClients, warehouses, paymentAccounts = [], currentUser, isWholesaleAllowed = false, posSettings, activeSalesmen = [] }: POSComponentProps) {
 
 
   const router = useRouter();
@@ -121,6 +130,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       description: c.clientType === 'wholesale' ? "Wholesale" : undefined
     }));
   }, [clients]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<string>("ALL");
   
@@ -150,6 +160,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const [mfsAmount, setMfsAmount] = useState<number>(0);
   const [mfsAccountId, setMfsAccountId] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [salesAssistantId, setSalesAssistantId] = useState<string | null>(null);
   const [isDueSale, setIsDueSale] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [clientDiscounts, setClientDiscounts] = useState<any[]>([]);
@@ -179,6 +190,18 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       return acc.warehouseIds.includes(selectedWarehouseId);
     });
   }, [paymentAccounts, selectedWarehouseId]);
+
+  const assistantOptions = useMemo(() => {
+    const filteredAssistants = activeSalesmen.filter(emp => 
+      emp.warehouseId === selectedWarehouseId && 
+      (!emp.userId || emp.userId !== currentUser?.id)
+    );
+    return filteredAssistants.map(emp => ({
+      value: emp.id,
+      label: emp.name || emp.email || "Unnamed Assistant",
+      description: emp.email || undefined,
+    }));
+  }, [activeSalesmen, selectedWarehouseId, currentUser]);
 
   const [membershipSettings, setMembershipSettings] = useState<any>(null);
 
@@ -575,7 +598,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const dueAmount = grandTotal - paidAmount;
 
   const handleAddToCart = (item: Item) => {
-    if (item.variants && item.variants.length > 0) {
+    if (item.variants && item.variants.length > 0 && orderType !== "RETAIL") {
       setSelectedItemForVariants(item);
       return;
     }
@@ -1389,6 +1412,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         items: saleItems,
         couponCode: appliedPromo || undefined,
         paymentMethod: primaryPaymentMethod,
+        salesAssistantId: salesAssistantId,
         paymentDetails: {
           cashAmount: cashAmount,
           cashAccountId: cashAccountId || null,
@@ -2073,6 +2097,22 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                     <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-1 block">Tax</label>
                                         <div className="text-sm font-medium text-foreground">৳{tax.toFixed(2)}</div>
                   </div>
+                </div>
+
+                {/* Sales Assistant Section */}
+                <div className="bg-muted/40 p-3.5 rounded-xl border border-border">
+                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-1.5 block flex items-center gap-1.5">
+                    <FaUsers className="text-muted-foreground" /> Sales Assistant
+                  </label>
+                  <SearchableSelect
+                    options={assistantOptions}
+                    value={salesAssistantId}
+                    onValueChange={(val) => setSalesAssistantId(val)}
+                    placeholder="Select Sales Assistant..."
+                    searchPlaceholder="Search assistant..."
+                    className="w-full h-9 text-xs bg-background"
+                    allowClear={true}
+                  />
                 </div>
 
                 {/* Due Sale Checkbox */}

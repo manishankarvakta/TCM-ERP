@@ -19,6 +19,7 @@ interface SalesPageProps {
     type?: string;
     startDate?: string;
     endDate?: string;
+    salesAssistantId?: string;
   }>;
 }
 
@@ -30,6 +31,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
   const billerId = params.billerId || undefined;
   const warehouseId = params.warehouseId || undefined;
   const type = params.type as any || undefined;
+  const salesAssistantId = params.salesAssistantId || undefined;
   
   let startDate = params.startDate;
   let endDate = params.endDate;
@@ -68,8 +70,8 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
     effectiveWarehouseId = userWarehouseId || "all";
   }
 
-  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently, warehousesRes, users] = await Promise.all([
-    getSales(page, 10, search, status, { billerId, warehouseId: effectiveWarehouseId !== "all" ? effectiveWarehouseId : undefined, type, startDate, endDate }),
+  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently, warehousesRes, users, salesmen] = await Promise.all([
+    getSales(page, 10, search, status, { billerId, warehouseId: effectiveWarehouseId !== "all" ? effectiveWarehouseId : undefined, type, startDate, endDate, salesAssistantId }),
     userId ? hasPermission(userId, "sales.sales", "view") : false,
     userId ? hasPermission(userId, "sales.sales", "edit") : false,
     userId ? hasPermission(userId, "sales.sales", "move-to-trash") : false,
@@ -79,6 +81,20 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
       where: { 
         status: "active",
         ...(!isAdmin && userWarehouseId ? { defaultWarehouseId: userWarehouseId } : {})
+      }, 
+      select: { id: true, name: true, email: true }, 
+      orderBy: { name: "asc" } 
+    }),
+    prisma.employee.findMany({ 
+      where: { 
+        status: "active",
+        employeeType: {
+          name: {
+            equals: "Salesman",
+            mode: "insensitive"
+          }
+        },
+        ...(!isAdmin && userWarehouseId ? { warehouseId: userWarehouseId } : {})
       }, 
       select: { id: true, name: true, email: true }, 
       orderBy: { name: "asc" } 
@@ -124,14 +140,33 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
       </div>
 
       <Tabs defaultValue={tab} className="w-full">
-        <TabsList>
-          <TabsTrigger value="all" asChild>
-            <Link href="/dashboard/sales?tab=all&page=1">All Sales</Link>
-          </TabsTrigger>
-          <TabsTrigger value="trash" asChild>
-            <Link href="/dashboard/sales?tab=trash&page=1">Trash</Link>
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+          <TabsList>
+            <TabsTrigger value="all" asChild>
+              <Link href="/dashboard/sales?tab=all&page=1">All Sales</Link>
+            </TabsTrigger>
+            <TabsTrigger value="trash" asChild>
+              <Link href="/dashboard/sales?tab=trash&page=1">Trash</Link>
+            </TabsTrigger>
+          </TabsList>
+
+          {tab !== "trash" && result.summary && (
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="bg-card text-card-foreground border border-border/80 px-4 py-2 rounded-xl shadow-sm flex flex-col min-w-[120px]">
+                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Total Sales</span>
+                <span className="text-sm font-black text-foreground">৳{result.summary.totalSale.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+              <div className="bg-card text-card-foreground border border-border/80 px-4 py-2 rounded-xl shadow-sm flex flex-col min-w-[100px]">
+                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Customers</span>
+                <span className="text-sm font-black text-foreground">{result.summary.totalCustomers}</span>
+              </div>
+              <div className="bg-card text-card-foreground border border-border/80 px-4 py-2 rounded-xl shadow-sm flex flex-col min-w-[100px]">
+                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Sold Items</span>
+                <span className="text-sm font-black text-foreground">{result.summary.totalSoldItems}</span>
+              </div>
+            </div>
+          )}
+        </div>
         <TabsContent value="all" className="mt-4">
           <SalesListClient
             initialSales={(result.sales as any) || []}
@@ -154,6 +189,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
             }}
             warehouses={warehousesRes.warehouses || []}
             billers={(users as any) || []}
+            salesmen={(salesmen as any) || []}
             isAdmin={isAdmin}
             userWarehouseId={userWarehouseId}
             filters={{
@@ -162,6 +198,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
               type,
               startDate,
               endDate,
+              salesAssistantId,
             }}
           />
         </TabsContent>
@@ -187,6 +224,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
             }}
             warehouses={warehousesRes.warehouses || []}
             billers={(users as any) || []}
+            salesmen={(salesmen as any) || []}
             isAdmin={isAdmin}
             userWarehouseId={userWarehouseId}
             filters={{
@@ -195,6 +233,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
               type,
               startDate,
               endDate,
+              salesAssistantId,
             }}
           />
         </TabsContent>

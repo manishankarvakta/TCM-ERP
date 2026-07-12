@@ -1,24 +1,14 @@
 {
-  "lastFetchedAt": "2026-07-09T20:21:45.068Z",
+  "lastFetchedAt": "2026-07-11T12:04:27.854Z",
   "devices": [
     {
-      "deviceId": "cmqgffby80000ckkkjlbmh342",
+      "deviceId": "cmr9cez4x0011qp01xsgq56rv",
       "vendor": "ZKTeco",
-      "name": "Main Gate ZKTeco",
-      "ipAddress": "192.168.0.101",
+      "name": "Main Gate",
+      "ipAddress": "192.168.0.110",
       "port": 4370,
       "serialNumber": "UEED252100146",
-      "isActive": true
-    },
-    {
-      "deviceId": "hikvision_001",
-      "vendor": "Hikvision",
-      "name": "Main Door Hikvision",
-      "ipAddress": "192.168.0.120",
-      "port": 80,
       "username": "admin",
-      "password": "encrypted-or-token",
-      "serialNumber": "HIK123456789",
       "isActive": true
     }
   ]

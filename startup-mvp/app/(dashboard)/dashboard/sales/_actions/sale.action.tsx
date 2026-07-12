@@ -37,6 +37,7 @@ const saleSchema = z.object({
   items: z.array(saleItemSchema).min(1, "At least one item is required"),
   couponCode: z.string().optional().nullable(),
   paymentMethod: z.string().optional().nullable(),
+  salesAssistantId: z.string().optional().nullable(),
   paymentDetails: z.object({
     cashAmount: z.number().optional().nullable(),
     cashAccountId: z.string().optional().nullable(),
@@ -332,6 +333,41 @@ export async function getPaymentAccountsForPOS() {
   } catch (error) {
     console.error("getPaymentAccountsForPOS error:", error);
     return { success: false, error: "Failed to fetch payment accounts", accounts: [] };
+  }
+}
+
+export async function getActiveSalesmenForPOS() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", employees: [] };
+    }
+    const employees = await prisma.employee.findMany({
+      where: {
+        status: "active",
+        employeeType: {
+          name: {
+            equals: "Salesman",
+            mode: "insensitive"
+          }
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        warehouseId: true,
+        userId: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+    return { success: true, employees: employees || [] };
+  } catch (error) {
+    console.error("getActiveSalesmenForPOS error:", error);
+    return { success: false, error: "Failed to fetch active salesmen", employees: [] };
   }
 }
 
@@ -1071,6 +1107,7 @@ export async function getSales(
     type?: OrderType;
     startDate?: string;
     endDate?: string;
+    salesAssistantId?: string;
   }
 ) {
   try {
@@ -1092,6 +1129,9 @@ export async function getSales(
 
     if (filters?.billerId) {
       where.createdBy = filters.billerId;
+    }
+    if (filters?.salesAssistantId) {
+      where.salesAssistantId = filters.salesAssistantId;
     }
     if (filters?.warehouseId) {
       where.warehouseId = filters.warehouseId;
@@ -1117,7 +1157,7 @@ export async function getSales(
       ];
     }
 
-    const [sales, total] = await Promise.all([
+    const [sales, total, summaryResult, uniqueClientsCount, totalSoldItemsResult] = await Promise.all([
       prisma.sale.findMany({
         where,
         skip,
@@ -1151,11 +1191,35 @@ export async function getSales(
               name: true,
             },
           },
+          salesAssistant: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
           createdAt: true,
           updatedAt: true,
         },
       }),
       prisma.sale.count({ where }),
+      prisma.sale.aggregate({
+        where,
+        _sum: {
+          grandTotal: true,
+        }
+      }),
+      prisma.sale.groupBy({
+        where,
+        by: ['clientId'],
+      }),
+      prisma.saleItem.aggregate({
+        where: {
+          sale: where
+        },
+        _sum: {
+          quantity: true
+        }
+      })
     ]);
 
     const totalPages = Math.ceil(total / limit);
@@ -1167,6 +1231,11 @@ export async function getSales(
         grandTotal: Number(sale.grandTotal),
       })),
       pagination: { page, limit, total, totalPages },
+      summary: {
+        totalSale: Number(summaryResult._sum.grandTotal || 0),
+        totalCustomers: uniqueClientsCount.length,
+        totalSoldItems: Number(totalSoldItemsResult._sum.quantity || 0),
+      }
     };
   } catch (error) {
     console.error("getSales error:", error);
@@ -1258,6 +1327,13 @@ export async function getSaleById(saleId: string) {
             email: true,
           },
         },
+        salesAssistant: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
         completedAt: true,
@@ -1293,6 +1369,7 @@ export async function getSaleById(saleId: string) {
         client: sale.client as any,
         warehouse: sale.warehouse,
         createdByUser: sale.createdByUser,
+        salesAssistant: sale.salesAssistant,
         createdAt: sale.createdAt,
         updatedAt: sale.updatedAt,
         completedAt: sale.completedAt,
@@ -1674,6 +1751,7 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
           tax: tax ? new Prisma.Decimal(tax) : null,
           grandTotal: new Prisma.Decimal(grandTotal),
           createdBy: userId,
+          salesAssistantId: validated.salesAssistantId || null,
           paymentDetails: validated.paymentDetails ? (validated.paymentDetails as any) : null,
           ...(resolvedCouponId ? { couponId: resolvedCouponId } : {}),
           items: {
@@ -1958,6 +2036,7 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
           tax: tax ? new Prisma.Decimal(tax) : null,
           grandTotal: new Prisma.Decimal(calculatedGrandTotal),
           updatedBy: userId,
+          salesAssistantId: validated.salesAssistantId || null,
           items: {
             create: itemsToCreate.map((item) => ({
               itemId: item.itemId,

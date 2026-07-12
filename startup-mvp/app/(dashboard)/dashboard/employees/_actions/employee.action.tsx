@@ -91,6 +91,7 @@ export async function getEmployees(
         salary: true,
         joiningDate: true,
         gender: true,
+        bloodGroup: true,
         dateOfBirth: true,
         nationalId: true,
         address: true,
@@ -207,6 +208,7 @@ export async function getEmployeeById(employeeId: string) {
         salary: true,
         joiningDate: true,
         gender: true,
+        bloodGroup: true,
         dateOfBirth: true,
         nationalId: true,
         address: true,
@@ -520,6 +522,7 @@ export async function createEmployee(input: {
   salary?: number;
   joiningDate?: Date;
   gender?: string;
+  bloodGroup?: string;
   dateOfBirth?: Date;
   nationalId?: string;
   address?: any;
@@ -821,6 +824,7 @@ export async function createEmployee(input: {
           salary: input.salary || null,
           joiningDate: input.joiningDate || null,
           gender: input.gender || null,
+          bloodGroup: input.bloodGroup || null,
           dateOfBirth: input.dateOfBirth || null,
           nationalId: input.nationalId || null,
           address: input.address || null,
@@ -848,6 +852,7 @@ export async function createEmployee(input: {
           salary: true,
           joiningDate: true,
           gender: true,
+          bloodGroup: true,
           dateOfBirth: true,
           nationalId: true,
           address: true,
@@ -931,6 +936,7 @@ export async function updateEmployee(input: {
   salary?: number;
   joiningDate?: Date;
   gender?: string;
+  bloodGroup?: string;
   dateOfBirth?: Date;
   nationalId?: string;
   address?: any;
@@ -1217,6 +1223,7 @@ export async function updateEmployee(input: {
         salary: input.salary !== undefined ? (input.salary || null) : undefined,
         joiningDate: input.joiningDate !== undefined ? (input.joiningDate || null) : undefined,
         gender: input.gender !== undefined ? (input.gender || null) : undefined,
+        bloodGroup: input.bloodGroup !== undefined ? (input.bloodGroup || null) : undefined,
         dateOfBirth: input.dateOfBirth !== undefined ? (input.dateOfBirth || null) : undefined,
         nationalId: input.nationalId !== undefined ? (input.nationalId || null) : undefined,
         address: input.address !== undefined ? (input.address || null) : undefined,
@@ -1256,6 +1263,7 @@ export async function updateEmployee(input: {
           salary: true,
           joiningDate: true,
           gender: true,
+          bloodGroup: true,
           dateOfBirth: true,
           nationalId: true,
           address: true,

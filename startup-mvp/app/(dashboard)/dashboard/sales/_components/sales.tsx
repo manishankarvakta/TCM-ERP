@@ -79,6 +79,10 @@ interface Sale {
     id: string;
     name: string;
   };
+  salesAssistant?: {
+    id: string;
+    name: string | null;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -120,12 +124,14 @@ export default function SalesListClient({
   permissions,
   warehouses = [],
   billers = [],
+  salesmen = [],
   isAdmin = false,
   userWarehouseId,
   filters,
 }: SalesListClientProps & {
   warehouses?: { id: string; name: string }[];
   billers?: { id: string; name: string; email: string }[];
+  salesmen?: { id: string; name: string; email: string | null }[];
   isAdmin?: boolean;
   userWarehouseId?: string;
   filters?: {
@@ -134,6 +140,7 @@ export default function SalesListClient({
     type?: string;
     startDate?: string | null;
     endDate?: string | null;
+    salesAssistantId?: string;
   };
 }) {
   const router = useRouter();
@@ -147,6 +154,7 @@ export default function SalesListClient({
   const [billerId, setBillerId] = useState(filters?.billerId || "all");
   const [warehouseId, setWarehouseId] = useState(filters?.warehouseId || "all");
   const [type, setType] = useState(filters?.type || "all");
+  const [salesAssistantId, setSalesAssistantId] = useState(filters?.salesAssistantId || "all");
   
   const formatForInput = (isoString?: string | null) => {
     if (!isoString) return "";
@@ -171,6 +179,7 @@ export default function SalesListClient({
     const newType = updates.type !== undefined ? updates.type : type;
     const newStart = updates.startDate !== undefined ? updates.startDate : startDate;
     const newEnd = updates.endDate !== undefined ? updates.endDate : endDate;
+    const newSalesAssistant = updates.salesAssistantId !== undefined ? updates.salesAssistantId : salesAssistantId;
 
     if (newBiller && newBiller !== "all") params.set("billerId", newBiller);
     else params.delete("billerId");
@@ -180,6 +189,9 @@ export default function SalesListClient({
 
     if (newType && newType !== "all") params.set("type", newType);
     else params.delete("type");
+
+    if (newSalesAssistant && newSalesAssistant !== "all") params.set("salesAssistantId", newSalesAssistant);
+    else params.delete("salesAssistantId");
 
     if (newStart) {
        const [year, month, day] = newStart.split('-');
@@ -384,7 +396,7 @@ export default function SalesListClient({
       </div>
 
       {/* Filters Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground">Biller</Label>
           <Select value={billerId} onValueChange={(val) => { setBillerId(val); applyFilters({ billerId: val }); }}>
@@ -437,6 +449,21 @@ export default function SalesListClient({
         </div>
 
         <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground">Sales Assistant</Label>
+          <Select value={salesAssistantId} onValueChange={(val) => { setSalesAssistantId(val); applyFilters({ salesAssistantId: val }); }}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="All Assistants" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Assistants</SelectItem>
+              {salesmen.map((s) => (
+                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground">Start Date</Label>
           <Input 
             type="date" 
@@ -472,7 +499,8 @@ export default function SalesListClient({
               setType("all");
               setStartDate("");
               setEndDate("");
-              applyFilters({ billerId: "all", warehouseId: resetWarehouseId, type: "all", startDate: "", endDate: "" });
+              setSalesAssistantId("all");
+              applyFilters({ billerId: "all", warehouseId: resetWarehouseId, type: "all", startDate: "", endDate: "", salesAssistantId: "all" });
             }}
             title="Clear Filters"
           >
@@ -499,6 +527,7 @@ export default function SalesListClient({
               <TableHead>Type</TableHead>
               <TableHead>Warehouse</TableHead>
               <TableHead>Biller</TableHead>
+              <TableHead>Assistant</TableHead>
               <TableHead>Date</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -507,7 +536,7 @@ export default function SalesListClient({
           <TableBody>
             {initialSales.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed sales found" : "No sales found"}
                 </TableCell>
               </TableRow>
@@ -585,6 +614,9 @@ export default function SalesListClient({
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {sale.createdByUser?.name || "System"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground font-medium">
+                      {sale.salesAssistant?.name || "-"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {format(new Date(sale.date), "MMM d, yyyy")}
