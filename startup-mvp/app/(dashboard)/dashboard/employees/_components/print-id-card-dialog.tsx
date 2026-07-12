@@ -260,7 +260,7 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
                       If found, please return to: <span className="underline">{orgInfo?.name || "the office"}</span>
                     </p>
                     <p className="tracking-wide text-[6.5px]">
-                      Or contact: <span className="underline font-mono">{orgInfo?.phone || "+880 1700-000000"}</span>
+                      Or contact: <span className="underline font-mono">{orgInfo?.phone || "Organization Phone"}</span>
                     </p>
                   </div>
                 </div>
