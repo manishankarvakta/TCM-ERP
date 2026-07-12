@@ -25,6 +25,7 @@ import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { useEffect } from "react";
 import MediaSelector from "@/components/MediaSelector";
 import { useToast } from "@/hooks/use-toast";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import UploadDialog from "@/components/UploadDialog";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -436,7 +437,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                             <SelectTrigger>
                               <SelectValue placeholder="Select gender" />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="max-h-[250px]">
                               <SelectItem value="Male">Male</SelectItem>
                               <SelectItem value="Female">Female</SelectItem>
                               <SelectItem value="Other">Other</SelectItem>
@@ -454,7 +455,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                             <SelectTrigger>
                               <SelectValue placeholder="Select blood group" />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="max-h-[250px]">
                               <SelectItem value="A+">A+</SelectItem>
                               <SelectItem value="A-">A-</SelectItem>
                               <SelectItem value="B+">B+</SelectItem>
@@ -557,22 +558,16 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
 
                     <div className="space-y-2">
                       <Label htmlFor="warehouseId">Assigned Warehouse</Label>
-                      <Select
-                        defaultValue={watch("warehouseId") || ""}
-                        onValueChange={(value) => setValue("warehouseId", value)}
+                      <SearchableSelect
+                        value={watch("warehouseId")}
+                        onValueChange={(value) => setValue("warehouseId", value || "")}
                         disabled={loading}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select warehouse" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {warehouses.map((w) => (
-                            <SelectItem key={w.id} value={w.id}>
-                              {w.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select warehouse"
+                        options={warehouses.map((w) => ({
+                          value: w.id,
+                          label: w.name
+                        }))}
+                      />
                     </div>
 
                     <div className="space-y-2">
@@ -585,7 +580,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                         <SelectTrigger>
                           <SelectValue placeholder="Select status" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-h-[250px]">
                           <SelectItem value="active">Active</SelectItem>
                           <SelectItem value="inactive">Inactive</SelectItem>
                         </SelectContent>
@@ -594,42 +589,31 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
 
                     <div className="space-y-2">
                       <Label htmlFor="shiftId">Assigned Shift</Label>
-                      <Select
-                        defaultValue={watch("shiftId") || ""}
-                        onValueChange={(value) => setValue("shiftId", value)}
+                      <SearchableSelect
+                        value={watch("shiftId")}
+                        onValueChange={(value) => setValue("shiftId", value || "")}
                         disabled={loading}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select shift" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {shifts.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.name} ({s.startTime} - {s.endTime})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select shift"
+                        options={shifts.map((s) => ({
+                          value: s.id,
+                          label: s.name,
+                          description: `${s.startTime} - ${s.endTime}`
+                        }))}
+                      />
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="employeeTypeId">Type</Label>
-                      <Select
-                        value={watch("employeeTypeId") || ""}
-                        onValueChange={(value) => setValue("employeeTypeId", value)}
+                      <SearchableSelect
+                        value={watch("employeeTypeId")}
+                        onValueChange={(value) => setValue("employeeTypeId", value || "")}
                         disabled={loading}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {employeeTypes.map((et) => (
-                            <SelectItem key={et.id} value={et.id}>
-                              {et.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select type"
+                        options={employeeTypes.map((et) => ({
+                          value: et.id,
+                          label: et.name
+                        }))}
+                      />
                     </div>
 
                     <div className="space-y-2">

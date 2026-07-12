@@ -19,6 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { biometricDeviceSchema, BiometricDeviceFormData } from "../_schemas/device.schema";
 import { createBiometricDevice, updateBiometricDevice } from "../_actions/device.action";
 import { useToast } from "@/hooks/use-toast";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface DeviceFormProps {
   mode: "create" | "edit";
@@ -156,7 +157,7 @@ export default function DeviceForm({ mode, initialData, warehouses = [] }: Devic
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-[250px]">
                   <SelectItem value="ATTENDANCE">Attendance</SelectItem>
                   <SelectItem value="ACCESS_CONTROL">Access Control</SelectItem>
                 </SelectContent>
@@ -172,7 +173,7 @@ export default function DeviceForm({ mode, initialData, warehouses = [] }: Devic
                 <SelectTrigger>
                   <SelectValue placeholder="Select mode" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-[250px]">
                   <SelectItem value="ADMS">ADMS (Push to Server)</SelectItem>
                   <SelectItem value="TCP_IP">Local Bridge (TCP/IP)</SelectItem>
                 </SelectContent>
@@ -181,22 +182,19 @@ export default function DeviceForm({ mode, initialData, warehouses = [] }: Devic
 
             <div className="space-y-2">
               <Label htmlFor="warehouseId">Warehouse Assignment (Optional)</Label>
-              <Select
+              <SearchableSelect
                 value={watch("warehouseId") || "none"}
-                onValueChange={(val) => setValue("warehouseId", val === "none" ? "" : val)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a warehouse" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Unassigned</SelectItem>
-                  {warehouses.map((w) => (
-                    <SelectItem key={w.id} value={w.id}>
-                      {w.name} {w.code ? `(${w.code})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onValueChange={(val) => setValue("warehouseId", val === "none" ? "" : (val || ""))}
+                placeholder="Select a warehouse"
+                options={[
+                  { value: "none", label: "Unassigned" },
+                  ...warehouses.map((w) => ({
+                    value: w.id,
+                    label: w.name,
+                    description: w.code || undefined
+                  }))
+                ]}
+              />
               <p className="text-xs text-muted-foreground">Warehouse can be assigned later.</p>
             </div>
 

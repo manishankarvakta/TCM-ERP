@@ -21,6 +21,7 @@ import { createHoliday, updateHoliday } from "../_actions/holiday.action";
 import { getWarehouses } from "../../../master/warehouses/_actions/warehouse.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { useToast } from "@/hooks/use-toast";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const holidayFormSchema = z.object({
   name: z.string().min(1, "Holiday name is required"),
@@ -193,21 +194,16 @@ export default function HolidayForm({ mode, initialData }: HolidayFormProps) {
 
                   <div className="space-y-2">
                     <Label htmlFor="warehouseId">Branch / Warehouse (Optional)</Label>
-                    <Select
-                      defaultValue={watch("warehouseId") || "global"}
-                      onValueChange={(value) => setValue("warehouseId", value)}
+                    <SearchableSelect
+                      value={watch("warehouseId") || "global"}
+                      onValueChange={(value) => setValue("warehouseId", value || "global")}
                       disabled={loading}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="global">Global (All Branches)</SelectItem>
-                        {warehouses.map(w => (
-                          <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select branch"
+                      options={[
+                        { value: "global", label: "Global (All Branches)" },
+                        ...warehouses.map(w => ({ value: w.id, label: w.name }))
+                      ]}
+                    />
                     <p className="text-xs text-muted-foreground">
                       If Global is selected, this holiday applies to all employees. If a specific branch is selected, it only applies to employees assigned to that branch.
                     </p>
@@ -223,7 +219,7 @@ export default function HolidayForm({ mode, initialData }: HolidayFormProps) {
                       <SelectTrigger>
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-[250px]">
                         <SelectItem value="active">Active</SelectItem>
                         <SelectItem value="inactive">Inactive</SelectItem>
                       </SelectContent>

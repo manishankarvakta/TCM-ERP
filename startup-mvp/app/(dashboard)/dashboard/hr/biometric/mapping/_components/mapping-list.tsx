@@ -357,21 +357,16 @@ export default function MappingListClient({
 
               <div className="grid gap-2">
                 <Label htmlFor="deviceId">Device</Label>
-                <Select
+                <SearchableSelect
                   value={form.watch("deviceId")}
-                  onValueChange={(val) => form.setValue("deviceId", val)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Device" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {devices.map((dev) => (
-                      <SelectItem key={dev.id} value={dev.id}>
-                        {dev.name} {dev.serialNumber ? `(${dev.serialNumber})` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onValueChange={(val) => form.setValue("deviceId", val || "")}
+                  placeholder="Select Device"
+                  options={devices.map((dev) => ({
+                    value: dev.id,
+                    label: dev.name,
+                    description: dev.serialNumber || undefined
+                  }))}
+                />
                 {form.formState.errors.deviceId && (
                   <p className="text-xs text-destructive">{form.formState.errors.deviceId.message}</p>
                 )}

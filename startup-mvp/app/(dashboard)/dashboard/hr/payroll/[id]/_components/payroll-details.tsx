@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { FiCheck, FiFileText, FiSend, FiDownload, FiPrinter } from "react-icons/fi";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
@@ -345,18 +346,17 @@ export default function PayrollDetailsClient({
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Salary Expense Account *</Label>
-              <Select value={selectedExpenseAccount} onValueChange={setSelectedExpenseAccount} disabled={isPending}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select account to debit" />
-                </SelectTrigger>
-                <SelectContent>
-                  {expenseAccounts.map(acc => (
-                    <SelectItem key={acc.id} value={acc.id}>
-                      [{acc.code}] {acc.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedExpenseAccount}
+                onValueChange={(val) => setSelectedExpenseAccount(val || "")}
+                disabled={isPending}
+                placeholder="Select account to debit"
+                options={expenseAccounts.map(acc => ({
+                  value: acc.id,
+                  label: acc.name,
+                  description: acc.code || undefined
+                }))}
+              />
               <p className="text-xs text-muted-foreground">
                 This account will be debited for the total salary expense.
               </p>
@@ -392,18 +392,17 @@ export default function PayrollDetailsClient({
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Source Cash/Bank Account *</Label>
-              <Select value={selectedCashBankAccount} onValueChange={setSelectedCashBankAccount} disabled={isPending}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select account to credit" />
-                </SelectTrigger>
-                <SelectContent>
-                  {cashBankAccounts.map(acc => (
-                    <SelectItem key={acc.id} value={acc.id}>
-                      [{acc.code}] {acc.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedCashBankAccount}
+                onValueChange={(val) => setSelectedCashBankAccount(val || "")}
+                disabled={isPending}
+                placeholder="Select account to credit"
+                options={cashBankAccounts.map(acc => ({
+                  value: acc.id,
+                  label: acc.name,
+                  description: acc.code || undefined
+                }))}
+              />
               <p className="text-xs text-muted-foreground">
                 This account will be credited to fund the payroll disbursement.
               </p>

@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { resolveUnmappedBiometricLog } from "../_actions/unmapped-logs.action";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -134,35 +135,33 @@ export function ResolveUnmappedModal({
 
             <div className="grid gap-2">
               <Label htmlFor="employeeId">Select Employee</Label>
-              <Select value={employeeId} onValueChange={setEmployeeId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an Employee..." />
-                </SelectTrigger>
-                <SelectContent className="max-h-[200px]">
-                  {employees.map(emp => (
-                    <SelectItem key={emp.id} value={emp.id}>
-                      {emp.name} {emp.employeeCode ? `(${emp.employeeCode})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={employeeId}
+                onValueChange={(val) => setEmployeeId(val || "")}
+                placeholder="Select an Employee..."
+                options={employees.map(emp => ({
+                  value: emp.id,
+                  label: emp.name,
+                  description: emp.employeeCode || undefined
+                }))}
+              />
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="deviceId">Select Device (Optional)</Label>
-              <Select value={deviceId} onValueChange={setDeviceId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Device..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">-- None / Unknown --</SelectItem>
-                  {devices.map(dev => (
-                    <SelectItem key={dev.id} value={dev.id}>
-                      {dev.name} {dev.serialNumber ? `(${dev.serialNumber})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={deviceId}
+                onValueChange={(val) => setDeviceId(val || "")}
+                placeholder="Select Device..."
+                options={[
+                  { value: "none", label: "-- None / Unknown --" },
+                  ...devices.map(dev => ({
+                    value: dev.id,
+                    label: dev.name,
+                    description: dev.serialNumber || undefined
+                  }))
+                ]}
+              />
               <p className="text-xs text-muted-foreground">Auto-selected if serial number matches.</p>
             </div>
 

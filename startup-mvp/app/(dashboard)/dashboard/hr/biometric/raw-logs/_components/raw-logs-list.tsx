@@ -144,7 +144,7 @@ export default function RawLogsListClient({
             <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="Source" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-[250px]">
               <SelectItem value="all">All Sources</SelectItem>
               <SelectItem value="ADMS">ADMS</SelectItem>
               <SelectItem value="BRIDGE">BRIDGE</SelectItem>

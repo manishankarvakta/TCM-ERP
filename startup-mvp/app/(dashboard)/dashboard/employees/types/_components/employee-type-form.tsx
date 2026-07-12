@@ -165,7 +165,7 @@ export default function EmployeeTypeForm({ mode, initialData }: EmployeeTypeForm
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[250px]">
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>

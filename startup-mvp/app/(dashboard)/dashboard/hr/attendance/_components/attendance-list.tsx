@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FiSearch, FiCheckSquare, FiAlertCircle } from "react-icons/fi";
+import { FiSearch, FiCheckSquare, FiAlertCircle, FiEdit } from "react-icons/fi";
 import { processBulkAttendance } from "../_actions/attendance.action";
 import { getWarehouses } from "../../../master/warehouses/_actions/warehouse.action";
 import { getEmployees } from "../../../employees/_actions/employee.action";
@@ -196,20 +196,15 @@ export default function AttendanceListClient({
 
           <div className="space-y-1.5 flex-1 min-w-[200px]">
             <label className="text-xs font-semibold text-muted-foreground">Warehouse</label>
-            <Select 
+            <SearchableSelect 
               value={localFilters.warehouseId || "all"} 
-              onValueChange={(val) => pushFilters({ warehouseId: val })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All Warehouses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Warehouses</SelectItem>
-                {warehouses.map(w => (
-                  <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onValueChange={(val) => pushFilters({ warehouseId: val || "all" })}
+              placeholder="All Warehouses"
+              options={[
+                { value: "all", label: "All Warehouses" },
+                ...warehouses.map(w => ({ value: w.id, label: w.name }))
+              ]}
+            />
           </div>
 
           <div className="space-y-1.5 flex-1 min-w-[160px]">
@@ -221,7 +216,7 @@ export default function AttendanceListClient({
               <SelectTrigger>
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-[250px]">
                 <SelectItem value="ALL">All Statuses</SelectItem>
                 <SelectItem value="PRESENT">Present</SelectItem>
                 <SelectItem value="ABSENT">Absent</SelectItem>
@@ -294,6 +289,7 @@ export default function AttendanceListClient({
               <TableHead>Work / OT</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Source</TableHead>
+              {permissions?.edit && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -355,6 +351,18 @@ export default function AttendanceListClient({
                       {record.isManual ? "Manual" : "Biometric"}
                     </Badge>
                   </TableCell>
+                  {permissions?.edit && (
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => router.push(`/dashboard/hr/attendance/manual-punch?employeeId=${record.employee.id}&date=${format(new Date(record.date), "yyyy-MM-dd")}`)}
+                      >
+                        <FiEdit className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}

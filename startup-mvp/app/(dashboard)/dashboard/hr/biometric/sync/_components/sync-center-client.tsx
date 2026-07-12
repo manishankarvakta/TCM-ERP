@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -111,18 +112,16 @@ export default function SyncCenterClient({ devices }: { devices: any[] }) {
             
             <div className="space-y-2">
               <label className="text-sm font-medium">Biometric Device</label>
-              <Select value={selectedDeviceId} onValueChange={setSelectedDeviceId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a device..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {devices.map(d => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.name} ({d.serialNumber || 'No SN'})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedDeviceId}
+                onValueChange={(val) => setSelectedDeviceId(val || "")}
+                placeholder="Select a device..."
+                options={devices.map(d => ({
+                  value: d.id,
+                  label: d.name,
+                  description: d.serialNumber || undefined
+                }))}
+              />
               {selectedDevice && (
                 <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
                   <div className={`h-2 w-2 rounded-full ${selectedDevice.isActive ? 'bg-green-500' : 'bg-red-500'}`} />

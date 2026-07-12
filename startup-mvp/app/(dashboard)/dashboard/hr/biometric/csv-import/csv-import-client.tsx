@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -137,18 +138,16 @@ export default function CsvImportClient({ devices }: { devices: Device[] }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">1. Select Target Device</label>
-          <Select value={selectedDevice} onValueChange={setSelectedDevice}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select a biometric device..." />
-            </SelectTrigger>
-            <SelectContent>
-              {devices.map(d => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.name} ({d.serialNumber || "No SN"})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={selectedDevice}
+            onValueChange={(val) => setSelectedDevice(val || "")}
+            placeholder="Select a biometric device..."
+            options={devices.map(d => ({
+              value: d.id,
+              label: d.name,
+              description: d.serialNumber || undefined
+            }))}
+          />
         </div>
 
         <div className="space-y-2">

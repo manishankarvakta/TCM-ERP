@@ -18,10 +18,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FiAlertCircle, FiClock, FiCalendar, FiUser } from "react-icons/fi";
-import { processManualAttendance } from "../_actions/attendance.action";
+import { processManualAttendance, getAttendanceRecord } from "../_actions/attendance.action";
 import { getEmployees } from "../../../employees/_actions/employee.action";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const punchFormSchema = z.object({
   employeeId: z.string().min(1, "Employee is required"),
@@ -71,6 +73,39 @@ export default function ManualPunchForm() {
       notes: "",
     },
   });
+
+  const selectedEmployeeId = watch("employeeId");
+  const selectedDate = watch("date");
+
+  useEffect(() => {
+    async function loadExistingAttendance() {
+      if (!selectedEmployeeId || !selectedDate) return;
+
+      try {
+        setLoading(true);
+        const res = await getAttendanceRecord(selectedEmployeeId, selectedDate);
+        if (res.success && res.record) {
+          const formatTime = (dateStr: any) => {
+            if (!dateStr) return "";
+            return formatInTimeZone(new Date(dateStr), "Asia/Dhaka", "HH:mm");
+          };
+          setValue("checkIn", formatTime(res.record.checkIn));
+          setValue("checkOut", formatTime(res.record.checkOut));
+          setValue("notes", res.record.notes || "");
+        } else {
+          setValue("checkIn", "");
+          setValue("checkOut", "");
+          setValue("notes", "");
+        }
+      } catch (err) {
+        console.error("Failed to load existing attendance:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadExistingAttendance();
+  }, [selectedEmployeeId, selectedDate, setValue]);
 
   const onSubmit = async (data: PunchFormData) => {
     try {
@@ -139,22 +174,17 @@ export default function ManualPunchForm() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="employeeId">Employee *</Label>
-                  <Select
+                  <SearchableSelect
                     value={watch("employeeId")}
-                    onValueChange={(val) => setValue("employeeId", val)}
-                    disabled={loading || !!initialEmployeeId} // Disable if pre-filled from edit
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Employee" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {employees.map(emp => (
-                        <SelectItem key={emp.id} value={emp.id}>
-                          {emp.employeeCode ? `[${emp.employeeCode}] ` : ""}{emp.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onValueChange={(val) => setValue("employeeId", val || "")}
+                    disabled={loading || !!initialEmployeeId}
+                    placeholder="Select Employee"
+                    options={employees.map(emp => ({
+                      value: emp.id,
+                      label: emp.name,
+                      description: emp.employeeCode || undefined
+                    }))}
+                  />
                   {errors.employeeId && (
                     <p className="text-sm text-destructive">{errors.employeeId.message}</p>
                   )}

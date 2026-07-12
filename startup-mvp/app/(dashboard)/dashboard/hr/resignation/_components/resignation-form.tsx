@@ -21,6 +21,7 @@ import { FiAlertCircle } from "react-icons/fi";
 import { submitResignation } from "../_actions/resignation.action";
 import { getEmployees } from "../../../employees/_actions/employee.action";
 import { useToast } from "@/hooks/use-toast";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const resignationSchema = z.object({
   employeeId: z.string().min(1, "Employee is required"),
@@ -44,6 +45,7 @@ export default function ResignationForm() {
     handleSubmit,
     formState: { errors },
     setValue,
+    watch,
   } = useForm<ResignationFormData>({
     resolver: zodResolver(resignationSchema),
     defaultValues: {
@@ -58,55 +60,49 @@ export default function ResignationForm() {
     async function fetchEmployees() {
       try {
         const empRes = await getEmployees(1, 1000, "", "active");
-        if (empRes.success && empRes.employees) {
-          setEmployees(empRes.employees.map((e: any) => ({
-            id: e.id,
-            name: e.name,
-            employeeCode: e.employeeCode
-          })));
+        if (empRes.success) {
+          setEmployees(empRes.employees);
         }
       } catch (err) {
-        console.error("Failed to load employees:", err);
+        console.error("Error fetching employees:", err);
       }
     }
     fetchEmployees();
   }, []);
 
   const onSubmit = async (data: ResignationFormData) => {
-    setError("");
     setLoading(true);
+    setError("");
     try {
-      const result = await submitResignation(data);
-      if (result.success) {
+      const res = await submitResignation(data);
+      if (res.success) {
         toast({
-          title: "Resignation Submitted",
-          description: "Resignation request has been successfully submitted.",
+          title: "Success",
+          description: "Resignation submitted successfully",
         });
         router.push("/dashboard/hr/resignation");
-        router.refresh();
       } else {
-        setError(result.error || "Failed to submit resignation request.");
+        setError(res.error || "Failed to submit resignation");
       }
-    } catch (err) {
-      console.error(err);
-      setError("An unexpected error occurred.");
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Card className="max-w-2xl mx-auto">
+    <Card className="max-w-2xl mx-auto mt-8">
       <CardHeader>
         <CardTitle>Submit Resignation</CardTitle>
         <CardDescription>
-          Record a new employee resignation request. The employee will be marked inactive only after final Admin approval.
+          Submit resignation for an active employee. Effective date will be calculated based on policy.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {error && (
-            <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+            <div className="bg-destructive/15 text-destructive p-3 rounded-md flex items-center gap-2 text-sm">
               <FiAlertCircle className="h-4 w-4 shrink-0" />
               <p>{error}</p>
             </div>
@@ -115,18 +111,16 @@ export default function ResignationForm() {
           {/* Employee Selector */}
           <div className="space-y-2">
             <Label htmlFor="employeeId">Employee</Label>
-            <Select onValueChange={(val) => setValue("employeeId", val)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select an active employee" />
-              </SelectTrigger>
-              <SelectContent>
-                {employees.map((emp) => (
-                  <SelectItem key={emp.id} value={emp.id}>
-                    {emp.name} {emp.employeeCode ? `(${emp.employeeCode})` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={watch("employeeId")}
+              onValueChange={(val) => setValue("employeeId", val || "")}
+              placeholder="Select an active employee"
+              options={employees.map((emp) => ({
+                value: emp.id,
+                label: emp.name,
+                description: emp.employeeCode || undefined
+              }))}
+            />
             {errors.employeeId && (
               <p className="text-xs text-destructive">{errors.employeeId.message}</p>
             )}

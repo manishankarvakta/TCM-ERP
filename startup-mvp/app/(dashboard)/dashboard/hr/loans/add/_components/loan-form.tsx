@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { createLoan } from "../../_actions/loan.action";
 import { FiCalendar, FiDollarSign, FiClock, FiFileText, FiUser } from "react-icons/fi";
@@ -90,21 +91,16 @@ export default function LoanForm({ employees }: LoanFormProps) {
                 <FiUser className="h-4 w-4" />
                 Select Employee
               </Label>
-              <Select 
+              <SearchableSelect 
                 value={formData.employeeId} 
-                onValueChange={(val) => setFormData(prev => ({ ...prev, employeeId: val }))}
-              >
-                <SelectTrigger id="employeeId">
-                  <SelectValue placeholder="Select an employee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map((emp) => (
-                    <SelectItem key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.employeeCode || "No Code"})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onValueChange={(val) => setFormData(prev => ({ ...prev, employeeId: val || "" }))}
+                placeholder="Select an employee"
+                options={employees.map((emp) => ({
+                  value: emp.id,
+                  label: emp.name,
+                  description: emp.employeeCode || undefined
+                }))}
+              />
             </div>
 
             <div className="space-y-2">

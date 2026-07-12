@@ -12,6 +12,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgresUser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgresPass}
       POSTGRES_DB: ${POSTGRES_DB:-startup_mvp}
+      TZ: Asia/Dhaka
     expose:
       - "5432"
     volumes:
@@ -36,6 +37,7 @@ services:
     expose:
       - "3000"
     environment:
+      TZ: Asia/Dhaka
       # Database
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgresUser}:${POSTGRES_PASSWORD:-postgresPass}@fferp-postgres:5432/${POSTGRES_DB:-startup_mvp}?schema=public
       

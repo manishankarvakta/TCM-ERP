@@ -125,7 +125,7 @@ export default function SyncHistoryListClient({
             <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="Vendor/Source" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-[250px]">
               <SelectItem value="all">All Vendors</SelectItem>
               <SelectItem value="ZKTeco">ZKTeco</SelectItem>
               <SelectItem value="ADMS">ADMS</SelectItem>

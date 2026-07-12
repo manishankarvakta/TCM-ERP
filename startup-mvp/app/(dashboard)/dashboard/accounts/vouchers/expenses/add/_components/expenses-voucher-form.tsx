@@ -65,6 +65,7 @@ interface AccountOption {
   name: string;
   type: string;
   description?: string | null;
+  isWarehouseSpecific?: boolean;
 }
 
 interface CreditAccounts {
@@ -76,6 +77,27 @@ interface CreditAccounts {
 export default function ExpensesVoucherForm() {
   const router = useRouter();
   const pathname = usePathname();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    control,
+    watch,
+    setValue,
+  } = useForm<ExpenseVoucherFormData>({
+    resolver: zodResolver(expenseVoucherSchema as any),
+    defaultValues: {
+      date: new Date().toISOString().split("T")[0],
+      reference: "",
+      description: "",
+      creditAccountId: "",
+      lines: [
+        { chartOfAccountId: "", amount: 0, description: "" },
+      ],
+    },
+  });
+
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [creditAccounts, setCreditAccounts] = useState<CreditAccounts>({ cash: [], bank: [], digitalWallet: [] });
@@ -92,6 +114,13 @@ export default function ExpensesVoucherForm() {
         if (result.success) {
           setCreditAccounts(result.creditAccounts);
           setDebitAccounts(result.debitAccounts);
+
+          // Select same warehouse first cash account by default
+          const warehouseCash = result.creditAccounts.cash.find(acc => acc.isWarehouseSpecific);
+          const defaultCash = warehouseCash || result.creditAccounts.cash[0];
+          if (defaultCash) {
+            setValue("creditAccountId", defaultCash.id);
+          }
         } else {
           setError(result.error || "Failed to load accounts");
         }
@@ -104,7 +133,7 @@ export default function ExpensesVoucherForm() {
     };
 
     fetchAccounts();
-  }, []);
+  }, [setValue]);
 
   // Filter debit accounts (expense accounts) based on search
   const filteredDebitAccounts = useMemo(() => {
@@ -135,25 +164,6 @@ export default function ExpensesVoucherForm() {
       digitalWallet: filterList(creditAccounts.digitalWallet),
     };
   }, [creditAccounts, creditAccountSearch]);
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    control,
-    watch,
-  } = useForm<ExpenseVoucherFormData>({
-    resolver: zodResolver(expenseVoucherSchema as any),
-    defaultValues: {
-      date: new Date().toISOString().split("T")[0],
-      reference: "",
-      description: "",
-      creditAccountId: "",
-      lines: [
-        { chartOfAccountId: "", amount: 0, description: "" },
-      ],
-    },
-  });
 
   const { fields, append, remove, insert } = useFieldArray({
     control,

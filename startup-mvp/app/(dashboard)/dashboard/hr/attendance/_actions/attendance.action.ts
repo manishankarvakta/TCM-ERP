@@ -181,6 +181,31 @@ export async function processManualAttendance(input: {
 }
 
 /**
+ * Fetch a single attendance record by employeeId and date
+ */
+export async function getAttendanceRecord(employeeId: string, date: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const targetDate = new Date(date);
+    const record = await prisma.attendance.findUnique({
+      where: {
+        employeeId_date: {
+          employeeId,
+          date: targetDate
+        }
+      }
+    });
+
+    return { success: true, record };
+  } catch (error) {
+    console.error("getAttendanceRecord error:", error);
+    return { success: false, error: "Failed to fetch attendance record" };
+  }
+}
+
+/**
  * Fetch attendance records for a specific date range
  */
 export async function getAttendances(startDate: Date, endDate: Date, employeeId?: string, warehouseId?: string) {

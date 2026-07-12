@@ -22,6 +22,7 @@ import { applyForLeave, getEmployeeLeaveBalances } from "../_actions/leave-appli
 import { getEmployees } from "../../../employees/_actions/employee.action";
 import { getLeaveTypes } from "../types/_actions/leave-type.action";
 import { useToast } from "@/hooks/use-toast";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { differenceInDays } from "date-fns";
 
 const leaveApplicationSchema = z.object({
@@ -192,22 +193,17 @@ export default function LeaveApplicationForm() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="employeeId">Employee *</Label>
-                    <Select
+                    <SearchableSelect
                       value={selectedEmployeeId}
-                      onValueChange={(val) => setValue("employeeId", val)}
+                      onValueChange={(val) => setValue("employeeId", val || "")}
                       disabled={loading}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Employee" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {employees.map(emp => (
-                          <SelectItem key={emp.id} value={emp.id}>
-                            {emp.employeeCode ? `[${emp.employeeCode}] ` : ""}{emp.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select Employee"
+                      options={employees.map(emp => ({
+                        value: emp.id,
+                        label: emp.name,
+                        description: emp.employeeCode || undefined
+                      }))}
+                    />
                     {errors.employeeId && (
                       <p className="text-sm text-destructive">{errors.employeeId.message}</p>
                     )}
@@ -215,22 +211,17 @@ export default function LeaveApplicationForm() {
 
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="leaveTypeId">Leave Type *</Label>
-                    <Select
+                    <SearchableSelect
                       value={selectedLeaveTypeId}
-                      onValueChange={(val) => setValue("leaveTypeId", val)}
+                      onValueChange={(val) => setValue("leaveTypeId", val || "")}
                       disabled={loading || !selectedEmployeeId}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Leave Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {leaveTypes.map(lt => (
-                          <SelectItem key={lt.id} value={lt.id}>
-                            {lt.name} {lt.isPaid ? "(Paid)" : "(Unpaid)"}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select Leave Type"
+                      options={leaveTypes.map(lt => ({
+                        value: lt.id,
+                        label: lt.name,
+                        description: lt.isPaid ? "Paid" : "Unpaid"
+                      }))}
+                    />
                     {errors.leaveTypeId && (
                       <p className="text-sm text-destructive">{errors.leaveTypeId.message}</p>
                     )}

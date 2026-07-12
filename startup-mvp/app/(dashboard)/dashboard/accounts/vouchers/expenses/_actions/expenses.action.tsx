@@ -10,6 +10,7 @@ interface AccountOption {
   name: string;
   type: string;
   description?: string | null;
+  isWarehouseSpecific?: boolean;
 }
 
 export async function getAccountsForExpenses(): Promise<{
@@ -33,16 +34,12 @@ export async function getAccountsForExpenses(): Promise<{
       };
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { defaultWarehouseId: true },
+    });
+    const defaultWarehouseId = user?.defaultWarehouseId || null;
     const isAdmin = session.user.role?.toLowerCase() === "admin" || session.user.role?.toLowerCase() === "super-admin" || session.user.role?.toLowerCase() === "superadmin";
-    let defaultWarehouseId: string | null = null;
-
-    if (!isAdmin) {
-      const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { defaultWarehouseId: true },
-      });
-      defaultWarehouseId = user?.defaultWarehouseId || null;
-    }
 
     // 1. Fetch Credit Accounts (Cash, Bank, Digital Wallets)
     const assetAccounts = await prisma.chartOfAccount.findMany({
@@ -86,18 +83,19 @@ export async function getAccountsForExpenses(): Promise<{
 
       if (!accountType) return;
 
+      // @ts-ignore - Prisma relation type fix
+      const warehouses = account.CashBankAccount?.warehouses || [];
+      const isGlobal = warehouses.length === 0;
+      const isLinkedToUserWarehouse = defaultWarehouseId ? warehouses.some((w: any) => w.id === defaultWarehouseId) : false;
+
       const accountData = {
         id: account.id,
         code: account.code,
         name: account.name,
         type: "ASSET",
         description: account.description,
+        isWarehouseSpecific: isLinkedToUserWarehouse,
       };
-
-      // @ts-ignore - Prisma relation type fix
-      const warehouses = account.CashBankAccount?.warehouses || [];
-      const isGlobal = warehouses.length === 0;
-      const isLinkedToUserWarehouse = defaultWarehouseId ? warehouses.some((w: any) => w.id === defaultWarehouseId) : false;
 
       if (isAdmin || isGlobal || isLinkedToUserWarehouse) {
         if (accountType === "CASH") {

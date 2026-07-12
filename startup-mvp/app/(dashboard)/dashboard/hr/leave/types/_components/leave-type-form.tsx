@@ -166,7 +166,7 @@ export default function LeaveTypeForm({ mode, initialData }: LeaveTypeFormProps)
                     <SelectTrigger>
                       <SelectValue placeholder="Select Category" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[250px]">
                       <SelectItem value="ANNUAL">Annual Leave</SelectItem>
                       <SelectItem value="CASUAL">Casual Leave</SelectItem>
                       <SelectItem value="SICK">Sick Leave</SelectItem>
@@ -204,7 +204,7 @@ export default function LeaveTypeForm({ mode, initialData }: LeaveTypeFormProps)
                     <SelectTrigger>
                       <SelectValue placeholder="Select Paid Status" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[250px]">
                       <SelectItem value="true">Paid Leave</SelectItem>
                       <SelectItem value="false">Unpaid Leave</SelectItem>
                     </SelectContent>
@@ -222,7 +222,7 @@ export default function LeaveTypeForm({ mode, initialData }: LeaveTypeFormProps)
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[250px]">
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>
