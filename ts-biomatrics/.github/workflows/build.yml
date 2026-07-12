@@ -1,4 +1,4 @@
-name: Build Windows Executable
+name: Build Windows Executable & Installer
 
 on:
   push:
@@ -31,8 +31,14 @@ jobs:
       run: |
         python build_exe.py
 
-    - name: Upload executable artifact
+    - name: Compile Windows Installer
+      run: |
+        iscc installer.iss
+
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: TS-Biomatrics-Windows-Exe
-        path: dist/TS-Biomatrics.exe
+        name: TS-Biomatrics-Windows-Package
+        path: |
+          dist/TS-Biomatrics.exe
+          dist/TS-Biomatrics-Setup.exe
