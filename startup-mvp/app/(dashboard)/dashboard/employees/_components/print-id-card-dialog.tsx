@@ -200,16 +200,16 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
 
                   {/* Profile details */}
                   <div className="flex flex-col items-center text-center px-3 mt-1">
-                    <h2 className="text-[11.5px] font-extrabold text-[#2b3b7c] tracking-tight line-clamp-2 max-w-[48mm]">
+                    <h2 className="text-[13.5px] font-extrabold text-[#2b3b7c] tracking-tight line-clamp-2 max-w-[48mm] leading-tight">
                       {toTitleCase(employee.name)}
                     </h2>
-                    <p className="text-[7px] font-medium text-slate-700 uppercase tracking-wider mt-0.5 truncate max-w-[48mm]">
+                    <p className="text-[8.5px] font-medium text-slate-700 uppercase tracking-wider mt-0.5 truncate max-w-[48mm]">
                       {employee.designation || "Job Position"}
                     </p>
                     
-                    {/* Blood Group */}
-                    <p className="text-[6px] text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
-                      Blood Group: <span className="text-rose-600 font-bold">{employee.bloodGroup || "-"}</span>
+                    {/* Blood Group Value */}
+                    <p className="text-[7.5px] font-extrabold text-rose-600 uppercase tracking-wider mt-0.5">
+                      {employee.bloodGroup || "-"}
                     </p>
                   </div>
 
