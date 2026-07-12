@@ -116,7 +116,7 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
               print-color-adjust: exact !important;
             }
 
-            /* Reset Radix UI Dialog parent containers positioning exactly like the working visibility setup */
+            /* Reset Radix UI Dialog parent containers positioning and prevent scroll overflow clipping */
             div[data-radix-portal],
             div[role="dialog"],
             div[role="dialog"] > * {
@@ -124,24 +124,32 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
               transform: none !important;
               width: auto !important;
               height: auto !important;
+              max-height: none !important;
               margin: 0 !important;
               padding: 0 !important;
               border: none !important;
               box-shadow: none !important;
               background: transparent !important;
               display: block !important;
+              overflow: visible !important;
             }
             
-            /* Spacing and layout (side-by-side on a single page) using margins on static/relative layout */
+            /* Enforce printing in correct position and layout (side-by-side absolute positioned on A4 page) */
             .id-card-print-capture {
+              position: absolute !important;
+              left: 50% !important;
+              top: 1in !important;
+              transform: translateX(-50%) !important;
+              width: auto !important;
+              height: auto !important;
               display: flex !important;
               flex-direction: row !important;
               flex-wrap: nowrap !important;
               justify-content: center !important;
               align-items: center !important;
               gap: 15mm !important;
-              margin: 1in auto 0 auto !important;
-              width: max-content !important;
+              margin: 0 !important;
+              padding: 0 !important;
               background-color: transparent !important;
               border: none !important;
               box-shadow: none !important;
