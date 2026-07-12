@@ -100,34 +100,44 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
               print-color-adjust: exact !important;
             }
 
-            /* Hide absolute everything in the application */
-            body * {
-              visibility: hidden !important;
-            }
-            
-            /* Make only the capture area and its children visible */
-            .id-card-print-capture,
-            .id-card-print-capture * {
-              visibility: visible !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
+            /* Hide all other application elements during printing */
+            body > *:not([data-radix-portal]) {
+              display: none !important;
             }
 
             /* Reset Radix UI Dialog parent containers positioning to prevent offset coordinate shifts */
             div[data-radix-portal],
-            div[role="dialog"],
-            div[role="dialog"] > * {
+            div[role="dialog"] {
+              display: block !important;
               position: static !important;
               transform: none !important;
-              width: auto !important;
+              width: 100% !important;
               height: auto !important;
               margin: 0 !important;
               padding: 0 !important;
               border: none !important;
               box-shadow: none !important;
             }
+
+            /* Hide everything inside the dialog EXCEPT the print capture container */
+            div[role="dialog"] > *:not(.id-card-print-capture) {
+              display: none !important;
+            }
+
+            /* Hide absolute everything else in the application via visibility */
+            body * {
+              visibility: hidden !important;
+            }
             
-            /* Enforce printing in correct position and layout */
+            /* Make only the capture area and its children visible and print exact colors */
+            .id-card-print-capture,
+            .id-card-print-capture * {
+              visibility: visible !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            
+            /* Enforce printing in correct position and layout (side-by-side) */
             .id-card-print-capture {
               position: absolute !important;
               left: 50% !important;
@@ -137,6 +147,7 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
               height: auto !important;
               display: flex !important;
               flex-direction: row !important;
+              flex-wrap: nowrap !important;
               justify-content: center !important;
               align-items: center !important;
               gap: 15mm !important;
