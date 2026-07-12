@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 Write-Host "=== TS-Biometrics Release Builder ==="
 
 # 1. Verify OS environment is Windows
-if ($OS -notmatch "Windows") {
+if ($env:OS -notmatch "Windows") {
     Write-Error "This script can only be executed on Windows hosts."
     exit 1
 }
