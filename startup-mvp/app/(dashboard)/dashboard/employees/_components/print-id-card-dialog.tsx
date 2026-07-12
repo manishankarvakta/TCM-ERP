@@ -91,11 +91,12 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
           }
 
           @media print {
-            /* Force background graphics and reset canvas margins */
+            /* Force exact A4 dimensions on page canvas to prevent wrapping on smaller screens */
             html, body {
               margin: 0 !important;
               padding: 0 !important;
-              height: auto !important;
+              width: 210mm !important;
+              height: 297mm !important;
               overflow: visible !important;
               background-color: #fff !important;
               -webkit-print-color-adjust: exact !important;
@@ -123,13 +124,14 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
               print-color-adjust: exact !important;
             }
 
-            /* Reset Radix UI Dialog parent containers positioning to prevent offset coordinate shifts */
+            /* Reset Radix UI Dialog parent containers positioning to absolute A4 boundaries */
             div[data-radix-portal],
             div[role="dialog"] {
-              position: static !important;
-              transform: none !important;
-              width: 100% !important;
-              height: auto !important;
+              position: absolute !important;
+              top: 0 !important;
+              left: 0 !important;
+              width: 210mm !important;
+              height: 297mm !important;
               margin: 0 !important;
               padding: 0 !important;
               border: none !important;
@@ -138,7 +140,7 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
               background: transparent !important;
             }
             
-            /* Enforce printing in correct position and layout (side-by-side) */
+            /* Enforce printing in correct position and layout (side-by-side on a single sheet) */
             .id-card-print-capture {
               position: absolute !important;
               left: 50% !important;
@@ -157,6 +159,8 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
               background-color: transparent !important;
               border: none !important;
               box-shadow: none !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
             }
 
             /* Direct printer size controls */
