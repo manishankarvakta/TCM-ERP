@@ -295,7 +295,29 @@ export default function ProjectWorkspace({ id, permissions = {}, userRole, userI
         </TabsContent>
 
         <TabsContent value="timeline" className="mt-0 focus-visible:ring-0">
-          <ProjectTimeline projectId={id} />
+             <Card className="rounded-xl border border-border/50 shadow-sm bg-card overflow-hidden">
+                <CardHeader className="bg-slate-50/50 border-b py-6 flex gap-4 flex-col md:flex-row md:items-center justify-between">
+                    <div>
+                        <CardTitle className="text-xl font-bold">Project Timeline</CardTitle>
+                        <CardDescription className="text-sm font-medium mt-1">
+                            Milestone sequence and interactive Gantt schedule.
+                        </CardDescription>
+                    </div>
+                    {hasOp("projects.milestones", "create") && (
+                      <Button 
+                          onClick={() => {
+                              setSelectedMilestone(null);
+                              setIsMilestoneDialogOpen(true);
+                          }}
+                      >
+                          <Plus className="mr-2 h-4 w-4" /> Add Milestone
+                      </Button>
+                    )}
+                </CardHeader>
+                <CardContent className="p-6">
+                    <ProjectTimeline projectId={id} />
+                </CardContent>
+             </Card>
         </TabsContent>
 
         <TabsContent value="kanban" className="mt-0 focus-visible:ring-0">
