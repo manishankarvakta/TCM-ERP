@@ -255,9 +255,14 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
                 <div className="space-y-2 text-center font-medium leading-relaxed text-[7px] text-slate-600 px-1">
                   <p className="tracking-wide">This card is the official property of the organization and is non-transferable.</p>
                   <p className="tracking-wide">It must be worn visibly at all times while on company premises.</p>
-                  <p className="tracking-wide font-bold text-[#2b3b7c] mt-2">
-                    If found, please return to: <span className="underline">{orgInfo?.name || "the office"}</span>.
-                  </p>
+                  <div className="mt-2 space-y-0.5 font-bold text-[#2b3b7c]">
+                    <p className="tracking-wide">
+                      If found, please return to: <span className="underline">{orgInfo?.name || "the office"}</span>
+                    </p>
+                    <p className="tracking-wide text-[6.5px]">
+                      Or contact: <span className="underline font-mono">{orgInfo?.phone || "+880 1700-000000"}</span>
+                    </p>
+                  </div>
                 </div>
 
                 {/* Signature zone */}
