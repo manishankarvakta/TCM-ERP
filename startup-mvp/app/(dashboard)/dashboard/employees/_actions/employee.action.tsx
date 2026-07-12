@@ -17,7 +17,9 @@ export async function getEmployees(
   page: number = 1,
   limit: number = 10,
   search: string = "",
-  status: "active" | "inactive" | "trash" | "all" = "all"
+  status: "active" | "inactive" | "trash" | "all" = "all",
+  employeeTypeId?: string,
+  gender?: string
 ) {
   try {
     const session = await auth();
@@ -48,6 +50,13 @@ export async function getEmployees(
         { employeeCode: { contains: search, mode: "insensitive" } },
         { email: { contains: search, mode: "insensitive" } },
         { phone: { contains: search, mode: "insensitive" } },
+        {
+          deviceMappings: {
+            some: {
+              deviceUserId: { contains: search, mode: "insensitive" }
+            }
+          }
+        }
       ];
     }
 
@@ -61,6 +70,14 @@ export async function getEmployees(
     } else if (status === "all") {
       // Show all except trash by default
       where.status = { not: "trash" };
+    }
+
+    // Filter by type & gender
+    if (employeeTypeId && employeeTypeId !== "all") {
+      where.employeeTypeId = employeeTypeId;
+    }
+    if (gender && gender !== "all") {
+      where.gender = gender;
     }
 
     // Get total count
@@ -1811,6 +1828,74 @@ export async function syncEmployeeBiometricIds() {
   } catch (error: any) {
     console.error("syncEmployeeBiometricIds error:", error);
     return { success: false, error: error.message || "Failed to sync biometric IDs" };
+  }
+}
+
+/**
+ * Fetch summary statistics for the employee dashboard
+ */
+export async function getEmployeeStats() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        stats: { all: 0, active: 0, onDuty: 0 }
+      };
+    }
+
+    const all = await prisma.employee.count({
+      where: { status: { not: "trash" } }
+    });
+
+    const active = await prisma.employee.count({
+      where: { status: "active" }
+    });
+
+    // Fetch active employees with their 2 most recent attendance logs to compute on-duty status
+    const activeEmployeesWithLogs = await prisma.employee.findMany({
+      where: { status: "active" },
+      select: {
+        attendanceLogs: {
+          orderBy: { timestamp: "desc" },
+          take: 2,
+          select: { timestamp: true }
+        }
+      }
+    });
+
+    let onDuty = 0;
+    const now = new Date();
+    for (const emp of activeEmployeesWithLogs) {
+      const logs = emp.attendanceLogs;
+      if (logs && logs.length > 0) {
+        const latestPunch = new Date(logs[0].timestamp);
+        const hoursSinceLatest = (now.getTime() - latestPunch.getTime()) / (1000 * 60 * 60);
+        if (hoursSinceLatest <= 14) {
+          if (logs.length === 1) {
+            onDuty++;
+          } else {
+            const prevPunch = new Date(logs[1].timestamp);
+            const latestDateString = latestPunch.getFullYear() + "-" + latestPunch.getMonth() + "-" + latestPunch.getDate();
+            const prevDateString = prevPunch.getFullYear() + "-" + prevPunch.getMonth() + "-" + prevPunch.getDate();
+            if (latestDateString !== prevDateString) {
+              onDuty++;
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      success: true,
+      stats: { all, active, onDuty }
+    };
+  } catch (error) {
+    console.error("getEmployeeStats error:", error);
+    return {
+      success: false,
+      stats: { all: 0, active: 0, onDuty: 0 }
+    };
   }
 }
 

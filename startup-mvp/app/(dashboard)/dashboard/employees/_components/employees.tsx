@@ -21,6 +21,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw, FiImage } from "react-icons/fi";
 import { deleteEmployee, bulkUpdateEmployeeStatus, deleteEmployeesPermanently } from "../_actions/employee.action";
@@ -128,6 +135,10 @@ interface EmployeesListClientProps {
   initialSearch: string;
   isTrash?: boolean;
   userId?: string;
+  employeeTypes?: { id: string; name: string }[];
+  employeeTypeId?: string;
+  gender?: string;
+  status?: string;
   permissions?: {
     view: boolean;
     edit: boolean;
@@ -142,16 +153,32 @@ export default function EmployeesListClient({
   initialSearch,
   isTrash = false,
   userId: providedUserId,
+  employeeTypes = [],
+  employeeTypeId = "all",
+  gender = "all",
+  status = "all",
   permissions,
 }: EmployeesListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(initialSearch);
+  const hasActiveFilters = !!(search || (employeeTypeId && employeeTypeId !== "all") || (gender && gender !== "all") || (status && status !== "all"));
   const [deleteEmployeeId, setDeleteEmployeeId] = useState<string | null>(null);
   const [restoreEmployeeId, setRestoreEmployeeId] = useState<string | null>(null);
   const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+
+  const handleFilterChange = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value && value !== "all") {
+      params.set(key, value);
+    } else {
+      params.delete(key);
+    }
+    params.set("page", "1");
+    router.push(`/dashboard/employees?${params.toString()}`);
+  };
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -293,47 +320,119 @@ export default function EmployeesListClient({
 
   return (
     <div className="space-y-4">
-      {/* Search and Bulk Actions */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name or code..."
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="pl-10"
-          />
-          {search && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-              onClick={() => handleSearch("")}
+      {/* Search, Filters and Bulk Actions */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[240px] max-w-sm">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search name, email, code, phone, biometric..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="pl-10"
+            />
+            {search && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => handleSearch("")}
+              >
+                <FiX className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          {/* Type Filter */}
+          <div className="w-[180px]">
+            <Select
+              value={employeeTypeId}
+              onValueChange={(val) => handleFilterChange("employeeTypeId", val)}
             >
-              <FiX className="h-4 w-4" />
+              <SelectTrigger>
+                <SelectValue placeholder="All Employee Types" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[250px]">
+                <SelectItem value="all">All Types</SelectItem>
+                {employeeTypes.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Gender Filter */}
+          <div className="w-[140px]">
+            <Select
+              value={gender}
+              onValueChange={(val) => handleFilterChange("gender", val)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Genders" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[250px]">
+                <SelectItem value="all">All Genders</SelectItem>
+                <SelectItem value="Male">Male</SelectItem>
+                <SelectItem value="Female">Female</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Status Filter (Only visible if not in trash tab) */}
+          {!isTrash && (
+            <div className="w-[140px]">
+              <Select
+                value={status}
+                onValueChange={(val) => handleFilterChange("status", val)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[250px]">
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Clear Filters Button */}
+          {hasActiveFilters && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSearch("");
+                router.push(`/dashboard/employees?tab=${isTrash ? "trash" : "all"}&page=1`);
+              }}
+            >
+              Clear Filters
             </Button>
           )}
-        </div>
 
-        {/* Bulk Actions Dropdown */}
-        <div className="flex items-center gap-2">
-          {selectedEmployees.size > 0 && (
-            <span className="text-sm text-muted-foreground whitespace-nowrap">
-              {selectedEmployees.size} selected
-            </span>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                disabled={isPending || selectedEmployees.size === 0}
-              >
-                <FiMoreVertical className="mr-2 h-4 w-4" />
-                Bulk Actions
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+          {/* Bulk Actions Dropdown */}
+          <div className="flex items-center gap-2 ml-auto">
+            {selectedEmployees.size > 0 && (
+              <span className="text-sm text-muted-foreground whitespace-nowrap">
+                {selectedEmployees.size} selected
+              </span>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={isPending || selectedEmployees.size === 0}
+                >
+                  <FiMoreVertical className="mr-2 h-4 w-4" />
+                  Bulk Actions
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
               {!isTrash ? (
                 <>
                   <DropdownMenuItem
@@ -381,6 +480,7 @@ export default function EmployeesListClient({
           </DropdownMenu>
         </div>
       </div>
+    </div>
 
       {/* Table */}
       <div className="border rounded-lg">
@@ -407,8 +507,22 @@ export default function EmployeesListClient({
           <TableBody>
               {initialEmployees.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                    {isTrash ? "No trashed employees found" : "No employees found"}
+                  <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <span>{isTrash ? "No trashed employees found" : "No employees found matching the filters."}</span>
+                      {hasActiveFilters && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSearch("");
+                            router.push(`/dashboard/employees?tab=${isTrash ? "trash" : "all"}&page=1`);
+                          }}
+                        >
+                          Clear All Filters
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
             ) : (

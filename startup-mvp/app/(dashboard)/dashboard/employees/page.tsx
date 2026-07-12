@@ -1,5 +1,6 @@
 import React from "react";
-import { getEmployees } from "./_actions/employee.action";
+import { getEmployees, getEmployeeStats } from "./_actions/employee.action";
+import { getEmployeeTypes } from "./types/_actions/employee-type.action";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
@@ -15,6 +16,9 @@ interface EmployeesPageProps {
     page?: string;
     search?: string;
     tab?: string;
+    employeeTypeId?: string;
+    gender?: string;
+    status?: string;
   }>;
 }
 
@@ -23,15 +27,20 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
   const page = parseInt(params.page || "1");
   const search = params.search || "";
   const tab = params.tab || "all";
+  const employeeTypeId = params.employeeTypeId || "all";
+  const gender = params.gender || "all";
+  const statusParam = params.status || "all";
 
   const session = await auth();
   const userId = session?.user?.id;
 
-  const status = tab === "trash" ? "trash" : "all";
+  const status = tab === "trash" ? "trash" : (statusParam as any);
   
-  // Check permissions on server side for better performance
-  const [result, canView, canEdit, canCreate, canMoveToTrash, canDeletePermanently] = await Promise.all([
-    getEmployees(page, 10, search, status),
+  // Check permissions and fetch data concurrently
+  const [result, statsResult, typesResult, canView, canEdit, canCreate, canMoveToTrash, canDeletePermanently] = await Promise.all([
+    getEmployees(page, 10, search, status, employeeTypeId, gender),
+    getEmployeeStats(),
+    getEmployeeTypes(1, 100, "", "active"),
     userId ? hasPermission(userId, "peoples.employees", "view") : false,
     userId ? hasPermission(userId, "peoples.employees", "edit") : false,
     userId ? hasPermission(userId, "peoples.employees", "create") : false,
@@ -58,6 +67,8 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
     );
   }
 
+  const employeeTypes = typesResult.success && typesResult.employeeTypes ? typesResult.employeeTypes : [];
+
   return (
     <PageGuard permissionKey="peoples.employees">
       <div className="space-y-6">
@@ -66,24 +77,50 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
             <h1 className="text-2xl font-semibold">Employees</h1>
             <p className="text-sm text-muted-foreground">Manage employees in your system</p>
           </div>
-          <div className="flex gap-2">
-            {canEdit && (
-              <SyncBiometricButton />
-            )}
-            {canEdit && (
-              <Button variant="outline" asChild>
-                <Link href="/dashboard/employees/types">
-                  Employee Types Setup
-                </Link>
-              </Button>
-            )}
-            {tab !== "trash" && canCreate && (
-              <Button asChild>
-                <Link href="/dashboard/employees/add">
-                  <FiPlus className="mr-2 h-4 w-4" />
-                  Add Employee
-                </Link>
-              </Button>
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex gap-2">
+              {canEdit && (
+                <SyncBiometricButton />
+              )}
+              {canEdit && (
+                <Button variant="outline" asChild>
+                  <Link href="/dashboard/employees/types">
+                    Employee Types Setup
+                  </Link>
+                </Button>
+              )}
+              {tab !== "trash" && canCreate && (
+                <Button asChild>
+                  <Link href="/dashboard/employees/add">
+                    <FiPlus className="mr-2 h-4 w-4" />
+                    Add Employee
+                  </Link>
+                </Button>
+              )}
+            </div>
+
+            {/* Summary Stats Row */}
+            {statsResult.success && statsResult.stats && (
+              <div className="flex items-center gap-4 text-xs mt-1 text-muted-foreground font-medium">
+                <div className="flex items-center gap-1">
+                  <span>All Employees:</span>
+                  <span className="font-bold text-foreground bg-muted px-2 py-0.5 rounded-full text-[10px]">
+                    {statsResult.stats.all}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span>Active:</span>
+                  <span className="font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-full text-[10px]">
+                    {statsResult.stats.active}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span>On Duty:</span>
+                  <span className="font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/20 px-2 py-0.5 rounded-full text-[10px]">
+                    {statsResult.stats.onDuty}
+                  </span>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -109,6 +146,10 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
               initialSearch={search}
               isTrash={false}
               userId={userId || undefined}
+              employeeTypes={employeeTypes}
+              employeeTypeId={employeeTypeId}
+              gender={gender}
+              status={statusParam}
               permissions={{
                 view: canView,
                 edit: canEdit,
@@ -129,6 +170,10 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
               initialSearch={search}
               isTrash={true}
               userId={userId || undefined}
+              employeeTypes={employeeTypes}
+              employeeTypeId={employeeTypeId}
+              gender={gender}
+              status={statusParam}
               permissions={{
                 view: canView,
                 edit: canEdit,
