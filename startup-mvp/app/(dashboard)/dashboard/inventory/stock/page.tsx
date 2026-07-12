@@ -1,9 +1,8 @@
-import React from "react";
-import { getStocks, getActiveItems, getActiveWarehouses } from "./_actions/stock.action";
+import { getStocks, getActiveItems, getActiveWarehouses, getStockSummaryMetrics } from "./_actions/stock.action";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { FiPlus } from "react-icons/fi";
+import { FiPlus, FiPackage } from "react-icons/fi";
 import StocksListClient from "./_components/stocks";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
@@ -50,7 +49,7 @@ export default async function StockPage({ searchParams }: StockPageProps) {
   }
 
   // Check permissions and fetch data
-  const [result, itemsResult, warehousesResult, canView, canAdjust] = await Promise.all([
+  const [result, itemsResult, warehousesResult, canView, canAdjust, metricsResult] = await Promise.all([
     getStocks(page, 10, {
       itemId,
       warehouseId: finalWarehouseId,
@@ -60,6 +59,11 @@ export default async function StockPage({ searchParams }: StockPageProps) {
     getActiveWarehouses(),
     userId ? hasPermission(userId, "inventory.stock", "view") : false,
     userId ? hasPermission(userId, "inventory.stock", "adjust") : false,
+    getStockSummaryMetrics({
+      itemId,
+      warehouseId: finalWarehouseId,
+      search,
+    }),
   ]);
 
   // Handle errors
@@ -83,22 +87,54 @@ export default async function StockPage({ searchParams }: StockPageProps) {
     );
   }
 
+  const totalQuantity = metricsResult?.success ? metricsResult.totalQuantity : 0;
+  const totalValue = metricsResult?.success ? metricsResult.totalValue : 0;
+
   return (
     <PageGuard permissionKey="inventory.stock" requiredOperation="view">
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold">Stock</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Stock</h1>
             <p className="text-sm text-muted-foreground">View and manage inventory stock</p>
           </div>
-          {canAdjust && (
-            <Button asChild>
-              <Link href="/dashboard/inventory/stock/adjust">
-                <FiPlus className="mr-2 h-4 w-4" />
-                Adjust Stock
-              </Link>
-            </Button>
-          )}
+          
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Total Stock Quantity Card */}
+            <div className="bg-card border rounded-lg px-4 py-2 flex items-center gap-3 shadow-sm hover:shadow-md transition-all duration-300">
+              <div className="p-2 rounded-full bg-primary/10 text-primary">
+                <FiPackage className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Total Stock</p>
+                <p className="text-sm font-semibold font-mono text-foreground">
+                  {totalQuantity.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Total Stock Value Card */}
+            <div className="bg-card border rounded-lg px-4 py-2 flex items-center gap-3 shadow-sm hover:shadow-md transition-all duration-300">
+              <div className="p-2 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <span className="text-sm font-bold">৳</span>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Stock Value</p>
+                <p className="text-sm font-semibold font-mono text-emerald-600 dark:text-emerald-400">
+                  ৳{totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+
+            {canAdjust && (
+              <Button asChild>
+                <Link href="/dashboard/inventory/stock/adjust">
+                  <FiPlus className="mr-2 h-4 w-4" />
+                  Adjust Stock
+                </Link>
+              </Button>
+            )}
+          </div>
         </div>
 
         <StocksListClient

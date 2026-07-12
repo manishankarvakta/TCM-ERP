@@ -969,6 +969,98 @@ export async function getWarehouseStocks(warehouseId: string) {
 }
 
 /**
+ * Get overall summary metrics (total quantity & value) for stocks
+ */
+export async function getStockSummaryMetrics(filters: {
+  itemId?: string;
+  warehouseId?: string;
+  search?: string;
+} = {}) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, totalQuantity: 0, totalValue: 0 };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true }
+    });
+
+    const where: Prisma.StockWhereInput = {};
+
+    if (filters.itemId) {
+      where.itemId = filters.itemId;
+    }
+
+    if (user && user.role !== "admin") {
+      where.warehouseId = user.defaultWarehouseId || "unassigned-no-match";
+      if (filters.warehouseId && filters.warehouseId !== user.defaultWarehouseId) {
+        where.warehouseId = "unassigned-no-match";
+      }
+    } else if (filters.warehouseId) {
+      where.warehouseId = filters.warehouseId;
+    }
+
+    if (filters.search) {
+      where.OR = [
+        { item: { name: { contains: filters.search, mode: "insensitive" } } },
+        { item: { code: { contains: filters.search, mode: "insensitive" } } },
+        { item: { barcode: { contains: filters.search, mode: "insensitive" } } },
+        { variant: { sku: { contains: filters.search, mode: "insensitive" } } },
+        { variant: { barcode: { contains: filters.search, mode: "insensitive" } } },
+        { variant: { item: { name: { contains: filters.search, mode: "insensitive" } } } },
+        { variant: { item: { code: { contains: filters.search, mode: "insensitive" } } } },
+        { variant: { item: { barcode: { contains: filters.search, mode: "insensitive" } } } },
+        { warehouse: { name: { contains: filters.search, mode: "insensitive" } } },
+        { warehouse: { code: { contains: filters.search, mode: "insensitive" } } },
+      ];
+    }
+
+    const stocks = await prisma.stock.findMany({
+      where,
+      select: {
+        quantity: true,
+        item: {
+          select: {
+            costPrice: true
+          }
+        },
+        variant: {
+          select: {
+            item: {
+              select: {
+                costPrice: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    let totalQuantity = 0;
+    let totalValue = 0;
+
+    for (const stock of stocks) {
+      const qty = Number(stock.quantity);
+      const parentItem = stock.item || stock.variant?.item;
+      const costPrice = parentItem ? Number(parentItem.costPrice) : 0;
+      totalQuantity += qty;
+      totalValue += qty * costPrice;
+    }
+
+    return {
+      success: true,
+      totalQuantity,
+      totalValue
+    };
+  } catch (error) {
+    console.error("getStockSummaryMetrics error:", error);
+    return { success: false, totalQuantity: 0, totalValue: 0 };
+  }
+}
+
+/**
  * Get paginated list of stocks with filters
  */
 export async function getStocks(
