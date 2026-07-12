@@ -258,24 +258,16 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
                   <p>If found, please return to: {orgInfo?.name || "the office"}.</p>
                 </div>
 
-                {/* Emergency Contact section */}
-                <div className="border-t border-slate-200 pt-1 w-full text-center space-y-1">
+                {/* Organization Contact section */}
+                <div className="border-t border-slate-200 pt-1.5 w-full text-center space-y-1">
                   <span className="block text-[5px] font-bold text-slate-400 uppercase tracking-widest">
-                    EMERGENCY CONTACT
+                    CONTACT INFORMATION
                   </span>
-                  {emergency ? (
-                    <div className="flex flex-col items-center font-semibold text-slate-700">
-                      <span className="truncate max-w-[45mm]">{emergency.name || "Contact Person"}</span>
-                      <span className="font-mono text-[5.5px] leading-none">{emergency.phone || "-"}</span>
-                      <span className="text-[4.5px] text-muted-foreground truncate max-w-[45mm]">({emergency.relation || "Emergency Contact"})</span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center font-semibold text-slate-700">
-                      <span>HR Department</span>
-                      <span className="font-mono text-[5.5px] leading-none">{orgInfo?.phone || "-"}</span>
-                      <span className="text-[4.5px] text-muted-foreground">({orgInfo?.email || "-"})</span>
-                    </div>
-                  )}
+                  <div className="flex flex-col items-center font-semibold text-slate-700 leading-tight">
+                    <span className="font-mono text-[6.5px]">{orgInfo?.phone || "-"}</span>
+                    <span className="text-[5px] text-slate-500 mt-0.5">{orgInfo?.email || "-"}</span>
+                    <span className="text-[5px] text-[#2b3b7c] font-bold mt-0.5">{orgInfo?.website || "-"}</span>
+                  </div>
                 </div>
 
                 {/* Signature zone */}
