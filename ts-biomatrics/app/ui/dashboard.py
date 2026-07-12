@@ -90,6 +90,13 @@ class DashboardView(QWidget):
         header_layout.setContentsMargins(0, 0, 10, 0)
         title = QLabel("Devices")
         title.setStyleSheet("font-size: 20px; font-weight: bold; color: #ffffff;")
+        header_layout.addWidget(title)
+        
+        from app.core.config import ALLOW_MOCK_MODE
+        if ALLOW_MOCK_MODE:
+            mock_badge = QLabel("  (Mock Diagnostics Active)  ")
+            mock_badge.setStyleSheet("color: #ff9500; font-size: 11px; font-weight: bold; background-color: #221500; border: 1px solid #ff9500; border-radius: 4px; padding: 2px;")
+            header_layout.addWidget(mock_badge)
         
         self.sync_btn = QPushButton("Sync")
         self.sync_btn.setIcon(qta.icon('fa5s.sync-alt', color='#ffffff'))

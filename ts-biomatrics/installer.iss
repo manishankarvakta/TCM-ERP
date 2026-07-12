@@ -1,25 +1,30 @@
 [Setup]
-AppName=TS-Biomatrics
+AppName=TS-Biometrics
 AppVersion=1.0.0
-DefaultDirName={autopf}\TS-Biomatrics
-DefaultGroupName=TS-Biomatrics
-UninstallDisplayIcon={app}\TS-Biomatrics.exe
+DefaultDirName={commonpf}\TS-Biometrics
+DefaultGroupName=TS-Biometrics
+UninstallDisplayIcon={app}\TS-Biometrics.exe
 Compression=lzma2
 SolidCompression=yes
-OutputDir=dist
-OutputBaseFilename=TS-Biomatrics-Setup
+OutputDir=release
+OutputBaseFilename=TS-Biometrics-Setup
 SetupIconFile=app\resources\images\AppIcon.ico
 DisableProgramGroupPage=yes
+PrivilegesRequired=admin
+AppMutex=TSBiometricsGatewayMutex
+CloseApplications=yes
 
 [Files]
-Source: "dist\TS-Biomatrics.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\TS-Biometrics\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\TS-Biomatrics"; Filename: "{app}\TS-Biomatrics.exe"
-Name: "{commondesktop}\TS-Biomatrics"; Filename: "{app}\TS-Biomatrics.exe"; Tasks: desktopicon
+Name: "{group}\TS-Biometrics"; Filename: "{app}\TS-Biometrics.exe"
+Name: "{commondesktop}\TS-Biometrics"; Filename: "{app}\TS-Biometrics.exe"; Tasks: desktopicon
+Name: "{userstartup}\TS-Biometrics"; Filename: "{app}\TS-Biometrics.exe"; Tasks: startupicon
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "startupicon"; Description: "Start TS-Biometrics automatically with Windows"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Run]
-Filename: "{app}\TS-Biomatrics.exe"; Description: "{cm:LaunchProgram,TS-Biomatrics}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\TS-Biometrics.exe"; Description: "{cm:LaunchProgram,TS-Biometrics}"; Flags: nowait postinstall skipifsilent

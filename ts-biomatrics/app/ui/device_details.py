@@ -153,10 +153,17 @@ class DeviceDetailsView(QWidget):
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 10)
         
-        # Left Spacer (Mirrors right spacer to center connection flow)
-        left_spacer = QWidget()
-        left_spacer.setFixedWidth(100)
-        header_layout.addWidget(left_spacer)
+        # Left Spacer (or Mock badge if allowed)
+        from app.core.config import ALLOW_MOCK_MODE
+        if ALLOW_MOCK_MODE:
+            mock_badge = QLabel("Mock Active")
+            mock_badge.setStyleSheet("color: #ff9500; font-size: 10px; font-weight: bold; background-color: #221500; border: 1px solid #ff9500; border-radius: 4px; padding: 4px;")
+            mock_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            header_layout.addWidget(mock_badge)
+        else:
+            left_spacer = QWidget()
+            left_spacer.setFixedWidth(100)
+            header_layout.addWidget(left_spacer)
         
         header_layout.addStretch()
         

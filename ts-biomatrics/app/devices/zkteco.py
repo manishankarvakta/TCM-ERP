@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any, Tuple, Optional
 from app.devices.base import BaseDeviceAdapter
 from app.core.logger import get_logger
+from app.core.config import ALLOW_MOCK_MODE
 
 logger = get_logger("Device Connection")
 
@@ -18,6 +19,9 @@ class ZKTecoAdapter(BaseDeviceAdapter):
 
     def connect(self) -> bool:
         if "mock" in self.ip_address.lower() or self.ip_address == "127.0.0.1":
+            if not ALLOW_MOCK_MODE:
+                logger.error("Mock device address detected, but Mock Mode is disabled in production settings.")
+                return False
             self._is_mock = True
             self.is_connected = True
             logger.info(f"Connected to ZKTeco device '{self.name}' [MOCK MODE]")
@@ -36,10 +40,14 @@ class ZKTecoAdapter(BaseDeviceAdapter):
             logger.info(f"Connected to ZKTeco device '{self.name}' at {self.ip_address}:{self.port}")
             return True
         except Exception as e:
-            logger.warning(f"Failed to connect to real ZKTeco device at {self.ip_address}:{self.port}: {e}. Falling back to MOCK MODE.")
-            self._is_mock = True
-            self.is_connected = True
-            return True
+            if ALLOW_MOCK_MODE:
+                logger.warning(f"Failed to connect to real ZKTeco device at {self.ip_address}:{self.port}: {e}. Falling back to MOCK MODE.")
+                self._is_mock = True
+                self.is_connected = True
+                return True
+            else:
+                logger.error(f"Failed to connect to real ZKTeco device at {self.ip_address}:{self.port}: {e}")
+                return False
 
     def disconnect(self) -> None:
         if self._is_mock:
@@ -68,8 +76,12 @@ class ZKTecoAdapter(BaseDeviceAdapter):
             conn.disconnect()
             return True, None
         except Exception as e:
-            logger.warning(f"Connection test failed for ZKTeco at {self.ip_address}:{self.port}: {e}. Mocking success since host is reachable.")
-            return True, None
+            if ALLOW_MOCK_MODE:
+                logger.warning(f"Connection test failed for ZKTeco at {self.ip_address}:{self.port}: {e}. Mocking success since host is reachable.")
+                return True, None
+            else:
+                logger.error(f"Connection test failed for ZKTeco device: {e}")
+                return False, str(e)
 
     def get_device_info(self) -> Dict[str, Any]:
         if self._is_mock:

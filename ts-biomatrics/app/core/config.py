@@ -34,6 +34,9 @@ BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_DB_PATH = APP_DATA_DIR / "ts_biomatrics.db"
 DB_URL = os.environ.get("TS_BIOMETRICS_DB_URL", f"sqlite:///{DEFAULT_DB_PATH}")
 
+# Mock-Mode Production Guard (Disabled by default in production; requires explicit environment flag)
+ALLOW_MOCK_MODE = os.environ.get("TS_BIOMETRICS_ALLOW_MOCK", "false").lower() == "true"
+
 # Secure Salt for local encryption key derivation
 ENCRYPTION_SALT_FILE = APP_DATA_DIR / ".encryption_salt"
 if not ENCRYPTION_SALT_FILE.exists():

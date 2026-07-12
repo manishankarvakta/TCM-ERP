@@ -7,6 +7,7 @@ from app.database.models import BiometricDevice, RawBiometricLog, SyncHistory, U
 from app.devices.manager import DeviceManager
 from app.services.queue_service import QueueService
 from app.core.logger import get_logger
+from app.core.config import ALLOW_MOCK_MODE
 
 logger = get_logger("Synchronization")
 
@@ -105,6 +106,15 @@ class SyncService:
         # 4. Format punches for Cloud ERP upload
         formatted_punches = []
         for log in saved_logs:
+            # Prevent mock punches from uploading to production cloud ERP
+            payload_data = json.loads(log.raw_payload) if log.raw_payload else {}
+            if payload_data.get("mock") and not ALLOW_MOCK_MODE:
+                logger.warning(f"Production Guard: Bypassing mock record upload for device {device.name}, user {log.device_user_id}")
+                # Mark as completed locally so it is cleared from local cache queues, but do not send
+                log.sync_status = "SYNCED"
+                log.processing_status = "COMPLETED"
+                continue
+
             v = device.vendor.lower()
             if "zkteco" in v:
                 date_part = log.punch_time.strftime("%Y-%m-%d")
@@ -122,7 +132,7 @@ class SyncService:
                     "deviceId": device.cloud_device_id or str(device.id)
                 })
             else:
-                formatted_punches.append(json.loads(log.raw_payload))
+                formatted_punches.append(payload_data)
 
         # 5. Push formatted punches to cloud API
         client = QueueService.get_api_client(db)

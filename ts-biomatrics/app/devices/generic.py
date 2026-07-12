@@ -4,6 +4,7 @@ import httpx
 from typing import List, Dict, Any, Tuple, Optional
 from app.devices.base import BaseDeviceAdapter
 from app.core.logger import get_logger
+from app.core.config import ALLOW_MOCK_MODE
 
 logger = get_logger("Device Connection")
 
@@ -19,6 +20,9 @@ class GenericDeviceAdapter(BaseDeviceAdapter):
 
     def connect(self) -> bool:
         if "mock" in self.ip_address.lower() or self.ip_address == "127.0.0.1":
+            if not ALLOW_MOCK_MODE:
+                logger.error("Mock device address detected, but Mock Mode is disabled in production settings.")
+                return False
             self._is_mock = True
             self.is_connected = True
             logger.info(f"Connected to Generic device '{self.name}' [MOCK MODE]")
@@ -35,15 +39,23 @@ class GenericDeviceAdapter(BaseDeviceAdapter):
                     return True
                 raise Exception(f"HTTP Status {res.status_code}")
             except Exception as e:
-                logger.warning(f"Failed to connect to real Generic device at {self.ip_address}:{self.port}: {e}. Falling back to MOCK MODE.")
+                if ALLOW_MOCK_MODE:
+                    logger.warning(f"Failed to connect to real Generic device at {self.ip_address}:{self.port}: {e}. Falling back to MOCK MODE.")
+                    self._is_mock = True
+                    self.is_connected = True
+                    return True
+                else:
+                    logger.error(f"Failed to connect to real Generic device at {self.ip_address}:{self.port}: {e}")
+                    return False
+        else:
+            if ALLOW_MOCK_MODE:
                 self._is_mock = True
                 self.is_connected = True
+                logger.info(f"Connected to Generic device '{self.name}' [MOCK MODE]")
                 return True
-        else:
-            self._is_mock = True
-            self.is_connected = True
-            logger.info(f"Connected to Generic device '{self.name}' [MOCK MODE]")
-            return True
+            else:
+                logger.error(f"Failed to connect to Generic device (invalid connection type and mock disabled)")
+                return False
 
     def disconnect(self) -> None:
         self.is_connected = False
@@ -61,8 +73,12 @@ class GenericDeviceAdapter(BaseDeviceAdapter):
                     return True, None
                 return False, f"HTTP Error {res.status_code}"
             except Exception as e:
-                logger.warning(f"Connection test failed for Generic at {self.ip_address}:{self.port}: {e}. Mocking success.")
-                return True, None
+                if ALLOW_MOCK_MODE:
+                    logger.warning(f"Connection test failed for Generic at {self.ip_address}:{self.port}: {e}. Mocking success.")
+                    return True, None
+                else:
+                    logger.error(f"Connection test failed for Generic device: {e}")
+                    return False, str(e)
         return True, None
 
     def get_device_info(self) -> Dict[str, Any]:
