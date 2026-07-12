@@ -100,30 +100,6 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
               print-color-adjust: exact !important;
             }
 
-            /* Hide all other application elements during printing */
-            body > *:not([data-radix-portal]) {
-              display: none !important;
-            }
-
-            /* Reset Radix UI Dialog parent containers positioning to prevent offset coordinate shifts */
-            div[data-radix-portal],
-            div[role="dialog"] {
-              display: block !important;
-              position: static !important;
-              transform: none !important;
-              width: 100% !important;
-              height: auto !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              border: none !important;
-              box-shadow: none !important;
-            }
-
-            /* Hide everything inside the dialog EXCEPT the print capture container */
-            div[role="dialog"] > *:not(.id-card-print-capture) {
-              display: none !important;
-            }
-
             /* Hide absolute everything else in the application via visibility */
             body * {
               visibility: hidden !important;
@@ -135,6 +111,20 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
               visibility: visible !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
+            }
+
+            /* Reset Radix UI Dialog parent containers positioning to prevent offset coordinate shifts */
+            div[data-radix-portal],
+            div[role="dialog"] {
+              position: static !important;
+              transform: none !important;
+              width: auto !important;
+              height: auto !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              border: none !important;
+              box-shadow: none !important;
+              display: block !important;
             }
             
             /* Enforce printing in correct position and layout (side-by-side) */
