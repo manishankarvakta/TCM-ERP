@@ -91,8 +91,10 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
           }
 
           @media print {
-            /* Force background graphics to print in all browsers */
+            /* Force background graphics and reset canvas margins */
             html, body {
+              margin: 0 !important;
+              padding: 0 !important;
               height: auto !important;
               overflow: visible !important;
               background-color: #fff !important;
@@ -103,6 +105,14 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
             /* Hide absolute everything else in the application via visibility */
             body * {
               visibility: hidden !important;
+            }
+
+            /* Explicitly display-hide overlays and buttons to prevent render blocking */
+            div[class*="DialogOverlay"],
+            button,
+            .DialogOverlay,
+            .DialogClose {
+              display: none !important;
             }
             
             /* Make only the capture area and its children visible and print exact colors */
@@ -118,13 +128,14 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
             div[role="dialog"] {
               position: static !important;
               transform: none !important;
-              width: auto !important;
+              width: 100% !important;
               height: auto !important;
               margin: 0 !important;
               padding: 0 !important;
               border: none !important;
               box-shadow: none !important;
               display: block !important;
+              background: transparent !important;
             }
             
             /* Enforce printing in correct position and layout (side-by-side) */
