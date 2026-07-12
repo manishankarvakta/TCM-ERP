@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { FiPrinter, FiLayers } from "react-icons/fi";
+import { FiPrinter } from "react-icons/fi";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
 
@@ -47,20 +47,85 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
       .join(" ");
   };
 
-  // Safe parse emergency contact
-  const getEmergencyContact = () => {
-    if (!employee.emergencyContact) return null;
-    if (typeof employee.emergencyContact === "string") {
-      try {
-        return JSON.parse(employee.emergencyContact);
-      } catch (e) {
-        return null;
-      }
-    }
-    return employee.emergencyContact;
-  };
+  const handlePrint = () => {
+    const cardElement = document.querySelector(".id-card-print-capture");
+    if (!cardElement) return;
 
-  const emergency = getEmergencyContact();
+    // Open a clean print window
+    const printWindow = window.open("", "_blank", "width=800,height=600");
+    if (!printWindow) return;
+
+    // Get all stylesheet link tags and custom style elements from current page
+    const stylesheets = Array.from(document.querySelectorAll("link[rel='stylesheet'], style"))
+      .map((s) => s.outerHTML)
+      .join("\n");
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Print ID Card - ${employee.name}</title>
+          ${stylesheets}
+          <style>
+            /* Force exact A4 portrait dimensions on page canvas */
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              width: 210mm !important;
+              height: 297mm !important;
+              background-color: #fff !important;
+              overflow: visible !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            /* Reset container and position cards side-by-side at top center */
+            .id-card-print-wrap {
+              display: flex !important;
+              flex-direction: row !important;
+              flex-wrap: nowrap !important;
+              justify-content: center !important;
+              align-items: center !important;
+              gap: 15mm !important;
+              position: absolute !important;
+              left: 50% !important;
+              top: 0 !important;
+              transform: translateX(-50%) !important;
+              width: auto !important;
+              height: auto !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+
+            .id-card-print-wrap * {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+
+            @page {
+              size: A4 portrait;
+              margin: 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="id-card-print-wrap">
+            ${cardElement.innerHTML}
+          </div>
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.focus();
+                window.print();
+                window.close();
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -82,111 +147,12 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
           </p>
         </DialogHeader>
 
-        {/* CSS rules for printing and fonts */}
+        {/* CSS rules for screen fonts */}
         <style dangerouslySetInnerHTML={{ __html: `
           @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
 
           .id-card-poppins {
             font-family: 'Poppins', sans-serif !important;
-          }
-
-          @media print {
-            /* Force exact A4 portrait dimensions on page canvas */
-            html, body {
-              margin: 0 !important;
-              padding: 0 !important;
-              width: 210mm !important;
-              height: 297mm !important;
-              overflow: visible !important;
-              background-color: #fff !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-
-            /* Hide absolute everything else in the application via visibility */
-            body * {
-              visibility: hidden !important;
-            }
-            
-            /* Make only the capture area and its children visible and print exact colors */
-            .id-card-print-capture,
-            .id-card-print-capture * {
-              visibility: visible !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-
-            /* Reset Radix UI Dialog parent containers positioning and prevent scroll overflow clipping */
-            div[data-radix-portal] {
-              position: static !important;
-              transform: none !important;
-              width: 100% !important;
-              height: auto !important;
-              display: block !important;
-              overflow: visible !important;
-            }
-
-            /* Lock Dialog window to first page viewport */
-            div[role="dialog"] {
-              position: fixed !important;
-              top: 0 !important;
-              left: 0 !important;
-              width: 210mm !important;
-              height: 297mm !important;
-              transform: none !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              border: none !important;
-              box-shadow: none !important;
-              background: transparent !important;
-              display: block !important;
-              overflow: visible !important;
-              max-height: none !important;
-            }
-
-            div[role="dialog"] > * {
-              position: static !important;
-              transform: none !important;
-              width: auto !important;
-              height: auto !important;
-              max-height: none !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              border: none !important;
-              box-shadow: none !important;
-              background: transparent !important;
-              display: block !important;
-              overflow: visible !important;
-            }
-            
-            /* Enforce printing in correct position and layout (side-by-side absolute positioned on A4 page) */
-            .id-card-print-capture {
-              position: absolute !important;
-              left: 50% !important;
-              top: 0 !important;
-              transform: translateX(-50%) !important;
-              width: auto !important;
-              height: auto !important;
-              display: flex !important;
-              flex-direction: row !important;
-              flex-wrap: nowrap !important;
-              justify-content: center !important;
-              align-items: center !important;
-              gap: 15mm !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              background-color: transparent !important;
-              border: none !important;
-              box-shadow: none !important;
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-            }
-
-            /* Direct printer size controls */
-            @page {
-              size: A4 portrait;
-              margin: 0;
-            }
           }
         `}} />
 
@@ -197,7 +163,8 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
             
             {/* ============================================================== */}
             {/* CARD FRONT                                                     */}
-            {/* ============================================================== */}            <div className="relative w-[54mm] h-[86mm] bg-white rounded-[12px] border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-slate-300 print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins pt-[8mm] pb-[8mm]">
+            {/* ============================================================== */}
+            <div className="relative w-[54mm] h-[86mm] bg-white rounded-[12px] border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-slate-300 print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins pt-[8mm] pb-[8mm]">
               
               {/* Top Navy Block (Centered and Small) */}
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[32mm] h-[4.5mm] bg-[#2b3b7c] rounded-b-full z-0"></div>
@@ -353,7 +320,7 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
           <Button variant="outline" onClick={() => setOpen(false)}>
             Close Preview
           </Button>
-          <Button onClick={() => window.print()} className="bg-primary text-primary-foreground">
+          <Button onClick={handlePrint} className="bg-primary text-primary-foreground">
             <FiPrinter className="mr-2 h-4 w-4" />
             Print Now
           </Button>
@@ -362,4 +329,3 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
     </Dialog>
   );
 }
-
