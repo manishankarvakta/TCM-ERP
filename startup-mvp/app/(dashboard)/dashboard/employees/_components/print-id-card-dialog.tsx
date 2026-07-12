@@ -131,7 +131,7 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
             .id-card-print-capture {
               position: absolute !important;
               left: 50% !important;
-              top: 15mm !important;
+              top: 1in !important;
               transform: translateX(-50%) !important;
               width: auto !important;
               height: auto !important;
