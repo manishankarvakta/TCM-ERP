@@ -117,8 +117,33 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
             }
 
             /* Reset Radix UI Dialog parent containers positioning and prevent scroll overflow clipping */
-            div[data-radix-portal],
-            div[role="dialog"],
+            div[data-radix-portal] {
+              position: static !important;
+              transform: none !important;
+              width: 100% !important;
+              height: auto !important;
+              display: block !important;
+              overflow: visible !important;
+            }
+
+            /* Lock Dialog window to first page viewport */
+            div[role="dialog"] {
+              position: fixed !important;
+              top: 0 !important;
+              left: 0 !important;
+              width: 210mm !important;
+              height: 297mm !important;
+              transform: none !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              border: none !important;
+              box-shadow: none !important;
+              background: transparent !important;
+              display: block !important;
+              overflow: visible !important;
+              max-height: none !important;
+            }
+
             div[role="dialog"] > * {
               position: static !important;
               transform: none !important;
