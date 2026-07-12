@@ -153,57 +153,60 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
             {/* ============================================================== */}
             {/* CARD FRONT                                                     */}
             {/* ============================================================== */}
-            <div className="relative w-[54mm] h-[86mm] bg-white rounded-[12px] border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-slate-300 print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins">
+            <div className="relative w-[54mm] h-[86mm] bg-white rounded-[12px] border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-slate-300 print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins pt-[12mm] pb-[12mm]">
               
               {/* Top Navy Block */}
-              <div className="absolute top-0 left-0 w-full h-[12mm] bg-[#2b3b7c] rounded-b-[16px] z-0"></div>
+              <div className="absolute top-0 left-0 w-full h-[10mm] bg-[#2b3b7c] rounded-b-[12px] z-0"></div>
               
               {/* Bottom Navy Block */}
-              <div className="absolute bottom-0 left-0 w-full h-[12mm] bg-[#2b3b7c] rounded-t-[16px] z-0"></div>
+              <div className="absolute bottom-0 left-0 w-full h-[10mm] bg-[#2b3b7c] rounded-t-[12px] z-0"></div>
 
               {/* Lanyard Slot Placeholder */}
               <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-1.5 bg-white/20 rounded-full z-20 flex items-center justify-center">
                 <div className="w-5 h-[2px] bg-[#2b3b7c]/40 rounded-full"></div>
               </div>
 
-              {/* Header section: Centered Logo Pill */}
-              <div className="flex items-center justify-center pt-5 px-3 z-10 relative">
-                <div className="bg-white px-2 py-0.5 rounded-full shadow-sm border border-slate-100 flex items-center justify-center h-[8mm]">
-                  <img src="/logo.png" alt="logo" className="h-[6.5mm] max-w-[38mm] object-contain" />
-                </div>
-              </div>
-
-              {/* Profile Avatar */}
-              <div className="flex flex-col items-center mt-3 z-10 relative">
-                <div className="w-[24mm] h-[24mm] rounded-full border-[2.5px] border-[#2b3b7c] shadow bg-white overflow-hidden flex items-center justify-center">
-                  <Avatar className="w-full h-full rounded-none">
-                    <AvatarImage src={employee.photo || undefined} className="object-cover w-full h-full" />
-                    <AvatarFallback className="text-[16px] font-bold bg-slate-100 text-[#2b3b7c]">
-                      {getInitials(employee.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                </div>
-              </div>
-
-              {/* Profile details */}
-              <div className="flex-1 flex flex-col justify-start items-center text-center pt-2 px-3 z-10 relative">
-                <h2 className="text-[11.5px] font-extrabold text-[#2b3b7c] uppercase tracking-tight line-clamp-2 max-w-[48mm]">
-                  {employee.name}
-                </h2>
-                <p className="text-[7px] font-medium text-slate-700 uppercase tracking-wider mt-0.5 truncate max-w-[48mm]">
-                  {employee.designation || "Job Position"}
-                </p>
+              {/* Content Area */}
+              <div className="flex-1 flex flex-col justify-between items-center z-10 relative h-full">
                 
-                {/* Blood Group */}
-                <p className="text-[6px] text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
-                  Blood Group: <span className="text-rose-600 font-bold">{employee.bloodGroup || "-"}</span>
-                </p>
-              </div>
+                {/* Header section: Centered Logo */}
+                <div className="flex items-center justify-center">
+                  <img src="/logo.png" alt="logo" className="h-[9mm] max-w-[42mm] object-contain" />
+                </div>
 
-              {/* Footer section: Employee ID & Issue Date (inside bottom navy block) */}
-              <div className="flex flex-col items-center pb-2 z-10 relative text-white">
-                <span className="text-[7.5px] font-semibold tracking-wide">{employee.employeeCode || "-"}</span>
-                <span className="text-[6.5px] text-indigo-200 tracking-wide mt-0.5">{formatJoinDate(employee.joiningDate)}</span>
+                {/* Profile Avatar */}
+                <div className="flex flex-col items-center">
+                  <div className="w-[24mm] h-[24mm] rounded-full border-[2.5px] border-[#2b3b7c] shadow bg-white overflow-hidden flex items-center justify-center">
+                    <Avatar className="w-full h-full rounded-none">
+                      <AvatarImage src={employee.photo || undefined} className="object-cover w-full h-full" />
+                      <AvatarFallback className="text-[16px] font-bold bg-slate-100 text-[#2b3b7c]">
+                        {getInitials(employee.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+                </div>
+
+                {/* Profile details */}
+                <div className="flex flex-col items-center text-center px-3">
+                  <h2 className="text-[11.5px] font-extrabold text-[#2b3b7c] uppercase tracking-tight line-clamp-2 max-w-[48mm]">
+                    {employee.name}
+                  </h2>
+                  <p className="text-[7px] font-medium text-slate-700 uppercase tracking-wider mt-0.5 truncate max-w-[48mm]">
+                    {employee.designation || "Job Position"}
+                  </p>
+                  
+                  {/* Blood Group */}
+                  <p className="text-[6px] text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
+                    Blood Group: <span className="text-rose-600 font-bold">{employee.bloodGroup || "-"}</span>
+                  </p>
+                </div>
+
+                {/* Employee ID & Issue Date */}
+                <div className="flex flex-col items-center text-slate-700 leading-tight">
+                  <span className="text-[7.5px] font-semibold tracking-wide">{employee.employeeCode || "-"}</span>
+                  <span className="text-[6.5px] font-medium tracking-wide mt-0.5">{formatJoinDate(employee.joiningDate)}</span>
+                </div>
+
               </div>
 
             </div>
@@ -211,44 +214,49 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
             {/* ============================================================== */}
             {/* CARD BACK                                                      */}
             {/* ============================================================== */}
-            <div className="relative w-[54mm] h-[86mm] bg-white rounded-[12px] border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-slate-300 print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins">
+            <div className="relative w-[54mm] h-[86mm] bg-white rounded-[12px] border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-slate-300 print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins pt-[12mm] pb-[12mm]">
               
               {/* Top Navy Block */}
-              <div className="absolute top-0 left-0 w-full h-[12mm] bg-[#2b3b7c] rounded-b-[16px] z-0"></div>
+              <div className="absolute top-0 left-0 w-full h-[10mm] bg-[#2b3b7c] rounded-b-[12px] z-0"></div>
+              
+              {/* Bottom Navy Block */}
+              <div className="absolute bottom-0 left-0 w-full h-[10mm] bg-[#2b3b7c] rounded-t-[12px] z-0"></div>
 
               {/* Lanyard Slot Placeholder */}
               <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-1.5 bg-white/20 rounded-full z-20 flex items-center justify-center">
                 <div className="w-5 h-[2px] bg-[#2b3b7c]/40 rounded-full"></div>
               </div>
 
-              {/* Rules / Terms header */}
-              <div className="h-[12mm] flex items-center justify-center z-10 relative">
-                <span className="text-[6px] text-white font-bold uppercase tracking-widest">
-                  TERMS & CONDITIONS
-                </span>
-              </div>
+              {/* Content Area */}
+              <div className="flex-1 flex flex-col justify-between items-center z-10 relative h-full px-3.5">
+                
+                {/* Rules / Terms header */}
+                <div className="text-center">
+                  <span className="text-[6px] text-slate-400 font-bold uppercase tracking-widest">
+                    TERMS & CONDITIONS
+                  </span>
+                </div>
 
-              {/* Back Content Details */}
-              <div className="flex-1 flex flex-col justify-between px-3.5 pt-3 pb-[22mm] text-[6px] text-slate-600 z-10 relative">
-                <div className="space-y-1 text-center font-medium leading-relaxed">
+                {/* Terms body */}
+                <div className="space-y-1 text-center font-medium leading-relaxed text-[6px] text-slate-600">
                   <p>This card is the property of the issuing organization and is non-transferable.</p>
                   <p>Must be worn visibly at all times while on company premises.</p>
                   <p>If found, please return to: {orgInfo?.name || "the office"}.</p>
                 </div>
 
                 {/* Emergency Contact section */}
-                <div className="border-t border-slate-200 pt-1 mt-1 space-y-1">
-                  <span className="block text-[5px] font-bold text-slate-400 uppercase tracking-widest text-center">
+                <div className="border-t border-slate-200 pt-1 w-full text-center space-y-1">
+                  <span className="block text-[5px] font-bold text-slate-400 uppercase tracking-widest">
                     EMERGENCY CONTACT
                   </span>
                   {emergency ? (
-                    <div className="flex flex-col items-center text-center font-semibold text-slate-700">
+                    <div className="flex flex-col items-center font-semibold text-slate-700">
                       <span className="truncate max-w-[45mm]">{emergency.name || "Contact Person"}</span>
                       <span className="font-mono text-[5.5px] leading-none">{emergency.phone || "-"}</span>
                       <span className="text-[4.5px] text-muted-foreground truncate max-w-[45mm]">({emergency.relation || "Emergency Contact"})</span>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center text-center font-semibold text-slate-700">
+                    <div className="flex flex-col items-center font-semibold text-slate-700">
                       <span>HR Department</span>
                       <span className="font-mono text-[5.5px] leading-none">{orgInfo?.phone || "-"}</span>
                       <span className="text-[4.5px] text-muted-foreground">({orgInfo?.email || "-"})</span>
@@ -257,17 +265,15 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
                 </div>
 
                 {/* Signature zone */}
-                <div className="flex flex-col items-center pt-1.5">
+                <div className="flex flex-col items-center w-full">
                   <div className="w-[28mm] h-[5mm] border-b border-slate-400 flex items-end justify-center relative">
                     <span className="absolute bottom-0 text-[4.5px] font-serif italic text-slate-400">Authorized Signature</span>
                   </div>
                   <span className="text-[4px] text-slate-400 uppercase tracking-wider mt-0.5">Card Issuer</span>
                 </div>
-              </div>
 
-              {/* Bottom Navy Block with Barcode */}
-              <div className="absolute bottom-0 left-0 w-full h-[20mm] bg-[#2b3b7c] rounded-t-[16px] flex flex-col items-center justify-center p-2 z-10">
-                <div className="bg-white p-1 rounded-lg flex flex-col items-center justify-center shadow-sm">
+                {/* Faux Barcode footer */}
+                <div className="flex flex-col items-center">
                   <div className="flex items-center justify-center gap-[1px] h-[5mm] w-[34mm] bg-white overflow-hidden">
                     <div className="w-[1px] h-full bg-black"></div>
                     <div className="w-[2px] h-full bg-black"></div>
