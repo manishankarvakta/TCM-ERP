@@ -245,37 +245,28 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
               <div className="flex-1 flex flex-col justify-between items-center z-10 relative h-full px-3.5">
                 
                 {/* Rules / Terms header */}
-                <div className="text-center">
-                  <span className="text-[6px] text-slate-400 font-bold uppercase tracking-widest">
+                <div className="text-center border-b border-slate-100 pb-1.5 w-full">
+                  <span className="text-[7.5px] text-[#2b3b7c] font-bold uppercase tracking-widest">
                     TERMS & CONDITIONS
                   </span>
                 </div>
 
                 {/* Terms body */}
-                <div className="space-y-1 text-center font-medium leading-relaxed text-[6px] text-slate-600">
-                  <p>This card is the property of the issuing organization and is non-transferable.</p>
-                  <p>Must be worn visibly at all times while on company premises.</p>
-                  <p>If found, please return to: {orgInfo?.name || "the office"}.</p>
-                </div>
-
-                {/* Organization Contact section */}
-                <div className="border-t border-slate-200 pt-1.5 w-full text-center space-y-1">
-                  <span className="block text-[5px] font-bold text-slate-400 uppercase tracking-widest">
-                    CONTACT INFORMATION
-                  </span>
-                  <div className="flex flex-col items-center font-semibold text-slate-700 leading-tight">
-                    <span className="font-mono text-[6.5px]">{orgInfo?.phone || "-"}</span>
-                    <span className="text-[5px] text-slate-500 mt-0.5">{orgInfo?.email || "-"}</span>
-                    <span className="text-[5px] text-[#2b3b7c] font-bold mt-0.5">{orgInfo?.website || "-"}</span>
-                  </div>
+                <div className="space-y-2 text-center font-medium leading-relaxed text-[7px] text-slate-600 px-1">
+                  <p className="tracking-wide">This card is the official property of the organization and is non-transferable.</p>
+                  <p className="tracking-wide">It must be worn visibly at all times while on company premises.</p>
+                  <p className="tracking-wide font-bold text-[#2b3b7c] mt-2">
+                    If found, please return to: <span className="underline">{orgInfo?.name || "the office"}</span>.
+                  </p>
                 </div>
 
                 {/* Signature zone */}
                 <div className="flex flex-col items-center w-full">
-                  <div className="w-[28mm] h-[5mm] border-b border-slate-400 flex items-end justify-center relative">
-                    <span className="absolute bottom-0 text-[4.5px] font-serif italic text-slate-400">Authorized Signature</span>
+                  <div className="w-[32mm] h-[8mm] border-b border-slate-300 relative flex items-end justify-center">
                   </div>
-                  <span className="text-[4px] text-slate-400 uppercase tracking-wider mt-0.5">Card Issuer</span>
+                  <span className="text-[5.5px] text-slate-400 font-bold uppercase tracking-wider mt-1">
+                    Authorized Signature
+                  </span>
                 </div>
 
                 {/* Faux Barcode footer */}
