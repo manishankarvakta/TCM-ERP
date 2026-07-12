@@ -164,10 +164,7 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
             {/* ============================================================== */}
             {/* CARD FRONT                                                     */}
             {/* ============================================================== */}
-            <div 
-              className="relative rounded-[12px] border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-slate-300 print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins pt-[8mm] pb-[8mm]"
-              style={{ width: '54mm', height: '86mm', minWidth: '54mm', minHeight: '86mm', maxWidth: '54mm', maxHeight: '86mm', backgroundColor: '#f8fafc' }}
-            >
+            <div className="relative w-[54mm] h-[86mm] bg-white rounded-[12px] border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-slate-300 print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins pt-[8mm] pb-[8mm]">
               
               {/* Top Navy Block (Centered and Small) */}
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[32mm] h-[4.5mm] bg-[#2b3b7c] rounded-b-full z-0"></div>
@@ -233,10 +230,7 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
             {/* ============================================================== */}
             {/* CARD BACK                                                      */}
             {/* ============================================================== */}
-            <div 
-              className="relative rounded-[12px] border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-slate-300 print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins pt-[8mm] pb-[8mm]"
-              style={{ width: '54mm', height: '86mm', minWidth: '54mm', minHeight: '86mm', maxWidth: '54mm', maxHeight: '86mm', backgroundColor: '#f8fafc' }}
-            >
+            <div className="relative w-[54mm] h-[86mm] bg-white rounded-[12px] border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-slate-300 print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins pt-[8mm] pb-[8mm]">
               
               {/* Top Navy Block (Centered and Small) */}
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[32mm] h-[4.5mm] bg-[#2b3b7c] rounded-b-full z-0"></div>

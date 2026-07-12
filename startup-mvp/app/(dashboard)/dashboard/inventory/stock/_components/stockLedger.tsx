@@ -25,6 +25,7 @@ import { format } from "date-fns";
 import { StockTransactionType } from "@prisma/client";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface StockLedgerEntry {
   id: string;
@@ -190,6 +191,24 @@ export default function StockLedgerClient({
     })}`;
   };
 
+  const itemOptions = [
+    { label: "All Items", value: "all" },
+    ...items.map((item) => ({
+      label: item.name,
+      value: item.id,
+      description: item.code,
+    })),
+  ];
+
+  const warehouseOptions = [
+    { label: "All Warehouses", value: "all" },
+    ...warehouses.map((wh) => ({
+      label: wh.name,
+      value: wh.id,
+      description: wh.code,
+    })),
+  ];
+
   return (
     <div className="space-y-4">
       {/* Search and Filters */}
@@ -216,99 +235,90 @@ export default function StockLedgerClient({
           )}
         </div>
 
-        <Select value={itemFilter} onValueChange={(value) => {
-          setItemFilter(value);
-          // Update filters immediately for select changes
-          startTransition(() => {
-            const params = new URLSearchParams();
-            
-            if (searchInput.trim()) {
-              params.set("search", searchInput.trim());
-            }
+        <SearchableSelect
+          options={itemOptions}
+          value={itemFilter}
+          onValueChange={(val) => {
+            const value = val || "all";
+            setItemFilter(value);
+            startTransition(() => {
+              const params = new URLSearchParams();
+              
+              if (searchInput.trim()) {
+                params.set("search", searchInput.trim());
+              }
 
-            if (value !== "all") {
-              params.set("itemId", value);
-            }
+              if (value !== "all") {
+                params.set("itemId", value);
+              }
 
-            if (warehouseFilter !== "all") {
-              params.set("warehouseId", warehouseFilter);
-            }
+              if (warehouseFilter !== "all") {
+                params.set("warehouseId", warehouseFilter);
+              }
 
-            if (transactionTypeFilter !== "all") {
-              params.set("transactionType", transactionTypeFilter);
-            }
+              if (transactionTypeFilter !== "all") {
+                params.set("transactionType", transactionTypeFilter);
+              }
 
-            if (dateFrom) {
-              params.set("dateFrom", dateFrom);
-            }
+              if (dateFrom) {
+                params.set("dateFrom", dateFrom);
+              }
 
-            if (dateTo) {
-              params.set("dateTo", dateTo);
-            }
+              if (dateTo) {
+                params.set("dateTo", dateTo);
+              }
 
-            params.set("page", "1");
-            router.push(`/dashboard/inventory/stock/ledger?${params.toString()}`);
-          });
-        }}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filter by item" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Items</SelectItem>
-            {items.map((item) => (
-              <SelectItem key={item.id} value={item.id}>
-                {item.name} ({item.code})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+              params.set("page", "1");
+              router.push(`/dashboard/inventory/stock/ledger?${params.toString()}`);
+            });
+          }}
+          placeholder="Filter by item"
+          searchPlaceholder="Search items..."
+          className="w-[200px]"
+        />
 
-        <Select value={warehouseFilter} onValueChange={(value) => {
-          setWarehouseFilter(value);
-          // Update filters immediately for select changes
-          startTransition(() => {
-            const params = new URLSearchParams();
-            
-            if (searchInput.trim()) {
-              params.set("search", searchInput.trim());
-            }
+        <SearchableSelect
+          options={warehouseOptions}
+          value={warehouseFilter}
+          onValueChange={(val) => {
+            const value = val || "all";
+            setWarehouseFilter(value);
+            startTransition(() => {
+              const params = new URLSearchParams();
+              
+              if (searchInput.trim()) {
+                params.set("search", searchInput.trim());
+              }
 
-            if (itemFilter !== "all") {
-              params.set("itemId", itemFilter);
-            }
+              if (itemFilter !== "all") {
+                params.set("itemId", itemFilter);
+              }
 
-            if (value !== "all") {
-              params.set("warehouseId", value);
-            }
+              if (value !== "all") {
+                params.set("warehouseId", value);
+              }
 
-            if (transactionTypeFilter !== "all") {
-              params.set("transactionType", transactionTypeFilter);
-            }
+              if (transactionTypeFilter !== "all") {
+                params.set("transactionType", transactionTypeFilter);
+              }
 
-            if (dateFrom) {
-              params.set("dateFrom", dateFrom);
-            }
+              if (dateFrom) {
+                params.set("dateFrom", dateFrom);
+              }
 
-            if (dateTo) {
-              params.set("dateTo", dateTo);
-            }
+              if (dateTo) {
+                params.set("dateTo", dateTo);
+              }
 
-            params.set("page", "1");
-            router.push(`/dashboard/inventory/stock/ledger?${params.toString()}`);
-          });
-        }} disabled={isNormalUser}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filter by warehouse" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Warehouses</SelectItem>
-            {warehouses.map((warehouse) => (
-              <SelectItem key={warehouse.id} value={warehouse.id}>
-                {warehouse.name} ({warehouse.code})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+              params.set("page", "1");
+              router.push(`/dashboard/inventory/stock/ledger?${params.toString()}`);
+            });
+          }}
+          placeholder="Filter by warehouse"
+          searchPlaceholder="Search warehouses..."
+          className="w-[200px]"
+          disabled={isNormalUser}
+        />
 
         <Select value={transactionTypeFilter} onValueChange={(value) => {
           setTransactionTypeFilter(value as StockTransactionType | "all");

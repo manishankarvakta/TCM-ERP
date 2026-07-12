@@ -101,26 +101,26 @@ export default async function StockPage({ searchParams }: StockPageProps) {
           
           <div className="flex flex-wrap items-center gap-4">
             {/* Total Stock Quantity Card */}
-            <div className="bg-card border rounded-lg px-4 py-2 flex items-center gap-3 shadow-sm hover:shadow-md transition-all duration-300">
-              <div className="p-2 rounded-full bg-primary/10 text-primary">
+            <div className="bg-blue-50/70 dark:bg-blue-950/25 border border-blue-100/80 dark:border-blue-900/40 rounded-lg px-4 h-12 flex items-center gap-3 shadow-sm hover:shadow-md transition-all duration-300">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-blue-500/10 text-blue-600 dark:text-blue-400">
                 <FiPackage className="h-4 w-4" />
               </div>
               <div>
-                <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Total Stock</p>
-                <p className="text-sm font-semibold font-mono text-foreground">
+                <p className="text-[9px] uppercase font-bold tracking-wider text-blue-600/80 dark:text-blue-400/80 leading-none mb-0.5">Total Stock</p>
+                <p className="text-sm font-semibold font-mono text-blue-700 dark:text-blue-300 leading-none">
                   {totalQuantity.toLocaleString()}
                 </p>
               </div>
             </div>
 
             {/* Total Stock Value Card */}
-            <div className="bg-card border rounded-lg px-4 py-2 flex items-center gap-3 shadow-sm hover:shadow-md transition-all duration-300">
-              <div className="p-2 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                <span className="text-sm font-bold">৳</span>
+            <div className="bg-emerald-50/70 dark:bg-emerald-950/25 border border-emerald-100/80 dark:border-emerald-900/40 rounded-lg px-4 h-12 flex items-center gap-3 shadow-sm hover:shadow-md transition-all duration-300">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <span className="text-sm font-bold leading-none">৳</span>
               </div>
               <div>
-                <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Stock Value</p>
-                <p className="text-sm font-semibold font-mono text-emerald-600 dark:text-emerald-400">
+                <p className="text-[9px] uppercase font-bold tracking-wider text-emerald-600/80 dark:text-emerald-400/80 leading-none mb-0.5">Stock Value</p>
+                <p className="text-sm font-semibold font-mono text-emerald-700 dark:text-emerald-300 leading-none">
                   ৳{totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
