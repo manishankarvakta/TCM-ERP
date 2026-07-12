@@ -4,13 +4,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { FiArrowLeft, FiEdit, FiUser, FiMapPin, FiPhone, FiBriefcase, FiDollarSign, FiCalendar, FiCreditCard, FiMail } from "react-icons/fi";
+import { FiArrowLeft, FiEdit, FiUser, FiMapPin, FiPhone, FiBriefcase, FiDollarSign, FiCalendar, FiCreditCard, FiMail, FiPrinter } from "react-icons/fi";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
 import { notFound } from "next/navigation";
 import PageGuard from "@/components/permissions/page-guard";
+import { prisma } from "@/lib/prisma";
+import PrintIdCardDialog from "../_components/print-id-card-dialog";
+import { serializeDecimalAndDate } from "@/lib/utils/serialization";
 
-export function getEmployeeDutyStatus(attendanceLogs?: { timestamp: Date | string }[]): boolean {
+function getEmployeeDutyStatus(attendanceLogs?: { timestamp: Date | string }[]): boolean {
   if (!attendanceLogs || attendanceLogs.length === 0) return false;
 
   const latestPunch = new Date(attendanceLogs[0].timestamp);
@@ -66,6 +69,10 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
   const salaryStructure = (result as any).salaryStructure;
   const employeeStatus = employee.status || "active";
 
+  const orgInfo = await prisma.organization.findFirst({
+    where: { status: "active" }
+  });
+
   return (
     <PageGuard permissionKey="peoples.employees" requiredOperation="view">
       <div className="space-y-6">
@@ -76,12 +83,18 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
             Back to Employees
           </Link>
         </Button>
-        <Button asChild>
-          <Link href={`/dashboard/employees/${employee.id}`}>
-            <FiEdit className="mr-2 h-4 w-4" />
-            Edit Employee
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <PrintIdCardDialog
+            employee={serializeDecimalAndDate(employee)}
+            orgInfo={serializeDecimalAndDate(orgInfo)}
+          />
+          <Button asChild>
+            <Link href={`/dashboard/employees/${employee.id}`}>
+              <FiEdit className="mr-2 h-4 w-4" />
+              Edit Employee
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -100,6 +113,7 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
                   <h3 className="font-semibold">Personal Information</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Row 1: Code, Name, Email */}
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Employee Code</label>
                     <p className="text-sm font-mono font-medium bg-muted/50 px-2 py-1 rounded inline-block">
@@ -113,11 +127,6 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Gender</label>
-                    <p className="text-sm">{employee.gender || "-"}</p>
-                  </div>
-
-                  <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Email Address</label>
                     <div className="flex items-center gap-2 text-sm">
                       <FiMail className="text-muted-foreground h-3 w-3" />
@@ -125,19 +134,13 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
                     </div>
                   </div>
 
+                  {/* Row 2: Phone, National ID, Status */}
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Phone Number</label>
                     <div className="flex items-center gap-2 text-sm">
                       <FiPhone className="text-muted-foreground h-3 w-3" />
                       <span>{employee.phone || "-"}</span>
                     </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Date of Birth</label>
-                    <p className="text-sm">
-                      {employee.dateOfBirth ? format(new Date(employee.dateOfBirth), "MMM d, yyyy") : "-"}
-                    </p>
                   </div>
 
                   <div className="space-y-1">
@@ -156,6 +159,25 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
                     </div>
                   </div>
 
+                  {/* Row 3: Gender, Blood Group, Date of Birth */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Gender</label>
+                    <p className="text-sm">{employee.gender || "-"}</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Blood Group</label>
+                    <p className="text-sm font-semibold text-indigo-700">{employee.bloodGroup || "-"}</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Date of Birth</label>
+                    <p className="text-sm">
+                      {employee.dateOfBirth ? format(new Date(employee.dateOfBirth), "MMM d, yyyy") : "-"}
+                    </p>
+                  </div>
+
+                  {/* Row 4: Linked User */}
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Linked User</label>
                     <p className="text-sm text-muted-foreground">
