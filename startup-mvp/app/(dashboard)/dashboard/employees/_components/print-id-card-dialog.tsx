@@ -152,14 +152,13 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
             
             {/* ============================================================== */}
             {/* CARD FRONT                                                     */}
-            {/* ============================================================== */}
-            <div className="relative w-[54mm] h-[86mm] bg-white rounded-[12px] border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-slate-300 print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins pt-[12mm] pb-[12mm]">
+            {/* ============================================================== */}            <div className="relative w-[54mm] h-[86mm] bg-white rounded-[12px] border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-slate-300 print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins pt-[8mm] pb-[8mm]">
               
-              {/* Top Navy Block */}
-              <div className="absolute top-0 left-0 w-full h-[10mm] bg-[#2b3b7c] rounded-b-[12px] z-0"></div>
+              {/* Top Navy Block (Centered and Small) */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[32mm] h-[6mm] bg-[#2b3b7c] rounded-b-[8px] z-0"></div>
               
-              {/* Bottom Navy Block */}
-              <div className="absolute bottom-0 left-0 w-full h-[10mm] bg-[#2b3b7c] rounded-t-[12px] z-0"></div>
+              {/* Bottom Navy Block (Centered and Small) */}
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[32mm] h-[6mm] bg-[#2b3b7c] rounded-t-[8px] z-0"></div>
 
               {/* Lanyard Slot Placeholder */}
               <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-1.5 bg-white/20 rounded-full z-20 flex items-center justify-center">
@@ -171,7 +170,7 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
                 
                 {/* Header section: Centered Logo */}
                 <div className="flex items-center justify-center">
-                  <img src="/logo.png" alt="logo" className="h-[9mm] max-w-[42mm] object-contain" />
+                  <img src="/logo.png" alt="logo" className="h-[10mm] max-w-[42mm] object-contain" />
                 </div>
 
                 {/* Profile Avatar */}
@@ -214,13 +213,13 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
             {/* ============================================================== */}
             {/* CARD BACK                                                      */}
             {/* ============================================================== */}
-            <div className="relative w-[54mm] h-[86mm] bg-white rounded-[12px] border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-slate-300 print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins pt-[12mm] pb-[12mm]">
+            <div className="relative w-[54mm] h-[86mm] bg-white rounded-[12px] border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between select-none box-border print:border-slate-300 print:rounded-[12px] print:shadow-none bg-no-repeat id-card-poppins pt-[8mm] pb-[8mm]">
               
-              {/* Top Navy Block */}
-              <div className="absolute top-0 left-0 w-full h-[10mm] bg-[#2b3b7c] rounded-b-[12px] z-0"></div>
+              {/* Top Navy Block (Centered and Small) */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[32mm] h-[6mm] bg-[#2b3b7c] rounded-b-[8px] z-0"></div>
               
-              {/* Bottom Navy Block */}
-              <div className="absolute bottom-0 left-0 w-full h-[10mm] bg-[#2b3b7c] rounded-t-[12px] z-0"></div>
+              {/* Bottom Navy Block (Centered and Small) */}
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[32mm] h-[6mm] bg-[#2b3b7c] rounded-t-[8px] z-0"></div>
 
               {/* Lanyard Slot Placeholder */}
               <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-1.5 bg-white/20 rounded-full z-20 flex items-center justify-center">
