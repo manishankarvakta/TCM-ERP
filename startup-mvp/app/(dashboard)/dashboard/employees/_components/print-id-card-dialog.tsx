@@ -217,8 +217,8 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
 
                 {/* Employee ID & Issue Date */}
                 <div className="flex flex-col items-center text-slate-700 leading-tight">
-                  <span className="text-[7.5px] font-semibold tracking-wide">{employee.employeeCode || "-"}</span>
-                  <span className="text-[6.5px] font-medium tracking-wide mt-0.5">{formatJoinDate(employee.joiningDate)}</span>
+                  <span className="text-[9px] font-semibold tracking-wide">{employee.employeeCode || "-"}</span>
+                  <span className="text-[8px] font-medium tracking-wide mt-0.5">{formatJoinDate(employee.joiningDate)}</span>
                 </div>
 
               </div>
