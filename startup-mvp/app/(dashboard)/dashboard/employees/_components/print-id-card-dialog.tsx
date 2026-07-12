@@ -183,7 +183,7 @@ export default function PrintIdCardDialog({ employee, orgInfo }: PrintIdCardDial
                   
                   {/* Header section: Centered Logo */}
                   <div className="flex items-center justify-center">
-                    <img src="/logo.png" alt="logo" className="h-[10mm] max-w-[42mm] object-contain" />
+                    <img src="/logo.png" alt="logo" className="h-[13mm] max-w-[42mm] object-contain" />
                   </div>
 
                   {/* Profile Avatar */}
