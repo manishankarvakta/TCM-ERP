@@ -55,7 +55,8 @@ export async function GET(
       );
     }
 
-    if (file.ownerId !== session.user.id) {
+    const isImage = file.mimeType.startsWith("image/");
+    if (file.ownerId !== session.user.id && !isImage) {
       return NextResponse.json(
         { error: "Forbidden: You don't have permission to access this file" },
         { status: 403 }
