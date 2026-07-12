@@ -70,12 +70,19 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           <p className="text-sm text-muted-foreground">Manage customer orders and fulfillment</p>
         </div>
         {canCreate && (
-          <Button asChild>
-            <Link href="/dashboard/quotations">
-              <FiPlus className="mr-2 h-4 w-4" />
-              New Order (from Quote)
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/quotations">
+                New Order (from Quote)
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/dashboard/quotations/orders/new">
+                <FiPlus className="mr-2 h-4 w-4" />
+                New Direct Order
+              </Link>
+            </Button>
+          </div>
         )}
       </div>
 

@@ -1,0 +1,9 @@
+2026-07-11T13:27:41.093Z Starting createOpportunity
+2026-07-11T13:27:41.123Z Input: {"title":"Software licence","clientId":"cmrg7egym0013us5goud40i8n","contactId":"cmrg7egyt0015us5gab6yi0bg","value":1999999999,"expectedCloseDate":"2026-07-30T00:00:00.000Z","ownerId":"cmqz07pw80000us0wt46cbwo7"}
+2026-07-11T13:27:41.127Z Validations passed
+2026-07-11T13:27:41.134Z Starting transaction
+2026-07-11T13:27:41.155Z Generated number: OPP-2026-0006
+2026-07-11T13:27:41.160Z Creating record with number: OPP-2026-0006
+2026-07-11T13:27:41.207Z Transaction committed, ID: cmrgeg67e0001use44klyb29e
+2026-07-11T13:27:41.232Z Logged item created
+2026-07-11T13:27:41.253Z Revalidated

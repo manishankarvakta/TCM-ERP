@@ -400,3 +400,69 @@ export async function getOrder(id: string) {
     return { success: false, error: "Failed to fetch order" };
   }
 }
+
+/**
+ * Create a direct order (without a quotation relation)
+ */
+export async function createDirectOrder(data: {
+  clientId: string;
+  items: Array<{
+    itemId?: string | null;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+  }>;
+  status?: OrderStatus;
+}) {
+  try {
+    if (!data.clientId) {
+      return { success: false, error: "Client is required" };
+    }
+    if (!data.items || data.items.length === 0) {
+      return { success: false, error: "At least one item is required" };
+    }
+
+    // 1. Calculate total value
+    const totalValue = data.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unitPrice)), 0);
+
+    // 2. Generate order number
+    const orderNumber = await generateOrderNumber();
+
+    // 3. Create order and snapshot items in a transaction
+    const order = await prisma.$transaction(async (tx) => {
+      // Create the order
+      const newOrder = await tx.order.create({
+        data: {
+          orderNumber,
+          quotationId: null,
+          clientId: data.clientId,
+          totalValue: new Prisma.Decimal(totalValue),
+          status: data.status || OrderStatus.PENDING,
+        },
+      });
+
+      // Create OrderItem snapshots
+      await tx.orderItem.createMany({
+        data: data.items.map(item => ({
+          id: crypto.randomUUID(),
+          orderId: newOrder.id,
+          quotationItemId: null,
+          itemId: item.itemId || null,
+          description: item.description || '',
+          quantity: new Prisma.Decimal(item.quantity),
+          unitPrice: new Prisma.Decimal(item.unitPrice),
+          amount: new Prisma.Decimal(Number(item.quantity) * Number(item.unitPrice)),
+          updatedAt: new Date()
+        }))
+      });
+
+      return newOrder;
+    });
+
+    return { success: true, orderId: order.id };
+  } catch (error) {
+    console.error("Error in createDirectOrder:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to create direct order" };
+  }
+}
+

@@ -16,7 +16,7 @@ async function generateWorkOrderCode(): Promise<string> {
   const prefix = `WO-${year}-`;
   
   // Find the latest work order code for this year
-  const latest = await prisma.workOrder.findFirst({
+  const latest = await prisma.order.findFirst({
     where: {
       code: {
         startsWith: prefix,
@@ -122,10 +122,10 @@ export async function getWorkOrders(
     const where = whereConditions.length > 0 ? { AND: whereConditions } : {};
 
     // Get total count
-    const total = await prisma.workOrder.count({ where });
+    const total = await prisma.order.count({ where });
 
     // Get work orders
-    const workOrders = await prisma.workOrder.findMany({
+    const workOrders = await prisma.order.findMany({
       where,
       include: {
         Quotation: {
@@ -209,7 +209,7 @@ export async function getWorkOrder(id: string) {
       };
     }
 
-    const workOrder = await prisma.workOrder.findUnique({
+    const workOrder = await prisma.order.findUnique({
       where: { id },
       include: {
         Quotation: {
@@ -328,7 +328,7 @@ export async function createWorkOrder(data: {
     const balance = data.amount - advanceAmount;
 
     // Create work order
-    const workOrder = await prisma.workOrder.create({
+    const workOrder = await prisma.order.create({
       data: {
         code,
         quotationId: data.quotationId,
@@ -450,7 +450,7 @@ export async function updateWorkOrder(
     }
 
     // Check if work order exists
-    const existingWorkOrder = await prisma.workOrder.findUnique({
+    const existingWorkOrder = await prisma.order.findUnique({
       where: { id },
     });
 
@@ -483,7 +483,7 @@ export async function updateWorkOrder(
     const balance = amount - advance;
 
     // Update work order
-    const workOrder = await prisma.workOrder.update({
+    const workOrder = await prisma.order.update({
       where: { id },
       data: {
         quotationId: data.quotationId || existingWorkOrder.quotationId,
@@ -571,7 +571,7 @@ export async function updateWorkOrderStatus(
       };
     }
 
-    const workOrder = await prisma.workOrder.findUnique({
+    const workOrder = await prisma.order.findUnique({
       where: { id },
     });
 
@@ -582,7 +582,7 @@ export async function updateWorkOrderStatus(
       };
     }
 
-    const updatedWorkOrder = await prisma.workOrder.update({
+    const updatedWorkOrder = await prisma.order.update({
       where: { id },
       data: {
         status: newStatus,
@@ -654,7 +654,7 @@ export async function moveWorkOrderToTrash(id: string) {
       };
     }
 
-    const workOrder = await prisma.workOrder.findUnique({
+    const workOrder = await prisma.order.findUnique({
       where: { id },
     });
 
@@ -665,7 +665,7 @@ export async function moveWorkOrderToTrash(id: string) {
       };
     }
 
-    await prisma.workOrder.update({
+    await prisma.order.update({
       where: { id },
       data: {
         isTrash: true,
@@ -711,7 +711,7 @@ export async function restoreWorkOrder(id: string) {
       };
     }
 
-    const workOrder = await prisma.workOrder.findUnique({
+    const workOrder = await prisma.order.findUnique({
       where: { id },
     });
 
@@ -722,7 +722,7 @@ export async function restoreWorkOrder(id: string) {
       };
     }
 
-    await prisma.workOrder.update({
+    await prisma.order.update({
       where: { id },
       data: {
         isTrash: false,
@@ -766,7 +766,7 @@ export async function deleteWorkOrderPermanently(id: string) {
       };
     }
 
-    const workOrder = await prisma.workOrder.findUnique({
+    const workOrder = await prisma.order.findUnique({
       where: { id },
     });
 
@@ -777,7 +777,7 @@ export async function deleteWorkOrderPermanently(id: string) {
       };
     }
 
-    await prisma.workOrder.delete({
+    await prisma.order.delete({
       where: { id },
     });
 
