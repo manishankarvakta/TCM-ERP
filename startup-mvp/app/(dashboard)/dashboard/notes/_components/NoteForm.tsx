@@ -37,7 +37,7 @@ interface NoteFormProps {
   onCancel: () => void;
   initialData?: Note | null;
   entityId?: string;
-  entityType?: "lead" | "opportunity" | "contact";
+  entityType?: "lead" | "opportunity" | "contact" | "project";
 }
 
 export function NoteForm({ onSuccess, onCancel, initialData, entityId, entityType }: NoteFormProps) {
@@ -59,6 +59,8 @@ export function NoteForm({ onSuccess, onCancel, initialData, entityId, entityTyp
       };
 
       if (entityId && entityType) {
+        data.entityType = entityType;
+        data.entityId = entityId;
         if (entityType === "lead") data.leadId = entityId;
         else if (entityType === "opportunity") data.opportunityId = entityId;
         else if (entityType === "contact") data.contactId = entityId;

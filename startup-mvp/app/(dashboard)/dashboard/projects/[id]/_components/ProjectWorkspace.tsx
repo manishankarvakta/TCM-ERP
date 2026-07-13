@@ -441,16 +441,39 @@ export default function ProjectWorkspace({ id, permissions = {}, userRole, userI
           </DialogContent>
       </Dialog>
 
-      {/* Unified ClickUp-Style Issue Dialog */}
+      {/* Unified ClickUp-Style Issue Dialog for existing, or standard IssueForm for new */}
       {isIssueDialogOpen && (
-          <ClickUpItemModal 
-              isOpen={isIssueDialogOpen}
-              onClose={() => setIsIssueDialogOpen(false)}
-              entityType="issue"
-              initialData={selectedIssue || { title: "New Issue", milestoneId: selectedMilestone?.id }}
-              users={users}
-              onRefresh={fetchProject}
-          />
+          selectedIssue ? (
+              <ClickUpItemModal 
+                  isOpen={isIssueDialogOpen}
+                  onClose={() => setIsIssueDialogOpen(false)}
+                  entityType="issue"
+                  initialData={selectedIssue}
+                  users={users}
+                  onRefresh={fetchProject}
+              />
+          ) : (
+              <Dialog open={isIssueDialogOpen} onOpenChange={setIsIssueDialogOpen}>
+                  <DialogContent className="sm:max-w-[600px] p-6 rounded-xl bg-background border-border/50 shadow-lg">
+                        <div className="border-b pb-4 mb-4">
+                            <DialogTitle className="text-xl font-bold">Log Issue</DialogTitle>
+                            <DialogDescription className="text-sm text-muted-foreground mt-1">
+                                Log a new technical issue mapped to this project milestone.
+                            </DialogDescription>
+                        </div>
+                        <div className="bg-card">
+                            <IssueForm 
+                                milestoneId={selectedMilestone?.id || ""}
+                                onSuccess={() => {
+                                    setIsIssueDialogOpen(false);
+                                    fetchProject();
+                                }}
+                                onCancel={() => setIsIssueDialogOpen(false)}
+                            />
+                        </div>
+                  </DialogContent>
+              </Dialog>
+          )
       )}
       {/* Tab Settings Dialog */}
       <Dialog open={isTabSettingsOpen} onOpenChange={setIsTabSettingsOpen}>
