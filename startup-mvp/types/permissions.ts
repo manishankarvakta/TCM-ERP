@@ -36,6 +36,9 @@ export type CustomOperation =
   | "start"
   | "complete"
   | "cancel"
+  | "view_scanner"
+  | "view_entries"
+  | "view_adjustment"
   | "view_sales_widget"
   | "view_inventory_widget"
   | "view_production_widget"
@@ -251,6 +254,7 @@ export const MODULES: Record<Module, ModuleMetadata> = {
       { id: "stock", label: "Stock", path: "/dashboard/inventory/stock", module: "inventory", permissionKey: "inventory.stock" },
       { id: "adjustments", label: "Adjustments", path: "/dashboard/inventory/adjustments", module: "inventory", permissionKey: "inventory.adjustments" },
       { id: "damage", label: "Damage", path: "/dashboard/inventory/damage", module: "inventory", permissionKey: "inventory.damage" },
+      { id: "count", label: "Inventory Count", path: "/dashboard/inventory/count", module: "inventory", permissionKey: "inventory.count" },
     ],
   },
   production: {
@@ -415,6 +419,9 @@ export const OPERATIONS: Record<Operation, OperationMetadata> = {
     description: "Cancel an ongoing process",
     category: "custom",
   },
+  view_scanner: { id: "view_scanner", label: "View Count Scanner", category: "custom" },
+  view_entries: { id: "view_entries", label: "View All Count Entries", category: "custom" },
+  view_adjustment: { id: "view_adjustment", label: "View Auto Adjustment", category: "custom" },
   view_sales_widget: { id: "view_sales_widget", label: "Sales Widget", category: "custom" },
   view_inventory_widget: { id: "view_inventory_widget", label: "Inventory Widget", category: "custom" },
   view_production_widget: { id: "view_production_widget", label: "Production Widget", category: "custom" },
@@ -870,6 +877,24 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         path: "/dashboard/inventory/damage",
         label: "Damage",
         operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "inventory.count",
+        path: "/dashboard/inventory/count",
+        label: "Count Scanner Page",
+        operations: ["view_scanner", "create"],
+      },
+      {
+        permissionKey: "inventory.count",
+        path: "/dashboard/inventory/count/entries",
+        label: "All Count Entries Page",
+        operations: ["view_entries", "delete"],
+      },
+      {
+        permissionKey: "inventory.count",
+        path: "/dashboard/inventory/count/adjustment",
+        label: "Auto Adjustment Page",
+        operations: ["view_adjustment", "approve"],
       },
     ],
   },

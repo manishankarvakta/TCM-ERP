@@ -112,8 +112,13 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
     const searchLower = itemSearch.toLowerCase();
     return items.filter(
       (item) =>
-        item.name.toLowerCase().includes(searchLower) ||
-        item.code.toLowerCase().includes(searchLower)
+        item.name?.toLowerCase().includes(searchLower) ||
+        item.code?.toLowerCase().includes(searchLower) ||
+        (item.barcode && item.barcode.toLowerCase().includes(searchLower)) ||
+        item.variants?.some((v: any) => 
+          (v.sku && v.sku.toLowerCase().includes(searchLower)) ||
+          (v.barcode && v.barcode.toLowerCase().includes(searchLower))
+        )
     );
   }, [items, itemSearch]);
 
@@ -249,24 +254,71 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
     const selectedItem = items.find(i => i.id === itemId);
     if (selectedItem) {
        if (selectedItem.itemType === "RETAIL" || selectedItem.itemType === "READY_PRODUCT") {
-           setSkuModalItem({
-               id: selectedItem.id,
-               description: selectedItem.description || selectedItem.name,
-               code: selectedItem.code
-           });
-           setSkuModalIndex(index);
-           setSkuModalOpen(true);
-           setSkuLoading(true);
-           setSelectedVariants({});
-           
-           const res = await getItemVariants(selectedItem.id);
-           if (res.success && res.variants) {
-               setSkuVariants(res.variants);
+           const query = itemSearch.trim().toLowerCase();
+           const matchedVariant = selectedItem.variants?.find(
+             (v: any) => (v.sku && v.sku.toLowerCase() === query) || (v.barcode && v.barcode.toLowerCase() === query)
+           );
+
+           if (matchedVariant) {
+             // Direct add the matched variant, bypass modal completely!
+             const description = `${matchedVariant.sku}${matchedVariant.size ? `, ${matchedVariant.size}` : ''}${matchedVariant.color ? `, ${matchedVariant.color}` : ''}`;
+             const costPrice = matchedVariant.costPrice ? Number(matchedVariant.costPrice) : 0;
+             form.setValue(`items.${index}.variantId`, matchedVariant.id);
+             form.setValue(`items.${index}.description`, description);
+             form.setValue(`items.${index}.unitRate`, costPrice);
+             
+             const qty = form.getValues(`items.${index}.quantity`) || 0;
+             form.setValue(`items.${index}.amount`, Number(Math.abs(qty * costPrice).toFixed(2)));
+
+             const currentWarehouseId = form.getValues("warehouseId");
+             if (currentWarehouseId) {
+                const res = await getStock(itemId, currentWarehouseId);
+                if (res.success && res.stock) {
+                   setStockMap(prev => ({ ...prev, [itemId]: Number(res.stock.quantity) }));
+                } else {
+                   setStockMap(prev => ({ ...prev, [itemId]: 0 }));
+                }
+             }
            } else {
-               toast({ title: "Error", description: "Failed to load variants", variant: "destructive" });
-               form.setValue(`items.${index}.itemId`, "");
+             // No direct variant match. Fetch variants asynchronously first
+             setSkuLoading(true);
+             const res = await getItemVariants(selectedItem.id);
+             if (res.success && res.variants && res.variants.length > 0) {
+                 // Open modal only now, preventing any blinking
+                 setSkuVariants(res.variants);
+                 setSkuModalItem({
+                     id: selectedItem.id,
+                     description: selectedItem.description || selectedItem.name,
+                     code: selectedItem.code
+                 });
+                 setSkuModalIndex(index);
+                 setSkuModalOpen(true);
+                 setSkuLoading(false);
+                 setSelectedVariants({});
+             } else {
+                 // Product has no variants at all! Add base product directly
+                 setSkuModalOpen(false);
+                 setSkuLoading(false);
+
+                 form.setValue(`items.${index}.variantId`, null);
+                 form.setValue(`items.${index}.unitRate`, Number(selectedItem.costPrice || 0));
+                 form.setValue(`items.${index}.description`, selectedItem.description || selectedItem.name || "");
+                 
+                 const qty = form.getValues(`items.${index}.quantity`) || 0;
+                 const rate = Number(selectedItem.costPrice || 0);
+                 form.setValue(`items.${index}.amount`, Number(Math.abs(qty * rate).toFixed(2)));
+
+                 const currentWarehouseId = form.getValues("warehouseId");
+                 if (currentWarehouseId) {
+                    const res = await getStock(itemId, currentWarehouseId);
+                    if (res.success && res.stock) {
+                       setStockMap(prev => ({ ...prev, [itemId]: Number(res.stock.quantity) }));
+                    } else {
+                       setStockMap(prev => ({ ...prev, [itemId]: 0 }));
+                    }
+                 }
+             }
            }
-           setSkuLoading(false);
        } else {
            form.setValue(`items.${index}.variantId`, null);
            form.setValue(`items.${index}.unitRate`, Number(selectedItem.costPrice || 0));

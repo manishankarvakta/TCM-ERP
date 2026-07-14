@@ -151,6 +151,7 @@ export async function getItemsForPurchase() {
         name: true,
         itemType: true,
         costPrice: true,
+        barcode: true,
         stocks: {
           select: {
             quantity: true,
@@ -159,6 +160,16 @@ export async function getItemsForPurchase() {
         unit: {
           select: {
             symbol: true,
+          },
+        },
+        variants: {
+          select: {
+            id: true,
+            sku: true,
+            barcode: true,
+            size: true,
+            color: true,
+            costPrice: true,
           },
         },
       },
@@ -176,11 +187,20 @@ export async function getItemsForPurchase() {
         return {
           id: item.id,
           code: item.code,
+          barcode: (item as any).barcode || null,
           description: item.name,
           itemType: item.itemType,
           unitPrice: item.costPrice ? Number(item.costPrice) : 0,
           stock: totalStock,
           unit: item.unit.symbol,
+          variants: (item as any).variants ? ((item as any).variants as any[]).map((v) => ({
+            id: v.id,
+            sku: v.sku,
+            barcode: v.barcode,
+            size: v.size,
+            color: v.color,
+            costPrice: v.costPrice ? Number(v.costPrice) : null,
+          })) : [],
         };
       }),
     };

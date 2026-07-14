@@ -652,6 +652,37 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
     });
   }
 
+  // Register ModuleOperation rows for inventory.count
+  const countOperationsList = [
+    { module: "inventory.count", operation: "view_scanner", label: "View Count Scanner Page" },
+    { module: "inventory.count", operation: "create", label: "Submit Scan Entries" },
+    { module: "inventory.count", operation: "view_entries", label: "View All Count Entries Page" },
+    { module: "inventory.count", operation: "delete", label: "Delete Scanned Entries" },
+    { module: "inventory.count", operation: "view_adjustment", label: "View Auto Adjustment Page" },
+    { module: "inventory.count", operation: "approve", label: "Generate Auto Adjustment" },
+  ];
+
+  for (const op of countOperationsList) {
+    await prisma.moduleOperation.upsert({
+      where: {
+        module_operation: {
+          module: op.module,
+          operation: op.operation,
+        },
+      },
+      update: {
+        label: op.label,
+        isActive: true,
+      },
+      create: {
+        module: op.module,
+        operation: op.operation,
+        label: op.label,
+        isActive: true,
+      },
+    });
+  }
+
   // Register ModuleOperation rows for production.boms
   const bomOperations = [
     { operation: "create", label: "Create BOM" },

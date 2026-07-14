@@ -89,11 +89,20 @@ interface PurchaseFormProps {
   items: Array<{
     id: string;
     code: string;
+    barcode?: string | null;
     description: string;
     itemType: string;
     unitPrice: number;
     stock: number;
     unit: string;
+    variants?: Array<{
+      id: string;
+      sku: string;
+      barcode?: string | null;
+      size?: string | null;
+      color?: string | null;
+      costPrice?: number | null;
+    }>;
   }>;
   initialData?: {
     id: string;
@@ -252,7 +261,12 @@ export default function PurchaseForm({
     return items.filter(
       (item) =>
         item.code.toLowerCase().includes(searchLower) ||
-        item.description.toLowerCase().includes(searchLower)
+        item.description.toLowerCase().includes(searchLower) ||
+        (item.barcode && item.barcode.toLowerCase().includes(searchLower)) ||
+        item.variants?.some(v => 
+          (v.sku && v.sku.toLowerCase().includes(searchLower)) ||
+          (v.barcode && v.barcode.toLowerCase().includes(searchLower))
+        )
     );
   }, [items, itemSearch]);
 
@@ -721,27 +735,69 @@ export default function PurchaseForm({
                                     const selectedItem = items.find((item) => item.id === value);
                                     if (selectedItem) {
                                       if (selectedItem.itemType === "RETAIL" || selectedItem.itemType === "READY_PRODUCT") {
-                                        // Open SKU selection modal
-                                        setSkuModalItem({
-                                          id: selectedItem.id,
-                                          description: selectedItem.description,
-                                          code: selectedItem.code
-                                        });
-                                        setSkuModalIndex(index);
-                                        setSkuModalOpen(true);
-                                        setSkuLoading(true);
-                                        setSelectedVariants({});
-                                        
-                                        const res = await getItemVariants(selectedItem.id);
-                                        if (res.success && res.variants) {
-                                          setSkuVariants(res.variants);
+                                        const query = itemSearch.trim().toLowerCase();
+                                        const matchedVariant = selectedItem.variants?.find(
+                                          v => (v.sku && v.sku.toLowerCase() === query) || (v.barcode && v.barcode.toLowerCase() === query)
+                                        );
+
+                                        if (matchedVariant) {
+                                          // Direct add the matched SKU variant, bypass modal completely!
+                                          itemField.onChange(value || "");
+                                          setValue(`items.${index}.variantId`, matchedVariant.id);
+                                          setValue(`items.${index}.description`, `${selectedItem.description} (${matchedVariant.color} / ${matchedVariant.size})`);
+                                          setValue(`items.${index}.unitPrice`, matchedVariant.costPrice ? Number(matchedVariant.costPrice) : selectedItem.unitPrice);
+                                          
+                                          const currentQuantity = Number(getValues(`items.${index}.quantity`) || 0);
+                                          const price = matchedVariant.costPrice ? Number(matchedVariant.costPrice) : selectedItem.unitPrice;
+                                          setValue(`items.${index}.amount`, currentQuantity * price);
+                                          
+                                          dispatch(setReduxItem({
+                                            index,
+                                            itemId: value,
+                                            variantId: matchedVariant.id,
+                                            description: `${selectedItem.description} (${matchedVariant.color} / ${matchedVariant.size})`,
+                                            unitPrice: price,
+                                          }));
                                         } else {
-                                          const errorMessage = res.error || "Failed to load variants";
-                                          // Note: toasts array is handled by custom Toaster wrapper in this component, but using standard toast UI is also good.
-                                          setError(errorMessage);
-                                          itemField.onChange("");
+                                          // No direct variant match. Fetch variants asynchronously first
+                                          setSkuLoading(true);
+                                          const res = await getItemVariants(selectedItem.id);
+                                          if (res.success && res.variants && res.variants.length > 0) {
+                                            // Open modal only now, preventing any blinking
+                                            setSkuVariants(res.variants);
+                                            setSkuModalItem({
+                                              id: selectedItem.id,
+                                              description: selectedItem.description,
+                                              code: selectedItem.code
+                                            });
+                                            setSkuModalIndex(index);
+                                            setSkuModalOpen(true);
+                                            setSkuLoading(false);
+                                            setSelectedVariants({});
+                                          } else {
+                                            // Product has no variants at all! Add base product directly
+                                            setSkuModalOpen(false);
+                                            setSkuLoading(false);
+
+                                            itemField.onChange(value || "");
+                                            setValue(`items.${index}.description`, selectedItem.description);
+                                            setValue(`items.${index}.unitPrice`, selectedItem.unitPrice);
+                                            
+                                            const currentQuantity = Number(getValues(`items.${index}.quantity`) || 0);
+                                            const amount = Number.isFinite(currentQuantity * selectedItem.unitPrice) 
+                                              ? currentQuantity * selectedItem.unitPrice 
+                                              : 0;
+                                            setValue(`items.${index}.amount`, amount);
+                                            
+                                            dispatch(setReduxItem({
+                                              index,
+                                              itemId: value,
+                                              variantId: "",
+                                              description: selectedItem.description,
+                                              unitPrice: selectedItem.unitPrice,
+                                            }));
+                                          }
                                         }
-                                        setSkuLoading(false);
                                       } else {
                                         itemField.onChange(value || "");
                                         setValue(`items.${index}.description`, selectedItem.description);

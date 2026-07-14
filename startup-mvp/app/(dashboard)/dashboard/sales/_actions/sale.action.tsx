@@ -410,6 +410,7 @@ export async function getItemsForSale() {
         isVatEnabled: true,
         vatPercentage: true,
         trackInventory: true,
+        barcode: true,
         stocks: {
           select: {
             warehouseId: true,
@@ -445,6 +446,7 @@ export async function getItemsForSale() {
       items: items.map((item) => ({
         id: item.id,
         code: item.code,
+        barcode: item.barcode || null,
         name: item.name,
         description: item.name,
         itemDescription: item.description || "",

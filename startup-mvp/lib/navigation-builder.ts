@@ -167,6 +167,12 @@ export const MENU_TEMPLATE: MenuItemData[] = [
         icon: "FiAlertTriangle", 
         module: "inventory" 
       },
+      { 
+        href: "/dashboard/inventory/count", 
+        label: "Inventory Count", 
+        icon: "FiCheckSquare", 
+        module: "inventory" 
+      },
     ],
   },
   {
@@ -259,6 +265,10 @@ export function getPermissionKeyFromPath(path: string): string | null {
   // Normalize path (remove query params, trailing slashes)
   const normalizedPath = path.split("?")[0].replace(/\/$/, "") || "/";
   
+  if (normalizedPath === "/dashboard/inventory/count") {
+    return "inventory.count";
+  }
+
   // Handle dashboard root path first
   if (normalizedPath === "/dashboard") {
     return "dashboard";

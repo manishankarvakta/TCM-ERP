@@ -1646,6 +1646,17 @@ export async function getActiveItems() {
         costPrice: true,
         itemType: true,
         trackInventory: true,
+        barcode: true,
+        variants: {
+          select: {
+            id: true,
+            sku: true,
+            barcode: true,
+            size: true,
+            color: true,
+            costPrice: true,
+          },
+        },
       },
       orderBy: {
         name: "asc",
@@ -1656,7 +1667,16 @@ export async function getActiveItems() {
       success: true,
       items: items.map(item => ({
         ...item,
-        costPrice: Number(item.costPrice)
+        costPrice: Number(item.costPrice),
+        barcode: item.barcode || null,
+        variants: item.variants ? item.variants.map((v) => ({
+          id: v.id,
+          sku: v.sku,
+          barcode: v.barcode,
+          size: v.size,
+          color: v.color,
+          costPrice: v.costPrice ? Number(v.costPrice) : null,
+        })) : [],
       })),
     };
   } catch (error) {

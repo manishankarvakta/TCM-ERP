@@ -488,26 +488,55 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
                                       const selectedItem = items.find((item: any) => item.id === value);
                                       if (selectedItem) {
                                         if (selectedItem.itemType === "RETAIL" || selectedItem.itemType === "READY_PRODUCT") {
-                                          setSkuModalItem({
-                                            id: selectedItem.id,
-                                            description: selectedItem.description,
-                                            code: selectedItem.code
-                                          });
-                                          setSkuModalIndex(index);
-                                          setSkuModalOpen(true);
-                                          setSkuLoading(true);
-                                          setSelectedVariants({});
-                                          
-                                          const res = await getItemVariants(selectedItem.id);
-                                          if (res.success && res.variants) {
-                                            setSkuVariants(res.variants);
+                                          const query = itemSearch.trim().toLowerCase();
+                                          const matchedVariant = selectedItem.variants?.find(
+                                            (v: any) => (v.sku && v.sku.toLowerCase() === query) || (v.barcode && v.barcode.toLowerCase() === query)
+                                          );
+
+                                          if (matchedVariant) {
+                                            // Direct add the matched variant, bypass modal completely!
+                                            const desc = `${matchedVariant.sku}${matchedVariant.size ? `, ${matchedVariant.size}` : ''}${matchedVariant.color ? `, ${matchedVariant.color}` : ''}`;
+                                            itemField.onChange(value);
+                                            setValue(`items.${index}.variantId`, matchedVariant.id);
+                                            setValue(`items.${index}.description`, desc);
+                                            setValue(`items.${index}.unitPrice`, matchedVariant.costPrice || selectedItem.unitPrice);
+                                            
+                                            const currentQuantity = Number(getValues(`items.${index}.quantity`) || 0);
+                                            const price = matchedVariant.costPrice || selectedItem.unitPrice;
+                                            setValue(`items.${index}.amount`, currentQuantity * price);
                                           } else {
-                                            setError(res.error || "Failed to load variants");
-                                            itemField.onChange("");
+                                            // No direct variant match. Fetch variants asynchronously first
+                                            setSkuLoading(true);
+                                            const res = await getItemVariants(selectedItem.id);
+                                            if (res.success && res.variants && res.variants.length > 0) {
+                                              // Open modal only now, preventing any blinking
+                                              setSkuVariants(res.variants);
+                                              setSkuModalItem({
+                                                id: selectedItem.id,
+                                                description: selectedItem.description,
+                                                code: selectedItem.code
+                                              });
+                                              setSkuModalIndex(index);
+                                              setSkuModalOpen(true);
+                                              setSkuLoading(false);
+                                              setSelectedVariants({});
+                                            } else {
+                                              // Product has no variants at all! Add base product directly
+                                              setSkuModalOpen(false);
+                                              setSkuLoading(false);
+
+                                              itemField.onChange(value);
+                                              setValue(`items.${index}.variantId`, null);
+                                              setValue(`items.${index}.description`, selectedItem.description);
+                                              setValue(`items.${index}.unitPrice`, selectedItem.unitPrice);
+                                              
+                                              const currentQuantity = Number(getValues(`items.${index}.quantity`) || 0);
+                                              setValue(`items.${index}.amount`, currentQuantity * selectedItem.unitPrice);
+                                            }
                                           }
-                                          setSkuLoading(false);
                                         } else {
                                           itemField.onChange(value);
+                                          setValue(`items.${index}.variantId`, null);
                                           setValue(`items.${index}.description`, selectedItem.description);
                                           setValue(`items.${index}.unitPrice`, selectedItem.unitPrice);
                                           
@@ -548,9 +577,25 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
                                         </div>
                                       </div>
                                       <div className="max-h-[200px] overflow-y-auto">
-                                        {availableItems.filter((i: any) => i.description.toLowerCase().includes(itemSearch.toLowerCase()) || i.code.toLowerCase().includes(itemSearch.toLowerCase())).length > 0 ? (
+                                        {availableItems.filter((i: any) => 
+                                          i.description?.toLowerCase().includes(itemSearch.toLowerCase()) || 
+                                          i.code?.toLowerCase().includes(itemSearch.toLowerCase()) ||
+                                          (i.barcode && i.barcode.toLowerCase().includes(itemSearch.toLowerCase())) ||
+                                          i.variants?.some((v: any) => 
+                                            (v.sku && v.sku.toLowerCase().includes(itemSearch.toLowerCase())) ||
+                                            (v.barcode && v.barcode.toLowerCase().includes(itemSearch.toLowerCase()))
+                                          )
+                                        ).length > 0 ? (
                                           availableItems
-                                            .filter((i: any) => i.description.toLowerCase().includes(itemSearch.toLowerCase()) || i.code.toLowerCase().includes(itemSearch.toLowerCase()))
+                                            .filter((i: any) => 
+                                              i.description?.toLowerCase().includes(itemSearch.toLowerCase()) || 
+                                              i.code?.toLowerCase().includes(itemSearch.toLowerCase()) ||
+                                              (i.barcode && i.barcode.toLowerCase().includes(itemSearch.toLowerCase())) ||
+                                              i.variants?.some((v: any) => 
+                                                (v.sku && v.sku.toLowerCase().includes(itemSearch.toLowerCase())) ||
+                                                (v.barcode && v.barcode.toLowerCase().includes(itemSearch.toLowerCase()))
+                                              )
+                                            )
                                             .map((item: any) => (
                                             <SelectItem key={item.id} value={item.id} className="text-left">
                                               <div className="flex justify-between items-center w-full gap-2 min-w-[200px]">

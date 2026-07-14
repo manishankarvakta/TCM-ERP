@@ -39,6 +39,7 @@ interface ItemVariant {
 interface Item {
   id: string;
   code: string;
+  barcode?: string | null;
   description: string;
   name?: string;
   itemDescription?: string;
@@ -564,6 +565,58 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     });
   }, [items, searchQuery, filterType, orderType, posSettings, selectedWarehouseId]);
 
+  const itemsHiddenDueToStock = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    return items.filter((item) => {
+      const q = searchQuery.toLowerCase().trim();
+      
+      const matchesCode = item.code?.toLowerCase().includes(q);
+      const matchesBarcode = item.barcode?.toLowerCase().includes(q);
+      const matchesDescription = item.description?.toLowerCase().includes(q);
+      const matchesDbDescription = item.itemDescription?.toLowerCase().includes(q);
+      const matchesName = item.name?.toLowerCase().includes(q);
+      const matchesVariant = item.variants?.some(v => 
+        (v.sku && v.sku.toLowerCase().includes(q)) || 
+        (v.barcode && v.barcode.toLowerCase().includes(q))
+      ) || false;
+
+      const matchesSearch = matchesCode || matchesBarcode || matchesDescription || matchesDbDescription || matchesName || matchesVariant;
+      if (!matchesSearch) return false;
+
+      const matchesCategory = filterType === "ALL" || item.category === filterType;
+      const matchesOrderType = orderType === "RETAIL"
+        ? (item.itemType === "RETAIL" || item.itemType === "READY_PRODUCT")
+        : item.itemType === "WHOLESALE";
+      if (!matchesCategory || !matchesOrderType) return false;
+
+      const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
+      let hasStock = true;
+      if (!isNegativeSaleAllowed && item.trackInventory) {
+        const itemStock = item.variants && item.variants.length > 0
+          ? item.variants.reduce((acc, v) => acc + (v.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0), 0)
+          : (item.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0);
+        hasStock = itemStock > 0;
+      }
+      return !hasStock;
+    });
+  }, [items, searchQuery, filterType, orderType, posSettings, selectedWarehouseId]);
+
+  useEffect(() => {
+    if (searchQuery.trim() && filteredItems.length === 0 && itemsHiddenDueToStock.length > 0) {
+      const firstItem = itemsHiddenDueToStock[0];
+      const stock = firstItem.variants && firstItem.variants.length > 0
+        ? firstItem.variants.reduce((acc, v) => acc + (v.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0), 0)
+        : (firstItem.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0);
+      
+      toast({
+        title: "Item Out of Stock",
+        description: `"${firstItem.description}" is out of stock (Available: ${stock}). It is hidden from the search results.`,
+        variant: "destructive",
+        duration: 3000
+      });
+    }
+  }, [searchQuery, filteredItems.length, itemsHiddenDueToStock, selectedWarehouseId]);
+
   const subTotal = cart.reduce((sum, item) => sum + item.unitPrice * item.cartQuantity, 0);
   const itemVatTotal = cart.reduce((sum, item) => {
     if (item.isVatEnabled && item.vatPercentage) {
@@ -598,7 +651,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const dueAmount = grandTotal - paidAmount;
 
   const handleAddToCart = (item: Item) => {
-    if (item.variants && item.variants.length > 0 && orderType !== "RETAIL") {
+    if (item.variants && item.variants.length > 0) {
       setSelectedItemForVariants(item);
       return;
     }
@@ -832,8 +885,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       }
     }
 
-    const matchedItem = items.find(i => i.code === barcode);
+    const matchedItem = items.find(i => i.code === barcode || i.barcode === barcode);
     if (matchedItem) {
+      if (matchedItem.variants && matchedItem.variants.length > 0) {
+        setSelectedItemForVariants(matchedItem);
+        return;
+      }
+
       const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
       if (!isNegativeSaleAllowed && matchedItem.trackInventory) {
         const itemStock = matchedItem.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
@@ -906,13 +964,20 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       }
     }
 
-    // Check parent items (Code)
-    const matchedItem = items.find(i => i.code === query);
+    // Check parent items (Code or Barcode)
+    const matchedItem = items.find(i => i.code === query || i.barcode === query);
     if (matchedItem) {
       const matchesOrderType = orderType === "RETAIL"
         ? (matchedItem.itemType === "RETAIL" || matchedItem.itemType === "READY_PRODUCT")
         : matchedItem.itemType === "WHOLESALE";
       if (matchesOrderType) {
+        // If the matched parent item has variants, open the SKU select options
+        if (matchedItem.variants && matchedItem.variants.length > 0) {
+          setSelectedItemForVariants(matchedItem);
+          setSearchQuery("");
+          return;
+        }
+
         const isNegativeSaleAllowed = posSettings?.allowNegativeSale ?? false;
         if (!isNegativeSaleAllowed && matchedItem.trackInventory) {
           const itemStock = matchedItem.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
