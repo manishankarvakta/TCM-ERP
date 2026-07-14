@@ -43,6 +43,11 @@ interface Category {
   description: string | null;
   status: string;
   image?: string | null;
+  parentId?: string | null;
+  parent?: {
+    id: string;
+    name: string;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -348,6 +353,7 @@ export default function CategoriesListClient({
               </TableHead>
               <TableHead className="w-16">Photo</TableHead>
               <TableHead>Name</TableHead>
+              <TableHead>Parent Category</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created At</TableHead>
@@ -357,7 +363,7 @@ export default function CategoriesListClient({
           <TableBody>
             {initialCategories.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No categories found
                 </TableCell>
               </TableRow>
@@ -385,6 +391,15 @@ export default function CategoriesListClient({
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">{category.name}</TableCell>
+                    <TableCell>
+                      {category.parent ? (
+                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
+                          {category.parent.name}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {category.description || "-"}
                     </TableCell>

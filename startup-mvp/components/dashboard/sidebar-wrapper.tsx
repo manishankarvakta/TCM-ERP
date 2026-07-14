@@ -1,4 +1,4 @@
-// Cache-bust: v4
+// Cache-bust: v5
 import { auth } from "@/lib/auth";
 import { getUserPermissionsEnhanced } from "@/lib/permissions";
 import { NAVIGATION_STRUCTURE, type PagePermission } from "@/types/permissions";
@@ -123,26 +123,13 @@ export default async function DashboardSidebarWrapper() {
   // Build accessible pages map (permissionKey -> has access)
   const accessiblePages = new Map<string, boolean>();
   
-  // Admin users have access to all dashboard routes without permission checks
-  if (isAdmin) {
-    // Set all pages in NAVIGATION_STRUCTURE as accessible for admin
-    for (const navItem of NAVIGATION_STRUCTURE) {
-      for (const page of navItem.pages) {
-        accessiblePages.set(page.permissionKey, true);
-      }
-    }
-    // Also set dashboard and profile as accessible
-    accessiblePages.set("dashboard", true);
-    accessiblePages.set("profile", true);
-  } else {
-    // Non-admin users: use permission-based access control
-    // Get user's permissions in enhanced format
-    const permissions = await getUserPermissionsEnhanced(session.user.id);
-    
-    // Check if user has any permissions (excluding always visible items)
-    const hasAnyPermissions = Object.keys(permissions).length > 0;
-    
-    if (!hasAnyPermissions) {
+  // Get user's permissions in enhanced format
+  const permissions = await getUserPermissionsEnhanced(session.user.id);
+  
+  // Check if user has any permissions (excluding always visible items)
+  const hasAnyPermissions = Object.keys(permissions).length > 0;
+  
+  if (!hasAnyPermissions) {
     // User has no permissions - only show Dashboard and Profile
     // Settings is excluded even though it's alwaysVisible
     
@@ -217,7 +204,6 @@ export default async function DashboardSidebarWrapper() {
           accessiblePages.set(page.permissionKey, hasAccess);
         }
       }
-    }
     }
   }
 

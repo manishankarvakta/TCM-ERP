@@ -5,7 +5,8 @@
  * backup metadata within ZIP files.
  */
 
-import AdmZip from 'adm-zip';
+import { promises as fs } from 'fs';
+import JSZip from 'jszip';
 import type { BackupMetadata, BackupType } from '@/types/backup';
 import {
   METADATA_FILENAME,
@@ -23,14 +24,15 @@ import { formatTimestamp, generateBackupId } from './utils';
  */
 export async function extractMetadataFromZip(zipPath: string): Promise<BackupMetadata> {
   try {
-    const zip = new AdmZip(zipPath);
-    const metadataEntry = zip.getEntry(METADATA_FILENAME);
+    const zipData = await fs.readFile(zipPath);
+    const zip = await JSZip.loadAsync(zipData);
+    const metadataFile = zip.file(METADATA_FILENAME);
 
-    if (!metadataEntry) {
+    if (!metadataFile) {
       throw new Error(`Metadata file '${METADATA_FILENAME}' not found in backup ZIP`);
     }
 
-    const metadataContent = zip.readAsText(metadataEntry);
+    const metadataContent = await metadataFile.async('string');
     
     if (!metadataContent) {
       throw new Error('Metadata file is empty');
@@ -211,7 +213,8 @@ export async function addMetadataToZip(
   metadata: BackupMetadata
 ): Promise<void> {
   try {
-    const zip = new AdmZip(zipPath);
+    const zipData = await fs.readFile(zipPath);
+    const zip = await JSZip.loadAsync(zipData);
 
     // Validate metadata before adding
     const validationResult = validateMetadata(metadata);
@@ -222,18 +225,12 @@ export async function addMetadataToZip(
     // Convert metadata to JSON string
     const metadataJson = JSON.stringify(metadata, null, 2);
 
-    // Check if metadata already exists
-    const existingEntry = zip.getEntry(METADATA_FILENAME);
-    if (existingEntry) {
-      // Remove existing metadata
-      zip.deleteFile(METADATA_FILENAME);
-    }
+    // Add or overwrite metadata
+    zip.file(METADATA_FILENAME, metadataJson);
 
-    // Add new metadata
-    zip.addFile(METADATA_FILENAME, Buffer.from(metadataJson, 'utf-8'));
-
-    // Write the updated ZIP
-    zip.writeZip(zipPath);
+    // Generate updated ZIP buffer and write it
+    const updatedZipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
+    await fs.writeFile(zipPath, updatedZipBuffer);
   } catch (error) {
     throw new Error(
       `Failed to add metadata to ZIP: ${error instanceof Error ? error.message : String(error)}`
@@ -263,14 +260,15 @@ export async function hasValidMetadata(zipPath: string): Promise<boolean> {
  */
 export async function getBackupType(zipPath: string): Promise<BackupType | null> {
   try {
-    const zip = new AdmZip(zipPath);
-    const metadataEntry = zip.getEntry(METADATA_FILENAME);
+    const zipData = await fs.readFile(zipPath);
+    const zip = await JSZip.loadAsync(zipData);
+    const metadataFile = zip.file(METADATA_FILENAME);
 
-    if (!metadataEntry) {
+    if (!metadataFile) {
       return null;
     }
 
-    const metadataContent = zip.readAsText(metadataEntry);
+    const metadataContent = await metadataFile.async('string');
     const metadata = JSON.parse(metadataContent);
 
     if (metadata && metadata.type) {

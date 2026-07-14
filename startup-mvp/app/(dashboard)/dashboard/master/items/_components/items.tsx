@@ -52,6 +52,7 @@ interface Item {
   description: string | null;
   itemType: ItemType;
   categoryId: string | null;
+  subCategoryId: string | null;
   unitId: string;
   costPrice: any;
   salesPrice: any | null;
@@ -66,6 +67,10 @@ interface Item {
   createdAt: Date;
   updatedAt: Date;
   category: {
+    id: string;
+    name: string;
+  } | null;
+  subCategory?: {
     id: string;
     name: string;
   } | null;
@@ -307,6 +312,8 @@ export default function ItemsListClient({
               <TableHead className="w-16 text-center"><FiImage className="mx-auto" /></TableHead>
               <TableHead>Code & Name</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead>Sub-category</TableHead>
               <TableHead>Price (Cost / Sales)</TableHead>
               <TableHead>Stock & Unit</TableHead>
               <TableHead>E-com</TableHead>
@@ -316,7 +323,7 @@ export default function ItemsListClient({
           </TableHeader>
           <TableBody>
             {initialItems.length === 0 ? (
-              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No items found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No items found</TableCell></TableRow>
             ) : (
               initialItems.map((item) => {
                 const isSelected = selectedItems.has(item.id);
@@ -337,6 +344,24 @@ export default function ItemsListClient({
                       </div>
                     </TableCell>
                     <TableCell>{getItemTypeBadge(item.itemType)}</TableCell>
+                    <TableCell>
+                      {item.category ? (
+                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 whitespace-nowrap">
+                          {item.category.name}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {item.subCategory ? (
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200/50 whitespace-nowrap">
+                          {item.subCategory.name}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-col text-sm">
                         <span className="text-muted-foreground line-through decoration-muted-foreground/30">{formatPrice(item.costPrice)}</span>

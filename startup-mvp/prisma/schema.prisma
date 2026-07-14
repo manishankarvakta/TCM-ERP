@@ -295,6 +295,28 @@ model Organization {
 }
 
 model Category {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  slug        String?    @unique
+  image       String?
+  status      String     @default("active")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  items            Item[]     @relation("ItemCategory")
+  subCategoryItems Item[]     @relation("ItemSubCategory")
+
+  // Hierarchical relations
+  parentId    String?
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Category[] @relation("CategoryHierarchy")
+
+  @@index([name])
+  @@index([status])
+  @@index([parentId])
+}
+
+model Brand {
   id          String   @id @default(cuid())
   name        String
   description String?
@@ -320,6 +342,7 @@ model Item {
   createdAt               DateTime                  @default(now())
   updatedAt               DateTime                  @updatedAt
   categoryId              String?
+  brandId                 String?
   name                    String
   itemType                ItemType
   salesPrice              Decimal?                  @db.Decimal(12, 2)
@@ -337,7 +360,10 @@ model Item {
   bomAsFinishedGood       BOM[]                     @relation("BOMFinishedGood")
   bomAsRawMaterial        BOMItem[]                 @relation("BOMRawMaterial")
   InventoryAdjustmentItem InventoryAdjustmentItem[]
-  category                Category?                 @relation(fields: [categoryId], references: [id])
+  subCategoryId           String?
+  category                Category?                 @relation("ItemCategory", fields: [categoryId], references: [id])
+  subCategory             Category?                 @relation("ItemSubCategory", fields: [subCategoryId], references: [id])
+  brand                   Brand?                    @relation(fields: [brandId], references: [id])
   creator                 User                      @relation("ItemCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   unit                    Unit                      @relation(fields: [unitId], references: [id])
   productionOrders        ProductionOrder[]         @relation("ProductionOrderFG")
@@ -376,6 +402,7 @@ model Item {
   @@index([isTrash])
   @@index([createdBy])
   @@index([barcode])
+  @@index([subCategoryId])
 }
 
 model Warehouse {

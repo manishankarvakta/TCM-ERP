@@ -10,6 +10,7 @@ import {
 } from "@/lib/hr/shift-utils";
 import { applyDailyAttendancePolicyValues } from "@/lib/hr-payroll/attendance-policy-service";
 import { startOfDay, endOfDay } from "date-fns";
+import { syncTimezoneFromDb } from "../shift-utils";
 
 /**
  * Attendance Processor Service
@@ -17,6 +18,8 @@ import { startOfDay, endOfDay } from "date-fns";
  */
 export async function processBiometricAttendance(startDate: Date, endDate: Date, employeeId?: string) {
   try {
+    await syncTimezoneFromDb();
+    
     console.log("⚙️ [PROCESS] Operation triggered for date range:", startDate, "-", endDate);
     const where: any = {
       timestamp: {

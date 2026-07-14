@@ -118,6 +118,30 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
     }
   }
 
+  const brands = [
+    { name: "Ferrari Fashion", description: "In-house brand for clothing products" },
+    { name: "Nike", description: "Premium sports brand apparel" },
+    { name: "Adidas", description: "Premium sports and lifestyle brand" },
+    { name: "Gucci", description: "Luxury fashion items" },
+    { name: "Zara", description: "Fast fashion retail apparel" },
+  ] as const;
+
+  for (const b of brands) {
+    const existing = await prisma.brand.findFirst({
+      where: { name: b.name },
+    });
+    if (existing) {
+      await prisma.brand.update({
+        where: { id: existing.id },
+        data: { description: b.description, status: "active" },
+      });
+    } else {
+      await prisma.brand.create({
+        data: { name: b.name, description: b.description, status: "active" },
+      });
+    }
+  }
+
   const [kg, mtr, yd, roll, pcs, pack] = await Promise.all([
     prisma.unit.findUniqueOrThrow({ where: { symbol: "kg" } }),
     prisma.unit.findUniqueOrThrow({ where: { symbol: "mtr" } }),
@@ -617,6 +641,52 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
       update: { label: op.label, description: op.description, isActive: true },
       create: {
         module: "master.items",
+        operation: op.operation,
+        label: op.label,
+        description: op.description,
+        isActive: true,
+      },
+    });
+  }
+
+  // Register ModuleOperation rows for master.categories
+  const categoryOps = [
+    { operation: "create", label: "Create", description: "Create categories" },
+    { operation: "view", label: "View", description: "View categories" },
+    { operation: "edit", label: "Edit", description: "Edit categories" },
+    { operation: "move-to-trash", label: "Move to Trash", description: "Move categories to trash" },
+    { operation: "delete-permanently", label: "Delete Permanently", description: "Delete categories permanently" },
+  ] as const;
+
+  for (const op of categoryOps) {
+    await prisma.moduleOperation.upsert({
+      where: { module_operation: { module: "master.categories", operation: op.operation } },
+      update: { label: op.label, description: op.description, isActive: true },
+      create: {
+        module: "master.categories",
+        operation: op.operation,
+        label: op.label,
+        description: op.description,
+        isActive: true,
+      },
+    });
+  }
+
+  // Register ModuleOperation rows for master.brands
+  const brandOps = [
+    { operation: "create", label: "Create", description: "Create brands" },
+    { operation: "view", label: "View", description: "View brands" },
+    { operation: "edit", label: "Edit", description: "Edit brands" },
+    { operation: "move-to-trash", label: "Move to Trash", description: "Move brands to trash" },
+    { operation: "delete-permanently", label: "Delete Permanently", description: "Delete brands permanently" },
+  ] as const;
+
+  for (const op of brandOps) {
+    await prisma.moduleOperation.upsert({
+      where: { module_operation: { module: "master.brands", operation: op.operation } },
+      update: { label: op.label, description: op.description, isActive: true },
+      create: {
+        module: "master.brands",
         operation: op.operation,
         label: op.label,
         description: op.description,

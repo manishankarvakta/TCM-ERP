@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,21 +18,19 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle } from "react-icons/fi";
-import { createCategory, updateCategory, getActiveRootCategories } from "../_actions/category.action";
+import { createBrand, updateBrand } from "../_actions/brand.action";
 import MediaSelector from "@/components/MediaSelector";
-import { SearchableSelect } from "@/components/ui/searchable-select";
 
-const categoryFormSchema = z.object({
+const brandFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional().or(z.literal("")),
   status: z.enum(["active", "inactive"]),
   image: z.string().optional().nullable(),
-  parentId: z.string().optional().nullable(),
 });
 
-type CategoryFormData = z.infer<typeof categoryFormSchema>;
+type BrandFormData = z.infer<typeof brandFormSchema>;
 
-interface CategoryFormProps {
+interface BrandFormProps {
   mode: "create" | "edit";
   initialData?: {
     id: string;
@@ -40,15 +38,13 @@ interface CategoryFormProps {
     description: string | null;
     status: string;
     image?: string | null;
-    parentId?: string | null;
   };
 }
 
-export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
+export default function BrandForm({ mode, initialData }: BrandFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [rootCategories, setRootCategories] = useState<{ id: string; name: string }[]>([]);
 
   const {
     register,
@@ -57,8 +53,8 @@ export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
     control,
     setValue,
     watch,
-  } = useForm<CategoryFormData>({
-    resolver: zodResolver(categoryFormSchema),
+  } = useForm<BrandFormData>({
+    resolver: zodResolver(brandFormSchema),
     defaultValues: initialData
       ? {
           name: initialData.name,
@@ -67,72 +63,50 @@ export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
             ? initialData.status as "active" | "inactive"
             : "active",
           image: initialData.image || null,
-          parentId: initialData.parentId || null,
         }
       : {
           name: "",
           description: "",
           status: "active",
           image: null,
-          parentId: null,
         },
   });
 
   const watchedImage = watch("image");
 
-  useEffect(() => {
-    async function fetchRootCategories() {
-      try {
-        const res = await getActiveRootCategories();
-        if (res.success && res.categories) {
-          // Exclude self from parent list in edit mode
-          const filtered = mode === "edit" && initialData
-            ? res.categories.filter((c) => c.id !== initialData.id)
-            : res.categories;
-          setRootCategories(filtered);
-        }
-      } catch (err) {
-        console.error("Failed to load root categories", err);
-      }
-    }
-    fetchRootCategories();
-  }, [mode, initialData]);
-
-  const onSubmit = async (data: CategoryFormData) => {
+  const onSubmit = async (data: BrandFormData) => {
     try {
       setLoading(true);
       setError("");
 
       if (mode === "create") {
-        const result = await createCategory({
+        const result = await createBrand({
           name: data.name,
           description: data.description || undefined,
           status: data.status,
           image: data.image,
-          parentId: data.parentId || undefined,
         });
 
         if (!result.success) {
-          throw new Error(result.error || "Failed to create category");
+          throw new Error(result.error || "Failed to create brand");
         }
 
-        router.push("/dashboard/master/categories");
+        router.push("/dashboard/master/brands");
         router.refresh();
       } else {
-        const result = await updateCategory({
+        const result = await updateBrand({
           id: initialData!.id,
           name: data.name,
           description: data.description || undefined,
           status: data.status,
           image: data.image,
-          parentId: data.parentId || undefined,
         });
 
         if (!result.success) {
-          throw new Error(result.error || "Failed to update category");
+          throw new Error(result.error || "Failed to update brand");
         }
 
-        router.push("/dashboard/master/categories");
+        router.push("/dashboard/master/brands");
         router.refresh();
       }
     } catch (err: unknown) {
@@ -147,12 +121,12 @@ export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
       <Card>
         <CardHeader>
           <CardTitle>
-            {mode === "create" ? "Add New Category" : "Edit Category"}
+            {mode === "create" ? "Add New Brand" : "Edit Brand"}
           </CardTitle>
           <CardDescription>
             {mode === "create" 
-              ? "Enter category details to create a new category" 
-              : "Update category information"}
+              ? "Enter brand details to create a new brand" 
+              : "Update brand information"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -166,14 +140,14 @@ export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Left Column (Category Details) */}
+                {/* Left Column (Brand Details) */}
                 <div className="md:col-span-2 space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Category Name</Label>
+                    <Label htmlFor="name">Brand Name</Label>
                     <Input
                       id="name"
                       type="text"
-                      placeholder="e.g., Furniture, Flooring, Paint"
+                      placeholder="e.g., Ferrari Fashion, Nike, Adidas"
                       {...register("name")}
                       disabled={loading}
                     />
@@ -183,32 +157,10 @@ export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="parentId">Parent Category (Optional)</Label>
-                    <Controller
-                      name="parentId"
-                      control={control}
-                      render={({ field }) => (
-                        <SearchableSelect
-                          options={rootCategories.map((cat) => ({ label: cat.name, value: cat.id }))}
-                          value={field.value || null}
-                          onValueChange={field.onChange}
-                          placeholder="Select parent category"
-                          searchPlaceholder="Search parent categories..."
-                          allowClear
-                          disabled={loading}
-                        />
-                      )}
-                    />
-                    {errors.parentId && (
-                      <p className="text-sm text-destructive">{errors.parentId.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
                     <Label htmlFor="description">Description (Optional)</Label>
                     <Textarea
                       id="description"
-                      placeholder="Category description..."
+                      placeholder="Brand description..."
                       {...register("description")}
                       disabled={loading}
                       rows={4}
@@ -245,14 +197,14 @@ export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
                   </div>
                 </div>
 
-                {/* Right Column (Category Image) */}
+                {/* Right Column (Brand Image) */}
                 <div className="md:col-span-1 space-y-2 border-t md:border-t-0 md:border-l pt-6 md:pt-0 pl-0 md:pl-6 border-border/40">
-                  <Label htmlFor="image">Category Image (Optional)</Label>
+                  <Label htmlFor="image">Brand Logo (Optional)</Label>
                   <div className="flex flex-col gap-3">
                     {watchedImage ? (
                       <div className="relative w-full aspect-square rounded-lg border overflow-hidden bg-muted/20">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={watchedImage} alt="Category" className="w-full h-full object-cover" />
+                        <img src={watchedImage} alt="Brand" className="w-full h-full object-cover" />
                         <button
                           type="button"
                           onClick={() => setValue("image", null, { shouldDirty: true, shouldValidate: true })}
@@ -273,7 +225,7 @@ export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
                       </div>
                     )}
                     <div className="text-xs text-muted-foreground leading-normal">
-                      Upload a representative photo for this category. Allowed formats: PNG, JPG, JPEG.
+                      Upload a logo for this brand. Allowed formats: PNG, JPG, JPEG.
                     </div>
                   </div>
                 </div>
@@ -281,7 +233,7 @@ export default function CategoryForm({ mode, initialData }: CategoryFormProps) {
 
               <div className="flex items-center gap-3 pt-4">
                 <Button type="submit" disabled={loading}>
-                  {loading ? "Saving..." : mode === "create" ? "Create Category" : "Update Category"}
+                  {loading ? "Saving..." : mode === "create" ? "Create Brand" : "Update Brand"}
                 </Button>
                 <Button
                   type="button"

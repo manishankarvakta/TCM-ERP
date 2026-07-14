@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { syncBiometricLogs } from "@/lib/hr/biometric/sync-service";
 import { prisma } from "@/lib/prisma";
+import { syncTimezoneFromDb } from "@/lib/hr/shift-utils";
 
 export async function POST(req: Request) {
   try {
+    await syncTimezoneFromDb();
+    
     // Basic Security: Check for API Key in headers
     const authHeader = req.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -18,6 +21,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
+    console.log("📥 [SYNC API] Received payload:", JSON.stringify(body, null, 2));
     const { vendor, rawData, deviceId } = body;
 
     if (!vendor || !rawData || !Array.isArray(rawData)) {

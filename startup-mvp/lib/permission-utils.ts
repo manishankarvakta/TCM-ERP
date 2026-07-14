@@ -20,6 +20,7 @@ export function getPathPermissionKey(pathname: string): string | null {
   const pathMappings: Record<string, string> = {
     // Master Data
     "/dashboard/master/categories": "master.categories",
+    "/dashboard/master/brands": "master.brands",
     "/dashboard/master/units": "master.units",
     // Accounts
     "/dashboard/accounts/chart-of-accounts": "accounts.chart-of-accounts",

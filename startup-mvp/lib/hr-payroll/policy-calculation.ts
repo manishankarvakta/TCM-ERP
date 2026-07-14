@@ -1,7 +1,8 @@
 import { addDays, differenceInMinutes } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
+import { HR_BUSINESS_TIMEZONE } from "../hr/shift-utils";
 
-export const HR_BUSINESS_TIMEZONE = "Asia/Dhaka";
+export { HR_BUSINESS_TIMEZONE };
 
 // Helper to convert any input (Prisma Decimal, string, number) safely to a JS number
 function toNumber(val: any, fallback = 0): number {

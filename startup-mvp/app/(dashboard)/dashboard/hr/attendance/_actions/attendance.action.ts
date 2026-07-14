@@ -16,6 +16,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { startOfDay, endOfDay, isWeekend } from "date-fns";
 import { applyDailyAttendancePolicyValues } from "@/lib/hr-payroll/attendance-policy-service";
+import { syncTimezoneFromDb } from "@/lib/hr/shift-utils";
 
 /**
  * Log raw biometric/manual attendance punch
@@ -55,6 +56,8 @@ export async function processManualAttendance(input: {
   notes?: string;
 }) {
   try {
+    await syncTimezoneFromDb();
+    
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
 
@@ -256,6 +259,8 @@ export async function getAttendances(startDate: Date, endDate: Date, employeeId?
 export async function processBulkAttendance(date: string, warehouseId?: string) {
   const startTime = Date.now();
   try {
+    await syncTimezoneFromDb();
+    
     let session;
     try {
       session = await auth();

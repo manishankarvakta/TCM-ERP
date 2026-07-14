@@ -146,9 +146,10 @@ export const MODULES: Record<Module, ModuleMetadata> = {
     label: "Master Data",
     description: "Manage categories and units",
     subModules: [
-      { id: "categories", label: "Categories", path: "/dashboard/master/categories", module: "master", permissionKey: "master.categories" },
-      { id: "units", label: "Units", path: "/dashboard/master/units", module: "master", permissionKey: "master.units" },
       { id: "items", label: "Items", path: "/dashboard/master/items", module: "master", permissionKey: "master.items" },
+      { id: "categories", label: "Categories", path: "/dashboard/master/categories", module: "master", permissionKey: "master.categories" },
+      { id: "brands", label: "Brands", path: "/dashboard/master/brands", module: "master", permissionKey: "master.brands" },
+      { id: "units", label: "Units", path: "/dashboard/master/units", module: "master", permissionKey: "master.units" },
       { id: "warehouses", label: "Warehouses", path: "/dashboard/master/warehouses", module: "master", permissionKey: "master.warehouses" },
     ],
   },
@@ -510,6 +511,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "master.categories",
         path: "/dashboard/master/categories",
         label: "Categories",
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "master.brands",
+        path: "/dashboard/master/brands",
+        label: "Brands",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
       },
       {

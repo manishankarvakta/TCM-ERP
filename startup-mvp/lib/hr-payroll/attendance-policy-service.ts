@@ -6,6 +6,7 @@ import {
   formatBusinessDateKey,
   ShiftPolicy,
   HR_BUSINESS_TIMEZONE,
+  syncTimezoneFromDb,
 } from "@/lib/hr/shift-utils";
 import {
   calculateOvertimePreview,
@@ -208,6 +209,8 @@ export async function applyDailyAttendancePolicyValues(
   options: { force?: boolean } = {}
 ) {
   try {
+    await syncTimezoneFromDb();
+    
     const attendance = await prisma.attendance.findUnique({
       where: { id: attendanceId },
       include: {
@@ -322,6 +325,13 @@ export async function reprocessAttendancePoliciesForDateRange(input: {
   force?: boolean;
 }) {
   const force = !!input.force;
+  
+  try {
+    await syncTimezoneFromDb();
+  } catch (e) {
+    console.error("Failed to sync timezone in reprocessAttendancePoliciesForDateRange:", e);
+  }
+  
   const start = new Date(formatBusinessDateKey(new Date(input.fromDate)) + "T00:00:00.000Z");
   const end = new Date(formatBusinessDateKey(new Date(input.toDate)) + "T00:00:00.000Z");
 

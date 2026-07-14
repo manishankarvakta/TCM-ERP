@@ -4,7 +4,9 @@
  * Functions for validating backup integrity and structure.
  */
 
-import AdmZip from 'adm-zip';
+import { promises as fs } from 'fs';
+import path from 'path';
+import JSZip from 'jszip';
 import type { ValidationResult, BackupType } from '@/types/backup';
 import {
   extractMetadataFromZip,
@@ -20,7 +22,10 @@ import {
   METADATA_FILENAME,
   DATABASE_DUMP_FILENAME,
   FILES_DIRECTORY_NAME,
+  TEMP_DIR,
 } from './config';
+import { loadBackupMetadata } from '../backup-metadata';
+import { decryptBackupFileForRestore } from '../backup';
 
 /**
  * Validate backup integrity including checksum, structure, and metadata
@@ -30,6 +35,8 @@ import {
 export async function validateBackupIntegrity(backupPath: string): Promise<ValidationResult> {
   const errors: string[] = [];
   const warnings: string[] = [];
+  let workingBackupPath = backupPath;
+  let isTempDecryptedFile = false;
 
   try {
     // Check if file exists
@@ -44,10 +51,31 @@ export async function validateBackupIntegrity(backupPath: string): Promise<Valid
       };
     }
 
+    // Check if backup is encrypted and decrypt if needed
+    const encryptionMeta = await loadBackupMetadata(backupPath);
+    if (encryptionMeta && encryptionMeta.encrypted) {
+      try {
+        const decryptedBuffer = await decryptBackupFileForRestore(backupPath);
+        workingBackupPath = path.join(TEMP_DIR, `decrypted_val_${path.basename(backupPath)}`);
+        await fs.writeFile(workingBackupPath, decryptedBuffer);
+        isTempDecryptedFile = true;
+      } catch (error) {
+        errors.push(`Decryption failed: ${error instanceof Error ? error.message : String(error)}`);
+        return {
+          valid: false,
+          errors,
+          warnings,
+          checksumValid: false,
+          structureValid: false,
+          metadataValid: false,
+        };
+      }
+    }
+
     // Extract and validate metadata
     let metadata;
     try {
-      metadata = await extractMetadataFromZip(backupPath);
+      metadata = await extractMetadataFromZip(workingBackupPath);
       
       const metadataValidation = validateMetadata(metadata);
       if (!metadataValidation.valid) {
@@ -66,7 +94,7 @@ export async function validateBackupIntegrity(backupPath: string): Promise<Valid
     }
 
     // Validate ZIP structure
-    const structureResult = await verifyZipStructure(backupPath, metadata.type);
+    const structureResult = await verifyZipStructure(workingBackupPath, metadata.type);
     if (!structureResult.valid) {
       errors.push(...structureResult.errors);
       warnings.push(...structureResult.warnings);
@@ -76,7 +104,7 @@ export async function validateBackupIntegrity(backupPath: string): Promise<Valid
     let checksumValid = false;
     if (metadata.checksum && metadata.checksum !== '') {
       try {
-        checksumValid = await verifyFileChecksum(backupPath, metadata.checksum);
+        checksumValid = await verifyFileChecksum(workingBackupPath, metadata.checksum);
         if (!checksumValid) {
           errors.push('Checksum verification failed - backup file may be corrupted');
         }
@@ -104,6 +132,16 @@ export async function validateBackupIntegrity(backupPath: string): Promise<Valid
       structureValid: false,
       metadataValid: false,
     };
+  } finally {
+    if (isTempDecryptedFile) {
+      try {
+        await fs.unlink(workingBackupPath);
+      } catch (err: any) {
+        if (err.code !== 'ENOENT') {
+          console.warn(`Failed to delete temp decrypted validation file ${workingBackupPath}:`, err.message);
+        }
+      }
+    }
   }
 }
 
@@ -121,17 +159,19 @@ export async function verifyZipStructure(
   const warnings: string[] = [];
 
   try {
-    const zip = new AdmZip(zipPath);
-    const entries = zip.getEntries();
+    const zipData = await fs.readFile(zipPath);
+    const zip = await JSZip.loadAsync(zipData);
+    const files = zip.files;
+    const fileNames = Object.keys(files);
 
     // Check if ZIP is not empty
-    if (entries.length === 0) {
+    if (fileNames.length === 0) {
       errors.push('Backup ZIP is empty');
       return { valid: false, errors, warnings };
     }
 
     // Check for metadata.json
-    const hasMetadata = entries.some((entry) => entry.entryName === METADATA_FILENAME);
+    const hasMetadata = fileNames.includes(METADATA_FILENAME);
     if (!hasMetadata) {
       errors.push(`Missing ${METADATA_FILENAME} file`);
     }
@@ -140,16 +180,14 @@ export async function verifyZipStructure(
     switch (type) {
       case 'database':
         // Should contain database.dump
-        const hasDatabaseDump = entries.some(
-          (entry) => entry.entryName === DATABASE_DUMP_FILENAME
-        );
+        const hasDatabaseDump = fileNames.includes(DATABASE_DUMP_FILENAME);
         if (!hasDatabaseDump) {
           errors.push(`Missing ${DATABASE_DUMP_FILENAME} file for database backup`);
         }
         
         // Should not contain files directory
-        const hasFilesDir = entries.some(
-          (entry) => entry.entryName.startsWith(FILES_DIRECTORY_NAME + '/')
+        const hasFilesDir = fileNames.some(
+          (name) => name.startsWith(FILES_DIRECTORY_NAME + '/')
         );
         if (hasFilesDir) {
           warnings.push('Database backup contains files directory (unexpected)');
@@ -158,15 +196,15 @@ export async function verifyZipStructure(
 
       case 'files':
         // Should contain files (other than metadata)
-        const fileEntries = entries.filter(
-          (entry) => entry.entryName !== METADATA_FILENAME && !entry.isDirectory
+        const fileEntries = Object.entries(files).filter(
+          ([name, file]) => name !== METADATA_FILENAME && !file.dir
         );
         if (fileEntries.length === 0) {
           warnings.push('Files backup contains no files');
         }
         
         // Should not contain database.dump
-        const hasDb = entries.some((entry) => entry.entryName === DATABASE_DUMP_FILENAME);
+        const hasDb = fileNames.includes(DATABASE_DUMP_FILENAME);
         if (hasDb) {
           warnings.push('Files backup contains database.dump (unexpected)');
         }
@@ -174,18 +212,13 @@ export async function verifyZipStructure(
 
       case 'full':
         // Should contain both database.dump and files
-        const hasDbDump = entries.some(
-          (entry) => entry.entryName === DATABASE_DUMP_FILENAME
-        );
+        const hasDbDump = fileNames.includes(DATABASE_DUMP_FILENAME);
         if (!hasDbDump) {
           errors.push(`Missing ${DATABASE_DUMP_FILENAME} file for full backup`);
         }
 
-        const hasFiles = entries.some(
-          (entry) =>
-            entry.entryName !== METADATA_FILENAME &&
-            entry.entryName !== DATABASE_DUMP_FILENAME &&
-            !entry.isDirectory
+        const hasFiles = fileNames.some(
+          (name) => name.startsWith(FILES_DIRECTORY_NAME + '/')
         );
         if (!hasFiles) {
           warnings.push('Full backup contains no files');
@@ -232,16 +265,12 @@ export async function quickValidate(zipPath: string): Promise<boolean> {
   }
 }
 
-/**
- * Detect if a ZIP file is corrupted
- * @param zipPath - Path to ZIP file
- * @returns True if file appears to be corrupted
- */
 export async function isCorrupted(zipPath: string): Promise<boolean> {
   try {
-    const zip = new AdmZip(zipPath);
-    const entries = zip.getEntries();
-    return !entries || entries.length === 0;
+    const zipData = await fs.readFile(zipPath);
+    const zip = await JSZip.loadAsync(zipData);
+    const fileNames = Object.keys(zip.files);
+    return !fileNames || fileNames.length === 0;
   } catch {
     return true;
   }

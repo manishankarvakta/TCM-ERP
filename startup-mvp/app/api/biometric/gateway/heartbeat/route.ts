@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { syncTimezoneFromDb } from "@/lib/hr/shift-utils";
 
 export async function POST(req: Request) {
   try {
+    await syncTimezoneFromDb();
+    
     const authHeader = req.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

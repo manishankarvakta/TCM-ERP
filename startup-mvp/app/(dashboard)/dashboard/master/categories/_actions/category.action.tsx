@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
+import { hasPermission } from "@/lib/permissions";
 import { type Prisma } from "@prisma/client";
 
 /**
@@ -22,6 +23,21 @@ export async function getCategories(
       return {
         success: false,
         error: "Unauthorized",
+        categories: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          totalPages: 0,
+        },
+      };
+    }
+
+    const canView = await hasPermission(session.user.id, "master.categories", "view");
+    if (!canView) {
+      return {
+        success: false,
+        error: "You do not have permission to view categories",
         categories: [],
         pagination: {
           page: 1,
@@ -71,6 +87,13 @@ export async function getCategories(
         description: true,
         status: true,
         image: true,
+        parentId: true,
+        parent: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
       },
@@ -122,6 +145,15 @@ export async function getCategoryById(categoryId: string) {
       };
     }
 
+    const canView = await hasPermission(session.user.id, "master.categories", "view");
+    if (!canView) {
+      return {
+        success: false,
+        error: "You do not have permission to view categories",
+        category: null,
+      };
+    }
+
     const category = await prisma.category.findUnique({
       where: { id: categoryId },
       select: {
@@ -130,6 +162,13 @@ export async function getCategoryById(categoryId: string) {
         description: true,
         status: true,
         image: true,
+        parentId: true,
+        parent: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
       },
@@ -165,6 +204,7 @@ export async function createCategory(input: {
   description?: string;
   status?: "active" | "inactive";
   image?: string | null;
+  parentId?: string | null;
 }) {
   try {
     const session = await auth();
@@ -175,6 +215,29 @@ export async function createCategory(input: {
         error: "Unauthorized",
         category: null,
       };
+    }
+
+    const canCreate = await hasPermission(session.user.id, "master.categories", "create");
+    if (!canCreate) {
+      return {
+        success: false,
+        error: "You do not have permission to create categories",
+        category: null,
+      };
+    }
+
+    // Validate: parentId exists (if provided)
+    if (input.parentId) {
+      const parentCategory = await prisma.category.findUnique({
+        where: { id: input.parentId },
+      });
+      if (!parentCategory) {
+        return {
+          success: false,
+          error: "Parent category not found",
+          category: null,
+        };
+      }
     }
 
     // Check if name already exists
@@ -197,6 +260,7 @@ export async function createCategory(input: {
         description: input.description || null,
         status: input.status || "active",
         image: input.image || null,
+        parentId: input.parentId || null,
       },
       select: {
         id: true,
@@ -204,6 +268,13 @@ export async function createCategory(input: {
         description: true,
         status: true,
         image: true,
+        parentId: true,
+        parent: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         createdAt: true,
       },
     });
@@ -214,7 +285,7 @@ export async function createCategory(input: {
       "Category",
       category.id,
       category.name,
-      { name: category.name, description: category.description, image: category.image }
+      { name: category.name, description: category.description, image: category.image, parentId: category.parentId }
     );
 
     // Revalidate categories page
@@ -243,6 +314,7 @@ export async function updateCategory(input: {
   description?: string;
   status?: "active" | "inactive";
   image?: string | null;
+  parentId?: string | null;
 }) {
   try {
     const session = await auth();
@@ -255,10 +327,19 @@ export async function updateCategory(input: {
       };
     }
 
+    const canEdit = await hasPermission(session.user.id, "master.categories", "edit");
+    if (!canEdit) {
+      return {
+        success: false,
+        error: "You do not have permission to edit categories",
+        category: null,
+      };
+    }
+
     // Check if category exists
     const existingCategory = await prisma.category.findUnique({
       where: { id: input.id },
-      select: { id: true, name: true, description: true, status: true, image: true },
+      select: { id: true, name: true, description: true, status: true, image: true, parentId: true },
     });
 
     if (!existingCategory) {
@@ -267,6 +348,45 @@ export async function updateCategory(input: {
         error: "Category not found",
         category: null,
       };
+    }
+
+    // Validate parentId if provided
+    if (input.parentId) {
+      if (input.parentId === input.id) {
+        return {
+          success: false,
+          error: "A category cannot be its own parent",
+          category: null,
+        };
+      }
+
+      const parentCategory = await prisma.category.findUnique({
+        where: { id: input.parentId },
+      });
+      if (!parentCategory) {
+        return {
+          success: false,
+          error: "Parent category not found",
+          category: null,
+        };
+      }
+
+      // Cycle check
+      let currentParentId = input.parentId;
+      while (currentParentId) {
+        const parent = await prisma.category.findUnique({
+          where: { id: currentParentId },
+          select: { parentId: true },
+        });
+        if (parent?.parentId === input.id) {
+          return {
+            success: false,
+            error: "Cyclic relationship detected: parent category is a subcategory of this category",
+            category: null,
+          };
+        }
+        currentParentId = parent?.parentId || "";
+      }
     }
     
     // Check if name is being changed and if it's already taken
@@ -293,10 +413,12 @@ export async function updateCategory(input: {
       description?: string | null;
       status?: string;
       image?: string | null;
+      parentId?: string | null;
     } = {
       name: input.name,
       description: input.description || null,
       image: input.image !== undefined ? input.image : undefined,
+      parentId: input.parentId !== undefined ? (input.parentId || null) : undefined,
     };
 
     if (input.status !== undefined) {
@@ -313,6 +435,13 @@ export async function updateCategory(input: {
         description: true,
         status: true,
         image: true,
+        parentId: true,
+        parent: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
       },
@@ -324,6 +453,7 @@ export async function updateCategory(input: {
     if (input.description !== existingCategory.description) changes.push("description");
     if (input.status !== undefined && input.status !== existingCategory.status) changes.push("status");
     if (input.image !== undefined && input.image !== existingCategory.image) changes.push("image");
+    if (input.parentId !== existingCategory.parentId) changes.push("parentId");
 
     await logItemUpdated(
       session.user.id,
@@ -331,7 +461,7 @@ export async function updateCategory(input: {
       category.id,
       changes,
       category.name,
-      { name: category.name, description: category.description, image: category.image, changes }
+      { name: category.name, description: category.description, image: category.image, parentId: category.parentId, changes }
     );
 
     // Revalidate categories page
@@ -367,6 +497,14 @@ export async function deleteCategory(categoryId: string) {
       };
     }
 
+    const canDelete = await hasPermission(session.user.id, "master.categories", "move-to-trash");
+    if (!canDelete) {
+      return {
+        success: false,
+        error: "You do not have permission to delete categories",
+      };
+    }
+
     // Get category info before moving to trash for logging
     const categoryToDelete = await prisma.category.findUnique({
       where: { id: categoryId },
@@ -383,6 +521,12 @@ export async function deleteCategory(categoryId: string) {
     // Move category to trash (soft delete)
     await prisma.category.update({
       where: { id: categoryId },
+      data: { status: "trash" },
+    });
+
+    // Cascade soft delete to child categories
+    await prisma.category.updateMany({
+      where: { parentId: categoryId },
       data: { status: "trash" },
     });
 
@@ -427,6 +571,15 @@ export async function bulkUpdateCategoryStatus(
       };
     }
 
+    const requiredOp = status === "trash" ? "move-to-trash" : "edit";
+    const canPerform = await hasPermission(session.user.id, "master.categories", requiredOp);
+    if (!canPerform) {
+      return {
+        success: false,
+        error: `You do not have permission to ${requiredOp === "move-to-trash" ? "delete" : "edit"} categories`,
+      };
+    }
+
     if (categoryIds.length === 0) {
       return {
         success: false,
@@ -443,6 +596,18 @@ export async function bulkUpdateCategoryStatus(
         status,
       },
     });
+
+    if (status === "trash") {
+      // Cascade soft delete to all subcategories of these categories
+      await prisma.category.updateMany({
+        where: {
+          parentId: { in: categoryIds },
+        },
+        data: {
+          status: "trash",
+        },
+      });
+    }
 
     // Revalidate categories page
     revalidateBothPaths("master/categories");
@@ -473,10 +638,34 @@ export async function deleteCategoriesPermanently(categoryIds: string[]) {
       };
     }
 
+    const canDeletePermanently = await hasPermission(session.user.id, "master.categories", "delete-permanently");
+    if (!canDeletePermanently) {
+      return {
+        success: false,
+        error: "You do not have permission to permanently delete categories",
+      };
+    }
+
     if (categoryIds.length === 0) {
       return {
         success: false,
         error: "No categories selected",
+      };
+    }
+
+    // Check if any categories have children
+    const categoriesWithChildren = await prisma.category.findMany({
+      where: {
+        parentId: { in: categoryIds },
+      },
+      select: { name: true, parent: { select: { name: true } } }
+    });
+
+    if (categoriesWithChildren.length > 0) {
+      const parentNames = Array.from(new Set(categoriesWithChildren.map(c => c.parent?.name))).filter(Boolean).join(", ");
+      return {
+        success: false,
+        error: `Cannot permanently delete categories that have subcategories: ${parentNames}. Please delete subcategories first.`,
       };
     }
 
@@ -517,6 +706,59 @@ export async function deleteCategoriesPermanently(categoryIds: string[]) {
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to delete categories",
+    };
+  }
+}
+
+/**
+ * Get active root categories (categories where parentId is null and status is active)
+ */
+export async function getActiveRootCategories() {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        categories: [],
+      };
+    }
+
+    const canView = await hasPermission(session.user.id, "master.categories", "view");
+    if (!canView) {
+      return {
+        success: false,
+        error: "You do not have permission to view categories",
+        categories: [],
+      };
+    }
+
+    const categories = await prisma.category.findMany({
+      where: {
+        status: "active",
+        parentId: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return {
+      success: true,
+      categories,
+    };
+  } catch (error) {
+    console.error("getActiveRootCategories error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch active root categories",
+      categories: [],
     };
   }
 }

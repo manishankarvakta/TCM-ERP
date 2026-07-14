@@ -216,6 +216,18 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
                         </div>
                       </div>
                       <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Sub-category</label>
+                        <div className="mt-1">
+                          {item.subCategory ? (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200/50 text-xs font-semibold text-emerald-700">
+                              {item.subCategory.name}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground text-xs italic">No sub-category</span>
+                          )}
+                        </div>
+                      </div>
+                      <div>
                         <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Unit</label>
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-muted border border-border/50 text-xs font-semibold mt-1">
                           {item.unit.symbol} <span className="text-muted-foreground text-[10px] font-normal">({item.unit.details})</span>

@@ -154,6 +154,7 @@ export async function getActiveCategories() {
         id: true,
         name: true,
         description: true,
+        parentId: true,
       },
       orderBy: {
         name: "asc",
@@ -305,6 +306,7 @@ export async function getItems(
         description: true,
         itemType: true,
         categoryId: true,
+        brandId: true,
         unitId: true,
         costPrice: true,
         salesPrice: true,
@@ -322,7 +324,20 @@ export async function getItems(
         isTrash: true,
         createdAt: true,
         updatedAt: true,
+        subCategoryId: true,
         category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        subCategory: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        brand: {
           select: {
             id: true,
             name: true,
@@ -404,6 +419,7 @@ export async function getItemById(itemId: string) {
         description: true,
         itemType: true,
         categoryId: true,
+        brandId: true,
         unitId: true,
         costPrice: true,
         salesPrice: true,
@@ -424,7 +440,22 @@ export async function getItemById(itemId: string) {
         createdBy: true,
         isVatEnabled: true,
         vatPercentage: true,
+        subCategoryId: true,
         category: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+          },
+        },
+        subCategory: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+          },
+        },
+        brand: {
           select: {
             id: true,
             name: true,
@@ -787,6 +818,8 @@ export async function createItem(input: {
   description?: string;
   itemType: ItemType;
   categoryId?: string | null;
+  subCategoryId?: string | null;
+  brandId?: string | null;
   unitId: string;
   costPrice: number;
   salesPrice?: number | null;
@@ -868,6 +901,20 @@ export async function createItem(input: {
       }
     }
 
+    // Validate: brandId exists (if provided)
+    if (input.brandId) {
+      const brand = await prisma.brand.findUnique({
+        where: { id: input.brandId },
+      });
+      if (!brand) {
+        return {
+          success: false,
+          error: "Brand not found",
+          item: null,
+        };
+      }
+    }
+
     // Validate: unitId exists
     const unit = await prisma.unit.findUnique({
       where: { id: input.unitId },
@@ -878,6 +925,27 @@ export async function createItem(input: {
         error: "Unit not found",
         item: null,
       };
+    }
+
+    // Validate: subCategoryId exists (if provided)
+    if (input.subCategoryId) {
+      const subCategory = await prisma.category.findUnique({
+        where: { id: input.subCategoryId },
+      });
+      if (!subCategory) {
+        return {
+          success: false,
+          error: "Sub-category not found",
+          item: null,
+        };
+      }
+      if (input.categoryId && subCategory.parentId !== input.categoryId) {
+        return {
+          success: false,
+          error: "Selected sub-category does not belong to the selected category",
+          item: null,
+        };
+      }
     }
 
     // Generate code
@@ -921,6 +989,8 @@ export async function createItem(input: {
         description: input.description || null,
         itemType: input.itemType,
         categoryId: input.categoryId || null,
+        subCategoryId: input.subCategoryId || null,
+        brandId: input.brandId || null,
         unitId: input.unitId,
         costPrice: input.costPrice || 0,
         salesPrice: input.salesPrice || 0,
@@ -961,6 +1031,8 @@ export async function createItem(input: {
         description: true,
         itemType: true,
         categoryId: true,
+        subCategoryId: true,
+        brandId: true,
         unitId: true,
         costPrice: true,
         salesPrice: true,
@@ -977,6 +1049,18 @@ export async function createItem(input: {
         status: true,
         createdAt: true,
         category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        subCategory: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        brand: {
           select: {
             id: true,
             name: true,
@@ -1075,6 +1159,8 @@ export async function updateItem(input: {
   description?: string;
   itemType: ItemType;
   categoryId?: string | null;
+  subCategoryId?: string | null;
+  brandId?: string | null;
   unitId: string;
   costPrice: number;
   salesPrice?: number | null;
@@ -1135,6 +1221,7 @@ export async function updateItem(input: {
         description: true, 
         itemType: true,
         categoryId: true,
+        brandId: true,
         unitId: true,
         costPrice: true,
         salesPrice: true,
@@ -1179,6 +1266,40 @@ export async function updateItem(input: {
         return {
           success: false,
           error: "Category not found",
+          item: null,
+        };
+      }
+    }
+    // Validate: subCategoryId exists (if provided)
+    if (input.subCategoryId) {
+      const subCategory = await prisma.category.findUnique({
+        where: { id: input.subCategoryId },
+      });
+      if (!subCategory) {
+        return {
+          success: false,
+          error: "Sub-category not found",
+          item: null,
+        };
+      }
+      if (input.categoryId && subCategory.parentId !== input.categoryId) {
+        return {
+          success: false,
+          error: "Selected sub-category does not belong to the selected category",
+          item: null,
+        };
+      }
+    }
+
+    // Validate: brandId exists (if provided)
+    if (input.brandId) {
+      const brand = await prisma.brand.findUnique({
+        where: { id: input.brandId },
+      });
+      if (!brand) {
+        return {
+          success: false,
+          error: "Brand not found",
           item: null,
         };
       }
@@ -1230,6 +1351,8 @@ export async function updateItem(input: {
       description: input.description || null,
       itemType: input.itemType,
       category: input.categoryId ? { connect: { id: input.categoryId } } : { disconnect: true },
+      subCategory: input.subCategoryId ? { connect: { id: input.subCategoryId } } : { disconnect: true },
+      brand: input.brandId ? { connect: { id: input.brandId } } : { disconnect: true },
       unit: { connect: { id: input.unitId } },
       costPrice: input.costPrice || 0,
       salesPrice: input.salesPrice || 0,
@@ -1333,6 +1456,7 @@ export async function updateItem(input: {
         description: true,
         itemType: true,
         categoryId: true,
+        brandId: true,
         unitId: true,
         costPrice: true,
         salesPrice: true,
@@ -1347,7 +1471,20 @@ export async function updateItem(input: {
         status: true,
         createdAt: true,
         updatedAt: true,
+        subCategoryId: true,
         category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        subCategory: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        brand: {
           select: {
             id: true,
             name: true,
@@ -1370,6 +1507,7 @@ export async function updateItem(input: {
     if (input.description !== existingItem.description) changes.push("description");
     if (input.itemType !== existingItem.itemType) changes.push("itemType");
     if (input.categoryId !== existingItem.categoryId) changes.push("categoryId");
+    if (input.brandId !== existingItem.brandId) changes.push("brandId");
     if (input.unitId !== existingItem.unitId) changes.push("unitId");
     if (Number(input.costPrice) !== Number(existingItem.costPrice)) changes.push("costPrice");
     if ((input.salesPrice || null) !== (existingItem.salesPrice || null)) changes.push("salesPrice");

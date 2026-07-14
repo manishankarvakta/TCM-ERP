@@ -37,7 +37,7 @@ export default async function DashboardLayout({
           {children}
         </main>
       </div>
-      {!isAdmin && <PermissionSync />}
+      <PermissionSync />
     </div>
   );
 }

@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FiAlertCircle, FiPlus, FiTrash2 } from "react-icons/fi";
 import { createItem, updateItem, getActiveCategories, getActiveUnits } from "../_actions/item.action";
+import { getActiveBrands } from "../../brands/_actions/brand.action";
 import { ItemType } from "@prisma/client";
 import MediaSelector from "@/components/MediaSelector";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,8 @@ const itemFormSchema = z.object({
   description: z.string().optional(),
   itemType: z.enum(["RAW_MATERIAL", "READY_PRODUCT", "RETAIL", "WHOLESALE"]),
   categoryId: z.string().optional().nullable(),
+  subCategoryId: z.string().optional().nullable(),
+  brandId: z.string().optional().nullable(),
   unitId: z.string().min(1, "Unit is required"),
   costPrice: z.number().min(0, "Cost price must be >= 0"),
   salesPrice: z.number().min(0, "Sales price must be >= 0").optional().nullable(),
@@ -84,6 +87,8 @@ interface ItemFormProps {
     description: string | null;
     itemType: ItemType;
     categoryId: string | null;
+    subCategoryId: string | null;
+    brandId: string | null;
     unitId: string;
     costPrice: number;
     salesPrice: number | null;
@@ -120,6 +125,13 @@ interface Category {
   id: string;
   name: string;
   description: string | null;
+  parentId?: string | null;
+}
+
+interface Brand {
+  id: string;
+  name: string;
+  description: string | null;
 }
 
 interface Unit {
@@ -133,6 +145,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   
@@ -180,6 +193,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           description: initialData.description || "",
           itemType: initialData.itemType,
           categoryId: initialData.categoryId || null,
+          subCategoryId: initialData.subCategoryId || null,
+          brandId: initialData.brandId || null,
           unitId: initialData.unitId,
           costPrice: Number(initialData.costPrice),
           salesPrice: initialData.salesPrice !== null && initialData.salesPrice !== undefined ? Number(initialData.salesPrice) : 0,
@@ -202,8 +217,10 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
       : {
           name: "",
           description: "",
-          itemType: "RAW_MATERIAL",
+          itemType: "RETAIL",
           categoryId: null,
+          subCategoryId: null,
+          brandId: null,
           unitId: "",
           costPrice: 0,
           salesPrice: 0,
@@ -229,6 +246,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
   const watchedSizes = watch("sizes") || [];
   const watchedColors = watch("colors") || [];
   const watchedIsVatEnabled = watch("isVatEnabled") || false;
+  const watchedCategoryId = watch("categoryId");
   
   // Debug validation errors
   if (Object.keys(errors).length > 0) {
@@ -286,12 +304,13 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
     }
   }, [watchedSizes, watchedColors, watch("name")]);
 
-  // Fetch categories and units
+  // Fetch categories, brands and units
   useEffect(() => {
     async function fetchData() {
       try {
-        const [categoriesResult, unitsResult] = await Promise.all([
+        const [categoriesResult, brandsResult, unitsResult] = await Promise.all([
           getActiveCategories(),
+          getActiveBrands(),
           getActiveUnits(),
         ]);
 
@@ -299,8 +318,19 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           setCategories(categoriesResult.categories || []);
         }
 
+        if (brandsResult.success) {
+          setBrands(brandsResult.brands || []);
+        }
+
         if (unitsResult.success) {
-          setUnits(unitsResult.units || []);
+          const loadedUnits = unitsResult.units || [];
+          setUnits(loadedUnits);
+          if (mode === "create") {
+            const pcsUnit = loadedUnits.find(u => u.symbol.toLowerCase() === "pcs");
+            if (pcsUnit) {
+              setValue("unitId", pcsUnit.id);
+            }
+          }
         }
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -324,6 +354,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
         description: data.description || undefined,
         itemType: data.itemType,
         categoryId: data.categoryId || null,
+        subCategoryId: data.subCategoryId || null,
+        brandId: data.brandId || null,
         unitId: data.unitId,
         costPrice: data.costPrice,
         salesPrice: data.salesPrice || null,
@@ -333,14 +365,14 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
         trackInventory: data.trackInventory,
         images: data.images,
         featuredImage: data.featuredImage,
-        sizes: data.sizes,
-        colors: data.colors,
+        sizes: data.itemType === "RETAIL" ? data.sizes : [],
+        colors: data.itemType === "RETAIL" ? data.colors : [],
         isEnableEcom: data.isEnableEcom,
         status: data.status,
         isVatEnabled: data.isVatEnabled,
         vatPercentage: data.vatPercentage,
         barcode: data.barcode || undefined,
-        variants: variants.filter(v => v.enabled).map((v) => ({
+        variants: data.itemType === "RETAIL" ? variants.filter(v => v.enabled).map((v) => ({
           id: v.id,
           sku: v.sku,
           barcode: v.barcode || null,
@@ -352,7 +384,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           wholesaleDiscountAmount: v.wholesaleDiscountAmount,
           initialStock: v.initialStock || 0,
           image: v.image || null,
-        })),
+        })) : [],
       };
 
       if (mode === "create") {
@@ -526,11 +558,59 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                         control={control}
                         render={({ field }) => (
                           <SearchableSelect
-                            options={categories.map(c => ({ label: c.name, value: c.id }))}
+                            options={categories.filter(c => !c.parentId).map(c => ({ label: c.name, value: c.id })).sort((a, b) => a.label.localeCompare(b.label))}
                             value={field.value || null}
-                            onValueChange={field.onChange}
+                            onValueChange={(val) => {
+                              field.onChange(val);
+                              setValue("subCategoryId", null);
+                            }}
                             placeholder="Select category"
                             searchPlaceholder="Search categories..."
+                            allowClear
+                            disabled={loading}
+                          />
+                        )}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="subCategoryId">Sub-category (Optional)</Label>
+                      <Controller
+                        name="subCategoryId"
+                        control={control}
+                        render={({ field }) => {
+                          const activeSubCategories = watchedCategoryId
+                            ? categories.filter(c => c.parentId === watchedCategoryId)
+                            : [];
+                          return (
+                            <SearchableSelect
+                              options={activeSubCategories.map(c => ({ label: c.name, value: c.id })).sort((a, b) => a.label.localeCompare(b.label))}
+                              value={field.value || null}
+                              onValueChange={field.onChange}
+                              placeholder={watchedCategoryId ? "Select sub-category" : "Select a category first"}
+                              searchPlaceholder="Search sub-categories..."
+                              allowClear
+                              disabled={loading || !watchedCategoryId}
+                            />
+                          );
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="brandId">Brand (Optional)</Label>
+                      <Controller
+                        name="brandId"
+                        control={control}
+                        render={({ field }) => (
+                          <SearchableSelect
+                            options={brands.map(b => ({ label: b.name, value: b.id }))}
+                            value={field.value || null}
+                            onValueChange={field.onChange}
+                            placeholder="Select brand"
+                            searchPlaceholder="Search brands..."
                             allowClear
                             disabled={loading}
                           />
@@ -622,11 +702,12 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                   </div>
 
                   {/* Variations (Sizes & Colors) */}
-                  <div className="space-y-4 border-t pt-4">
-                    <div className="flex items-center gap-2 text-primary font-semibold">
-                      <FiPlus className="h-4 w-4" />
-                      <h3>Product Variations</h3>
-                    </div>
+                  {watchedItemType === "RETAIL" && (
+                    <div className="space-y-4 border-t pt-4">
+                      <div className="flex items-center gap-2 text-primary font-semibold">
+                        <FiPlus className="h-4 w-4" />
+                        <h3>Product Variations</h3>
+                      </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <Label>Sizes</Label>
@@ -668,7 +749,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                         </div>
                       </div>
                     </div>
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Right Column - Multiple Photos */}
@@ -726,7 +808,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
               </div>
 
               {/* 2D SKU Variant Matrix Grid */}
-              {variants.length > 0 && (
+              {watchedItemType === "RETAIL" && variants.length > 0 && (
                 <div className="space-y-4 border-t pt-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-primary font-semibold">

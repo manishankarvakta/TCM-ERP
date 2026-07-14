@@ -6,7 +6,7 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
-import AdmZip from 'adm-zip';
+import JSZip from 'jszip';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { RestoreOptions } from '@/types/backup';
@@ -19,6 +19,8 @@ import {
 } from './config';
 import { extractMetadataFromZip } from './metadata';
 import { validateBackupIntegrity } from './validate';
+import { loadBackupMetadata } from '../backup-metadata';
+import { decryptBackupFileForRestore } from '../backup';
 import { findBackupPath } from './list';
 import { createDatabaseBackup, createFullBackup } from './create';
 import { getRestoreManager } from './restore-manager';
@@ -30,6 +32,7 @@ import {
 } from './utils';
 import { storage } from '@/lib/storage';
 import { createReadStream } from 'fs';
+import { prisma } from '@/lib/prisma';
 
 const execAsync = promisify(exec);
 
@@ -45,6 +48,8 @@ export async function restoreDatabaseBackup(
   options?: RestoreOptions
 ): Promise<void> {
   const manager = getRestoreManager();
+  let workingBackupPath = '';
+  let isTempDecryptedFile = false;
 
   try {
     // Stage 1: VALIDATING (0-10%)
@@ -57,11 +62,23 @@ export async function restoreDatabaseBackup(
     }
 
     manager.addLog(restoreId, `Found backup at: ${backupPath}`);
+    workingBackupPath = backupPath;
+
+    // Check if backup is encrypted and decrypt if needed
+    const encryptionMeta = await loadBackupMetadata(backupPath);
+    if (encryptionMeta && encryptionMeta.encrypted) {
+      manager.addLog(restoreId, 'Backup is encrypted. Decrypting backup file...');
+      const decryptedBuffer = await decryptBackupFileForRestore(backupPath);
+      workingBackupPath = path.join(TEMP_DIR, `decrypted_${backupId}.zip`);
+      await fs.writeFile(workingBackupPath, decryptedBuffer);
+      isTempDecryptedFile = true;
+      manager.addLog(restoreId, 'Backup decrypted successfully to temporary file');
+    }
 
     // Validate integrity unless skipped
     if (!options?.skipVerification) {
       manager.addLog(restoreId, 'Validating backup integrity...');
-      const validation = await validateBackupIntegrity(backupPath);
+      const validation = await validateBackupIntegrity(workingBackupPath);
       
       if (!validation.valid) {
         throw new Error(`Backup validation failed: ${validation.errors.join(', ')}`);
@@ -70,7 +87,7 @@ export async function restoreDatabaseBackup(
       manager.addLog(restoreId, 'Backup validation passed');
     }
 
-    const metadata = await extractMetadataFromZip(backupPath);
+    const metadata = await extractMetadataFromZip(workingBackupPath);
     manager.updateProgress(restoreId, { progress: 10 });
 
     // Stage 2: PREPARING (10-20%)
@@ -89,7 +106,7 @@ export async function restoreDatabaseBackup(
     manager.addLog(restoreId, 'Extracting database.dump...');
 
     const tempDumpPath = generateTempFilePath('restore-db');
-    await extractDatabaseDump(backupPath, tempDumpPath);
+    await extractDatabaseDump(workingBackupPath, tempDumpPath);
 
     const dumpSize = await fs.stat(tempDumpPath);
     manager.addLog(restoreId, `Extracted database dump: ${formatBytes(dumpSize.size)}`);
@@ -102,6 +119,7 @@ export async function restoreDatabaseBackup(
     await executePgRestore(tempDumpPath, restoreId, options?.cleanDatabase);
 
     manager.addLog(restoreId, 'Database restore completed');
+    await updateDatabaseUrlsPostRestore(restoreId);
     manager.updateProgress(restoreId, { progress: 90 });
 
     // Stage 5: VERIFYING (90-95%)
@@ -120,6 +138,16 @@ export async function restoreDatabaseBackup(
       error instanceof Error ? error.stack : undefined
     );
     throw error;
+  } finally {
+    if (isTempDecryptedFile) {
+      try {
+        await fs.unlink(workingBackupPath);
+      } catch (err: any) {
+        if (err.code !== 'ENOENT') {
+          console.warn(`Failed to delete temp decrypted file ${workingBackupPath}:`, err.message);
+        }
+      }
+    }
   }
 }
 
@@ -135,6 +163,8 @@ export async function restoreFilesBackup(
   options?: RestoreOptions
 ): Promise<void> {
   const manager = getRestoreManager();
+  let workingBackupPath = '';
+  let isTempDecryptedFile = false;
 
   try {
     // Stage 1: VALIDATING (0-10%)
@@ -147,17 +177,29 @@ export async function restoreFilesBackup(
     }
 
     manager.addLog(restoreId, `Found backup at: ${backupPath}`);
+    workingBackupPath = backupPath;
+
+    // Check if backup is encrypted and decrypt if needed
+    const encryptionMeta = await loadBackupMetadata(backupPath);
+    if (encryptionMeta && encryptionMeta.encrypted) {
+      manager.addLog(restoreId, 'Backup is encrypted. Decrypting backup file...');
+      const decryptedBuffer = await decryptBackupFileForRestore(backupPath);
+      workingBackupPath = path.join(TEMP_DIR, `decrypted_${backupId}.zip`);
+      await fs.writeFile(workingBackupPath, decryptedBuffer);
+      isTempDecryptedFile = true;
+      manager.addLog(restoreId, 'Backup decrypted successfully to temporary file');
+    }
 
     if (!options?.skipVerification) {
       manager.addLog(restoreId, 'Validating backup integrity...');
-      const validation = await validateBackupIntegrity(backupPath);
+      const validation = await validateBackupIntegrity(workingBackupPath);
       
       if (!validation.valid) {
         throw new Error(`Backup validation failed: ${validation.errors.join(', ')}`);
       }
     }
 
-    const metadata = await extractMetadataFromZip(backupPath);
+    const metadata = await extractMetadataFromZip(workingBackupPath);
     manager.updateProgress(restoreId, { progress: 10 });
 
     // Stage 2: PREPARING (10-20%)
@@ -178,9 +220,10 @@ export async function restoreFilesBackup(
     const tempExtractDir = generateTempFilePath('restore-files');
     await fs.mkdir(tempExtractDir, { recursive: true });
 
-    const zip = new AdmZip(backupPath);
-    const entries = zip.getEntries().filter(
-      (entry) => !entry.isDirectory && entry.entryName !== METADATA_FILENAME
+    const zipData = await fs.readFile(workingBackupPath);
+    const zip = await JSZip.loadAsync(zipData);
+    const entries = Object.entries(zip.files).filter(
+      ([name, file]) => !file.dir && name !== METADATA_FILENAME
     );
 
     manager.addLog(restoreId, `Found ${entries.length} files to restore`);
@@ -195,12 +238,12 @@ export async function restoreFilesBackup(
     const minioConfig = null;
     let uploadedCount = 0;
 
-    for (const entry of entries) {
-      const fileContent = zip.readFile(entry);
+    for (const [name, file] of entries) {
+      const fileContent = await file.async('nodebuffer');
       if (!fileContent) continue;
 
       // Save to local storage
-      const key = entry.entryName;
+      const key = name;
       
       try {
         await storage.saveFile(key, fileContent);
@@ -240,6 +283,16 @@ export async function restoreFilesBackup(
       error instanceof Error ? error.stack : undefined
     );
     throw error;
+  } finally {
+    if (isTempDecryptedFile) {
+      try {
+        await fs.unlink(workingBackupPath);
+      } catch (err: any) {
+        if (err.code !== 'ENOENT') {
+          console.warn(`Failed to delete temp decrypted file ${workingBackupPath}:`, err.message);
+        }
+      }
+    }
   }
 }
 
@@ -255,6 +308,8 @@ export async function restoreFullBackup(
   options?: RestoreOptions
 ): Promise<void> {
   const manager = getRestoreManager();
+  let workingBackupPath = '';
+  let isTempDecryptedFile = false;
 
   try {
     // Stage 1: VALIDATING (0-5%)
@@ -267,17 +322,29 @@ export async function restoreFullBackup(
     }
 
     manager.addLog(restoreId, `Found backup at: ${backupPath}`);
+    workingBackupPath = backupPath;
+
+    // Check if backup is encrypted and decrypt if needed
+    const encryptionMeta = await loadBackupMetadata(backupPath);
+    if (encryptionMeta && encryptionMeta.encrypted) {
+      manager.addLog(restoreId, 'Backup is encrypted. Decrypting backup file...');
+      const decryptedBuffer = await decryptBackupFileForRestore(backupPath);
+      workingBackupPath = path.join(TEMP_DIR, `decrypted_${backupId}.zip`);
+      await fs.writeFile(workingBackupPath, decryptedBuffer);
+      isTempDecryptedFile = true;
+      manager.addLog(restoreId, 'Backup decrypted successfully to temporary file');
+    }
 
     if (!options?.skipVerification) {
       manager.addLog(restoreId, 'Validating backup integrity...');
-      const validation = await validateBackupIntegrity(backupPath);
+      const validation = await validateBackupIntegrity(workingBackupPath);
       
       if (!validation.valid) {
         throw new Error(`Backup validation failed: ${validation.errors.join(', ')}`);
       }
     }
 
-    const metadata = await extractMetadataFromZip(backupPath);
+    const metadata = await extractMetadataFromZip(workingBackupPath);
     manager.updateProgress(restoreId, { progress: 5 });
 
     // Stage 2: PREPARING (5-10%)
@@ -296,7 +363,7 @@ export async function restoreFullBackup(
     manager.addLog(restoreId, 'Extracting database and files...');
 
     const tempDumpPath = generateTempFilePath('restore-db');
-    await extractDatabaseDump(backupPath, tempDumpPath);
+    await extractDatabaseDump(workingBackupPath, tempDumpPath);
 
     manager.addLog(restoreId, 'Extraction completed');
     manager.updateProgress(restoreId, { progress: 15 });
@@ -308,6 +375,7 @@ export async function restoreFullBackup(
     await executePgRestore(tempDumpPath, restoreId, options?.cleanDatabase, 15, 55);
 
     manager.addLog(restoreId, 'Database restore completed');
+    await updateDatabaseUrlsPostRestore(restoreId);
     manager.updateProgress(restoreId, { progress: 55 });
 
     // Stage 5: RESTORING_FILES (55-95%)
@@ -319,13 +387,14 @@ export async function restoreFullBackup(
       await clearLocalStorage();
     }
 
-    const zip = new AdmZip(backupPath);
-    const entries = zip.getEntries().filter(
-      (entry) =>
-        !entry.isDirectory &&
-        entry.entryName !== METADATA_FILENAME &&
-        entry.entryName !== DATABASE_DUMP_FILENAME &&
-        entry.entryName.startsWith(FILES_DIRECTORY_NAME + '/')
+    const zipData = await fs.readFile(workingBackupPath);
+    const zip = await JSZip.loadAsync(zipData);
+    const entries = Object.entries(zip.files).filter(
+      ([name, file]) =>
+        !file.dir &&
+        name !== METADATA_FILENAME &&
+        name !== DATABASE_DUMP_FILENAME &&
+        name.startsWith(FILES_DIRECTORY_NAME + '/')
     );
 
     manager.addLog(restoreId, `Found ${entries.length} files to restore`);
@@ -333,12 +402,12 @@ export async function restoreFullBackup(
     const minioConfig = null;
     let uploadedCount = 0;
 
-    for (const entry of entries) {
-      const fileContent = zip.readFile(entry);
+    for (const [name, file] of entries) {
+      const fileContent = await file.async('nodebuffer');
       if (!fileContent) continue;
 
       // Remove files/ prefix
-      const key = entry.entryName.substring(FILES_DIRECTORY_NAME.length + 1);
+      const key = name.substring(FILES_DIRECTORY_NAME.length + 1);
       
       try {
         await storage.saveFile(key, fileContent);
@@ -378,6 +447,16 @@ export async function restoreFullBackup(
       error instanceof Error ? error.stack : undefined
     );
     throw error;
+  } finally {
+    if (isTempDecryptedFile) {
+      try {
+        await fs.unlink(workingBackupPath);
+      } catch (err: any) {
+        if (err.code !== 'ENOENT') {
+          console.warn(`Failed to delete temp decrypted file ${workingBackupPath}:`, err.message);
+        }
+      }
+    }
   }
 }
 
@@ -387,18 +466,15 @@ export async function restoreFullBackup(
  * @param outputPath - Where to extract dump file
  */
 async function extractDatabaseDump(backupPath: string, outputPath: string): Promise<void> {
-  const zip = new AdmZip(backupPath);
-  const dumpEntry = zip.getEntry(DATABASE_DUMP_FILENAME);
+  const zipData = await fs.readFile(backupPath);
+  const zip = await JSZip.loadAsync(zipData);
+  const dumpFile = zip.file(DATABASE_DUMP_FILENAME);
 
-  if (!dumpEntry) {
+  if (!dumpFile) {
     throw new Error('Database dump not found in backup');
   }
 
-  const dumpContent = zip.readFile(dumpEntry);
-  if (!dumpContent) {
-    throw new Error('Failed to read database dump from backup');
-  }
-
+  const dumpContent = await dumpFile.async('nodebuffer');
   await fs.writeFile(outputPath, dumpContent);
 }
 
@@ -492,6 +568,82 @@ async function clearLocalStorage(): Promise<void> {
   } catch (error) {
     throw new Error(
       `Failed to clear local storage: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
+/**
+ * Post-restore utility to update all absolute file/image URLs in the database
+ * to point to the current target system's host (e.g. replacing live domains with localhost).
+ */
+async function updateDatabaseUrlsPostRestore(restoreId: string): Promise<void> {
+  const manager = getRestoreManager();
+  const currentHost = process.env.NEXTAUTH_URL || process.env.AUTH_URL || 'http://localhost:3000';
+  const targetHost = currentHost.replace(/\/+$/, '');
+
+  try {
+    manager.addLog(restoreId, `Post-Restore: Aligning database file/image URLs to current host: ${targetHost}...`);
+
+    // 1. Category (image)
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Category" SET "image" = regexp_replace("image", '^https?://[^/]+', $1) WHERE "image" ~ '^https?://'`,
+      targetHost
+    );
+
+    // 2. Item (featuredImage)
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Item" SET "featuredImage" = regexp_replace("featuredImage", '^https?://[^/]+', $1) WHERE "featuredImage" ~ '^https?://'`,
+      targetHost
+    );
+
+    // 3. Item (images - JSON array of product gallery images)
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Item" SET "images" = regexp_replace("images"::text, 'https?://[^/]+', $1, 'g')::jsonb WHERE "images" IS NOT NULL`,
+      targetHost
+    );
+
+    // 4. ProductVariant (image)
+    await prisma.$executeRawUnsafe(
+      `UPDATE "ProductVariant" SET "image" = regexp_replace("image", '^https?://[^/]+', $1) WHERE "image" ~ '^https?://'`,
+      targetHost
+    );
+
+    // 5. Client (image)
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Client" SET "image" = regexp_replace("image", '^https?://[^/]+', $1) WHERE "image" ~ '^https?://'`,
+      targetHost
+    );
+
+    // 6. Supplier (image)
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Supplier" SET "image" = regexp_replace("image", '^https?://[^/]+', $1) WHERE "image" ~ '^https?://'`,
+      targetHost
+    );
+
+    // 7. Employee (photo)
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Employee" SET "photo" = regexp_replace("photo", '^https?://[^/]+', $1) WHERE "photo" ~ '^https?://'`,
+      targetHost
+    );
+
+    // 8. Organization (logo)
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Organization" SET "logo" = regexp_replace("logo", '^https?://[^/]+', $1) WHERE "logo" ~ '^https?://'`,
+      targetHost
+    );
+
+    // 9. User (image)
+    await prisma.$executeRawUnsafe(
+      `UPDATE "User" SET "image" = regexp_replace("image", '^https?://[^/]+', $1) WHERE "image" ~ '^https?://'`,
+      targetHost
+    );
+
+    manager.addLog(restoreId, `Post-Restore: Successfully aligned database URLs to ${targetHost}`);
+  } catch (error) {
+    manager.addLog(
+      restoreId,
+      `Post-Restore Warning: Failed to align database URLs: ${error instanceof Error ? error.message : String(error)}`,
+      'warn'
     );
   }
 }

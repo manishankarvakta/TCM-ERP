@@ -1,6 +1,8 @@
 import { differenceInMinutes, subMinutes, addMinutes, addDays, subDays } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 
+import { prisma } from "@/lib/prisma";
+
 export interface ShiftPolicy {
   startTime: string; // "HH:MM"
   endTime: string;   // "HH:MM"
@@ -12,9 +14,40 @@ export interface ShiftPolicy {
 
 export type AttendanceStatusType = "PRESENT" | "LATE" | "HALF_DAY" | "ABSENT";
 
-export const HR_BUSINESS_TIMEZONE = "Asia/Dhaka";
+export let HR_BUSINESS_TIMEZONE = "Asia/Dhaka";
 export const PUNCH_BUFFER_BEFORE_MINUTES = 240; // 4 hours
 export const PUNCH_BUFFER_AFTER_MINUTES = 240; // 4 hours
+
+export function setSystemTimezone(tz: string) {
+  HR_BUSINESS_TIMEZONE = tz;
+}
+
+export async function syncTimezoneFromDb() {
+  try {
+    const setting = await prisma.settings.findFirst({
+      where: {
+        code: "preferences",
+        userId: null,
+        isGlobal: true,
+        isActive: true,
+      },
+      select: {
+        settings: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+    if (setting?.settings && typeof setting.settings === "object") {
+      const prefs = setting.settings as any;
+      if (prefs.timezone) {
+        HR_BUSINESS_TIMEZONE = prefs.timezone;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to load global timezone preference:", e);
+  }
+}
 
 /**
  * Standardize DB date storage explicit bounds based on a Timezone

@@ -1,15 +1,15 @@
 import React from "react";
-import { getCategories } from "./_actions/category.action";
+import { getBrands } from "./_actions/brand.action";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
-import CategoriesListClient from "./_components/categories";
+import BrandsListClient from "./_components/brands";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import PageGuard from "@/components/permissions/page-guard";
 
-interface CategoriesPageProps {
+interface BrandsPageProps {
   searchParams: Promise<{
     page?: string;
     search?: string;
@@ -17,7 +17,7 @@ interface CategoriesPageProps {
   }>;
 }
 
-export default async function CategoriesPage({ searchParams }: CategoriesPageProps) {
+export default async function BrandsPage({ searchParams }: BrandsPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
   const search = params.search || "";
@@ -28,11 +28,11 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
 
   // Check permissions on server side for better performance
   const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
-    getCategories(page, 10, search, tab === "trash" ? "trash" : "all"),
-    userId ? hasPermission(userId, "master.categories", "view") : false,
-    userId ? hasPermission(userId, "master.categories", "edit") : false,
-    userId ? hasPermission(userId, "master.categories", "move-to-trash") : false,
-    userId ? hasPermission(userId, "master.categories", "delete-permanently") : false,
+    getBrands(page, 10, search, tab === "trash" ? "trash" : "all"),
+    userId ? hasPermission(userId, "master.brands", "view") : false,
+    userId ? hasPermission(userId, "master.brands", "edit") : false,
+    userId ? hasPermission(userId, "master.brands", "move-to-trash") : false,
+    userId ? hasPermission(userId, "master.brands", "delete-permanently") : false,
   ]);
 
   // Handle errors
@@ -41,13 +41,13 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Categories</h1>
-            <p className="text-sm text-muted-foreground">Manage categories in your system</p>
+            <h1 className="text-2xl font-semibold">Brands</h1>
+            <p className="text-sm text-muted-foreground">Manage brands in your system</p>
           </div>
         </div>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
           <p className="text-sm text-destructive">
-            {result.error || "Failed to load categories"}
+            {result.error || "Failed to load brands"}
           </p>
         </div>
       </div>
@@ -55,18 +55,18 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
   }
 
   return (
-    <PageGuard permissionKey="master.categories" requiredOperation="view">
+    <PageGuard permissionKey="master.brands" requiredOperation="view">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Categories</h1>
-            <p className="text-sm text-muted-foreground">Manage categories in your system</p>
+            <h1 className="text-2xl font-semibold">Brands</h1>
+            <p className="text-sm text-muted-foreground">Manage brands in your system</p>
           </div>
           {tab !== "trash" && canEdit && (
             <Button asChild>
-              <Link href="/dashboard/master/categories/add">
+              <Link href="/dashboard/master/brands/add">
                 <FiPlus className="mr-2 h-4 w-4" />
-                Add Category
+                Add Brand
               </Link>
             </Button>
           )}
@@ -75,15 +75,15 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
         <Tabs defaultValue={tab} className="w-full">
           <TabsList>
             <TabsTrigger value="all" asChild>
-              <Link href="/dashboard/master/categories?tab=all&page=1">All Categories</Link>
+              <Link href="/dashboard/master/brands?tab=all&page=1">All Brands</Link>
             </TabsTrigger>
             <TabsTrigger value="trash" asChild>
-              <Link href="/dashboard/master/categories?tab=trash&page=1">Trash</Link>
+              <Link href="/dashboard/master/brands?tab=trash&page=1">Trash</Link>
             </TabsTrigger>
           </TabsList>
           <TabsContent value="all" className="mt-4">
-            <CategoriesListClient
-              initialCategories={result.categories || []}
+            <BrandsListClient
+              initialBrands={result.brands || []}
               initialPagination={result.pagination || {
                 page: 1,
                 limit: 10,
@@ -95,8 +95,8 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
             />
           </TabsContent>
           <TabsContent value="trash" className="mt-4">
-            <CategoriesListClient
-              initialCategories={result.categories || []}
+            <BrandsListClient
+              initialBrands={result.brands || []}
               initialPagination={result.pagination || {
                 page: 1,
                 limit: 10,

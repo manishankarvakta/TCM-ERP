@@ -10,6 +10,7 @@ import { createVoucher, postVoucher, cancelVoucher } from "../../../accounts/vou
 import { getPayrollSettings } from "@/lib/payroll-settings";
 import { getAccountingOperationSettings } from "@/lib/accounting-settings";
 import { validateHRMAccountingSetup } from "@/lib/hr/payroll-settings-guard";
+import { syncTimezoneFromDb } from "@/lib/hr/shift-utils";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -41,6 +42,8 @@ export interface GeneratePayrollOptions {
 
 export async function generatePayroll(month: number, year: number, options?: GeneratePayrollOptions) {
   try {
+    await syncTimezoneFromDb();
+    
     const session = await auth();
     if (!session?.user) {
       return { success: false, error: "Unauthorized" };
