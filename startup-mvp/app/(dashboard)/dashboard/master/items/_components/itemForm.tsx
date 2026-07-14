@@ -365,14 +365,14 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
         trackInventory: data.trackInventory,
         images: data.images,
         featuredImage: data.featuredImage,
-        sizes: data.itemType === "RETAIL" ? data.sizes : [],
-        colors: data.itemType === "RETAIL" ? data.colors : [],
+        sizes: (data.itemType === "RETAIL" || data.itemType === "READY_PRODUCT") ? data.sizes : [],
+        colors: (data.itemType === "RETAIL" || data.itemType === "READY_PRODUCT") ? data.colors : [],
         isEnableEcom: data.isEnableEcom,
         status: data.status,
         isVatEnabled: data.isVatEnabled,
         vatPercentage: data.vatPercentage,
         barcode: data.barcode || undefined,
-        variants: data.itemType === "RETAIL" ? variants.filter(v => v.enabled).map((v) => ({
+        variants: (data.itemType === "RETAIL" || data.itemType === "READY_PRODUCT") ? variants.filter(v => v.enabled).map((v) => ({
           id: v.id,
           sku: v.sku,
           barcode: v.barcode || null,
@@ -702,7 +702,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                   </div>
 
                   {/* Variations (Sizes & Colors) */}
-                  {watchedItemType === "RETAIL" && (
+                  {(watchedItemType === "RETAIL" || watchedItemType === "READY_PRODUCT") && (
                     <div className="space-y-4 border-t pt-4">
                       <div className="flex items-center gap-2 text-primary font-semibold">
                         <FiPlus className="h-4 w-4" />
@@ -808,7 +808,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
               </div>
 
               {/* 2D SKU Variant Matrix Grid */}
-              {watchedItemType === "RETAIL" && variants.length > 0 && (
+              {(watchedItemType === "RETAIL" || watchedItemType === "READY_PRODUCT") && variants.length > 0 && (
                 <div className="space-y-4 border-t pt-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-primary font-semibold">
