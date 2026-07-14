@@ -82,6 +82,13 @@ export function GanttRow({
             // Calculate final dates using the last known mouse position
             const finalDeltaX = upEvent.clientX - startX;
             const finalDeltaDays = Math.round(finalDeltaX / dayWidth);
+
+            const isClick = Math.abs(finalDeltaX) < 3;
+            if (isClick) {
+                if (onEditAction) onEditAction(node.id);
+                setTempDates(null);
+                return;
+            }
             
             let finalStart = initialStart;
             let finalEnd = initialEnd;
@@ -185,14 +192,18 @@ export function GanttRow({
                             </span>
                             
                             {/* Resize Handles */}
-                            <div 
-                                className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 z-20"
-                                onMouseDown={(e) => handleMouseDown(e, "resizeLeft")}
-                            />
-                            <div 
-                                className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 z-20"
-                                onMouseDown={(e) => handleMouseDown(e, "resizeRight")}
-                            />
+                            {(!hasChildren || node.type === "milestone") && (
+                                <>
+                                    <div 
+                                        className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 z-20"
+                                        onMouseDown={(e) => handleMouseDown(e, "resizeLeft")}
+                                    />
+                                    <div 
+                                        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 z-20"
+                                        onMouseDown={(e) => handleMouseDown(e, "resizeRight")}
+                                    />
+                                </>
+                            )}
                         </div>
                         
                         {/* External Task Label */}

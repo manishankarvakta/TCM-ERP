@@ -1635,6 +1635,7 @@ model Issue {
   priority    String      @default("NORMAL")
   type        String      @default("TASK")
   startDate   DateTime?
+  dueDate     DateTime?
   estimatedHours Float?
   actualHours    Float?
   milestoneId String

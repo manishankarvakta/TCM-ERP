@@ -516,6 +516,7 @@ export async function updateIssue(
     type?: string;
     assigneeId?: string;
     startDate?: Date;
+    dueDate?: Date;
   }
 ) {
   try {
@@ -866,7 +867,7 @@ export async function getProjectGanttData(projectId: string) {
       const children = rootTasks.map(t => mapTask(t));
 
       let startDateVal = issue.startDate || issue.createdAt;
-      let endDateVal = new Date(startDateVal.getTime() + 7 * 24 * 60 * 60 * 1000);
+      let endDateVal = issue.dueDate || new Date(startDateVal.getTime() + 7 * 24 * 60 * 60 * 1000);
 
       if (children.length > 0) {
         const startTimes = children.map(c => new Date(c.startDate).getTime());
@@ -912,8 +913,12 @@ export async function getProjectGanttData(projectId: string) {
       if (children.length > 0) {
         const startTimes = children.map(c => new Date(c.startDate).getTime());
         const endTimes = children.map(c => new Date(c.endDate).getTime());
-        startDateVal = new Date(Math.min(...startTimes));
-        endDateVal = new Date(Math.max(...endTimes));
+        if (!m.startDate) {
+          startDateVal = new Date(Math.min(...startTimes));
+        }
+        if (!m.dueDate) {
+          endDateVal = new Date(Math.max(...endTimes));
+        }
       }
 
       let progress = 0;

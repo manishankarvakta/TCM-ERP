@@ -576,6 +576,46 @@ export function GanttItemSheet({ node, isOpen, onOpenChange, onSave }: GanttItem
               />
             </div>
 
+            {/* Nested Child Items Section */}
+            {node.children && node.children.length > 0 && (
+              <div className="space-y-3 pt-4 border-t border-slate-100">
+                <Label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest block">
+                  {node.type === "milestone" 
+                    ? "Roadmap Issues" 
+                    : node.type === "issue" 
+                      ? "Associated Tasks" 
+                      : "Subtasks"
+                  } ({node.children.length})
+                </Label>
+                <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                  {node.children.map((child) => (
+                    <div 
+                      key={child.id} 
+                      className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 bg-slate-50/40 hover:bg-slate-50 transition-all duration-200"
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1 mr-4">
+                        <span className="text-xs font-semibold text-slate-700 truncate">
+                          {child.title}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 shrink-0">
+                        {child.status && (
+                          <Badge variant="outline" className="text-[10px] font-medium py-0.5 uppercase tracking-wider text-slate-500 border-slate-200 bg-white">
+                            {child.status}
+                          </Badge>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <Progress value={child.progress} className="w-12 h-1 bg-slate-100" />
+                          <span className="text-[10px] font-bold text-slate-400">{child.progress}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Dynamic Checklist Component */}
             {checklists.map((activeList) => {
               const items = activeList.Items || [];

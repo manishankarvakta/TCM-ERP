@@ -83,7 +83,7 @@ const updateAndShiftNodeRecursive = (nodes: GanttNode[], id: string, newStart: D
             const oldDuration = node.endDate.getTime() - node.startDate.getTime();
             const newDuration = newEnd.getTime() - newStart.getTime();
             const isMove = Math.abs(newDuration - oldDuration) < 1000;
-            
+
             if (isMove) {
                 const delta = newStart.getTime() - node.startDate.getTime();
                 shiftChildrenLocal(node, delta);
@@ -164,11 +164,11 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                 <h3 className="font-semibold text-base">Project Schedule</h3>
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-muted-foreground">Zoom:</span>
-                    <input 
-                        type="range" 
-                        min="15" 
-                        max="60" 
-                        value={dayWidth} 
+                    <input
+                        type="range"
+                        min="15"
+                        max="60"
+                        value={dayWidth}
                         onChange={(e) => setDayWidth(Number(e.target.value))}
                         className="w-24 accent-primary"
                     />
@@ -195,8 +195,8 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                             {days.map((d, i) => {
                                 const isToday = d.date.toDateString() === new Date().toDateString();
                                 return (
-                                    <div 
-                                        key={i} 
+                                    <div
+                                        key={i}
                                         className={`h-full border-r border-border/30 border-dashed ${d.isWeekend ? 'bg-muted/30' : ''} relative`}
                                         style={{ width: `${dayWidth}px` }}
                                     >
@@ -213,10 +213,10 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                         {/* The rows layer handles both the sticky sidebar and the inner timelines */}
                         <div className="flex-1 flex flex-col relative z-20">
                             {data.map(node => (
-                                <GanttRow 
-                                    key={node.id} 
-                                    node={node} 
-                                    depth={0} 
+                                <GanttRow
+                                    key={node.id}
+                                    node={node}
+                                    depth={0}
                                     dayWidth={dayWidth}
                                     totalDays={totalDays}
                                     getBarStyles={getBarStyles}
@@ -341,10 +341,11 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                                                     res = await updateMilestone(currNode.id, {
                                                         startDate: shiftedStart,
                                                         dueDate: shiftedEnd
-                                                     });
+                                                    });
                                                 } else if (currNode.type === "issue") {
                                                     res = await updateIssue(currNode.id, {
-                                                        startDate: shiftedStart
+                                                        startDate: shiftedStart,
+                                                        dueDate: shiftedEnd
                                                     });
                                                 } else if (currNode.type === "task" || currNode.type === "subtask") {
                                                     res = await updateTask(currNode.id, {
@@ -382,9 +383,9 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
 
                         {/* The SVG Dependencies Layer (absolutely positioned inside the right pane) */}
                         <div className="absolute top-0 bottom-0 pointer-events-none z-30" style={{ left: '300px' }}>
-                            <GanttDependencies 
-                                data={data} 
-                                getBarStyles={getBarStyles} 
+                            <GanttDependencies
+                                data={data}
+                                getBarStyles={getBarStyles}
                                 totalDays={totalDays}
                                 dayWidth={dayWidth}
                             />
@@ -394,7 +395,7 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
             </ScrollArea>
 
             {/* Editing Sheet */}
-            <GanttItemSheet 
+            <GanttItemSheet
                 node={selectedNodeId ? findNodeRecursive(data, selectedNodeId) : null}
                 isOpen={isSheetOpen}
                 onOpenChange={setIsSheetOpen}
