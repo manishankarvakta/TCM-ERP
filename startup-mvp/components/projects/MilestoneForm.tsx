@@ -21,6 +21,7 @@ import { toast } from "sonner";
 const milestoneSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   description: z.string().optional().or(z.literal("")),
+  startDate: z.string().optional().or(z.literal("")),
   dueDate: z.string().optional().or(z.literal("")),
   status: z.enum(["PLANNED", "IN_PROGRESS", "COMPLETED", "DELAYED"]),
   order: z.number(),
@@ -47,10 +48,12 @@ export default function MilestoneForm({ projectId, onSuccess, onCancel, initialD
     defaultValues: initialData ? {
       title: initialData.title,
       description: initialData.description || "",
+      startDate: initialData.startDate ? new Date(initialData.startDate).toISOString().split('T')[0] : "",
       dueDate: initialData.dueDate ? new Date(initialData.dueDate).toISOString().split('T')[0] : "",
       status: initialData.status || "PLANNED",
       order: initialData.order || 0,
     } : {
+      startDate: new Date().toISOString().split('T')[0],
       status: "PLANNED",
       order: 0,
     },
@@ -61,6 +64,7 @@ export default function MilestoneForm({ projectId, onSuccess, onCancel, initialD
       const payload = {
         ...data,
         projectId,
+        startDate: data.startDate ? new Date(data.startDate) : undefined,
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
       };
 
@@ -108,6 +112,18 @@ export default function MilestoneForm({ projectId, onSuccess, onCancel, initialD
 
         <div className="grid grid-cols-2 gap-6">
           <div className="grid gap-2">
+            <Label htmlFor="startDate" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Start Date</Label>
+            <div className="relative group">
+                <FiCalendar className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <Input
+                id="startDate"
+                type="date"
+                className="pl-11 h-12 bg-muted/20 border-border/40 rounded-xl font-bold focus:ring-2 focus:ring-primary/20 transition-all"
+                {...register("startDate")}
+                />
+            </div>
+          </div>
+          <div className="grid gap-2">
             <Label htmlFor="dueDate" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Target Date</Label>
             <div className="relative group">
                 <FiCalendar className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
@@ -119,25 +135,26 @@ export default function MilestoneForm({ projectId, onSuccess, onCancel, initialD
                 />
             </div>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="status" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phase Status</Label>
-            <div className="relative group">
-                <FiClock className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors z-10" />
-                <Select
-                    onValueChange={(value) => setValue("status", value as any)}
-                    defaultValue={watch("status")}
-                >
-                    <SelectTrigger className="pl-11 h-12 bg-muted/20 border-border/40 rounded-xl font-bold focus:ring-2 focus:ring-primary/20 transition-all">
-                        <SelectValue placeholder="Select Status" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl border-border/40">
-                        <SelectItem value="PLANNED" className="font-bold">PLANNED</SelectItem>
-                        <SelectItem value="IN_PROGRESS" className="font-bold text-primary">IN PROGRESS</SelectItem>
-                        <SelectItem value="COMPLETED" className="font-bold text-emerald-500">COMPLETED</SelectItem>
-                        <SelectItem value="DELAYED" className="font-bold text-rose-500">DELAYED</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
+        </div>
+
+        <div className="grid gap-2">
+          <Label htmlFor="status" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phase Status</Label>
+          <div className="relative group">
+              <FiClock className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors z-10" />
+              <Select
+                  onValueChange={(value) => setValue("status", value as any)}
+                  defaultValue={watch("status")}
+              >
+                  <SelectTrigger className="pl-11 h-12 bg-muted/20 border-border/40 rounded-xl font-bold focus:ring-2 focus:ring-primary/20 transition-all">
+                      <SelectValue placeholder="Select Status" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-border/40">
+                      <SelectItem value="PLANNED" className="font-bold">PLANNED</SelectItem>
+                      <SelectItem value="IN_PROGRESS" className="font-bold text-primary">IN PROGRESS</SelectItem>
+                      <SelectItem value="COMPLETED" className="font-bold text-emerald-500">COMPLETED</SelectItem>
+                      <SelectItem value="DELAYED" className="font-bold text-rose-500">DELAYED</SelectItem>
+                  </SelectContent>
+              </Select>
           </div>
         </div>
 

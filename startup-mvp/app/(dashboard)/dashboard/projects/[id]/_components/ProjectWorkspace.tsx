@@ -463,7 +463,8 @@ export default function ProjectWorkspace({ id, permissions = {}, userRole, userI
                         </div>
                         <div className="bg-card">
                             <IssueForm 
-                                milestoneId={selectedMilestone?.id || ""}
+                                milestones={project.Milestones || []}
+                                defaultMilestoneId={selectedMilestone?.id || ""}
                                 onSuccess={() => {
                                     setIsIssueDialogOpen(false);
                                     fetchProject();

@@ -172,39 +172,28 @@ export function GanttRow({
                         className="absolute top-2.5 h-7 flex items-center"
                         style={{ left: `${left}px`, width: 'max-content' }}
                     >
-                        {node.startDate.toDateString() === node.endDate.toDateString() ? (
-                            // Single Day Task / Milestone (Dot/Diamond)
+                        <div 
+                            id={`gantt-bar-${node.id}`}
+                            className={`h-7 rounded shadow-sm border relative overflow-hidden ${getNodeColor()} hover:brightness-110 transition-all ${isDragging ? 'opacity-80 scale-[1.02] z-50 shadow-md ring-2 ring-primary/50' : 'cursor-pointer'}`}
+                            style={{ width: `${width - 2}px` }}
+                            title={`${node.title} (${node.progress}%)\nStart: ${effectiveStart.toLocaleDateString()}\nEnd: ${effectiveEnd.toLocaleDateString()}`}
+                            onMouseDown={(e) => handleMouseDown(e, "move")}
+                        >
+                            <div className="h-full bg-white/20 pointer-events-none" style={{ width: `${node.progress}%` }} />
+                            <span className="absolute left-2 top-1.5 text-[10px] font-bold text-white drop-shadow-sm truncate pointer-events-none">
+                                {node.progress}%
+                            </span>
+                            
+                            {/* Resize Handles */}
                             <div 
-                                id={`gantt-bar-${node.id}`}
-                                className={`w-3 h-3 rotate-45 rounded-sm shadow-sm border ${getNodeColor()} cursor-pointer hover:brightness-110 transition-all`}
-                                style={{ marginLeft: `${(dayWidth - 12) / 2}px` }}
-                                title={`${node.title} (${node.progress}%)\nStart: ${node.startDate.toLocaleDateString()}\nEnd: ${node.endDate.toLocaleDateString()}`}
+                                className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 z-20"
+                                onMouseDown={(e) => handleMouseDown(e, "resizeLeft")}
                             />
-                        ) : (
-                            // Multi-Day Bar
                             <div 
-                                id={`gantt-bar-${node.id}`}
-                                className={`h-7 rounded shadow-sm border relative overflow-hidden ${getNodeColor()} hover:brightness-110 transition-all ${isDragging ? 'opacity-80 scale-[1.02] z-50 shadow-md ring-2 ring-primary/50' : 'cursor-pointer'}`}
-                                style={{ width: `${width - 2}px` }}
-                                title={`${node.title} (${node.progress}%)\nStart: ${effectiveStart.toLocaleDateString()}\nEnd: ${effectiveEnd.toLocaleDateString()}`}
-                                onMouseDown={(e) => handleMouseDown(e, "move")}
-                            >
-                                <div className="h-full bg-white/20 pointer-events-none" style={{ width: `${node.progress}%` }} />
-                                <span className="absolute left-2 top-1.5 text-[10px] font-bold text-white drop-shadow-sm truncate pointer-events-none">
-                                    {node.progress}%
-                                </span>
-                                
-                                {/* Resize Handles */}
-                                <div 
-                                    className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 z-20"
-                                    onMouseDown={(e) => handleMouseDown(e, "resizeLeft")}
-                                />
-                                <div 
-                                    className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 z-20"
-                                    onMouseDown={(e) => handleMouseDown(e, "resizeRight")}
-                                />
-                            </div>
-                        )}
+                                className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 z-20"
+                                onMouseDown={(e) => handleMouseDown(e, "resizeRight")}
+                            />
+                        </div>
                         
                         {/* External Task Label */}
                         <span className="ml-2 text-xs font-medium text-foreground whitespace-nowrap opacity-80 hover:opacity-100 transition-opacity cursor-default">

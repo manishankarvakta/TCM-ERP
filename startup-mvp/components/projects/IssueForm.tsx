@@ -14,7 +14,7 @@ import {
     SelectTrigger, 
     SelectValue 
 } from "@/components/ui/select";
-import { FiAlertCircle, FiUser, FiInfo, FiActivity } from "react-icons/fi";
+import { FiAlertCircle, FiUser, FiInfo, FiActivity, FiTarget } from "react-icons/fi";
 import { createIssue, updateIssue } from "@/app/actions/projects/project.action";
 import { getActiveUsers } from "@/app/actions/user.action";
 import { toast } from "sonner";
@@ -27,18 +27,21 @@ const issueSchema = z.object({
   type: z.enum(["TASK", "BUG", "FEATURE", "IMPROVEMENT"]),
   status: z.enum(["OPEN", "IN_PROGRESS", "CLOSED", "REJECTED"]),
   assigneeId: z.string().optional().nullable(),
+  milestoneId: z.string().min(1, "Milestone is required"),
 });
 
 type IssueFormData = z.infer<typeof issueSchema>;
 
 interface IssueFormProps {
-  milestoneId: string;
+  milestones?: any[];
+  defaultMilestoneId?: string;
+  milestoneId?: string;
   onSuccess: () => void;
   onCancel: () => void;
   initialData?: any;
 }
 
-export default function IssueForm({ milestoneId, onSuccess, onCancel, initialData }: IssueFormProps) {
+export default function IssueForm({ milestones = [], defaultMilestoneId, milestoneId, onSuccess, onCancel, initialData }: IssueFormProps) {
   const [users, setUsers] = useState<any[]>([]);
 
   useEffect(() => {
@@ -66,10 +69,12 @@ export default function IssueForm({ milestoneId, onSuccess, onCancel, initialDat
       type: initialData.type || "TASK",
       status: initialData.status || "OPEN",
       assigneeId: initialData.assigneeId || null,
+      milestoneId: initialData.milestoneId || defaultMilestoneId || milestoneId || "",
     } : {
       priority: "NORMAL",
       type: "TASK",
       status: "OPEN",
+      milestoneId: defaultMilestoneId || milestoneId || "",
     },
   });
 
@@ -81,7 +86,7 @@ export default function IssueForm({ milestoneId, onSuccess, onCancel, initialDat
         priority: data.priority,
         type: data.type,
         status: data.status,
-        milestoneId,
+        milestoneId: data.milestoneId,
         assigneeId: (data.assigneeId === "none" || !data.assigneeId) ? undefined : data.assigneeId,
       };
 
@@ -103,6 +108,7 @@ export default function IssueForm({ milestoneId, onSuccess, onCancel, initialDat
   const status = watch("status");
   const priority = watch("priority");
   const type = watch("type");
+  const selectedMilestoneId = watch("milestoneId");
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -129,6 +135,27 @@ export default function IssueForm({ milestoneId, onSuccess, onCancel, initialDat
             className="min-h-[100px] bg-muted/20 border-border/40 rounded-xl font-medium focus:ring-2 focus:ring-primary/20 transition-all resize-none"
             {...register("description")}
           />
+        </div>
+
+        <div className="grid gap-2">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Target Milestone</Label>
+          <div className="relative group">
+            <FiTarget className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors z-10" />
+            <Select
+              onValueChange={(value) => setValue("milestoneId", value)}
+              defaultValue={selectedMilestoneId || undefined}
+            >
+              <SelectTrigger className="pl-11 h-12 bg-muted/20 border-border/40 rounded-xl font-bold">
+                <SelectValue placeholder="Select Milestone" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                {milestones.map(m => (
+                  <SelectItem key={m.id} value={m.id} className="font-bold">{m.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {errors.milestoneId && <p className="text-[10px] text-destructive font-bold uppercase tracking-wider ml-1">{errors.milestoneId.message}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4">

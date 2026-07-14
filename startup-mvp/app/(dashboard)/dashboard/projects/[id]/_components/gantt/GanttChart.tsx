@@ -69,6 +69,37 @@ const updateNodeRecursive = (nodes: GanttNode[], id: string, updates: Partial<Ga
     return mutated;
 };
 
+const shiftChildrenLocal = (node: GanttNode, delta: number) => {
+    node.startDate = new Date(node.startDate.getTime() + delta);
+    node.endDate = new Date(node.endDate.getTime() + delta);
+    if (node.children) {
+        node.children.forEach(child => shiftChildrenLocal(child, delta));
+    }
+};
+
+const updateAndShiftNodeRecursive = (nodes: GanttNode[], id: string, newStart: Date, newEnd: Date): boolean => {
+    for (const node of nodes) {
+        if (node.id === id) {
+            const oldDuration = node.endDate.getTime() - node.startDate.getTime();
+            const newDuration = newEnd.getTime() - newStart.getTime();
+            const isMove = Math.abs(newDuration - oldDuration) < 1000;
+            
+            if (isMove) {
+                const delta = newStart.getTime() - node.startDate.getTime();
+                shiftChildrenLocal(node, delta);
+            } else {
+                node.startDate = newStart;
+                node.endDate = newEnd;
+            }
+            return true;
+        }
+        if (node.children && node.children.length > 0) {
+            if (updateAndShiftNodeRecursive(node.children, id, newStart, newEnd)) return true;
+        }
+    }
+    return false;
+};
+
 export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
     const [data, setData] = useState<GanttNode[]>([]);
     const [dayWidth, setDayWidth] = useState(30); // pixels per day
@@ -286,7 +317,7 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                                     onDateChangeAction={async (nodeId, newStart, newEnd) => {
                                         setData(prev => {
                                             const next = cloneTree(prev);
-                                            updateNodeRecursive(next, nodeId, { startDate: newStart, endDate: newEnd });
+                                            updateAndShiftNodeRecursive(next, nodeId, newStart, newEnd);
                                             return next;
                                         });
 
@@ -294,19 +325,55 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                                             const node = findNodeRecursive(data, nodeId);
                                             if (!node) return;
 
-                                            if (node.type === "task" || node.type === "subtask") {
-                                                const res = await updateTask(nodeId, {
-                                                    dueDate: newEnd
-                                                });
-                                                if (res && !res.success) {
-                                                    toast.error(res.error || "Failed to persist date change");
-                                                    router.refresh();
-                                                } else {
-                                                    onRefresh?.();
+                                            toast.loading("Saving timeline adjustments...", { id: "gantt-date-change" });
+
+                                            const oldDuration = node.endDate.getTime() - node.startDate.getTime();
+                                            const newDuration = newEnd.getTime() - newStart.getTime();
+                                            const isMove = Math.abs(newDuration - oldDuration) < 1000;
+
+                                            const persistShift = async (currNode: GanttNode, delta: number, isRoot: boolean) => {
+                                                const shiftedStart = isRoot ? newStart : new Date(currNode.startDate.getTime() + delta);
+                                                const shiftedEnd = isRoot ? newEnd : new Date(currNode.endDate.getTime() + delta);
+
+                                                let res: { success: boolean; error?: string } = { success: true };
+
+                                                if (currNode.type === "milestone") {
+                                                    res = await updateMilestone(currNode.id, {
+                                                        startDate: shiftedStart,
+                                                        dueDate: shiftedEnd
+                                                     });
+                                                } else if (currNode.type === "issue") {
+                                                    res = await updateIssue(currNode.id, {
+                                                        startDate: shiftedStart
+                                                    });
+                                                } else if (currNode.type === "task" || currNode.type === "subtask") {
+                                                    res = await updateTask(currNode.id, {
+                                                        startDate: shiftedStart,
+                                                        dueDate: shiftedEnd
+                                                    });
                                                 }
-                                            }
-                                        } catch (err) {
+
+                                                if (res && !res.success) {
+                                                    throw new Error(res.error || "Failed to update schedule item");
+                                                }
+
+                                                if (isMove && currNode.children && currNode.children.length > 0) {
+                                                    for (const child of currNode.children) {
+                                                        await persistShift(child, delta, false);
+                                                    }
+                                                }
+                                            };
+
+                                            const delta = newStart.getTime() - node.startDate.getTime();
+                                            await persistShift(node, delta, true);
+
+                                            toast.success("Timeline successfully synchronized", { id: "gantt-date-change" });
+                                            onRefresh?.();
+                                            router.refresh();
+                                        } catch (err: any) {
                                             console.error("Date change error:", err);
+                                            toast.error(err.message || "Failed to persist timeline adjustments", { id: "gantt-date-change" });
+                                            router.refresh();
                                         }
                                     }}
                                 />

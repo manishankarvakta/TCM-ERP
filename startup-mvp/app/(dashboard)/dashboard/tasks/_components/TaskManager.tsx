@@ -35,7 +35,7 @@ export default function TaskManager() {
 
   const fetchData = () => {
     startTransition(async () => {
-      const res = await getTasks(1, 100);
+      const res = await getTasks(undefined, undefined, 100);
       if (res.success) setTasks(res.tasks || []);
       else toast.error(res.error || "Failed to load tasks");
     });

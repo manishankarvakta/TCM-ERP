@@ -117,6 +117,7 @@ export async function updateTask(
     status?: string;
     priority?: string;
     dueDate?: Date | null;
+    startDate?: Date | null;
     contactId?: string;
     opportunityId?: string;
     leadId?: string;

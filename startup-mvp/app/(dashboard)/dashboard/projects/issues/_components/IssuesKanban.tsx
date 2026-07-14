@@ -150,7 +150,7 @@ function DroppableLane({ lane, issues }: { lane: typeof LANES[0]; issues: Issue[
   return (
     <div
       ref={setNodeRef}
-      className={`border rounded-2xl p-4 flex flex-col gap-3 min-h-[600px] transition-all duration-300 ${lane.bg} ${
+      className={`w-[320px] shrink-0 border rounded-2xl p-4 flex flex-col gap-3 min-h-[600px] transition-all duration-300 ${lane.bg} ${
         isOver ? "ring-2 ring-primary/20 bg-primary/2" : ""
       }`}
     >
@@ -283,7 +283,7 @@ export default function IssuesKanban({ initialIssues }: IssuesKanbanProps) {
 
       {/* DndContext Container */}
       <DndContext onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+        <div className="flex gap-6 overflow-x-auto pb-4 items-start scrollbar-thin">
           {LANES.map((lane) => {
             const laneIssues = filteredIssues.filter((i) => i.status === lane.id);
             return (

@@ -15,6 +15,39 @@ import { SystemEntityType, SystemEventType } from "@/lib/system/types";
  */
 
 /**
+ * Generate unique project number
+ * Format: PROJ-YYYY-XXXX (e.g., PROJ-2026-0001)
+ */
+export async function generateProjectNumber(tx?: any): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `PROJ-${year}-`;
+  
+  const client = tx || prisma;
+  const lastProject = await client.project.findFirst({
+    where: {
+      projectNumber: {
+        startsWith: prefix,
+      },
+    },
+    orderBy: {
+      projectNumber: "desc",
+    },
+  });
+
+  let nextNumber = 1;
+  if (lastProject && lastProject.projectNumber) {
+    const parts = lastProject.projectNumber.split("-");
+    const lastNumStr = parts[parts.length - 1];
+    const lastNumber = parseInt(lastNumStr || "0", 10);
+    if (!isNaN(lastNumber)) {
+      nextNumber = lastNumber + 1;
+    }
+  }
+
+  return `${prefix}${nextNumber.toString().padStart(4, "0")}`;
+}
+
+/**
  * Create a new project
  */
 export async function createProject(input: {
@@ -37,6 +70,8 @@ export async function createProject(input: {
       return { success: false, error: "Permission Denied: projects.projects.create" };
     }
 
+    const projectNumber = await generateProjectNumber();
+
     const project = await prisma.project.create({
       data: {
         title: input.title,
@@ -50,6 +85,7 @@ export async function createProject(input: {
         budget: input.budget,
         priority: input.priority || "NORMAL",
         ownerId: session.user.id,
+        projectNumber,
       },
     });
 
@@ -297,6 +333,7 @@ export async function createMilestone(input: {
   description?: string;
   projectId: string;
   dueDate?: Date;
+  startDate?: Date;
   order?: number;
 }) {
   try {
@@ -334,6 +371,7 @@ export async function updateMilestone(
     description?: string;
     status?: any; // MilestoneStatus
     dueDate?: Date;
+    startDate?: Date;
     order?: number;
   }
 ) {
@@ -416,6 +454,7 @@ export async function createIssue(input: {
   priority?: string;
   type?: string;
   assigneeId?: string;
+  startDate?: Date;
 }) {
   try {
     const session = await auth();
@@ -476,6 +515,7 @@ export async function updateIssue(
     priority?: string;
     type?: string;
     assigneeId?: string;
+    startDate?: Date;
   }
 ) {
   try {
@@ -763,8 +803,9 @@ export async function getProjectGanttData(projectId: string) {
     });
 
     const mapSubtask = (st: typeof tasks[number]) => {
-      const startDate = st.createdAt.toISOString();
-      const endDate = (st.dueDate || new Date(st.createdAt.getTime() + 1 * 24 * 60 * 60 * 1000)).toISOString();
+      const startDateVal = st.startDate || st.createdAt;
+      const startDate = startDateVal.toISOString();
+      const endDate = (st.dueDate || new Date(startDateVal.getTime() + 1 * 24 * 60 * 60 * 1000)).toISOString();
       
       let progress = 0;
       if (st.status === "COMPLETED" || st.status === "done" || st.status === "completed") {
@@ -792,8 +833,9 @@ export async function getProjectGanttData(projectId: string) {
 
     const mapTask = (t: typeof tasks[number]) => {
       const children = (subtaskMap[t.id] || []).map(st => mapSubtask(st));
-      const startDate = t.createdAt.toISOString();
-      const endDate = (t.dueDate || new Date(t.createdAt.getTime() + 2 * 24 * 60 * 60 * 1000)).toISOString();
+      const startDateVal = t.startDate || t.createdAt;
+      const startDate = startDateVal.toISOString();
+      const endDate = (t.dueDate || new Date(startDateVal.getTime() + 2 * 24 * 60 * 60 * 1000)).toISOString();
 
       let progress = 0;
       if (t.status === "COMPLETED" || t.status === "done" || t.status === "completed") {
@@ -823,8 +865,8 @@ export async function getProjectGanttData(projectId: string) {
       const rootTasks = rootTasksByIssueId[issue.id] || [];
       const children = rootTasks.map(t => mapTask(t));
 
-      let startDateVal = issue.createdAt;
-      let endDateVal = new Date(issue.createdAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+      let startDateVal = issue.startDate || issue.createdAt;
+      let endDateVal = new Date(startDateVal.getTime() + 7 * 24 * 60 * 60 * 1000);
 
       if (children.length > 0) {
         const startTimes = children.map(c => new Date(c.startDate).getTime());
@@ -864,8 +906,8 @@ export async function getProjectGanttData(projectId: string) {
       const milestoneIssues = issues.filter(i => i.milestoneId === m.id);
       const children = milestoneIssues.map(i => mapIssue(i));
 
-      let startDateVal = m.createdAt;
-      let endDateVal = m.dueDate || new Date(m.createdAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+      let startDateVal = m.startDate || m.createdAt;
+      let endDateVal = m.dueDate || new Date(startDateVal.getTime() + 30 * 24 * 60 * 60 * 1000);
 
       if (children.length > 0) {
         const startTimes = children.map(c => new Date(c.startDate).getTime());

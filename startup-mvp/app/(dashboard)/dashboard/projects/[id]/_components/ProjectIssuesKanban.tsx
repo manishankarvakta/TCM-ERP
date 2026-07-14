@@ -215,7 +215,7 @@ function BoardLane({ lane, issues, onEdit, onDelete, hasOp }: { lane: typeof LAN
     return (
         <div
             ref={setNodeRef}
-            className={`flex flex-col gap-3 min-h-[500px] rounded-2xl border p-4 transition-all duration-200 ${lane.bg} ${isOver ? `ring-2 ${lane.ring}` : "border-border/40"}`}
+            className={`w-[320px] shrink-0 flex flex-col gap-3 min-h-[500px] rounded-2xl border p-4 transition-all duration-200 ${lane.bg} ${isOver ? `ring-2 ${lane.ring}` : "border-border/40"}`}
         >
             <div className="flex items-center justify-between pb-3 border-b border-border/40">
                 <div className="flex items-center gap-2">
@@ -524,7 +524,7 @@ export default function ProjectIssuesKanban({ project, onRefresh, onEditIssue, o
             {/* Board View */}
             {view === "board" && (
                 <DndContext onDragEnd={handleDragEnd}>
-                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <div className="flex gap-4 overflow-x-auto pb-4 items-start scrollbar-thin">
                         {LANES.map(lane => {
                             const laneIssues = localIssues.filter(i => i.status === lane.id);
                             return (
