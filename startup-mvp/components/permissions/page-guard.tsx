@@ -28,8 +28,10 @@ export default async function PageGuard({
 
 
 
-  // Dashboard is always accessible
-  if (permissionKey === "dashboard") {
+  const isAdmin = session.user.role?.toLowerCase() === "admin";
+
+  // Dashboard is always accessible, and Settings pages are always accessible to admins
+  if (permissionKey === "dashboard" || (isAdmin && (permissionKey === "settings" || permissionKey.startsWith("settings.")))) {
     return <>{children}</>;
   }
 

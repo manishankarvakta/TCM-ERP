@@ -136,11 +136,11 @@ export default async function DashboardSidebarWrapper() {
     // Only set Dashboard and Profile as accessible
     accessiblePages.set("dashboard", true);
     accessiblePages.set("profile", true);
-    // Explicitly exclude Settings pages
+    // Explicitly exclude Settings pages (except for admins)
     for (const navItem of NAVIGATION_STRUCTURE) {
       if (navItem.id === "settings") {
         for (const page of navItem.pages) {
-          accessiblePages.set(page.permissionKey, false);
+          accessiblePages.set(page.permissionKey, isAdmin);
         }
       }
     }
@@ -150,6 +150,12 @@ export default async function DashboardSidebarWrapper() {
     // every page is in the accessiblePages map (either true or false)
     for (const navItem of NAVIGATION_STRUCTURE) {
       for (const page of navItem.pages) {
+        // Admin users always have access to Settings pages
+        if (isAdmin && (navItem.id === "settings" || page.permissionKey === "settings" || page.permissionKey.startsWith("settings."))) {
+          accessiblePages.set(page.permissionKey, true);
+          continue;
+        }
+
         const pagePerm = permissions[page.permissionKey] as PagePermission | undefined;
         
         // Core rule: Check navigationVisible and pageAccess flags first
