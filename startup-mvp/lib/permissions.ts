@@ -42,8 +42,15 @@ export async function getUserPermissions(
 
     let mergedPermissions: PartialPermissions = {};
 
-    // If UserPermission records exist, use them directly (they contain the full current state)
-    if (user.userPermissions && user.userPermissions.length > 0) {
+    if (user.role?.toLowerCase() === "admin") {
+      // Admin role has all permissions and operations enabled by default
+      for (const navItem of NAVIGATION_STRUCTURE) {
+        for (const page of navItem.pages) {
+          mergedPermissions[page.permissionKey] = page.operations;
+        }
+      }
+    } else if (user.userPermissions && user.userPermissions.length > 0) {
+      // If UserPermission records exist, use them directly (they contain the full current state)
       for (const userPerm of user.userPermissions) {
         const permissionKey = userPerm.module; // Can be "items" or "items.groups"
         const operations = userPerm.operations as Operation[];
