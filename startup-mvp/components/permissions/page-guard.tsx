@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { canAccessPage, canAccessSubModule, canAccessModule } from "@/lib/permissions";
 import type { Module, Operation } from "@/types/permissions";
 
@@ -28,7 +29,12 @@ export default async function PageGuard({
 
 
 
-  const isAdmin = session.user.role?.toLowerCase() === "admin";
+  // Check if user is admin (query database role as fallback to bypass session cache drifts)
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  });
+  const isAdmin = session.user.role?.toLowerCase() === "admin" || dbUser?.role?.toLowerCase() === "admin";
 
   // Dashboard is always accessible, and Settings pages are always accessible to admins
   if (permissionKey === "dashboard" || (isAdmin && (permissionKey === "settings" || permissionKey.startsWith("settings.")))) {

@@ -1,5 +1,6 @@
-// Cache-bust: v5
+// Cache-bust: v6
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { getUserPermissionsEnhanced } from "@/lib/permissions";
 import { NAVIGATION_STRUCTURE, type PagePermission } from "@/types/permissions";
 import {
@@ -117,8 +118,12 @@ export default async function DashboardSidebarWrapper() {
     return null;
   }
 
-  // Check if user is admin
-  const isAdmin = session.user.role?.toLowerCase() === "admin";
+  // Check if user is admin (query database role as fallback to bypass session cache drifts)
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  });
+  const isAdmin = session.user.role?.toLowerCase() === "admin" || dbUser?.role?.toLowerCase() === "admin";
   
   // Build accessible pages map (permissionKey -> has access)
   const accessiblePages = new Map<string, boolean>();
