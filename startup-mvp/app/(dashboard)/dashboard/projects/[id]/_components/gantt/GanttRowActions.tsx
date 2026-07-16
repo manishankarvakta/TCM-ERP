@@ -26,7 +26,7 @@ export function GanttRowActions({ node, onAddChild, onEdit, onDelete }: GanttRow
         <Button 
           variant="ghost" 
           size="icon" 
-          className="h-6 w-6 text-muted-foreground hover:text-primary"
+          className="h-6 w-6 text-muted-foreground hover:bg-slate-100 hover:text-primary"
           onClick={(e) => {
             e.stopPropagation();
             onAddChild(node.id, node.type);
@@ -42,7 +42,7 @@ export function GanttRowActions({ node, onAddChild, onEdit, onDelete }: GanttRow
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-6 w-6 text-muted-foreground hover:text-primary"
+            className="h-6 w-6 text-muted-foreground hover:bg-slate-100 hover:text-primary"
             onClick={(e) => e.stopPropagation()}
           >
             <MoreHorizontal className="h-4 w-4" />

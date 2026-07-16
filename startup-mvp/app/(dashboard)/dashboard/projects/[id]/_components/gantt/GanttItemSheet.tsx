@@ -732,7 +732,7 @@ export function GanttItemSheet({ node, isOpen, onOpenChange, onSave }: GanttItem
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="h-6 w-6 text-slate-400 hover:text-red-500 rounded-full shrink-0 opacity-0 group-hover:opacity-100 transition-all"
+                          className="h-6 w-6 text-slate-400 hover:text-red-500 hover:bg-slate-100 rounded-full shrink-0 opacity-0 group-hover:opacity-100 transition-all"
                           onClick={() => setAttachments(prev => prev.filter(f => f.id !== file.id))}
                         >
                           <Trash2 className="w-3 h-3" />

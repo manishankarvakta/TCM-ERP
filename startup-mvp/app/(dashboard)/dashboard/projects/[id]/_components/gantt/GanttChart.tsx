@@ -37,6 +37,13 @@ const cloneTree = (nodes: GanttNode[]): GanttNode[] => {
     }));
 };
 
+// Strip time component to get day-level precision
+const stripTime = (date: Date): Date => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d;
+};
+
 // Toggle expand/collapse recursively
 const toggleNodeRecursive = (nodes: GanttNode[], id: string): boolean => {
     let mutated = false;
@@ -183,6 +190,21 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
             }
         }
         return { milestoneId: null, issueId: null };
+    };
+
+    const getParentMilestone = (nodes: GanttNode[], node: GanttNode): GanttNode | null => {
+        let milestoneId: string | null = null;
+        if (node.type === "issue") {
+            milestoneId = findMilestoneIdForIssue(nodes, node.id);
+        } else if (node.type === "task" || node.type === "subtask") {
+            const parents = findParentIdsForTask(nodes, node.id);
+            milestoneId = parents.milestoneId;
+        }
+        
+        if (milestoneId) {
+            return findNodeRecursive(nodes, milestoneId);
+        }
+        return null;
     };
 
     // Initialize data
@@ -352,6 +374,48 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                                         }
                                     }}
                                     onDateChangeAction={async (nodeId, newStart, newEnd) => {
+                                        const node = findNodeRecursive(data, nodeId);
+                                        if (!node) return;
+
+                                        // Validation: Check parent milestone boundaries
+                                        if (node.type !== "milestone") {
+                                            const parentMilestone = getParentMilestone(data, node);
+                                            if (parentMilestone) {
+                                                const msStart = stripTime(new Date(parentMilestone.startDate)).getTime();
+                                                const msEnd = stripTime(new Date(parentMilestone.endDate)).getTime();
+                                                const checkStart = stripTime(newStart).getTime();
+                                                const checkEnd = stripTime(newEnd).getTime();
+                                                if (checkStart < msStart || checkEnd > msEnd) {
+                                                    toast.error(`Adjustments must remain within the phase boundaries (${parentMilestone.startDate.toLocaleDateString()} - ${parentMilestone.endDate.toLocaleDateString()})`, { id: "gantt-date-change" });
+                                                    return;
+                                                }
+                                            }
+                                        } else {
+                                            // Milestone resize bounds validation
+                                            const isResize = stripTime(newStart).getTime() === stripTime(node.startDate).getTime() || stripTime(newEnd).getTime() === stripTime(node.endDate).getTime();
+                                            if (isResize) {
+                                                const checkChildrenBounds = (childNodes: GanttNode[]): boolean => {
+                                                    for (const child of childNodes) {
+                                                        const childStart = stripTime(new Date(child.startDate)).getTime();
+                                                        const childEnd = stripTime(new Date(child.endDate)).getTime();
+                                                        const milestoneStart = stripTime(newStart).getTime();
+                                                        const milestoneEnd = stripTime(newEnd).getTime();
+                                                        if (childStart < milestoneStart || childEnd > milestoneEnd) {
+                                                            return false;
+                                                        }
+                                                        if (child.children && child.children.length > 0) {
+                                                            if (!checkChildrenBounds(child.children)) return false;
+                                                        }
+                                                    }
+                                                    return true;
+                                                };
+                                                if (node.children && !checkChildrenBounds(node.children)) {
+                                                    toast.error("Phase boundaries cannot be narrower than its active issues and tasks", { id: "gantt-date-change" });
+                                                    return;
+                                                }
+                                            }
+                                        }
+
                                         setData(prev => {
                                             const next = cloneTree(prev);
                                             updateAndShiftNodeRecursive(next, nodeId, newStart, newEnd);
@@ -359,9 +423,6 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                                         });
 
                                         try {
-                                            const node = findNodeRecursive(data, nodeId);
-                                            if (!node) return;
-
                                             toast.loading("Saving timeline adjustments...", { id: "gantt-date-change" });
 
                                             const oldDuration = node.endDate.getTime() - node.startDate.getTime();
@@ -437,6 +498,44 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                 isOpen={isSheetOpen}
                 onOpenChange={setIsSheetOpen}
                 onSave={async (nodeId, updates) => {
+                    const node = findNodeRecursive(data, nodeId);
+                    if (!node) return;
+
+                    const proposedStart = updates.startDate || node.startDate;
+                    const proposedEnd = updates.endDate || node.endDate;
+
+                    if (node.type !== "milestone") {
+                        const parentMilestone = getParentMilestone(data, node);
+                        if (parentMilestone) {
+                            const msStart = new Date(parentMilestone.startDate).getTime();
+                            const msEnd = new Date(parentMilestone.endDate).getTime();
+                            if (proposedStart.getTime() < msStart || proposedEnd.getTime() > msEnd) {
+                                toast.error(`Date must be within parent milestone bounds (${parentMilestone.startDate.toLocaleDateString()} - ${parentMilestone.endDate.toLocaleDateString()})`, { id: "gantt-action" });
+                                return;
+                            }
+                        }
+                    } else {
+                        const checkChildrenBounds = (childNodes: GanttNode[]): boolean => {
+                            for (const child of childNodes) {
+                                const childStart = stripTime(new Date(child.startDate)).getTime();
+                                const childEnd = stripTime(new Date(child.endDate)).getTime();
+                                const milestoneStart = stripTime(proposedStart).getTime();
+                                const milestoneEnd = stripTime(proposedEnd).getTime();
+                                if (childStart < milestoneStart || childEnd > milestoneEnd) {
+                                    return false;
+                                }
+                                if (child.children && child.children.length > 0) {
+                                    if (!checkChildrenBounds(child.children)) return false;
+                                }
+                            }
+                            return true;
+                        };
+                        if (node.children && !checkChildrenBounds(node.children)) {
+                            toast.error("Milestone bounds cannot be narrower than its active issues and tasks", { id: "gantt-action" });
+                            return;
+                        }
+                    }
+
                     setData(prev => {
                         const next = cloneTree(prev);
                         updateNodeRecursive(next, nodeId, updates);
@@ -444,9 +543,6 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                     });
 
                     try {
-                        const node = findNodeRecursive(data, nodeId);
-                        if (!node) return;
-
                         toast.loading("Saving changes...", { id: "gantt-action" });
                         let res: { success: boolean; error?: string };
 
