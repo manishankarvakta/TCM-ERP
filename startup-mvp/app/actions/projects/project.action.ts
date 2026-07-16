@@ -21,7 +21,7 @@ import { SystemEntityType, SystemEventType } from "@/lib/system/types";
 export async function generateProjectNumber(tx?: any): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `PROJ-${year}-`;
-  
+
   const client = tx || prisma;
   const lastProject = await client.project.findFirst({
     where: {
@@ -145,16 +145,16 @@ export async function updateProject(
     const changes: any[] = [];
     if (input.title && input.title !== oldProject.title) changes.push({ field: "title", from: oldProject.title, to: input.title });
     if (input.status && input.status !== oldProject.status) changes.push({ field: "status", from: oldProject.status, to: input.status });
-    
+
     if (changes.length > 0) {
-        await emitSystemEvent({
-          entityType: "project" as SystemEntityType,
-          entityId: project.id,
-          eventType: input.status === "COMPLETED" ? "PROJECT_COMPLETED" : ("PROJECT_UPDATED" as SystemEventType),
-          actorId: session.user.id,
-          description: `Updated project: ${project.title}`,
-          metadata: { projectId: project.id, changes },
-        });
+      await emitSystemEvent({
+        entityType: "project" as SystemEntityType,
+        entityId: project.id,
+        eventType: input.status === "COMPLETED" ? "PROJECT_COMPLETED" : ("PROJECT_UPDATED" as SystemEventType),
+        actorId: session.user.id,
+        description: `Updated project: ${project.title}`,
+        metadata: { projectId: project.id, changes },
+      });
     }
 
     revalidateBothPaths("projects");
@@ -202,15 +202,15 @@ export async function getProjects(
       if (dateFrom) {
         const start = new Date(dateFrom);
         if (!isNaN(start.getTime())) {
-            start.setHours(0, 0, 0, 0);
-            where.createdAt.gte = start;
+          start.setHours(0, 0, 0, 0);
+          where.createdAt.gte = start;
         }
       }
       if (dateTo) {
         const end = new Date(dateTo);
         if (!isNaN(end.getTime())) {
-            end.setHours(23, 59, 59, 999);
-            where.createdAt.lte = end;
+          end.setHours(23, 59, 59, 999);
+          where.createdAt.lte = end;
         }
       }
     }
@@ -233,7 +233,7 @@ export async function getProjects(
           Client: { select: { id: true, name: true, image: true } },
           Owner: { select: { id: true, name: true, image: true } },
           _count: {
-              select: { Milestones: true, Tasks: true }
+            select: { Milestones: true, Tasks: true }
           }
         },
       }),
@@ -241,16 +241,16 @@ export async function getProjects(
 
     // Map to plain objects to avoid Decimal serialization issues in client components
     const mappedProjects = projects.map((p: any) => ({
-        ...p,
-        budget: p.budget ? Number(p.budget) : null,
-        createdAt: p.createdAt.toISOString(),
-        updatedAt: p.updatedAt.toISOString(),
-        startDate: p.startDate?.toISOString(),
-        endDate: p.endDate?.toISOString(),
+      ...p,
+      budget: p.budget ? Number(p.budget) : null,
+      createdAt: p.createdAt.toISOString(),
+      updatedAt: p.updatedAt.toISOString(),
+      startDate: p.startDate?.toISOString(),
+      endDate: p.endDate?.toISOString(),
     }));
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       projects: mappedProjects,
       pagination: {
         page,
@@ -269,60 +269,66 @@ export async function getProjects(
  * Get a single project by ID with full details
  */
 export async function getProjectById(id: string) {
-    try {
-      const session = await auth();
-      if (!session?.user) return { success: false, error: "Unauthorized" };
-  
-      const project = await prisma.project.findUnique({
-        where: { id },
-        include: {
-          Client: true,
-          Owner: { select: { id: true, name: true, image: true, email: true } },
-          Milestones: {
-            include: {
-                Issues: {
-                    include: {
-                        Assignee: { select: { id: true, name: true, image: true } },
-                        Tasks: {
-                            where: { parentId: null },
-                            include: {
-                                Assignee: { select: { id: true, name: true, image: true } },
-                                Subtasks: {
-                                    include: {
-                                        Assignee: { select: { id: true, name: true, image: true } }
-                                    }
-                                }
-                            }
-                        }
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const project = await prisma.project.findUnique({
+      where: { id },
+      include: {
+        Client: true,
+        Owner: { select: { id: true, name: true, image: true, email: true } },
+        Milestones: {
+          include: {
+            Issues: {
+              include: {
+                Assignee: { select: { id: true, name: true, image: true } },
+                Tasks: {
+                  where: { parentId: null },
+                  include: {
+                    Assignee: { select: { id: true, name: true, image: true } },
+                    Subtasks: {
+                      include: {
+                        Assignee: { select: { id: true, name: true, image: true } }
+                      },
+                      orderBy: { createdAt: "asc" }
                     }
+                  },
+                  orderBy: { createdAt: "asc" }
                 }
-            },
-            orderBy: { order: "asc" }
+              },
+              orderBy: { createdAt: "asc" }
+            }
           },
-          _count: {
-              select: { Tasks: true, Notes: true, Docs: true }
-          }
+          orderBy: [
+            { order: "asc" },
+            { createdAt: "asc" }
+          ]
+        },
+        _count: {
+          select: { Tasks: true, Notes: true, Docs: true }
         }
-      });
-  
-      if (!project) return { success: false, error: "Project not found" };
-  
-      // Map to plain object
-      const mappedProject = {
-          ...project,
-          budget: project.budget ? Number(project.budget) : null,
-          createdAt: project.createdAt.toISOString(),
-          updatedAt: project.updatedAt.toISOString(),
-          startDate: project.startDate?.toISOString(),
-          endDate: project.endDate?.toISOString(),
-      };
-  
-      return { success: true, project: mappedProject };
-    } catch (error) {
-      console.error("getProjectById error:", error);
-      return { success: false, error: "Failed to fetch project" };
-    }
+      }
+    });
+
+    if (!project) return { success: false, error: "Project not found" };
+
+    // Map to plain object
+    const mappedProject = {
+      ...project,
+      budget: project.budget ? Number(project.budget) : null,
+      createdAt: project.createdAt.toISOString(),
+      updatedAt: project.updatedAt.toISOString(),
+      startDate: project.startDate?.toISOString(),
+      endDate: project.endDate?.toISOString(),
+    };
+
+    return { success: true, project: mappedProject };
+  } catch (error) {
+    console.error("getProjectById error:", error);
+    return { success: false, error: "Failed to fetch project" };
   }
+}
 
 /**
  * --- Milestone Actions ---
@@ -455,6 +461,7 @@ export async function createIssue(input: {
   type?: string;
   assigneeId?: string;
   startDate?: Date;
+  dueDate?: Date;
 }) {
   try {
     const session = await auth();
@@ -466,14 +473,24 @@ export async function createIssue(input: {
 
     const milestone = await prisma.milestone.findUnique({
       where: { id: input.milestoneId },
-      select: { projectId: true }
+      select: { projectId: true, startDate: true, dueDate: true }
     });
 
     if (!milestone) return { success: false, error: "Milestone not found" };
 
+    const startDate = input.startDate || milestone.startDate || undefined;
+    const dueDate = input.dueDate || milestone.dueDate || undefined;
+
     const issue = await prisma.issue.create({
       data: {
-        ...input,
+        title: input.title,
+        description: input.description,
+        milestoneId: input.milestoneId,
+        priority: input.priority,
+        type: input.type,
+        assigneeId: input.assigneeId,
+        startDate: startDate,
+        dueDate: dueDate,
         reporterId: session.user.id,
       },
     });
@@ -486,12 +503,12 @@ export async function createIssue(input: {
       description: `Reported issue: ${issue.title}`,
       metadata: { issueId: issue.id, projectId: milestone.projectId },
       ...(input.assigneeId && {
-          notification: {
-              recipientId: input.assigneeId,
-              type: "ISSUE_CREATED" as any,
-              title: "New Issue Assigned",
-              message: `Issue assigned: ${issue.title}`
-          }
+        notification: {
+          recipientId: input.assigneeId,
+          type: "ISSUE_CREATED" as any,
+          title: "New Issue Assigned",
+          message: `Issue assigned: ${issue.title}`
+        }
       })
     });
 
@@ -540,22 +557,22 @@ export async function updateIssue(
       eventType: "ISSUE_UPDATED" as SystemEventType,
       actorId: session.user.id,
       description: `Updated issue mission parameters: ${issue.title}`,
-      metadata: { 
-        issueId: issue.id, 
+      metadata: {
+        issueId: issue.id,
         projectId: oldIssue.Milestone.projectId,
         ...(input.assigneeId && input.assigneeId !== oldIssue.assigneeId && {
-            assigneeChanged: true,
-            from: oldIssue.assigneeId,
-            to: input.assigneeId
+          assigneeChanged: true,
+          from: oldIssue.assigneeId,
+          to: input.assigneeId
         })
       },
       ...(input.assigneeId && input.assigneeId !== oldIssue.assigneeId && {
-          notification: {
-              recipientId: input.assigneeId,
-              type: "ISSUE_ASSIGNED" as any,
-              title: "Mission Re-assigned",
-              message: `You have been assigned to: ${issue.title}`
-          }
+        notification: {
+          recipientId: input.assigneeId,
+          type: "ISSUE_ASSIGNED" as any,
+          title: "Mission Re-assigned",
+          message: `You have been assigned to: ${issue.title}`
+        }
       })
     });
 
@@ -673,7 +690,8 @@ export async function getAllMilestones(status?: string, search?: string) {
       },
       orderBy: [
         { dueDate: "asc" },
-        { order: "asc" }
+        { order: "asc" },
+        { createdAt: "asc" }
       ],
     });
 
@@ -737,7 +755,7 @@ export async function getAllIssues(status?: string, search?: string, priority?: 
           }
         }
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "asc" },
     });
 
     return { success: true, issues };
@@ -768,7 +786,10 @@ export async function getProjectGanttData(projectId: string) {
 
     const milestones = await prisma.milestone.findMany({
       where: { projectId },
-      orderBy: { order: "asc" }
+      orderBy: [
+        { order: "asc" },
+        { createdAt: "asc" }
+      ]
     });
 
     const milestoneIds = milestones.map(m => m.id);
@@ -807,7 +828,7 @@ export async function getProjectGanttData(projectId: string) {
       const startDateVal = st.startDate || st.createdAt;
       const startDate = startDateVal.toISOString();
       const endDate = (st.dueDate || new Date(startDateVal.getTime() + 1 * 24 * 60 * 60 * 1000)).toISOString();
-      
+
       let progress = 0;
       if (st.status === "COMPLETED" || st.status === "done" || st.status === "completed") {
         progress = 100;

@@ -59,6 +59,7 @@ export function GanttRowActions({ node, onAddChild, onEdit, onDelete }: GanttRow
           {onDelete && (
             <DropdownMenuItem 
               className="text-red-600 focus:text-red-600 focus:bg-red-50"
+              onSelect={(e) => e.preventDefault()}
               onClick={(e) => { e.stopPropagation(); onDelete(node.id); }}
             >
               <Trash2 className="mr-2 h-4 w-4" />

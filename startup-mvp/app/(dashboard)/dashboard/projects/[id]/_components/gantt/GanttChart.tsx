@@ -9,7 +9,17 @@ import { GanttDependencies } from "./GanttDependencies";
 import { GanttItemSheet } from "./GanttItemSheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
-import { createIssue, deleteIssue, updateIssue, updateMilestone } from "@/app/actions/projects/project.action";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { createIssue, deleteIssue, updateIssue, updateMilestone, deleteMilestone } from "@/app/actions/projects/project.action";
 import { createTask, deleteTask, updateTask } from "@/app/actions/system/task.action";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -105,6 +115,41 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
     const [dayWidth, setDayWidth] = useState(30); // pixels per day
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
+    const [deletingMilestoneId, setDeletingMilestoneId] = useState<string | null>(null);
+
+    const executeNodeDelete = async (nodeId: string, nodeType: string) => {
+        try {
+            toast.loading(`Deleting ${nodeType === "milestone" ? "phase" : nodeType}...`, { id: "gantt-action" });
+            let res: { success: boolean; error?: string };
+
+            if (nodeType === "issue") {
+                res = await deleteIssue(nodeId);
+            } else if (nodeType === "task" || nodeType === "subtask") {
+                res = await deleteTask(nodeId);
+            } else if (nodeType === "milestone") {
+                res = await deleteMilestone(nodeId);
+            } else {
+                toast.error("Unknown item type", { id: "gantt-action" });
+                return;
+            }
+
+            if (res.success) {
+                let displayType = "Item";
+                if (nodeType === "issue") displayType = "Issue";
+                else if (nodeType === "task" || nodeType === "subtask") displayType = "Task";
+                else if (nodeType === "milestone") displayType = "Phase";
+
+                toast.success(`${displayType} deleted successfully!`, { id: "gantt-action" });
+                onRefresh?.();
+                router.refresh();
+            } else {
+                toast.error(res.error || "Failed to delete item", { id: "gantt-action" });
+            }
+        } catch (err) {
+            console.error("Delete node error:", err);
+            toast.error("An error occurred while deleting item", { id: "gantt-action" });
+        }
+    };
 
     const router = useRouter();
     const params = useParams();
@@ -224,12 +269,15 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                                     onAddChildAction={async (parentId, parentType, title) => {
                                         try {
                                             if (parentType === "milestone") {
+                                                const parentMilestone = findNodeRecursive(data, parentId);
                                                 toast.loading("Creating issue...", { id: "gantt-action" });
                                                 const res = await createIssue({
                                                     title,
                                                     milestoneId: parentId,
                                                     priority: "NORMAL",
-                                                    type: "TASK"
+                                                    type: "TASK",
+                                                    startDate: parentMilestone?.startDate,
+                                                    dueDate: parentMilestone?.endDate
                                                 });
                                                 if (res.success) {
                                                     toast.success("Issue created successfully!", { id: "gantt-action" });
@@ -239,6 +287,7 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                                                     toast.error(res.error || "Failed to create issue", { id: "gantt-action" });
                                                 }
                                             } else if (parentType === "issue") {
+                                                const parentIssue = findNodeRecursive(data, parentId);
                                                 const milestoneId = findMilestoneIdForIssue(data, parentId);
                                                 toast.loading("Creating task...", { id: "gantt-action" });
                                                 const res = await createTask({
@@ -247,7 +296,9 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                                                     milestoneId: milestoneId || undefined,
                                                     issueId: parentId,
                                                     entityType: "project",
-                                                    entityId: projectId
+                                                    entityId: projectId,
+                                                    startDate: parentIssue?.startDate,
+                                                    dueDate: parentIssue?.endDate
                                                 });
                                                 if (res.success) {
                                                     toast.success("Task created successfully!", { id: "gantt-action" });
@@ -257,6 +308,7 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                                                     toast.error(res.error || "Failed to create task", { id: "gantt-action" });
                                                 }
                                             } else if (parentType === "task") {
+                                                const parentTask = findNodeRecursive(data, parentId);
                                                 const { milestoneId, issueId } = findParentIdsForTask(data, parentId);
                                                 toast.loading("Creating subtask...", { id: "gantt-action" });
                                                 const res = await createTask({
@@ -266,7 +318,9 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                                                     issueId: issueId || undefined,
                                                     parentId,
                                                     entityType: "project",
-                                                    entityId: projectId
+                                                    entityId: projectId,
+                                                    startDate: parentTask?.startDate,
+                                                    dueDate: parentTask?.endDate
                                                 });
                                                 if (res.success) {
                                                     toast.success("Subtask created successfully!", { id: "gantt-action" });
@@ -286,32 +340,15 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                                         setIsSheetOpen(true);
                                     }}
                                     onDeleteAction={async (nodeId) => {
-                                        try {
-                                            const node = findNodeRecursive(data, nodeId);
-                                            if (!node) return;
+                                        const node = findNodeRecursive(data, nodeId);
+                                        if (!node) return;
 
-                                            toast.loading(`Deleting ${node.type}...`, { id: "gantt-action" });
-                                            let res: { success: boolean; error?: string };
-
-                                            if (node.type === "issue") {
-                                                res = await deleteIssue(nodeId);
-                                            } else if (node.type === "task" || node.type === "subtask") {
-                                                res = await deleteTask(nodeId);
-                                            } else {
-                                                toast.error("Milestones cannot be deleted directly from timeline", { id: "gantt-action" });
-                                                return;
-                                            }
-
-                                            if (res.success) {
-                                                toast.success(`${node.type === "issue" ? "Issue" : "Task"} deleted successfully!`, { id: "gantt-action" });
-                                                onRefresh?.();
-                                                router.refresh();
-                                            } else {
-                                                toast.error(res.error || "Failed to delete item", { id: "gantt-action" });
-                                            }
-                                        } catch (err) {
-                                            console.error("Delete node error:", err);
-                                            toast.error("An error occurred while deleting item", { id: "gantt-action" });
+                                        if (node.type === "milestone") {
+                                            setTimeout(() => {
+                                                setDeletingMilestoneId(nodeId);
+                                            }, 100);
+                                        } else {
+                                            await executeNodeDelete(nodeId, node.type);
                                         }
                                     }}
                                     onDateChangeAction={async (nodeId, newStart, newEnd) => {
@@ -463,6 +500,32 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                     }
                 }}
             />
+            {/* Milestone Delete Confirmation Dialog */}
+            <AlertDialog open={!!deletingMilestoneId} onOpenChange={(open) => !open && setDeletingMilestoneId(null)}>
+                <AlertDialogContent className="rounded-xl border border-border bg-background max-w-[450px]">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-xl font-bold text-foreground">Delete Phase</AlertDialogTitle>
+                        <AlertDialogDescription className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                            Are you sure you want to delete this phase? Deleting a milestone will recursively delete all issues and tasks under it. This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="mt-4 gap-2">
+                        <AlertDialogCancel className="rounded-lg font-semibold" onClick={() => setDeletingMilestoneId(null)}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-lg font-semibold"
+                            onClick={async () => {
+                                if (deletingMilestoneId) {
+                                    const mId = deletingMilestoneId;
+                                    setDeletingMilestoneId(null);
+                                    await executeNodeDelete(mId, "milestone");
+                                }
+                            }}
+                        >
+                            Delete Phase
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </Card>
     );
 }

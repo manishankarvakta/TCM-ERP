@@ -18,6 +18,7 @@ export async function createTask(input: {
   description?: string;
   status?: string;
   priority?: string;
+  startDate?: Date;
   dueDate?: Date;
   contactId?: string;
   opportunityId?: string;
@@ -44,13 +45,57 @@ export async function createTask(input: {
     const entityType = input.entityType || (input.leadId ? "lead" : input.opportunityId ? "opportunity" : input.contactId ? "contact" : undefined);
     const entityId = input.entityId || input.leadId || input.opportunityId || input.contactId;
 
+    let startDate = input.startDate;
+    let dueDate = input.dueDate;
+
+    if (!startDate || !dueDate) {
+      if (input.issueId) {
+        const parentIssue = await prisma.issue.findUnique({
+          where: { id: input.issueId },
+          select: { startDate: true, dueDate: true }
+        });
+        if (parentIssue) {
+          if (!startDate) startDate = parentIssue.startDate || undefined;
+          if (!dueDate) dueDate = parentIssue.dueDate || undefined;
+        }
+      } else if (input.parentId) {
+        const parentTask = await prisma.task.findUnique({
+          where: { id: input.parentId },
+          select: { startDate: true, dueDate: true }
+        });
+        if (parentTask) {
+          if (!startDate) startDate = parentTask.startDate || undefined;
+          if (!dueDate) dueDate = parentTask.dueDate || undefined;
+        }
+      } else if (input.milestoneId) {
+        const parentMilestone = await prisma.milestone.findUnique({
+          where: { id: input.milestoneId },
+          select: { startDate: true, dueDate: true }
+        });
+        if (parentMilestone) {
+          if (!startDate) startDate = parentMilestone.startDate || undefined;
+          if (!dueDate) dueDate = parentMilestone.dueDate || undefined;
+        }
+      } else if (input.projectId) {
+        const parentProject = await prisma.project.findUnique({
+          where: { id: input.projectId },
+          select: { startDate: true, endDate: true }
+        });
+        if (parentProject) {
+          if (!startDate) startDate = parentProject.startDate || undefined;
+          if (!dueDate) dueDate = parentProject.endDate || undefined;
+        }
+      }
+    }
+
     const task = await prisma.task.create({
       data: {
         title: input.title,
         description: input.description,
         status: input.status || "todo",
         priority: input.priority || "medium",
-        dueDate: input.dueDate,
+        startDate: startDate,
+        dueDate: dueDate,
         contactId: input.contactId,
         opportunityId: input.opportunityId,
         leadId: input.leadId,
@@ -351,7 +396,7 @@ export async function getTasks(
         cursor: { id: cursor },
         skip: 1, // Skip the cursor itself
       }),
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "asc" },
       include: {
         User: {
           select: {
