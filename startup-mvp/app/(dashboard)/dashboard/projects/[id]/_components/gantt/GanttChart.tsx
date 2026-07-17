@@ -503,8 +503,12 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
 
                     const proposedStart = updates.startDate || node.startDate;
                     const proposedEnd = updates.endDate || node.endDate;
+                    const hasDateChanged = 
+                        proposedStart.getTime() !== node.startDate.getTime() ||
+                        proposedEnd.getTime() !== node.endDate.getTime();
 
-                    if (node.type !== "milestone") {
+
+                    if (hasDateChanged && node.type !== "milestone") {
                         const parentMilestone = getParentMilestone(data, node);
                         if (parentMilestone) {
                             const msStart = new Date(parentMilestone.startDate).getTime();
@@ -530,7 +534,7 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                             }
                             return true;
                         };
-                        if (node.children && !checkChildrenBounds(node.children)) {
+                        if (hasDateChanged && node.children && !checkChildrenBounds(node.children)) {
                             toast.error("Milestone bounds cannot be narrower than its active issues and tasks", { id: "gantt-action" });
                             return;
                         }
@@ -554,24 +558,37 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                                 priority: updates.priority,
                                 assigneeId: updates.assigneeId
                             };
+                            if (updates.startDate) {
+                                inputUpdates.startDate = updates.startDate;
+                            }
                             if (updates.endDate) {
                                 inputUpdates.dueDate = updates.endDate;
                             }
                             res = await updateTask(nodeId, inputUpdates);
                         } else if (node.type === "issue") {
-                            res = await updateIssue(nodeId, {
-                                title: updates.title,
+                            const inputUpdates: any = {
+                                title: updates.title?.replace(/^Issue:\s*/i, ""),
                                 status: updates.status,
                                 description: updates.description,
                                 priority: updates.priority,
                                 assigneeId: updates.assigneeId
-                            });
+                            };
+                            if (updates.startDate) {
+                                inputUpdates.startDate = updates.startDate;
+                            }
+                            if (updates.endDate) {
+                                inputUpdates.dueDate = updates.endDate;
+                            }
+                            res = await updateIssue(nodeId, inputUpdates);
                         } else if (node.type === "milestone") {
                             const inputUpdates: any = {
-                                title: updates.title,
+                                title: updates.title?.replace(/^Milestone:\s*/i, ""),
                                 status: updates.status,
                                 description: updates.description
                             };
+                            if (updates.startDate) {
+                                inputUpdates.startDate = updates.startDate;
+                            }
                             if (updates.endDate) {
                                 inputUpdates.dueDate = updates.endDate;
                             }

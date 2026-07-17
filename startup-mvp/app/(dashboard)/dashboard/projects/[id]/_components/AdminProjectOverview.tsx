@@ -7,32 +7,79 @@ import { format } from "date-fns";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 
 export function AdminProjectOverview({ project, tasks }: { project: any; tasks: any[] }) {
-    // 1. Budget Usage
+    // 1. Core aggregates (Issues and Tasks)
+    const allIssues: any[] = [];
+    project.Milestones?.forEach((m: any) => {
+        if (m.Issues) {
+            allIssues.push(...m.Issues);
+        }
+    });
+
+    const totalIssuesCount = allIssues.length;
+    const completedIssuesCount = allIssues.filter((i: any) => i.status === "COMPLETED" || i.status === "CLOSED").length;
+
+    const totalTasksCount = tasks.length;
+    const completedTasksCount = tasks.filter((t: any) => t.status === "COMPLETED" || t.status === "completed" || t.status === "done").length;
+
+    const totalItems = totalIssuesCount + totalTasksCount;
+    const completedItems = completedIssuesCount + completedTasksCount;
+    const projectProgress = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
+
+    // 2. Budget Usage (Linked dynamically to progress)
     const totalBudget = project.budget || 0;
-    const spentBudget = (project.budget || 0) * 0.65; // Mock 65% spent
+    const spentBudget = totalBudget * (projectProgress / 100);
     const budgetPercent = totalBudget > 0 ? (spentBudget / totalBudget) * 100 : 0;
 
-    // 2. Delayed Tasks
-    const delayedTasks = tasks.filter(t => t.status !== "COMPLETED" && new Date(t.dueDate) < new Date());
+    // 3. Delayed Tasks
+    const delayedTasks = tasks.filter(t => t.status !== "COMPLETED" && t.status !== "completed" && t.status !== "done" && t.dueDate && new Date(t.dueDate) < new Date());
     
-    // 3. Project Health & Risk (Mocked logic for UI)
+    // 4. Project Health & Risk
     const healthStatus = delayedTasks.length > 5 ? "At Risk" : delayedTasks.length > 0 ? "Needs Attention" : "On Track";
     const healthColor = healthStatus === "On Track" ? "bg-emerald-500" : healthStatus === "Needs Attention" ? "bg-amber-500" : "bg-rose-500";
     const riskLevel = healthStatus === "At Risk" ? "High" : healthStatus === "Needs Attention" ? "Medium" : "Low";
 
-    // 4. Team Contributions Mock Data for Pie Chart
-    const teamContributions = [
-        { name: 'Engineering', value: 45 },
-        { name: 'Design', value: 25 },
-        { name: 'Product', value: 20 },
-        { name: 'QA', value: 10 },
-    ];
-    const COLORS = ['#3b82f6', '#a855f7', '#10b981', '#f59e0b'];
+    // 5. Team Contributions based on task assignment
+    const memberCounts: Record<string, number> = {};
+    tasks.forEach((t: any) => {
+        const name = t.Assignee?.name || "Unassigned";
+        memberCounts[name] = (memberCounts[name] || 0) + 1;
+    });
 
-    // 5. Overall Project Progress
-    const completedTasks = tasks.filter(t => t.status === "COMPLETED").length;
-    const totalTasksCount = tasks.length || 1;
-    const projectProgress = (completedTasks / totalTasksCount) * 100;
+    const teamContributions = Object.keys(memberCounts).length > 0
+        ? Object.entries(memberCounts).map(([name, count]) => ({
+            name,
+            value: Math.round((count / (tasks.length || 1)) * 100)
+          }))
+        : [
+            { name: 'Engineering', value: 45 },
+            { name: 'Design', value: 25 },
+            { name: 'Product', value: 20 },
+            { name: 'QA', value: 10 },
+          ];
+          
+    const COLORS = ['#3b82f6', '#a855f7', '#10b981', '#f59e0b', '#ec4899', '#6366f1'];
+
+    // 6. Productivity Metrics
+    const tasksClosed = completedTasksCount + completedIssuesCount;
+    
+    const completedItemsList = [
+        ...tasks.filter(t => t.status === "COMPLETED" || t.status === "completed" || t.status === "done"),
+        ...allIssues.filter(i => i.status === "COMPLETED" || i.status === "CLOSED")
+    ];
+    let avgResolutionHours = 16;
+    if (completedItemsList.length > 0) {
+        const totalDurations = completedItemsList.reduce((sum, item) => {
+            const created = item.createdAt ? new Date(item.createdAt).getTime() : 0;
+            const updated = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+            const duration = created > 0 && updated > 0 ? updated - created : 0;
+            return sum + duration;
+        }, 0);
+        const avgMs = totalDurations / completedItemsList.length;
+        avgResolutionHours = avgMs > 0 ? Math.max(1, Math.round(avgMs / (1000 * 60 * 60))) : 16;
+    }
+
+    const activePRs = allIssues.filter(i => i.status === "UNDER_REVIEW").length + tasks.filter(t => t.status === "UNDER_REVIEW").length;
+    const sprintScope = Math.round(projectProgress);
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -48,7 +95,7 @@ export function AdminProjectOverview({ project, tasks }: { project: any; tasks: 
                     </div>
                     <Progress value={projectProgress} className="h-3 bg-muted [&>div]:bg-indigo-500 transition-all" />
                     <p className="text-xs text-muted-foreground mt-3 font-medium">
-                        {completedTasks} of {tasks.length} core tasks completed across all active milestones.
+                        {completedIssuesCount} of {totalIssuesCount} issues and {completedTasksCount} of {totalTasksCount} tasks completed across all active milestones.
                     </p>
                 </CardContent>
             </Card>
@@ -168,22 +215,22 @@ export function AdminProjectOverview({ project, tasks }: { project: any; tasks: 
                 <CardContent className="p-6">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="bg-muted/30 p-4 rounded-lg border border-border/50 text-center space-y-1">
-                            <p className="text-3xl font-bold text-primary">24</p>
+                            <p className="text-3xl font-bold text-primary">{tasksClosed}</p>
                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tasks Closed</p>
-                            <p className="text-[10px] text-emerald-600 font-semibold">+12% vs last week</p>
+                            <p className="text-[10px] text-emerald-600 font-semibold">Completed items</p>
                         </div>
                         <div className="bg-muted/30 p-4 rounded-lg border border-border/50 text-center space-y-1">
-                            <p className="text-3xl font-bold text-primary">16h</p>
+                            <p className="text-3xl font-bold text-primary">{avgResolutionHours}h</p>
                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Avg Resolution</p>
-                            <p className="text-[10px] text-emerald-600 font-semibold">-4h vs last week</p>
+                            <p className="text-[10px] text-emerald-600 font-semibold">Average resolve time</p>
                         </div>
                         <div className="bg-muted/30 p-4 rounded-lg border border-border/50 text-center space-y-1">
-                            <p className="text-3xl font-bold text-primary">8</p>
+                            <p className="text-3xl font-bold text-primary">{activePRs}</p>
                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Active PRs</p>
                             <p className="text-[10px] text-muted-foreground font-semibold">Currently under review</p>
                         </div>
                         <div className="bg-muted/30 p-4 rounded-lg border border-border/50 text-center space-y-1">
-                            <p className="text-3xl font-bold text-primary">94%</p>
+                            <p className="text-3xl font-bold text-primary">{sprintScope}%</p>
                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Sprint Scope</p>
                             <p className="text-[10px] text-emerald-600 font-semibold">Tracking well</p>
                         </div>

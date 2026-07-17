@@ -237,7 +237,11 @@ export function GanttItemSheet({ node, isOpen, onOpenChange, onSave }: GanttItem
   };
 
   const formatDateForInput = (date: Date) => {
-    return date.toISOString().split("T")[0];
+    if (!date || isNaN(date.getTime())) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   };
 
   // --- Handlers ---
@@ -437,13 +441,28 @@ export function GanttItemSheet({ node, isOpen, onOpenChange, onSave }: GanttItem
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
                   >
-                    <option value="">No Status</option>
-                    <option value="todo">To Do</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                    <option value="TODO">To Do (Issue)</option>
-                    <option value="IN_PROGRESS">In Progress (Issue)</option>
-                    <option value="COMPLETED">Completed (Issue)</option>
+                    {node.type === "milestone" ? (
+                      <>
+                        <option value="PLANNED">Planned</option>
+                        <option value="IN_PROGRESS">In Progress</option>
+                        <option value="COMPLETED">Completed</option>
+                        <option value="DELAYED">Delayed</option>
+                      </>
+                    ) : node.type === "issue" ? (
+                      <>
+                        <option value="OPEN">Open</option>
+                        <option value="IN_PROGRESS">In Progress</option>
+                        <option value="REVIEW">Under Review</option>
+                        <option value="COMPLETED">Completed</option>
+                        <option value="CLOSED">Closed</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="todo">To Do</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                      </>
+                    )}
                   </select>
                   <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-400">
                     <ChevronRight className="w-4 h-4 rotate-90" />

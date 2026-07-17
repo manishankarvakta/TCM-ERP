@@ -121,6 +121,10 @@ export default function ProjectWorkspace({ id, permissions = {}, userRole, userI
   const events = initialData.events;
   const users = initialData.users;
 
+  useEffect(() => {
+    setProject(initialData.project);
+  }, [initialData.project]);
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
