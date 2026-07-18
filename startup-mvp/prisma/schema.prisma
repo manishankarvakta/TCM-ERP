@@ -1061,6 +1061,7 @@ model User {
   settings_settings_created_byToUser settings[]             @relation("settings_created_byToUser")
   settings_settings_user_idToUser    settings[]             @relation("settings_user_idToUser")
   QuotationTerms                     QuotationTerms[]
+  projectsJoined                     Project[]              @relation("ProjectTeamMembers")
 
   @@index([designationTemplateId])
   @@index([inchargeId])
@@ -1579,6 +1580,7 @@ model Project {
   InvoiceItems      InvoiceItem[]
   PayrollItems      PayrollItem[]
   ProjectBudgets    ProjectBudget[]
+  teamMembers       User[]        @relation("ProjectTeamMembers")
 
   @@index([clientId])
   @@index([opportunityId])

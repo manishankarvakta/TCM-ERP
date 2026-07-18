@@ -5,11 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
-import { updateProject } from "@/app/actions/projects/project.action";
+import { updateProject, addProjectMember, removeProjectMember } from "@/app/actions/projects/project.action";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
-import { Users, Crown, Briefcase, CheckCircle2, Circle, Mail, ShieldAlert, Sparkles, Map as MapIcon } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Users, Crown, Briefcase, CheckCircle2, Circle, Mail, ShieldAlert, Sparkles, Map as MapIcon, Plus, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 
 interface ProjectTeamProps {
@@ -23,6 +24,8 @@ interface ProjectTeamProps {
 export function ProjectTeam({ projectId, project, tasks = [], users = [], onRefresh }: ProjectTeamProps) {
     const [isPending, startTransition] = useTransition();
     const [allocations, setAllocations] = useState<Record<string, number>>({});
+    const [isAddOpen, setIsAddOpen] = useState(false);
+    const [selectedMemberId, setSelectedMemberId] = useState("");
 
     // Compute unique contributors organically
     const contributors = useMemo(() => {
@@ -71,6 +74,18 @@ export function ProjectTeam({ projectId, project, tasks = [], users = [], onRefr
                 }
             }
         });
+
+        // 4. Manually Associated Team Members
+        if (project?.teamMembers) {
+            project.teamMembers.forEach((member: any) => {
+                if (!memberMap.has(member.id)) {
+                    memberMap.set(member.id, {
+                        ...member,
+                        systemRole: "Contributor"
+                    });
+                }
+            });
+        }
         
         return Array.from(memberMap.values());
     }, [project, tasks, users]);
@@ -103,6 +118,33 @@ export function ProjectTeam({ projectId, project, tasks = [], users = [], onRefr
 
     const handleAllocationChange = (userId: string, val: number[]) => {
         setAllocations(prev => ({ ...prev, [userId]: val[0] }));
+    };
+
+    const handleAddMember = () => {
+        if (!selectedMemberId) return;
+        startTransition(async () => {
+            const res = await addProjectMember(projectId, selectedMemberId);
+            if (res.success) {
+                toast.success("Team member added successfully");
+                setIsAddOpen(false);
+                setSelectedMemberId("");
+                onRefresh();
+            } else {
+                toast.error(res.error || "Failed to add team member");
+            }
+        });
+    };
+
+    const handleRemoveMember = (userId: string) => {
+        startTransition(async () => {
+            const res = await removeProjectMember(projectId, userId);
+            if (res.success) {
+                toast.success("Team member removed successfully");
+                onRefresh();
+            } else {
+                toast.error(res.error || "Failed to remove team member");
+            }
+        });
     };
 
     return (
@@ -191,6 +233,46 @@ export function ProjectTeam({ projectId, project, tasks = [], users = [], onRefr
                         <h2 className="text-xl font-bold tracking-tight">Active Contributors</h2>
                         <p className="text-sm text-muted-foreground">Team members organically derived from mission assignments and ownership roles.</p>
                     </div>
+                    <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+                        <DialogTrigger asChild>
+                            <Button className="flex items-center gap-2">
+                                <Plus className="w-4 h-4" /> Add Team Member
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Add Team Member</DialogTitle>
+                                <DialogDescription>
+                                    Add a member manually to this project team.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="memberSelect">Select Member</Label>
+                                    <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+                                        <SelectTrigger id="memberSelect" className="w-full">
+                                            <SelectValue placeholder="Select a user..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {users
+                                                .filter((u: any) => !contributors.some((c: any) => c.id === u.id))
+                                                .map((u: any) => (
+                                                    <SelectItem key={u.id} value={u.id}>
+                                                        {u.name || u.email}
+                                                    </SelectItem>
+                                                ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+                                <Button onClick={handleAddMember} disabled={!selectedMemberId || isPending}>
+                                    {isPending ? "Adding..." : "Add Member"}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -218,21 +300,34 @@ export function ProjectTeam({ projectId, project, tasks = [], users = [], onRefr
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="mt-4 flex flex-wrap gap-2">
-                                        {member.isOwner && (
-                                            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800">
-                                                <Crown className="w-3 h-3 mr-1" /> Project Owner
-                                            </Badge>
-                                        )}
-                                        {member.isPM && (
-                                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800">
-                                                <ShieldAlert className="w-3 h-3 mr-1" /> Manager
-                                            </Badge>
-                                        )}
-                                        {!member.isOwner && !member.isPM && (
-                                            <Badge variant="secondary" className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                                                <Briefcase className="w-3 h-3 mr-1" /> Contributor
-                                            </Badge>
+                                    <div className="mt-4 flex items-center justify-between gap-2 w-full">
+                                        <div className="flex flex-wrap gap-2">
+                                            {member.isOwner && (
+                                                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800">
+                                                    <Crown className="w-3 h-3 mr-1" /> Project Owner
+                                                </Badge>
+                                            )}
+                                            {member.isPM && (
+                                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800">
+                                                    <ShieldAlert className="w-3 h-3 mr-1" /> Manager
+                                                </Badge>
+                                            )}
+                                            {!member.isOwner && !member.isPM && (
+                                                <Badge variant="secondary" className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                                    <Briefcase className="w-3 h-3 mr-1" /> Contributor
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        {project.teamMembers?.some((m: any) => m.id === member.id) && !member.isOwner && !member.isPM && (
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-full"
+                                                onClick={() => handleRemoveMember(member.id)}
+                                                disabled={isPending}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
                                         )}
                                     </div>
                                 </CardHeader>

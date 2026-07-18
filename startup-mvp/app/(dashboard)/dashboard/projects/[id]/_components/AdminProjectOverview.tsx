@@ -25,9 +25,9 @@ export function AdminProjectOverview({ project, tasks }: { project: any; tasks: 
     const completedItems = completedIssuesCount + completedTasksCount;
     const projectProgress = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
 
-    // 2. Budget Usage (Linked dynamically to progress)
+    // 2. Budget Usage (Linked dynamically to actual timesheet costing)
     const totalBudget = project.budget || 0;
-    const spentBudget = totalBudget * (projectProgress / 100);
+    const spentBudget = project.totalCost || 0;
     const budgetPercent = totalBudget > 0 ? (spentBudget / totalBudget) * 100 : 0;
 
     // 3. Delayed Tasks
@@ -142,13 +142,13 @@ export function AdminProjectOverview({ project, tasks }: { project: any; tasks: 
                 <CardHeader className="bg-slate-50/50 border-b py-4 pb-4">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
                         <FiDollarSign className="w-4 h-4 text-emerald-500" />
-                        Budget Allocation
+                        Project Costing
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 flex-1 flex flex-col justify-center gap-6">
                     <div className="flex justify-between items-end">
                         <div>
-                            <p className="text-sm font-medium text-muted-foreground mb-1">Spent / Total</p>
+                            <p className="text-sm font-medium text-muted-foreground mb-1">Spent (Timesheets)</p>
                             <p className="text-3xl font-bold tracking-tight">${spentBudget.toLocaleString()}</p>
                         </div>
                         <div className="text-right">

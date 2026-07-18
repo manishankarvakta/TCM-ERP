@@ -278,6 +278,7 @@ export async function getProjectById(id: string) {
       include: {
         Client: true,
         Owner: { select: { id: true, name: true, image: true, email: true } },
+        teamMembers: { select: { id: true, name: true, image: true, email: true } },
         Milestones: {
           include: {
             Issues: {
@@ -313,10 +314,36 @@ export async function getProjectById(id: string) {
 
     if (!project) return { success: false, error: "Project not found" };
 
+    // Calculate total timesheet cost for project costing
+    const timesheets = await prisma.timesheet.findMany({
+      where: { projectId: id },
+      include: {
+        Employee: {
+          include: {
+            user: {
+              select: {
+                salary: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    let totalCost = 0;
+    timesheets.forEach((ts) => {
+      const salary = ts.Employee?.user?.salary
+        ? Number(ts.Employee.user.salary)
+        : (ts.Employee?.salary ? Number(ts.Employee.salary) : 0);
+      const hourlyRate = salary > 0 ? salary / 208 : 0; // 26 working days * 8 hours = 208 hours
+      totalCost += Number(ts.hours) * hourlyRate;
+    });
+
     // Map to plain object
     const mappedProject = {
       ...project,
       budget: project.budget ? Number(project.budget) : null,
+      totalCost: totalCost,
       createdAt: project.createdAt.toISOString(),
       updatedAt: project.updatedAt.toISOString(),
       startDate: project.startDate?.toISOString(),
@@ -967,5 +994,55 @@ export async function getProjectGanttData(projectId: string) {
   } catch (error) {
     console.error("getProjectGanttData error:", error);
     return { success: false, error: "Failed to fetch Gantt timeline data" };
+  }
+}
+
+/**
+ * Add a user manually to a project's team members list
+ */
+export async function addProjectMember(projectId: string, userId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const project = await prisma.project.update({
+      where: { id: projectId },
+      data: {
+        teamMembers: {
+          connect: { id: userId }
+        }
+      }
+    });
+
+    revalidateBothPaths("projects");
+    return { success: true, project };
+  } catch (error: any) {
+    console.error("addProjectMember error:", error);
+    return { success: false, error: error.message || "Failed to add member" };
+  }
+}
+
+/**
+ * Remove a user manually from a project's team members list
+ */
+export async function removeProjectMember(projectId: string, userId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const project = await prisma.project.update({
+      where: { id: projectId },
+      data: {
+        teamMembers: {
+          disconnect: { id: userId }
+        }
+      }
+    });
+
+    revalidateBothPaths("projects");
+    return { success: true, project };
+  } catch (error: any) {
+    console.error("removeProjectMember error:", error);
+    return { success: false, error: error.message || "Failed to remove member" };
   }
 }
