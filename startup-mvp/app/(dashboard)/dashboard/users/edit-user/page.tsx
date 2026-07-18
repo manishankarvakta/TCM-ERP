@@ -39,6 +39,7 @@ export default async function EditUserPage({ searchParams }: EditUserPageProps) 
           image: result.user.image,
           inchargeId: result.user.inchargeId || null,
           incharge: result.user.incharge || null,
+          salary: result.user.salary,
         }}
       />
     </div>

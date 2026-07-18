@@ -36,6 +36,7 @@ const userFormSchema = z.object({
   status: z.enum(["active", "inactive"]),
   image: z.string().url("Invalid image URL").optional().or(z.literal("")),
   inchargeId: z.string().optional().or(z.literal("")),
+  salary: z.coerce.number().min(0, "Salary must be a positive number").optional().or(z.literal("")),
 });
 
 type UserFormDataWithId = z.infer<typeof userFormSchema> & { id?: string };
@@ -50,6 +51,7 @@ interface UserFormProps {
     status?: string;
     image: string | null;
     inchargeId?: string | null;
+    salary?: number | null;
     incharge?: {
       id: string;
       name: string | null;
@@ -83,6 +85,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           status: (initialData.status as "active" | "inactive") || "active",
           image: initialData.image || "",
           inchargeId: initialData.inchargeId || "",
+          salary: initialData.salary || "",
         }
       : {
           name: "",
@@ -92,6 +95,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           status: "active",
           image: "",
           inchargeId: "",
+          salary: "",
         },
   });
 
@@ -133,6 +137,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           status: data.status,
           image: data.image || undefined,
           inchargeId: data.inchargeId && data.inchargeId.length > 0 ? data.inchargeId : undefined,
+          salary: data.salary ? Number(data.salary) : undefined,
         });
 
         if (!result.success) {
@@ -150,6 +155,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
           status: data.status,
           image: data.image || undefined,
           inchargeId: data.inchargeId && data.inchargeId.length > 0 ? data.inchargeId : undefined,
+          salary: data.salary ? Number(data.salary) : undefined,
         });
 
         if (!result.success) {
@@ -232,7 +238,7 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
                   <Select
@@ -331,6 +337,20 @@ export default function UserForm({ mode, initialData }: UserFormProps) {
                   </Select>
                   {errors.inchargeId && (
                     <p className="text-sm text-destructive">{errors.inchargeId.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="salary">Salary</Label>
+                  <Input
+                    id="salary"
+                    type="number"
+                    placeholder="0"
+                    {...register("salary")}
+                    disabled={loading}
+                  />
+                  {errors.salary && (
+                    <p className="text-sm text-destructive">{errors.salary.message}</p>
                   )}
                 </div>
                 </div>

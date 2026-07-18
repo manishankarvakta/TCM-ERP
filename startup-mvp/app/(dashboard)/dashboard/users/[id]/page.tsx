@@ -69,6 +69,14 @@ export default async function UserDetailsPage({ params }: UserDetailsPageProps) 
             </Badge>
           </div>
           <div>
+            <div className="text-sm text-muted-foreground mb-1">Salary</div>
+            <div className="font-medium">
+              {user.salary !== null && user.salary !== undefined
+                ? `${user.salary.toLocaleString()} TK`
+                : "Not set"}
+            </div>
+          </div>
+          <div>
             <div className="text-sm text-muted-foreground mb-1">Member Since</div>
             <div className="font-medium">
               {format(new Date(user.createdAt), "MMM d, yyyy")}

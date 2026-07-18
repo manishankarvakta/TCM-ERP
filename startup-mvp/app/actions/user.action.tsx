@@ -357,8 +357,9 @@ export async function getUsers(
           email: true,
           role: true,
           image: true,
-        status: true,
+          status: true,
           inchargeId: true,
+          salary: true,
           User: {
             select: {
               id: true,
@@ -397,6 +398,7 @@ export async function getUsers(
       sessions: user.Session,
       userLogs: user._count?.UserLog || 0,
       incharge: user.User,
+      salary: user.salary ? Number(user.salary) : null,
       Session: undefined,
       User: undefined,
     }));
@@ -592,6 +594,7 @@ export async function getUserById(userId: string) {
         status: true,
         image: true,
         inchargeId: true,
+        salary: true,
         User: {
           select: {
             id: true,
@@ -631,6 +634,7 @@ export async function getUserById(userId: string) {
       userLogs: user._count?.UserLog || 0,
       accounts: user._count?.Account || 0,
       incharge: user.User,
+      salary: user.salary ? Number(user.salary) : null,
       User: undefined,
     };
 
@@ -704,6 +708,7 @@ export async function createUser(input: {
   status?: string;
   image?: string;
   inchargeId?: string;
+  salary?: number;
 }) {
   try {
     const session = await auth();
@@ -752,6 +757,7 @@ export async function createUser(input: {
         status: input.status || "active",
         image: input.image || null,
         inchargeId: input.inchargeId || null,
+        salary: input.salary || null,
       },
       select: {
         id: true,
@@ -795,6 +801,7 @@ export async function updateUser(input: {
   status?: string;
   image?: string;
   inchargeId?: string;
+  salary?: number;
 }) {
   try {
     const session = await auth();
@@ -820,7 +827,7 @@ export async function updateUser(input: {
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
       where: { id: input.id },
-      select: { id: true, email: true, name: true, role: true, image: true },
+      select: { id: true, email: true, name: true, role: true, image: true, salary: true },
     });
 
     if (!existingUser) {
@@ -855,6 +862,7 @@ export async function updateUser(input: {
       image?: string | null;
       password?: string;
       inchargeId?: string | null;
+      salary?: number | null;
     } = {
       name: input.name,
       email: input.email,
@@ -869,6 +877,10 @@ export async function updateUser(input: {
     // Handle inchargeId (can be undefined, null, or empty string)
     if (input.inchargeId !== undefined) {
       updateData.inchargeId = input.inchargeId && input.inchargeId.length > 0 ? input.inchargeId : null;
+    }
+
+    if (input.salary !== undefined) {
+      updateData.salary = input.salary || null;
     }
 
     // Only update password if provided
@@ -898,6 +910,7 @@ export async function updateUser(input: {
     if (input.role !== existingUser.role) changes.push("role");
     if (input.password && input.password.length > 0) changes.push("password");
     if (input.image !== undefined && input.image !== existingUser.image) changes.push("image");
+    if (input.salary !== undefined && input.salary !== (existingUser.salary ? Number(existingUser.salary) : null)) changes.push("salary");
     if (input.inchargeId !== undefined) {
       // Get current inchargeId to compare
       const currentUser = await prisma.user.findUnique({
