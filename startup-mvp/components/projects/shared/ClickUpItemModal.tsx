@@ -20,6 +20,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { updateClickUpEntity } from "@/app/actions/projects/clickup.action";
+import { getProjectTeam } from "@/app/actions/projects/project.action";
+import { useParams } from "next/navigation";
 export interface ClickUpItemModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -37,6 +39,21 @@ export function ClickUpItemModal({
     users = [],
     onRefresh
 }: ClickUpItemModalProps) {
+    const params = useParams();
+    const projectId = params?.id as string;
+    const [projectUsers, setProjectUsers] = useState<any[]>(users);
+
+    useEffect(() => {
+        const fetchProjectUsers = async () => {
+            if (!projectId) return;
+            const res = await getProjectTeam(projectId);
+            if (res.success) {
+                setProjectUsers(res.users || []);
+            }
+        };
+        fetchProjectUsers();
+    }, [projectId]);
+
     const [isPending, startTransition] = useTransition();
     const [title, setTitle] = useState(initialData?.title || "New Item");
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -227,7 +244,7 @@ export function ClickUpItemModal({
                                         <CommandList>
                                             <CommandEmpty>No users found.</CommandEmpty>
                                             <CommandGroup>
-                                                {users.map(u => (
+                                                {projectUsers.map(u => (
                                                     <CommandItem 
                                                         key={u.id}
                                                         onSelect={() => {

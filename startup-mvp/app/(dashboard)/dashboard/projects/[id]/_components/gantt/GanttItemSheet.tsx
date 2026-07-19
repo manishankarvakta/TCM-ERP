@@ -18,7 +18,9 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { GanttNode } from "./types";
-import { getActiveUsers, getCurrentUser } from "@/app/actions/user.action";
+import { getCurrentUser } from "@/app/actions/user.action";
+import { getProjectTeam } from "@/app/actions/projects/project.action";
+import { useParams } from "next/navigation";
 import { 
   Play, 
   Pause, 
@@ -72,6 +74,9 @@ interface ActivityLog {
 }
 
 export function GanttItemSheet({ node, isOpen, onOpenChange, onSave }: GanttItemSheetProps) {
+  const params = useParams();
+  const projectId = params?.id as string;
+
   // --- Main Form States ---
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState("");
@@ -135,8 +140,9 @@ export function GanttItemSheet({ node, isOpen, onOpenChange, onSave }: GanttItem
   useEffect(() => {
     async function loadData() {
       try {
+        if (!projectId) return;
         const [usersRes, currUser] = await Promise.all([
-          getActiveUsers(),
+          getProjectTeam(projectId),
           getCurrentUser()
         ]);
         if (usersRes.success) {
@@ -150,7 +156,7 @@ export function GanttItemSheet({ node, isOpen, onOpenChange, onSave }: GanttItem
       }
     }
     loadData();
-  }, []);
+  }, [projectId]);
 
   // --- Sync State on Node Selection ---
   useEffect(() => {

@@ -15,8 +15,8 @@ import {
     SelectValue 
 } from "@/components/ui/select";
 import { FiAlertCircle, FiUser, FiInfo, FiActivity, FiTarget } from "react-icons/fi";
-import { createIssue, updateIssue } from "@/app/actions/projects/project.action";
-import { getActiveUsers } from "@/app/actions/user.action";
+import { createIssue, updateIssue, getProjectTeam } from "@/app/actions/projects/project.action";
+import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 
@@ -43,16 +43,19 @@ interface IssueFormProps {
 
 export default function IssueForm({ milestones = [], defaultMilestoneId, milestoneId, onSuccess, onCancel, initialData }: IssueFormProps) {
   const [users, setUsers] = useState<any[]>([]);
+  const params = useParams();
+  const projectId = params?.id as string;
 
   useEffect(() => {
     const fetchUsers = async () => {
-        const result = await getActiveUsers();
+        if (!projectId) return;
+        const result = await getProjectTeam(projectId);
         if (result.success) {
             setUsers(result.users || []);
         }
     };
     fetchUsers();
-  }, []);
+  }, [projectId]);
 
   const {
     register,

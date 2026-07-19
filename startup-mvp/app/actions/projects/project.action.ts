@@ -1046,3 +1046,65 @@ export async function removeProjectMember(projectId: string, userId: string) {
     return { success: false, error: error.message || "Failed to remove member" };
   }
 }
+
+/**
+ * Get all unique team members (contributors) associated with a project
+ */
+export async function getProjectTeam(projectId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: {
+        ownerId: true,
+        projectManagerId: true,
+        Owner: { select: { id: true, name: true, image: true, email: true } },
+        ProjectManager: { select: { id: true, name: true, image: true, email: true } },
+        teamMembers: { select: { id: true, name: true, image: true, email: true } },
+        Tasks: {
+          where: { assigneeId: { not: null } },
+          select: {
+            Assignee: { select: { id: true, name: true, image: true, email: true } }
+          }
+        }
+      }
+    });
+
+    if (!project) return { success: false, error: "Project not found" };
+
+    const memberMap = new Map<string, any>();
+
+    // 1. Owner
+    if (project.Owner) {
+      memberMap.set(project.Owner.id, project.Owner);
+    }
+
+    // 2. Manager
+    if (project.ProjectManager) {
+      memberMap.set(project.ProjectManager.id, project.ProjectManager);
+    }
+
+    // 3. Team Members
+    if (project.teamMembers) {
+      project.teamMembers.forEach(member => {
+        memberMap.set(member.id, member);
+      });
+    }
+
+    // 4. Task Assignees
+    if (project.Tasks) {
+      project.Tasks.forEach(t => {
+        if (t.Assignee) {
+          memberMap.set(t.Assignee.id, t.Assignee);
+        }
+      });
+    }
+
+    return { success: true, users: Array.from(memberMap.values()) };
+  } catch (error: any) {
+    console.error("getProjectTeam error:", error);
+    return { success: false, error: error.message || "Failed to fetch project team" };
+  }
+}
