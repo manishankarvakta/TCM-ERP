@@ -10,9 +10,10 @@ interface InlineAddRowProps {
   placeholder?: string;
   onSave: (title: string) => void;
   onCancel: () => void;
+  sidebarWidth?: number;
 }
 
-export function InlineAddRow({ depth, placeholder = "Enter task name...", onSave, onCancel }: InlineAddRowProps) {
+export function InlineAddRow({ depth, placeholder = "Enter task name...", onSave, onCancel, sidebarWidth = 300 }: InlineAddRowProps) {
   const [title, setTitle] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -35,8 +36,11 @@ export function InlineAddRow({ depth, placeholder = "Enter task name...", onSave
     <div className="flex border-b border-border/50 bg-muted/20 h-12">
       {/* Sticky Left Sidebar Area */}
       <div 
-        className="w-[300px] shrink-0 sticky left-0 border-r border-border/50 z-10 flex items-center pr-4" 
-        style={{ paddingLeft: `${(depth * 20) + 16}px` }}
+        className="shrink-0 sticky left-0 border-r border-border/50 z-10 flex items-center pr-4" 
+        style={{ 
+          width: `${sidebarWidth}px`,
+          paddingLeft: `${(depth * 20) + 16}px` 
+        }}
       >
         <div className="flex items-center gap-2 w-full ml-6">
           <Input 

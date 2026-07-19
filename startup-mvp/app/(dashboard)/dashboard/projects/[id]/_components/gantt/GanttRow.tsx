@@ -15,12 +15,14 @@ interface GanttRowProps {
     onAddChildAction?: (parentId: string, parentType: string, title: string) => void;
     onEditAction?: (nodeId: string) => void;
     onDeleteAction?: (nodeId: string) => void;
+    sidebarWidth?: number;
 }
 
 export function GanttRow({ 
     node, depth, dayWidth, totalDays, getBarStyles, onToggleExpand,
     onAddChildAction, onEditAction, onDeleteAction,
-    onDateChangeAction
+    onDateChangeAction,
+    sidebarWidth = 300
 }: GanttRowProps & { onDateChangeAction?: (nodeId: string, newStart: Date, newEnd: Date) => void }) {
     const [isAddingChild, setIsAddingChild] = useState(false);
     
@@ -138,7 +140,13 @@ export function GanttRow({
         <>
             <div className="flex border-b border-border/50 group hover:bg-muted/30 transition-colors h-12" id={`gantt-row-${node.id}`}>
                 {/* Sticky Left Sidebar */}
-                <div className="w-[300px] shrink-0 sticky left-0 bg-card group-hover:bg-muted/50 border-r border-border/50 z-10 flex items-center pr-4 transition-colors" style={{ paddingLeft: `${(depth * 20) + 16}px` }}>
+                <div 
+                    className="shrink-0 sticky left-0 bg-card group-hover:bg-muted/50 border-r border-border/50 z-10 flex items-center pr-4 transition-colors" 
+                    style={{ 
+                        width: `${sidebarWidth}px`,
+                        paddingLeft: `${(depth * 20) + 16}px` 
+                    }}
+                >
                     <div className="flex items-center gap-2 overflow-hidden flex-1">
                         {hasChildren ? (
                             <button onClick={() => onToggleExpand(node.id)} className="p-0.5 hover:bg-muted rounded shrink-0">
@@ -224,6 +232,7 @@ export function GanttRow({
                         if (onAddChildAction) onAddChildAction(node.id, node.type, title);
                     }}
                     onCancel={() => setIsAddingChild(false)}
+                    sidebarWidth={sidebarWidth}
                 />
             )}
 
@@ -241,6 +250,7 @@ export function GanttRow({
                     onEditAction={onEditAction}
                     onDeleteAction={onDeleteAction}
                     onDateChangeAction={onDateChangeAction}
+                    sidebarWidth={sidebarWidth}
                 />
             ))}
         </>

@@ -124,6 +124,46 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [deletingMilestoneId, setDeletingMilestoneId] = useState<string | null>(null);
 
+    const params = useParams();
+    const projectId = params?.id as string || "default";
+
+    const [sidebarWidth, setSidebarWidth] = useState(() => {
+        if (typeof window !== "undefined") {
+            const saved = localStorage.getItem(`gantt-sidebar-width-${projectId}`);
+            if (saved) {
+                const parsed = parseInt(saved, 10);
+                if (!isNaN(parsed) && parsed >= 150 && parsed <= 600) return parsed;
+            }
+        }
+        return 300;
+    });
+
+    const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const startX = e.clientX;
+        const startWidth = sidebarWidth;
+        
+        const handleMouseMove = (moveEvent: MouseEvent) => {
+            const deltaX = moveEvent.clientX - startX;
+            const newWidth = Math.max(150, Math.min(600, startWidth + deltaX));
+            setSidebarWidth(newWidth);
+        };
+        
+        const handleMouseUp = (upEvent: MouseEvent) => {
+            window.removeEventListener("mousemove", handleMouseMove);
+            window.removeEventListener("mouseup", handleMouseUp);
+            
+            const finalDeltaX = upEvent.clientX - startX;
+            const finalWidth = Math.max(150, Math.min(600, startWidth + finalDeltaX));
+            localStorage.setItem(`gantt-sidebar-width-${projectId}`, String(finalWidth));
+        };
+        
+        window.addEventListener("mousemove", handleMouseMove);
+        window.addEventListener("mouseup", handleMouseUp);
+    }, [sidebarWidth, projectId]);
+
     const executeNodeDelete = async (nodeId: string, nodeType: string) => {
         try {
             toast.loading(`Deleting ${nodeType === "milestone" ? "phase" : nodeType}...`, { id: "gantt-action" });
@@ -159,8 +199,6 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
     };
 
     const router = useRouter();
-    const params = useParams();
-    const projectId = params.id as string;
 
     // Helper: Find parent milestone ID of an issue
     const findMilestoneIdForIssue = (nodes: GanttNode[], issueId: string): string | null => {
@@ -248,7 +286,17 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                     {/* Header: Months & Days */}
                     <div className="flex sticky top-0 z-40 bg-card shadow-sm">
                         {/* Empty corner block for left sidebar */}
-                        <div className="w-[300px] shrink-0 sticky left-0 z-50 bg-card border-r border-b border-border/50" />
+                        <div 
+                            className="shrink-0 sticky left-0 z-50 bg-card border-r border-b border-border/50 relative" 
+                            style={{ width: `${sidebarWidth}px` }}
+                        >
+                            {/* Interactive Resizer Divider */}
+                            <div
+                                className="absolute right-0 top-0 z-50 w-[6px] -mr-[3px] cursor-col-resize hover:bg-primary/50 active:bg-primary transition-all bg-border"
+                                style={{ height: '540px' }}
+                                onMouseDown={handleResizeMouseDown}
+                            />
+                        </div>
                         {/* Timeline Header Axis */}
                         <div className="flex-1 relative z-40">
                             <GanttHeader months={months} days={days} dayWidth={dayWidth} />
@@ -258,7 +306,7 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                     {/* Body: Rows & Timelines */}
                     <div className="relative flex min-h-[100px]">
                         {/* Background Grid Layer */}
-                        <div className="absolute top-0 bottom-0 pointer-events-none z-10 flex" style={{ left: '300px' }}>
+                        <div className="absolute top-0 bottom-0 pointer-events-none z-10 flex" style={{ left: `${sidebarWidth}px` }}>
                             {days.map((d, i) => {
                                 const isToday = d.date.toDateString() === new Date().toDateString();
                                 return (
@@ -283,6 +331,7 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                                 <GanttRow
                                     key={node.id}
                                     node={node}
+                                    sidebarWidth={sidebarWidth}
                                     depth={0}
                                     dayWidth={dayWidth}
                                     totalDays={totalDays}
@@ -480,7 +529,7 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                         </div>
 
                         {/* The SVG Dependencies Layer (absolutely positioned inside the right pane) */}
-                        <div className="absolute top-0 bottom-0 pointer-events-none z-30" style={{ left: '300px' }}>
+                        <div className="absolute top-0 bottom-0 pointer-events-none z-30" style={{ left: `${sidebarWidth}px` }}>
                             <GanttDependencies
                                 data={data}
                                 getBarStyles={getBarStyles}
@@ -488,6 +537,7 @@ export function GanttChart({ initialData, onRefresh }: GanttChartProps) {
                                 dayWidth={dayWidth}
                             />
                         </div>
+
                     </div>
                 </div>
             </ScrollArea>
