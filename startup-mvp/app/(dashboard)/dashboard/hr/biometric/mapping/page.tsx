@@ -39,7 +39,7 @@ export default async function EmployeeDeviceMappingPage({ searchParams }: Mappin
   // Fetch lists for the Add/Edit modals
   const [employees, devices] = await Promise.all([
     prisma.employee.findMany({
-      where: { status: "active" },
+      where: { status: { in: ["active", "inactive"] } },
       select: { id: true, name: true, employeeCode: true, department: true, designation: true },
       orderBy: { name: "asc" },
     }),

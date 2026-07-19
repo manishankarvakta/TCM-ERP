@@ -246,7 +246,7 @@ export async function getActiveEmployeesForResolve() {
     if (!session?.user?.id) return [];
     
     return await prisma.employee.findMany({
-      where: { status: "active" },
+      where: { status: { in: ["active", "inactive"] } },
       select: { id: true, name: true, employeeCode: true, department: true, designation: true },
       orderBy: { name: "asc" }
     });

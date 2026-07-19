@@ -97,9 +97,9 @@ export async function getDeviceUserSyncPreview(deviceId: string) {
 
   if (!device) throw new Error("Device not found");
 
-  // Get all active employees
+  // Get all active and inactive employees
   const employees = await prisma.employee.findMany({
-    where: { status: "active" },
+    where: { status: { in: ["active", "inactive"] } },
     select: {
       id: true,
       name: true,

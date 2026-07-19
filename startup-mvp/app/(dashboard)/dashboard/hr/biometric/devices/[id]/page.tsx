@@ -66,7 +66,7 @@ export default async function DeviceDetailsPage({ params }: DeviceDetailsPagePro
     ),
     getDeviceSyncCommands({ deviceId: id, limit: 10 }),
     prisma.employee.findMany({
-      where: { status: "active" },
+      where: { status: { in: ["active", "inactive"] } },
       select: { id: true, name: true, employeeCode: true },
       orderBy: { name: 'asc' }
     })
@@ -351,7 +351,7 @@ export default async function DeviceDetailsPage({ params }: DeviceDetailsPagePro
 
             {/* DIAGNOSTICS TAB */}
             <TabsContent value="diagnostics">
-              <PageGuard permissionKey="hr.biometric.sync">
+              <PageGuard permissionKey="hr.biometric.sync" fallback={null}>
                 <Card className="border-destructive/20 shadow-sm mb-6">
                   <CardHeader>
                     <CardTitle className="text-destructive flex items-center gap-2">
@@ -411,7 +411,6 @@ export default async function DeviceDetailsPage({ params }: DeviceDetailsPagePro
                     )}
                   </CardContent>
                 </Card>
-              </PageGuard>
               
               <Card className="mt-6">
                 <CardHeader>
@@ -500,6 +499,7 @@ export default async function DeviceDetailsPage({ params }: DeviceDetailsPagePro
                 <h4 className="font-medium mb-1">Developer Notice:</h4>
                 <p className="text-muted-foreground">The advanced sync functionality is securely scaffolded and locked behind the `hr.biometric.sync` permission. Exact raw ADMS strings for logs and users are held `PENDING_DEVICE_VERIFICATION` until tested on live MB360 hardware.</p>
               </div>
+              </PageGuard>
             </TabsContent>
           </div>
         </Tabs>

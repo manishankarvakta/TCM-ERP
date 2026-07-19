@@ -65,7 +65,7 @@ export default async function PageGuard({
   }
 
   if (!hasAccess) {
-    if (fallback) {
+    if (fallback !== undefined) {
       return <>{fallback}</>;
     }
 

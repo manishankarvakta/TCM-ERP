@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { FiRefreshCw, FiUploadCloud } from "react-icons/fi";
-import { triggerAttendanceProcessing } from "../_actions/biometric.action";
+import { FiUploadCloud } from "react-icons/fi";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 
@@ -16,38 +15,8 @@ export default function BiometricSyncButton({ date }: BiometricSyncButtonProps) 
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const handleProcess = () => {
-    startTransition(async () => {
-      const selectedDate = new Date(date);
-      const result = await triggerAttendanceProcessing(selectedDate, selectedDate);
-      
-      if (result.success) {
-        toast({
-          title: "Success",
-          description: `Processed ${(result as any).processedCount || 0} attendance records from biometric logs.`,
-        });
-        router.refresh();
-      } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to process logs",
-          variant: "destructive",
-        });
-      }
-    });
-  };
-
   return (
     <div className="flex gap-2">
-      <Button 
-        variant="outline" 
-        onClick={handleProcess} 
-        disabled={isPending}
-      >
-        <FiRefreshCw className={`mr-2 h-4 w-4 ${isPending ? "animate-spin" : ""}`} />
-        {isPending ? "Processing..." : "Process Biometric Logs"}
-      </Button>
-      
       {/* 
         Simulating a device sync. In reality, the physical device hits a Webhook endpoint.
       */}

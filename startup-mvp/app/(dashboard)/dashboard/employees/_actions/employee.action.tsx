@@ -1740,9 +1740,9 @@ export async function syncEmployeeBiometricIds() {
       return { success: false, error: "Forbidden: insufficient permissions" };
     }
 
-    // 1. Fetch all active employees
+    // 1. Fetch all active and inactive employees
     const activeEmployees = await prisma.employee.findMany({
-      where: { status: "active" },
+      where: { status: { in: ["active", "inactive"] } },
       select: { id: true, name: true, employeeCode: true, biometricDeviceId: true }
     });
 
@@ -1757,6 +1757,7 @@ export async function syncEmployeeBiometricIds() {
     }
 
     let createdMappingsCount = 0;
+    let updatedMappingsCount = 0;
     let updatedEmployeePinsCount = 0;
 
     for (const employee of activeEmployees) {
@@ -1795,6 +1796,28 @@ export async function syncEmployeeBiometricIds() {
               });
               createdMappingsCount++;
             }
+          } else if (existingMap.deviceUserId !== employee.biometricDeviceId) {
+            // Check if the new deviceUserId is already in use on this device
+            const deviceUserIdInUse = await prisma.employeeDeviceMap.findUnique({
+              where: {
+                deviceId_deviceUserId: {
+                  deviceId: device.id,
+                  deviceUserId: employee.biometricDeviceId
+                }
+              }
+            });
+
+            if (!deviceUserIdInUse) {
+              await prisma.employeeDeviceMap.update({
+                where: { id: existingMap.id },
+                data: {
+                  deviceUserId: employee.biometricDeviceId,
+                  isActive: true,
+                  syncStatus: "READY"
+                }
+              });
+              updatedMappingsCount++;
+            }
           }
         }
       }
@@ -1823,7 +1846,7 @@ export async function syncEmployeeBiometricIds() {
 
     return { 
       success: true, 
-      message: `Sync completed. Created ${createdMappingsCount} device mappings, updated ${updatedEmployeePinsCount} employee biometric PINs.` 
+      message: `Sync completed. Created ${createdMappingsCount} device mappings, updated ${updatedMappingsCount} device user IDs, updated ${updatedEmployeePinsCount} employee biometric PINs.` 
     };
   } catch (error: any) {
     console.error("syncEmployeeBiometricIds error:", error);

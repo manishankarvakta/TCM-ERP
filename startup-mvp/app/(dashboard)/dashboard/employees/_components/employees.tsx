@@ -500,7 +500,7 @@ export default function EmployeesListClient({
               <TableHead>Email & Phone</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Joined At</TableHead>
-              <TableHead>Biometric ID / PIN</TableHead>
+              <TableHead className="text-center">Biometric ID / PIN</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -589,10 +589,24 @@ export default function EmployeesListClient({
                     <TableCell className="text-muted-foreground">
                       {employee.joiningDate ? format(new Date(employee.joiningDate), "MMM d, yyyy") : "-"}
                     </TableCell>
-                    <TableCell className="font-mono text-muted-foreground">
-                      {employee.deviceMappings && employee.deviceMappings.length > 0 
-                        ? employee.deviceMappings.map(m => m.deviceUserId).join(", ") 
-                        : "-"}
+                    <TableCell className="font-mono text-muted-foreground text-center">
+                      {employee.deviceMappings && employee.deviceMappings.length > 0 ? (
+                        <div className="flex flex-wrap justify-center gap-3">
+                          {Array.from(new Set(employee.deviceMappings.map((m) => m.deviceUserId).filter(Boolean))).map((pin) => {
+                            const count = employee.deviceMappings!.filter((m) => m.deviceUserId === pin).length;
+                            return (
+                              <div key={pin} className="font-mono font-normal inline-flex items-center gap-1.5 py-0.5">
+                                <span>{pin}</span>
+                                <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[10px] font-bold bg-emerald-500 text-white rounded-full">
+                                  {count}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        "-"
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
