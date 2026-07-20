@@ -404,6 +404,10 @@ export async function getItemsForSale() {
         },
         salesPrice: true,
         wholesalePrice: true,
+        wholesaleDiscountAmount: true,
+        discount: true,
+        isPromo: true,
+        promoEndsAt: true,
         itemType: true,
         featuredImage: true,
         images: true,
@@ -426,6 +430,8 @@ export async function getItemsForSale() {
             color: true,
             costPrice: true,
             salesPrice: true,
+            wholesalePrice: true,
+            wholesaleDiscountAmount: true,
             image: true,
             stocks: {
               select: {
@@ -454,6 +460,10 @@ export async function getItemsForSale() {
         category: item.category?.name || null,
         unitPrice: item.salesPrice ? Number(item.salesPrice) : 0,
         wholesalePrice: item.wholesalePrice ? Number(item.wholesalePrice) : 0,
+        wholesaleDiscountAmount: item.wholesaleDiscountAmount ? Number(item.wholesaleDiscountAmount) : 0,
+        discount: item.discount ? Number(item.discount) : 0,
+        isPromo: item.isPromo,
+        promoEndsAt: item.promoEndsAt ? item.promoEndsAt.toISOString() : null,
         itemType: item.itemType,
         imageUrl: item.featuredImage || (Array.isArray(item.images) && item.images.length > 0 ? (item.images[0] as string) : null) || null,
         isVatEnabled: item.isVatEnabled || false,
@@ -471,6 +481,8 @@ export async function getItemsForSale() {
           color: v.color,
           costPrice: v.costPrice ? Number(v.costPrice) : null,
           salesPrice: v.salesPrice ? Number(v.salesPrice) : null,
+          wholesalePrice: v.wholesalePrice ? Number(v.wholesalePrice) : null,
+          wholesaleDiscountAmount: v.wholesaleDiscountAmount ? Number(v.wholesaleDiscountAmount) : null,
           imageUrl: v.image || null,
           stocks: v.stocks ? v.stocks.map((s: any) => ({
             warehouseId: s.warehouseId,
@@ -1682,7 +1694,7 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
 
         const dbItems = await tx.item.findMany({
           where: { id: { in: itemIds } },
-          select: { id: true, wholesalePrice: true, wholesaleDiscountAmount: true, salesPrice: true }
+          select: { id: true, wholesalePrice: true, wholesaleDiscountAmount: true, salesPrice: true, isPromo: true, promoEndsAt: true }
         });
 
         const dbVariants = variantIds.length > 0 ? await tx.productVariant.findMany({
@@ -1699,7 +1711,9 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
             if (variantDb.wholesalePrice !== null) {
               basePrice = Number(variantDb.wholesalePrice);
             } else if (variantDb.wholesaleDiscountAmount !== null) {
-              basePrice = Number(variantDb.salesPrice || itemDb?.salesPrice || 0) - Number(variantDb.wholesaleDiscountAmount);
+              const isPromoActive = !itemDb?.isPromo || (itemDb?.promoEndsAt && new Date() <= new Date(itemDb.promoEndsAt));
+              const wsDiscount = isPromoActive ? Number(variantDb.wholesaleDiscountAmount) : 0;
+              basePrice = Number(variantDb.salesPrice || itemDb?.salesPrice || 0) - wsDiscount;
             } else if (variantDb.salesPrice !== null) {
               basePrice = Number(variantDb.salesPrice);
             }
@@ -1707,7 +1721,9 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
             if (itemDb.wholesalePrice !== null) {
               basePrice = Number(itemDb.wholesalePrice);
             } else if (itemDb.wholesaleDiscountAmount !== null) {
-              basePrice = Number(itemDb.salesPrice || 0) - Number(itemDb.wholesaleDiscountAmount);
+              const isPromoActive = !itemDb.isPromo || (itemDb.promoEndsAt && new Date() <= new Date(itemDb.promoEndsAt));
+              const wsDiscount = isPromoActive ? Number(itemDb.wholesaleDiscountAmount) : 0;
+              basePrice = Number(itemDb.salesPrice || 0) - wsDiscount;
             } else if (itemDb.salesPrice !== null) {
               basePrice = Number(itemDb.salesPrice);
             }
@@ -1997,7 +2013,7 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
 
         const dbItems = await tx.item.findMany({
           where: { id: { in: itemIds } },
-          select: { id: true, wholesalePrice: true, wholesaleDiscountAmount: true, salesPrice: true }
+          select: { id: true, wholesalePrice: true, wholesaleDiscountAmount: true, salesPrice: true, isPromo: true, promoEndsAt: true }
         });
 
         const dbVariants = variantIds.length > 0 ? await tx.productVariant.findMany({
@@ -2014,7 +2030,9 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
             if (variantDb.wholesalePrice !== null) {
               basePrice = Number(variantDb.wholesalePrice);
             } else if (variantDb.wholesaleDiscountAmount !== null) {
-              basePrice = Number(variantDb.salesPrice || itemDb?.salesPrice || 0) - Number(variantDb.wholesaleDiscountAmount);
+              const isPromoActive = !itemDb?.isPromo || (itemDb?.promoEndsAt && new Date() <= new Date(itemDb.promoEndsAt));
+              const wsDiscount = isPromoActive ? Number(variantDb.wholesaleDiscountAmount) : 0;
+              basePrice = Number(variantDb.salesPrice || itemDb?.salesPrice || 0) - wsDiscount;
             } else if (variantDb.salesPrice !== null) {
               basePrice = Number(variantDb.salesPrice);
             }
@@ -2022,7 +2040,9 @@ export async function updateSale(input: z.infer<typeof updateSaleSchema>) {
             if (itemDb.wholesalePrice !== null) {
               basePrice = Number(itemDb.wholesalePrice);
             } else if (itemDb.wholesaleDiscountAmount !== null) {
-              basePrice = Number(itemDb.salesPrice || 0) - Number(itemDb.wholesaleDiscountAmount);
+              const isPromoActive = !itemDb.isPromo || (itemDb.promoEndsAt && new Date() <= new Date(itemDb.promoEndsAt));
+              const wsDiscount = isPromoActive ? Number(itemDb.wholesaleDiscountAmount) : 0;
+              basePrice = Number(itemDb.salesPrice || 0) - wsDiscount;
             } else if (itemDb.salesPrice !== null) {
               basePrice = Number(itemDb.salesPrice);
             }

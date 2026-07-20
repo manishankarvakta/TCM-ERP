@@ -320,6 +320,8 @@ export async function getItems(
         colors: true,
         isEnableEcom: true,
         barcode: true,
+        isPromo: true,
+        promoEndsAt: true,
         status: true,
         isTrash: true,
         createdAt: true,
@@ -433,6 +435,8 @@ export async function getItemById(itemId: string) {
         colors: true,
         isEnableEcom: true,
         barcode: true,
+        isPromo: true,
+        promoEndsAt: true,
         status: true,
         isTrash: true,
         createdAt: true,
@@ -836,6 +840,8 @@ export async function createItem(input: {
   isVatEnabled?: boolean;
   vatPercentage?: number;
   barcode?: string | null;
+  isPromo?: boolean;
+  promoEndsAt?: Date | string | null;
   variants?: Array<{
     sku: string;
     barcode?: string | null;
@@ -1007,6 +1013,8 @@ export async function createItem(input: {
         isVatEnabled: input.isVatEnabled ?? false,
         vatPercentage: input.vatPercentage ?? 0,
         barcode: finalBarcode,
+        isPromo: input.isPromo ?? false,
+        promoEndsAt: input.promoEndsAt ? new Date(input.promoEndsAt) : null,
         isTrash: false,
         createdBy: session.user.id,
         variants: input.variants && input.variants.length > 0 ? {
@@ -1045,6 +1053,8 @@ export async function createItem(input: {
         colors: true,
         isEnableEcom: true,
         barcode: true,
+        isPromo: true,
+        promoEndsAt: true,
         featuredImage: true,
         status: true,
         createdAt: true,
@@ -1177,6 +1187,8 @@ export async function updateItem(input: {
   isVatEnabled?: boolean;
   vatPercentage?: number;
   barcode?: string | null;
+  isPromo?: boolean;
+  promoEndsAt?: Date | string | null;
   variants?: Array<{
     id?: string;
     sku: string;
@@ -1368,6 +1380,8 @@ export async function updateItem(input: {
       isVatEnabled: input.isVatEnabled ?? false,
       vatPercentage: input.vatPercentage ?? 0,
       barcode: finalBarcode,
+      isPromo: input.isPromo ?? false,
+      promoEndsAt: input.promoEndsAt ? new Date(input.promoEndsAt) : null,
     };
 
     if (input.status !== undefined) {

@@ -385,7 +385,13 @@ export default async function ItemDetailsPage({ params }: ItemDetailsPageProps) 
                     <div className="rounded-xl border border-red-200 bg-red-50/50 dark:bg-red-950/20 dark:border-red-800/30 p-4 space-y-1">
                       <label className="text-xs font-medium text-red-600 uppercase tracking-wide">Discount</label>
                       <p className="text-xl font-bold text-red-600">{formatPrice(item.discount)}</p>
-                      <p className="text-xs text-muted-foreground">Active discount</p>
+                      {item.isPromo ? (
+                        <p className="text-xs text-red-600 font-medium">
+                          Promo ends: {item.promoEndsAt ? new Date(item.promoEndsAt).toLocaleDateString() : "No end date"}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Active discount</p>
+                      )}
                     </div>
                   )}
                 </div>

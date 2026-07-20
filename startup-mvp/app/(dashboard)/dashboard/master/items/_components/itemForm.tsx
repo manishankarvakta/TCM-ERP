@@ -66,6 +66,8 @@ const itemFormSchema = z.object({
   isVatEnabled: z.boolean().default(false),
   vatPercentage: z.number().min(0, "VAT percentage must be >= 0").default(0),
   barcode: z.string().optional().nullable(),
+  isPromo: z.boolean().default(false),
+  promoEndsAt: z.union([z.string(), z.date()]).optional().nullable(),
 }).refine((data) => {
   if ((data.itemType === "READY_PRODUCT" || data.itemType === "RETAIL") && (!data.salesPrice || data.salesPrice <= 0)) {
     return false;
@@ -105,6 +107,8 @@ interface ItemFormProps {
     isVatEnabled?: boolean;
     vatPercentage?: number;
     barcode?: string | null;
+    isPromo?: boolean;
+    promoEndsAt?: any;
     variants?: Array<{
       id?: string;
       sku: string;
@@ -213,6 +217,10 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           isVatEnabled: initialData.isVatEnabled || false,
           vatPercentage: initialData.vatPercentage ? Number(initialData.vatPercentage) : 0,
           barcode: initialData.barcode || "",
+          isPromo: (initialData as any).isPromo || false,
+          promoEndsAt: (initialData as any).promoEndsAt 
+            ? new Date((initialData as any).promoEndsAt).toISOString().split('T')[0] 
+            : "",
         }
       : {
           name: "",
@@ -237,6 +245,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
           isVatEnabled: false,
           vatPercentage: 0,
           barcode: "",
+          isPromo: false,
+          promoEndsAt: "",
         },
   });
 
@@ -372,6 +382,8 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
         isVatEnabled: data.isVatEnabled,
         vatPercentage: data.vatPercentage,
         barcode: data.barcode || undefined,
+        isPromo: data.isPromo,
+        promoEndsAt: data.promoEndsAt ? (data.promoEndsAt instanceof Date ? data.promoEndsAt.toISOString() : new Date(data.promoEndsAt).toISOString()) : null,
         variants: (data.itemType === "RETAIL" || data.itemType === "READY_PRODUCT") ? variants.filter(v => v.enabled).map((v) => ({
           id: v.id,
           sku: v.sku,
@@ -698,6 +710,32 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                           disabled={loading}
                         />
                       </div>
+                    </div>
+
+                    <div className="flex flex-col md:flex-row gap-6 bg-muted/20 p-4 rounded-xl border border-muted-foreground/10 mt-2">
+                      <div className="flex items-center space-x-3 pt-2">
+                        <input
+                          id="isPromo"
+                          type="checkbox"
+                          {...register("isPromo")}
+                          disabled={loading}
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <Label htmlFor="isPromo" className="cursor-pointer font-semibold">Enable Promotional Expiry</Label>
+                      </div>
+
+                      {watch("isPromo") && (
+                        <div className="space-y-2 flex-1 max-w-sm">
+                          <Label htmlFor="promoEndsAt" className="text-xs">Promotion Expiration Date *</Label>
+                          <Input
+                            id="promoEndsAt"
+                            type="date"
+                            {...register("promoEndsAt")}
+                            disabled={loading}
+                            required={watch("isPromo")}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
 

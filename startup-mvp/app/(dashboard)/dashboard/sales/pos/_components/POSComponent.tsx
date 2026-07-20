@@ -55,6 +55,9 @@ interface Item {
   isVatEnabled?: boolean;
   vatPercentage?: number;
   trackInventory: boolean;
+  discount?: number;
+  isPromo?: boolean;
+  promoEndsAt?: string | null;
 }
 
 interface Client {
@@ -370,7 +373,15 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     );
   };
 
+  const isPromoActive = (item: any) => {
+    if (!item.isPromo) return true;
+    if (!item.promoEndsAt) return false;
+    return new Date() <= new Date(item.promoEndsAt);
+  };
+
   const getBasePrice = (item: CartItem | Item, currentOrderType: "RETAIL" | "WHOLESALE") => {
+    const promoActive = isPromoActive(item);
+
     if ("variantId" in item && item.variantId && item.variants) {
       const variant = item.variants.find(v => v.id === item.variantId);
       if (variant) {
@@ -379,11 +390,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
             return Number(variant.wholesalePrice);
           }
           if (variant.wholesaleDiscountAmount !== null && variant.wholesaleDiscountAmount !== undefined) {
-            return Number(variant.salesPrice || item.unitPrice) - Number(variant.wholesaleDiscountAmount);
+            const wsDiscount = promoActive ? Number(variant.wholesaleDiscountAmount) : 0;
+            return Number(variant.salesPrice || item.unitPrice) - wsDiscount;
           }
         }
         if (variant.salesPrice !== null && variant.salesPrice !== undefined) {
-          return Number(variant.salesPrice);
+          const retDiscount = promoActive ? Number(item.discount || 0) : 0;
+          return Number(variant.salesPrice) - retDiscount;
         }
       }
     }
@@ -393,11 +406,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         return Number(item.wholesalePrice);
       }
       if (item.wholesaleDiscountAmount !== null && item.wholesaleDiscountAmount !== undefined) {
-        return item.unitPrice - Number(item.wholesaleDiscountAmount);
+        const wsDiscount = promoActive ? Number(item.wholesaleDiscountAmount) : 0;
+        return item.unitPrice - wsDiscount;
       }
     }
     
-    return item.unitPrice;
+    const retDiscount = promoActive ? Number(item.discount || 0) : 0;
+    return item.unitPrice - retDiscount;
   };
 
   const getDiscountedPrice = (item: CartItem, basePrice: number, discounts: any[]) => {
