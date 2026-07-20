@@ -22,6 +22,8 @@ const accountingOperationSettingsSchema = z.object({
     receivableAccountId: z.string().optional().default(""),
     cogsAccountId: z.string(),
     finishedGoodsInventoryAccountId: z.string(),
+    couponDiscountAccountId: z.string().optional().default(""),
+    salesDiscountAccountId: z.string().optional().default(""),
   }),
   production: z.object({
     consumptionWipAccountId: z.string(),

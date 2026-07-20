@@ -61,6 +61,29 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
     }
   }
 
+  // Load accounting settings to fetch mapped discount accounts
+  const { getAccountingOperationSettings } = await import("@/lib/accounting-settings");
+  let couponDiscountAccount = null;
+  let salesDiscountAccount = null;
+
+  try {
+    const settings = await getAccountingOperationSettings();
+    if (settings.sales.couponDiscountAccountId) {
+      couponDiscountAccount = await prisma.chartOfAccount.findUnique({
+        where: { id: settings.sales.couponDiscountAccountId },
+        select: { code: true, name: true }
+      });
+    }
+    if (settings.sales.salesDiscountAccountId) {
+      salesDiscountAccount = await prisma.chartOfAccount.findUnique({
+        where: { id: settings.sales.salesDiscountAccountId },
+        select: { code: true, name: true }
+      });
+    }
+  } catch (err) {
+    console.error("Failed to load discount accounts in sale details page:", err);
+  }
+
   return (
     <PageGuard permissionKey="sales.sales" requiredOperation="view">
       <SaleDetailsClient
@@ -68,6 +91,8 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
         cashAccount={cashAccount}
         cardAccount={cardAccount}
         mfsAccount={mfsAccount}
+        couponDiscountAccount={couponDiscountAccount}
+        salesDiscountAccount={salesDiscountAccount}
         extractedMembershipDiscount={extractedMembershipDiscount}
       />
     </PageGuard>

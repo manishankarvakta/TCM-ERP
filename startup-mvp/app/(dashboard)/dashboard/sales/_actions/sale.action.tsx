@@ -759,6 +759,7 @@ export async function createSaleAccountingVoucher(
             },
           },
         },
+        coupon: true,
       },
     });
 
@@ -932,6 +933,21 @@ export async function createSaleAccountingVoucher(
 
     const isReturn = Number(totalSaleAmount) < 0;
     const absTotalSaleAmount = Math.abs(Number(totalSaleAmount));
+    const absGrandTotal = Math.abs(Number(sale.grandTotal));
+
+    // Calculate coupon portion and other portion of the discount
+    const totalDiscount = Number(sale.discount || 0);
+    let couponDiscount = 0;
+    if (sale.coupon && totalDiscount > 0) {
+      const couponVal = Number(sale.coupon.value);
+      if (sale.coupon.discountType === "PERCENTAGE") {
+        couponDiscount = Number((absTotalSaleAmount * (couponVal / 100)).toFixed(2));
+      } else {
+        couponDiscount = couponVal;
+      }
+      couponDiscount = Math.min(couponDiscount, totalDiscount);
+    }
+    const generalDiscount = Number((totalDiscount - couponDiscount).toFixed(2));
 
     const paymentDetails = sale.paymentDetails as any;
     const splitLines: Array<{ accountId: string; amount: number; description: string; clientId?: string }> = [];
@@ -943,7 +959,7 @@ export async function createSaleAccountingVoucher(
       const totalPaid = cashAmt + cardAmt + mfsAmt;
 
       if (totalPaid > 0) {
-        const remainingDue = Number((absTotalSaleAmount - totalPaid).toFixed(2));
+        const remainingDue = Number((absGrandTotal - totalPaid).toFixed(2));
 
         if (cashAmt > 0 && paymentDetails.cashAccountId) {
           splitLines.push({
@@ -979,10 +995,10 @@ export async function createSaleAccountingVoucher(
           }
         }
 
-        // Adjust rounding errors on the last item to make sure sum equals absTotalSaleAmount exactly
+        // Adjust rounding errors on the last item to make sure sum equals absGrandTotal exactly
         if (splitLines.length > 0) {
           const sumSplit = splitLines.reduce((sum, line) => sum + line.amount, 0);
-          const diff = Number((absTotalSaleAmount - sumSplit).toFixed(2));
+          const diff = Number((absGrandTotal - sumSplit).toFixed(2));
           if (diff !== 0) {
             splitLines[splitLines.length - 1].amount = Number((splitLines[splitLines.length - 1].amount + diff).toFixed(2));
           }
@@ -1005,20 +1021,47 @@ export async function createSaleAccountingVoucher(
       // 1. Payment/Receivable
       voucherLines.push({
         lineNumber: lineNumber++,
-        debitAmount: isReturn ? 0 : absTotalSaleAmount,
-        creditAmount: isReturn ? absTotalSaleAmount : 0,
+        debitAmount: isReturn ? 0 : absGrandTotal,
+        creditAmount: isReturn ? absGrandTotal : 0,
         description: debitDescription,
         chartOfAccountId: debitAccountId,
         clientId: debitClientId,
       });
     }
 
-    // 2. Sales Revenue
+    // 1.5 Debit Coupon/Sales Discount if discount > 0 (for Sales, not Returns)
+    if (!isReturn && totalDiscount > 0) {
+      if (couponDiscount > 0) {
+        const couponAcctId = salesAccounts.couponDiscountAccountId || salesAccounts.revenueAccountId;
+        voucherLines.push({
+          lineNumber: lineNumber++,
+          debitAmount: couponDiscount,
+          creditAmount: 0,
+          description: `Coupon Discount (${sale.coupon?.code || 'Coupon'}) - ${sale.saleNumber}`,
+          chartOfAccountId: couponAcctId,
+        });
+      }
+      if (generalDiscount > 0) {
+        const generalDiscountAcctId = salesAccounts.salesDiscountAccountId || salesAccounts.revenueAccountId;
+        voucherLines.push({
+          lineNumber: lineNumber++,
+          debitAmount: generalDiscount,
+          creditAmount: 0,
+          description: `Sales General Discount - ${sale.saleNumber}`,
+          chartOfAccountId: generalDiscountAcctId,
+        });
+      }
+    }
+
+    // 2. Sales Revenue & Sales Tax
+    const taxAmt = Number(sale.tax || 0);
+    const revenueCredit = absTotalSaleAmount + taxAmt;
+
     voucherLines.push({
       lineNumber: lineNumber++,
-      debitAmount: isReturn ? absTotalSaleAmount : 0,
-      creditAmount: isReturn ? 0 : absTotalSaleAmount,
-      description: `Sales Revenue - ${sale.saleNumber}`,
+      debitAmount: isReturn ? revenueCredit : 0,
+      creditAmount: isReturn ? 0 : revenueCredit,
+      description: taxAmt > 0 ? `Sales Revenue & Tax - ${sale.saleNumber}` : `Sales Revenue - ${sale.saleNumber}`,
       chartOfAccountId: salesAccounts.revenueAccountId,
     });
 

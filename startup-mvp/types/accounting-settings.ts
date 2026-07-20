@@ -23,6 +23,10 @@ export interface SalesAccounts {
   // COGS Entry
   cogsAccountId: string;             // DR (Cost of Goods Sold)
   finishedGoodsInventoryAccountId: string; // CR (Ready Products Inventory)
+  
+  // Discount Entry
+  couponDiscountAccountId?: string; // DR (Sales Coupon Discount - Optional)
+  salesDiscountAccountId?: string;  // DR (Sales Discount - Optional)
 }
 
 /**

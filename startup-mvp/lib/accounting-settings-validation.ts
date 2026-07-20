@@ -325,6 +325,12 @@ export async function validateOperationAccountSettings(
   if (settings.payroll?.defaultAdvanceAccountId) {
     accountIds.push(settings.payroll.defaultAdvanceAccountId);
   }
+  if (settings.sales.couponDiscountAccountId) {
+    accountIds.push(settings.sales.couponDiscountAccountId);
+  }
+  if (settings.sales.salesDiscountAccountId) {
+    accountIds.push(settings.sales.salesDiscountAccountId);
+  }
   const accounts = await prisma.chartOfAccount.findMany({
     where: {
       id: { in: accountIds },
@@ -370,6 +376,31 @@ export async function validateOperationAccountSettings(
     if (advanceAccount.type !== AccountType.ASSET && advanceAccount.type !== AccountType.LIABILITY) {
       throw new Error(
         `Payroll Default Advance account "${advanceAccount.name}" must be an ASSET or LIABILITY account, but is ${advanceAccount.type}`
+      );
+    }
+  }
+
+  // Validate sales discount accounts allowing both REVENUE and EXPENSE
+  if (settings.sales.couponDiscountAccountId) {
+    const couponAcct = accountMap.get(settings.sales.couponDiscountAccountId);
+    if (!couponAcct) {
+      throw new AccountNotFoundValidationError(settings.sales.couponDiscountAccountId, "Sales Coupon Discount");
+    }
+    if (couponAcct.type !== AccountType.REVENUE && couponAcct.type !== AccountType.EXPENSE) {
+      throw new Error(
+        `Sales Coupon Discount account "${couponAcct.name}" must be a REVENUE or EXPENSE account, but is ${couponAcct.type}`
+      );
+    }
+  }
+
+  if (settings.sales.salesDiscountAccountId) {
+    const salesAcct = accountMap.get(settings.sales.salesDiscountAccountId);
+    if (!salesAcct) {
+      throw new AccountNotFoundValidationError(settings.sales.salesDiscountAccountId, "Sales General Discount");
+    }
+    if (salesAcct.type !== AccountType.REVENUE && salesAcct.type !== AccountType.EXPENSE) {
+      throw new Error(
+        `Sales General Discount account "${salesAcct.name}" must be a REVENUE or EXPENSE account, but is ${salesAcct.type}`
       );
     }
   }

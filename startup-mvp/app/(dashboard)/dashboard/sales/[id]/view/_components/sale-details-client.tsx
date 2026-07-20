@@ -25,6 +25,8 @@ interface SaleDetailsClientProps {
   cashAccount: any;
   cardAccount: any;
   mfsAccount: any;
+  couponDiscountAccount?: { code: string; name: string } | null;
+  salesDiscountAccount?: { code: string; name: string } | null;
   extractedMembershipDiscount: number;
 }
 
@@ -40,9 +42,26 @@ export default function SaleDetailsClient({
   cashAccount,
   cardAccount,
   mfsAccount,
+  couponDiscountAccount,
+  salesDiscountAccount,
   extractedMembershipDiscount,
 }: SaleDetailsClientProps) {
   const [printMode, setPrintMode] = useState<"a4" | "challan">("a4");
+
+  // Calculate discount splits
+  const totalSaleAmount = sale.items.reduce((sum: number, item: any) => sum + Number(item.quantity) * Number(item.unitPrice), 0);
+  const totalDiscount = Number(sale.discount || 0);
+  let couponDiscount = 0;
+  if (sale.coupon && totalDiscount > 0) {
+    const couponVal = Number(sale.coupon.value);
+    if (sale.coupon.discountType === "PERCENTAGE") {
+      couponDiscount = Number((totalSaleAmount * (couponVal / 100)).toFixed(2));
+    } else {
+      couponDiscount = couponVal;
+    }
+    couponDiscount = Math.min(couponDiscount, totalDiscount);
+  }
+  const generalDiscount = Number((totalDiscount - couponDiscount).toFixed(2));
 
   const getStatusBadgeVariant = (status: SaleStatus) => {
     switch (status) {
@@ -352,12 +371,12 @@ export default function SaleDetailsClient({
                   <span className="font-medium">{formatCurrency(sale.tax)}</span>
                 </div>
               )}
-              {paymentDetails && (Number(paymentDetails.cashAmount || 0) > 0 || Number(paymentDetails.cardAmount || 0) > 0 || Number(paymentDetails.mfsAmount || 0) > 0) && (
+              {((paymentDetails && (Number(paymentDetails.cashAmount || 0) > 0 || Number(paymentDetails.cardAmount || 0) > 0 || Number(paymentDetails.mfsAmount || 0) > 0)) || totalDiscount > 0) && (
                 <>
                   <Separator className="my-2" />
                   <div className="space-y-1.5 pt-1">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Payment Split Details</p>
-                    {Number(paymentDetails.cashAmount || 0) > 0 && (
+                    {paymentDetails && Number(paymentDetails.cashAmount || 0) > 0 && (
                       <div className="flex justify-between items-start text-xs gap-2">
                         <span className="text-muted-foreground text-left leading-normal">
                           Cash {cashAccount ? `(${cashAccount.code} - ${cashAccount.name})` : ""}
@@ -365,7 +384,7 @@ export default function SaleDetailsClient({
                         <span className="font-semibold shrink-0">{formatCurrency(Number(paymentDetails.cashAmount))}</span>
                       </div>
                     )}
-                    {Number(paymentDetails.cardAmount || 0) > 0 && (
+                    {paymentDetails && Number(paymentDetails.cardAmount || 0) > 0 && (
                       <div className="flex justify-between items-start text-xs gap-2">
                         <span className="text-muted-foreground text-left leading-normal">
                           Card {cardAccount ? `(${cardAccount.code} - ${cardAccount.name})` : ""}
@@ -373,12 +392,28 @@ export default function SaleDetailsClient({
                         <span className="font-semibold shrink-0">{formatCurrency(Number(paymentDetails.cardAmount))}</span>
                       </div>
                     )}
-                    {Number(paymentDetails.mfsAmount || 0) > 0 && (
+                    {paymentDetails && Number(paymentDetails.mfsAmount || 0) > 0 && (
                       <div className="flex justify-between items-start text-xs gap-2">
                         <span className="text-muted-foreground text-left leading-normal">
                           MFS {mfsAccount ? `(${mfsAccount.code} - ${mfsAccount.name})` : ""}
                         </span>
                         <span className="font-semibold shrink-0">{formatCurrency(Number(paymentDetails.mfsAmount))}</span>
+                      </div>
+                    )}
+                    {couponDiscount > 0 && (
+                      <div className="flex justify-between items-start text-xs gap-2">
+                        <span className="text-muted-foreground text-left leading-normal">
+                          Coupon Discount {couponDiscountAccount ? `(${couponDiscountAccount.code} - ${couponDiscountAccount.name})` : ""}
+                        </span>
+                        <span className="font-semibold shrink-0 text-green-600">-{formatCurrency(couponDiscount)}</span>
+                      </div>
+                    )}
+                    {generalDiscount > 0 && (
+                      <div className="flex justify-between items-start text-xs gap-2">
+                        <span className="text-muted-foreground text-left leading-normal">
+                          Sales Discount {salesDiscountAccount ? `(${salesDiscountAccount.code} - ${salesDiscountAccount.name})` : ""}
+                        </span>
+                        <span className="font-semibold shrink-0 text-green-600">-{formatCurrency(generalDiscount)}</span>
                       </div>
                     )}
                   </div>

@@ -183,6 +183,8 @@ function createDefaultSettings(): AccountingOperationSettings {
       receivableAccountId: "",
       cogsAccountId: "",
       finishedGoodsInventoryAccountId: "",
+      couponDiscountAccountId: "",
+      salesDiscountAccountId: "",
     },
     production: {
       consumptionWipAccountId: "",
@@ -240,6 +242,8 @@ function mergeWithDefaults(
       receivableAccountId: partial.sales?.receivableAccountId || defaults.sales.receivableAccountId,
       cogsAccountId: partial.sales?.cogsAccountId || defaults.sales.cogsAccountId,
       finishedGoodsInventoryAccountId: partial.sales?.finishedGoodsInventoryAccountId || defaults.sales.finishedGoodsInventoryAccountId,
+      couponDiscountAccountId: partial.sales?.couponDiscountAccountId || defaults.sales.couponDiscountAccountId,
+      salesDiscountAccountId: partial.sales?.salesDiscountAccountId || defaults.sales.salesDiscountAccountId,
     },
     production: {
       consumptionWipAccountId: partial.production?.consumptionWipAccountId || defaults.production.consumptionWipAccountId,
