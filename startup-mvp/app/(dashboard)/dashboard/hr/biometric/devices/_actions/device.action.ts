@@ -152,7 +152,9 @@ export async function createBiometricDevice(data: any) {
         connectionMode: validatedData.connectionMode || "ADMS",
         isActive: validatedData.isActive,
         warehouseId: validatedData.warehouseId || null,
-        vendor: "ZKTeco", // Defaulting vendor since schema requires it
+        vendor: validatedData.vendor,
+        username: validatedData.username || null,
+        password: validatedData.password || null,
         createdBy: session.user.id,
       },
     });
@@ -205,6 +207,9 @@ export async function updateBiometricDevice(id: string, data: any) {
         connectionMode: validatedData.connectionMode || "ADMS",
         isActive: validatedData.isActive,
         warehouseId: validatedData.warehouseId || null,
+        vendor: validatedData.vendor,
+        username: validatedData.username || null,
+        password: validatedData.password || null,
       },
     });
 

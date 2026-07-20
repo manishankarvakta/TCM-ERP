@@ -25,12 +25,13 @@ export async function GET(req: Request) {
     const devices = dbDevices.map((d) => ({
       deviceId: d.id,
       vendor: d.vendor,
+      deviceType: d.deviceType,
       name: d.name,
       ipAddress: d.ipAddress,
       port: d.port || 4370,
       serialNumber: d.serialNumber,
-      username: "admin", // Default fallback
-      password: d.apiKey || "", // Reuse the apiKey field to store connection credential/secret
+      username: d.username || "admin",
+      password: d.password || d.apiKey || "",
       isActive: d.isActive
     }));
 

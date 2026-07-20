@@ -1538,6 +1538,8 @@ model BiometricDevice {
   apiKey         String?
   serialNumber   String?             @unique
   location       String?
+  username       String?
+  password       String?
   status         String              @default("active")
   isActive       Boolean             @default(true)
   lastSyncAt     DateTime?

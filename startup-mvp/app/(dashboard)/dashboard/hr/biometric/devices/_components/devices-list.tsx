@@ -29,7 +29,9 @@ import {
   FiRefreshCw,
   FiMapPin,
   FiUsers,
-  FiActivity
+  FiActivity,
+  FiGlobe,
+  FiCpu
 } from "react-icons/fi";
 import { toggleBiometricDeviceStatus } from "../_actions/device.action";
 import { checkDeviceStatus } from "../_actions/device-sync.action";
@@ -249,7 +251,19 @@ export default function DevicesListClient({
                       </div>
                     </div>
                     
+                    <div className="flex items-center gap-2 pt-1 border-t border-dashed">
+                      <FiGlobe className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-muted-foreground text-xs">IP Address: </span>
+                      <span className="font-medium text-xs">{device.ipAddress || "N/A"}{device.ipAddress && device.port ? `:${device.port}` : ''}</span>
+                    </div>
+
                     <div className="flex items-center gap-2 pt-1">
+                      <FiCpu className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-muted-foreground text-xs">Brand: </span>
+                      <span className="font-medium text-xs">{device.vendor}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1 border-t border-dashed">
                       <FiUsers className="h-4 w-4 text-muted-foreground shrink-0" />
                       <span className="text-muted-foreground text-xs">Employees: </span>
                       <span className="font-medium">{device._count?.deviceMappings || 0}</span>

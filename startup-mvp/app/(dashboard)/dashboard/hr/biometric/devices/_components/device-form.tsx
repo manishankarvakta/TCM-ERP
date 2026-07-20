@@ -44,6 +44,7 @@ export default function DeviceForm({ mode, initialData, warehouses = [] }: Devic
       ? {
           name: initialData.name || "",
           serialNumber: initialData.serialNumber || "",
+          vendor: initialData.vendor || "ZKTeco",
           ipAddress: initialData.ipAddress || "",
           port: initialData.port || 4370,
           location: initialData.location || "",
@@ -51,10 +52,13 @@ export default function DeviceForm({ mode, initialData, warehouses = [] }: Devic
           connectionMode: initialData.connectionMode || "ADMS",
           isActive: initialData.isActive !== false,
           warehouseId: initialData.warehouseId || "",
+          username: initialData.username || "",
+          password: initialData.password || "",
         }
       : {
           name: "",
           serialNumber: "",
+          vendor: "ZKTeco",
           ipAddress: "",
           port: 4370,
           location: "",
@@ -62,6 +66,8 @@ export default function DeviceForm({ mode, initialData, warehouses = [] }: Devic
           connectionMode: "ADMS",
           isActive: true,
           warehouseId: "",
+          username: "",
+          password: "",
         },
   });
 
@@ -181,6 +187,23 @@ export default function DeviceForm({ mode, initialData, warehouses = [] }: Devic
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="vendor">Device Brand (Vendor)</Label>
+              <Select
+                value={watch("vendor")}
+                onValueChange={(val) => setValue("vendor", val)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select vendor" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[250px]">
+                  <SelectItem value="ZKTeco">ZKTeco</SelectItem>
+                  <SelectItem value="Hikvision">Hikvision</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Helps local agent load correct communication drivers.</p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="warehouseId">Warehouse Assignment (Optional)</Label>
               <SearchableSelect
                 value={watch("warehouseId") || "none"}
@@ -208,7 +231,7 @@ export default function DeviceForm({ mode, initialData, warehouses = [] }: Devic
               <p className="text-xs text-muted-foreground">Required if using TCP/IP mode</p>
             </div>
 
-            <div className="space-y-2">
+             <div className="space-y-2">
               <Label htmlFor="port">Port</Label>
               <Input
                 id="port"
@@ -217,6 +240,34 @@ export default function DeviceForm({ mode, initialData, warehouses = [] }: Devic
                 {...register("port")}
               />
             </div>
+
+            {watch("vendor") === "Hikvision" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    placeholder="e.g. admin"
+                    {...register("username")}
+                  />
+                  {errors.username && (
+                    <p className="text-xs text-destructive">{errors.username.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    placeholder="Device connection password"
+                    {...register("password")}
+                  />
+                  {errors.password && (
+                    <p className="text-xs text-destructive">{errors.password.message}</p>
+                  )}
+                </div>
+              </>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="location">Location</Label>
