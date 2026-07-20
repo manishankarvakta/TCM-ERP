@@ -75,6 +75,7 @@ interface TPN {
   sourceWarehouse: { name: string } | null;
   destinationWarehouse: { name: string } | null;
   grandTotal: number;
+  itemsCount?: number;
 }
 
 interface Pagination {
@@ -471,6 +472,7 @@ export default function TpnListClient({
               <TableHead>Date</TableHead>
               <TableHead>Source</TableHead>
               <TableHead>Destination</TableHead>
+              <TableHead className="text-right">Items</TableHead>
               <TableHead className="text-right">Amount</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -479,7 +481,7 @@ export default function TpnListClient({
           <TableBody>
             {initialTPNs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed transfer notes found" : "No transfer notes found"}
                 </TableCell>
               </TableRow>
@@ -506,6 +508,9 @@ export default function TpnListClient({
                     </TableCell>
                     <TableCell>{tpn.sourceWarehouse?.name}</TableCell>
                     <TableCell>{tpn.destinationWarehouse?.name}</TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">
+                      {tpn.itemsCount ?? 0}
+                    </TableCell>
                     <TableCell className="text-right font-medium">
                       ৳{Number(tpn.grandTotal).toLocaleString()}
                     </TableCell>

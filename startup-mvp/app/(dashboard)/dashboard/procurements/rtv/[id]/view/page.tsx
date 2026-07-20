@@ -61,15 +61,39 @@ export default async function RTVDetailsPage({ params }: RTVDetailsPageProps) {
     })}`;
   };
 
+  const totalQuantity = rtv.items.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0);
+
   return (
     <div className="space-y-6 print:space-y-3">
       {/* Print-only Invoice Header */}
       <div className="hidden print:block border-b border-slate-300 pb-2 mb-3">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">Ferrari Fashion</h1>
-            <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
-            <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
+            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">
+              {rtv.warehouse?.name || "Ferrari Fashion"}
+            </h1>
+            {rtv.warehouse?.address ? (
+              <>
+                <p className="text-xs text-slate-600">{rtv.warehouse.address}</p>
+                {(rtv.warehouse.city || rtv.warehouse.state || rtv.warehouse.zip || rtv.warehouse.country) && (
+                  <p className="text-xs text-slate-600">
+                    {[
+                      rtv.warehouse.city,
+                      rtv.warehouse.state,
+                      rtv.warehouse.zip,
+                      rtv.warehouse.country,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
+                <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
+              </>
+            )}
             <p className="text-xs text-slate-600">Phone: +880 1841 556677</p>
           </div>
           <div className="text-right">
@@ -291,13 +315,25 @@ export default async function RTVDetailsPage({ params }: RTVDetailsPageProps) {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {rtv.items.length > 0 && (
+                    <TableRow className="font-bold bg-muted/20 hover:bg-muted/20">
+                      <TableCell colSpan={3} className="print:py-1.5 print:px-2 print:text-xs">Total</TableCell>
+                      <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">
+                        {totalQuantity.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right print:py-1.5 print:px-2"></TableCell>
+                      <TableCell className="text-right font-mono font-semibold print:py-1.5 print:px-2 print:text-xs">
+                        {formatCurrency(rtv.subTotal)}
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
           )}
 
           {/* Financial Summary Cards */}
-          <div className="mt-6 print:mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 print:grid-cols-3 print:gap-2">
+          <div className="mt-6 print:mt-2 grid grid-cols-1 md:grid-cols-5 gap-4 print:grid-cols-5 print:gap-2">
             <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
               <CardContent className="pt-6 print:p-1">
                 <div className="space-y-1 print:space-y-0">
@@ -314,6 +350,26 @@ export default async function RTVDetailsPage({ params }: RTVDetailsPageProps) {
                   <p className="text-sm font-medium text-muted-foreground print:text-xs">Tax</p>
                   <p className="text-2xl font-bold print:text-sm">
                     {rtv.tax && rtv.tax > 0 ? formatCurrency(rtv.tax) : formatCurrency(0)}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
+              <CardContent className="pt-6 print:p-1">
+                <div className="space-y-1 print:space-y-0">
+                  <p className="text-sm font-medium text-muted-foreground print:text-xs">Total Items</p>
+                  <p className="text-2xl font-bold print:text-sm">
+                    {rtv.items.length}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
+              <CardContent className="pt-6 print:p-1">
+                <div className="space-y-1 print:space-y-0">
+                  <p className="text-sm font-medium text-muted-foreground print:text-xs">Total Quantity Returned</p>
+                  <p className="text-2xl font-bold print:text-sm">
+                    {totalQuantity.toFixed(2)}
                   </p>
                 </div>
               </CardContent>

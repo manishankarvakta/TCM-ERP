@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { numberToWords } from "@/lib/utils/number-to-words";
+import { Separator } from "@/components/ui/separator";
 
 interface TpnDetailsProps {
   tpn: any;
@@ -24,6 +25,15 @@ interface TpnDetailsProps {
 export default function TpnDetails({ tpn }: TpnDetailsProps) {
   const router = useRouter();
   const [printMode, setPrintMode] = React.useState<"tpn" | "challan">("tpn");
+
+  const totalQuantity = tpn.items.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0);
+
+  const formatCurrency = (amount: number) => {
+    return `৳${amount.toLocaleString("en-BD", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
 
   const handlePrint = (mode: "tpn" | "challan") => {
     setPrintMode(mode);
@@ -38,20 +48,55 @@ export default function TpnDetails({ tpn }: TpnDetailsProps) {
       <div className="hidden print:block border-b border-slate-300 pb-2 mb-3">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">Ferrari Fashion</h1>
-            <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
-            <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
-            <p className="text-xs text-slate-600">Phone: +880 1841 556677</p>
+            <h1 className="text-sm font-bold uppercase tracking-wide text-slate-500">From (Source Warehouse):</h1>
+            <p className="text-base font-bold text-slate-900">{tpn.sourceWarehouse?.name}</p>
+            {tpn.sourceWarehouse?.address && (
+              <p className="text-xs text-slate-600">{tpn.sourceWarehouse.address}</p>
+            )}
+            {(tpn.sourceWarehouse?.city || tpn.sourceWarehouse?.state || tpn.sourceWarehouse?.zip || tpn.sourceWarehouse?.country) && (
+              <p className="text-xs text-slate-600">
+                {[
+                  tpn.sourceWarehouse.city,
+                  tpn.sourceWarehouse.state,
+                  tpn.sourceWarehouse.zip,
+                  tpn.sourceWarehouse.country,
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
+            )}
           </div>
           <div className="text-right">
-            <h2 className="text-xl font-bold uppercase text-slate-800">
+            <h1 className="text-sm font-bold uppercase tracking-wide text-slate-500">To (Destination Warehouse):</h1>
+            <p className="text-base font-bold text-slate-900">{tpn.destinationWarehouse?.name}</p>
+            {tpn.destinationWarehouse?.address && (
+              <p className="text-xs text-slate-600">{tpn.destinationWarehouse.address}</p>
+            )}
+            {(tpn.destinationWarehouse?.city || tpn.destinationWarehouse?.state || tpn.destinationWarehouse?.zip || tpn.destinationWarehouse?.country) && (
+              <p className="text-xs text-slate-600">
+                {[
+                  tpn.destinationWarehouse.city,
+                  tpn.destinationWarehouse.state,
+                  tpn.destinationWarehouse.zip,
+                  tpn.destinationWarehouse.country,
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 flex justify-between items-end border-t pt-2 border-slate-200">
+          <div>
+            <h2 className="text-lg font-bold uppercase text-slate-800">
               {printMode === "challan" ? "Delivery Challan" : "Transfer Purchase Note"}
             </h2>
-            <div className="mt-2 text-xs space-y-0.5">
-              <p><span className="font-semibold">TPN Number:</span> {tpn.tpnNumber}</p>
-              <p><span className="font-semibold">Date:</span> {format(new Date(tpn.date), "dd MMM yyyy")}</p>
-              <p><span className="font-semibold">Status:</span> {tpn.status}</p>
-            </div>
+          </div>
+          <div className="text-right text-xs space-y-0.5">
+            <p><span className="font-semibold">TPN Number:</span> {tpn.tpnNumber}</p>
+            <p><span className="font-semibold">Date:</span> {format(new Date(tpn.date), "dd MMM yyyy")}</p>
+            <p><span className="font-semibold">Status:</span> {tpn.status}</p>
           </div>
         </div>
       </div>
@@ -79,8 +124,8 @@ export default function TpnDetails({ tpn }: TpnDetailsProps) {
           <CardHeader className="print:p-1.5 print:pb-0">
             <CardTitle className="print:text-xs">Transfer Information</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 print:space-y-1 print:p-1.5">
-            <div className="grid grid-cols-4 gap-4 print:gap-2">
+          <CardContent className="space-y-4 print:space-y-2 print:p-1.5">
+            <div className="grid grid-cols-2 gap-4 print:gap-2">
               <div>
                 <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Date</p>
                 <p className="print:text-xs">{format(new Date(tpn.date), "dd MMMM yyyy")}</p>
@@ -94,13 +139,46 @@ export default function TpnDetails({ tpn }: TpnDetailsProps) {
                   {tpn.status}
                 </Badge>
               </div>
+            </div>
+            <Separator className="my-2" />
+            <div className="grid grid-cols-2 gap-4 print:gap-2">
               <div>
                 <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Source Warehouse</p>
-                <p className="print:text-xs">{tpn.sourceWarehouse.name}</p>
+                <p className="print:text-xs font-semibold">{tpn.sourceWarehouse.name}</p>
+                {tpn.sourceWarehouse.address && (
+                  <p className="text-xs text-muted-foreground print:text-[9px] mt-0.5">
+                    {tpn.sourceWarehouse.address}
+                    {(tpn.sourceWarehouse.city || tpn.sourceWarehouse.state || tpn.sourceWarehouse.zip || tpn.sourceWarehouse.country) && (
+                      <span>
+                        , {[
+                          tpn.sourceWarehouse.city,
+                          tpn.sourceWarehouse.state,
+                          tpn.sourceWarehouse.zip,
+                          tpn.sourceWarehouse.country
+                        ].filter(Boolean).join(", ")}
+                      </span>
+                    )}
+                  </p>
+                )}
               </div>
               <div>
                  <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Destination Warehouse</p>
-                 <p className="print:text-xs">{tpn.destinationWarehouse.name}</p>
+                 <p className="print:text-xs font-semibold">{tpn.destinationWarehouse.name}</p>
+                 {tpn.destinationWarehouse.address && (
+                   <p className="text-xs text-muted-foreground print:text-[9px] mt-0.5">
+                     {tpn.destinationWarehouse.address}
+                     {(tpn.destinationWarehouse.city || tpn.destinationWarehouse.state || tpn.destinationWarehouse.zip || tpn.destinationWarehouse.country) && (
+                       <span>
+                         , {[
+                           tpn.destinationWarehouse.city,
+                           tpn.destinationWarehouse.state,
+                           tpn.destinationWarehouse.zip,
+                           tpn.destinationWarehouse.country
+                         ].filter(Boolean).join(", ")}
+                       </span>
+                     )}
+                   </p>
+                 )}
               </div>
             </div>
           </CardContent>
@@ -127,7 +205,16 @@ export default function TpnDetails({ tpn }: TpnDetailsProps) {
                 {tpn.items.map((item: any) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium print:py-1.5 print:px-2 print:text-xs">{item.item.code}</TableCell>
-                    <TableCell className="print:py-1.5 print:px-2 print:text-xs">{item.item.name}</TableCell>
+                    <TableCell className="print:py-1.5 print:px-2 print:text-xs">
+                      <div>
+                        <p className="font-semibold">
+                          {item.variant ? `${item.variant.sku}${item.variant.size ? `, ${item.variant.size}` : ''}${item.variant.color ? `, ${item.variant.color}` : ''}` : item.item.name}
+                        </p>
+                        {item.variant && (
+                          <p className="text-xs text-muted-foreground print:text-[10px]">{item.item.name}</p>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-right font-medium print:py-1.5 print:px-2 print:text-xs">
                       {Number(item.quantity).toFixed(2)}
                     </TableCell>
@@ -139,20 +226,58 @@ export default function TpnDetails({ tpn }: TpnDetailsProps) {
                     </TableCell>
                   </TableRow>
                 ))}
-                <TableRow className={`bg-muted/50 font-medium ${printMode === "challan" ? "print:hidden" : ""}`}>
-                  <TableCell colSpan={4} className="text-right font-semibold print:py-1.5 print:px-2 print:text-xs">Total Value:</TableCell>
-                  <TableCell className="text-right font-bold text-indigo-600 print:py-1.5 print:px-2 print:text-xs">
-                    ৳{Number(tpn.grandTotal || 0).toFixed(2)}
+                <TableRow className="bg-muted/30 font-bold">
+                  <TableCell colSpan={2} className="print:py-1.5 print:px-2 print:text-xs">Total</TableCell>
+                  <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">
+                    {totalQuantity.toFixed(2)}
+                  </TableCell>
+                  <TableCell className={`text-right print:py-1.5 print:px-2 print:text-xs ${printMode === "challan" ? "print:hidden" : ""}`}></TableCell>
+                  <TableCell className={`text-right font-mono font-bold text-indigo-600 print:py-1.5 print:px-2 print:text-xs ${printMode === "challan" ? "print:hidden" : ""}`}>
+                    {formatCurrency(tpn.grandTotal || 0)}
                   </TableCell>
                 </TableRow>
               </TableBody>
             </Table>
 
+            {/* Financial Summary Cards */}
+            <div className="mt-6 print:mt-2 grid grid-cols-1 md:grid-cols-3 gap-4 print:grid-cols-3 print:gap-2">
+              <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
+                <CardContent className="pt-6 print:p-1">
+                  <div className="space-y-1 print:space-y-0">
+                    <p className="text-sm font-medium text-muted-foreground print:text-xs">Total Items</p>
+                    <p className="text-2xl font-bold print:text-sm">
+                      {tpn.items.length}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
+                <CardContent className="pt-6 print:p-1">
+                  <div className="space-y-1 print:space-y-0">
+                    <p className="text-sm font-medium text-muted-foreground print:text-xs">Total Quantity</p>
+                    <p className="text-2xl font-bold print:text-sm">
+                      {totalQuantity.toFixed(2)}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className={`bg-primary/5 border-primary/20 print:bg-transparent print:shadow-none print:border-0 ${printMode === "challan" ? "print:hidden" : ""}`}>
+                <CardContent className="pt-6 print:p-1">
+                  <div className="space-y-1 print:space-y-0">
+                    <p className="text-sm font-medium text-muted-foreground print:text-xs">Total Estimated Value</p>
+                    <p className="text-2xl font-bold text-primary print:text-slate-900 print:text-base">
+                      {formatCurrency(tpn.grandTotal || 0)}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
             {/* Amount In Words */}
             <div className={`border-t border-b border-slate-200 py-3 mt-6 print:py-1.5 print:mt-2 ${printMode === "challan" ? "print:hidden" : ""}`}>
               <p className="text-sm print:text-[11px] text-slate-800 text-left">
                 <span className="font-bold italic">In Words: </span>
-                <span className="italic">{numberToWords(tpn.grandTotal || 0)}</span>
+                <span className="italic text-primary font-medium">{numberToWords(tpn.grandTotal || 0)}</span>
               </p>
             </div>
 

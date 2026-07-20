@@ -300,6 +300,11 @@ export async function getPurchases(
             name: true,
           },
         },
+        _count: {
+          select: {
+            items: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
       },
@@ -360,6 +365,11 @@ export async function getPurchaseById(purchaseId: string) {
             id: true,
             name: true,
             code: true,
+            address: true,
+            city: true,
+            state: true,
+            zip: true,
+            country: true,
           },
         },
         items: {              // ✅ Add this

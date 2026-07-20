@@ -187,6 +187,7 @@ export default function RTVListClient({
                 <TableHead>Date</TableHead>
                 <TableHead>Supplier</TableHead>
                 <TableHead>Warehouse</TableHead>
+                <TableHead className="text-right">Items</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead className="text-center">Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -195,7 +196,7 @@ export default function RTVListClient({
             <TableBody>
               {initialData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                     No returns found.
                   </TableCell>
                 </TableRow>
@@ -206,6 +207,9 @@ export default function RTVListClient({
                     <TableCell>{new Date(rtv.date).toLocaleDateString()}</TableCell>
                     <TableCell>{rtv.supplier.name}</TableCell>
                     <TableCell>{rtv.warehouse.name}</TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">
+                      {rtv._count?.items ?? 0}
+                    </TableCell>
                     <TableCell className="text-right">৳{Number(rtv.grandTotal).toLocaleString()}</TableCell>
                     <TableCell className="text-center">
                       <Badge variant={rtv.status === 'COMPLETED' ? 'default' : 'secondary'}>

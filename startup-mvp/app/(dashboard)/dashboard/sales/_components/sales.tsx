@@ -85,6 +85,9 @@ interface Sale {
   } | null;
   createdAt: Date;
   updatedAt: Date;
+  _count?: {
+    items: number;
+  };
 }
 
 interface Pagination {
@@ -529,6 +532,7 @@ export default function SalesListClient({
               <TableHead>Biller</TableHead>
               <TableHead>Assistant</TableHead>
               <TableHead>Date</TableHead>
+              <TableHead className="text-right">Items</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -536,7 +540,7 @@ export default function SalesListClient({
           <TableBody>
             {initialSales.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed sales found" : "No sales found"}
                 </TableCell>
               </TableRow>
@@ -620,6 +624,9 @@ export default function SalesListClient({
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {format(new Date(sale.date), "MMM d, yyyy")}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">
+                      {sale._count?.items ?? 0}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       ৳{sale.grandTotal.toFixed(2)}

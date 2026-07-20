@@ -110,6 +110,15 @@ export default function DamageForm({ warehouses, items, userContext, initialData
     name: "warehouseId",
   });
 
+  const watchedItems = useWatch({
+    control: form.control,
+    name: "items",
+  }) || [];
+
+  const totalItems = watchedItems.filter((item: any) => !!item?.itemId && (Number(item?.quantity) || 0) > 0).length;
+  const totalQuantity = watchedItems.reduce((sum: number, item: any) => sum + (Number(item?.quantity) || 0), 0);
+  const totalLoss = watchedItems.reduce((sum: number, item: any) => sum + ((Number(item?.quantity) || 0) * (Number(item?.unitRate) || 0)), 0);
+
   const filteredItems = useMemo(() => {
     if (!itemSearch) return items;
     const searchLower = itemSearch.toLowerCase();
@@ -454,7 +463,7 @@ export default function DamageForm({ warehouses, items, userContext, initialData
                                           <div className="flex justify-between items-center w-full gap-4">
                                             <span>{item.name} ({item.code})</span>
                                             <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                                Stock: {stockMap[item.id] || 0}
+                                                Stock: {item.variants && item.variants.length > 0 ? item.variants.reduce((sum: number, v: any) => sum + (stockMap[v.id] || 0), 0) : (stockMap[item.id] || 0)}
                                             </span>
                                           </div>
                                       </SelectItem>
@@ -520,6 +529,36 @@ export default function DamageForm({ warehouses, items, userContext, initialData
                  </TableBody>
                </Table>
             </div>
+        </Card>
+      </div>
+
+      {/* Summaries Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-muted/50">
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Total Items</p>
+              <p className="text-2xl font-bold">{totalItems}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-muted/50">
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Total Quantity Lost</p>
+              <p className="text-2xl font-bold">{totalQuantity.toFixed(2)}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-destructive/5 border-destructive/20">
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Total Estimated Loss</p>
+              <p className="text-2xl font-bold text-destructive">
+                ৳{totalLoss.toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+          </CardContent>
         </Card>
       </div>
 

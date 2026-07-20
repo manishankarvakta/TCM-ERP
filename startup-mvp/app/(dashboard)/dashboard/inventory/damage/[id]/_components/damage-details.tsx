@@ -86,6 +86,8 @@ export default function DamageDetails({ initialData }: DamageDetailsProps) {
 
 
   const totalAmount = initialData.items.reduce((sum: number, item: any) => sum + Number(item.amount), 0);
+  const totalItems = initialData.items.length;
+  const totalQuantity = initialData.items.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0);
 
   return (
     <div className="space-y-6 print:space-y-3">
@@ -93,9 +95,31 @@ export default function DamageDetails({ initialData }: DamageDetailsProps) {
       <div className="hidden print:block border-b border-slate-300 pb-2 mb-3">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">Ferrari Fashion</h1>
-            <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
-            <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
+            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">
+              {initialData.warehouse?.name || "Ferrari Fashion"}
+            </h1>
+            {initialData.warehouse?.address ? (
+              <>
+                <p className="text-xs text-slate-600">{initialData.warehouse.address}</p>
+                {(initialData.warehouse.city || initialData.warehouse.state || initialData.warehouse.zip || initialData.warehouse.country) && (
+                  <p className="text-xs text-slate-600">
+                    {[
+                      initialData.warehouse.city,
+                      initialData.warehouse.state,
+                      initialData.warehouse.zip,
+                      initialData.warehouse.country,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
+                <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
+              </>
+            )}
             <p className="text-xs text-slate-600">Phone: +880 1841 556677</p>
           </div>
           <div className="text-right">
@@ -286,14 +310,46 @@ export default function DamageDetails({ initialData }: DamageDetailsProps) {
                   <TableCell className="text-right font-medium print:py-1.5 print:px-2 print:text-xs">৳{Number(item.amount).toFixed(2)}</TableCell>
                 </TableRow>
               ))}
-              <TableRow className="bg-muted/50">
-                <TableCell colSpan={4} className="text-right font-semibold print:py-1.5 print:px-2 print:text-xs">Total Write-off Value:</TableCell>
-                <TableCell className="text-right font-bold text-red-600 print:py-1.5 print:px-2 print:text-xs">৳{totalAmount.toFixed(2)}</TableCell>
+              <TableRow className="bg-muted/50 font-bold">
+                <TableCell colSpan={2} className="print:py-1.5 print:px-2 print:text-xs">Total</TableCell>
+                <TableCell className="text-right text-red-600 print:py-1.5 print:px-2 print:text-xs">-{totalQuantity.toFixed(2)}</TableCell>
+                <TableCell className="print:py-1.5 print:px-2"></TableCell>
+                <TableCell className="text-right text-red-600 print:py-1.5 print:px-2 print:text-xs">৳{totalAmount.toFixed(2)}</TableCell>
               </TableRow>
             </TableBody>
           </Table>
 
-          {/* Amount In Words */}
+        {/* Summaries Cards */}
+        <div className="mt-6 print:mt-2 grid grid-cols-1 md:grid-cols-3 gap-4 print:grid-cols-3 print:gap-2">
+          <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
+            <CardContent className="pt-6 print:p-1">
+              <div className="space-y-1 print:space-y-0">
+                <p className="text-sm font-medium text-muted-foreground print:text-xs">Total Items</p>
+                <p className="text-2xl font-bold print:text-sm">{totalItems}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
+            <CardContent className="pt-6 print:p-1">
+              <div className="space-y-1 print:space-y-0">
+                <p className="text-sm font-medium text-muted-foreground print:text-xs">Total Quantity Lost</p>
+                <p className="text-2xl font-bold print:text-sm">{totalQuantity.toFixed(2)}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-destructive/5 border-destructive/20 print:bg-transparent print:shadow-none print:border-0">
+            <CardContent className="pt-6 print:p-1">
+              <div className="space-y-1 print:space-y-0">
+                <p className="text-sm font-medium text-muted-foreground print:text-xs">Total Write-off Value</p>
+                <p className="text-2xl font-bold text-destructive print:text-slate-900 print:text-base">
+                  ৳{totalAmount.toFixed(2)}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Amount In Words */}
           <div className="border-t border-b border-slate-200 py-3 mt-6 print:py-1.5 print:mt-2">
             <p className="text-sm print:text-[11px] text-slate-800 text-left">
               <span className="font-bold italic">In Words: </span>

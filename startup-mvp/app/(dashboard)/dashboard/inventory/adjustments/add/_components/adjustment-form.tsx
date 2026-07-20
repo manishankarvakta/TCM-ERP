@@ -99,7 +99,11 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
   const watchedItems = useWatch({
     control: form.control,
     name: "items",
-  });
+  }) || [];
+
+  const totalItems = watchedItems.filter((item: any) => !!item?.itemId && (Number(item?.quantity) || 0) !== 0).length;
+  const totalQuantity = watchedItems.reduce((sum: number, item: any) => sum + Math.abs(Number(item?.quantity) || 0), 0);
+  const netAdjustmentValue = watchedItems.reduce((sum: number, item: any) => sum + ((Number(item?.quantity) || 0) * (Number(item?.unitRate) || 0)), 0);
 
   const warehouseId = useWatch({
     control: form.control,
@@ -452,7 +456,7 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
                                           <div className="flex justify-between items-center w-full gap-4">
                                             <span>{item.name} ({item.code})</span>
                                             <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                                Stock: {stockMap[item.id] || 0}
+                                                Stock: {item.variants && item.variants.length > 0 ? item.variants.reduce((sum: number, v: any) => sum + (stockMap[v.id] || 0), 0) : (stockMap[item.id] || 0)}
                                             </span>
                                           </div>
                                       </SelectItem>
@@ -517,6 +521,36 @@ export default function AdjustmentForm({ warehouses, items, userContext }: Adjus
                  </TableBody>
                </Table>
             </div>
+        </Card>
+      </div>
+
+      {/* Summaries Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-muted/50">
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Total Items</p>
+              <p className="text-2xl font-bold">{totalItems}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-muted/50">
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Total Qty Adjusted</p>
+              <p className="text-2xl font-bold">{totalQuantity.toFixed(2)}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className={netAdjustmentValue >= 0 ? "bg-emerald-500/5 border-emerald-500/20" : "bg-destructive/5 border-destructive/20"}>
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Net Value Impact</p>
+              <p className={`text-2xl font-bold ${netAdjustmentValue >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                {netAdjustmentValue >= 0 ? "+" : ""}৳{netAdjustmentValue.toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+          </CardContent>
         </Card>
       </div>
 

@@ -44,6 +44,7 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
   }
 
   const purchase = result.purchase;
+  const totalQuantity = purchase.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
 
   const getStatusBadgeVariant = (status: PurchaseStatus) => {
     switch (status) {
@@ -75,9 +76,31 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
       <div className="hidden print:block border-b border-slate-300 pb-2 mb-3">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">Ferrari Fashion</h1>
-            <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
-            <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
+            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">
+              {purchase.warehouse?.name || "Ferrari Fashion"}
+            </h1>
+            {purchase.warehouse?.address ? (
+              <>
+                <p className="text-xs text-slate-600">{purchase.warehouse.address}</p>
+                {(purchase.warehouse.city || purchase.warehouse.state || purchase.warehouse.zip || purchase.warehouse.country) && (
+                  <p className="text-xs text-slate-600">
+                    {[
+                      purchase.warehouse.city,
+                      purchase.warehouse.state,
+                      purchase.warehouse.zip,
+                      purchase.warehouse.country,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
+                <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
+              </>
+            )}
             <p className="text-xs text-slate-600">Phone: +880 1841 556677</p>
           </div>
           <div className="text-right">
@@ -294,6 +317,14 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="font-medium">{formatCurrency(purchase.subTotal)}</span>
               </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Total Items</span>
+                <span className="font-medium">{purchase.items.length}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Total Quantity</span>
+                <span className="font-medium">{totalQuantity}</span>
+              </div>
               {purchase.discount && purchase.discount > 0 && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Discount</span>
@@ -383,13 +414,33 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
           )}
 
           {/* Financial Summary Cards */}
-          <div className="mt-6 print:mt-2 grid grid-cols-1 md:grid-cols-3 gap-4 print:grid-cols-3 print:gap-2">
+          <div className="mt-6 print:mt-2 grid grid-cols-1 md:grid-cols-5 gap-4 print:grid-cols-5 print:gap-2">
             <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
               <CardContent className="pt-6 print:p-1">
                 <div className="space-y-1 print:space-y-0">
                   <p className="text-sm font-medium text-muted-foreground print:text-xs">Subtotal</p>
                   <p className="text-2xl font-bold print:text-sm">
                     {formatCurrency(purchase.subTotal)}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
+              <CardContent className="pt-6 print:p-1">
+                <div className="space-y-1 print:space-y-0">
+                  <p className="text-sm font-medium text-muted-foreground print:text-xs">Total Items</p>
+                  <p className="text-2xl font-bold print:text-sm">
+                    {purchase.items.length}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
+              <CardContent className="pt-6 print:p-1">
+                <div className="space-y-1 print:space-y-0">
+                  <p className="text-sm font-medium text-muted-foreground print:text-xs">Total Quantity</p>
+                  <p className="text-2xl font-bold print:text-sm">
+                    {totalQuantity}
                   </p>
                 </div>
               </CardContent>

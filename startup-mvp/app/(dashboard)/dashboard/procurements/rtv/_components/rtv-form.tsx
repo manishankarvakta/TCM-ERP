@@ -160,6 +160,9 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
   
   const grandTotal = subTotal + (Number(watchedTax) || 0);
 
+  const totalItems = watchedItems.filter((item: any) => !!item.itemId && (Number(item.quantity) || 0) > 0).length;
+  const totalQuantity = watchedItems.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0);
+
   const itemsCalcKey = useMemo(() => {
     return watchedItems.map((item, idx) => `${idx}:${item.quantity}:${item.unitPrice}`).join('|');
   }, [watchedItems]);
@@ -600,7 +603,7 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
                                             <SelectItem key={item.id} value={item.id} className="text-left">
                                               <div className="flex justify-between items-center w-full gap-2 min-w-[200px]">
                                                 <span>{item.code} - {item.description}</span>
-                                                <span className="text-xs text-muted-foreground ml-auto">Stock: {stockMap[item.id] ?? 0}</span>
+                                                <span className="text-xs text-muted-foreground ml-auto">Stock: {item.variants && item.variants.length > 0 ? item.variants.reduce((sum: number, v: any) => sum + (stockMap[v.id] ?? 0), 0) : (stockMap[item.id] ?? 0)}</span>
                                               </div>
                                             </SelectItem>
                                           ))
@@ -623,7 +626,7 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
                             type="number"
                             min="0"
                             max={purchase ? watch(`items.${index}.availableQuantity`) : undefined}
-                            className="h-10 text-right"
+                            className="h-10 text-center"
                             {...register(`items.${index}.quantity`)}
                             disabled={loading}
                             aria-label={`Return Quantity for item ${index + 1}`}
@@ -680,7 +683,7 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="space-y-2">
               <Label>Sub Total</Label>
               <div className="rounded-md border bg-muted/50 px-3 py-2 text-sm text-right font-medium">
@@ -698,6 +701,18 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
                 {...register("tax")}
                 disabled={loading}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Total Items</Label>
+              <div className="rounded-md border bg-muted/50 px-3 py-2 text-sm text-center font-medium">
+                {totalItems}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Total Quantity</Label>
+              <div className="rounded-md border bg-muted/50 px-3 py-2 text-sm text-center font-medium">
+                {totalQuantity}
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Grand Total</Label>

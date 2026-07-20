@@ -19,6 +19,7 @@ import { notFound } from "next/navigation";
 import type { GRNStatus } from "@prisma/client";
 import PrintButton from "@/app/(dashboard)/dashboard/procurements/purchases/_components/print-button";
 import GRNStatusActions from "../../_components/grn-status-actions";
+import { numberToWords } from "@/lib/utils/number-to-words";
 
 interface GRNDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -57,6 +58,8 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
     return sum + (Number(item.receivedQuantity) * unitPrice);
   }, 0);
 
+  const totalReceivedQuantity = grn.items.reduce((sum, item) => sum + Number(item.receivedQuantity || 0), 0);
+
   const getStatusBadgeVariant = (status: GRNStatus) => {
     switch (status) {
       case "DRAFT":
@@ -77,9 +80,31 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
       <div className="hidden print:block border-b border-slate-300 pb-2 mb-3">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">Ferrari Fashion</h1>
-            <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
-            <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
+            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">
+              {grn.warehouse?.name || "Ferrari Fashion"}
+            </h1>
+            {grn.warehouse?.address ? (
+              <>
+                <p className="text-xs text-slate-600">{grn.warehouse.address}</p>
+                {(grn.warehouse.city || grn.warehouse.state || grn.warehouse.zip || grn.warehouse.country) && (
+                  <p className="text-xs text-slate-600">
+                    {[
+                      grn.warehouse.city,
+                      grn.warehouse.state,
+                      grn.warehouse.zip,
+                      grn.warehouse.country,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
+                <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
+              </>
+            )}
             <p className="text-xs text-slate-600">Phone: +880 1841 556677</p>
           </div>
           <div className="text-right">
@@ -239,6 +264,22 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
 
             <Separator className="print:my-1" />
             <div className="space-y-1 print:space-y-0">
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Total Items</p>
+              <p className="text-lg font-bold print:text-xs">
+                {grn.items.length}
+              </p>
+            </div>
+
+            <Separator className="print:my-1" />
+            <div className="space-y-1 print:space-y-0">
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Total Received Qty</p>
+              <p className="text-lg font-bold print:text-xs">
+                {totalReceivedQuantity.toFixed(2)}
+              </p>
+            </div>
+
+            <Separator className="print:my-1" />
+            <div className="space-y-1 print:space-y-0">
               <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Total Receipt Value</p>
               <p className="text-2xl font-bold text-primary print:text-xs">
                 {formatCurrency(totalAmount)}
@@ -318,9 +359,11 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
                         <TableCell className="print:py-1.5 print:px-2">
                           <div>
                             <p className="font-medium print:text-xs">
-                              {item.item?.name || "Unknown Item"}
-                              {item.variant ? ` - ${(item.variant as any).name || (item.variant as any).sku || ""}` : ""}
+                              {item.purchaseItem?.description || (item.variant ? `${item.variant.sku}${item.variant.size ? `, ${item.variant.size}` : ''}${item.variant.color ? `, ${item.variant.color}` : ''}` : item.item?.name || "Unknown Item")}
                             </p>
+                            {item.item && (item.purchaseItem?.description || item.variant) && (
+                              <p className="text-xs text-muted-foreground print:text-[10px]">{item.item.name}</p>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="text-right font-mono font-semibold print:py-1.5 print:px-2 print:text-xs">
@@ -336,10 +379,64 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
                       </TableRow>
                     );
                   })}
+                  {grn.items.length > 0 && (
+                    <TableRow className="font-bold bg-muted/20 hover:bg-muted/20">
+                      <TableCell colSpan={2} className="print:py-1.5 print:px-2">Total</TableCell>
+                      <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">
+                        {totalReceivedQuantity.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right print:py-1.5 print:px-2"></TableCell>
+                      <TableCell className="text-right font-mono font-semibold print:py-1.5 print:px-2 print:text-xs">
+                        {formatCurrency(totalAmount)}
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
           )}
+
+          {/* Financial Summary Cards */}
+          <div className="mt-6 print:mt-2 grid grid-cols-1 md:grid-cols-3 gap-4 print:grid-cols-3 print:gap-2">
+            <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
+              <CardContent className="pt-6 print:p-1">
+                <div className="space-y-1 print:space-y-0">
+                  <p className="text-sm font-medium text-muted-foreground print:text-xs">Total Items</p>
+                  <p className="text-2xl font-bold print:text-sm">
+                    {grn.items.length}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
+              <CardContent className="pt-6 print:p-1">
+                <div className="space-y-1 print:space-y-0">
+                  <p className="text-sm font-medium text-muted-foreground print:text-xs">Total Quantity Received</p>
+                  <p className="text-2xl font-bold print:text-sm">
+                    {totalReceivedQuantity.toFixed(2)}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-primary/5 border-primary/20 print:bg-transparent print:shadow-none print:border-0">
+              <CardContent className="pt-6 print:p-1">
+                <div className="space-y-1 print:space-y-0">
+                  <p className="text-sm font-medium text-muted-foreground print:text-xs">Total Receipt Value</p>
+                  <p className="text-2xl font-bold text-primary print:text-slate-900 print:text-base">
+                    {formatCurrency(totalAmount)}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Amount In Words */}
+          <div className="border-t border-b border-slate-200 py-3 mt-6 print:py-1.5 print:mt-2">
+            <p className="text-sm print:text-[11px] text-slate-800">
+              <span className="font-bold italic">In Words: </span>
+              <span className="italic text-primary font-medium">{numberToWords(totalAmount)}</span>
+            </p>
+          </div>
         </CardContent>
       </Card>
 

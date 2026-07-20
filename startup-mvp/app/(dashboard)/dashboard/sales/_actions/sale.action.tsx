@@ -1228,6 +1228,11 @@ export async function getSales(
           orderType: true,
           grandTotal: true,
           isTrash: true,
+          _count: {
+            select: {
+              items: true,
+            },
+          },
           client: {
             select: {
               id: true,
@@ -1353,6 +1358,11 @@ export async function getSaleById(saleId: string) {
             id: true,
             name: true,
             code: true,
+            address: true,
+            city: true,
+            state: true,
+            zip: true,
+            country: true,
           },
         },
         items: {

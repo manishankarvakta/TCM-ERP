@@ -24,6 +24,10 @@ interface AdjustmentDetailsProps {
 export default function AdjustmentDetails({ adjustment }: AdjustmentDetailsProps) {
   const router = useRouter();
   const totalAmount = adjustment.items.reduce((sum: number, item: any) => sum + Number(item.amount), 0);
+  const totalItems = adjustment.items.length;
+  const totalQuantity = adjustment.items.reduce((sum: number, item: any) => sum + Math.abs(Number(item.quantity || 0)), 0);
+  const netQuantity = adjustment.items.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0);
+  const netAdjustmentValue = adjustment.items.reduce((sum: number, item: any) => sum + (Number(item.quantity || 0) * Number(item.unitRate || 0)), 0);
 
   return (
     <div className="space-y-6 print:space-y-3">
@@ -31,9 +35,31 @@ export default function AdjustmentDetails({ adjustment }: AdjustmentDetailsProps
       <div className="hidden print:block border-b border-slate-300 pb-2 mb-3">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">Ferrari Fashion</h1>
-            <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
-            <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
+            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">
+              {adjustment.warehouse?.name || "Ferrari Fashion"}
+            </h1>
+            {adjustment.warehouse?.address ? (
+              <>
+                <p className="text-xs text-slate-600">{adjustment.warehouse.address}</p>
+                {(adjustment.warehouse.city || adjustment.warehouse.state || adjustment.warehouse.zip || adjustment.warehouse.country) && (
+                  <p className="text-xs text-slate-600">
+                    {[
+                      adjustment.warehouse.city,
+                      adjustment.warehouse.state,
+                      adjustment.warehouse.zip,
+                      adjustment.warehouse.country,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
+                <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
+              </>
+            )}
             <p className="text-xs text-slate-600">Phone: +880 1841 556677</p>
           </div>
           <div className="text-right">
@@ -133,12 +159,48 @@ export default function AdjustmentDetails({ adjustment }: AdjustmentDetailsProps
                     <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">৳{Number(item.amount).toFixed(2)}</TableCell>
                   </TableRow>
                 ))}
-                <TableRow className="bg-muted/50 font-medium">
-                  <TableCell colSpan={4} className="text-right font-semibold print:py-1.5 print:px-2 print:text-xs">Total Value:</TableCell>
+                <TableRow className="bg-muted/50 font-bold">
+                  <TableCell colSpan={2} className="print:py-1.5 print:px-2 print:text-xs">Total</TableCell>
+                  <TableCell className="text-right print:py-1.5 print:px-2 print:text-xs">
+                     <span className={netQuantity > 0 ? "text-green-600" : "text-red-600"}>
+                        {netQuantity > 0 ? "+" : ""}{netQuantity.toFixed(2)}
+                     </span>
+                  </TableCell>
+                  <TableCell className="print:py-1.5 print:px-2"></TableCell>
                   <TableCell className="text-right font-bold text-indigo-600 print:py-1.5 print:px-2 print:text-xs">৳{totalAmount.toFixed(2)}</TableCell>
                 </TableRow>
               </TableBody>
             </Table>
+
+            {/* Summaries Cards */}
+            <div className="mt-6 print:mt-2 grid grid-cols-1 md:grid-cols-3 gap-4 print:grid-cols-3 print:gap-2">
+              <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
+                <CardContent className="pt-6 print:p-1">
+                  <div className="space-y-1 print:space-y-0">
+                    <p className="text-sm font-medium text-muted-foreground print:text-xs">Total Items</p>
+                    <p className="text-2xl font-bold print:text-sm">{totalItems}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
+                <CardContent className="pt-6 print:p-1">
+                  <div className="space-y-1 print:space-y-0">
+                    <p className="text-sm font-medium text-muted-foreground print:text-xs">Total Qty Adjusted</p>
+                    <p className="text-2xl font-bold print:text-sm">{totalQuantity.toFixed(2)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className={netAdjustmentValue >= 0 ? "bg-emerald-500/5 border-emerald-500/20 print:bg-transparent print:shadow-none print:border-0" : "bg-destructive/5 border-destructive/20 print:bg-transparent print:shadow-none print:border-0"}>
+                <CardContent className="pt-6 print:p-1">
+                  <div className="space-y-1 print:space-y-0">
+                    <p className="text-sm font-medium text-muted-foreground print:text-xs">Net Value Impact</p>
+                    <p className={`text-2xl font-bold ${netAdjustmentValue >= 0 ? "text-emerald-600" : "text-destructive"} print:text-slate-900 print:text-base`}>
+                      {netAdjustmentValue >= 0 ? "+" : ""}৳{netAdjustmentValue.toFixed(2)}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Amount In Words */}
             <div className="border-t border-b border-slate-200 py-3 mt-6 print:py-1.5 print:mt-2">

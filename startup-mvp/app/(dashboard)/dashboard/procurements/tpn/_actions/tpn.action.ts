@@ -343,6 +343,7 @@ export async function getTPNs(
         sourceWarehouse: tpn.sourceWarehouse,
         destinationWarehouse: tpn.destinationWarehouse,
         grandTotal,
+        itemsCount: tpn.items.length,
       };
     });
 
@@ -374,8 +375,30 @@ export async function getTPNById(id: string) {
     const tpn = await prisma.transferPurchaseNote.findUnique({
       where: { id },
       include: {
-        sourceWarehouse: { select: { name: true } },
-        destinationWarehouse: { select: { name: true } },
+        sourceWarehouse: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            address: true,
+            city: true,
+            state: true,
+            zip: true,
+            country: true,
+          },
+        },
+        destinationWarehouse: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            address: true,
+            city: true,
+            state: true,
+            zip: true,
+            country: true,
+          },
+        },
         createdByUser: { select: { name: true, email: true } },
         items: {
           include: {

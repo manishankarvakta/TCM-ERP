@@ -51,6 +51,8 @@ export default function SaleDetailsClient({
   // Calculate discount splits
   const totalSaleAmount = sale.items.reduce((sum: number, item: any) => sum + Number(item.quantity) * Number(item.unitPrice), 0);
   const totalDiscount = Number(sale.discount || 0);
+  const totalItems = sale.items.length;
+  const totalQuantity = sale.items.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0);
   let couponDiscount = 0;
   if (sale.coupon && totalDiscount > 0) {
     const couponVal = Number(sale.coupon.value);
@@ -105,9 +107,31 @@ export default function SaleDetailsClient({
       <div className="hidden print:block border-b border-slate-300 pb-2 mb-3">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">Ferrari Fashion</h1>
-            <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
-            <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
+            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">
+              {sale.warehouse?.name || "Ferrari Fashion"}
+            </h1>
+            {sale.warehouse?.address ? (
+              <>
+                <p className="text-xs text-slate-600">{sale.warehouse.address}</p>
+                {(sale.warehouse.city || sale.warehouse.state || sale.warehouse.zip || sale.warehouse.country) && (
+                  <p className="text-xs text-slate-600">
+                    {[
+                      sale.warehouse.city,
+                      sale.warehouse.state,
+                      sale.warehouse.zip,
+                      sale.warehouse.country,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
+                <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
+              </>
+            )}
             <p className="text-xs text-slate-600">Phone: +880 1841 556677</p>
           </div>
           <div className="text-right">
@@ -488,13 +512,25 @@ export default function SaleDetailsClient({
                       </TableCell>
                     </TableRow>
                   ))}
+                  {sale.items.length > 0 && (
+                    <TableRow className="font-bold bg-muted/20 hover:bg-muted/20">
+                      <TableCell colSpan={2} className="print:py-1.5 print:px-2 print:text-xs">Total</TableCell>
+                      <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">
+                        {totalQuantity.toFixed(2)}
+                      </TableCell>
+                      <TableCell className={`print:py-1.5 print:px-2 ${printMode === "challan" ? "print:hidden" : ""}`}></TableCell>
+                      <TableCell className={`text-right font-mono font-semibold print:py-1.5 print:px-2 print:text-xs ${printMode === "challan" ? "print:hidden" : ""}`}>
+                        {formatCurrency(totalSaleAmount)}
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
           )}
 
           {/* Financial Summary Cards */}
-          <div className={`mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 print:grid-cols-3 print:gap-2 ${printMode === "challan" ? "print:hidden" : ""}`}>
+          <div className={`mt-6 grid grid-cols-1 md:grid-cols-5 gap-4 print:grid-cols-5 print:gap-2 ${printMode === "challan" ? "print:hidden" : ""}`}>
             <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
               <CardContent className="pt-6 print:p-1">
                 <div className="space-y-1 print:space-y-0">
@@ -517,6 +553,26 @@ export default function SaleDetailsClient({
                       : sale.tax && sale.tax > 0
                       ? formatCurrency(sale.tax)
                       : formatCurrency(0)}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
+              <CardContent className="pt-6 print:p-1">
+                <div className="space-y-1 print:space-y-0">
+                  <p className="text-sm font-medium text-muted-foreground print:text-xs">Total Items</p>
+                  <p className="text-2xl font-bold print:text-sm">
+                    {totalItems}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-muted/50 print:bg-transparent print:shadow-none print:border-0">
+              <CardContent className="pt-6 print:p-1">
+                <div className="space-y-1 print:space-y-0">
+                  <p className="text-sm font-medium text-muted-foreground print:text-xs">Total Quantity</p>
+                  <p className="text-2xl font-bold print:text-sm">
+                    {totalQuantity.toFixed(2)}
                   </p>
                 </div>
               </CardContent>

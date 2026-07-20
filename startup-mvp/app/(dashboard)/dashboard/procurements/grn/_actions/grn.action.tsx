@@ -547,6 +547,7 @@ export async function getGRNs(
         status: grn.status,
         isTrash: grn.isTrash,
         grandTotal: totalAmount,
+        itemsCount: items.length,
         source: grn.purchaseId ? {
           type: "PURCHASE",
           number: grn.purchase?.purchaseNumber || "",

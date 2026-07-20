@@ -427,6 +427,7 @@ export default function PurchasesListClient({
               <TableHead>Warehouse</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Date</TableHead>
+              <TableHead className="text-right">Items</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -434,7 +435,7 @@ export default function PurchasesListClient({
           <TableBody>
             {initialPurchases.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed purchases found" : "No purchases found"}
                 </TableCell>
               </TableRow>
@@ -469,6 +470,9 @@ export default function PurchasesListClient({
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {format(new Date(purchase.date), "MMM d, yyyy")}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {(purchase as any)._count?.items ?? 0}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {purchase.grandTotal.toFixed(2)}

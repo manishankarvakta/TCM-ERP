@@ -268,6 +268,11 @@ export async function getReturnsToVendor(
       include: {
         supplier: { select: { id: true, name: true, company: true } },
         warehouse: { select: { id: true, name: true } },
+        _count: {
+          select: {
+            items: true,
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -297,7 +302,7 @@ export async function getReturnToVendorById(rtvId: string) {
       where: { id: rtvId },
       include: {
         supplier: { select: { id: true, name: true, email: true, phone: true } },
-        warehouse: { select: { id: true, name: true } },
+        warehouse: { select: { id: true, name: true, code: true, address: true, city: true, state: true, zip: true, country: true } },
         purchase: { select: { id: true, purchaseNumber: true } },
         items: {
           include: {

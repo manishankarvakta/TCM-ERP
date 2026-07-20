@@ -66,7 +66,7 @@ export default function CreateGRNForm({ warehouses, allowPurchaseSelect, initial
     (item: any) => item.quantity > (item.receivedQuantity || 0)
   ) || [];
 
-  const { register, control, handleSubmit, setValue, reset, formState: { errors } } = useForm<GRNFormData>({
+  const { register, control, handleSubmit, setValue, reset, watch, formState: { errors } } = useForm<GRNFormData>({
     resolver: zodResolver(createGRNSchema) as any,
     defaultValues: {
       purchaseId: initialPurchase?.id || null,
@@ -86,6 +86,33 @@ export default function CreateGRNForm({ warehouses, allowPurchaseSelect, initial
     control,
     name: "items",
   });
+
+  const watchedItems = watch("items") || [];
+  const currentReceivingTotal = watchedItems.reduce((sum: number, item: any) => sum + (Number(item?.receivedQuantity) || 0), 0);
+  const totalItemsCount = watchedItems.filter((item: any) => (Number(item?.receivedQuantity) || 0) > 0).length;
+
+  const totalOrdered = pendingItems.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0);
+  const totalPreviouslyReceived = pendingItems.reduce((sum: number, item: any) => sum + Number(item.receivedQuantity || 0), 0);
+  const totalRemaining = pendingItems.reduce((sum: number, item: any) => sum + (Number(item.quantity || 0) - Number(item.receivedQuantity || 0)), 0);
+
+  const currentReceivingAmount = watchedItems.reduce((sum: number, wItem: any, index: number) => {
+    const item = pendingItems[index];
+    if (!item) return sum;
+    const unitPrice = item.unitPrice !== undefined 
+      ? Number(item.unitPrice) 
+      : (item.variant?.costPrice 
+          ? Number(item.variant.costPrice) 
+          : (item.item?.costPrice ? Number(item.item.costPrice) : 0));
+    const receiveQty = Number(wItem?.receivedQuantity) || 0;
+    return sum + (receiveQty * unitPrice);
+  }, 0);
+
+  const formatCurrency = (amount: number) => {
+    return `৳${amount.toLocaleString("en-BD", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
 
   const handleDocumentSelect = (docId: string) => {
     let doc = null;
@@ -265,7 +292,9 @@ export default function CreateGRNForm({ warehouses, allowPurchaseSelect, initial
                       <th className="text-right px-3 py-2">Total Qty</th>
                       <th className="text-right px-3 py-2">Previously Received</th>
                       <th className="text-right px-3 py-2">Remaining</th>
-                      <th className="text-right px-3 py-2 w-32">Receive Qty</th>
+                      <th className="text-right px-3 py-2 w-28">Receive Qty</th>
+                      <th className="text-right px-3 py-2">Unit Price</th>
+                      <th className="text-right px-3 py-2">Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -275,10 +304,27 @@ export default function CreateGRNForm({ warehouses, allowPurchaseSelect, initial
                       
                       const received = item.receivedQuantity || 0;
                       const remaining = item.quantity - received;
+
+                      const unitPrice = item.unitPrice !== undefined 
+                        ? Number(item.unitPrice) 
+                        : (item.variant?.costPrice 
+                            ? Number(item.variant.costPrice) 
+                            : (item.item?.costPrice ? Number(item.item.costPrice) : 0));
+                      const receiveQty = Number(watchedItems[index]?.receivedQuantity) || 0;
+                      const itemTotalAmount = receiveQty * unitPrice;
                       
                       return (
                         <tr key={field.id} className="border-t">
-                          <td className="px-3 py-2 align-middle">{item.item?.name} {item.variant?.name ? `- ${item.variant.name}` : ''}</td>
+                          <td className="px-3 py-2 align-middle">
+                            <div>
+                              <p className="font-medium">
+                                {item.description || (item.variant ? `${item.variant.sku}${item.variant.size ? `, ${item.variant.size}` : ''}${item.variant.color ? `, ${item.variant.color}` : ''}` : item.item?.name)}
+                              </p>
+                              {item.item && (item.description || item.variant) && (
+                                <p className="text-xs text-muted-foreground">{item.item.name}</p>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-3 py-2 text-right align-middle">{item.quantity}</td>
                           <td className="px-3 py-2 text-right align-middle">{received}</td>
                           <td className="px-3 py-2 text-right align-middle">{remaining}</td>
@@ -290,15 +336,65 @@ export default function CreateGRNForm({ warehouses, allowPurchaseSelect, initial
                               disabled={loading}
                               max={remaining}
                               min={0}
-                              className="text-right h-8"
+                              className="text-center h-8"
                             />
+                          </td>
+                          <td className="px-3 py-2 text-right align-middle font-mono">
+                            {formatCurrency(unitPrice)}
+                          </td>
+                          <td className="px-3 py-2 text-right align-middle font-mono font-semibold">
+                            {formatCurrency(itemTotalAmount)}
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
+                  <tfoot>
+                    <tr className="border-t bg-muted/20 font-semibold">
+                      <td className="px-3 py-2 align-middle">Total</td>
+                      <td className="px-3 py-2 text-right align-middle">{totalOrdered.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-right align-middle">{totalPreviouslyReceived.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-right align-middle">{totalRemaining.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-right align-middle pr-6 font-bold text-primary">
+                        {currentReceivingTotal.toFixed(2)}
+                      </td>
+                      <td className="px-3 py-2 text-right align-middle"></td>
+                      <td className="px-3 py-2 text-right align-middle font-bold text-primary font-mono">
+                        {formatCurrency(currentReceivingAmount)}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
+
+              {/* Receipt Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 border rounded-lg bg-muted/10 mt-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Ordered Qty</p>
+                  <p className="text-lg font-semibold">{totalOrdered.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Previously Received Qty</p>
+                  <p className="text-lg font-semibold">{totalPreviouslyReceived.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Remaining to Receive</p>
+                  <p className="text-lg font-semibold">{totalRemaining.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Items</p>
+                  <p className="text-lg font-semibold">{totalItemsCount}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Currently Receiving Qty</p>
+                  <p className="text-lg font-bold text-primary">{currentReceivingTotal.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Receipt Value</p>
+                  <p className="text-lg font-bold text-primary">{formatCurrency(currentReceivingAmount)}</p>
+                </div>
+              </div>
+
               {errors.items && <p className="text-sm text-destructive">{errors.items.message}</p>}
 
               <div className="flex justify-end pt-4 border-t">

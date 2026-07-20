@@ -151,6 +151,34 @@ export default function TpnForm({ warehouses, items, user }: TpnFormProps) {
     name: "sourceWarehouseId",
   });
 
+  const watchedItems = form.watch("items") || [];
+  
+  const totalItems = watchedItems.filter((item: any) => !!item.itemId).length;
+  
+  const totalQuantity = watchedItems.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0);
+
+  const grandTotal = watchedItems.reduce((sum: number, wItem: any) => {
+    if (!wItem.itemId) return sum;
+    const itemObj = items.find(i => i.id === wItem.itemId);
+    if (!itemObj) return sum;
+    let unitPrice = 0;
+    if (wItem.variantId) {
+      const variantObj = itemObj.variants?.find((v: any) => v.id === wItem.variantId);
+      unitPrice = variantObj?.costPrice ? Number(variantObj.costPrice) : Number(itemObj.costPrice || 0);
+    } else {
+      unitPrice = Number(itemObj.costPrice || 0);
+    }
+    const qty = Number(wItem.quantity) || 0;
+    return sum + (qty * unitPrice);
+  }, 0);
+
+  const formatCurrency = (amount: number) => {
+    return `৳${amount.toLocaleString("en-BD", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
   // Filter items based on search
   const filteredItems = useMemo(() => {
     if (!itemSearch) return items;
@@ -341,122 +369,174 @@ export default function TpnForm({ warehouses, items, user }: TpnFormProps) {
         <Card>
             <div className="p-0">
                <Table>
-                 <TableHeader>
-                   <TableRow className="bg-muted/50">
-                     <TableHead className="w-[30%]">Item</TableHead>
-                     <TableHead className="w-[30%]">Description</TableHead>
-                     <TableHead className="w-[15%] text-right">Available Source Stock</TableHead>
-                     <TableHead className="w-[15%] text-right">Transfer Qty</TableHead>
-                     <TableHead className="w-[50px]"></TableHead>
-                   </TableRow>
-                 </TableHeader>
-                 <TableBody>
-                   {fields.map((field, index) => {
-                     const selectedItem = items.find(i => i.id === form.getValues(`items.${index}.itemId`));
-                     
-                     return (
-                     <TableRow key={field.id}>
-                       <TableCell>
-                         <Select
-                           onValueChange={(val) => handleItemSelect(index, val)}
-                           defaultValue={form.getValues(`items.${index}.itemId`)}
-                           onOpenChange={(open) => {
-                              if (open) {
-                                setTimeout(() => {
-                                  searchInputRef.current?.focus();
-                                }, 0);
-                              } else {
-                                setItemSearch("");
-                              }
-                           }}
-                         >
-                            <SelectTrigger>
-                               <SelectValue placeholder="Select item">
-                                  {selectedItem ? `${selectedItem.code} - ${selectedItem.description}` : "Select item"}
-                               </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                               <div className="p-2 sticky top-0 bg-popover z-10">
-                                  <div className="relative">
-                                    <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4 z-10 pointer-events-none" />
-                                    <Input 
-                                      ref={searchInputRef}
-                                      placeholder="Search items..."
-                                      value={itemSearch}
-                                      onChange={(e) => setItemSearch(e.target.value)}
-                                      onKeyDown={(e) => {
-                                        if (['ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(e.key)) {
-                                          return;
-                                        }
-                                        e.stopPropagation();
-                                      }}
-                                      onClick={(e) => e.stopPropagation()}
-                                      onMouseDown={(e) => e.stopPropagation()}
-                                      className="pl-8 h-8 text-xs"
-                                    />
-                                  </div>
-                               </div>
-                               <div className="max-h-[200px] overflow-y-auto">
-                                 {filteredItems.length > 0 ? (
-                                    filteredItems.map((item) => (
-                                      <SelectItem key={item.id} value={item.id} className="text-left w-full">
-                                          <div className="flex justify-between items-center w-full gap-4">
-                                            <span>{item.code} - {item.description}</span>
-                                            <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                                Stock: {stockMap[item.id] || 0}
-                                            </span>
-                                          </div>
-                                      </SelectItem>
-                                    ))
-                                 ) : (
-                                    <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-                                      No items found
-                                    </div>
-                                 )}
-                               </div>
-                            </SelectContent>
-                         </Select>
-                         {form.formState.errors.items?.[index]?.itemId && 
-                           <p className="text-xs text-red-500">{form.formState.errors.items[index]?.itemId?.message}</p>
-                         }
-                       </TableCell>
-                       <TableCell>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="w-[25%]">Item</TableHead>
+                      <TableHead className="w-[25%]">Description</TableHead>
+                      <TableHead className="w-[15%] text-right">Available Source Stock</TableHead>
+                      <TableHead className="w-[12%] text-right">Transfer Qty</TableHead>
+                      <TableHead className="w-[12%] text-right">Rate</TableHead>
+                      <TableHead className="w-[12%] text-right">Amount</TableHead>
+                      <TableHead className="w-[50px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {fields.map((field, index) => {
+                      const selectedItem = items.find(i => i.id === form.getValues(`items.${index}.itemId`));
+                      
+                      const itemVal = watchedItems[index];
+                      let rate = 0;
+                      if (selectedItem) {
+                        if (itemVal?.variantId) {
+                          const variant = selectedItem.variants?.find((v: any) => v.id === itemVal.variantId);
+                          rate = variant?.costPrice ? Number(variant.costPrice) : Number(selectedItem.costPrice || 0);
+                        } else {
+                          rate = Number(selectedItem.costPrice || 0);
+                        }
+                      }
+                      const qty = Number(itemVal?.quantity) || 0;
+                      const amount = qty * rate;
+
+                      return (
+                      <TableRow key={field.id}>
+                        <TableCell>
+                          <Select
+                            onValueChange={(val) => handleItemSelect(index, val)}
+                            defaultValue={form.getValues(`items.${index}.itemId`)}
+                            onOpenChange={(open) => {
+                               if (open) {
+                                 setTimeout(() => {
+                                   searchInputRef.current?.focus();
+                                 }, 0);
+                               } else {
+                                 setItemSearch("");
+                               }
+                            }}
+                          >
+                             <SelectTrigger>
+                                <SelectValue placeholder="Select item">
+                                   {selectedItem ? `${selectedItem.code} - ${selectedItem.description}` : "Select item"}
+                                </SelectValue>
+                             </SelectTrigger>
+                             <SelectContent>
+                                <div className="p-2 sticky top-0 bg-popover z-10">
+                                   <div className="relative">
+                                     <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4 z-10 pointer-events-none" />
+                                     <Input 
+                                       ref={searchInputRef}
+                                       placeholder="Search items..."
+                                       value={itemSearch}
+                                       onChange={(e) => setItemSearch(e.target.value)}
+                                       onKeyDown={(e) => {
+                                         if (['ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(e.key)) {
+                                           return;
+                                         }
+                                         e.stopPropagation();
+                                       }}
+                                       onClick={(e) => e.stopPropagation()}
+                                       onMouseDown={(e) => e.stopPropagation()}
+                                       className="pl-8 h-8 text-xs"
+                                     />
+                                   </div>
+                                </div>
+                                <div className="max-h-[200px] overflow-y-auto">
+                                  {filteredItems.length > 0 ? (
+                                     filteredItems.map((item) => (
+                                       <SelectItem key={item.id} value={item.id} className="text-left w-full">
+                                           <div className="flex justify-between items-center w-full gap-4">
+                                             <span>{item.code} - {item.description}</span>
+                                             <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                                 Stock: {item.variants && item.variants.length > 0 ? item.variants.reduce((sum: number, v: any) => sum + (stockMap[v.id] || 0), 0) : (stockMap[item.id] || 0)}
+                                             </span>
+                                           </div>
+                                       </SelectItem>
+                                     ))
+                                  ) : (
+                                     <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                                       No items found
+                                     </div>
+                                  )}
+                                </div>
+                             </SelectContent>
+                          </Select>
+                          {form.formState.errors.items?.[index]?.itemId && 
+                            <p className="text-xs text-red-500">{form.formState.errors.items[index]?.itemId?.message}</p>
+                          }
+                        </TableCell>
+                        <TableCell>
+                           <Input 
+                              readOnly
+                              className="bg-muted"
+                              {...form.register(`items.${index}.description`)}
+                           />
+                        </TableCell>
+                        <TableCell>
+                           <div className="text-sm font-medium text-right pr-4">
+                              {stockMap[form.getValues(`items.${index}.variantId`) || form.getValues(`items.${index}.itemId`)] || 0}
+                           </div>
+                        </TableCell>
+                        <TableCell>
                           <Input 
-                             readOnly
-                             className="bg-muted"
-                             {...form.register(`items.${index}.description`)}
+                            type="number" 
+                            step="1" 
+                            min="1"
+                            className="text-center"
+                            {...form.register(`items.${index}.quantity`, { valueAsNumber: true })} 
                           />
-                       </TableCell>
-                       <TableCell>
-                          <div className="text-sm font-medium text-right pr-4">
-                             {stockMap[form.getValues(`items.${index}.variantId`) || form.getValues(`items.${index}.itemId`)] || 0}
-                          </div>
-                       </TableCell>
-                       <TableCell>
-                         <Input 
-                           type="number" 
-                           step="1" 
-                           min="1"
-                           className="text-right"
-                           {...form.register(`items.${index}.quantity`, { valueAsNumber: true })} 
-                         />
-                       </TableCell>
-                       <TableCell>
-                         <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                         </Button>
-                       </TableCell>
-                     </TableRow>
-                   )})}
-                 </TableBody>
-               </Table>
-               {form.formState.errors.items?.root && (
-                 <div className="p-2 text-center">
-                   <p className="text-sm text-red-500">{form.formState.errors.items.root.message}</p>
-                 </div>
-               )}
-            </div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm pr-4 align-middle">
+                          {formatCurrency(rate)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm font-semibold pr-4 align-middle">
+                          {formatCurrency(amount)}
+                        </TableCell>
+                        <TableCell>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)}>
+                             <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )})}
+                  </TableBody>
+                  <tfoot>
+                    <tr className="border-t bg-muted/20 font-semibold text-sm">
+                      <td className="px-4 py-2 align-middle">Total</td>
+                      <td className="px-4 py-2"></td>
+                      <td className="px-4 py-2"></td>
+                      <td className="px-4 py-2 text-right align-middle font-bold text-primary">
+                        {totalQuantity.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-2"></td>
+                      <td className="px-4 py-2 text-right align-middle font-bold text-primary font-mono pr-4">
+                        {formatCurrency(grandTotal)}
+                      </td>
+                      <td className="px-4 py-2"></td>
+                    </tr>
+                  </tfoot>
+                </Table>
+                {form.formState.errors.items?.root && (
+                  <div className="p-2 text-center">
+                    <p className="text-sm text-red-500">{form.formState.errors.items.root.message}</p>
+                  </div>
+                )}
+             </div>
         </Card>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg bg-muted/10 mt-4">
+        <div>
+          <p className="text-xs text-muted-foreground">Total Items</p>
+          <p className="text-lg font-bold text-primary">{totalItems}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Total Quantity to Transfer</p>
+          <p className="text-lg font-bold text-primary">{totalQuantity.toFixed(2)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Total Estimated Value</p>
+          <p className="text-lg font-bold text-primary">{formatCurrency(grandTotal)}</p>
+        </div>
       </div>
 
       <div className="flex justify-end gap-2">

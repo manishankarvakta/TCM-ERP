@@ -433,6 +433,7 @@ export default function GRNsListClient({
               <TableHead>Warehouse</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Date</TableHead>
+              <TableHead className="text-right">Items</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -440,7 +441,7 @@ export default function GRNsListClient({
           <TableBody>
             {initialGRNs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed GRNs found" : "No GRNs found"}
                 </TableCell>
               </TableRow>
@@ -478,6 +479,9 @@ export default function GRNsListClient({
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {format(new Date(grn.date), "MMM d, yyyy")}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {(grn as any).itemsCount ?? 0}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {grn.grandTotal.toFixed(2)}
