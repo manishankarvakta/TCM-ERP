@@ -140,8 +140,22 @@ export default function StockMovementsView({
     <div className="space-y-6">
       <Card>
         <CardContent className="pt-6">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
+          <div className="flex flex-col md:flex-row gap-4 items-end">
+            <div className="flex-1 min-w-[200px] space-y-2">
+              <Label htmlFor="search">Search Items</Label>
+              <Input
+                id="search"
+                placeholder="Search by code or name..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleApply();
+                }}
+                disabled={isPending}
+              />
+            </div>
+
+            <div className="w-full md:w-[200px] space-y-2">
               <Label htmlFor="date">As of Date</Label>
               <Input
                 id="date"
@@ -152,7 +166,7 @@ export default function StockMovementsView({
               />
             </div>
             
-            <div className="space-y-2">
+            <div className="w-full md:w-[250px] space-y-2">
               <Label htmlFor="warehouse">Warehouse</Label>
               <Select value={warehouseId} onValueChange={setWarehouseId} disabled={isPending}>
                 <SelectTrigger id="warehouse">
@@ -169,28 +183,14 @@ export default function StockMovementsView({
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="search">Search Items</Label>
-              <Input
-                id="search"
-                placeholder="Search by code or name..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleApply();
-                }}
-                disabled={isPending}
-              />
+            <div className="flex gap-2 w-full md:w-auto">
+              <Button variant="outline" onClick={handleReset} disabled={isPending} className="w-full md:w-auto">
+                Reset
+              </Button>
+              <Button onClick={handleApply} disabled={isPending} className="w-full md:w-auto">
+                Apply Filters
+              </Button>
             </div>
-          </div>
-
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={handleReset} disabled={isPending}>
-              Reset
-            </Button>
-            <Button onClick={handleApply} disabled={isPending}>
-              Apply Filters
-            </Button>
           </div>
         </CardContent>
       </Card>
