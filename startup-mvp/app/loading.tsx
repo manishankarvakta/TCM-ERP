@@ -13,7 +13,8 @@ export default function Loading() {
             className="object-contain drop-shadow-sm"
             priority
           />
-        </div>
+        </div> 
+        {/* Loading Icon */}
         
         {/* Loading Circle Animation - Single smooth rotating circle */}
         <div className="absolute w-28 h-28 md:w-36 md:h-36">
