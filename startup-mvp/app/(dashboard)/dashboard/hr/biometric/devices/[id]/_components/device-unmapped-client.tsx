@@ -165,15 +165,6 @@ export default function DeviceUnmappedClient({
                 placeholder="Search or select employee..."
               />
             </div>
-            
-            <div className="text-sm border-t pt-4">
-              <p className="text-muted-foreground">Don't see the employee?</p>
-              <Button variant="link" className="p-0 h-auto" asChild>
-                <Link href={`/dashboard/hr/employees/add?biometricPin=${selectedLog?.deviceUserId}&deviceId=${deviceId}`}>
-                  Create a new employee instead &rarr;
-                </Link>
-              </Button>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setMapModalOpen(false)}>Cancel</Button>

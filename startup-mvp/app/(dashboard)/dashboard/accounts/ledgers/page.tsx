@@ -17,8 +17,11 @@ interface LedgersPageProps {
 export default async function AccountLedgerPage({ searchParams }: LedgersPageProps) {
   const params = await searchParams;
   const accountId = params.accountId || "";
-  const dateFrom = params.dateFrom;
-  const dateTo = params.dateTo;
+  
+  // Default date will be current date (today)
+  const today = new Date().toISOString().split("T")[0];
+  const dateFrom = params.dateFrom || today;
+  const dateTo = params.dateTo || today;
 
   const session = await auth();
   const userId = session?.user?.id;

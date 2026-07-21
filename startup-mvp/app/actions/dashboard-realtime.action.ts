@@ -298,6 +298,109 @@ export async function getRealtimeDashboardStats(
       })
     );
 
+    // Fetch all active Cash & Bank & MFS Accounts
+    const cashBankAccounts = await prisma.cashBankAccount.findMany({
+      where: {
+        status: "active",
+      },
+      select: {
+        id: true,
+        type: true,
+        ChartOfAccount: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+        warehouses: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    // Fetch completed, non-trash sales for warehouse and date range
+    const salesForPayments = await prisma.sale.findMany({
+      where: {
+        isTrash: false,
+        status: "COMPLETED",
+        ...(warehouseId !== "all" ? { warehouseId } : {}),
+      },
+      select: {
+        date: true,
+        paymentDetails: true,
+      },
+    });
+
+    // In-memory aggregation of payments received
+    const paymentMap = new Map<string, number>();
+    for (const sale of salesForPayments) {
+      const details = sale.paymentDetails as any;
+      if (!details) continue;
+
+      // 1. Initial Payments (sales date must be in period)
+      const saleDate = new Date(sale.date);
+      if (saleDate >= currentStart && saleDate <= currentEnd) {
+        if (details.cashAmount && details.cashAccountId) {
+          paymentMap.set(details.cashAccountId, (paymentMap.get(details.cashAccountId) || 0) + Number(details.cashAmount));
+        }
+        if (details.cardAmount && details.cardAccountId) {
+          paymentMap.set(details.cardAccountId, (paymentMap.get(details.cardAccountId) || 0) + Number(details.cardAmount));
+        }
+        if (details.mfsAmount && details.mfsAccountId) {
+          paymentMap.set(details.mfsAccountId, (paymentMap.get(details.mfsAccountId) || 0) + Number(details.mfsAmount));
+        }
+      }
+
+      // 2. Due Collections (collection date must be in period)
+      if (Array.isArray(details.dueCollections)) {
+        for (const col of details.dueCollections) {
+          const colDate = new Date(col.date);
+          if (colDate >= currentStart && colDate <= currentEnd) {
+            if (col.cashAmount && col.cashAccountId) {
+              paymentMap.set(col.cashAccountId, (paymentMap.get(col.cashAccountId) || 0) + Number(col.cashAmount));
+            }
+            if (col.cardAmount && col.cardAccountId) {
+              paymentMap.set(col.cardAccountId, (paymentMap.get(col.cardAccountId) || 0) + Number(col.cardAmount));
+            }
+            if (col.mfsAmount && col.mfsAccountId) {
+              paymentMap.set(col.mfsAccountId, (paymentMap.get(col.mfsAccountId) || 0) + Number(col.mfsAmount));
+            }
+          }
+        }
+      }
+    }
+
+    // Filter accounts by warehouse
+    const filteredAccounts = cashBankAccounts.filter((acc: any) => {
+      if (warehouseId === "all") return true;
+      if (acc.warehouses.length === 0) return true; // Global account
+      return acc.warehouses.some((w: any) => w.id === warehouseId);
+    });
+
+    const receivedAccounts = filteredAccounts.map((acc: any) => {
+      const coa = acc.ChartOfAccount;
+      return {
+        id: acc.id,
+        type: acc.type, // "CASH" | "BANK" | "MFS"
+        coaId: coa.id,
+        coaCode: coa.code,
+        coaName: coa.name,
+        receivedAmount: paymentMap.get(coa.id) || 0,
+      };
+    });
+
+    // Sort by type CASH (1), BANK (2), MFS (3) then by name
+    receivedAccounts.sort((a, b) => {
+      const typeOrder = { CASH: 1, BANK: 2, MFS: 3 };
+      const orderA = typeOrder[a.type as keyof typeof typeOrder] || 4;
+      const orderB = typeOrder[b.type as keyof typeof typeOrder] || 4;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.coaName.localeCompare(b.coaName);
+    });
+
     // 5. Generate Trend points (SVG Charts: Order count and Income growth)
     // Dynamic chart boundary calculation independent of top-level date filters
     const now = new Date();
@@ -518,6 +621,7 @@ export async function getRealtimeDashboardStats(
         mostSellingProducts,
         topCustomers,
         chartData,
+        receivedAccounts,
       },
     };
   } catch (err) {

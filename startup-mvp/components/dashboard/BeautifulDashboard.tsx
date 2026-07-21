@@ -9,7 +9,10 @@ import {
   TrendingUp, 
   TrendingDown, 
   ChevronDown, 
-  MoreHorizontal
+  MoreHorizontal,
+  Wallet,
+  CreditCard,
+  Coins
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -523,6 +526,108 @@ export default function BeautifulDashboard({
                 {Math.abs(stats?.expenseGrowth || 0).toFixed(1)} %
               </span>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* Payment Inflows Section */}
+      <div className="space-y-2">
+        <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">Payment Inflows (By Account)</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          {loading ? (
+            // Skeleton load state
+            [1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="p-3 rounded-xl bg-white dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800/80 shadow-sm h-[74px] animate-pulse flex flex-col justify-between">
+                <div className="flex items-center justify-between w-full">
+                  <div className="h-3 w-16 bg-slate-100 dark:bg-zinc-800 rounded" />
+                  <div className="h-6 w-6 bg-slate-100 dark:bg-zinc-800 rounded-lg" />
+                </div>
+                <div className="flex items-center justify-between w-full mt-2">
+                  <div className="h-3 w-20 bg-slate-100 dark:bg-zinc-800 rounded" />
+                  <div className="h-3.5 w-12 bg-slate-100 dark:bg-zinc-800 rounded" />
+                </div>
+              </div>
+            ))
+          ) : !stats?.receivedAccounts || stats.receivedAccounts.length === 0 ? (
+            <div className="col-span-full p-4 text-center text-xs text-slate-400 bg-white dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800/80 rounded-xl">
+              No active cash, bank, or MFS accounts found for the selected warehouse.
+            </div>
+          ) : (
+            stats.receivedAccounts.map((account: any) => {
+              // Icon mapping
+              let Icon = Coins;
+              let bgClass = "bg-emerald-50/50 dark:bg-emerald-950/10 border-emerald-100/50 dark:border-emerald-900/20";
+              let textClass = "text-emerald-600 dark:text-emerald-400";
+              
+              if (account.type === "BANK") {
+                Icon = CreditCard;
+                bgClass = "bg-blue-50/50 dark:bg-blue-950/10 border-blue-100/50 dark:border-blue-900/20";
+                textClass = "text-blue-600 dark:text-blue-400";
+              } else if (account.type === "MFS") {
+                Icon = Wallet;
+                bgClass = "bg-purple-50/50 dark:bg-purple-950/10 border-purple-100/50 dark:border-purple-900/20";
+                textClass = "text-purple-600 dark:text-purple-400";
+              }
+
+              // Compute ledger link with date filter
+              let dateParams = "";
+              if (selectedDateFilter === "custom" && customDateRange.from && customDateRange.to) {
+                dateParams = `&dateFrom=${customDateRange.from}&dateTo=${customDateRange.to}`;
+              } else {
+                const now = new Date();
+                let from = "";
+                let to = now.toISOString().split("T")[0];
+                if (selectedDateFilter === "today") {
+                  from = now.toISOString().split("T")[0];
+                } else if (selectedDateFilter === "this-week") {
+                  const startOfWeek = new Date(now);
+                  startOfWeek.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)); // start on Monday
+                  from = startOfWeek.toISOString().split("T")[0];
+                } else if (selectedDateFilter === "this-month") {
+                  from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+                } else if (selectedDateFilter === "this-year") {
+                  from = new Date(now.getFullYear(), 0, 1).toISOString().split("T")[0];
+                }
+                if (from) {
+                  dateParams = `&dateFrom=${from}&dateTo=${to}`;
+                }
+              }
+
+              return (
+                <Link
+                  key={account.id}
+                  href={`/dashboard/accounts/ledgers?accountId=${account.coaId}${dateParams}`}
+                  className="p-3 rounded-xl bg-white hover:bg-slate-50/80 dark:bg-zinc-900/50 dark:hover:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800/80 shadow-sm flex flex-col justify-between transition-all hover:scale-[1.01] cursor-pointer h-[74px]"
+                >
+                  {/* Row 1: Code/Type and Icon */}
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className={`text-[8px] font-bold px-1 py-0.2 rounded uppercase tracking-wider ${bgClass} ${textClass}`}>
+                        {account.type}
+                      </span>
+                      <span className="text-[9px] font-semibold text-slate-400 dark:text-zinc-500">
+                        {account.coaCode}
+                      </span>
+                    </div>
+                    <div className={`p-1.5 rounded-lg shrink-0 ${bgClass}`}>
+                      <Icon className={`h-4 w-4 ${textClass}`} />
+                    </div>
+                  </div>
+
+                  {/* Row 2: Name and Amount */}
+                  <div className="flex items-end justify-between w-full mt-2 gap-2 overflow-hidden">
+                    <p className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 truncate flex-1" title={account.coaName}>
+                      {account.coaName}
+                    </p>
+                    <p className="text-xs font-extrabold text-slate-950 dark:text-zinc-50 shrink-0">
+                      ৳ {account.receivedAmount % 1 === 0 
+                        ? account.receivedAmount.toLocaleString(undefined, { maximumFractionDigits: 0 }) 
+                        : account.receivedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </Link>
+              );
+            })
           )}
         </div>
       </div>
