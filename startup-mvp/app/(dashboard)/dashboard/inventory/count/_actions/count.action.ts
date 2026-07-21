@@ -506,7 +506,7 @@ export async function createAdjustmentFromReconciliation(warehouseId: string, no
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
 
-    const canApprove = await hasPermission(session.user.id, "inventory.count", "approve");
+    const canApprove = await hasPermission(session.user.id, "inventory.count.adjustment", "approve");
     if (!canApprove) return { success: false, error: "Permission denied" };
 
     // Get reconciliation discrepancies

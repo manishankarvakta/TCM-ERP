@@ -32,10 +32,10 @@ export default async function CountAdjustmentPage() {
 
   const [warehousesResult, hasScannerPerm, hasEntriesPerm, hasAdjustmentPerm, hasApprovePermission] = await Promise.all([
     getActiveWarehouses(),
-    userId ? hasPermission(userId, "inventory.count", "view_scanner") : Promise.resolve(false),
-    userId ? hasPermission(userId, "inventory.count", "view_entries") : Promise.resolve(false),
-    userId ? hasPermission(userId, "inventory.count", "view_adjustment") : Promise.resolve(false),
-    userId ? hasPermission(userId, "inventory.count", "approve") : Promise.resolve(false)
+    userId ? hasPermission(userId, "inventory.count.scanner", "view_scanner") : Promise.resolve(false),
+    userId ? hasPermission(userId, "inventory.count.entries", "view_entries") : Promise.resolve(false),
+    userId ? hasPermission(userId, "inventory.count.adjustment", "view_adjustment") : Promise.resolve(false),
+    userId ? hasPermission(userId, "inventory.count.adjustment", "approve") : Promise.resolve(false)
   ]);
 
   const canViewScanner = hasScannerPerm || isAdminOrSuperAdmin;
@@ -46,7 +46,7 @@ export default async function CountAdjustmentPage() {
   const activeWarehouses = warehousesResult.success ? warehousesResult.warehouses || [] : [];
 
   return (
-    <PageGuard permissionKey="inventory.count" requiredOperation="view_adjustment">
+    <PageGuard permissionKey="inventory.count.adjustment" requiredOperation="view_adjustment">
       <div className="space-y-6">
         <AdjustmentClient
           warehouses={activeWarehouses}

@@ -238,6 +238,7 @@ export const MODULES: Record<Module, ModuleMetadata> = {
       { id: "reports", label: "Reports", path: "/dashboard/reports", module: "reports", permissionKey: "reports.view" },
       { id: "inventory-stock-summary", label: "Stock Summary", path: "/dashboard/reports/inventory/stock-summary", module: "reports", permissionKey: "reports.view" },
       { id: "inventory-stock-ledger", label: "Stock Ledger", path: "/dashboard/reports/inventory/stock-ledger", module: "reports", permissionKey: "reports.view" },
+
       { id: "inventory-raw-material-consumption", label: "Raw Material Consumption", path: "/dashboard/reports/inventory/raw-material-consumption", module: "reports", permissionKey: "reports.view" },
       { id: "production-order-summary", label: "Production Order Summary", path: "/dashboard/reports/production/production-order-summary", module: "reports", permissionKey: "reports.view" },
       { id: "production-cost-per-batch", label: "Cost Per Batch", path: "/dashboard/reports/production/cost-per-batch", module: "reports", permissionKey: "reports.view" },
@@ -255,7 +256,10 @@ export const MODULES: Record<Module, ModuleMetadata> = {
       { id: "stock", label: "Stock", path: "/dashboard/inventory/stock", module: "inventory", permissionKey: "inventory.stock" },
       { id: "adjustments", label: "Adjustments", path: "/dashboard/inventory/adjustments", module: "inventory", permissionKey: "inventory.adjustments" },
       { id: "damage", label: "Damage", path: "/dashboard/inventory/damage", module: "inventory", permissionKey: "inventory.damage" },
-      { id: "count", label: "Inventory Count", path: "/dashboard/inventory/count", module: "inventory", permissionKey: "inventory.count" },
+      { id: "count-scanner", label: "Count Scanner", path: "/dashboard/inventory/count", module: "inventory", permissionKey: "inventory.count.scanner" },
+      { id: "count-entries", label: "All Count Entries", path: "/dashboard/inventory/count/entries", module: "inventory", permissionKey: "inventory.count.entries" },
+      { id: "count-adjustment", label: "Auto Adjustment", path: "/dashboard/inventory/count/adjustment", module: "inventory", permissionKey: "inventory.count.adjustment" },
+      { id: "inventory-stock-movements", label: "Stock Movements", path: "/dashboard/reports/inventory/stock-movements", module: "inventory", permissionKey: "inventory.stock-movements" },
     ],
   },
   production: {
@@ -874,6 +878,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         operations: ["view"],
       },
       {
+        permissionKey: "inventory.stock-movements",
+        path: "/dashboard/reports/inventory/stock-movements",
+        label: "Stock Movements Page",
+        operations: ["view", "export"],
+      },
+      {
         permissionKey: "inventory.adjustments",
         path: "/dashboard/inventory/adjustments",
         label: "Adjustments",
@@ -886,19 +896,19 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
       },
       {
-        permissionKey: "inventory.count",
+        permissionKey: "inventory.count.scanner",
         path: "/dashboard/inventory/count",
         label: "Count Scanner Page",
         operations: ["view_scanner", "create"],
       },
       {
-        permissionKey: "inventory.count",
+        permissionKey: "inventory.count.entries",
         path: "/dashboard/inventory/count/entries",
         label: "All Count Entries Page",
         operations: ["view_entries", "delete"],
       },
       {
-        permissionKey: "inventory.count",
+        permissionKey: "inventory.count.adjustment",
         path: "/dashboard/inventory/count/adjustment",
         label: "Auto Adjustment Page",
         operations: ["view_adjustment", "approve"],

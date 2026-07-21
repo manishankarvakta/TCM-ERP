@@ -724,12 +724,12 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
 
   // Register ModuleOperation rows for inventory.count
   const countOperationsList = [
-    { module: "inventory.count", operation: "view_scanner", label: "View Count Scanner Page" },
-    { module: "inventory.count", operation: "create", label: "Submit Scan Entries" },
-    { module: "inventory.count", operation: "view_entries", label: "View All Count Entries Page" },
-    { module: "inventory.count", operation: "delete", label: "Delete Scanned Entries" },
-    { module: "inventory.count", operation: "view_adjustment", label: "View Auto Adjustment Page" },
-    { module: "inventory.count", operation: "approve", label: "Generate Auto Adjustment" },
+    { module: "inventory.count.scanner", operation: "view_scanner", label: "View Count Scanner Page" },
+    { module: "inventory.count.scanner", operation: "create", label: "Submit Scan Entries" },
+    { module: "inventory.count.entries", operation: "view_entries", label: "View All Count Entries Page" },
+    { module: "inventory.count.entries", operation: "delete", label: "Delete Scanned Entries" },
+    { module: "inventory.count.adjustment", operation: "view_adjustment", label: "View Auto Adjustment Page" },
+    { module: "inventory.count.adjustment", operation: "approve", label: "Generate Auto Adjustment" },
   ];
 
   for (const op of countOperationsList) {

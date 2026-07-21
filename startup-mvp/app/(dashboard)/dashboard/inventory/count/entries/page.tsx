@@ -44,10 +44,10 @@ export default async function CountEntriesPage() {
       where: { status: "active" },
       orderBy: { name: "asc" }
     }),
-    userId ? hasPermission(userId, "inventory.count", "view_scanner") : Promise.resolve(false),
-    userId ? hasPermission(userId, "inventory.count", "view_entries") : Promise.resolve(false),
-    userId ? hasPermission(userId, "inventory.count", "view_adjustment") : Promise.resolve(false),
-    userId ? hasPermission(userId, "inventory.count", "delete") : Promise.resolve(false)
+    userId ? hasPermission(userId, "inventory.count.scanner", "view_scanner") : Promise.resolve(false),
+    userId ? hasPermission(userId, "inventory.count.entries", "view_entries") : Promise.resolve(false),
+    userId ? hasPermission(userId, "inventory.count.adjustment", "view_adjustment") : Promise.resolve(false),
+    userId ? hasPermission(userId, "inventory.count.entries", "delete") : Promise.resolve(false)
   ]);
 
   const canViewScanner = hasScannerPerm || isAdmin;
@@ -57,7 +57,7 @@ export default async function CountEntriesPage() {
   const activeWarehouses = warehousesResult.success ? warehousesResult.warehouses || [] : [];
 
   return (
-    <PageGuard permissionKey="inventory.count" requiredOperation="view_entries">
+    <PageGuard permissionKey="inventory.count.entries" requiredOperation="view_entries">
       <div className="space-y-6">
         <EntriesClient
           warehouses={activeWarehouses}

@@ -32,6 +32,11 @@ export default function ReportsPage() {
           href: "/dashboard/reports/inventory/stock-ledger",
         },
         {
+          title: "Stock Movements",
+          description: "Opening, inward, outward, and closing balances of a specific day",
+          href: "/dashboard/reports/inventory/stock-movements",
+        },
+        {
           title: "Raw Material Consumption",
           description: "Raw material usage for production",
           href: "/dashboard/reports/inventory/raw-material-consumption",

@@ -90,7 +90,7 @@ async function seedPermissions() {
     ...createPermissionsForPages(["peoples.users"], ["view"]),
     ...createPermissionsForPages(["files"], ["view", "create"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["reports.view"], ["view"]),
+    ...createPermissionsForPages(["reports.view", "inventory.stock-movements"], ["view"]),
     // Sales - full access
     ...createPermissionsForPages(["sales.sales"], ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"]),
   };
@@ -141,7 +141,7 @@ async function seedPermissions() {
     ),
     ...createPermissionsForPages(["files"], ["view"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["reports.view"], ["view"]),
+    ...createPermissionsForPages(["reports.view", "inventory.stock-movements"], ["view"]),
   };
 
   // Basic User Template - Read-only
@@ -205,7 +205,7 @@ async function seedPermissions() {
     ),
     ...createPermissionsForPages(["files"], allStandardOps),
     ...createPermissionsForPages(["notifications"], ["view", "edit"]),
-    ...createPermissionsForPages(["reports.view"], ["view", "export"]),
+    ...createPermissionsForPages(["reports.view", "inventory.stock-movements"], ["view", "export"]),
     // HR Extra permissions
     ...createPermissionsForPages(hrExtraKeys, allStandardOps),
     // Settings - full access except developer tools
@@ -281,7 +281,7 @@ async function seedPermissions() {
     ...createPermissionsForPages(["production.boms", "production.orders"], ["view"]),
     ...createPermissionsForPages(["files"], ["view"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["reports.view"], ["view", "export"]),
+    ...createPermissionsForPages(["reports.view", "inventory.stock-movements"], ["view", "export"]),
   };
 
   // ============================================
@@ -335,7 +335,7 @@ async function seedPermissions() {
     ...createPermissionsForPages(["peoples.users"], ["view"]),
     ...createPermissionsForPages(["files"], ["view"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["reports.view"], ["view", "export"]),
+    ...createPermissionsForPages(["reports.view", "inventory.stock-movements"], ["view", "export"]),
     // Settings - accounts related
     ...createPermissionsForPages(
       ["settings.accounts", "settings.tex", "settings.paymentMethods"],
@@ -394,7 +394,7 @@ async function seedPermissions() {
     ...createPermissionsForPages(["production.boms", "production.orders"], ["view"]),
     ...createPermissionsForPages(["files"], ["view", "create"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["reports.view"], ["view", "export"]),
+    ...createPermissionsForPages(["reports.view", "inventory.stock-movements"], ["view", "export"]),
   };
 
   // SR (Sales Representative) Template - Quotation creation and client management
@@ -455,7 +455,7 @@ async function seedPermissions() {
     ...createPermissionsForPages(["production.boms", "production.orders"], ["view"]),
     ...createPermissionsForPages(["files"], ["view", "create"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["reports.view"], ["view"]),
+    ...createPermissionsForPages(["reports.view", "inventory.stock-movements"], ["view"]),
   };
 
   // Architect Template - Technical quotation creation with item/group focus
@@ -512,7 +512,7 @@ async function seedPermissions() {
     ...createPermissionsForPages(["production.boms", "production.orders"], ["view"]),
     ...createPermissionsForPages(["files"], allStandardOps),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["reports.view"], ["view", "export"]),
+    ...createPermissionsForPages(["reports.view", "inventory.stock-movements"], ["view", "export"]),
   };
 
   // Factory Manager Template - Order management and production tracking
@@ -557,7 +557,7 @@ async function seedPermissions() {
     ...createPermissionsForPages(["production.orders"], ["view", "create", "edit", "start", "complete", "cancel"]),
     ...createPermissionsForPages(["files"], ["view", "create"]),
     ...createPermissionsForPages(["notifications"], ["view"]),
-    ...createPermissionsForPages(["reports.view"], ["view"]),
+    ...createPermissionsForPages(["reports.view", "inventory.stock-movements"], ["view"]),
   };
 
   const templates = [

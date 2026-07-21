@@ -26,10 +26,10 @@ export default async function CountScannerPage() {
   }
 
   const [hasScannerPerm, hasEntriesPerm, hasAdjustmentPerm, hasCreatePermission] = await Promise.all([
-    hasPermission(userId, "inventory.count", "view_scanner"),
-    hasPermission(userId, "inventory.count", "view_entries"),
-    hasPermission(userId, "inventory.count", "view_adjustment"),
-    hasPermission(userId, "inventory.count", "create")
+    hasPermission(userId, "inventory.count.scanner", "view_scanner"),
+    hasPermission(userId, "inventory.count.entries", "view_entries"),
+    hasPermission(userId, "inventory.count.adjustment", "view_adjustment"),
+    hasPermission(userId, "inventory.count.scanner", "create")
   ]);
 
   const canViewScanner = hasScannerPerm || isAdmin;
@@ -59,7 +59,7 @@ export default async function CountScannerPage() {
   const activeWarehouses = warehousesResult.success ? warehousesResult.warehouses || [] : [];
 
   return (
-    <PageGuard permissionKey="inventory.count" requiredOperation="view_scanner">
+    <PageGuard permissionKey="inventory.count.scanner" requiredOperation="view_scanner">
       <div className="space-y-6">
         <ScannerClient
           warehouses={activeWarehouses}

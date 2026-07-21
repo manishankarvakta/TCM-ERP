@@ -157,6 +157,12 @@ export const MENU_TEMPLATE: MenuItemData[] = [
         module: "inventory" 
       },
       { 
+        href: "/dashboard/reports/inventory/stock-movements", 
+        label: "Stock Movements", 
+        icon: "FiTrendingUp", 
+        module: "inventory" 
+      },
+      { 
         href: "/dashboard/inventory/adjustments", 
         label: "Adjustments", 
         icon: "FiClipboard", 
@@ -267,7 +273,7 @@ export function getPermissionKeyFromPath(path: string): string | null {
   const normalizedPath = path.split("?")[0].replace(/\/$/, "") || "/";
   
   if (normalizedPath === "/dashboard/inventory/count") {
-    return "inventory.count";
+    return "inventory.count.scanner";
   }
 
   // Handle dashboard root path first

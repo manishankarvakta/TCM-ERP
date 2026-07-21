@@ -441,3 +441,236 @@ export async function getRawMaterialConsumption(filters: {
     };
   }
 }
+
+/**
+ * Get Stock Movements Report (Opening, Inward, Outward, Closing)
+ */
+export async function getStockMovements(
+  filters: {
+    warehouseId?: string;
+    search?: string;
+    date?: string; // Target day (e.g. YYYY-MM-DD)
+  },
+  pagination: {
+    page: number;
+    limit: number;
+  } = { page: 1, limit: 20 }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        data: [],
+        pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+      };
+    }
+
+    // Check permission
+    const canView = await hasPermission(session.user.id, "inventory.stock-movements", "view");
+    if (!canView) {
+      return {
+        success: false,
+        error: "You do not have permission to view reports",
+        data: [],
+        pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+      };
+    }
+
+    const targetDateStr = filters.date || new Date().toISOString().split("T")[0];
+    const targetDate = new Date(targetDateStr);
+    
+    // Set boundaries in local server time
+    const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0, 0);
+    const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
+
+    const itemWhere: Prisma.ItemWhereInput = {
+      trackInventory: true,
+      isTrash: false,
+      status: "active",
+      ...(filters.search
+        ? {
+            OR: [
+              { name: { contains: filters.search, mode: "insensitive" } },
+              { code: { contains: filters.search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    };
+
+    const skip = (pagination.page - 1) * pagination.limit;
+
+    const [items, total] = await Promise.all([
+      prisma.item.findMany({
+        where: itemWhere,
+        include: {
+          unit: { select: { symbol: true } },
+          variants: {
+            select: { id: true, sku: true, color: true, size: true, costPrice: true },
+          },
+        },
+        orderBy: { code: "asc" },
+        skip,
+        take: pagination.limit,
+      }),
+      prisma.item.count({ where: itemWhere }),
+    ]);
+
+    const itemIds = items.map((i) => i.id);
+    const variantIds = items
+      .flatMap((i) => i.variants.map((v) => v.id))
+      .filter(Boolean) as string[];
+
+    const warehouses =
+      filters.warehouseId && filters.warehouseId !== "all"
+        ? await prisma.warehouse.findMany({
+            where: { id: filters.warehouseId, isTrash: false },
+            select: { id: true, name: true, code: true },
+          })
+        : await prisma.warehouse.findMany({
+            where: { status: "active", isTrash: false },
+            select: { id: true, name: true, code: true },
+            orderBy: { name: "asc" },
+          });
+
+    // Query ledger entries up to end of selected day for items/variants and warehouses
+    const ledgerEntries = await prisma.stockLedger.findMany({
+      where: {
+        warehouseId: { in: warehouses.map((w) => w.id) },
+        OR: [
+          { itemId: { in: itemIds } },
+          { variantId: { in: variantIds } },
+        ],
+        createdAt: { lte: endOfDay },
+      },
+      select: {
+        itemId: true,
+        variantId: true,
+        warehouseId: true,
+        quantity: true,
+        createdAt: true,
+      },
+    });
+
+    const reportData: any[] = [];
+
+    for (const warehouse of warehouses) {
+      for (const item of items) {
+        const hasVariants = item.variants && item.variants.length > 0;
+
+        if (hasVariants) {
+          for (const variant of item.variants) {
+            const variantLedger = ledgerEntries.filter(
+              (le) => le.variantId === variant.id && le.warehouseId === warehouse.id
+            );
+
+            let opening = 0;
+            let inward = 0;
+            let outward = 0;
+
+            for (const entry of variantLedger) {
+              const qty = Number(entry.quantity);
+              if (entry.createdAt < startOfDay) {
+                opening += qty;
+              } else {
+                if (qty > 0) {
+                  inward += qty;
+                } else {
+                  outward += Math.abs(qty);
+                }
+              }
+            }
+
+            const closing = opening + inward - outward;
+
+            // Only show item variant at warehouse if it has history or movements
+            if (opening !== 0 || inward !== 0 || outward !== 0 || closing !== 0) {
+              const cost = Number(variant.costPrice || item.costPrice || 0);
+              reportData.push({
+                id: `${variant.id}_${warehouse.id}`,
+                itemCode: variant.sku,
+                itemName: `${item.name} (${variant.color} / ${variant.size})`,
+                warehouse: warehouse.name,
+                warehouseCode: warehouse.code,
+                openingQuantity: opening,
+                inwardQuantity: inward,
+                outwardQuantity: outward,
+                closingQuantity: closing,
+                unit: item.unit?.symbol || "pcs",
+                unitCost: cost,
+                totalValue: closing * cost,
+              });
+            }
+          }
+        } else {
+          const itemLedger = ledgerEntries.filter(
+            (le) => le.itemId === item.id && !le.variantId && le.warehouseId === warehouse.id
+          );
+
+          let opening = 0;
+          let inward = 0;
+          let outward = 0;
+
+          for (const entry of itemLedger) {
+            const qty = Number(entry.quantity);
+            if (entry.createdAt < startOfDay) {
+              opening += qty;
+            } else {
+              if (qty > 0) {
+                inward += qty;
+              } else {
+                outward += Math.abs(qty);
+              }
+            }
+          }
+
+          const closing = opening + inward - outward;
+
+          if (opening !== 0 || inward !== 0 || outward !== 0 || closing !== 0) {
+            const cost = Number(item.costPrice || 0);
+            reportData.push({
+              id: `${item.id}_${warehouse.id}`,
+              itemCode: item.code,
+              itemName: item.name,
+              warehouse: warehouse.name,
+              warehouseCode: warehouse.code,
+              openingQuantity: opening,
+              inwardQuantity: inward,
+              outwardQuantity: outward,
+              closingQuantity: closing,
+              unit: item.unit?.symbol || "pcs",
+              unitCost: cost,
+              totalValue: closing * cost,
+            });
+          }
+        }
+      }
+    }
+
+    return {
+      success: true,
+      data: reportData,
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total,
+        totalPages: Math.ceil(total / pagination.limit),
+      },
+    };
+  } catch (error) {
+    console.error("getStockMovements error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch stock movements",
+      data: [],
+      pagination: {
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 0,
+      },
+    };
+  }
+}
+
