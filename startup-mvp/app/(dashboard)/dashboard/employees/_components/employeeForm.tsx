@@ -21,6 +21,7 @@ import { createEmployee, updateEmployee } from "../_actions/employee.action";
 import { getWarehouses } from "../../master/warehouses/_actions/warehouse.action";
 import { getShifts } from "../../hr/shifts/_actions/shift.action";
 import { getEmployeeTypes } from "../types/_actions/employee-type.action";
+import { getDepartments } from "../departments/_actions/department.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { useEffect } from "react";
 import MediaSelector from "@/components/MediaSelector";
@@ -36,6 +37,7 @@ const employeeFormSchema = z.object({
   status: z.enum(["active", "inactive"]),
   designation: z.string().optional().or(z.literal("")),
   department: z.string().optional().or(z.literal("")),
+  departmentId: z.string().optional().or(z.literal("")),
   salary: z.coerce.number().optional().or(z.literal(0)),
   joiningDate: z.string().optional().or(z.literal("")),
   gender: z.string().optional().or(z.literal("")),
@@ -102,6 +104,8 @@ interface EmployeeFormProps {
     shiftId: string | null;
     type?: string | null;
     employeeTypeId?: string | null;
+    departmentId?: string | null;
+    departmentRelation?: any;
     salaryPayableAccount: {
       id: string;
       code: string;
@@ -142,6 +146,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
           designation: initialData.designation || "",
           department: initialData.department || "",
+          departmentId: initialData.departmentId || "",
           salary: initialData.salary ? Number(initialData.salary) : 0,
           joiningDate: initialData.joiningDate ? new Date(initialData.joiningDate).toISOString().split("T")[0] : "",
           gender: initialData.gender || "",
@@ -180,6 +185,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           status: "active",
           designation: "",
           department: "",
+          departmentId: "",
           salary: 0,
           joiningDate: "",
           gender: "",
@@ -216,6 +222,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [shifts, setShifts] = useState<any[]>([]);
   const [employeeTypes, setEmployeeTypes] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchData() {
@@ -240,6 +247,21 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           );
           if (matchedType) {
             setValue("employeeTypeId", matchedType.id);
+          }
+        }
+      }
+
+      const deptResult = await getDepartments(1, 100, "", "active");
+      if (deptResult.success && deptResult.departments) {
+        setDepartments(deptResult.departments);
+        
+        // Auto-match legacy department string to departmentId if not set
+        if (initialData && !initialData.departmentId && initialData.department) {
+          const matchedDept = deptResult.departments.find(
+            (d: any) => d.name.toLowerCase() === initialData.department?.toLowerCase()
+          );
+          if (matchedDept) {
+            setValue("departmentId", matchedDept.id);
           }
         }
       }
@@ -518,12 +540,16 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="department">Department</Label>
-                      <Input
-                        id="department"
-                        placeholder="IT"
-                        {...register("department")}
+                      <Label htmlFor="departmentId">Department</Label>
+                      <SearchableSelect
+                        value={watch("departmentId")}
+                        onValueChange={(value) => setValue("departmentId", value || "")}
                         disabled={loading}
+                        placeholder="Select department"
+                        options={departments.map((d) => ({
+                          value: d.id,
+                          label: d.name
+                        }))}
                       />
                     </div>
 

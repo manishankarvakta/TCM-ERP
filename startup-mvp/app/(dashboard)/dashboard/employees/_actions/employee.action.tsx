@@ -19,7 +19,8 @@ export async function getEmployees(
   search: string = "",
   status: "active" | "inactive" | "trash" | "all" = "all",
   employeeTypeId?: string,
-  gender?: string
+  gender?: string,
+  departmentId?: string
 ) {
   try {
     const session = await auth();
@@ -79,6 +80,9 @@ export async function getEmployees(
     if (gender && gender !== "all") {
       where.gender = gender;
     }
+    if (departmentId && departmentId !== "all") {
+      where.departmentId = departmentId;
+    }
 
     // Get total count
     const total = await prisma.employee.count({ where });
@@ -105,6 +109,13 @@ export async function getEmployees(
         status: true,
         designation: true,
         department: true,
+        departmentId: true,
+        departmentRelation: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
         salary: true,
         joiningDate: true,
         gender: true,
@@ -222,6 +233,13 @@ export async function getEmployeeById(employeeId: string) {
         status: true,
         designation: true,
         department: true,
+        departmentId: true,
+        departmentRelation: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
         salary: true,
         joiningDate: true,
         gender: true,
@@ -536,6 +554,7 @@ export async function createEmployee(input: {
   status?: "active" | "inactive";
   designation?: string;
   department?: string;
+  departmentId?: string;
   salary?: number;
   joiningDate?: Date;
   gender?: string;
@@ -829,6 +848,18 @@ export async function createEmployee(input: {
         }
       }
 
+      // Resolve dynamic department name for backward compatibility
+      let departmentName = input.department || null;
+      if (input.departmentId) {
+        const dept = await tx.department.findUnique({
+          where: { id: input.departmentId },
+          select: { name: true },
+        });
+        if (dept) {
+          departmentName = dept.name;
+        }
+      }
+
       const employee = await tx.employee.create({
         data: {
           name: input.name,
@@ -837,7 +868,8 @@ export async function createEmployee(input: {
           phone: input.phone || null,
           status: input.status || "active",
           designation: input.designation || null,
-          department: input.department || null,
+          department: departmentName,
+          departmentId: input.departmentId || null,
           salary: input.salary || null,
           joiningDate: input.joiningDate || null,
           gender: input.gender || null,
@@ -866,6 +898,13 @@ export async function createEmployee(input: {
           status: true,
           designation: true,
           department: true,
+          departmentId: true,
+          departmentRelation: {
+            select: {
+              id: true,
+              name: true,
+            }
+          },
           salary: true,
           joiningDate: true,
           gender: true,
@@ -950,6 +989,7 @@ export async function updateEmployee(input: {
   status?: "active" | "inactive";
   designation?: string;
   department?: string;
+  departmentId?: string;
   salary?: number;
   joiningDate?: Date;
   gender?: string;
@@ -1227,6 +1267,22 @@ export async function updateEmployee(input: {
         }
       }
 
+      // Resolve dynamic department name for backward compatibility
+      let departmentName = undefined;
+      if (input.departmentId !== undefined) {
+        if (input.departmentId) {
+          const dept = await tx.department.findUnique({
+            where: { id: input.departmentId },
+            select: { name: true },
+          });
+          if (dept) {
+            departmentName = dept.name;
+          }
+        } else {
+          departmentName = null;
+        }
+      }
+
       // Build update data
       const updateData: any = {
         name: input.name !== undefined ? input.name : undefined,
@@ -1236,7 +1292,8 @@ export async function updateEmployee(input: {
         userId: input.userId !== undefined ? (input.userId || null) : undefined,
         status: input.status !== undefined ? input.status : undefined,
         designation: input.designation !== undefined ? (input.designation || null) : undefined,
-        department: input.department !== undefined ? (input.department || null) : undefined,
+        department: departmentName !== undefined ? departmentName : (input.department !== undefined ? (input.department || null) : undefined),
+        departmentId: input.departmentId !== undefined ? (input.departmentId || null) : undefined,
         salary: input.salary !== undefined ? (input.salary || null) : undefined,
         joiningDate: input.joiningDate !== undefined ? (input.joiningDate || null) : undefined,
         gender: input.gender !== undefined ? (input.gender || null) : undefined,
@@ -1277,6 +1334,13 @@ export async function updateEmployee(input: {
           status: true,
           designation: true,
           department: true,
+          departmentId: true,
+          departmentRelation: {
+            select: {
+              id: true,
+              name: true,
+            }
+          },
           salary: true,
           joiningDate: true,
           gender: true,

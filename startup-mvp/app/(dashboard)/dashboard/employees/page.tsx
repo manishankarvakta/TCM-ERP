@@ -1,6 +1,7 @@
 import React from "react";
 import { getEmployees, getEmployeeStats } from "./_actions/employee.action";
 import { getEmployeeTypes } from "./types/_actions/employee-type.action";
+import { getDepartments } from "./departments/_actions/department.action";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
@@ -19,6 +20,7 @@ interface EmployeesPageProps {
     employeeTypeId?: string;
     gender?: string;
     status?: string;
+    departmentId?: string;
   }>;
 }
 
@@ -30,6 +32,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
   const employeeTypeId = params.employeeTypeId || "all";
   const gender = params.gender || "all";
   const statusParam = params.status || "all";
+  const departmentId = params.departmentId || "all";
 
   const session = await auth();
   const userId = session?.user?.id;
@@ -37,10 +40,11 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
   const status = tab === "trash" ? "trash" : (statusParam as any);
   
   // Check permissions and fetch data concurrently
-  const [result, statsResult, typesResult, canView, canEdit, canCreate, canMoveToTrash, canDeletePermanently] = await Promise.all([
-    getEmployees(page, 10, search, status, employeeTypeId, gender),
+  const [result, statsResult, typesResult, departmentsResult, canView, canEdit, canCreate, canMoveToTrash, canDeletePermanently] = await Promise.all([
+    getEmployees(page, 10, search, status, employeeTypeId, gender, departmentId),
     getEmployeeStats(),
     getEmployeeTypes(1, 100, "", "active"),
+    getDepartments(1, 100, "", "active"),
     userId ? hasPermission(userId, "peoples.employees", "view") : false,
     userId ? hasPermission(userId, "peoples.employees", "edit") : false,
     userId ? hasPermission(userId, "peoples.employees", "create") : false,
@@ -86,6 +90,13 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
                 <Button variant="outline" asChild>
                   <Link href="/dashboard/employees/types">
                     Employee Types Setup
+                  </Link>
+                </Button>
+              )}
+              {canEdit && (
+                <Button variant="outline" asChild>
+                  <Link href="/dashboard/employees/departments">
+                    Department Setup
                   </Link>
                 </Button>
               )}
@@ -150,6 +161,8 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
               employeeTypeId={employeeTypeId}
               gender={gender}
               status={statusParam}
+              departments={departmentsResult.success && departmentsResult.departments ? (departmentsResult.departments as any[]) : []}
+              departmentId={departmentId}
               permissions={{
                 view: canView,
                 edit: canEdit,
@@ -174,6 +187,8 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
               employeeTypeId={employeeTypeId}
               gender={gender}
               status={statusParam}
+              departments={departmentsResult.success && departmentsResult.departments ? (departmentsResult.departments as any[]) : []}
+              departmentId={departmentId}
               permissions={{
                 view: canView,
                 edit: canEdit,

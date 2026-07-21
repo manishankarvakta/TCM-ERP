@@ -139,6 +139,8 @@ interface EmployeesListClientProps {
   employeeTypeId?: string;
   gender?: string;
   status?: string;
+  departments?: { id: string; name: string }[];
+  departmentId?: string;
   permissions?: {
     view: boolean;
     edit: boolean;
@@ -157,12 +159,20 @@ export default function EmployeesListClient({
   employeeTypeId = "all",
   gender = "all",
   status = "all",
+  departments = [],
+  departmentId = "all",
   permissions,
 }: EmployeesListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(initialSearch);
-  const hasActiveFilters = !!(search || (employeeTypeId && employeeTypeId !== "all") || (gender && gender !== "all") || (status && status !== "all"));
+  const hasActiveFilters = !!(
+    search || 
+    (employeeTypeId && employeeTypeId !== "all") || 
+    (gender && gender !== "all") || 
+    (status && status !== "all") ||
+    (departmentId && departmentId !== "all")
+  );
   const [deleteEmployeeId, setDeleteEmployeeId] = useState<string | null>(null);
   const [restoreEmployeeId, setRestoreEmployeeId] = useState<string | null>(null);
   const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
@@ -357,6 +367,26 @@ export default function EmployeesListClient({
                 {employeeTypes.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
                     {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Department Filter */}
+          <div className="w-[180px]">
+            <Select
+              value={departmentId}
+              onValueChange={(val) => handleFilterChange("departmentId", val)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Departments" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[250px]">
+                <SelectItem value="all">All Departments</SelectItem>
+                {departments.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
                   </SelectItem>
                 ))}
               </SelectContent>

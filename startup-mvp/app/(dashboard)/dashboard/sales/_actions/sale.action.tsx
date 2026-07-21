@@ -2873,6 +2873,10 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
       let totalRefund = 0;
       const newSaleItems = [];
 
+      const originalDiscount = originalSale ? Number(originalSale.discount || 0) : 0;
+      const originalSubtotal = originalSale ? Number(originalSale.subTotal || 0) : 0;
+      const discountRatio = originalSubtotal > 0 ? (originalDiscount / originalSubtotal) : 0;
+
       for (const ret of returnItems) {
         let itemUnitPrice = ret.unitPrice || 0;
         let trackInventory = false;
@@ -2902,7 +2906,7 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
           if (ret.quantity > remainingQty) {
             throw new Error(`Return quantity (${ret.quantity}) exceeds remaining returnable quantity (${remainingQty}) for item ${originalItem.description || ret.itemId}`);
           }
-          itemUnitPrice = Number(originalItem.unitPrice);
+          itemUnitPrice = Number(originalItem.unitPrice) * (1 - discountRatio);
           trackInventory = originalItem.item?.trackInventory || false;
           itemDescription = originalItem.description;
         } else {

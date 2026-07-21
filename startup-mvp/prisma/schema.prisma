@@ -49,6 +49,7 @@ model User {
   managedResignations              Resignation[]          @relation("ResignationManager")
   adminResignations                Resignation[]          @relation("ResignationAdmin")
   createdEmployeeTypes             EmployeeType[]         @relation("EmployeeTypeCreator")
+  createdDepartments             Department[]           @relation("DepartmentCreator")
   createdNotifications             Notification[]         @relation("NotificationCreator")
   notifications                    Notification[]
   createdOrganizations             Organization[]         @relation("OrganizationCreator")
@@ -126,6 +127,8 @@ model Employee {
   type                   String?
   employeeTypeId         String?
   employeeType           EmployeeType?       @relation(fields: [employeeTypeId], references: [id], onDelete: Restrict)
+  departmentId           String?
+  departmentRelation     Department?         @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   biometricDeviceId      String?
   nominee                Json?
   shiftId                String?
@@ -152,6 +155,7 @@ model Employee {
   @@index([salaryPayableAccountId])
   @@index([advanceAccountId])
   @@index([warehouseId])
+  @@index([departmentId])
 }
 
 model Account {
@@ -1279,6 +1283,19 @@ model EmployeeType {
   @@index([nightBillPolicyId])
   @@index([holidayBillPolicyId])
   @@index([salaryStructurePolicyId])
+}
+
+model Department {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  status      String     @default("active") // "active" | "inactive"
+  isTrash     Boolean    @default(false)
+  createdBy   String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  employees   Employee[]
+  creator     User       @relation("DepartmentCreator", fields: [createdBy], references: [id])
 }
 
 model LeaveApplication {
