@@ -19,38 +19,70 @@ import { createSupplier } from "../../suppliers/_actions/supplier.action";
 
 /**
  * Safely parse date input from string, number, or Date instance.
+ * Handles Excel serial dates (e.g. 33836, 33836.25023148), ISO dates, 
+ * slash formats (M/D/YY, M/D/YYYY, D/M/YYYY), and timestamps.
  * Returns null if the date is invalid or empty.
  */
 function safeParseDate(val: any): Date | null {
   if (val === undefined || val === null || val === "") return null;
+
   if (val instanceof Date) {
     return isNaN(val.getTime()) ? null : val;
-  }
-  if (typeof val === "number") {
-    // Excel serial number date format handling
-    if (val > 25000 && val < 60000) {
-      const parsed = new Date((val - 25569) * 86400 * 1000);
-      return isNaN(parsed.getTime()) ? null : parsed;
-    }
-    const parsed = new Date(val);
-    return isNaN(parsed.getTime()) ? null : parsed;
   }
 
   const str = String(val).trim();
   if (!str) return null;
 
-  // Try direct Date parsing
-  let parsed = new Date(str);
-  if (!isNaN(parsed.getTime())) return parsed;
+  // Check if string or number is an Excel serial date (e.g. 33836 or 33836.250231481485)
+  const num = Number(str);
+  if (!isNaN(num) && num > 1000 && num < 100000) {
+    // Excel epoch formula: (serial - 25569) * 86400 * 1000
+    const parsedFromSerial = new Date(Math.round((num - 25569) * 86400 * 1000));
+    if (!isNaN(parsedFromSerial.getTime())) {
+      return parsedFromSerial;
+    }
+  }
 
-  // Try DD/MM/YYYY or DD-MM-YYYY format
-  const dmyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if (dmyMatch) {
-    const day = parseInt(dmyMatch[1], 10);
-    const month = parseInt(dmyMatch[2], 10) - 1;
-    const year = parseInt(dmyMatch[3], 10);
-    parsed = new Date(year, month, day);
-    if (!isNaN(parsed.getTime())) return parsed;
+  // Direct JavaScript Date parsing
+  let parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    // Fix 2-digit year edge cases (e.g. '92' parsed as year 0092 instead of 1992)
+    if (parsed.getFullYear() < 100) {
+      const year = parsed.getFullYear() + (parsed.getFullYear() < 50 ? 2000 : 1900);
+      parsed.setFullYear(year);
+    }
+    return parsed;
+  }
+
+  // Parse slash/dash formatted dates explicitly: M/D/YY, M/D/YYYY, D/M/YYYY, YYYY/M/D
+  const partsMatch = str.match(/^(\d{1,4})[\/\-](\d{1,2})[\/\-](\d{1,4})$/);
+  if (partsMatch) {
+    let p1 = parseInt(partsMatch[1], 10);
+    let p2 = parseInt(partsMatch[2], 10);
+    let p3 = parseInt(partsMatch[3], 10);
+
+    // Case YYYY-MM-DD
+    if (p1 > 1000) {
+      parsed = new Date(p1, p2 - 1, p3);
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+
+    // Case M/D/YY or D/M/YY or M/D/YYYY
+    if (p3 < 100) {
+      p3 += p3 < 50 ? 2000 : 1900;
+    }
+
+    // Try Month/Day/Year
+    if (p1 <= 12 && p2 <= 31) {
+      parsed = new Date(p3, p1 - 1, p2);
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+
+    // Try Day/Month/Year
+    if (p2 <= 12 && p1 <= 31) {
+      parsed = new Date(p3, p2 - 1, p1);
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
   }
 
   return null;
@@ -262,6 +294,8 @@ export async function parseAndValidateCsvAction(
                 message: `'${field.label}' must be a valid date (e.g., YYYY-MM-DD or DD/MM/YYYY)`,
                 value: val,
               });
+            } else {
+              mappedData[field.key] = parsedDate.toISOString().split("T")[0];
             }
           } else if (field.type === "enum" && field.enumValues) {
             const lowerVal = String(val).toLowerCase();
