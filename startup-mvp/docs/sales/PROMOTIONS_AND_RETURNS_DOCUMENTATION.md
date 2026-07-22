@@ -3,6 +3,7 @@
 This document details the architecture, data models, and logic implemented in `ffERP` to support:
 1. **Promotional Expiry Controls** for item-level discounts.
 2. **Proportional Discount Allocation** for order-level returns.
+3. **Discount Ledger Adjustments** on sales returns.
 
 ---
 
@@ -78,6 +79,70 @@ const discountRatio = originalSubtotal > 0 ? (originalDiscount / originalSubtota
 itemUnitPrice = Number(originalItem.unitPrice) * (1 - discountRatio);
 ```
 
-### D. Architectural Advantages of this Approach
-*   **Database Integrity**: The original sale items, subtotals, and discount fields remain stored at their standard values, ensuring printed invoice receipts and sales history records display correctly.
-*   **Safety**: Only return action handlers are affected, resulting in **zero risk** of breaking active POS checkout logic, customer invoicing, or double-entry accounting configurations during sales.
+---
+
+## 3. Discount Ledger Adjustments on Returns
+
+To ensure accounting general ledger balances are accurate when a return is processed, the return voucher must reverse the proportional discount amount and attribute it to the correct Coupon or General Sales Discount account.
+
+### A. Original Checkout Posting Voucher
+When a sale is checked out, the discount is recorded as a debit entry:
+*   **Debit**: `Sales Coupon Discount` (or `Sales Discount` general)
+*   **Credit**: `Sales Revenue` (for full item price)
+
+### B. Return Posting Voucher (Adjusted)
+When a return is processed, the return voucher reverses both the sales revenue and the discount proportionally:
+*   **Debit**: `Sales Revenue` $\rightarrow$ `Full Price (undiscounted)` (e.g. ৳140)
+*   **Credit**: `Cash/AR` $\rightarrow$ `Net Refunded Price` (e.g. ৳130)
+*   **Credit**: `Sales Coupon Discount` (or `Sales Discount` general) $\rightarrow$ `Proportional Discount Reversed` (e.g. ৳10)
+
+This reverses all entries completely, returning the Sales Revenue, Sales Discount, and Cash balances to exactly **0** for the returned product.
+
+### C. Technical Implementation in `sale.action.tsx`
+```typescript
+// Split discount ratios of original sale:
+const couponRatio = originalSubtotal > 0 ? (couponDiscount / originalSubtotal) : 0;
+const generalRatio = originalSubtotal > 0 ? (generalDiscount / originalSubtotal) : 0;
+
+// inside loop, accumulate:
+totalFullRevenueToDebit += itemFullUnitPrice * ret.quantity;
+totalCouponDiscountToCredit += itemCouponDiscount * ret.quantity;
+totalGeneralDiscountToCredit += itemGeneralDiscount * ret.quantity;
+
+// Build voucher lines:
+const lines = [
+  {
+    lineNumber: 1,
+    chartOfAccountId: debitAccountId, // Sales Revenue
+    debitAmount: Number(totalFullRevenueToDebit.toFixed(2)),
+    creditAmount: 0,
+    description: `Sales Return (Debit Revenue)`
+  },
+  {
+    lineNumber: 2,
+    chartOfAccountId: creditAccountId, // Cash/AR
+    debitAmount: 0,
+    creditAmount: Number(totalRefund.toFixed(2)),
+    description: `Refund for Sales Return (Credit Cash/AR)`
+  }
+];
+
+if (totalCouponDiscountToCredit > 0 && couponDiscountAccountId) {
+  lines.push({
+    lineNumber: 3,
+    chartOfAccountId: couponDiscountAccountId,
+    debitAmount: 0,
+    creditAmount: Number(totalCouponDiscountToCredit.toFixed(2)),
+    description: `Sales Return - Reverse Coupon Discount (Credit)`
+  });
+}
+if (totalGeneralDiscountToCredit > 0 && salesDiscountAccountId) {
+  lines.push({
+    lineNumber: 4,
+    chartOfAccountId: salesDiscountAccountId,
+    debitAmount: 0,
+    creditAmount: Number(totalGeneralDiscountToCredit.toFixed(2)),
+    description: `Sales Return - Reverse General Discount (Credit)`
+  });
+}
+```

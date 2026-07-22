@@ -2818,7 +2818,8 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
           items: {
             include: { item: { select: { trackInventory: true } } }
           },
-          client: true
+          client: true,
+          coupon: true
         }
       });
       if (!originalSale) return { success: false, error: "Sale not found" };
@@ -2871,11 +2872,29 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
 
     const returnSaleData = await prisma.$transaction(async (tx) => {
       let totalRefund = 0;
+      let totalFullRevenueToDebit = 0;
+      let totalCouponDiscountToCredit = 0;
+      let totalGeneralDiscountToCredit = 0;
       const newSaleItems = [];
 
       const originalDiscount = originalSale ? Number(originalSale.discount || 0) : 0;
       const originalSubtotal = originalSale ? Number(originalSale.subTotal || 0) : 0;
-      const discountRatio = originalSubtotal > 0 ? (originalDiscount / originalSubtotal) : 0;
+
+      let couponDiscount = 0;
+      if (originalSale && originalSale.coupon && originalDiscount > 0) {
+        const couponVal = Number(originalSale.coupon.value);
+        if (originalSale.coupon.discountType === "PERCENTAGE") {
+          couponDiscount = Number((originalSubtotal * (couponVal / 100)).toFixed(2));
+        } else {
+          couponDiscount = couponVal;
+        }
+        couponDiscount = Math.min(couponDiscount, originalDiscount);
+      }
+      const generalDiscount = originalSale ? Number((originalDiscount - couponDiscount).toFixed(2)) : 0;
+
+      const couponRatio = originalSubtotal > 0 ? (couponDiscount / originalSubtotal) : 0;
+      const generalRatio = originalSubtotal > 0 ? (generalDiscount / originalSubtotal) : 0;
+      const discountRatio = couponRatio + generalRatio;
 
       for (const ret of returnItems) {
         let itemUnitPrice = ret.unitPrice || 0;
@@ -2939,6 +2958,19 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
 
         const refundAmount = itemUnitPrice * ret.quantity;
         totalRefund += refundAmount;
+
+        const originalItemForDiscount = originalSale ? originalSale.items.find((i: any) => 
+          i.itemId === ret.itemId && 
+          (ret.variantId ? i.variantId === ret.variantId : !i.variantId)
+        ) : null;
+        
+        const itemFullUnitPrice = originalItemForDiscount ? Number(originalItemForDiscount.unitPrice) : itemUnitPrice;
+        const itemCouponDiscount = originalItemForDiscount ? (itemFullUnitPrice * couponRatio) : 0;
+        const itemGeneralDiscount = originalItemForDiscount ? (itemFullUnitPrice * generalRatio) : 0;
+
+        totalFullRevenueToDebit += itemFullUnitPrice * ret.quantity;
+        totalCouponDiscountToCredit += itemCouponDiscount * ret.quantity;
+        totalGeneralDiscountToCredit += itemGeneralDiscount * ret.quantity;
 
         newSaleItems.push({
           itemId: ret.itemId,
@@ -3070,6 +3102,80 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
       const debitAccountId = salesRevenueAccountId || arAccountId;
 
       if (debitAccountId && creditAccountId) {
+        let couponDiscountAccountId = null;
+        let salesDiscountAccountId = null;
+        try {
+          const { getSalesAccounts } = await import("@/lib/accounting-settings");
+          const salesAccounts = await getSalesAccounts();
+          couponDiscountAccountId = salesAccounts.couponDiscountAccountId;
+          salesDiscountAccountId = salesAccounts.salesDiscountAccountId;
+        } catch (e) {
+          console.warn("Could not load sales discount accounts", e);
+        }
+
+        if (!couponDiscountAccountId) {
+          couponDiscountAccountId = salesRevenueAccountId;
+        }
+        if (!salesDiscountAccountId) {
+          salesDiscountAccountId = salesRevenueAccountId;
+        }
+
+        const lines = [
+          {
+            lineNumber: 1,
+            chartOfAccountId: debitAccountId,
+            clientId: clientId || undefined,
+            debitAmount: Number(totalFullRevenueToDebit.toFixed(2)),
+            creditAmount: 0,
+            description: `Sales Return (Debit Revenue)`
+          },
+          {
+            lineNumber: 2,
+            chartOfAccountId: creditAccountId,
+            clientId: clientId || undefined,
+            debitAmount: 0,
+            creditAmount: Number(totalRefund.toFixed(2)),
+            description: `Refund for Sales Return (Credit Cash/AR)`
+          }
+        ];
+
+        let currentLineNum = 3;
+        if (totalCouponDiscountToCredit > 0 && couponDiscountAccountId) {
+          lines.push({
+            lineNumber: currentLineNum++,
+            chartOfAccountId: couponDiscountAccountId,
+            clientId: clientId || undefined,
+            debitAmount: 0,
+            creditAmount: Number(totalCouponDiscountToCredit.toFixed(2)),
+            description: `Sales Return - Reverse Coupon Discount (Credit)`
+          });
+        }
+        if (totalGeneralDiscountToCredit > 0 && salesDiscountAccountId) {
+          lines.push({
+            lineNumber: currentLineNum++,
+            chartOfAccountId: salesDiscountAccountId,
+            clientId: clientId || undefined,
+            debitAmount: 0,
+            creditAmount: Number(totalGeneralDiscountToCredit.toFixed(2)),
+            description: `Sales Return - Reverse General Discount (Credit)`
+          });
+        }
+
+        // Adjust for floating point rounding discrepancies to ensure debits equal credits exactly
+        const totalDebits = lines.reduce((sum, l) => sum + l.debitAmount, 0);
+        const totalCredits = lines.reduce((sum, l) => sum + l.creditAmount, 0);
+        const discrepancy = Number((totalDebits - totalCredits).toFixed(2));
+        if (discrepancy !== 0) {
+          if (totalGeneralDiscountToCredit > 0) {
+            const idx = lines.findIndex(l => l.chartOfAccountId === salesDiscountAccountId && l.creditAmount > 0);
+            if (idx !== -1) {
+              lines[idx].creditAmount = Number((lines[idx].creditAmount + discrepancy).toFixed(2));
+            }
+          } else {
+            lines[1].creditAmount = Number((lines[1].creditAmount + discrepancy).toFixed(2));
+          }
+        }
+
         const voucherResult = await createVoucher({
           date: new Date(),
           type: "RETURN",
@@ -3077,24 +3183,7 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
           description: `Refund for sale return ${returnSale.saleNumber}`,
           clientId: clientId || undefined,
           isSystemAction: true,
-          lines: [
-            {
-              lineNumber: 1,
-              chartOfAccountId: debitAccountId,
-              clientId: clientId || undefined,
-              debitAmount: totalRefund,
-              creditAmount: 0,
-              description: `Sales Return (Debit Revenue)`
-            },
-            {
-              lineNumber: 2,
-              chartOfAccountId: creditAccountId,
-              clientId: clientId || undefined,
-              debitAmount: 0,
-              creditAmount: totalRefund,
-              description: `Refund for Sales Return (Credit Cash/AR)`
-            }
-          ]
+          lines
         }, tx);
 
         if (!voucherResult.success || !voucherResult.voucher) {
