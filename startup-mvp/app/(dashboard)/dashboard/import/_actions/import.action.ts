@@ -18,6 +18,45 @@ import { createClient } from "../../clients/_actions/client.action";
 import { createSupplier } from "../../suppliers/_actions/supplier.action";
 
 /**
+ * Safely parse date input from string, number, or Date instance.
+ * Returns null if the date is invalid or empty.
+ */
+function safeParseDate(val: any): Date | null {
+  if (val === undefined || val === null || val === "") return null;
+  if (val instanceof Date) {
+    return isNaN(val.getTime()) ? null : val;
+  }
+  if (typeof val === "number") {
+    // Excel serial number date format handling
+    if (val > 25000 && val < 60000) {
+      const parsed = new Date((val - 25569) * 86400 * 1000);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    }
+    const parsed = new Date(val);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const str = String(val).trim();
+  if (!str) return null;
+
+  // Try direct Date parsing
+  let parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) return parsed;
+
+  // Try DD/MM/YYYY or DD-MM-YYYY format
+  const dmyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+    parsed = new Date(year, month, day);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+
+  return null;
+}
+
+/**
  * Get available import modules
  */
 export async function getImportModulesAction(): Promise<{
@@ -213,6 +252,17 @@ export async function parseAndValidateCsvAction(
                 value: val,
               });
             }
+          } else if (field.type === "date") {
+            const parsedDate = safeParseDate(val);
+            if (!parsedDate) {
+              errors.push({
+                rowIndex: index + 1,
+                fieldKey: field.key,
+                fieldLabel: field.label,
+                message: `'${field.label}' must be a valid date (e.g., YYYY-MM-DD or DD/MM/YYYY)`,
+                value: val,
+              });
+            }
           } else if (field.type === "enum" && field.enumValues) {
             const lowerVal = String(val).toLowerCase();
             const isValidEnum = field.enumValues.some((ev) => ev.toLowerCase() === lowerVal);
@@ -339,7 +389,7 @@ export async function executeImportAction(
             membershipTier: row.membershipTier ? row.membershipTier.toUpperCase() : "NONE",
             membershipStatus: row.membershipStatus ? row.membershipStatus.toUpperCase() : "INACTIVE",
             membershipPoints: row.membershipPoints ? Number(row.membershipPoints) : 0,
-            membershipExpiry: row.membershipExpiry ? new Date(row.membershipExpiry) : undefined,
+            membershipExpiry: safeParseDate(row.membershipExpiry) || undefined,
           });
 
           if (res.success) {
@@ -681,8 +731,8 @@ export async function executeImportAction(
               photo: row.photo || null,
               type: row.type || null,
               employmentType: parsedEmpType,
-              dateOfBirth: row.dateOfBirth ? new Date(row.dateOfBirth) : null,
-              joiningDate: row.joiningDate ? new Date(row.joiningDate) : new Date(),
+              dateOfBirth: safeParseDate(row.dateOfBirth),
+              joiningDate: safeParseDate(row.joiningDate) || new Date(),
               salary: row.salary ? Number(row.salary) : 0,
               status: row.status === "inactive" ? "inactive" : "active",
             },
