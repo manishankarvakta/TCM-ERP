@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { revalidatePath } from "next/cache";
-import { type Prisma, AccountType } from "@prisma/client";
+import { type Prisma, AccountType, VoucherType } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
 import PageGuard from "@/components/permissions/page-guard";
 import { validateHRMAccountingSetup } from "@/lib/hr/payroll-settings-guard";
@@ -1985,5 +1985,312 @@ export async function getEmployeeStats() {
     };
   }
 }
+
+/**
+ * Get Employee Ledger with chronological transactions and running balance
+ */
+export async function getEmployeeLedger(
+  employeeId: string,
+  startDate?: string | Date,
+  endDate?: string | Date
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        employee: null,
+        ledger: [],
+        summary: { totalEarned: 0, totalPaid: 0, closingBalance: 0, totalTransactions: 0 },
+      };
+    }
+
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: {
+        id: true,
+        name: true,
+        employeeCode: true,
+        email: true,
+        phone: true,
+        department: true,
+        designation: true,
+        salary: true,
+        status: true,
+        joiningDate: true,
+        salaryPayableAccountId: true,
+        advanceAccountId: true,
+        userId: true,
+        salaryPayableAccount: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            type: true,
+          },
+        },
+        advanceAccount: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            type: true,
+          },
+        },
+        createdAt: true,
+      },
+    });
+
+    if (!employee) {
+      return {
+        success: false,
+        error: "Employee not found",
+        employee: null,
+        ledger: [],
+        summary: { totalEarned: 0, totalPaid: 0, closingBalance: 0, totalTransactions: 0 },
+      };
+    }
+
+    const salaryCoaId = employee.salaryPayableAccountId;
+    const advanceCoaId = employee.advanceAccountId;
+    const userId = employee.userId;
+
+    // Query JournalEntryLine records matching salary payable COA, advance COA, or userId
+    const journalLines = await prisma.journalEntryLine.findMany({
+      where: {
+        OR: [
+          ...(salaryCoaId ? [{ chartOfAccountId: salaryCoaId }] : []),
+          ...(advanceCoaId ? [{ chartOfAccountId: advanceCoaId }] : []),
+          ...(userId ? [{ userId: userId }] : []),
+        ],
+      },
+      include: {
+        JournalEntry: {
+          include: {
+            Voucher: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    // Query Payroll items for this employee
+    const payrollItems = await prisma.payrollItem.findMany({
+      where: {
+        employeeId: employeeId,
+      },
+      include: {
+        payroll: true,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    // Query Loans, Fines, and Bonuses for this employee
+    const [loans, fines, bonuses] = await Promise.all([
+      prisma.employeeLoan.findMany({
+        where: { employeeId: employeeId },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.employeeFine.findMany({
+        where: { employeeId: employeeId },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.employeeBonus.findMany({
+        where: { employeeId: employeeId },
+        orderBy: { createdAt: "asc" },
+      }),
+    ]);
+
+    const journalVoucherIds = new Set(
+      journalLines.map((jl) => jl.JournalEntry?.voucherId).filter(Boolean)
+    );
+
+    const rawTransactions: Array<{
+      id: string;
+      date: Date;
+      type: string;
+      typeLabel: string;
+      reference: string;
+      description: string;
+      status: string;
+      debit: number;
+      credit: number;
+    }> = [];
+
+    // Process Journal Entry Lines
+    for (const line of journalLines) {
+      const je = line.JournalEntry;
+      const voucher = je?.Voucher;
+
+      let type = "JOURNAL";
+      let typeLabel = "Journal Entry";
+
+      if (voucher) {
+        if (voucher.type === VoucherType.PAYMENT) {
+          type = "PAYMENT";
+          typeLabel = "Salary Payment";
+        } else if (voucher.type === VoucherType.RECEIPT) {
+          type = "RECEIPT";
+          typeLabel = "Advance Receipt";
+        }
+      }
+
+      const reference = voucher?.voucherNumber || je?.entryNumber || "JE";
+      const description =
+        line.description ||
+        voucher?.description ||
+        je?.description ||
+        `${typeLabel} #${reference}`;
+
+      const txnStatus = (je?.status || voucher?.status || "POSTED").toUpperCase();
+
+      rawTransactions.push({
+        id: line.id,
+        date: je?.date || line.createdAt,
+        type,
+        typeLabel,
+        reference,
+        description,
+        status: txnStatus,
+        debit: Number(line.debitAmount || 0),
+        credit: Number(line.creditAmount || 0),
+      });
+    }
+
+    // Add Payroll Items not represented in JournalEntryLine
+    for (const item of payrollItems) {
+      const pr = item.payroll;
+      if (!pr.paymentVchId || !journalVoucherIds.has(pr.paymentVchId)) {
+        rawTransactions.push({
+          id: `payroll-${item.id}`,
+          date: pr.dateGenerated || pr.createdAt,
+          type: "PAYROLL",
+          typeLabel: "Payroll",
+          reference: `PAY-${pr.month}-${pr.year}`,
+          description: `Payroll for ${pr.month}/${pr.year} - Net Pay: ৳${Number(item.netPay || 0)}`,
+          status: pr.status || "POSTED",
+          debit: 0,
+          credit: Number(item.netPay || 0),
+        });
+      }
+    }
+
+    // Add Loans
+    for (const loan of loans) {
+      if (!loan.voucherId || !journalVoucherIds.has(loan.voucherId)) {
+        rawTransactions.push({
+          id: `loan-${loan.id}`,
+          date: loan.issueDate || loan.createdAt,
+          type: "LOAN",
+          typeLabel: "Loan Advance",
+          reference: `LON-${loan.id.substring(0, 6)}`,
+          description: loan.purpose || `Loan Advance Disbursement`,
+          status: loan.status || "APPROVED",
+          debit: Number(loan.amount || 0),
+          credit: 0,
+        });
+      }
+    }
+
+    // Add Fines
+    for (const fine of fines) {
+      rawTransactions.push({
+        id: `fine-${fine.id}`,
+        date: fine.createdAt,
+        type: "FINE",
+        typeLabel: "Fine",
+        reference: `FIN-${fine.id.substring(0, 6)}`,
+        description: fine.reason || `Employee Fine Deduction`,
+        status: fine.status || "APPROVED",
+        debit: Number(fine.amount || 0),
+        credit: 0,
+      });
+    }
+
+    // Add Bonuses
+    for (const bonus of bonuses) {
+      rawTransactions.push({
+        id: `bonus-${bonus.id}`,
+        date: bonus.createdAt,
+        type: "BONUS",
+        typeLabel: "Bonus",
+        reference: `BON-${bonus.id.substring(0, 6)}`,
+        description: bonus.reason || `Employee Bonus Award`,
+        status: bonus.status || "APPROVED",
+        debit: 0,
+        credit: Number(bonus.amount || 0),
+      });
+    }
+
+    // Sort all raw transactions chronologically by date ascending
+    rawTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Date range filtering
+    let filteredTransactions = rawTransactions;
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+
+    if (start) {
+      start.setHours(0, 0, 0, 0);
+      filteredTransactions = filteredTransactions.filter(
+        (t) => new Date(t.date) >= start
+      );
+    }
+    if (end) {
+      end.setHours(23, 59, 59, 999);
+      filteredTransactions = filteredTransactions.filter(
+        (t) => new Date(t.date) <= end
+      );
+    }
+
+    // Compute running balance (Employee Salary / Advance Payable):
+    // Credit (Salary Accrual / Bonus) increases payable due to employee
+    // Debit (Payroll Payment / Loan / Fine) decreases payable due to employee
+    let runningBalance = 0;
+    let totalEarned = 0;
+    let totalPaid = 0;
+
+    const ledger = filteredTransactions.map((tx) => {
+      runningBalance += tx.credit - tx.debit;
+      totalEarned += tx.credit;
+      totalPaid += tx.debit;
+
+      return {
+        ...tx,
+        runningBalance,
+      };
+    });
+
+    return {
+      success: true,
+      employee: {
+        ...employee,
+        salary: Number(employee.salary || 0),
+      },
+      summary: {
+        totalEarned,
+        totalPaid,
+        closingBalance: runningBalance,
+        totalTransactions: ledger.length,
+      },
+      ledger,
+    };
+  } catch (error) {
+    console.error("getEmployeeLedger error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch employee ledger",
+      employee: null,
+      ledger: [],
+      summary: { totalEarned: 0, totalPaid: 0, closingBalance: 0, totalTransactions: 0 },
+    };
+  }
+}
+
 
 

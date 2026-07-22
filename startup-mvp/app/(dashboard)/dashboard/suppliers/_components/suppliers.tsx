@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw } from "react-icons/fi";
+import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw, FiBook } from "react-icons/fi";
 import { deleteSupplier, bulkUpdateSupplierStatus, deleteSuppliersPermanently } from "../_actions/supplier.action";
 import ProtectedAction from "@/components/permissions/protected-action";
 import {
@@ -422,6 +422,17 @@ export default function SuppliersListClient({
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              asChild
+                              className="h-8 w-8 p-0 text-primary hover:text-primary hover:bg-primary/10"
+                              title="Supplier Ledger"
+                            >
+                              <Link href={`/dashboard/suppliers/ledger?id=${supplier.id}`}>
+                                <FiBook className="h-4 w-4" />
+                              </Link>
+                            </Button>
                             <ProtectedAction
                               permissionKey="peoples.suppliers"
                               action="edit"

@@ -456,15 +456,14 @@ export default function ClientsListClient({
                         {!isTrash && (
                           <>
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
                               asChild
-                              className="h-8 border-primary/20 text-primary hover:bg-primary/10 gap-1 text-xs px-2"
+                              className="h-8 w-8 p-0 text-primary hover:text-primary hover:bg-primary/10"
                               title="Client Ledger"
                             >
                               <Link href={`/dashboard/clients/ledger?id=${client.id}`}>
-                                <FiBook className="h-3.5 w-3.5" />
-                                <span className="hidden md:inline font-medium">Ledger</span>
+                                <FiBook className="h-4 w-4" />
                               </Link>
                             </Button>
                             <ProtectedAction

@@ -38,10 +38,10 @@ interface LedgerItem {
   runningBalance: number;
 }
 
-interface ClientData {
+interface SupplierData {
   id: string;
   name: string | null;
-  clientCode: string | null;
+  supplierCode: string | null;
   email: string | null;
   phone: string | null;
   address: string | null;
@@ -52,9 +52,6 @@ interface ClientData {
   company: string | null;
   openingBalance: number;
   status: string;
-  clientType?: string | null;
-  membershipTier?: string | null;
-  membershipPoints?: number | null;
   ChartOfAccount?: {
     id: string;
     code: string;
@@ -65,27 +62,27 @@ interface ClientData {
 }
 
 interface LedgerSummary {
-  totalBilled: number;
+  totalPurchased: number;
   totalPaid: number;
   closingBalance: number;
   totalTransactions: number;
 }
 
-interface ClientLedgerProps {
-  client: ClientData;
+interface SupplierLedgerProps {
+  supplier: SupplierData;
   ledger: LedgerItem[];
   summary: LedgerSummary;
   initialStartDate?: string;
   initialEndDate?: string;
 }
 
-export default function ClientLedger({
-  client,
+export default function SupplierLedger({
+  supplier,
   ledger,
   summary,
   initialStartDate = "",
   initialEndDate = "",
-}: ClientLedgerProps) {
+}: SupplierLedgerProps) {
   const router = useRouter();
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
@@ -93,16 +90,16 @@ export default function ClientLedger({
 
   const handleFilter = () => {
     const params = new URLSearchParams();
-    params.set("id", client.id);
+    params.set("id", supplier.id);
     if (startDate) params.set("startDate", startDate);
     if (endDate) params.set("endDate", endDate);
-    router.push(`/dashboard/clients/ledger?${params.toString()}`);
+    router.push(`/dashboard/suppliers/ledger?${params.toString()}`);
   };
 
   const handleResetFilter = () => {
     setStartDate("");
     setEndDate("");
-    router.push(`/dashboard/clients/ledger?id=${client.id}`);
+    router.push(`/dashboard/suppliers/ledger?id=${supplier.id}`);
   };
 
   const handlePrint = () => {
@@ -122,14 +119,30 @@ export default function ClientLedger({
 
   const getTypeBadge = (type: string, typeLabel: string) => {
     switch (type) {
-      case "SALE":
-        return <Badge variant="outline" className="border-blue-500/30 text-blue-600 bg-blue-50/50 dark:bg-blue-950/30 font-medium">Sale</Badge>;
-      case "RECEIPT":
-        return <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 font-medium">Receipt</Badge>;
+      case "PURCHASE":
+        return (
+          <Badge variant="outline" className="border-blue-500/30 text-blue-600 bg-blue-50/50 dark:bg-blue-950/30 font-medium">
+            Purchase
+          </Badge>
+        );
       case "PAYMENT":
-        return <Badge variant="outline" className="border-amber-500/30 text-amber-600 bg-amber-50/50 dark:bg-amber-950/30 font-medium">Payment</Badge>;
+        return (
+          <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 font-medium">
+            Payment
+          </Badge>
+        );
+      case "RETURN":
+        return (
+          <Badge variant="outline" className="border-amber-500/30 text-amber-600 bg-amber-50/50 dark:bg-amber-950/30 font-medium">
+            Return
+          </Badge>
+        );
       case "OPENING_BALANCE":
-        return <Badge variant="outline" className="border-purple-500/30 text-purple-600 bg-purple-50/50 dark:bg-purple-950/30 font-medium">Opening Balance</Badge>;
+        return (
+          <Badge variant="outline" className="border-purple-500/30 text-purple-600 bg-purple-50/50 dark:bg-purple-950/30 font-medium">
+            Opening Balance
+          </Badge>
+        );
       default:
         return <Badge variant="secondary" className="font-medium">{typeLabel}</Badge>;
     }
@@ -141,15 +154,15 @@ export default function ClientLedger({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/dashboard/clients">
+            <Link href="/dashboard/suppliers">
               <FiArrowLeft className="mr-2 h-4 w-4" />
-              Clients
+              Suppliers
             </Link>
           </Button>
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/dashboard/clients/details?id=${client.id}`}>
+            <Link href={`/dashboard/suppliers/details?id=${supplier.id}`}>
               <FiFileText className="mr-2 h-4 w-4" />
-              Client Details
+              Supplier Details
             </Link>
           </Button>
         </div>
@@ -165,7 +178,7 @@ export default function ClientLedger({
       <div className="hidden print:block space-y-4 mb-6">
         <div className="flex justify-between items-start border-b pb-3">
           <div>
-            <h1 className="text-xl font-bold tracking-tight uppercase">Client Ledger Statement</h1>
+            <h1 className="text-xl font-bold tracking-tight uppercase">Supplier Ledger Statement</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
               Statement Date: {format(new Date(), "dd MMMM yyyy")}
               {startDate && endDate
@@ -174,11 +187,11 @@ export default function ClientLedger({
             </p>
           </div>
           <div className="text-right">
-            <div className="text-base font-bold">{client.name || "Client"}</div>
-            {client.clientCode && (
-              <div className="text-xs font-mono text-muted-foreground">Code: {client.clientCode}</div>
+            <div className="text-base font-bold">{supplier.name || "Supplier"}</div>
+            {supplier.supplierCode && (
+              <div className="text-xs font-mono text-muted-foreground">Code: {supplier.supplierCode}</div>
             )}
-            {client.phone && <div className="text-xs text-muted-foreground">{client.phone}</div>}
+            {supplier.phone && <div className="text-xs text-muted-foreground">{supplier.phone}</div>}
           </div>
         </div>
 
@@ -186,33 +199,33 @@ export default function ClientLedger({
         <div className="grid grid-cols-2 gap-4 text-xs border rounded-md p-3 bg-muted/20">
           <div className="space-y-1">
             <div className="font-semibold text-muted-foreground uppercase text-[10px] tracking-wider mb-1">
-              Client Details
+              Supplier Details
             </div>
             <div>
-              <span className="font-semibold">Name:</span> {client.name || "-"}
+              <span className="font-semibold">Name:</span> {supplier.name || "-"}
             </div>
             <div>
-              <span className="font-semibold">Code:</span> {client.clientCode || "-"}
+              <span className="font-semibold">Code:</span> {supplier.supplierCode || "-"}
             </div>
-            {client.company && (
+            {supplier.company && (
               <div>
-                <span className="font-semibold">Company:</span> {client.company}
+                <span className="font-semibold">Company:</span> {supplier.company}
               </div>
             )}
-            {client.phone && (
+            {supplier.phone && (
               <div>
-                <span className="font-semibold">Phone:</span> {client.phone}
+                <span className="font-semibold">Phone:</span> {supplier.phone}
               </div>
             )}
-            {client.email && (
+            {supplier.email && (
               <div>
-                <span className="font-semibold">Email:</span> {client.email}
+                <span className="font-semibold">Email:</span> {supplier.email}
               </div>
             )}
-            {(client.address || client.city) && (
+            {(supplier.address || supplier.city) && (
               <div>
                 <span className="font-semibold">Address:</span>{" "}
-                {[client.address, client.city, client.country].filter(Boolean).join(", ")}
+                {[supplier.address, supplier.city, supplier.country].filter(Boolean).join(", ")}
               </div>
             )}
           </div>
@@ -223,23 +236,23 @@ export default function ClientLedger({
             <div className="flex justify-between border-b border-dashed pb-0.5">
               <span className="text-muted-foreground">Opening Balance:</span>
               <span className="font-mono font-medium">
-                ৳{client.openingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ৳{supplier.openingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
             <div className="flex justify-between border-b border-dashed pb-0.5">
-              <span className="text-muted-foreground">Total Billed (Sales):</span>
+              <span className="text-muted-foreground">Total Purchased (Billed):</span>
               <span className="font-mono font-medium text-blue-700">
-                ৳{summary.totalBilled.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ৳{summary.totalPurchased.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
             <div className="flex justify-between border-b border-dashed pb-0.5">
-              <span className="text-muted-foreground">Total Paid (Received):</span>
+              <span className="text-muted-foreground">Total Paid (Settled):</span>
               <span className="font-mono font-medium text-emerald-700">
                 ৳{summary.totalPaid.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
             <div className="flex justify-between pt-1 font-bold">
-              <span className="uppercase text-[10px]">Net Outstanding Due:</span>
+              <span className="uppercase text-[10px]">Net Outstanding Payable:</span>
               <span
                 className={`font-mono text-sm ${
                   summary.closingBalance > 0
@@ -256,7 +269,7 @@ export default function ClientLedger({
         </div>
       </div>
 
-      {/* Client Overview Header Card (Screen view) */}
+      {/* Supplier Overview Header Card (Screen View) */}
       <Card className="border-2 shadow-sm bg-card print:hidden">
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -267,61 +280,71 @@ export default function ClientLedger({
                 </span>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h1 className="text-2xl font-bold tracking-tight">{client.name || "Client"}</h1>
-                    {client.clientCode && (
+                    <h1 className="text-2xl font-bold tracking-tight">{supplier.name || "Supplier"}</h1>
+                    {supplier.supplierCode && (
                       <Badge variant="secondary" className="font-mono text-xs">
-                        {client.clientCode}
+                        {supplier.supplierCode}
                       </Badge>
                     )}
-                    <Badge variant={client.status === "active" ? "default" : "destructive"}>
-                      {client.status}
+                    <Badge variant={supplier.status === "active" ? "default" : "destructive"}>
+                      {supplier.status}
                     </Badge>
                   </div>
-                  {client.company && (
-                    <p className="text-sm font-medium text-muted-foreground">{client.company}</p>
+                  {supplier.company && (
+                    <p className="text-sm font-medium text-muted-foreground">{supplier.company}</p>
                   )}
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground pt-1">
-                {client.phone && (
+                {supplier.phone && (
                   <span className="flex items-center gap-1.5">
                     <FiPhone className="h-4 w-4 text-primary/70" />
-                    {client.phone}
+                    {supplier.phone}
                   </span>
                 )}
-                {client.email && (
+                {supplier.email && (
                   <span className="flex items-center gap-1.5">
                     <FiMail className="h-4 w-4 text-primary/70" />
-                    {client.email}
+                    {supplier.email}
                   </span>
                 )}
-                {(client.address || client.city) && (
+                {(supplier.address || supplier.city) && (
                   <span className="flex items-center gap-1.5">
                     <FiMapPin className="h-4 w-4 text-primary/70" />
-                    {[client.address, client.city, client.state, client.country]
+                    {[supplier.address, supplier.city, supplier.state, supplier.country]
                       .filter(Boolean)
                       .join(", ")}
                   </span>
                 )}
-                {client.ChartOfAccount && (
+                {supplier.ChartOfAccount && (
                   <span className="flex items-center gap-1.5 text-xs font-mono bg-muted px-2 py-0.5 rounded">
-                    Account: {client.ChartOfAccount.code} ({client.ChartOfAccount.name})
+                    Account: {supplier.ChartOfAccount.code} ({supplier.ChartOfAccount.name})
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Total Outstanding Balance Badge */}
+            {/* Total Outstanding Payable Due Badge */}
             <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-xl p-4 min-w-[220px] text-right">
               <span className="text-xs uppercase font-semibold text-muted-foreground tracking-wider block">
-                Current Due Balance
+                Current Payable Due
               </span>
-              <span className={`text-2xl font-black ${summary.closingBalance > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+              <span
+                className={`text-2xl font-black ${
+                  summary.closingBalance > 0
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-emerald-600 dark:text-emerald-400"
+                }`}
+              >
                 ৳{summary.closingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <span className="text-xs text-muted-foreground block mt-0.5">
-                {summary.closingBalance > 0 ? "Receivable Amount Due" : summary.closingBalance < 0 ? "Advance Paid" : "Account Cleared"}
+                {summary.closingBalance > 0
+                  ? "Payable Amount Due"
+                  : summary.closingBalance < 0
+                  ? "Advance Paid to Vendor"
+                  : "Account Cleared"}
               </span>
             </div>
           </div>
@@ -333,22 +356,22 @@ export default function ClientLedger({
         <Card className="bg-gradient-to-br from-blue-50/50 to-indigo-50/30 dark:from-blue-950/20 dark:to-indigo-950/10 border-blue-200/50">
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-xs font-semibold uppercase text-muted-foreground tracking-wider flex items-center justify-between">
-              <span>Total Billed (Sales)</span>
+              <span>Total Purchased (Billed)</span>
               <FiTrendingUp className="h-4 w-4 text-blue-600" />
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="text-xl font-bold text-blue-700 dark:text-blue-400">
-              ৳{summary.totalBilled.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ৳{summary.totalPurchased.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Total invoiced sales to client</p>
+            <p className="text-xs text-muted-foreground mt-1">Total purchases invoiced from vendor</p>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-950/20 dark:to-teal-950/10 border-emerald-200/50">
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-xs font-semibold uppercase text-muted-foreground tracking-wider flex items-center justify-between">
-              <span>Total Received (Paid)</span>
+              <span>Total Paid (Settled)</span>
               <FiTrendingDown className="h-4 w-4 text-emerald-600" />
             </CardTitle>
           </CardHeader>
@@ -356,7 +379,7 @@ export default function ClientLedger({
             <div className="text-xl font-bold text-emerald-700 dark:text-emerald-400">
               ৳{summary.totalPaid.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Total payments collected</p>
+            <p className="text-xs text-muted-foreground mt-1">Total payments made to vendor</p>
           </CardContent>
         </Card>
 
@@ -369,9 +392,9 @@ export default function ClientLedger({
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="text-xl font-bold text-purple-700 dark:text-purple-400">
-              ৳{client.openingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ৳{supplier.openingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Initial starting balance</p>
+            <p className="text-xs text-muted-foreground mt-1">Initial starting payable balance</p>
           </CardContent>
         </Card>
 
@@ -386,7 +409,7 @@ export default function ClientLedger({
             <div className="text-xl font-bold text-amber-700 dark:text-amber-400">
               ৳{summary.closingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Net outstanding due balance</p>
+            <p className="text-xs text-muted-foreground mt-1">Net outstanding payable due</p>
           </CardContent>
         </Card>
       </div>
@@ -439,14 +462,14 @@ export default function ClientLedger({
         </CardContent>
       </Card>
 
-      {/* Detailed Client Activity Ledger Table */}
+      {/* Detailed Supplier Activity Ledger Table */}
       <Card className="shadow-sm">
         <CardHeader className="pb-3 border-b">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg font-bold">Client Transaction Activity Ledger</CardTitle>
+              <CardTitle className="text-lg font-bold">Supplier Transaction Activity Ledger</CardTitle>
               <CardDescription>
-                Chronological record of sales, payments, vouchers, and running balance
+                Chronological record of purchases, vendor payments, returns, and running balance
               </CardDescription>
             </div>
             <Badge variant="outline" className="font-mono">
@@ -465,10 +488,10 @@ export default function ClientLedger({
                   <TableHead className="w-[120px] font-semibold">Reference #</TableHead>
                   <TableHead className="w-[230px] max-w-[230px] font-semibold">Description / Notes</TableHead>
                   <TableHead className="text-right w-[110px] font-semibold text-blue-600 dark:text-blue-400">
-                    Billed (Debit)
+                    Purchased (Credit)
                   </TableHead>
                   <TableHead className="text-right w-[110px] font-semibold text-emerald-600 dark:text-emerald-400">
-                    Paid (Credit)
+                    Paid (Debit)
                   </TableHead>
                   <TableHead className="text-right w-[120px] font-semibold">
                     Running Balance
@@ -479,7 +502,7 @@ export default function ClientLedger({
                 {filteredLedger.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
-                      No activity or ledger transactions found for this client.
+                      No activity or ledger transactions found for this supplier.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -491,7 +514,7 @@ export default function ClientLedger({
                       <TableCell className="py-2">{getTypeBadge(item.type, item.typeLabel)}</TableCell>
                       <TableCell className="py-2 print:hidden">
                         <Badge variant="outline" className="text-[10px] font-mono uppercase bg-muted/30 px-1.5 py-0">
-                          {item.status || "COMPLETED"}
+                          {item.status || "POSTED"}
                         </Badge>
                       </TableCell>
                       <TableCell className="font-mono text-xs font-semibold py-2 whitespace-nowrap">
@@ -501,13 +524,13 @@ export default function ClientLedger({
                         {item.description}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs font-semibold text-blue-700 dark:text-blue-400 py-2">
-                        {item.debit > 0
-                          ? `৳${item.debit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        {item.credit > 0
+                          ? `৳${item.credit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                           : "-"}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-400 py-2">
-                        {item.credit > 0
-                          ? `৳${item.credit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        {item.debit > 0
+                          ? `৳${item.debit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                           : "-"}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs font-bold py-2">

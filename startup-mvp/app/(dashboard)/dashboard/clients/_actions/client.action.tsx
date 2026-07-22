@@ -1368,6 +1368,7 @@ export async function getClientLedger(
       typeLabel: string;
       reference: string;
       description: string;
+      status: string;
       debit: number;
       credit: number;
     }> = [];
@@ -1386,6 +1387,7 @@ export async function getClientLedger(
         typeLabel: "Opening Balance",
         reference: client.clientCode || "CLI-OP",
         description: "Initial Opening Balance",
+        status: "POSTED",
         debit: initialOpeningBal,
         credit: 0,
       });
@@ -1403,7 +1405,7 @@ export async function getClientLedger(
       if (voucher) {
         if (voucher.type === VoucherType.SALES || sale) {
           type = "SALE";
-          typeLabel = "Sale Invoice";
+          typeLabel = "Sale";
         } else if (voucher.type === VoucherType.RECEIPT) {
           type = "RECEIPT";
           typeLabel = "Payment Receipt";
@@ -1420,6 +1422,8 @@ export async function getClientLedger(
         je?.description ||
         `${typeLabel} #${reference}`;
 
+      const txnStatus = (je?.status || voucher?.status || "POSTED").toUpperCase();
+
       rawTransactions.push({
         id: line.id,
         date: je?.date || line.createdAt,
@@ -1427,6 +1431,7 @@ export async function getClientLedger(
         typeLabel,
         reference,
         description,
+        status: txnStatus,
         debit: Number(line.debitAmount || 0),
         credit: Number(line.creditAmount || 0),
       });
@@ -1439,9 +1444,10 @@ export async function getClientLedger(
           id: `sale-${sale.id}`,
           date: sale.date,
           type: "SALE",
-          typeLabel: `Sale (${sale.status})`,
+          typeLabel: "Sale",
           reference: sale.saleNumber,
           description: sale.notes || `Sale #${sale.saleNumber} (${sale.orderType})`,
+          status: sale.status,
           debit: Number(sale.grandTotal || 0),
           credit: 0,
         });

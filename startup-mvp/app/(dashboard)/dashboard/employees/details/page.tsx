@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { FiArrowLeft, FiEdit, FiUser, FiMapPin, FiPhone, FiBriefcase, FiDollarSign, FiCalendar, FiCreditCard, FiMail, FiPrinter } from "react-icons/fi";
+import { FiArrowLeft, FiEdit, FiUser, FiMapPin, FiPhone, FiBriefcase, FiDollarSign, FiCalendar, FiCreditCard, FiMail, FiPrinter, FiBook } from "react-icons/fi";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
 import { notFound } from "next/navigation";
@@ -84,6 +84,12 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
           </Link>
         </Button>
         <div className="flex gap-2">
+          <Button variant="outline" asChild className="bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary">
+            <Link href={`/dashboard/employees/ledger?id=${employee.id}`}>
+              <FiBook className="mr-2 h-4 w-4" />
+              Employee Ledger
+            </Link>
+          </Button>
           <PrintIdCardDialog
             employee={serializeDecimalAndDate(employee)}
             orgInfo={serializeDecimalAndDate(orgInfo)}

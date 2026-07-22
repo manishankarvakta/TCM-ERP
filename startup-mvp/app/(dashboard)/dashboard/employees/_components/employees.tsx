@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Link from "next/link";
-import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw, FiImage } from "react-icons/fi";
+import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw, FiImage, FiBook } from "react-icons/fi";
 import { deleteEmployee, bulkUpdateEmployeeStatus, deleteEmployeesPermanently } from "../_actions/employee.action";
 import ProtectedAction from "@/components/permissions/protected-action";
 import {
@@ -642,6 +642,17 @@ export default function EmployeesListClient({
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              asChild
+                              className="h-8 w-8 p-0 text-primary hover:text-primary hover:bg-primary/10"
+                              title="Employee Ledger"
+                            >
+                              <Link href={`/dashboard/employees/ledger?id=${employee.id}`}>
+                                <FiBook className="h-4 w-4" />
+                              </Link>
+                            </Button>
                             <ProtectedAction
                               permissionKey="peoples.employees"
                               action="edit"

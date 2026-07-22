@@ -3,7 +3,7 @@ import { getClients } from "./_actions/client.action";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
-import { FiPlus } from "react-icons/fi";
+import { FiPlus, FiBook } from "react-icons/fi";
 import ClientsListClient from "./_components/clients";
 import PageGuard from "@/components/permissions/page-guard";
 import { auth } from "@/lib/auth";
@@ -56,6 +56,8 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
       </div>
     );
   }
+
+  const firstClientId = result.clients && result.clients.length > 0 ? result.clients[0].id : null;
 
   return (
     <PageGuard permissionKey="peoples.clients">

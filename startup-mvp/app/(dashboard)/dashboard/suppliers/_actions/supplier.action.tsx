@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { revalidatePath } from "next/cache";
-import { type Prisma, AccountType } from "@prisma/client";
+import { type Prisma, AccountType, VoucherType } from "@prisma/client";
 import { createVoucher, postVoucher } from "../../accounts/vouchers/_actions/voucher.action";
 
 /**
@@ -1129,4 +1129,272 @@ export async function deleteSuppliersPermanently(supplierIds: string[]) {
     };
   }
 }
+
+/**
+ * Get Supplier Ledger with chronological transactions and running payable balance
+ */
+export async function getSupplierLedger(
+  supplierId: string,
+  startDate?: string | Date,
+  endDate?: string | Date
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        supplier: null,
+        ledger: [],
+        summary: { totalPurchased: 0, totalPaid: 0, closingBalance: 0, totalTransactions: 0 },
+      };
+    }
+
+    const supplier = await prisma.supplier.findUnique({
+      where: { id: supplierId },
+      select: {
+        id: true,
+        name: true,
+        supplierCode: true,
+        email: true,
+        phone: true,
+        address: true,
+        city: true,
+        state: true,
+        zip: true,
+        country: true,
+        company: true,
+        openingBalance: true,
+        status: true,
+        ChartOfAccount: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            type: true,
+          },
+        },
+        createdAt: true,
+      },
+    });
+
+    if (!supplier) {
+      return {
+        success: false,
+        error: "Supplier not found",
+        supplier: null,
+        ledger: [],
+        summary: { totalPurchased: 0, totalPaid: 0, closingBalance: 0, totalTransactions: 0 },
+      };
+    }
+
+    const coaId = supplier.ChartOfAccount?.id;
+
+    // Fetch all journal entry lines for this supplier sub-ledger account or supplierId
+    const journalLines = await prisma.journalEntryLine.findMany({
+      where: {
+        OR: [
+          ...(coaId ? [{ chartOfAccountId: coaId }] : []),
+          { supplierId: supplierId },
+        ],
+      },
+      include: {
+        JournalEntry: {
+          include: {
+            Voucher: {
+              include: {
+                purchases: {
+                  select: { id: true, purchaseNumber: true },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    // Also fetch purchases directly to ensure unposted or direct purchases are included
+    const purchases = await prisma.purchase.findMany({
+      where: {
+        supplierId: supplierId,
+        isTrash: false,
+      },
+      select: {
+        id: true,
+        purchaseNumber: true,
+        date: true,
+        grandTotal: true,
+        status: true,
+        notes: true,
+        voucherId: true,
+      },
+      orderBy: {
+        date: "asc",
+      },
+    });
+
+    const journalVoucherIds = new Set(
+      journalLines.map((jl) => jl.JournalEntry?.voucherId).filter(Boolean)
+    );
+
+    const rawTransactions: Array<{
+      id: string;
+      date: Date;
+      type: string;
+      typeLabel: string;
+      reference: string;
+      description: string;
+      status: string;
+      debit: number;
+      credit: number;
+    }> = [];
+
+    // Opening balance entry if supplier has openingBalance > 0 and no explicit journal entry for it
+    const initialOpeningBal = Number(supplier.openingBalance || 0);
+    const hasOpeningJournal = journalLines.some((jl) =>
+      jl.description?.toLowerCase().includes("opening balance")
+    );
+
+    if (initialOpeningBal > 0 && !hasOpeningJournal) {
+      rawTransactions.push({
+        id: `op-bal-${supplier.id}`,
+        date: supplier.createdAt,
+        type: "OPENING_BALANCE",
+        typeLabel: "Opening Balance",
+        reference: supplier.supplierCode || "SUP-OP",
+        description: "Initial Opening Balance",
+        status: "POSTED",
+        debit: 0,
+        credit: initialOpeningBal,
+      });
+    }
+
+    // Process Journal Entry Lines
+    for (const line of journalLines) {
+      const je = line.JournalEntry;
+      const voucher = je?.Voucher;
+      const purchase = voucher?.purchases?.[0];
+
+      let type = "JOURNAL";
+      let typeLabel = "Journal Entry";
+
+      if (voucher) {
+        if (voucher.type === VoucherType.PURCHASE || purchase) {
+          type = "PURCHASE";
+          typeLabel = "Purchase";
+        } else if (voucher.type === VoucherType.PAYMENT) {
+          type = "PAYMENT";
+          typeLabel = "Payment";
+        } else if (voucher.type === VoucherType.RECEIPT || voucher.type === VoucherType.RETURN) {
+          type = "RETURN";
+          typeLabel = "Return / Receipt";
+        }
+      }
+
+      const reference = purchase?.purchaseNumber || voucher?.voucherNumber || je?.entryNumber || "JE";
+      const description =
+        line.description ||
+        voucher?.description ||
+        je?.description ||
+        `${typeLabel} #${reference}`;
+
+      const txnStatus = (je?.status || voucher?.status || "POSTED").toUpperCase();
+
+      rawTransactions.push({
+        id: line.id,
+        date: je?.date || line.createdAt,
+        type,
+        typeLabel,
+        reference,
+        description,
+        status: txnStatus,
+        debit: Number(line.debitAmount || 0),
+        credit: Number(line.creditAmount || 0),
+      });
+    }
+
+    // Add purchases that are not linked to a posted voucher/journal line yet
+    for (const purchase of purchases) {
+      if (!purchase.voucherId || !journalVoucherIds.has(purchase.voucherId)) {
+        rawTransactions.push({
+          id: `purchase-${purchase.id}`,
+          date: purchase.date,
+          type: "PURCHASE",
+          typeLabel: "Purchase",
+          reference: purchase.purchaseNumber,
+          description: purchase.notes || `Purchase #${purchase.purchaseNumber}`,
+          status: purchase.status,
+          debit: 0,
+          credit: Number(purchase.grandTotal || 0),
+        });
+      }
+    }
+
+    // Sort all raw transactions chronologically by date ascending
+    rawTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Date range filtering
+    let filteredTransactions = rawTransactions;
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+
+    if (start) {
+      start.setHours(0, 0, 0, 0);
+      filteredTransactions = filteredTransactions.filter(
+        (t) => new Date(t.date) >= start
+      );
+    }
+    if (end) {
+      end.setHours(23, 59, 59, 999);
+      filteredTransactions = filteredTransactions.filter(
+        (t) => new Date(t.date) <= end
+      );
+    }
+
+    // Compute running balance (Accounts Payable / Liability):
+    // Credit (Purchase) increases payable, Debit (Payment) decreases payable
+    let runningBalance = 0;
+    let totalPurchased = 0;
+    let totalPaid = 0;
+
+    const ledger = filteredTransactions.map((tx) => {
+      runningBalance += tx.credit - tx.debit;
+      totalPurchased += tx.credit;
+      totalPaid += tx.debit;
+
+      return {
+        ...tx,
+        runningBalance,
+      };
+    });
+
+    return {
+      success: true,
+      supplier: {
+        ...supplier,
+        openingBalance: Number(supplier.openingBalance || 0),
+      },
+      summary: {
+        totalPurchased,
+        totalPaid,
+        closingBalance: runningBalance,
+        totalTransactions: ledger.length,
+      },
+      ledger,
+    };
+  } catch (error) {
+    console.error("getSupplierLedger error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch supplier ledger",
+      supplier: null,
+      ledger: [],
+      summary: { totalPurchased: 0, totalPaid: 0, closingBalance: 0, totalTransactions: 0 },
+    };
+  }
+}
+
 

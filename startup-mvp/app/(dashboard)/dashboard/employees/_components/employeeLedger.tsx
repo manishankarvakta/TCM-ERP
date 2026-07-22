@@ -19,7 +19,7 @@ import {
   FiUser,
   FiPhone,
   FiMail,
-  FiMapPin,
+  FiBriefcase,
   FiTrendingUp,
   FiTrendingDown,
 } from "react-icons/fi";
@@ -38,24 +38,24 @@ interface LedgerItem {
   runningBalance: number;
 }
 
-interface ClientData {
+interface EmployeeData {
   id: string;
-  name: string | null;
-  clientCode: string | null;
+  name: string;
+  employeeCode: string | null;
   email: string | null;
   phone: string | null;
-  address: string | null;
-  city: string | null;
-  state: string | null;
-  zip: string | null;
-  country: string | null;
-  company: string | null;
-  openingBalance: number;
+  department: string | null;
+  designation: string | null;
+  salary: number;
   status: string;
-  clientType?: string | null;
-  membershipTier?: string | null;
-  membershipPoints?: number | null;
-  ChartOfAccount?: {
+  joiningDate: Date | string | null;
+  salaryPayableAccount?: {
+    id: string;
+    code: string;
+    name: string;
+    type: string;
+  } | null;
+  advanceAccount?: {
     id: string;
     code: string;
     name: string;
@@ -65,27 +65,27 @@ interface ClientData {
 }
 
 interface LedgerSummary {
-  totalBilled: number;
+  totalEarned: number;
   totalPaid: number;
   closingBalance: number;
   totalTransactions: number;
 }
 
-interface ClientLedgerProps {
-  client: ClientData;
+interface EmployeeLedgerProps {
+  employee: EmployeeData;
   ledger: LedgerItem[];
   summary: LedgerSummary;
   initialStartDate?: string;
   initialEndDate?: string;
 }
 
-export default function ClientLedger({
-  client,
+export default function EmployeeLedger({
+  employee,
   ledger,
   summary,
   initialStartDate = "",
   initialEndDate = "",
-}: ClientLedgerProps) {
+}: EmployeeLedgerProps) {
   const router = useRouter();
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
@@ -93,16 +93,16 @@ export default function ClientLedger({
 
   const handleFilter = () => {
     const params = new URLSearchParams();
-    params.set("id", client.id);
+    params.set("id", employee.id);
     if (startDate) params.set("startDate", startDate);
     if (endDate) params.set("endDate", endDate);
-    router.push(`/dashboard/clients/ledger?${params.toString()}`);
+    router.push(`/dashboard/employees/ledger?${params.toString()}`);
   };
 
   const handleResetFilter = () => {
     setStartDate("");
     setEndDate("");
-    router.push(`/dashboard/clients/ledger?id=${client.id}`);
+    router.push(`/dashboard/employees/ledger?id=${employee.id}`);
   };
 
   const handlePrint = () => {
@@ -122,14 +122,36 @@ export default function ClientLedger({
 
   const getTypeBadge = (type: string, typeLabel: string) => {
     switch (type) {
-      case "SALE":
-        return <Badge variant="outline" className="border-blue-500/30 text-blue-600 bg-blue-50/50 dark:bg-blue-950/30 font-medium">Sale</Badge>;
-      case "RECEIPT":
-        return <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 font-medium">Receipt</Badge>;
+      case "PAYROLL":
+        return (
+          <Badge variant="outline" className="border-blue-500/30 text-blue-600 bg-blue-50/50 dark:bg-blue-950/30 font-medium">
+            Payroll
+          </Badge>
+        );
       case "PAYMENT":
-        return <Badge variant="outline" className="border-amber-500/30 text-amber-600 bg-amber-50/50 dark:bg-amber-950/30 font-medium">Payment</Badge>;
-      case "OPENING_BALANCE":
-        return <Badge variant="outline" className="border-purple-500/30 text-purple-600 bg-purple-50/50 dark:bg-purple-950/30 font-medium">Opening Balance</Badge>;
+        return (
+          <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 font-medium">
+            Payment
+          </Badge>
+        );
+      case "LOAN":
+        return (
+          <Badge variant="outline" className="border-amber-500/30 text-amber-600 bg-amber-50/50 dark:bg-amber-950/30 font-medium">
+            Loan Advance
+          </Badge>
+        );
+      case "FINE":
+        return (
+          <Badge variant="outline" className="border-rose-500/30 text-rose-600 bg-rose-50/50 dark:bg-rose-950/30 font-medium">
+            Fine
+          </Badge>
+        );
+      case "BONUS":
+        return (
+          <Badge variant="outline" className="border-purple-500/30 text-purple-600 bg-purple-50/50 dark:bg-purple-950/30 font-medium">
+            Bonus
+          </Badge>
+        );
       default:
         return <Badge variant="secondary" className="font-medium">{typeLabel}</Badge>;
     }
@@ -141,15 +163,15 @@ export default function ClientLedger({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/dashboard/clients">
+            <Link href="/dashboard/employees">
               <FiArrowLeft className="mr-2 h-4 w-4" />
-              Clients
+              Employees
             </Link>
           </Button>
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/dashboard/clients/details?id=${client.id}`}>
+            <Link href={`/dashboard/employees/details?id=${employee.id}`}>
               <FiFileText className="mr-2 h-4 w-4" />
-              Client Details
+              Employee Details
             </Link>
           </Button>
         </div>
@@ -165,7 +187,7 @@ export default function ClientLedger({
       <div className="hidden print:block space-y-4 mb-6">
         <div className="flex justify-between items-start border-b pb-3">
           <div>
-            <h1 className="text-xl font-bold tracking-tight uppercase">Client Ledger Statement</h1>
+            <h1 className="text-xl font-bold tracking-tight uppercase">Employee Ledger Statement</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
               Statement Date: {format(new Date(), "dd MMMM yyyy")}
               {startDate && endDate
@@ -174,11 +196,11 @@ export default function ClientLedger({
             </p>
           </div>
           <div className="text-right">
-            <div className="text-base font-bold">{client.name || "Client"}</div>
-            {client.clientCode && (
-              <div className="text-xs font-mono text-muted-foreground">Code: {client.clientCode}</div>
+            <div className="text-base font-bold">{employee.name}</div>
+            {employee.employeeCode && (
+              <div className="text-xs font-mono text-muted-foreground">ID: {employee.employeeCode}</div>
             )}
-            {client.phone && <div className="text-xs text-muted-foreground">{client.phone}</div>}
+            {employee.phone && <div className="text-xs text-muted-foreground">{employee.phone}</div>}
           </div>
         </div>
 
@@ -186,33 +208,32 @@ export default function ClientLedger({
         <div className="grid grid-cols-2 gap-4 text-xs border rounded-md p-3 bg-muted/20">
           <div className="space-y-1">
             <div className="font-semibold text-muted-foreground uppercase text-[10px] tracking-wider mb-1">
-              Client Details
+              Employee Details
             </div>
             <div>
-              <span className="font-semibold">Name:</span> {client.name || "-"}
+              <span className="font-semibold">Name:</span> {employee.name}
             </div>
             <div>
-              <span className="font-semibold">Code:</span> {client.clientCode || "-"}
+              <span className="font-semibold">ID:</span> {employee.employeeCode || "-"}
             </div>
-            {client.company && (
+            {employee.designation && (
               <div>
-                <span className="font-semibold">Company:</span> {client.company}
+                <span className="font-semibold">Designation:</span> {employee.designation}
               </div>
             )}
-            {client.phone && (
+            {employee.department && (
               <div>
-                <span className="font-semibold">Phone:</span> {client.phone}
+                <span className="font-semibold">Department:</span> {employee.department}
               </div>
             )}
-            {client.email && (
+            {employee.phone && (
               <div>
-                <span className="font-semibold">Email:</span> {client.email}
+                <span className="font-semibold">Phone:</span> {employee.phone}
               </div>
             )}
-            {(client.address || client.city) && (
+            {employee.email && (
               <div>
-                <span className="font-semibold">Address:</span>{" "}
-                {[client.address, client.city, client.country].filter(Boolean).join(", ")}
+                <span className="font-semibold">Email:</span> {employee.email}
               </div>
             )}
           </div>
@@ -221,25 +242,25 @@ export default function ClientLedger({
               Account Overview Summary
             </div>
             <div className="flex justify-between border-b border-dashed pb-0.5">
-              <span className="text-muted-foreground">Opening Balance:</span>
+              <span className="text-muted-foreground">Base Salary:</span>
               <span className="font-mono font-medium">
-                ৳{client.openingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ৳{employee.salary.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
             <div className="flex justify-between border-b border-dashed pb-0.5">
-              <span className="text-muted-foreground">Total Billed (Sales):</span>
+              <span className="text-muted-foreground">Total Earned / Accrued:</span>
               <span className="font-mono font-medium text-blue-700">
-                ৳{summary.totalBilled.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ৳{summary.totalEarned.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
             <div className="flex justify-between border-b border-dashed pb-0.5">
-              <span className="text-muted-foreground">Total Paid (Received):</span>
+              <span className="text-muted-foreground">Total Paid / Disbursed:</span>
               <span className="font-mono font-medium text-emerald-700">
                 ৳{summary.totalPaid.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
             <div className="flex justify-between pt-1 font-bold">
-              <span className="uppercase text-[10px]">Net Outstanding Due:</span>
+              <span className="uppercase text-[10px]">Net Outstanding Balance:</span>
               <span
                 className={`font-mono text-sm ${
                   summary.closingBalance > 0
@@ -256,7 +277,7 @@ export default function ClientLedger({
         </div>
       </div>
 
-      {/* Client Overview Header Card (Screen view) */}
+      {/* Employee Overview Header Card (Screen View) */}
       <Card className="border-2 shadow-sm bg-card print:hidden">
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -267,61 +288,71 @@ export default function ClientLedger({
                 </span>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h1 className="text-2xl font-bold tracking-tight">{client.name || "Client"}</h1>
-                    {client.clientCode && (
+                    <h1 className="text-2xl font-bold tracking-tight">{employee.name}</h1>
+                    {employee.employeeCode && (
                       <Badge variant="secondary" className="font-mono text-xs">
-                        {client.clientCode}
+                        {employee.employeeCode}
                       </Badge>
                     )}
-                    <Badge variant={client.status === "active" ? "default" : "destructive"}>
-                      {client.status}
+                    <Badge variant={employee.status === "active" ? "default" : "destructive"}>
+                      {employee.status}
                     </Badge>
                   </div>
-                  {client.company && (
-                    <p className="text-sm font-medium text-muted-foreground">{client.company}</p>
+                  {(employee.designation || employee.department) && (
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {[employee.designation, employee.department].filter(Boolean).join(" • ")}
+                    </p>
                   )}
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground pt-1">
-                {client.phone && (
+                {employee.phone && (
                   <span className="flex items-center gap-1.5">
                     <FiPhone className="h-4 w-4 text-primary/70" />
-                    {client.phone}
+                    {employee.phone}
                   </span>
                 )}
-                {client.email && (
+                {employee.email && (
                   <span className="flex items-center gap-1.5">
                     <FiMail className="h-4 w-4 text-primary/70" />
-                    {client.email}
+                    {employee.email}
                   </span>
                 )}
-                {(client.address || client.city) && (
+                {employee.salary > 0 && (
                   <span className="flex items-center gap-1.5">
-                    <FiMapPin className="h-4 w-4 text-primary/70" />
-                    {[client.address, client.city, client.state, client.country]
-                      .filter(Boolean)
-                      .join(", ")}
+                    <FiBriefcase className="h-4 w-4 text-primary/70" />
+                    Base Salary: ৳{employee.salary.toLocaleString("en-US")}
                   </span>
                 )}
-                {client.ChartOfAccount && (
+                {employee.salaryPayableAccount && (
                   <span className="flex items-center gap-1.5 text-xs font-mono bg-muted px-2 py-0.5 rounded">
-                    Account: {client.ChartOfAccount.code} ({client.ChartOfAccount.name})
+                    Payable AC: {employee.salaryPayableAccount.code}
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Total Outstanding Balance Badge */}
+            {/* Total Outstanding Payable Due Badge */}
             <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-xl p-4 min-w-[220px] text-right">
               <span className="text-xs uppercase font-semibold text-muted-foreground tracking-wider block">
-                Current Due Balance
+                Current Payable Due
               </span>
-              <span className={`text-2xl font-black ${summary.closingBalance > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+              <span
+                className={`text-2xl font-black ${
+                  summary.closingBalance > 0
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-emerald-600 dark:text-emerald-400"
+                }`}
+              >
                 ৳{summary.closingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <span className="text-xs text-muted-foreground block mt-0.5">
-                {summary.closingBalance > 0 ? "Receivable Amount Due" : summary.closingBalance < 0 ? "Advance Paid" : "Account Cleared"}
+                {summary.closingBalance > 0
+                  ? "Net Salary Owed to Employee"
+                  : summary.closingBalance < 0
+                  ? "Advance Owed by Employee"
+                  : "Account Cleared"}
               </span>
             </div>
           </div>
@@ -333,22 +364,22 @@ export default function ClientLedger({
         <Card className="bg-gradient-to-br from-blue-50/50 to-indigo-50/30 dark:from-blue-950/20 dark:to-indigo-950/10 border-blue-200/50">
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-xs font-semibold uppercase text-muted-foreground tracking-wider flex items-center justify-between">
-              <span>Total Billed (Sales)</span>
+              <span>Total Salary / Earned</span>
               <FiTrendingUp className="h-4 w-4 text-blue-600" />
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="text-xl font-bold text-blue-700 dark:text-blue-400">
-              ৳{summary.totalBilled.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ৳{summary.totalEarned.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Total invoiced sales to client</p>
+            <p className="text-xs text-muted-foreground mt-1">Total payroll & bonuses accrued</p>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-950/20 dark:to-teal-950/10 border-emerald-200/50">
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-xs font-semibold uppercase text-muted-foreground tracking-wider flex items-center justify-between">
-              <span>Total Received (Paid)</span>
+              <span>Total Paid / Disbursed</span>
               <FiTrendingDown className="h-4 w-4 text-emerald-600" />
             </CardTitle>
           </CardHeader>
@@ -356,22 +387,22 @@ export default function ClientLedger({
             <div className="text-xl font-bold text-emerald-700 dark:text-emerald-400">
               ৳{summary.totalPaid.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Total payments collected</p>
+            <p className="text-xs text-muted-foreground mt-1">Total disbursements & loan advances</p>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-purple-50/50 to-violet-50/30 dark:from-purple-950/20 dark:to-violet-950/10 border-purple-200/50">
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-xs font-semibold uppercase text-muted-foreground tracking-wider flex items-center justify-between">
-              <span>Opening Balance</span>
+              <span>Base Monthly Salary</span>
               <FiDollarSign className="h-4 w-4 text-purple-600" />
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="text-xl font-bold text-purple-700 dark:text-purple-400">
-              ৳{client.openingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ৳{employee.salary.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Initial starting balance</p>
+            <p className="text-xs text-muted-foreground mt-1">Base monthly salary structure</p>
           </CardContent>
         </Card>
 
@@ -386,7 +417,7 @@ export default function ClientLedger({
             <div className="text-xl font-bold text-amber-700 dark:text-amber-400">
               ৳{summary.closingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Net outstanding due balance</p>
+            <p className="text-xs text-muted-foreground mt-1">Net outstanding balance</p>
           </CardContent>
         </Card>
       </div>
@@ -439,14 +470,14 @@ export default function ClientLedger({
         </CardContent>
       </Card>
 
-      {/* Detailed Client Activity Ledger Table */}
+      {/* Detailed Employee Activity Ledger Table */}
       <Card className="shadow-sm">
         <CardHeader className="pb-3 border-b">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg font-bold">Client Transaction Activity Ledger</CardTitle>
+              <CardTitle className="text-lg font-bold">Employee Transaction Activity Ledger</CardTitle>
               <CardDescription>
-                Chronological record of sales, payments, vouchers, and running balance
+                Chronological record of payroll, payments, loans, fines, bonuses, and running balance
               </CardDescription>
             </div>
             <Badge variant="outline" className="font-mono">
@@ -465,10 +496,10 @@ export default function ClientLedger({
                   <TableHead className="w-[120px] font-semibold">Reference #</TableHead>
                   <TableHead className="w-[230px] max-w-[230px] font-semibold">Description / Notes</TableHead>
                   <TableHead className="text-right w-[110px] font-semibold text-blue-600 dark:text-blue-400">
-                    Billed (Debit)
+                    Earned (Credit)
                   </TableHead>
                   <TableHead className="text-right w-[110px] font-semibold text-emerald-600 dark:text-emerald-400">
-                    Paid (Credit)
+                    Paid/Deducted (Debit)
                   </TableHead>
                   <TableHead className="text-right w-[120px] font-semibold">
                     Running Balance
@@ -479,7 +510,7 @@ export default function ClientLedger({
                 {filteredLedger.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
-                      No activity or ledger transactions found for this client.
+                      No activity or ledger transactions found for this employee.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -491,7 +522,7 @@ export default function ClientLedger({
                       <TableCell className="py-2">{getTypeBadge(item.type, item.typeLabel)}</TableCell>
                       <TableCell className="py-2 print:hidden">
                         <Badge variant="outline" className="text-[10px] font-mono uppercase bg-muted/30 px-1.5 py-0">
-                          {item.status || "COMPLETED"}
+                          {item.status || "POSTED"}
                         </Badge>
                       </TableCell>
                       <TableCell className="font-mono text-xs font-semibold py-2 whitespace-nowrap">
@@ -501,13 +532,13 @@ export default function ClientLedger({
                         {item.description}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs font-semibold text-blue-700 dark:text-blue-400 py-2">
-                        {item.debit > 0
-                          ? `৳${item.debit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        {item.credit > 0
+                          ? `৳${item.credit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                           : "-"}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-400 py-2">
-                        {item.credit > 0
-                          ? `৳${item.credit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        {item.debit > 0
+                          ? `৳${item.debit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                           : "-"}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs font-bold py-2">
