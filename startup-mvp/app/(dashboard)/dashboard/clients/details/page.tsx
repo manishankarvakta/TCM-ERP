@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { FiArrowLeft, FiEdit, FiImage } from "react-icons/fi";
+import { FiArrowLeft, FiEdit, FiImage, FiBook } from "react-icons/fi";
 import { format } from "date-fns";
 import { notFound } from "next/navigation";
 
@@ -33,19 +33,27 @@ export default async function ClientDetailsPage({ searchParams }: ClientDetailsP
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Button variant="ghost" asChild>
           <Link href="/dashboard/clients">
             <FiArrowLeft className="mr-2 h-4 w-4" />
             Back to Clients
           </Link>
         </Button>
-        <Button asChild>
-          <Link href={`/dashboard/clients/${client.id}`}>
-            <FiEdit className="mr-2 h-4 w-4" />
-            Edit Client
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" asChild className="bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary">
+            <Link href={`/dashboard/clients/ledger?id=${client.id}`}>
+              <FiBook className="mr-2 h-4 w-4" />
+              Client Ledger
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href={`/dashboard/clients/${client.id}`}>
+              <FiEdit className="mr-2 h-4 w-4" />
+              Edit Client
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <Card>

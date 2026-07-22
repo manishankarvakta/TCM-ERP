@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw } from "react-icons/fi";
+import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw, FiBook } from "react-icons/fi";
 import { deleteClient, bulkUpdateClientStatus, deleteClientsPermanently } from "../_actions/client.action";
 import ProtectedAction from "@/components/permissions/protected-action";
 import {
@@ -455,6 +455,18 @@ export default function ClientsListClient({
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              asChild
+                              className="h-8 border-primary/20 text-primary hover:bg-primary/10 gap-1 text-xs px-2"
+                              title="Client Ledger"
+                            >
+                              <Link href={`/dashboard/clients/ledger?id=${client.id}`}>
+                                <FiBook className="h-3.5 w-3.5" />
+                                <span className="hidden md:inline font-medium">Ledger</span>
+                              </Link>
+                            </Button>
                             <ProtectedAction
                               permissionKey="peoples.clients"
                               action="edit"

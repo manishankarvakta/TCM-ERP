@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { logItemCreated, logItemUpdated, logItemDeleted } from "@/lib/user-log";
 import { revalidateBothPaths } from "@/lib/route-utils-server";
 import { revalidatePath } from "next/cache";
-import { type Prisma, AccountType } from "@prisma/client";
+import { type Prisma, AccountType, VoucherType } from "@prisma/client";
 import { randomBytes } from "crypto";
 import { createVoucher, postVoucher } from "../../accounts/vouchers/_actions/voucher.action";
 
@@ -1246,4 +1246,269 @@ export async function deleteClientsPermanently(clientIds: string[]) {
     };
   }
 }
+
+/**
+ * Get Client Ledger with chronological transactions and running balance
+ */
+export async function getClientLedger(
+  clientId: string,
+  startDate?: string | Date,
+  endDate?: string | Date
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        client: null,
+        ledger: [],
+        summary: { totalBilled: 0, totalPaid: 0, closingBalance: 0, totalTransactions: 0 },
+      };
+    }
+
+    const client = await prisma.client.findUnique({
+      where: { id: clientId },
+      select: {
+        id: true,
+        name: true,
+        clientCode: true,
+        email: true,
+        phone: true,
+        address: true,
+        city: true,
+        state: true,
+        zip: true,
+        country: true,
+        company: true,
+        openingBalance: true,
+        status: true,
+        clientType: true,
+        membershipTier: true,
+        membershipPoints: true,
+        ChartOfAccount: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            type: true,
+          },
+        },
+        createdAt: true,
+      },
+    });
+
+    if (!client) {
+      return {
+        success: false,
+        error: "Client not found",
+        client: null,
+        ledger: [],
+        summary: { totalBilled: 0, totalPaid: 0, closingBalance: 0, totalTransactions: 0 },
+      };
+    }
+
+    const coaId = client.ChartOfAccount?.id;
+
+    // Fetch all journal entry lines for this client sub-ledger account or clientId
+    const journalLines = await prisma.journalEntryLine.findMany({
+      where: {
+        OR: [
+          ...(coaId ? [{ chartOfAccountId: coaId }] : []),
+          { clientId: clientId },
+        ],
+      },
+      include: {
+        JournalEntry: {
+          include: {
+            Voucher: {
+              include: {
+                sales: {
+                  select: { id: true, saleNumber: true },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    // Also fetch sales directly to ensure unposted or direct sales are included
+    const sales = await prisma.sale.findMany({
+      where: {
+        clientId: clientId,
+        isTrash: false,
+      },
+      select: {
+        id: true,
+        saleNumber: true,
+        date: true,
+        grandTotal: true,
+        status: true,
+        orderType: true,
+        notes: true,
+        voucherId: true,
+      },
+      orderBy: {
+        date: "asc",
+      },
+    });
+
+    const journalVoucherIds = new Set(
+      journalLines.map((jl) => jl.JournalEntry?.voucherId).filter(Boolean)
+    );
+
+    const rawTransactions: Array<{
+      id: string;
+      date: Date;
+      type: string;
+      typeLabel: string;
+      reference: string;
+      description: string;
+      debit: number;
+      credit: number;
+    }> = [];
+
+    // Opening balance entry if client has openingBalance > 0 and no explicit journal entry for it
+    const initialOpeningBal = Number(client.openingBalance || 0);
+    const hasOpeningJournal = journalLines.some((jl) =>
+      jl.description?.toLowerCase().includes("opening balance")
+    );
+
+    if (initialOpeningBal > 0 && !hasOpeningJournal) {
+      rawTransactions.push({
+        id: `op-bal-${client.id}`,
+        date: client.createdAt,
+        type: "OPENING_BALANCE",
+        typeLabel: "Opening Balance",
+        reference: client.clientCode || "CLI-OP",
+        description: "Initial Opening Balance",
+        debit: initialOpeningBal,
+        credit: 0,
+      });
+    }
+
+    // Process Journal Entry Lines
+    for (const line of journalLines) {
+      const je = line.JournalEntry;
+      const voucher = je?.Voucher;
+      const sale = voucher?.sales?.[0];
+
+      let type = "JOURNAL";
+      let typeLabel = "Journal Entry";
+
+      if (voucher) {
+        if (voucher.type === VoucherType.SALES || sale) {
+          type = "SALE";
+          typeLabel = "Sale Invoice";
+        } else if (voucher.type === VoucherType.RECEIPT) {
+          type = "RECEIPT";
+          typeLabel = "Payment Receipt";
+        } else if (voucher.type === VoucherType.PAYMENT) {
+          type = "PAYMENT";
+          typeLabel = "Refund / Payment";
+        }
+      }
+
+      const reference = sale?.saleNumber || voucher?.voucherNumber || je?.entryNumber || "JE";
+      const description =
+        line.description ||
+        voucher?.description ||
+        je?.description ||
+        `${typeLabel} #${reference}`;
+
+      rawTransactions.push({
+        id: line.id,
+        date: je?.date || line.createdAt,
+        type,
+        typeLabel,
+        reference,
+        description,
+        debit: Number(line.debitAmount || 0),
+        credit: Number(line.creditAmount || 0),
+      });
+    }
+
+    // Add sales that are not linked to a posted voucher/journal line yet
+    for (const sale of sales) {
+      if (!sale.voucherId || !journalVoucherIds.has(sale.voucherId)) {
+        rawTransactions.push({
+          id: `sale-${sale.id}`,
+          date: sale.date,
+          type: "SALE",
+          typeLabel: `Sale (${sale.status})`,
+          reference: sale.saleNumber,
+          description: sale.notes || `Sale #${sale.saleNumber} (${sale.orderType})`,
+          debit: Number(sale.grandTotal || 0),
+          credit: 0,
+        });
+      }
+    }
+
+    // Sort all raw transactions chronologically by date ascending
+    rawTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Date range filtering
+    let filteredTransactions = rawTransactions;
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+
+    if (start) {
+      start.setHours(0, 0, 0, 0);
+      filteredTransactions = filteredTransactions.filter(
+        (t) => new Date(t.date) >= start
+      );
+    }
+    if (end) {
+      end.setHours(23, 59, 59, 999);
+      filteredTransactions = filteredTransactions.filter(
+        (t) => new Date(t.date) <= end
+      );
+    }
+
+    // Compute running balance
+    let runningBalance = 0;
+    let totalBilled = 0;
+    let totalPaid = 0;
+
+    const ledger = filteredTransactions.map((tx) => {
+      runningBalance += tx.debit - tx.credit;
+      totalBilled += tx.debit;
+      totalPaid += tx.credit;
+
+      return {
+        ...tx,
+        runningBalance,
+      };
+    });
+
+    return {
+      success: true,
+      client: {
+        ...client,
+        openingBalance: Number(client.openingBalance || 0),
+      },
+      summary: {
+        totalBilled,
+        totalPaid,
+        closingBalance: runningBalance,
+        totalTransactions: ledger.length,
+      },
+      ledger,
+    };
+  } catch (error) {
+    console.error("getClientLedger error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch client ledger",
+      client: null,
+      ledger: [],
+      summary: { totalBilled: 0, totalPaid: 0, closingBalance: 0, totalTransactions: 0 },
+    };
+  }
+}
+
 
