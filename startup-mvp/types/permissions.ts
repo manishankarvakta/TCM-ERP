@@ -218,6 +218,8 @@ export const MODULES: Record<Module, ModuleMetadata> = {
       { id: "resignation", label: "Resignation Applications", path: "/dashboard/hr/resignation", module: "hr", permissionKey: "hr.resignation" },
       { id: "payroll", label: "Payroll", path: "/dashboard/hr/payroll", module: "hr", permissionKey: "hr.payroll" },
       { id: "loans", label: "Loans", path: "/dashboard/hr/loans", module: "hr", permissionKey: "hr.loans" },
+      { id: "fines", label: "Fines & Penalties", path: "/dashboard/hr/fines", module: "hr", permissionKey: "hr.fines" },
+      { id: "bonuses", label: "Bonuses & Rewards", path: "/dashboard/hr/bonuses", module: "hr", permissionKey: "hr.bonuses" },
     ],
   },
   notifications: {
@@ -749,6 +751,18 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "hr.loans",
         path: "/dashboard/hr/loans",
         label: "Loans",
+        operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "hr.fines",
+        path: "/dashboard/hr/fines",
+        label: "Fines & Penalties",
+        operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "hr.bonuses",
+        path: "/dashboard/hr/bonuses",
+        label: "Bonuses & Rewards",
         operations: ["create", "view", "edit", "approve", "move-to-trash", "delete-permanently"],
       },
       {

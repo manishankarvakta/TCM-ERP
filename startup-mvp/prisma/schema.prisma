@@ -93,6 +93,10 @@ model User {
   createdNightBillPolicies         NightBillPolicy[]       @relation("NightBillPolicyCreator")
   createdHolidayBillPolicies       HolidayBillPolicy[]     @relation("HolidayBillPolicyCreator")
   inventoryCountEntries            InventoryCountEntry[]   @relation("InventoryCountCreator")
+  createdFines                     EmployeeFine[]          @relation("FineCreator")
+  approvedFines                    EmployeeFine[]          @relation("FineApprover")
+  createdBonuses                   EmployeeBonus[]         @relation("BonusCreator")
+  approvedBonuses                  EmployeeBonus[]         @relation("BonusApprover")
 
   @@index([status])
   @@index([designationTemplateId])
@@ -147,6 +151,8 @@ model Employee {
   payrollItems           PayrollItem[]
   deviceMappings         EmployeeDeviceMap[]
   assistedSales          Sale[]              @relation("SaleSalesAssistant")
+  fines                  EmployeeFine[]
+  bonuses                EmployeeBonus[]
 
   @@index([userId])
   @@index([status])
@@ -1484,6 +1490,8 @@ model Payroll {
   paymentVoucher Voucher?      @relation("PayrollPaymentVoucher", fields: [paymentVchId], references: [id], onDelete: Restrict)
   voucher        Voucher?      @relation("PayrollVoucher", fields: [voucherId], references: [id], onDelete: Restrict)
   items          PayrollItem[]
+  fines          EmployeeFine[]
+  bonuses        EmployeeBonus[]
 
   @@index([month, year])
   @@index([status])
@@ -1520,6 +1528,8 @@ model PayrollItem {
   otherAllowance   Decimal  @default(0) @db.Decimal(12, 2)
   lateDeduction    Decimal  @default(0) @db.Decimal(12, 2)
   otherDeduction   Decimal  @default(0) @db.Decimal(12, 2)
+  customFine       Decimal  @default(0) @db.Decimal(12, 2)
+  customBonus      Decimal  @default(0) @db.Decimal(12, 2)
 
   @@unique([payrollId, employeeId])
   @@index([employeeId])
@@ -2440,4 +2450,68 @@ model PayrollSetting {
 
   @@index([status])
   @@index([isDefault])
+}
+
+enum FineStatus {
+  PENDING
+  APPROVED
+  CANCELLED
+  APPLIED
+}
+
+model EmployeeFine {
+  id          String     @id @default(cuid())
+  employeeId  String
+  amount      Decimal    @db.Decimal(12, 2)
+  fineDate    DateTime   @db.Date
+  reason      String
+  status      FineStatus @default(PENDING)
+  isTrash     Boolean    @default(false)
+  payrollId   String?
+  createdBy   String
+  approvedBy  String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  employee    Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  payroll     Payroll?   @relation(fields: [payrollId], references: [id], onDelete: SetNull)
+  creator     User       @relation("FineCreator", fields: [createdBy], references: [id])
+  approver    User?      @relation("FineApprover", fields: [approvedBy], references: [id])
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([payrollId])
+  @@index([isTrash])
+}
+
+enum BonusStatus {
+  PENDING
+  APPROVED
+  CANCELLED
+  APPLIED
+}
+
+model EmployeeBonus {
+  id          String      @id @default(cuid())
+  employeeId  String
+  amount      Decimal     @db.Decimal(12, 2)
+  bonusDate   DateTime    @db.Date
+  reason      String
+  status      BonusStatus @default(PENDING)
+  isTrash     Boolean     @default(false)
+  payrollId   String?
+  createdBy   String
+  approvedBy  String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  employee    Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  payroll     Payroll?    @relation(fields: [payrollId], references: [id], onDelete: SetNull)
+  creator     User        @relation("BonusCreator", fields: [createdBy], references: [id])
+  approver    User?       @relation("BonusApprover", fields: [approvedBy], references: [id])
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([payrollId])
+  @@index([isTrash])
 }

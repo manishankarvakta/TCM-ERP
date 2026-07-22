@@ -260,11 +260,13 @@ export default function PayrollDetailsClient({
                   <TableHead className="text-right">Night</TableHead>
                   <TableHead className="text-right">Holiday</TableHead>
                   <TableHead className="text-right">Bonus/Oth</TableHead>
+                  <TableHead className="text-right">Custom Bonus</TableHead>
                   <TableHead className="text-right font-semibold text-primary bg-primary/5">Total Earnings</TableHead>
                   <TableHead className="text-right">Absent Ded.</TableHead>
                   <TableHead className="text-right">Late Ded.</TableHead>
                   <TableHead className="text-right">Loan Ded.</TableHead>
                   <TableHead className="text-right">Tax/PF</TableHead>
+                  <TableHead className="text-right">Custom Fine</TableHead>
                   <TableHead className="w-[120px] min-w-[120px] max-w-[120px] text-right font-semibold text-destructive sticky right-[180px] bg-background z-20 border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">Total Ded.</TableHead>
                   <TableHead className="w-[100px] min-w-[100px] max-w-[100px] text-right font-bold text-primary sticky right-[80px] bg-background z-20">Net Pay</TableHead>
                   <TableHead className="w-[80px] min-w-[80px] max-w-[80px] sticky right-0 bg-background z-20"></TableHead>
@@ -304,11 +306,13 @@ export default function PayrollDetailsClient({
                           <div className="text-[10px] text-muted-foreground mt-0.5">Att. Bonus</div>
                         )}
                       </TableCell>
+                      <TableCell className="text-right font-medium text-emerald-600">{formatCurrency(item.customBonus)}</TableCell>
                       <TableCell className="text-right font-semibold text-primary bg-primary/5">{formatCurrency(item.grossPay)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(item.absentDeduction)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(item.lateDeduction)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(item.loanDeduction)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(taxAndPf)}</TableCell>
+                      <TableCell className="text-right font-medium text-rose-600">{formatCurrency(item.customFine)}</TableCell>
                       <TableCell className="w-[120px] min-w-[120px] max-w-[120px] text-right font-semibold text-destructive sticky right-[180px] bg-background group-hover:bg-muted z-10 transition-colors border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                         <div>{formatCurrency(item.totalDeduction)}</div>
                         {Number(item.otherDeduction) > 0 && (

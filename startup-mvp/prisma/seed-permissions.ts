@@ -40,7 +40,9 @@ async function seedPermissions() {
     "hr.biometric.sync",
     "hr.biometric.manage",
     "hr.payroll.view",
-    "hr.payroll.manage"
+    "hr.payroll.manage",
+    "hr.fines",
+    "hr.bonuses"
   ];
 
   // Manager Template - Full access to all pages

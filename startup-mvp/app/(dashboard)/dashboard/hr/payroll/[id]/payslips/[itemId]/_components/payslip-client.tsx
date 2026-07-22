@@ -200,6 +200,12 @@ export default function PayslipClient({ payrollItem, attendanceSummary, orgInfo 
                 <span className="text-gray-600">Other Allowance / Attendance Bonus</span>
                 <span className="text-gray-900">{formatCurrency(payrollItem.otherAllowance)}</span>
               </div>
+              {Number(payrollItem.customBonus) > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Custom Bonus / Reward</span>
+                  <span className="text-gray-900">{formatCurrency(payrollItem.customBonus)}</span>
+                </div>
+              )}
               <div className="flex justify-between pt-3 border-t border-gray-200 font-semibold">
                 <span className="text-gray-800">Total Earnings</span>
                 <span className="text-emerald-600">{formatCurrency(payrollItem.grossPay)}</span>
@@ -235,6 +241,12 @@ export default function PayslipClient({ payrollItem, attendanceSummary, orgInfo 
                 <span className="text-gray-600">Other Deduction</span>
                 <span className="text-gray-900">{formatCurrency(payrollItem.otherDeduction)}</span>
               </div>
+              {Number(payrollItem.customFine) > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Custom Fine / Penalty</span>
+                  <span className="text-gray-900">{formatCurrency(payrollItem.customFine)}</span>
+                </div>
+              )}
               <div className="flex justify-between pt-3 border-t border-gray-200 font-semibold">
                 <span className="text-gray-800">Total Deductions</span>
                 <span className="text-red-600">{formatCurrency(payrollItem.totalDeduction)}</span>

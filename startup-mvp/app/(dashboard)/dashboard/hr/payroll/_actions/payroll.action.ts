@@ -205,6 +205,34 @@ export async function generatePayroll(month: number, year: number, options?: Gen
       return acc;
     }, {} as Record<string, typeof loans>);
 
+    // Fetch approved fines for the target month
+    const approvedFines = await prisma.employeeFine.findMany({
+      where: {
+        status: "APPROVED",
+        fineDate: { gte: startDate, lte: endDate },
+      },
+    });
+
+    const finesByEmployee = approvedFines.reduce((acc, curr) => {
+      if (!acc[curr.employeeId]) acc[curr.employeeId] = 0;
+      acc[curr.employeeId] += Number(curr.amount);
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Fetch approved bonuses for the target month
+    const approvedBonuses = await prisma.employeeBonus.findMany({
+      where: {
+        status: "APPROVED",
+        bonusDate: { gte: startDate, lte: endDate },
+      },
+    });
+
+    const bonusesByEmployee = approvedBonuses.reduce((acc, curr) => {
+      if (!acc[curr.employeeId]) acc[curr.employeeId] = 0;
+      acc[curr.employeeId] += Number(curr.amount);
+      return acc;
+    }, {} as Record<string, number>);
+
     // Fetch all EmployeeSalary rows for structured allowances
     const employeeSalaries = await prisma.employeeSalary.findMany({
       where: { employeeId: { in: employees.map((e) => e.id) } },
@@ -239,6 +267,8 @@ export async function generatePayroll(month: number, year: number, options?: Gen
       otherAllowance: number;
       lateDeduction: number;
       otherDeduction: number;
+      customFine: number;
+      customBonus: number;
       status: string;
     }> = [];
     let grandTotalAmount = 0;
@@ -405,15 +435,18 @@ export async function generatePayroll(month: number, year: number, options?: Gen
       const taxDeduction = basic * (taxPercentage / 100);
       const pfDeduction  = basic * (pfPercentage / 100);
 
+      const customFine = finesByEmployee[emp.id] || 0;
+      const customBonus = bonusesByEmployee[emp.id] || 0;
+
       // Final grossPay and deductions calculation
-      // Gross Pay = raw base Gross Salary + OT + Festival Bonus + Tiffin + Night + Holiday + Attendance Bonus (otherAllowance)
+      // Gross Pay = raw base Gross Salary + OT + Festival Bonus + Tiffin + Night + Holiday + Attendance Bonus (otherAllowance) + Custom Bonus
       const grossPay = Number((
         basic + houseRent + medical + transport + foodAllowance +
-        otAmount + festivalBonus + tiffinAllowance + nightAllowance + holidayAllowance + otherAllowance
+        otAmount + festivalBonus + tiffinAllowance + nightAllowance + holidayAllowance + otherAllowance + customBonus
       ).toFixed(2));
 
       const totalDeduction = Number((
-        absentDeduction + lateDeduction + loanDeduction + taxDeduction + pfDeduction + otherDeduction
+        absentDeduction + lateDeduction + loanDeduction + taxDeduction + pfDeduction + otherDeduction + customFine
       ).toFixed(2));
 
       const rawNetPay = grossPay - totalDeduction;
@@ -443,6 +476,8 @@ export async function generatePayroll(month: number, year: number, options?: Gen
         otherAllowance,
         lateDeduction,
         otherDeduction,
+        customFine,
+        customBonus,
         status: "unpaid",
       });
     }
@@ -468,7 +503,7 @@ export async function generatePayroll(month: number, year: number, options?: Gen
 
     // Create Payroll Transaction
     const payroll = await prisma.$transaction(async (tx) => {
-      return await tx.payroll.create({
+      const createdPayroll = await tx.payroll.create({
         data: {
           payrollNumber,
           month,
@@ -481,6 +516,32 @@ export async function generatePayroll(month: number, year: number, options?: Gen
           },
         },
       });
+
+      // Update approved fines to APPLIED status
+      await tx.employeeFine.updateMany({
+        where: {
+          status: "APPROVED",
+          fineDate: { gte: startDate, lte: endDate },
+        },
+        data: {
+          status: "APPLIED",
+          payrollId: createdPayroll.id,
+        },
+      });
+
+      // Update approved bonuses to APPLIED status
+      await tx.employeeBonus.updateMany({
+        where: {
+          status: "APPROVED",
+          bonusDate: { gte: startDate, lte: endDate },
+        },
+        data: {
+          status: "APPLIED",
+          payrollId: createdPayroll.id,
+        },
+      });
+
+      return createdPayroll;
     });
 
     await logItemCreated(session.user.id, "Payroll", payroll.id, payrollNumber);
@@ -697,6 +758,8 @@ export async function getPayrollById(id: string) {
           otherAllowance: Number(item.otherAllowance),
           lateDeduction: Number(item.lateDeduction),
           otherDeduction: Number(item.otherDeduction),
+          customFine: Number(item.customFine || 0),
+          customBonus: Number(item.customBonus || 0),
         };
       })
     };
@@ -1224,7 +1287,24 @@ export async function voidPayroll(payrollId: string) {
         },
       });
 
-      // 4. Update Payroll Status
+      // 4. Revert status of applied fines and bonuses
+      await tx.employeeFine.updateMany({
+        where: { payrollId },
+        data: {
+          status: "APPROVED",
+          payrollId: null,
+        },
+      });
+
+      await tx.employeeBonus.updateMany({
+        where: { payrollId },
+        data: {
+          status: "APPROVED",
+          payrollId: null,
+        },
+      });
+
+      // 5. Update Payroll Status
       await tx.payroll.update({
         where: { id: payrollId },
         data: {

@@ -42,7 +42,10 @@ export async function getUserPermissions(
 
     let mergedPermissions: PartialPermissions = {};
 
-    if (user.role?.toLowerCase() === "admin") {
+    const userRole = user.role?.toLowerCase();
+    const isAdmin = userRole === "admin" || userRole === "super admin" || userRole === "superadmin";
+
+    if (isAdmin) {
       // Admin role has all permissions and operations enabled by default
       for (const navItem of NAVIGATION_STRUCTURE) {
         for (const page of navItem.pages) {
@@ -114,6 +117,15 @@ export async function hasPermission(
   operation: Operation
 ): Promise<boolean> {
   try {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    const role = dbUser?.role?.toLowerCase();
+    if (role === "admin" || role === "super admin" || role === "superadmin") {
+      return true;
+    }
+
     const permissions = await getUserPermissionsEnhanced(userId);
     const pagePermission = permissions[permissionKey] as PagePermission | undefined;
     
