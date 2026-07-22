@@ -151,6 +151,7 @@ export const MODULES: Record<Module, ModuleMetadata> = {
       { id: "brands", label: "Brands", path: "/dashboard/master/brands", module: "master", permissionKey: "master.brands" },
       { id: "units", label: "Units", path: "/dashboard/master/units", module: "master", permissionKey: "master.units" },
       { id: "warehouses", label: "Warehouses", path: "/dashboard/master/warehouses", module: "master", permissionKey: "master.warehouses" },
+      { id: "import", label: "Data Import", path: "/dashboard/import", module: "master", permissionKey: "master.import" },
     ],
   },
   procurements: {
@@ -542,6 +543,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         path: "/dashboard/master/warehouses",
         label: "Warehouses",
         operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+      },
+      {
+        permissionKey: "master.import",
+        path: "/dashboard/import",
+        label: "Data Import",
+        operations: ["view", "create", "import"],
       },
     ],
   },

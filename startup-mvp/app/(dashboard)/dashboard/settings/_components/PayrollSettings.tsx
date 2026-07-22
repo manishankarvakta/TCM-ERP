@@ -2939,18 +2939,17 @@ export default function PayrollSettings() {
                 <CardContent className="space-y-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="preview-employee">Select Employee</Label>
-                    <Select value={previewForm.employeeId} onValueChange={handleEmployeeChange}>
-                      <SelectTrigger id="preview-employee">
-                        <SelectValue placeholder="Select Employee..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {employees.map(emp => (
-                          <SelectItem key={emp.id} value={emp.id}>
-                            {emp.name} ({emp.employeeCode || "No Code"})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      options={employees.map(emp => ({
+                        label: emp.name,
+                        value: emp.id,
+                        description: [emp.employeeCode, emp.designation].filter(Boolean).join(" • "),
+                      }))}
+                      value={previewForm.employeeId}
+                      onValueChange={(val) => handleEmployeeChange(val || "")}
+                      placeholder="Search and select employee for calculation preview..."
+                      searchPlaceholder="Type employee name, code, designation..."
+                    />
                   </div>
 
                   <div className="space-y-1.5">
@@ -3431,22 +3430,20 @@ export default function PayrollSettings() {
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="reprocess-employee">Employee (Optional)</Label>
-                      <Select
-                        value={reprocessForm.employeeId}
-                        onValueChange={val => setReprocessForm(p => ({ ...p, employeeId: val }))}
-                      >
-                        <SelectTrigger id="reprocess-employee">
-                          <SelectValue placeholder="All Employees..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Employees</SelectItem>
-                          {employees.map(emp => (
-                            <SelectItem key={emp.id} value={emp.id}>
-                              {emp.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        options={[
+                          { label: "All Employees", value: "all", description: "Process for all active employees" },
+                          ...employees.map(emp => ({
+                            label: emp.name,
+                            value: emp.id,
+                            description: [emp.employeeCode, emp.designation].filter(Boolean).join(" • "),
+                          }))
+                        ]}
+                        value={reprocessForm.employeeId || "all"}
+                        onValueChange={val => setReprocessForm(p => ({ ...p, employeeId: val || "all" }))}
+                        placeholder="Search and select employee..."
+                        searchPlaceholder="Type name, code, designation..."
+                      />
                     </div>
                     <div className="flex items-center gap-6 h-10">
                       <div className="flex items-center gap-2">
