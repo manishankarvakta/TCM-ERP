@@ -37,6 +37,39 @@ export async function getOpportunities(
     if (search) {
       where.OR = [
         { title: { contains: search, mode: "insensitive" } },
+        { opportunityNumber: { contains: search, mode: "insensitive" } },
+        {
+          Client: {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { company: { contains: search, mode: "insensitive" } },
+            ]
+          }
+        },
+        {
+          Contact: {
+            OR: [
+              { firstName: { contains: search, mode: "insensitive" } },
+              { lastName: { contains: search, mode: "insensitive" } },
+              {
+                AND: search.trim().split(/\s+/).map(word => ({
+                  OR: [
+                    { firstName: { contains: word, mode: "insensitive" } },
+                    { lastName: { contains: word, mode: "insensitive" } }
+                  ]
+                }))
+              }
+            ]
+          }
+        },
+        {
+          Lead: {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { company: { contains: search, mode: "insensitive" } },
+            ]
+          }
+        }
       ];
     }
 
