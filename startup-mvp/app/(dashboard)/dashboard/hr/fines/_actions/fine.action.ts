@@ -11,6 +11,12 @@ function revalidateFines() {
   revalidatePath("/dashboard/hr/payroll");
 }
 
+function isUserAdmin(role?: string | null): boolean {
+  if (!role) return false;
+  const r = role.toLowerCase();
+  return r === "admin" || r === "super admin" || r === "superadmin";
+}
+
 export async function getFines(
   page = 1,
   limit = 10,
@@ -20,11 +26,12 @@ export async function getFines(
 ) {
   try {
     const session = await auth();
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return { success: false, error: "Unauthorized", fines: [], pagination: null };
     }
 
-    const canView = await hasPermission(session.user.id, "hr.fines", "view");
+    const isAdmin = isUserAdmin(session.user.role);
+    const canView = isAdmin || (await hasPermission(session.user.id, "hr.fines", "view"));
     if (!canView) {
       return { success: false, error: "Permission denied", fines: [], pagination: null };
     }
@@ -93,7 +100,8 @@ export async function getFines(
     };
   } catch (error) {
     console.error("getFines error:", error);
-    return { success: false, error: "Failed to fetch fines", fines: [], pagination: null };
+    const errMsg = error instanceof Error ? error.message : "Failed to fetch fines";
+    return { success: false, error: errMsg, fines: [], pagination: null };
   }
 }
 
@@ -105,21 +113,38 @@ export async function createFine(data: {
 }) {
   try {
     const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "Unauthorized" };
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized: Invalid session" };
     }
 
-    const canCreate = await hasPermission(session.user.id, "hr.fines", "create");
+    // Verify DB User existence & Role for Admin Bypass
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, role: true },
+    });
+
+    if (!dbUser) {
+      return { success: false, error: "User profile not found in database." };
+    }
+
+    const isAdmin = isUserAdmin(session.user.role) || isUserAdmin(dbUser.role);
+    const canCreate = isAdmin || (await hasPermission(session.user.id, "hr.fines", "create"));
     if (!canCreate) {
-      return { success: false, error: "You do not have permission to add fines" };
+      return { success: false, error: "You do not have permission to add fines." };
     }
 
-    if (!data.employeeId || !data.amount || data.amount <= 0 || !data.reason.trim()) {
+    if (!data.employeeId || !data.amount || data.amount <= 0 || !data.reason?.trim()) {
       return { success: false, error: "Please fill all required fields with valid values." };
+    }
+
+    const fineDateObj = new Date(data.fineDate);
+    if (isNaN(fineDateObj.getTime())) {
+      return { success: false, error: "Invalid fine date format." };
     }
 
     const employee = await prisma.employee.findUnique({
       where: { id: data.employeeId },
+      select: { id: true },
     });
 
     if (!employee) {
@@ -130,10 +155,10 @@ export async function createFine(data: {
       data: {
         employeeId: data.employeeId,
         amount: data.amount,
-        fineDate: new Date(data.fineDate),
+        fineDate: fineDateObj,
         reason: data.reason.trim(),
         status: "PENDING",
-        createdBy: session.user.id,
+        createdBy: dbUser.id,
       },
     });
 
@@ -141,7 +166,8 @@ export async function createFine(data: {
     return { success: true, fineId: fine.id, message: "Fine recorded successfully." };
   } catch (error) {
     console.error("createFine error:", error);
-    return { success: false, error: "Failed to create fine" };
+    const errMsg = error instanceof Error ? error.message : "Failed to create fine";
+    return { success: false, error: errMsg };
   }
 }
 
@@ -156,23 +182,28 @@ export async function updateFine(
 ) {
   try {
     const session = await auth();
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return { success: false, error: "Unauthorized" };
     }
 
-    const isAdmin =
-      session.user.role?.toLowerCase() === "admin" ||
-      session.user.role?.toLowerCase() === "super admin" ||
-      session.user.role?.toLowerCase() === "superadmin";
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, role: true },
+    });
 
-    const canEdit =
-      isAdmin || (await hasPermission(session.user.id, "hr.fines", "edit"));
+    const isAdmin = isUserAdmin(session.user.role) || isUserAdmin(dbUser?.role);
+    const canEdit = isAdmin || (await hasPermission(session.user.id, "hr.fines", "edit"));
     if (!canEdit) {
-      return { success: false, error: "You do not have permission to edit fines" };
+      return { success: false, error: "You do not have permission to edit fines." };
     }
 
-    if (!data.employeeId || !data.amount || data.amount <= 0 || !data.reason.trim()) {
+    if (!data.employeeId || !data.amount || data.amount <= 0 || !data.reason?.trim()) {
       return { success: false, error: "Please fill all required fields with valid values." };
+    }
+
+    const fineDateObj = new Date(data.fineDate);
+    if (isNaN(fineDateObj.getTime())) {
+      return { success: false, error: "Invalid fine date format." };
     }
 
     const fine = await prisma.employeeFine.findUnique({
@@ -192,7 +223,7 @@ export async function updateFine(
       data: {
         employeeId: data.employeeId,
         amount: data.amount,
-        fineDate: new Date(data.fineDate),
+        fineDate: fineDateObj,
         reason: data.reason.trim(),
       },
     });
@@ -201,18 +232,29 @@ export async function updateFine(
     return { success: true, message: "Fine record updated successfully." };
   } catch (error) {
     console.error("updateFine error:", error);
-    return { success: false, error: "Failed to update fine record" };
+    const errMsg = error instanceof Error ? error.message : "Failed to update fine record";
+    return { success: false, error: errMsg };
   }
 }
 
 export async function updateFineStatus(id: string, status: FineStatus) {
   try {
     const session = await auth();
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return { success: false, error: "Unauthorized" };
     }
 
-    const canApprove = await hasPermission(session.user.id, "hr.fines", "approve") || await hasPermission(session.user.id, "hr.fines", "edit");
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, role: true },
+    });
+
+    const isAdmin = isUserAdmin(session.user.role) || isUserAdmin(dbUser?.role);
+    const canApprove =
+      isAdmin ||
+      (await hasPermission(session.user.id, "hr.fines", "approve")) ||
+      (await hasPermission(session.user.id, "hr.fines", "edit"));
+
     if (!canApprove) {
       return { success: false, error: "Permission denied" };
     }
@@ -241,16 +283,22 @@ export async function updateFineStatus(id: string, status: FineStatus) {
     return { success: true, message: `Fine status updated to ${status}.` };
   } catch (error) {
     console.error("updateFineStatus error:", error);
-    return { success: false, error: "Failed to update fine status" };
+    const errMsg = error instanceof Error ? error.message : "Failed to update fine status";
+    return { success: false, error: errMsg };
   }
 }
 
 export async function trashFine(id: string) {
   try {
     const session = await auth();
-    if (!session?.user) return { success: false, error: "Unauthorized" };
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
 
-    const canTrash = await hasPermission(session.user.id, "hr.fines", "move-to-trash");
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true },
+    });
+    const isAdmin = isUserAdmin(session.user.role) || isUserAdmin(dbUser?.role);
+    const canTrash = isAdmin || (await hasPermission(session.user.id, "hr.fines", "move-to-trash"));
     if (!canTrash) return { success: false, error: "Permission denied" };
 
     const fine = await prisma.employeeFine.findUnique({ where: { id } });
@@ -269,16 +317,22 @@ export async function trashFine(id: string) {
     return { success: true, message: "Fine moved to trash." };
   } catch (error) {
     console.error("trashFine error:", error);
-    return { success: false, error: "Failed to trash fine" };
+    const errMsg = error instanceof Error ? error.message : "Failed to trash fine";
+    return { success: false, error: errMsg };
   }
 }
 
 export async function restoreFine(id: string) {
   try {
     const session = await auth();
-    if (!session?.user) return { success: false, error: "Unauthorized" };
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
 
-    const canRestore = await hasPermission(session.user.id, "hr.fines", "edit");
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true },
+    });
+    const isAdmin = isUserAdmin(session.user.role) || isUserAdmin(dbUser?.role);
+    const canRestore = isAdmin || (await hasPermission(session.user.id, "hr.fines", "edit"));
     if (!canRestore) return { success: false, error: "Permission denied" };
 
     await prisma.employeeFine.update({
@@ -290,18 +344,24 @@ export async function restoreFine(id: string) {
     return { success: true, message: "Fine record restored." };
   } catch (error) {
     console.error("restoreFine error:", error);
-    return { success: false, error: "Failed to restore fine" };
+    const errMsg = error instanceof Error ? error.message : "Failed to restore fine";
+    return { success: false, error: errMsg };
   }
 }
 
 export async function deleteFine(id: string) {
   try {
     const session = await auth();
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return { success: false, error: "Unauthorized" };
     }
 
-    const canDelete = await hasPermission(session.user.id, "hr.fines", "delete-permanently");
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true },
+    });
+    const isAdmin = isUserAdmin(session.user.role) || isUserAdmin(dbUser?.role);
+    const canDelete = isAdmin || (await hasPermission(session.user.id, "hr.fines", "delete-permanently"));
     if (!canDelete) {
       return { success: false, error: "Permission denied" };
     }
@@ -326,7 +386,8 @@ export async function deleteFine(id: string) {
     return { success: true, message: "Fine record deleted permanently." };
   } catch (error) {
     console.error("deleteFine error:", error);
-    return { success: false, error: "Failed to delete fine" };
+    const errMsg = error instanceof Error ? error.message : "Failed to delete fine";
+    return { success: false, error: errMsg };
   }
 }
 
@@ -334,9 +395,14 @@ export async function deleteFine(id: string) {
 export async function bulkUpdateFineStatus(ids: string[], status: FineStatus) {
   try {
     const session = await auth();
-    if (!session?.user) return { success: false, error: "Unauthorized" };
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
 
-    const canApprove = await hasPermission(session.user.id, "hr.fines", "approve");
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true },
+    });
+    const isAdmin = isUserAdmin(session.user.role) || isUserAdmin(dbUser?.role);
+    const canApprove = isAdmin || (await hasPermission(session.user.id, "hr.fines", "approve"));
     if (!canApprove) return { success: false, error: "Permission denied" };
 
     await prisma.employeeFine.updateMany({
@@ -354,16 +420,22 @@ export async function bulkUpdateFineStatus(ids: string[], status: FineStatus) {
     revalidateFines();
     return { success: true, message: `Updated status for ${ids.length} fine(s).` };
   } catch (error) {
-    return { success: false, error: "Failed to perform bulk status update" };
+    const errMsg = error instanceof Error ? error.message : "Failed to perform bulk status update";
+    return { success: false, error: errMsg };
   }
 }
 
 export async function bulkTrashFines(ids: string[]) {
   try {
     const session = await auth();
-    if (!session?.user) return { success: false, error: "Unauthorized" };
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
 
-    const canTrash = await hasPermission(session.user.id, "hr.fines", "move-to-trash");
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true },
+    });
+    const isAdmin = isUserAdmin(session.user.role) || isUserAdmin(dbUser?.role);
+    const canTrash = isAdmin || (await hasPermission(session.user.id, "hr.fines", "move-to-trash"));
     if (!canTrash) return { success: false, error: "Permission denied" };
 
     await prisma.employeeFine.updateMany({
@@ -377,14 +449,15 @@ export async function bulkTrashFines(ids: string[]) {
     revalidateFines();
     return { success: true, message: `Moved ${ids.length} fine(s) to trash.` };
   } catch (error) {
-    return { success: false, error: "Failed to trash selected fines" };
+    const errMsg = error instanceof Error ? error.message : "Failed to trash selected fines";
+    return { success: false, error: errMsg };
   }
 }
 
 export async function bulkRestoreFines(ids: string[]) {
   try {
     const session = await auth();
-    if (!session?.user) return { success: false, error: "Unauthorized" };
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
 
     await prisma.employeeFine.updateMany({
       where: { id: { in: ids } },
@@ -394,16 +467,22 @@ export async function bulkRestoreFines(ids: string[]) {
     revalidateFines();
     return { success: true, message: `Restored ${ids.length} fine(s).` };
   } catch (error) {
-    return { success: false, error: "Failed to restore selected fines" };
+    const errMsg = error instanceof Error ? error.message : "Failed to restore selected fines";
+    return { success: false, error: errMsg };
   }
 }
 
 export async function bulkDeleteFines(ids: string[]) {
   try {
     const session = await auth();
-    if (!session?.user) return { success: false, error: "Unauthorized" };
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
 
-    const canDelete = await hasPermission(session.user.id, "hr.fines", "delete-permanently");
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true },
+    });
+    const isAdmin = isUserAdmin(session.user.role) || isUserAdmin(dbUser?.role);
+    const canDelete = isAdmin || (await hasPermission(session.user.id, "hr.fines", "delete-permanently"));
     if (!canDelete) return { success: false, error: "Permission denied" };
 
     await prisma.employeeFine.deleteMany({
@@ -417,7 +496,8 @@ export async function bulkDeleteFines(ids: string[]) {
     revalidateFines();
     return { success: true, message: `Permanently deleted selected fines.` };
   } catch (error) {
-    return { success: false, error: "Failed to delete selected fines" };
+    const errMsg = error instanceof Error ? error.message : "Failed to delete selected fines";
+    return { success: false, error: errMsg };
   }
 }
 
