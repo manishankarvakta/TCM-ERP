@@ -45,10 +45,9 @@ export default function ImportWizard() {
   const [selectedModuleId, setSelectedModuleId] = useState<string>("Products");
 
   // Track user-selected fields for import (required fields auto-selected and locked)
-  const [selectedFieldKeys, setSelectedFieldKeys] = useState<string[]>(() => {
-    const initialMod = IMPORT_MODULES.find((m) => m.id === "Products") || IMPORT_MODULES[0];
-    return initialMod.fields.map((f) => f.key);
-  });
+  const [selectedFieldKeys, setSelectedFieldKeys] = useState<string[]>(() =>
+    IMPORT_MODULES[0].fields.map((f) => f.key)
+  );
 
   const [file, setFile] = useState<File | null>(null);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
@@ -156,17 +155,24 @@ export default function ImportWizard() {
           const headers = jsonRows[0].map((h) => String(h).trim()).filter(Boolean);
           setCsvHeaders(headers);
 
-          // Initial auto-mapping against active selected fields
+          // Initial auto-mapping: System Database Field (targetKey) -> CSV Column Header (csvHeader)
           const initialMapping: FieldMapping = {};
-          headers.forEach((header) => {
-            const normalizedHeader = header.toLowerCase().replace(/[^a-z0-9]/g, "");
-            const matched = activeModuleConfig.fields.find((f) => {
-              const normalizedKey = f.key.toLowerCase().replace(/[^a-z0-9]/g, "");
-              const normalizedLabel = f.label.toLowerCase().replace(/[^a-z0-9]/g, "");
-              return normalizedHeader === normalizedKey || normalizedHeader === normalizedLabel;
+          activeModuleConfig.fields.forEach((field) => {
+            const normalizedKey = field.key.toLowerCase().replace(/[^a-z0-9]/g, "");
+            const normalizedLabel = field.label.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+            const matchedHeader = headers.find((h) => {
+              const normalizedHeader = h.toLowerCase().replace(/[^a-z0-9]/g, "");
+              return (
+                normalizedHeader === normalizedKey ||
+                normalizedHeader === normalizedLabel ||
+                normalizedHeader.includes(normalizedKey) ||
+                normalizedLabel.includes(normalizedHeader)
+              );
             });
-            if (matched) {
-              initialMapping[header] = matched.key;
+
+            if (matchedHeader) {
+              initialMapping[field.key] = matchedHeader;
             }
           });
           setFieldMapping(initialMapping);
@@ -264,9 +270,8 @@ export default function ImportWizard() {
     setImportResult(null);
   };
 
-  const mappedKeys = new Set(Object.values(fieldMapping).filter(Boolean));
   const unmappedRequiredCount = activeModuleConfig.fields.filter(
-    (f) => f.required && !mappedKeys.has(f.key)
+    (f) => f.required && (!fieldMapping[f.key] || fieldMapping[f.key].trim() === "")
   ).length;
 
   const requiredFields = currentModuleConfig.fields.filter((f) => f.required);

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 import { ImportModuleConfig, FieldMapping } from "@/types/import";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import { FiCheckCircle, FiAlertTriangle, FiZap } from "react-icons/fi";
 interface FieldMapperProps {
   config: ImportModuleConfig;
   headers: string[];
-  mapping: FieldMapping;
+  mapping: FieldMapping; // Map of targetFieldKey -> csvHeader
   onChangeMapping: (newMapping: FieldMapping) => void;
 }
 
@@ -27,71 +27,77 @@ export default function FieldMapper({
   mapping,
   onChangeMapping,
 }: FieldMapperProps) {
-  // Auto-match headers if not mapped yet
+  // Auto-match system fields to CSV headers
   const handleAutoMatch = () => {
     const newMapping: FieldMapping = { ...mapping };
-    headers.forEach((header) => {
-      const normalizedHeader = header.toLowerCase().replace(/[^a-z0-9]/g, "");
-      const matchedField = config.fields.find((field) => {
-        const normalizedKey = field.key.toLowerCase().replace(/[^a-z0-9]/g, "");
-        const normalizedLabel = field.label.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+    config.fields.forEach((field) => {
+      const normalizedKey = field.key.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const normalizedLabel = field.label.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+      const matchedHeader = headers.find((header) => {
+        const normalizedHeader = header.toLowerCase().replace(/[^a-z0-9]/g, "");
         return (
           normalizedHeader === normalizedKey ||
           normalizedHeader === normalizedLabel ||
           normalizedHeader.includes(normalizedKey) ||
-          normalizedKey.includes(normalizedHeader)
+          normalizedLabel.includes(normalizedHeader)
         );
       });
 
-      if (matchedField) {
-        newMapping[header] = matchedField.key;
+      if (matchedHeader) {
+        newMapping[field.key] = matchedHeader;
       }
     });
+
     onChangeMapping(newMapping);
   };
 
-  const handleSelectField = (csvHeader: string, targetFieldKey: string) => {
+  const handleSelectHeader = (fieldKey: string, csvHeader: string) => {
     const newMapping = { ...mapping };
-    if (targetFieldKey === "__ignore__") {
-      delete newMapping[csvHeader];
+    if (csvHeader === "__unmapped__") {
+      delete newMapping[fieldKey];
     } else {
-      newMapping[csvHeader] = targetFieldKey;
+      newMapping[fieldKey] = csvHeader;
     }
     onChangeMapping(newMapping);
   };
 
-  const mappedTargetKeys = new Set(Object.values(mapping).filter(Boolean));
-  const missingRequiredFields = config.fields.filter(
-    (field) => field.required && !mappedTargetKeys.has(field.key)
+  // Find required fields that are not assigned to any CSV header
+  const unmappedRequiredFields = config.fields.filter(
+    (field) => field.required && (!mapping[field.key] || mapping[field.key].trim() === "")
   );
+
+  // Set of CSV headers already mapped to system fields
+  const mappedCsvHeaders = new Set(Object.values(mapping).filter(Boolean));
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-muted/30 p-4 rounded-lg border">
         <div>
-          <h3 className="font-semibold text-lg">Map CSV Columns to System Fields</h3>
+          <h3 className="font-semibold text-lg">Map System Fields to CSV Columns</h3>
           <p className="text-sm text-muted-foreground">
-            Match each column from your CSV file to the corresponding database field in {config.label}.
+            Select which column from your CSV file maps to each required and selected database field in {config.label}.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={handleAutoMatch} className="shrink-0">
           <FiZap className="mr-2 h-4 w-4 text-amber-500" />
-          Auto-Match Columns
+          Auto-Match Fields
         </Button>
       </div>
 
-      {missingRequiredFields.length > 0 && (
+      {unmappedRequiredFields.length > 0 && (
         <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 flex items-start gap-3">
           <FiAlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
           <div>
             <h4 className="font-medium text-amber-800 dark:text-amber-300 text-sm">
-              Missing Required Field Mappings ({missingRequiredFields.length})
+              Missing Required System Fields ({unmappedRequiredFields.length})
             </h4>
             <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-              The following required fields must be mapped before proceeding:
+              The following required fields must be assigned to a CSV column before proceeding:
             </p>
             <div className="flex flex-wrap gap-2 mt-2">
-              {missingRequiredFields.map((field) => (
+              {unmappedRequiredFields.map((field) => (
                 <Badge key={field.key} variant="destructive" className="text-xs">
                   {field.label} *
                 </Badge>
@@ -105,49 +111,60 @@ export default function FieldMapper({
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
-              <TableHead className="w-1/3">CSV Column Header</TableHead>
-              <TableHead className="w-1/3">Maps To Database Field</TableHead>
-              <TableHead className="w-1/3">Field Type & Status</TableHead>
+              <TableHead className="w-1/3">System Database Field (Target)</TableHead>
+              <TableHead className="w-1/3">CSV Column Header (Source)</TableHead>
+              <TableHead className="w-1/3">Status & Type Info</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {headers.map((header) => {
-              const currentMappedKey = mapping[header] || "";
-              const matchedFieldConfig = config.fields.find((f) => f.key === currentMappedKey);
+            {config.fields.map((field) => {
+              const currentCsvHeader = mapping[field.key] || "";
 
               return (
-                <TableRow key={header} className="hover:bg-muted/30">
+                <TableRow key={field.key} className="hover:bg-muted/30">
+                  {/* Left Column: System Database Field */}
                   <TableCell className="font-medium">
-                    <span className="bg-muted px-2.5 py-1 rounded text-xs border font-mono">
-                      {header}
-                    </span>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm">{field.label}</span>
+                        {field.required && (
+                          <Badge variant="destructive" className="text-[10px] py-0 px-1.5 font-bold">
+                            * Required
+                          </Badge>
+                        )}
+                      </div>
+                      {field.description && (
+                        <p className="text-xs text-muted-foreground">{field.description}</p>
+                      )}
+                    </div>
                   </TableCell>
 
+                  {/* Middle Column: CSV Header Dropdown */}
                   <TableCell>
                     <Select
-                      value={currentMappedKey || "__ignore__"}
-                      onValueChange={(val) => handleSelectField(header, val)}
+                      value={currentCsvHeader || "__unmapped__"}
+                      onValueChange={(val) => handleSelectHeader(field.key, val)}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Do not import (Ignore)" />
+                        <SelectValue placeholder="-- Select CSV Column --" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__ignore__">
-                          <span className="text-muted-foreground">-- Ignore column --</span>
+                        <SelectItem value="__unmapped__">
+                          <span className="text-muted-foreground italic">-- Not in CSV (Leave Empty) --</span>
                         </SelectItem>
-                        {config.fields.map((field) => {
+                        {headers.map((header) => {
                           const isAlreadyMappedToOther =
-                            mappedTargetKeys.has(field.key) && currentMappedKey !== field.key;
+                            mappedCsvHeaders.has(header) && currentCsvHeader !== header;
+
                           return (
                             <SelectItem
-                              key={field.key}
-                              value={field.key}
-                              disabled={isAlreadyMappedToOther}
+                              key={header}
+                              value={header}
                             >
                               <div className="flex items-center justify-between gap-2">
-                                <span>{field.label}</span>
-                                {field.required && (
-                                  <span className="text-destructive font-bold text-xs">* Required</span>
+                                <span className="font-mono text-xs">{header}</span>
+                                {isAlreadyMappedToOther && (
+                                  <span className="text-[10px] text-muted-foreground">(mapped)</span>
                                 )}
                               </div>
                             </SelectItem>
@@ -157,21 +174,24 @@ export default function FieldMapper({
                     </Select>
                   </TableCell>
 
+                  {/* Right Column: Status & Type */}
                   <TableCell>
-                    {matchedFieldConfig ? (
+                    {currentCsvHeader ? (
                       <div className="flex items-center gap-2">
                         <FiCheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
-                        <Badge variant="outline" className="capitalize text-xs">
-                          {matchedFieldConfig.type}
+                        <span className="text-xs font-mono bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                          {currentCsvHeader}
+                        </span>
+                        <Badge variant="outline" className="capitalize text-[10px]">
+                          {field.type}
                         </Badge>
-                        {matchedFieldConfig.required && (
-                          <Badge variant="secondary" className="bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 text-xs">
-                            Required
-                          </Badge>
-                        )}
+                      </div>
+                    ) : field.required ? (
+                      <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 text-xs font-medium">
+                        <FiAlertTriangle className="h-3.5 w-3.5" /> Required mapping missing
                       </div>
                     ) : (
-                      <span className="text-xs text-muted-foreground italic">Ignored column</span>
+                      <span className="text-xs text-muted-foreground italic">Not mapped (Optional)</span>
                     )}
                   </TableCell>
                 </TableRow>
