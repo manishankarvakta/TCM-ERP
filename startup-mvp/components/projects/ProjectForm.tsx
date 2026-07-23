@@ -8,12 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-    Select, 
-    SelectContent, 
-    SelectItem, 
-    SelectTrigger, 
-    SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from "@/components/ui/select";
 import { FiAlertCircle, FiBriefcase, FiCalendar, FiDollarSign } from "react-icons/fi";
 import { createProject, updateProject } from "@/app/actions/projects/project.action";
@@ -52,6 +52,7 @@ export default function ProjectForm({ onSuccess, onCancel, initialData }: Projec
   const [clientsLoading, setClientsLoading] = useState(true);
   const [users, setUsers] = useState<any[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
+  const [clientSearch, setClientSearch] = useState("");
 
   // Default dates to today
   const defaultToday = new Date().toISOString().split('T')[0];
@@ -69,16 +70,16 @@ export default function ProjectForm({ onSuccess, onCancel, initialData }: Projec
         setClientsLoading(false);
       }
     };
-    
+
     const fetchUsers = async () => {
-        try {
-            const res = await getActiveUsers();
-            if (res.success) {
-                setUsers(res.users || []);
-            }
-        } catch(e) { console.error(e) } finally { setUsersLoading(false) }
+      try {
+        const res = await getActiveUsers();
+        if (res.success) {
+          setUsers(res.users || []);
+        }
+      } catch (e) { console.error(e) } finally { setUsersLoading(false) }
     }
-    
+
     fetchClients();
     fetchUsers();
   }, []);
@@ -109,29 +110,29 @@ export default function ProjectForm({ onSuccess, onCancel, initialData }: Projec
 
   const handleOppChange = (opp: any) => {
     if (opp && typeof opp === "object") {
-        setValue("opportunityId", opp.id);
-        setValue("clientId", opp.clientId);
-        if (!watch("title")) setValue("title", opp.title);
+      setValue("opportunityId", opp.id);
+      setValue("clientId", opp.clientId);
+      if (!watch("title")) setValue("title", opp.title);
     } else {
-        setValue("opportunityId", opp); // Could be null or ID
+      setValue("opportunityId", opp); // Could be null or ID
     }
   };
 
   const selectedOrderId = watch("orderId");
   const handleOrderChange = (order: any) => {
-      if (order && typeof order === "object") {
-          setValue("orderId", order.id);
-          setValue("clientId", order.clientId);
-          
-          if (order.Quotation && order.Quotation.opportunityId) {
-             setValue("opportunityId", order.Quotation.opportunityId);
-          }
-          
-          // Use order number in title if blank
-          if (!watch("title")) setValue("title", `Project - ${order.orderNumber}`);
-      } else {
-          setValue("orderId", order); 
+    if (order && typeof order === "object") {
+      setValue("orderId", order.id);
+      setValue("clientId", order.clientId);
+
+      if (order.Quotation && order.Quotation.opportunityId) {
+        setValue("opportunityId", order.Quotation.opportunityId);
       }
+
+      // Use order number in title if blank
+      if (!watch("title")) setValue("title", `Project - ${order.orderNumber}`);
+    } else {
+      setValue("orderId", order);
+    }
   };
 
   const onSubmit = async (data: ProjectFormData) => {
@@ -140,12 +141,12 @@ export default function ProjectForm({ onSuccess, onCancel, initialData }: Projec
       setError("");
 
       const payload = {
-          ...data,
-          startDate: data.startDate ? new Date(data.startDate) : undefined,
-          endDate: data.endDate ? new Date(data.endDate) : undefined,
-          opportunityId: data.opportunityId || undefined,
-          orderId: data.orderId || undefined,
-          projectManagerId: data.projectManagerId || undefined,
+        ...data,
+        startDate: data.startDate ? new Date(data.startDate) : undefined,
+        endDate: data.endDate ? new Date(data.endDate) : undefined,
+        opportunityId: data.opportunityId || undefined,
+        orderId: data.orderId || undefined,
+        projectManagerId: data.projectManagerId || undefined,
       };
 
       let result;
@@ -169,6 +170,15 @@ export default function ProjectForm({ onSuccess, onCancel, initialData }: Projec
     }
   };
 
+  const filteredClients = clients.filter((c) => {
+    if (!clientSearch) return true;
+    const q = clientSearch.toLowerCase();
+    return (
+      (c.company || "").toLowerCase().includes(q) ||
+      (c.name || "").toLowerCase().includes(q)
+    );
+  });
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pt-2 pb-6">
       {error && (
@@ -181,156 +191,178 @@ export default function ProjectForm({ onSuccess, onCancel, initialData }: Projec
       {/* Project Basic Info */}
       <div className="space-y-4">
         <div className="space-y-2">
-            <Label htmlFor="title" className="text-sm font-semibold flex items-center gap-2">
-                <FiBriefcase className="h-4 w-4 text-primary" />
-                Project Title *
-            </Label>
-            <Input 
-                id="title" 
-                {...register("title")} 
-                disabled={loading} 
-                placeholder="e.g. Website Redesign 2024"
-                className="bg-muted/30 focus-visible:ring-primary"
-            />
-            {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
+          <Label htmlFor="title" className="text-sm font-semibold flex items-center gap-2">
+            <FiBriefcase className="h-4 w-4 text-primary" />
+            Project Title *
+          </Label>
+          <Input
+            id="title"
+            {...register("title")}
+            disabled={loading}
+            placeholder="e.g. Website Redesign 2024"
+            className="bg-muted/30 focus-visible:ring-primary"
+          />
+          {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
         </div>
 
         <div className="space-y-2">
-            <Label htmlFor="description" className="text-sm font-semibold">Description</Label>
-            <Textarea 
-                id="description" 
-                {...register("description")} 
-                disabled={loading} 
-                rows={3} 
-                placeholder="Briefly describe the project goals..."
-                className="bg-muted/30 resize-none focus-visible:ring-primary"
-            />
+          <Label htmlFor="description" className="text-sm font-semibold">Description</Label>
+          <Textarea
+            id="description"
+            {...register("description")}
+            disabled={loading}
+            rows={3}
+            placeholder="Briefly describe the project goals..."
+            className="bg-muted/30 resize-none focus-visible:ring-primary"
+          />
         </div>
       </div>
 
       {/* Links & Relations */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-y border-border/50 py-4 my-2">
-          
-          <div className="space-y-2">
-             <OrderSelect 
-                value={selectedOrderId || undefined}
-                onValueChange={handleOrderChange}
-                disabled={loading}
-              />
-          </div>
-          
-          <div className="space-y-2">
-              <Label className="text-sm font-semibold">Client *</Label>
-              <Select 
-                value={watch("clientId")} 
-                onValueChange={(val) => setValue("clientId", val)}
-                disabled={loading || clientsLoading || !!selectedOrderId}
-              >
-                  <SelectTrigger className="bg-muted/30 h-10">
-                      <SelectValue placeholder={clientsLoading ? "Loading..." : "Select Client"} />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                      {clients.map(c => (
-                          <SelectItem key={c.id} value={c.id}>{c.company || c.name}</SelectItem>
-                      ))}
-                  </SelectContent>
-              </Select>
-              {errors.clientId && <p className="text-xs text-destructive">{errors.clientId.message}</p>}
-          </div>
 
-          <div className="space-y-2">
-              <OpportunitySelect 
-                value={selectedOppId || undefined}
-                onValueChange={handleOppChange}
-                disabled={loading || !!selectedOrderId}
-              />
-          </div>
-          
-          <div className="space-y-2">
-              <Label className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-                  <FiUser className="h-4 w-4" />
-                  Project Manager
-              </Label>
-              <Select 
-                value={watch("projectManagerId") || undefined} 
-                onValueChange={(val) => setValue("projectManagerId", val === "none" ? null : val)}
-                disabled={loading || usersLoading}
-              >
-                  <SelectTrigger className="bg-muted/30 h-10">
-                      <SelectValue placeholder={usersLoading ? "Loading..." : "Unassigned"} />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                      <SelectItem value="none">Unassigned</SelectItem>
-                      {users.map(u => (
-                          <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                      ))}
-                  </SelectContent>
-              </Select>
-          </div>
-          
+        <div className="space-y-2">
+          <OrderSelect
+            value={selectedOrderId || undefined}
+            onValueChange={handleOrderChange}
+            disabled={loading}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold">Client *</Label>
+          <Select 
+            value={watch("clientId")} 
+            onValueChange={(val) => setValue("clientId", val)}
+            disabled={loading || clientsLoading || !!selectedOrderId}
+          >
+              <SelectTrigger className="bg-muted/30 h-10 w-full text-left justify-start">
+                  <SelectValue placeholder={clientsLoading ? "Loading..." : "Select Client"} />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                  <div className="sticky top-0 z-50 bg-popover p-2 border-b">
+                      <Input
+                          placeholder="Search clients..."
+                          value={clientSearch}
+                          onChange={(e) => setClientSearch(e.target.value)}
+                          className="h-8 text-xs"
+                          onClick={(e) => e.stopPropagation()}
+                      />
+                  </div>
+                  {filteredClients.length === 0 ? (
+                      <div className="p-2 text-xs text-gray-500 text-left">No clients found</div>
+                  ) : (
+                      filteredClients.map((c) => (
+                          <SelectItem key={c.id} value={c.id} className="text-left cursor-pointer">
+                              <div className="flex flex-col text-left items-start">
+                                  <span className="font-medium text-sm text-left">{c.company || c.name}</span>
+                                  {c.company && c.name && (
+                                      <span className="text-xs text-muted-foreground truncate max-w-[300px] mt-0.5 text-left">
+                                          {c.name}
+                                      </span>
+                                  )}
+                              </div>
+                          </SelectItem>
+                      ))
+                  )}
+              </SelectContent>
+          </Select>
+          {errors.clientId && <p className="text-xs text-destructive">{errors.clientId.message}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <OpportunitySelect
+            value={selectedOppId || undefined}
+            onValueChange={handleOppChange}
+            disabled={loading || !!selectedOrderId}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+            <FiUser className="h-4 w-4" />
+            Project Manager
+          </Label>
+          <Select
+            value={watch("projectManagerId") || undefined}
+            onValueChange={(val) => setValue("projectManagerId", val === "none" ? null : val)}
+            disabled={loading || usersLoading}
+          >
+            <SelectTrigger className="bg-muted/30 h-10">
+              <SelectValue placeholder={usersLoading ? "Loading..." : "Unassigned"} />
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px]">
+              <SelectItem value="none">Unassigned</SelectItem>
+              {users.map(u => (
+                <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
       </div>
 
       {/* Financials & Planning */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-            <Label htmlFor="budget" className="text-sm font-semibold flex items-center gap-2">
-                <FiDollarSign className="h-4 w-4 text-emerald-500" />
-                Budget
-            </Label>
-            <Input 
-                id="budget" 
-                type="number"
-                {...register("budget", { valueAsNumber: true })} 
-                disabled={loading} 
-                className="bg-muted/30"
-            />
+          <Label htmlFor="budget" className="text-sm font-semibold flex items-center gap-2">
+            <FiDollarSign className="h-4 w-4 text-emerald-500" />
+            Budget
+          </Label>
+          <Input
+            id="budget"
+            type="number"
+            {...register("budget", { valueAsNumber: true })}
+            disabled={loading}
+            className="bg-muted/30"
+          />
         </div>
         <div className="space-y-2">
-            <Label className="text-sm font-semibold">Priority</Label>
-            <Select 
-                onValueChange={(v) => setValue("priority", v as any)} 
-                defaultValue={watch("priority")}
-                disabled={loading}
-            >
-                <SelectTrigger className="bg-muted/30">
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="LOW">Low</SelectItem>
-                    <SelectItem value="NORMAL">Normal</SelectItem>
-                    <SelectItem value="HIGH">High</SelectItem>
-                    <SelectItem value="CRITICAL">Critical</SelectItem>
-                </SelectContent>
-            </Select>
+          <Label className="text-sm font-semibold">Priority</Label>
+          <Select
+            onValueChange={(v) => setValue("priority", v as any)}
+            defaultValue={watch("priority")}
+            disabled={loading}
+          >
+            <SelectTrigger className="bg-muted/30">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="LOW">Low</SelectItem>
+              <SelectItem value="NORMAL">Normal</SelectItem>
+              <SelectItem value="HIGH">High</SelectItem>
+              <SelectItem value="CRITICAL">Critical</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-            <Label htmlFor="startDate" className="text-sm font-semibold flex items-center gap-2">
-                <FiCalendar className="h-4 w-4 text-blue-500" />
-                Start Date
-            </Label>
-            <Input 
-                id="startDate" 
-                type="date"
-                {...register("startDate")} 
-                disabled={loading} 
-                className="bg-muted/30"
-            />
+          <Label htmlFor="startDate" className="text-sm font-semibold flex items-center gap-2">
+            <FiCalendar className="h-4 w-4 text-blue-500" />
+            Start Date
+          </Label>
+          <Input
+            id="startDate"
+            type="date"
+            {...register("startDate")}
+            disabled={loading}
+            className="bg-muted/30"
+          />
         </div>
         <div className="space-y-2">
-            <Label htmlFor="endDate" className="text-sm font-semibold flex items-center gap-2">
-                <FiCalendar className="h-4 w-4 text-orange-500" />
-                End Date
-            </Label>
-            <Input 
-                id="endDate" 
-                type="date"
-                {...register("endDate")} 
-                disabled={loading} 
-                className="bg-muted/30"
-            />
+          <Label htmlFor="endDate" className="text-sm font-semibold flex items-center gap-2">
+            <FiCalendar className="h-4 w-4 text-orange-500" />
+            End Date
+          </Label>
+          <Input
+            id="endDate"
+            type="date"
+            {...register("endDate")}
+            disabled={loading}
+            className="bg-muted/30"
+          />
         </div>
       </div>
 
