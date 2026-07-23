@@ -36,6 +36,7 @@ export const MENU_TEMPLATE: MenuItemData[] = [
       { href: "/dashboard/master/brands", label: "Brands", icon: "FiTag", module: "master" },
       { href: "/dashboard/master/units", label: "Units", icon: "FiLayers", module: "master" },
       { href: "/dashboard/master/warehouses", label: "Warehouses", icon: "FiHome", module: "master" },
+      { href: "/dashboard/import", label: "Data Import", icon: "FiUploadCloud", module: "master" },
     ],
   },
   {
