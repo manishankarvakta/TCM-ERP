@@ -45,9 +45,10 @@ export default function ImportWizard() {
   const [selectedModuleId, setSelectedModuleId] = useState<string>("Products");
 
   // Track user-selected fields for import (required fields auto-selected and locked)
-  const [selectedFieldKeys, setSelectedFieldKeys] = useState<string[]>(() =>
-    IMPORT_MODULES[0].fields.map((f) => f.key)
-  );
+  const [selectedFieldKeys, setSelectedFieldKeys] = useState<string[]>(() => {
+    const initialMod = IMPORT_MODULES.find((m) => m.id === "Products") || IMPORT_MODULES[0];
+    return initialMod.fields.map((f) => f.key);
+  });
 
   const [file, setFile] = useState<File | null>(null);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
