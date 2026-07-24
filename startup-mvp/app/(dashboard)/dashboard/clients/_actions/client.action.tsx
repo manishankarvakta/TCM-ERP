@@ -91,6 +91,7 @@ export async function getClients(
         country: true,
         company: true,
         image: true,
+        documents: true,
         openingBalance: true,
         status: true,
         createdBy: true,
@@ -206,6 +207,7 @@ export async function getClientById(clientId: string) {
         country: true,
         company: true,
         image: true,
+        documents: true,
         openingBalance: true,
         status: true,
         clientType: true,
@@ -409,6 +411,7 @@ export async function createClient(input: {
   country?: string;
   company?: string;
   image?: string;
+  documents?: any;
   openingBalance?: number;
   status?: "active" | "inactive";
   clientType?: string;
@@ -584,6 +587,7 @@ export async function createClient(input: {
           country: input.country || null,
           company: input.company || null,
           image: input.image || null,
+          documents: input.documents || null,
           openingBalance: input.openingBalance || 0,
           status: input.status || "active",
           createdBy: session.user.id,
@@ -618,6 +622,7 @@ export async function createClient(input: {
           country: true,
           company: true,
           image: true,
+          documents: true,
           openingBalance: true,
           status: true,
           createdAt: true,
@@ -732,6 +737,7 @@ export async function updateClient(input: {
   country?: string;
   company?: string;
   image?: string;
+  documents?: any;
   openingBalance?: number;
   status?: "active" | "inactive";
   clientType?: string;
@@ -935,6 +941,7 @@ export async function updateClient(input: {
         country: input.country !== undefined ? (input.country || null) : undefined,
         company: input.company !== undefined ? (input.company || null) : undefined,
         image: input.image !== undefined ? (input.image || null) : undefined,
+        documents: input.documents !== undefined ? input.documents : undefined,
         openingBalance: input.openingBalance !== undefined ? input.openingBalance : undefined,
         clientType: input.clientType !== undefined ? input.clientType : undefined,
         membershipNumber: clientCode,
@@ -999,6 +1006,7 @@ export async function updateClient(input: {
           country: true,
           company: true,
           image: true,
+          documents: true,
           openingBalance: true,
           status: true,
           createdAt: true,

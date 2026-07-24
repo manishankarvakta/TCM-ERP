@@ -626,6 +626,7 @@ model Client {
   resetPasswordToken      String?
   resetPasswordExpiresAt  DateTime?
   addresses               ClientAddress[]
+  documents               Json?
 
   @@index([status])
   @@index([createdBy])
@@ -686,6 +687,7 @@ model Supplier {
   Voucher          Voucher[]
   VoucherLine      VoucherLine[]
   returnToVendors  ReturnToVendor[]
+  documents        Json?
 
   @@index([status])
   @@index([createdBy])

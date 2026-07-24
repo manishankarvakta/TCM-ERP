@@ -90,6 +90,7 @@ export async function getSuppliers(
         country: true,
         company: true,
         image: true,
+        documents: true,
         openingBalance: true,
         status: true,
         createdBy: true,
@@ -200,6 +201,7 @@ export async function getSupplierById(supplierId: string) {
         country: true,
         company: true,
         image: true,
+        documents: true,
         openingBalance: true,
         status: true,
         createdBy: true,
@@ -365,6 +367,7 @@ export async function createSupplier(input: {
   country?: string;
   company?: string;
   image?: string;
+  documents?: any;
   openingBalance?: number;
   status?: "active" | "inactive";
   warehouseId?: string | null;
@@ -528,6 +531,7 @@ export async function createSupplier(input: {
           country: input.country || null,
           company: input.company || null,
           image: input.image || null,
+          documents: input.documents || null,
           openingBalance: input.openingBalance || 0,
           status: input.status || "active",
           createdBy: session.user.id,
@@ -546,6 +550,7 @@ export async function createSupplier(input: {
           country: true,
           company: true,
           image: true,
+          documents: true,
           openingBalance: true,
         status: true,
           createdAt: true,
@@ -650,6 +655,7 @@ export async function updateSupplier(input: {
   country?: string;
   company?: string;
   image?: string;
+  documents?: any;
   openingBalance?: number;
   status?: "active" | "inactive";
   warehouseId?: string | null;
@@ -838,6 +844,7 @@ export async function updateSupplier(input: {
         country: input.country !== undefined ? (input.country || null) : undefined,
         company: input.company !== undefined ? (input.company || null) : undefined,
         image: input.image !== undefined ? (input.image || null) : undefined,
+        documents: input.documents !== undefined ? input.documents : undefined,
         openingBalance: input.openingBalance !== undefined ? input.openingBalance : undefined,
       };
 
@@ -874,6 +881,7 @@ export async function updateSupplier(input: {
           country: true,
           company: true,
           image: true,
+          documents: true,
           openingBalance: true,
         status: true,
           createdAt: true,

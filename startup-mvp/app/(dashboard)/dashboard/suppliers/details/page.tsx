@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
+import DocumentSection from "@/components/documents/documentSection";
 
 interface SupplierDetailsPageProps {
   searchParams: Promise<{
@@ -171,6 +172,14 @@ export default async function SupplierDetailsPage({ searchParams }: SupplierDeta
           </div>
         </CardContent>
       </Card>
+
+      {/* Supplier Attached Documents Section */}
+      <DocumentSection
+        documents={Array.isArray((supplier as any).documents) ? (supplier as any).documents : []}
+        readOnly={true}
+        title="Supplier Transaction & Dealing Documents"
+        description="Attached invoices, contracts, tax certificates, or photo records for this supplier."
+      />
     </div>
   );
 }

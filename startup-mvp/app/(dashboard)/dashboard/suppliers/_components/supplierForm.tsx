@@ -21,6 +21,7 @@ import { FiAlertCircle } from "react-icons/fi";
 import { createSupplier, updateSupplier, getWarehousesForSupplier } from "../_actions/supplier.action";
 import MediaSelector from "@/components/MediaSelector";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
+import DocumentSection, { DocumentItem } from "@/components/documents/documentSection";
 
 const supplierFormSchema = z.object({
   name: z.string().optional().or(z.literal("")),
@@ -54,6 +55,7 @@ interface SupplierFormProps {
     country: string | null;
     company: string | null;
     image: string | null;
+    documents?: any;
     openingBalance?: any;
     status: string;
     warehouseId?: string | null;
@@ -66,6 +68,9 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [warehouses, setWarehouses] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [documents, setDocuments] = useState<DocumentItem[]>(
+    Array.isArray(initialData?.documents) ? initialData.documents : []
+  );
 
   const {
     register,
@@ -138,6 +143,7 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
           country: data.country || undefined,
           company: data.company || undefined,
           image: data.image || undefined,
+          documents: documents,
           openingBalance: data.openingBalance ? parseFloat(data.openingBalance) : 0,
           status: data.status,
           warehouseId: data.warehouseId || undefined,
@@ -162,6 +168,7 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
           country: data.country || undefined,
           company: data.company || undefined,
           image: data.image || undefined,
+          documents: documents,
           openingBalance: data.openingBalance ? parseFloat(data.openingBalance) : undefined,
           status: data.status,
           warehouseId: data.warehouseId || undefined,
@@ -414,6 +421,16 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* Document Section for Previous Dealings / Invoices / Photos */}
+            <div className="mt-6">
+              <DocumentSection
+                documents={documents}
+                onChange={setDocuments}
+                title="Supplier Transaction & Dealing Documents"
+                description="Upload and attach past invoices, contracts, tax documents, or photo records for this supplier."
+              />
             </div>
 
             <div className="flex justify-end gap-4 mt-6">

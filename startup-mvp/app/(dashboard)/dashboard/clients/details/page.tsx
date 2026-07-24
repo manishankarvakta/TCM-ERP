@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
+import DocumentSection from "@/components/documents/documentSection";
 
 interface ClientDetailsPageProps {
   searchParams: Promise<{
@@ -295,6 +296,14 @@ export default async function ClientDetailsPage({ searchParams }: ClientDetailsP
           </CardContent>
         </Card>
       )}
+
+      {/* Client Attached Documents Section */}
+      <DocumentSection
+        documents={Array.isArray((client as any).documents) ? (client as any).documents : []}
+        readOnly={true}
+        title="Client Transaction & Dealing Documents"
+        description="Attached invoices, contracts, tax certificates, or photo records for this client."
+      />
     </div>
   );
 }

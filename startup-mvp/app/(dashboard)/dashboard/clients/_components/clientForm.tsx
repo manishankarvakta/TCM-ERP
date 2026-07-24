@@ -21,6 +21,7 @@ import { FiAlertCircle, FiPlus, FiTrash2, FiSearch } from "react-icons/fi";
 import { createClient, updateClient, getWarehousesForClient } from "../_actions/client.action";
 import MediaSelector from "@/components/MediaSelector";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
+import DocumentSection, { DocumentItem } from "@/components/documents/documentSection";
 import { useToast } from "@/hooks/use-toast";
 import { getItemsForSale } from "@/app/(dashboard)/dashboard/sales/_actions/sale.action";
 import { Badge } from "@/components/ui/badge";
@@ -84,6 +85,7 @@ interface ClientFormProps {
     country: string | null;
     company: string | null;
     image: string | null;
+    documents?: any;
     openingBalance?: any;
     status: string;
     clientType?: string | null;
@@ -104,6 +106,9 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [warehouses, setWarehouses] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [documents, setDocuments] = useState<DocumentItem[]>(
+    Array.isArray(initialData?.documents) ? initialData.documents : []
+  );
 
   const [items, setItems] = useState<any[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
@@ -383,6 +388,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
         membershipStatus: data.membershipStatus,
         membershipPoints: data.membershipPoints ? parseInt(data.membershipPoints, 10) : 0,
         membershipExpiry: data.membershipExpiry ? new Date(data.membershipExpiry) : undefined,
+        documents: documents,
         itemDiscounts: data.clientType === "wholesale" ? data.discounts : [],
         discounts: data.clientType === "wholesale" ? data.discounts : [],
       };
@@ -943,6 +949,16 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
                 </CardContent>
               </Card>
             )}
+
+            {/* Document Section for Previous Dealings / Invoices / Photos */}
+            <div className="mt-6">
+              <DocumentSection
+                documents={documents}
+                onChange={setDocuments}
+                title="Client Transaction & Dealing Documents"
+                description="Upload and attach past invoices, contracts, tax documents, or photo records for this client."
+              />
+            </div>
 
             <div className="flex justify-end gap-4 mt-6">
               <Button
