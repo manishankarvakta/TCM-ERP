@@ -450,6 +450,7 @@ model Warehouse {
   grns                GRN[]
   biometricDevices    BiometricDevice[]
   inventoryCountEntries InventoryCountEntry[]
+  vouchers            Voucher[]              @relation("WarehouseVouchers")
 
   @@index([code])
   @@index([name])
@@ -1014,6 +1015,7 @@ model Voucher {
   supplierId                    String?
   userId                        String?
   organizationId                String?
+  warehouseId                   String?
   isLocked                      Boolean              @default(false)
   employeeLoans                 EmployeeLoan[]
   inventoryAdjustment           InventoryAdjustment?
@@ -1030,6 +1032,7 @@ model Voucher {
   User_Voucher_postedByIdToUser User?                @relation("Voucher_postedByIdToUser", fields: [postedById], references: [id])
   Supplier                      Supplier?            @relation(fields: [supplierId], references: [id])
   User_Voucher_userIdToUser     User?                @relation("Voucher_userIdToUser", fields: [userId], references: [id])
+  warehouse                     Warehouse?           @relation("WarehouseVouchers", fields: [warehouseId], references: [id])
   VoucherLine                   VoucherLine[]
   returnToVendors               ReturnToVendor[]
   grns                          GRN[]
@@ -1043,6 +1046,7 @@ model Voucher {
   @@index([supplierId])
   @@index([type])
   @@index([userId])
+  @@index([warehouseId])
   @@index([voucherNumber])
 }
 

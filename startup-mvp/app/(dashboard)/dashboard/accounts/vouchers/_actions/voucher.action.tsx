@@ -219,6 +219,7 @@ export async function listVouchers(
         where.id = "none";
       } else {
         where.OR = [
+          { warehouseId },
           { sales: { some: { warehouseId } } },
           { purchases: { some: { warehouseId } } },
           { productionOrders: { some: { warehouseId } } },
@@ -616,6 +617,7 @@ export async function createVoucher(input: {
   supplierId?: string;
   userId?: string;
   organizationId?: string;
+  warehouseId?: string;
   isSystemAction?: boolean;
   lines: Array<{
     lineNumber: number;
@@ -945,6 +947,15 @@ export async function createVoucher(input: {
     // --- END OVER-RECEIPT GUARD ---
 
     const performCreate = async (transaction: Prisma.TransactionClient) => {
+      let targetWarehouseId = input.warehouseId || null;
+      if (!targetWarehouseId && session.user.id) {
+        const creatorUser = await transaction.user.findUnique({
+          where: { id: session.user.id },
+          select: { defaultWarehouseId: true },
+        });
+        targetWarehouseId = creatorUser?.defaultWarehouseId || null;
+      }
+
       // Create voucher with lines
       const voucher = await transaction.voucher.create({
         data: {
@@ -959,6 +970,7 @@ export async function createVoucher(input: {
           supplierId: input.supplierId || null,
           userId: input.userId || null,
           organizationId: input.organizationId || null,
+          warehouseId: targetWarehouseId,
           VoucherLine: {
             create: input.lines.map((line) => ({
               lineNumber: line.lineNumber,
@@ -1910,6 +1922,41 @@ export async function deleteVoucher(voucherId: string) {
   } catch (error) {
     console.error("deleteVoucher error:", error);
     return { success: false, error: "Failed to delete voucher" };
+  }
+}
+
+export async function getWarehouseOptionsForVoucher() {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { isAdmin: false, userWarehouseId: null, warehouses: [] };
+    }
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { defaultWarehouseId: true, role: true },
+    });
+
+    const role = session?.user?.role?.toLowerCase() || dbUser?.role?.toLowerCase() || "";
+    const isAdmin = role === "admin" || role === "super-admin" || role === "superadmin";
+
+    let warehouses: Array<{ id: string; name: string }> = [];
+    if (isAdmin) {
+      warehouses = await prisma.warehouse.findMany({
+        where: { isTrash: false },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      });
+    }
+
+    return {
+      isAdmin,
+      userWarehouseId: dbUser?.defaultWarehouseId || null,
+      warehouses,
+    };
+  } catch (err) {
+    console.error("getWarehouseOptionsForVoucher error:", err);
+    return { isAdmin: false, userWarehouseId: null, warehouses: [] };
   }
 }
 

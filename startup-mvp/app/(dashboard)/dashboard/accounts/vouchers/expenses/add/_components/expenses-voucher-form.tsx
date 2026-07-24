@@ -54,6 +54,7 @@ const expenseVoucherSchema = z.object({
   reference: z.string().optional(),
   description: z.string().optional().or(z.literal("")),
   creditAccountId: z.string().min(1, "Expense Account (Credit source) is required"),
+  warehouseId: z.string().optional(),
   lines: z.array(voucherLineSchema).min(1, "At least 1 expense entry is required"),
 });
 
@@ -105,6 +106,8 @@ export default function ExpensesVoucherForm() {
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [accountSearch, setAccountSearch] = useState("");
   const [creditAccountSearch, setCreditAccountSearch] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [warehouses, setWarehouses] = useState<Array<{ id: string; name: string }>>([]);
   
   // Fetch accounts on mount
   useEffect(() => {
@@ -114,6 +117,17 @@ export default function ExpensesVoucherForm() {
         if (result.success) {
           setCreditAccounts(result.creditAccounts);
           setDebitAccounts(result.debitAccounts);
+
+          if (result.isAdmin) {
+            setIsAdmin(true);
+            setWarehouses(result.warehouses || []);
+            if (result.warehouses && result.warehouses.length > 0) {
+              const defaultWh = result.userWarehouseId
+                ? result.warehouses.find(w => w.id === result.userWarehouseId)?.id || result.warehouses[0].id
+                : result.warehouses[0].id;
+              setValue("warehouseId", defaultWh);
+            }
+          }
 
           // Select same warehouse first cash account by default
           const warehouseCash = result.creditAccounts.cash.find(acc => acc.isWarehouseSpecific);
@@ -240,6 +254,7 @@ export default function ExpensesVoucherForm() {
         type: VoucherType.PAYMENT,
         reference: data.reference || undefined,
         description: data.description,
+        warehouseId: isAdmin ? data.warehouseId : undefined,
         lines,
       });
 
@@ -323,8 +338,36 @@ export default function ExpensesVoucherForm() {
                 </div>
               )}
 
-              {/* Header Fields (3 columns) */}
-              <div className="grid gap-4 sm:grid-cols-3">
+              {/* Header Fields (3 or 4 columns depending on Admin status) */}
+              <div className={`grid gap-4 sm:grid-cols-1 ${isAdmin ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
+                {isAdmin && (
+                  <div className="space-y-2">
+                    <Label htmlFor="warehouseId">Warehouse *</Label>
+                    <Controller
+                      name="warehouseId"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value || ""}
+                          onValueChange={field.onChange}
+                          disabled={loading}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Warehouse" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {warehouses.map((w) => (
+                              <SelectItem key={w.id} value={w.id}>
+                                {w.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="date">Voucher Date *</Label>
                   <Input

@@ -21,6 +21,9 @@ export async function getAccountsForExpenses(): Promise<{
     digitalWallet: AccountOption[];
   };
   debitAccounts: AccountOption[];
+  isAdmin?: boolean;
+  userWarehouseId?: string | null;
+  warehouses?: Array<{ id: string; name: string }>;
   error?: string;
 }> {
   try {
@@ -134,6 +137,15 @@ export async function getAccountsForExpenses(): Promise<{
       description: account.description,
     }));
 
+    let warehouses: Array<{ id: string; name: string }> = [];
+    if (isAdmin) {
+      warehouses = await prisma.warehouse.findMany({
+        where: { isTrash: false },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      });
+    }
+
     return {
       success: true,
       creditAccounts: {
@@ -142,6 +154,9 @@ export async function getAccountsForExpenses(): Promise<{
         digitalWallet,
       },
       debitAccounts,
+      isAdmin,
+      userWarehouseId: defaultWarehouseId,
+      warehouses,
     };
   } catch (error) {
     console.error("getAccountsForExpenses error:", error);

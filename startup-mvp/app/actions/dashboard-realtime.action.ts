@@ -179,6 +179,34 @@ export async function getRealtimeDashboardStats(
     });
     const newCustomersGrowth = prevNewCustomers > 0 ? ((currentNewCustomers - prevNewCustomers) / prevNewCustomers) * 100 : 0;
 
+    // Warehouse filter for Vouchers / Expenses
+    const voucherWarehouseFilter: any = warehouseId !== "all"
+      ? {
+          OR: [
+            { warehouseId: warehouseId },
+            {
+              warehouseId: null,
+              User_Voucher_createdByToUser: {
+                defaultWarehouseId: warehouseId,
+              },
+            },
+            {
+              VoucherLine: {
+                some: {
+                  ChartOfAccount: {
+                    CashBankAccount: {
+                      warehouses: {
+                        some: { id: warehouseId },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        }
+      : {};
+
     // Expenses calculations
     const [currentExpensesAgg, prevExpensesAgg] = await Promise.all([
       prisma.voucherLine.aggregate({
@@ -186,6 +214,7 @@ export async function getRealtimeDashboardStats(
           Voucher: {
             type: "PAYMENT",
             createdAt: { gte: currentStart, lte: currentEnd },
+            ...voucherWarehouseFilter,
           },
           debitAmount: { gt: 0 },
         },
@@ -196,6 +225,7 @@ export async function getRealtimeDashboardStats(
           Voucher: {
             type: "PAYMENT",
             createdAt: { gte: prevStart, lte: prevEnd },
+            ...voucherWarehouseFilter,
           },
           debitAmount: { gt: 0 },
         },
@@ -439,6 +469,7 @@ export async function getRealtimeDashboardStats(
             Voucher: {
               type: "PAYMENT",
               createdAt: { gte: stepStart, lte: stepEnd },
+              ...voucherWarehouseFilter,
             },
             debitAmount: { gt: 0 },
           },
@@ -484,6 +515,7 @@ export async function getRealtimeDashboardStats(
             Voucher: {
               type: "PAYMENT",
               createdAt: { gte: stepStart, lte: stepEnd },
+              ...voucherWarehouseFilter,
             },
             debitAmount: { gt: 0 },
           },
@@ -528,6 +560,7 @@ export async function getRealtimeDashboardStats(
             Voucher: {
               type: "PAYMENT",
               createdAt: { gte: stepStart, lte: stepEnd },
+              ...voucherWarehouseFilter,
             },
             debitAmount: { gt: 0 },
           },
@@ -572,6 +605,7 @@ export async function getRealtimeDashboardStats(
             Voucher: {
               type: "PAYMENT",
               createdAt: { gte: stepStart, lte: stepEnd },
+              ...voucherWarehouseFilter,
             },
             debitAmount: { gt: 0 },
           },
