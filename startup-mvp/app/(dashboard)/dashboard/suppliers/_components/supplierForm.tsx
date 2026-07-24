@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle } from "react-icons/fi";
-import { createSupplier, updateSupplier } from "../_actions/supplier.action";
+import { createSupplier, updateSupplier, getWarehousesForSupplier } from "../_actions/supplier.action";
 import MediaSelector from "@/components/MediaSelector";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 
@@ -35,6 +35,7 @@ const supplierFormSchema = z.object({
   image: z.string().url("Invalid image URL").optional().or(z.literal("")),
   openingBalance: z.string().optional().or(z.literal("")),
   status: z.enum(["active", "inactive"]),
+  warehouseId: z.string().optional().or(z.literal("")),
 });
 
 type SupplierFormData = z.infer<typeof supplierFormSchema>;
@@ -55,6 +56,7 @@ interface SupplierFormProps {
     image: string | null;
     openingBalance?: any;
     status: string;
+    warehouseId?: string | null;
   };
 }
 
@@ -63,6 +65,7 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
   const pathname = usePathname();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [warehouses, setWarehouses] = useState<Array<{ id: string; name: string; code: string }>>([]);
 
   const {
     register,
@@ -86,6 +89,7 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
           image: initialData.image || "",
           openingBalance: initialData.openingBalance?.toString() || "0",
           status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
+          warehouseId: initialData.warehouseId || "",
         }
       : {
           name: "",
@@ -100,8 +104,22 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
           image: "",
           openingBalance: "0",
           status: "active",
+          warehouseId: "",
         },
   });
+
+  useEffect(() => {
+    async function loadWarehouses() {
+      const res = await getWarehousesForSupplier();
+      if (res.success && res.warehouses) {
+        setWarehouses(res.warehouses);
+        if (mode === "create" && res.defaultWarehouseId && !watch("warehouseId")) {
+          setValue("warehouseId", res.defaultWarehouseId);
+        }
+      }
+    }
+    loadWarehouses();
+  }, []);
 
   const onSubmit = async (data: SupplierFormData) => {
     try {
@@ -122,6 +140,7 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
           image: data.image || undefined,
           openingBalance: data.openingBalance ? parseFloat(data.openingBalance) : 0,
           status: data.status,
+          warehouseId: data.warehouseId || undefined,
         });
 
         if (!result.success) {
@@ -143,8 +162,9 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
           country: data.country || undefined,
           company: data.company || undefined,
           image: data.image || undefined,
-          openingBalance: data.openingBalance ? parseFloat(data.openingBalance) : 0,
+          openingBalance: data.openingBalance ? parseFloat(data.openingBalance) : undefined,
           status: data.status,
+          warehouseId: data.warehouseId || undefined,
         });
 
         if (!result.success) {
@@ -333,24 +353,47 @@ export default function SupplierForm({ mode, initialData }: SupplierFormProps) {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select
-                    defaultValue={initialData?.status === "trash" ? "active" : initialData?.status || "active"}
-                    onValueChange={(value) => setValue("status", value as "active" | "inactive")}
-                    disabled={loading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.status && (
-                    <p className="text-sm text-destructive">{errors.status.message}</p>
-                  )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select
+                      defaultValue={initialData?.status === "trash" ? "active" : initialData?.status || "active"}
+                      onValueChange={(value) => setValue("status", value as "active" | "inactive")}
+                      disabled={loading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {errors.status && (
+                      <p className="text-sm text-destructive">{errors.status.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="warehouseId">Assigned Warehouse</Label>
+                    <Select
+                      value={watch("warehouseId") || "none"}
+                      onValueChange={(value) => setValue("warehouseId", value === "none" ? "" : value)}
+                      disabled={loading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Warehouse" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None (All Warehouses)</SelectItem>
+                        {warehouses.map((wh) => (
+                          <SelectItem key={wh.id} value={wh.id}>
+                            {wh.name} ({wh.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 

@@ -16,7 +16,8 @@ export async function getClients(
   page: number = 1,
   limit: number = 10,
   search: string = "",
-  status: "active" | "inactive" | "trash" | "all" = "all"
+  status: "active" | "inactive" | "trash" | "all" = "all",
+  warehouseId: string = "all"
 ) {
   try {
     const session = await auth();
@@ -64,6 +65,11 @@ export async function getClients(
       where.status = { not: "trash" };
     }
 
+    // Filter by warehouse if provided
+    if (warehouseId && warehouseId !== "all") {
+      where.warehouseId = warehouseId;
+    }
+
     // Get total count
     const total = await prisma.client.count({ where });
 
@@ -91,6 +97,14 @@ export async function getClients(
         clientType: true,
         membershipTier: true,
         membershipPoints: true,
+        warehouseId: true,
+        warehouse: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
         createdByUser: {
           select: {
             id: true,
@@ -238,6 +252,14 @@ export async function getClientById(clientId: string) {
             id: true,
             name: true,
             email: true,
+          },
+        },
+        warehouseId: true,
+        warehouse: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
           },
         },
         ChartOfAccount: {
@@ -397,6 +419,7 @@ export async function createClient(input: {
   membershipStatus?: string;
   membershipPoints?: number;
   membershipExpiry?: Date;
+  warehouseId?: string | null;
 }) {
   try {
     const session = await auth();
@@ -538,6 +561,15 @@ export async function createClient(input: {
         },
       });
 
+      // Fetch default warehouse of logged-in user if warehouseId not specified
+      const userRecord = await tx.user.findUnique({
+        where: { id: session.user.id },
+        select: { defaultWarehouseId: true },
+      });
+      const targetWarehouseId = (input.warehouseId && input.warehouseId.trim() !== "")
+        ? input.warehouseId
+        : (userRecord?.defaultWarehouseId || null);
+
       // Create client with chartOfAccountId reference
       const client = await tx.client.create({
         data: {
@@ -556,6 +588,7 @@ export async function createClient(input: {
           status: input.status || "active",
           createdBy: session.user.id,
           chartOfAccountId: chartOfAccount.id,
+          warehouseId: targetWarehouseId,
           clientType: input.clientType || "regular",
           membershipNumber: clientCode,
           membershipTier: input.membershipTier || "NONE",
@@ -709,6 +742,7 @@ export async function updateClient(input: {
   membershipStatus?: string;
   membershipPoints?: number;
   membershipExpiry?: Date;
+  warehouseId?: string | null;
 }) {
   try {
     const session = await auth();
@@ -909,6 +943,10 @@ export async function updateClient(input: {
         membershipPoints: input.membershipPoints !== undefined ? Number(input.membershipPoints) : undefined,
         membershipExpiry: input.membershipExpiry !== undefined ? (input.membershipExpiry ? new Date(input.membershipExpiry) : null) : undefined,
       };
+
+      if (input.warehouseId !== undefined) {
+        updateData.warehouse = input.warehouseId ? { connect: { id: input.warehouseId } } : { disconnect: true };
+      }
 
       if (input.status) {
         updateData.status = input.status;
@@ -1513,6 +1551,48 @@ export async function getClientLedger(
       client: null,
       ledger: [],
       summary: { totalBilled: 0, totalPaid: 0, closingBalance: 0, totalTransactions: 0 },
+    };
+  }
+}
+
+/**
+ * Get warehouses list and default user warehouse for Client forms
+ */
+export async function getWarehousesForClient() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", warehouses: [], defaultWarehouseId: null };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { defaultWarehouseId: true },
+    });
+
+    const warehouses = await prisma.warehouse.findMany({
+      where: {
+        status: "active",
+        isTrash: false,
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return { success: true, warehouses, defaultWarehouseId: user?.defaultWarehouseId || null };
+  } catch (error) {
+    console.error("getWarehousesForClient error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch warehouses",
+      warehouses: [],
+      defaultWarehouseId: null,
     };
   }
 }

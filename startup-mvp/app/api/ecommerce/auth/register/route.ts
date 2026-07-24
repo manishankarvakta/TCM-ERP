@@ -123,6 +123,11 @@ export async function POST(req: Request) {
           },
         });
 
+        const systemUser = await tx.user.findUnique({
+          where: { id: systemUserId },
+          select: { defaultWarehouseId: true },
+        });
+
         // Create Client record linked to ledger
         const newClient = await tx.client.create({
           data: {
@@ -133,6 +138,7 @@ export async function POST(req: Request) {
             status: "active",
             createdBy: systemUserId,
             chartOfAccountId: chartOfAccount.id,
+            warehouseId: systemUser?.defaultWarehouseId || null,
             clientType: "regular",
             membershipNumber: clientCode,
             membershipTier: "NONE",

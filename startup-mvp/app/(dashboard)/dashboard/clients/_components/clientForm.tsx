@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle, FiPlus, FiTrash2, FiSearch } from "react-icons/fi";
-import { createClient, updateClient } from "../_actions/client.action";
+import { createClient, updateClient, getWarehousesForClient } from "../_actions/client.action";
 import MediaSelector from "@/components/MediaSelector";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { useToast } from "@/hooks/use-toast";
@@ -47,6 +47,7 @@ const clientFormSchema = z.object({
   openingBalance: z.string().optional().or(z.literal("")),
   status: z.enum(["active", "inactive"]),
   clientType: z.enum(["regular", "wholesale"]),
+  warehouseId: z.string().optional().or(z.literal("")),
   membershipNumber: z.string().optional().or(z.literal("")),
   membershipTier: z.enum(["NONE", "BRONZE", "SILVER", "GOLD", "PLATINUM"]),
   membershipStatus: z.enum(["ACTIVE", "INACTIVE", "EXPIRED"]),
@@ -92,6 +93,7 @@ interface ClientFormProps {
     membershipStatus?: string | null;
     membershipPoints?: number | null;
     membershipExpiry?: any;
+    warehouseId?: string | null;
   };
 }
 
@@ -101,6 +103,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
   const { toast } = useToast();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [warehouses, setWarehouses] = useState<Array<{ id: string; name: string; code: string }>>([]);
 
   const [items, setItems] = useState<any[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
@@ -156,6 +159,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
           openingBalance: initialData.openingBalance?.toString() || "0",
           status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
           clientType: (initialData.clientType === "wholesale" ? "wholesale" : "regular") as "regular" | "wholesale",
+          warehouseId: initialData.warehouseId || "",
           membershipNumber: initialData.membershipNumber || "",
           membershipTier: (initialData.membershipTier || "NONE") as "NONE" | "BRONZE" | "SILVER" | "GOLD" | "PLATINUM",
           membershipStatus: (initialData.membershipStatus || "INACTIVE") as "ACTIVE" | "INACTIVE" | "EXPIRED",
@@ -198,6 +202,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
           openingBalance: "0",
           status: "active",
           clientType: "regular",
+          warehouseId: "",
           membershipNumber: "",
           membershipTier: "NONE",
           membershipStatus: "INACTIVE",
@@ -208,6 +213,19 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
   });
 
   const clientType = watch("clientType") || "regular";
+
+  useEffect(() => {
+    async function loadWarehouses() {
+      const res = await getWarehousesForClient();
+      if (res.success && res.warehouses) {
+        setWarehouses(res.warehouses);
+        if (mode === "create" && res.defaultWarehouseId && !watch("warehouseId")) {
+          setValue("warehouseId", res.defaultWarehouseId);
+        }
+      }
+    }
+    loadWarehouses();
+  }, []);
 
   useEffect(() => {
     setValue("discounts", activeDiscounts);
@@ -359,6 +377,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
         openingBalance: data.openingBalance ? parseFloat(data.openingBalance) : 0,
         status: data.status,
         clientType: data.clientType,
+        warehouseId: data.warehouseId || undefined,
         membershipNumber: data.membershipNumber || undefined,
         membershipTier: data.membershipTier,
         membershipStatus: data.membershipStatus,
@@ -569,7 +588,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="clientType">Client Type</Label>
                     <Select
@@ -605,6 +624,27 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
                     {errors.status && (
                       <p className="text-sm text-destructive">{errors.status.message as string}</p>
                     )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="warehouseId">Assigned Warehouse</Label>
+                    <Select
+                      value={watch("warehouseId") || "none"}
+                      onValueChange={(value) => setValue("warehouseId", value === "none" ? "" : value)}
+                      disabled={loading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Warehouse" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None (All Warehouses)</SelectItem>
+                        {warehouses.map((wh) => (
+                          <SelectItem key={wh.id} value={wh.id}>
+                            {wh.name} ({wh.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 

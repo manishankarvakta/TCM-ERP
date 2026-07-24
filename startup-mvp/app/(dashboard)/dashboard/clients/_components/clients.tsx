@@ -21,6 +21,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw, FiBook } from "react-icons/fi";
 import { deleteClient, bulkUpdateClientStatus, deleteClientsPermanently } from "../_actions/client.action";
@@ -56,6 +63,12 @@ interface Client {
   clientType?: string | null;
   membershipTier?: string | null;
   membershipPoints?: number | null;
+  warehouseId?: string | null;
+  warehouse?: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
   createdBy: string;
   dueAmount: number;
   createdByUser: {
@@ -84,6 +97,8 @@ interface ClientsListClientProps {
   initialClients: Client[];
   initialPagination: Pagination;
   initialSearch: string;
+  initialWarehouse?: string;
+  warehouses?: Array<{ id: string; name: string; code: string }>;
   isTrash?: boolean;
   userId?: string;
   permissions?: {
@@ -98,6 +113,8 @@ export default function ClientsListClient({
   initialClients = [],
   initialPagination,
   initialSearch,
+  initialWarehouse = "all",
+  warehouses = [],
   isTrash = false,
   userId: providedUserId,
   permissions,
@@ -118,6 +135,21 @@ export default function ClientsListClient({
       params.set("search", value);
     } else {
       params.delete("search");
+    }
+    params.set("page", "1");
+    const tab = searchParams.get("tab") || "all";
+    if (tab) {
+      params.set("tab", tab);
+    }
+    router.push(`/dashboard/clients?${params.toString()}`);
+  };
+
+  const handleWarehouseFilter = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value && value !== "all") {
+      params.set("warehouse", value);
+    } else {
+      params.delete("warehouse");
     }
     params.set("page", "1");
     const tab = searchParams.get("tab") || "all";
@@ -255,7 +287,7 @@ export default function ClientsListClient({
   return (
     <div className="space-y-4">
       {/* Search and Bulk Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
         <div className="relative flex-1 max-w-sm">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -276,8 +308,26 @@ export default function ClientsListClient({
           )}
         </div>
 
+        {/* Warehouse Filter */}
+        <Select
+          value={initialWarehouse}
+          onValueChange={(value) => handleWarehouseFilter(value)}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="All Warehouses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Warehouses</SelectItem>
+            {warehouses.map((wh) => (
+              <SelectItem key={wh.id} value={wh.id}>
+                {wh.name} ({wh.code})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         {/* Bulk Actions Dropdown */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-auto">
           {selectedClients.size > 0 && (
             <span className="text-sm text-muted-foreground whitespace-nowrap">
               {selectedClients.size} selected
@@ -360,6 +410,7 @@ export default function ClientsListClient({
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Company</TableHead>
+              <TableHead>Warehouse</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Membership</TableHead>
               <TableHead>Status</TableHead>
@@ -370,7 +421,7 @@ export default function ClientsListClient({
           <TableBody>
             {initialClients.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed clients found" : "No clients found"}
                 </TableCell>
               </TableRow>
@@ -403,6 +454,15 @@ export default function ClientsListClient({
                     <TableCell className="text-muted-foreground">{client.email || "-"}</TableCell>
                     <TableCell className="text-muted-foreground">{client.phone || "-"}</TableCell>
                     <TableCell className="text-muted-foreground">{client.company || "-"}</TableCell>
+                    <TableCell>
+                      {client.warehouse ? (
+                        <Badge variant="outline" className="text-xs">
+                          {client.warehouse.name}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {client.clientType?.toLowerCase() === "wholesale" ? (
                         <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800">

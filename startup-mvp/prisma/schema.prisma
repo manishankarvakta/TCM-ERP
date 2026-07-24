@@ -451,6 +451,8 @@ model Warehouse {
   biometricDevices    BiometricDevice[]
   inventoryCountEntries InventoryCountEntry[]
   vouchers            Voucher[]              @relation("WarehouseVouchers")
+  clients             Client[]
+  suppliers           Supplier[]
 
   @@index([code])
   @@index([name])
@@ -600,9 +602,11 @@ model Client {
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
   chartOfAccountId String?
+  warehouseId      String?
   clientCode       String?              @unique
   openingBalance   Decimal              @default(0) @db.Decimal(12, 2)
   ChartOfAccount   ChartOfAccount?      @relation(fields: [chartOfAccountId], references: [id])
+  warehouse        Warehouse?           @relation(fields: [warehouseId], references: [id])
   createdByUser    User                 @relation("ClientCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   JournalEntryLine JournalEntryLine[]
   sales            Sale[]
@@ -627,6 +631,7 @@ model Client {
   @@index([createdBy])
   @@index([email])
   @@index([chartOfAccountId])
+  @@index([warehouseId])
   @@index([clientCode])
   @@index([membershipNumber])
 }
@@ -670,11 +675,13 @@ model Supplier {
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   chartOfAccountId String?
+  warehouseId      String?
   supplierCode     String?            @unique
   openingBalance   Decimal            @default(0) @db.Decimal(12, 2)
   JournalEntryLine JournalEntryLine[]
   Purchase         Purchase[]
   ChartOfAccount   ChartOfAccount?    @relation(fields: [chartOfAccountId], references: [id])
+  warehouse        Warehouse?         @relation(fields: [warehouseId], references: [id])
   createdByUser    User               @relation("SupplierCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   Voucher          Voucher[]
   VoucherLine      VoucherLine[]
@@ -684,6 +691,7 @@ model Supplier {
   @@index([createdBy])
   @@index([email])
   @@index([chartOfAccountId])
+  @@index([warehouseId])
   @@index([supplierCode])
 }
 

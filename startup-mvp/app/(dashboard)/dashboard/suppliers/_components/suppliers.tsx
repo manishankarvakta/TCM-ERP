@@ -21,6 +21,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw, FiBook } from "react-icons/fi";
 import { deleteSupplier, bulkUpdateSupplierStatus, deleteSuppliersPermanently } from "../_actions/supplier.action";
@@ -53,6 +60,12 @@ interface Supplier {
   company: string | null;
   image: string | null;
   status: string;
+  warehouseId?: string | null;
+  warehouse?: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
   createdBy: string;
   dueAmount: number;
   createdByUser: {
@@ -81,6 +94,8 @@ interface SuppliersListClientProps {
   initialSuppliers: Supplier[];
   initialPagination: Pagination;
   initialSearch: string;
+  initialWarehouse?: string;
+  warehouses?: Array<{ id: string; name: string; code: string }>;
   isTrash?: boolean;
   userId?: string;
   permissions?: {
@@ -95,6 +110,8 @@ export default function SuppliersListClient({
   initialSuppliers = [],
   initialPagination,
   initialSearch,
+  initialWarehouse = "all",
+  warehouses = [],
   isTrash = false,
   userId: providedUserId,
   permissions,
@@ -115,6 +132,21 @@ export default function SuppliersListClient({
       params.set("search", value);
     } else {
       params.delete("search");
+    }
+    params.set("page", "1");
+    const tab = searchParams.get("tab") || "all";
+    if (tab) {
+      params.set("tab", tab);
+    }
+    router.push(`/dashboard/suppliers?${params.toString()}`);
+  };
+
+  const handleWarehouseFilter = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value && value !== "all") {
+      params.set("warehouse", value);
+    } else {
+      params.delete("warehouse");
     }
     params.set("page", "1");
     const tab = searchParams.get("tab") || "all";
@@ -249,7 +281,7 @@ export default function SuppliersListClient({
   return (
     <div className="space-y-4">
       {/* Search and Bulk Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
         <div className="relative flex-1 max-w-sm">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -270,8 +302,26 @@ export default function SuppliersListClient({
           )}
         </div>
 
+        {/* Warehouse Filter */}
+        <Select
+          value={initialWarehouse}
+          onValueChange={(value) => handleWarehouseFilter(value)}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="All Warehouses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Warehouses</SelectItem>
+            {warehouses.map((wh) => (
+              <SelectItem key={wh.id} value={wh.id}>
+                {wh.name} ({wh.code})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         {/* Bulk Actions Dropdown */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-auto">
           {selectedSuppliers.size > 0 && (
             <span className="text-sm text-muted-foreground whitespace-nowrap">
               {selectedSuppliers.size} selected
@@ -354,6 +404,7 @@ export default function SuppliersListClient({
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Company</TableHead>
+              <TableHead>Warehouse</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Due</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -362,7 +413,7 @@ export default function SuppliersListClient({
           <TableBody>
             {initialSuppliers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed suppliers found" : "No suppliers found"}
                 </TableCell>
               </TableRow>
@@ -395,6 +446,15 @@ export default function SuppliersListClient({
                     <TableCell className="text-muted-foreground">{supplier.email}</TableCell>
                     <TableCell className="text-muted-foreground">{supplier.phone || "-"}</TableCell>
                     <TableCell className="text-muted-foreground">{supplier.company || "-"}</TableCell>
+                    <TableCell>
+                      {supplier.warehouse ? (
+                        <Badge variant="outline" className="text-xs">
+                          {supplier.warehouse.name}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {supplierStatus === "trash" ? (
                         <Badge variant="destructive">Trash</Badge>

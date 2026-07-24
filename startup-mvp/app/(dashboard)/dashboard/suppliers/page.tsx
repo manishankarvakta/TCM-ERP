@@ -1,5 +1,5 @@
 import React from "react";
-import { getSuppliers } from "./_actions/supplier.action";
+import { getSuppliers, getWarehousesForSupplier } from "./_actions/supplier.action";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
@@ -13,6 +13,7 @@ interface SuppliersPageProps {
     page?: string;
     search?: string;
     tab?: string;
+    warehouse?: string;
   }>;
 }
 
@@ -21,6 +22,7 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
   const page = parseInt(params.page || "1");
   const search = params.search || "";
   const tab = params.tab || "all";
+  const warehouse = params.warehouse || "all";
 
   const session = await auth();
   const userId = session?.user?.id;
@@ -28,8 +30,9 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
   const status = tab === "trash" ? "trash" : "all";
   
   // Check permissions on server side for better performance
-  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
-    getSuppliers(page, 10, search, status),
+  const [result, warehousesResult, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
+    getSuppliers(page, 10, search, status, warehouse),
+    getWarehousesForSupplier(),
     userId ? hasPermission(userId, "peoples.suppliers", "view") : false,
     userId ? hasPermission(userId, "peoples.suppliers", "edit") : false,
     userId ? hasPermission(userId, "peoples.suppliers", "move-to-trash") : false,
@@ -91,6 +94,8 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
               totalPages: 0,
             }}
             initialSearch={search}
+            initialWarehouse={warehouse}
+            warehouses={warehousesResult.warehouses || []}
             isTrash={false}
             userId={userId || undefined}
             permissions={{
@@ -111,6 +116,8 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
               totalPages: 0,
             }}
             initialSearch={search}
+            initialWarehouse={warehouse}
+            warehouses={warehousesResult.warehouses || []}
             isTrash={true}
             userId={userId || undefined}
             permissions={{

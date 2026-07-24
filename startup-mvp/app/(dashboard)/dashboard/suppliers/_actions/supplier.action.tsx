@@ -15,7 +15,8 @@ export async function getSuppliers(
   page: number = 1,
   limit: number = 10,
   search: string = "",
-  status: "active" | "inactive" | "trash" | "all" = "all"
+  status: "active" | "inactive" | "trash" | "all" = "all",
+  warehouseId: string = "all"
 ) {
   try {
     const session = await auth();
@@ -63,6 +64,11 @@ export async function getSuppliers(
       where.status = { not: "trash" };
     }
 
+    // Filter by warehouse if provided
+    if (warehouseId && warehouseId !== "all") {
+      where.warehouseId = warehouseId;
+    }
+
     // Get total count
     const total = await prisma.supplier.count({ where });
 
@@ -87,6 +93,14 @@ export async function getSuppliers(
         openingBalance: true,
         status: true,
         createdBy: true,
+        warehouseId: true,
+        warehouse: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
         createdByUser: {
           select: {
             id: true,
@@ -189,6 +203,14 @@ export async function getSupplierById(supplierId: string) {
         openingBalance: true,
         status: true,
         createdBy: true,
+        warehouseId: true,
+        warehouse: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
         createdByUser: {
           select: {
             id: true,
@@ -345,6 +367,7 @@ export async function createSupplier(input: {
   image?: string;
   openingBalance?: number;
   status?: "active" | "inactive";
+  warehouseId?: string | null;
 }) {
   try {
     const session = await auth();
@@ -482,6 +505,15 @@ export async function createSupplier(input: {
         },
       });
 
+      // Fetch default warehouse of logged-in user if warehouseId not specified
+      const userRecord = await tx.user.findUnique({
+        where: { id: session.user.id },
+        select: { defaultWarehouseId: true },
+      });
+      const targetWarehouseId = (input.warehouseId && input.warehouseId.trim() !== "")
+        ? input.warehouseId
+        : (userRecord?.defaultWarehouseId || null);
+
       // Create supplier with chartOfAccountId reference
       const supplier = await tx.supplier.create({
         data: {
@@ -500,6 +532,7 @@ export async function createSupplier(input: {
           status: input.status || "active",
           createdBy: session.user.id,
           chartOfAccountId: chartOfAccount.id,
+          warehouseId: targetWarehouseId,
         },
         select: {
           id: true,
@@ -619,6 +652,7 @@ export async function updateSupplier(input: {
   image?: string;
   openingBalance?: number;
   status?: "active" | "inactive";
+  warehouseId?: string | null;
 }) {
   try {
     const session = await auth();
@@ -806,6 +840,10 @@ export async function updateSupplier(input: {
         image: input.image !== undefined ? (input.image || null) : undefined,
         openingBalance: input.openingBalance !== undefined ? input.openingBalance : undefined,
       };
+
+      if (input.warehouseId !== undefined) {
+        updateData.warehouse = input.warehouseId ? { connect: { id: input.warehouseId } } : { disconnect: true };
+      }
 
       if (input.status) {
         updateData.status = input.status;
@@ -1393,6 +1431,48 @@ export async function getSupplierLedger(
       supplier: null,
       ledger: [],
       summary: { totalPurchased: 0, totalPaid: 0, closingBalance: 0, totalTransactions: 0 },
+    };
+  }
+}
+
+/**
+ * Get warehouses list and default user warehouse for Supplier forms
+ */
+export async function getWarehousesForSupplier() {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", warehouses: [], defaultWarehouseId: null };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { defaultWarehouseId: true },
+    });
+
+    const warehouses = await prisma.warehouse.findMany({
+      where: {
+        status: "active",
+        isTrash: false,
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return { success: true, warehouses, defaultWarehouseId: user?.defaultWarehouseId || null };
+  } catch (error) {
+    console.error("getWarehousesForSupplier error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch warehouses",
+      warehouses: [],
+      defaultWarehouseId: null,
     };
   }
 }

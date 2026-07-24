@@ -1,5 +1,5 @@
 import React from "react";
-import { getClients } from "./_actions/client.action";
+import { getClients, getWarehousesForClient } from "./_actions/client.action";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
@@ -14,6 +14,7 @@ interface ClientsPageProps {
     page?: string;
     search?: string;
     tab?: string;
+    warehouse?: string;
   }>;
 }
 
@@ -22,6 +23,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   const page = parseInt(params.page || "1");
   const search = params.search || "";
   const tab = params.tab || "all";
+  const warehouse = params.warehouse || "all";
 
   // Note: Clients retrieval includes clientType ('regular' / 'wholesale') for list table display
   const session = await auth();
@@ -30,8 +32,9 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   const status = tab === "trash" ? "trash" : "all";
   
   // Check permissions on server side for better performance
-  const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
-    getClients(page, 10, search, status),
+  const [result, warehousesResult, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
+    getClients(page, 10, search, status, warehouse),
+    getWarehousesForClient(),
     userId ? hasPermission(userId, "peoples.clients", "view") : false,
     userId ? hasPermission(userId, "peoples.clients", "edit") : false,
     userId ? hasPermission(userId, "peoples.clients", "move-to-trash") : false,
@@ -96,6 +99,8 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                 totalPages: 0,
               }}
               initialSearch={search}
+              initialWarehouse={warehouse}
+              warehouses={warehousesResult.warehouses || []}
               isTrash={false}
               userId={userId || undefined}
               permissions={{
@@ -116,6 +121,8 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                 totalPages: 0,
               }}
               initialSearch={search}
+              initialWarehouse={warehouse}
+              warehouses={warehousesResult.warehouses || []}
               isTrash={true}
               userId={userId || undefined}
               permissions={{
