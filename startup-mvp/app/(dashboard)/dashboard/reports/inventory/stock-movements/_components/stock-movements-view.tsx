@@ -8,6 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ReportTable from "@/components/reports/report-table";
+import { getStockMovements } from "@/app/(dashboard)/dashboard/reports/_actions/inventory-reports.action";
+import { exportToCSV } from "@/lib/utils/export-csv";
+import { exportToExcel } from "@/lib/utils/export-excel";
 
 interface StockMovementsViewProps {
   data: any[];
@@ -119,8 +122,8 @@ export default function StockMovementsView({
       align: "right" as const,
       format: (val: number) =>
         new Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency: "BDT",
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
         }).format(val),
     },
     {
@@ -130,11 +133,46 @@ export default function StockMovementsView({
       align: "right" as const,
       format: (val: number) =>
         new Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency: "BDT",
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
         }).format(val),
     },
   ];
+
+  const handleExport = async (type: "csv" | "excel") => {
+    // Fetch all stock movements matching active filters (limit: 0 for full export)
+    const result = await getStockMovements(filters, { page: 1, limit: 0 });
+    const fullData = result.success && result.data ? result.data : data;
+
+    const headers = columns.map((col) => col.label);
+    const exportData = fullData.map((row: any) => {
+      const exportRow: Record<string, any> = {};
+      columns.forEach((col) => {
+        const value = row[col.key];
+        if (col.format) {
+          try {
+            const formatted = col.format(value);
+            exportRow[col.label] =
+              typeof formatted === "string" || typeof formatted === "number"
+                ? formatted
+                : value;
+          } catch {
+            exportRow[col.label] = value;
+          }
+        } else {
+          exportRow[col.label] = value ?? "";
+        }
+      });
+      return exportRow;
+    });
+
+    const filename = `stock-movements-${date}`;
+    if (type === "csv") {
+      exportToCSV(exportData, { filename: `${filename}.csv`, headers });
+    } else {
+      exportToExcel(exportData, { filename: `${filename}.xlsx`, headers });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -204,6 +242,7 @@ export default function StockMovementsView({
           onPageChange: handlePageChange,
         }}
         exportFilename={`stock-movements-${date}`}
+        onExport={handleExport}
         emptyMessage="No stock movements or balances found for the selected filters"
       />
     </div>

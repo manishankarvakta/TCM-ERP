@@ -49,6 +49,7 @@ interface ReportTableProps {
   exportFilename?: string;
   loading?: boolean;
   emptyMessage?: string;
+  onExport?: (type: "csv" | "excel") => void | Promise<void>;
 }
 
 export default function ReportTable({
@@ -59,9 +60,11 @@ export default function ReportTable({
   exportFilename,
   loading = false,
   emptyMessage = "No data available",
+  onExport,
 }: ReportTableProps) {
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [isExporting, setIsExporting] = useState(false);
 
   const handleSort = (columnKey: string) => {
     if (sortColumn === columnKey) {
@@ -100,7 +103,16 @@ export default function ReportTable({
     });
   }
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
+    if (onExport) {
+      try {
+        setIsExporting(true);
+        await onExport("csv");
+      } finally {
+        setIsExporting(false);
+      }
+      return;
+    }
     const headers = columns.map((col) => col.label);
     // Convert data to export format (handle formatted values)
     const exportData = data.map((row) => {
@@ -128,7 +140,16 @@ export default function ReportTable({
     exportToCSV(exportData, { filename: `${exportFilename || "report"}.csv`, headers });
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    if (onExport) {
+      try {
+        setIsExporting(true);
+        await onExport("excel");
+      } finally {
+        setIsExporting(false);
+      }
+      return;
+    }
     const headers = columns.map((col) => col.label);
     // Convert data to export format
     const exportData = data.map((row) => {
@@ -165,9 +186,9 @@ export default function ReportTable({
             <CardTitle className="text-base font-semibold">{title}</CardTitle>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled={isExporting}>
                   <FiDownload className="h-4 w-4 mr-2" />
-                  Export
+                  {isExporting ? "Exporting..." : "Export"}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">

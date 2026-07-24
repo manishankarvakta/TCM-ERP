@@ -489,6 +489,14 @@ export async function getStockMovements(
       trackInventory: true,
       isTrash: false,
       status: "active",
+      ...(filters.warehouseId && filters.warehouseId !== "all"
+        ? {
+            OR: [
+              { stocks: { some: { warehouseId: filters.warehouseId } } },
+              { stockLedgers: { some: { warehouseId: filters.warehouseId } } },
+            ],
+          }
+        : {}),
       ...(filters.search
         ? {
             OR: [
@@ -499,7 +507,9 @@ export async function getStockMovements(
         : {}),
     };
 
-    const skip = (pagination.page - 1) * pagination.limit;
+    const isPaginated = pagination.limit > 0;
+    const skip = isPaginated ? (pagination.page - 1) * pagination.limit : undefined;
+    const take = isPaginated ? pagination.limit : undefined;
 
     const [items, total] = await Promise.all([
       prisma.item.findMany({
@@ -511,8 +521,7 @@ export async function getStockMovements(
           },
         },
         orderBy: { code: "asc" },
-        skip,
-        take: pagination.limit,
+        ...(isPaginated ? { skip, take } : {}),
       }),
       prisma.item.count({ where: itemWhere }),
     ]);
@@ -655,7 +664,7 @@ export async function getStockMovements(
         page: pagination.page,
         limit: pagination.limit,
         total,
-        totalPages: Math.ceil(total / pagination.limit),
+        totalPages: pagination.limit > 0 ? Math.ceil(total / pagination.limit) : 1,
       },
     };
   } catch (error) {
