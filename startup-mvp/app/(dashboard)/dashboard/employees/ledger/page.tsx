@@ -35,7 +35,7 @@ export default async function EmployeeLedgerPage({ searchParams }: EmployeeLedge
   }
 
   return (
-    <PageGuard permissionKey="peoples.employees">
+    <PageGuard permissionKey="peoples.employees" requiredOperation="ledger">
       <EmployeeLedger
         employee={result.employee}
         ledger={result.ledger || []}

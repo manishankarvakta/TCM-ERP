@@ -32,13 +32,14 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   const status = tab === "trash" ? "trash" : "all";
   
   // Check permissions on server side for better performance
-  const [result, warehousesResult, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
+  const [result, warehousesResult, canView, canEdit, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
     getClients(page, 10, search, status, warehouse),
     getWarehousesForClient(),
     userId ? hasPermission(userId, "peoples.clients", "view") : false,
     userId ? hasPermission(userId, "peoples.clients", "edit") : false,
     userId ? hasPermission(userId, "peoples.clients", "move-to-trash") : false,
     userId ? hasPermission(userId, "peoples.clients", "delete-permanently") : false,
+    userId ? hasPermission(userId, "peoples.clients", "ledger") : false,
   ]);
 
   // Handle errors
@@ -108,6 +109,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                 edit: canEdit,
                 moveToTrash: canMoveToTrash,
                 deletePermanently: canDeletePermanently,
+                viewLedger: canViewLedger,
               }}
             />
           </TabsContent>
@@ -130,6 +132,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                 edit: canEdit,
                 moveToTrash: canMoveToTrash,
                 deletePermanently: canDeletePermanently,
+                viewLedger: canViewLedger,
               }}
             />
           </TabsContent>

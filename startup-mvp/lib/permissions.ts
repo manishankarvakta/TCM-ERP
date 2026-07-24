@@ -1,7 +1,6 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { unstable_cache } from "next/cache";
 import type {
   Module,
   Operation,
@@ -45,20 +44,11 @@ export async function getUserPermissions(
     const userRole = user.role?.toLowerCase();
     const isAdmin = userRole === "admin" || userRole === "super admin" || userRole === "superadmin";
 
-    if (isAdmin) {
-      // Admin role has all permissions and operations enabled by default
-      for (const navItem of NAVIGATION_STRUCTURE) {
-        for (const page of navItem.pages) {
-          mergedPermissions[page.permissionKey] = page.operations;
-        }
-      }
-    } else if (user.userPermissions && user.userPermissions.length > 0) {
-      // If UserPermission records exist, use them directly (they contain the full current state)
+    if (user.userPermissions && user.userPermissions.length > 0) {
+      // If UserPermission records exist, use them directly
       for (const userPerm of user.userPermissions) {
-        const permissionKey = userPerm.module; // Can be "items" or "items.groups"
+        const permissionKey = userPerm.module;
         const operations = userPerm.operations as Operation[];
-        
-        // Store the operations (empty array is valid - means no permissions for this key)
         mergedPermissions[permissionKey] = operations;
       }
     } else if (user.designationTemplate?.permissions) {
@@ -66,6 +56,13 @@ export async function getUserPermissions(
       const templatePerms = user.designationTemplate
         .permissions as PartialPermissions;
       mergedPermissions = { ...templatePerms };
+    } else if (isAdmin) {
+      // Default admin role has all permissions enabled if no custom setup exists
+      for (const navItem of NAVIGATION_STRUCTURE) {
+        for (const page of navItem.pages) {
+          mergedPermissions[page.permissionKey] = page.operations;
+        }
+      }
     }
 
     // Convert legacy format to enhanced format if needed
@@ -88,23 +85,11 @@ export async function getUserPermissions(
 export async function getUserPermissionsEnhanced(
   userId: string
 ): Promise<Partial<EnhancedPermissions>> {
-  // Use cached version with user-specific tag for efficient revalidation
-  const getCachedPermissions = unstable_cache(
-    async (uid: string) => {
-      const permissions = await getUserPermissions(uid);
-      if (isEnhancedPermissions(permissions)) {
-        return permissions;
-      }
-      return convertToEnhancedPermissions(permissions as Partial<Permissions>);
-    },
-    [`permissions-enhanced-${userId}`],
-    {
-      tags: [`permissions-${userId}`],
-      revalidate: 3600, // Revalidate after 1 hour as fallback
-    }
-  );
-
-  return getCachedPermissions(userId);
+  const permissions = await getUserPermissions(userId);
+  if (isEnhancedPermissions(permissions)) {
+    return permissions;
+  }
+  return convertToEnhancedPermissions(permissions as Partial<Permissions>);
 }
 
 /**
@@ -117,32 +102,11 @@ export async function hasPermission(
   operation: Operation
 ): Promise<boolean> {
   try {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true },
-    });
-    const role = dbUser?.role?.toLowerCase();
-    if (role === "admin" || role === "super admin" || role === "superadmin") {
-      return true;
-    }
-
     const permissions = await getUserPermissionsEnhanced(userId);
     const pagePermission = permissions[permissionKey] as PagePermission | undefined;
     
-    if (pagePermission) {
-      // Enhanced format: check operations array
-      if (pagePermission.operations && pagePermission.operations.includes(operation)) {
-        return true;
-      }
-    }
-    
-    // Also check parent module permission if checking sub-module
-    if (permissionKey.includes(".")) {
-      const [parentModule] = permissionKey.split(".");
-      const parentPermission = permissions[parentModule] as PagePermission | undefined;
-      if (parentPermission?.operations?.includes(operation)) {
-        return true;
-      }
+    if (pagePermission && pagePermission.operations && Array.isArray(pagePermission.operations)) {
+      return pagePermission.operations.includes(operation);
     }
     
     return false;

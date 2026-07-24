@@ -845,6 +845,68 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
     });
   }
 
+  // Register ModuleOperation rows for peoples modules (suppliers, clients, employees)
+  const peoplesModulesOps = [
+    {
+      module: "peoples.suppliers",
+      ops: [
+        { operation: "create", label: "Create Supplier", description: "Create suppliers" },
+        { operation: "view", label: "View Suppliers", description: "View suppliers list & details" },
+        { operation: "edit", label: "Edit Supplier", description: "Edit supplier details" },
+        { operation: "move-to-trash", label: "Move Supplier to Trash", description: "Soft delete supplier" },
+        { operation: "delete-permanently", label: "Delete Supplier Permanently", description: "Permanently remove supplier" },
+        { operation: "ledger", label: "View Ledger", description: "View supplier ledger statement" },
+      ],
+    },
+    {
+      module: "peoples.clients",
+      ops: [
+        { operation: "create", label: "Create Client", description: "Create clients" },
+        { operation: "view", label: "View Clients", description: "View clients list & details" },
+        { operation: "edit", label: "Edit Client", description: "Edit client details" },
+        { operation: "move-to-trash", label: "Move Client to Trash", description: "Soft delete client" },
+        { operation: "delete-permanently", label: "Delete Client Permanently", description: "Permanently remove client" },
+        { operation: "ledger", label: "View Ledger", description: "View client ledger statement" },
+      ],
+    },
+    {
+      module: "peoples.employees",
+      ops: [
+        { operation: "create", label: "Create Employee", description: "Create employees" },
+        { operation: "view", label: "View Employees", description: "View employees list & details" },
+        { operation: "edit", label: "Edit Employee", description: "Edit employee details" },
+        { operation: "move-to-trash", label: "Move Employee to Trash", description: "Soft delete employee" },
+        { operation: "delete-permanently", label: "Delete Employee Permanently", description: "Permanently remove employee" },
+        { operation: "ledger", label: "View Ledger", description: "View employee ledger statement" },
+      ],
+    },
+  ];
+
+  for (const modItem of peoplesModulesOps) {
+    for (const op of modItem.ops) {
+      await prisma.moduleOperation.upsert({
+        where: {
+          module_operation: {
+            module: modItem.module,
+            operation: op.operation,
+          },
+        },
+        update: {
+          label: op.label,
+          description: op.description,
+          isActive: true,
+        },
+        create: {
+          module: modItem.module,
+          operation: op.operation,
+          label: op.label,
+          description: op.description,
+          isActive: true,
+        },
+      });
+    }
+  }
+
   // Seed Stock data
   console.log("\n🌱 Seeding inventory stock data...");
   

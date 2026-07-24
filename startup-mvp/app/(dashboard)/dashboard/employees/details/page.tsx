@@ -12,6 +12,8 @@ import PageGuard from "@/components/permissions/page-guard";
 import { prisma } from "@/lib/prisma";
 import PrintIdCardDialog from "../_components/print-id-card-dialog";
 import { serializeDecimalAndDate } from "@/lib/utils/serialization";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 
 function getEmployeeDutyStatus(attendanceLogs?: { timestamp: Date | string }[]): boolean {
   if (!attendanceLogs || attendanceLogs.length === 0) return false;
@@ -73,6 +75,10 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
     where: { status: "active" }
   });
 
+  const session = await auth();
+  const userId = session?.user?.id;
+  const canViewLedger = userId ? await hasPermission(userId, "peoples.employees", "ledger") : false;
+
   return (
     <PageGuard permissionKey="peoples.employees" requiredOperation="view">
       <div className="space-y-6">
@@ -84,12 +90,14 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
           </Link>
         </Button>
         <div className="flex gap-2">
-          <Button variant="outline" asChild className="bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary">
-            <Link href={`/dashboard/employees/ledger?id=${employee.id}`}>
-              <FiBook className="mr-2 h-4 w-4" />
-              Employee Ledger
-            </Link>
-          </Button>
+          {canViewLedger && (
+            <Button variant="outline" asChild className="bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary">
+              <Link href={`/dashboard/employees/ledger?id=${employee.id}`}>
+                <FiBook className="mr-2 h-4 w-4" />
+                Employee Ledger
+              </Link>
+            </Button>
+          )}
           <PrintIdCardDialog
             employee={serializeDecimalAndDate(employee)}
             orgInfo={serializeDecimalAndDate(orgInfo)}

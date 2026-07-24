@@ -40,7 +40,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
   const status = tab === "trash" ? "trash" : (statusParam as any);
   
   // Check permissions and fetch data concurrently
-  const [result, statsResult, typesResult, departmentsResult, canView, canEdit, canCreate, canMoveToTrash, canDeletePermanently] = await Promise.all([
+  const [result, statsResult, typesResult, departmentsResult, canView, canEdit, canCreate, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
     getEmployees(page, 10, search, status, employeeTypeId, gender, departmentId),
     getEmployeeStats(),
     getEmployeeTypes(1, 100, "", "active"),
@@ -50,6 +50,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
     userId ? hasPermission(userId, "peoples.employees", "create") : false,
     userId ? hasPermission(userId, "peoples.employees", "move-to-trash") : false,
     userId ? hasPermission(userId, "peoples.employees", "delete-permanently") : false,
+    userId ? hasPermission(userId, "peoples.employees", "ledger") : false,
   ]);
 
   // Handle errors
@@ -168,6 +169,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
                 edit: canEdit,
                 moveToTrash: canMoveToTrash,
                 deletePermanently: canDeletePermanently,
+                viewLedger: canViewLedger,
               }}
             />
           </TabsContent>
@@ -194,6 +196,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
                 edit: canEdit,
                 moveToTrash: canMoveToTrash,
                 deletePermanently: canDeletePermanently,
+                viewLedger: canViewLedger,
               }}
             />
           </TabsContent>

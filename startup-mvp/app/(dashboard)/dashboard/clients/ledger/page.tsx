@@ -35,7 +35,7 @@ export default async function ClientLedgerPage({ searchParams }: ClientLedgerPag
   }
 
   return (
-    <PageGuard permissionKey="peoples.clients">
+    <PageGuard permissionKey="peoples.clients" requiredOperation="ledger">
       <ClientLedger
         client={result.client}
         ledger={result.ledger || []}

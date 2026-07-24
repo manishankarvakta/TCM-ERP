@@ -49,7 +49,8 @@ export type CustomOperation =
   | "sync"
   | "create-expense"
   | "create-deposit"
-  | "create-payment";
+  | "create-payment"
+  | "ledger";
 
 // Standard operations for pages (as per requirements)
 export type StandardOperation = "create" | "view" | "edit" | "move-to-trash" | "delete-permanently";
@@ -441,6 +442,7 @@ export const OPERATIONS: Record<Operation, OperationMetadata> = {
   "create-expense": { id: "create-expense", label: "Create Expense", description: "Create expense vouchers via dashboard", category: "custom" },
   "create-deposit": { id: "create-deposit", label: "Create Deposit", description: "Create deposit (contra) vouchers via dashboard", category: "custom" },
   "create-payment": { id: "create-payment", label: "Create Payment", description: "Create payment vouchers via dashboard", category: "custom" },
+  ledger: { id: "ledger", label: "View Ledger", description: "View ledger statement and transaction history", category: "custom" },
 };
 
 // Helper function to get all modules
@@ -686,19 +688,19 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "peoples.clients",
         path: "/dashboard/clients",
         label: "Clients",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently", "ledger"],
       },
       {
         permissionKey: "peoples.suppliers",
         path: "/dashboard/suppliers",
         label: "Suppliers",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently", "ledger"],
       },
       {
         permissionKey: "peoples.employees",
         path: "/dashboard/employees",
         label: "Employees",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently"],
+        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently", "ledger"],
       },
     ],
   },

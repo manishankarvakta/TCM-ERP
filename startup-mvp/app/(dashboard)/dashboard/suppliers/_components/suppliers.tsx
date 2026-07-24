@@ -103,6 +103,7 @@ interface SuppliersListClientProps {
     edit: boolean;
     moveToTrash: boolean;
     deletePermanently: boolean;
+    viewLedger?: boolean;
   };
 }
 
@@ -482,17 +483,13 @@ export default function SuppliersListClient({
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              asChild
-                              className="h-8 w-8 p-0 text-primary hover:text-primary hover:bg-primary/10"
-                              title="Supplier Ledger"
-                            >
-                              <Link href={`/dashboard/suppliers/ledger?id=${supplier.id}`}>
-                                <FiBook className="h-4 w-4" />
-                              </Link>
-                            </Button>
+                            <ProtectedAction
+                              permissionKey="peoples.suppliers"
+                              action="ledger"
+                              href={`/dashboard/suppliers/ledger?id=${supplier.id}`}
+                              userId={providedUserId || undefined}
+                              hasAccess={permissions?.viewLedger}
+                            />
                             <ProtectedAction
                               permissionKey="peoples.suppliers"
                               action="edit"

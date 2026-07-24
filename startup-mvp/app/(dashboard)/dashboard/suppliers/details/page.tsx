@@ -7,6 +7,8 @@ import Link from "next/link";
 import { FiArrowLeft, FiEdit, FiImage, FiBook } from "react-icons/fi";
 import { format } from "date-fns";
 import { notFound } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 
 interface SupplierDetailsPageProps {
   searchParams: Promise<{
@@ -21,6 +23,10 @@ export default async function SupplierDetailsPage({ searchParams }: SupplierDeta
   if (!supplierId) {
     notFound();
   }
+
+  const session = await auth();
+  const userId = session?.user?.id;
+  const canViewLedger = userId ? await hasPermission(userId, "peoples.suppliers", "ledger") : false;
 
   const result = await getSupplierById(supplierId);
 
@@ -41,12 +47,14 @@ export default async function SupplierDetailsPage({ searchParams }: SupplierDeta
           </Link>
         </Button>
         <div className="flex items-center gap-2">
-          <Button variant="outline" asChild className="bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary">
-            <Link href={`/dashboard/suppliers/ledger?id=${supplier.id}`}>
-              <FiBook className="mr-2 h-4 w-4" />
-              Supplier Ledger
-            </Link>
-          </Button>
+          {canViewLedger && (
+            <Button variant="outline" asChild className="bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary">
+              <Link href={`/dashboard/suppliers/ledger?id=${supplier.id}`}>
+                <FiBook className="mr-2 h-4 w-4" />
+                Supplier Ledger
+              </Link>
+            </Button>
+          )}
           <Button asChild>
             <Link href={`/dashboard/suppliers/${supplier.id}`}>
               <FiEdit className="mr-2 h-4 w-4" />

@@ -35,7 +35,7 @@ export default async function SupplierLedgerPage({ searchParams }: SupplierLedge
   }
 
   return (
-    <PageGuard permissionKey="peoples.suppliers">
+    <PageGuard permissionKey="peoples.suppliers" requiredOperation="ledger">
       <SupplierLedger
         supplier={result.supplier}
         ledger={result.ledger || []}

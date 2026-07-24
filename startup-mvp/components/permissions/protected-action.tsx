@@ -5,12 +5,12 @@ import Link from "next/link";
 import { hasPermission } from "@/lib/permissions";
 import { useEffect, useState } from "react";
 import type { Operation } from "@/types/permissions";
-import { FiEye, FiEdit, FiTrash2, FiPlus, FiX } from "react-icons/fi";
+import { FiEye, FiEdit, FiTrash2, FiPlus, FiX, FiBook } from "react-icons/fi";
 import { getCurrentUser } from "@/app/actions/user.action";
 
 interface ProtectedActionProps {
   permissionKey: string; // Can be module (e.g., "items") or sub-module (e.g., "items.groups")
-  action: "view" | "edit" | "move-to-trash" | "delete-permanently" | "create";
+  action: "view" | "edit" | "move-to-trash" | "delete-permanently" | "create" | "ledger";
   href?: string; // For view/edit/create actions that navigate
   onClick?: () => void; // For delete/trash actions
   children?: React.ReactNode; // Custom content
@@ -31,6 +31,7 @@ const ACTION_OPERATION_MAP: Record<
   "move-to-trash": ["move-to-trash"],
   "delete-permanently": ["delete-permanently"],
   create: ["create"],
+  ledger: ["ledger"],
 };
 
 // Default icons for actions
@@ -40,6 +41,7 @@ const ACTION_ICONS: Record<ProtectedActionProps["action"], React.ComponentType<{
   "move-to-trash": FiTrash2,
   "delete-permanently": FiX,
   create: FiPlus,
+  ledger: FiBook,
 };
 
 // Default labels for actions
@@ -49,6 +51,7 @@ const ACTION_LABELS: Record<ProtectedActionProps["action"], string> = {
   "move-to-trash": "Move to Trash",
   "delete-permanently": "Delete Permanently",
   create: "Create",
+  ledger: "Ledger",
 };
 
 export default function ProtectedAction({

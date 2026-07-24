@@ -146,6 +146,7 @@ interface EmployeesListClientProps {
     edit: boolean;
     moveToTrash: boolean;
     deletePermanently: boolean;
+    viewLedger?: boolean;
   };
 }
 
@@ -642,17 +643,13 @@ export default function EmployeesListClient({
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              asChild
-                              className="h-8 w-8 p-0 text-primary hover:text-primary hover:bg-primary/10"
-                              title="Employee Ledger"
-                            >
-                              <Link href={`/dashboard/employees/ledger?id=${employee.id}`}>
-                                <FiBook className="h-4 w-4" />
-                              </Link>
-                            </Button>
+                            <ProtectedAction
+                              permissionKey="peoples.employees"
+                              action="ledger"
+                              href={`/dashboard/employees/ledger?id=${employee.id}`}
+                              userId={providedUserId || undefined}
+                              hasAccess={permissions?.viewLedger}
+                            />
                             <ProtectedAction
                               permissionKey="peoples.employees"
                               action="edit"

@@ -30,13 +30,14 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
   const status = tab === "trash" ? "trash" : "all";
   
   // Check permissions on server side for better performance
-  const [result, warehousesResult, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
+  const [result, warehousesResult, canView, canEdit, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
     getSuppliers(page, 10, search, status, warehouse),
     getWarehousesForSupplier(),
     userId ? hasPermission(userId, "peoples.suppliers", "view") : false,
     userId ? hasPermission(userId, "peoples.suppliers", "edit") : false,
     userId ? hasPermission(userId, "peoples.suppliers", "move-to-trash") : false,
     userId ? hasPermission(userId, "peoples.suppliers", "delete-permanently") : false,
+    userId ? hasPermission(userId, "peoples.suppliers", "ledger") : false,
   ]);
 
   // Handle errors
@@ -103,6 +104,7 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
               edit: canEdit,
               moveToTrash: canMoveToTrash,
               deletePermanently: canDeletePermanently,
+              viewLedger: canViewLedger,
             }}
           />
         </TabsContent>
@@ -125,6 +127,7 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
               edit: canEdit,
               moveToTrash: canMoveToTrash,
               deletePermanently: canDeletePermanently,
+              viewLedger: canViewLedger,
             }}
           />
         </TabsContent>
