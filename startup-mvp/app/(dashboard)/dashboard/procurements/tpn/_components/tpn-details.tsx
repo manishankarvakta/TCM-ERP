@@ -20,9 +20,16 @@ import { Separator } from "@/components/ui/separator";
 
 interface TpnDetailsProps {
   tpn: any;
+  organization?: {
+    name: string;
+    details?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
+  } | null;
 }
 
-export default function TpnDetails({ tpn }: TpnDetailsProps) {
+export default function TpnDetails({ tpn, organization }: TpnDetailsProps) {
   const router = useRouter();
   const [printMode, setPrintMode] = React.useState<"tpn" | "challan">("tpn");
 
@@ -46,9 +53,9 @@ export default function TpnDetails({ tpn }: TpnDetailsProps) {
     <div className="space-y-6 print:space-y-3">
       {/* Print-only Invoice Header */}
       <div className="hidden print:block border-b border-slate-300 pb-2 mb-3">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-sm font-bold uppercase tracking-wide text-slate-500">From (Source Warehouse):</h1>
+        <div className="flex justify-between items-start gap-4">
+          <div className="w-1/3 text-left">
+            <h1 className="text-sm font-bold uppercase tracking-wide text-slate-500">From:</h1>
             <p className="text-base font-bold text-slate-900">{tpn.sourceWarehouse?.name}</p>
             {tpn.sourceWarehouse?.address && (
               <p className="text-xs text-slate-600">{tpn.sourceWarehouse.address}</p>
@@ -66,8 +73,18 @@ export default function TpnDetails({ tpn }: TpnDetailsProps) {
               </p>
             )}
           </div>
-          <div className="text-right">
-            <h1 className="text-sm font-bold uppercase tracking-wide text-slate-500">To (Destination Warehouse):</h1>
+          <div className="w-1/3 text-center self-center">
+            <h2 className="text-lg font-extrabold text-slate-900 uppercase tracking-tight">{organization?.name || "Ferrari Fashion"}</h2>
+            {organization?.details && <p className="text-[11px] text-slate-600 font-semibold">{organization.details}</p>}
+            {organization?.address && <p className="text-[10px] text-slate-500 mt-0.5">{organization.address}</p>}
+            {(organization?.phone || organization?.email) && (
+              <p className="text-[10px] text-slate-500">
+                {[organization.phone && `Phone: ${organization.phone}`, organization.email && `Email: ${organization.email}`].filter(Boolean).join(" | ")}
+              </p>
+            )}
+          </div>
+          <div className="w-1/3 text-right">
+            <h1 className="text-sm font-bold uppercase tracking-wide text-slate-500">To:</h1>
             <p className="text-base font-bold text-slate-900">{tpn.destinationWarehouse?.name}</p>
             {tpn.destinationWarehouse?.address && (
               <p className="text-xs text-slate-600">{tpn.destinationWarehouse.address}</p>
@@ -193,17 +210,17 @@ export default function TpnDetails({ tpn }: TpnDetailsProps) {
           <CardContent className="print:p-1.5">
             <Table>
               <TableHeader>
-                <TableRow className="print:border-b-2 print:border-slate-400">
-                  <TableHead className="print:py-1 print:px-2 print:text-xs print:text-slate-800 print:font-bold">Item Code</TableHead>
-                  <TableHead className="print:py-1 print:px-2 print:text-xs print:text-slate-800 print:font-bold">Item Name</TableHead>
-                  <TableHead className="text-right print:py-1 print:px-2 print:text-xs print:text-slate-800 print:font-bold">Quantity</TableHead>
-                  <TableHead className={`text-right print:py-1 print:px-2 print:text-xs print:text-slate-800 print:font-bold ${printMode === "challan" ? "print:hidden" : ""}`}>Rate</TableHead>
-                  <TableHead className={`text-right print:py-1 print:px-2 print:text-xs print:text-slate-800 print:font-bold ${printMode === "challan" ? "print:hidden" : ""}`}>Amount</TableHead>
+                <TableRow>
+                  <TableHead className="print:py-1 print:px-2 print:text-xs">Item Code</TableHead>
+                  <TableHead className="print:py-1 print:px-2 print:text-xs">Item Name</TableHead>
+                  <TableHead className="text-right print:py-1 print:px-2 print:text-xs">Quantity</TableHead>
+                  <TableHead className={`text-right print:py-1 print:px-2 print:text-xs ${printMode === "challan" ? "print:hidden" : ""}`}>Rate</TableHead>
+                  <TableHead className={`text-right print:py-1 print:px-2 print:text-xs ${printMode === "challan" ? "print:hidden" : ""}`}>Amount</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {tpn.items.map((item: any) => (
-                  <TableRow key={item.id} className="print:border-b print:border-slate-200">
+                  <TableRow key={item.id}>
                     <TableCell className="font-medium print:py-1.5 print:px-2 print:text-xs">{item.item.code}</TableCell>
                     <TableCell className="print:py-1.5 print:px-2 print:text-xs">
                       <div>
@@ -226,13 +243,13 @@ export default function TpnDetails({ tpn }: TpnDetailsProps) {
                     </TableCell>
                   </TableRow>
                 ))}
-                <TableRow className="bg-muted/30 font-bold print:border-b-2 print:border-slate-400">
-                  <TableCell colSpan={2} className="print:py-1.5 print:px-2 print:text-xs print:text-slate-800">Total</TableCell>
-                  <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs print:text-slate-800">
+                <TableRow className="bg-muted/30 font-bold">
+                  <TableCell colSpan={2} className="print:py-1.5 print:px-2 print:text-xs">Total</TableCell>
+                  <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">
                     {totalQuantity.toFixed(2)}
                   </TableCell>
                   <TableCell className={`text-right print:py-1.5 print:px-2 print:text-xs ${printMode === "challan" ? "print:hidden" : ""}`}></TableCell>
-                  <TableCell className={`text-right font-mono font-bold text-indigo-600 print:text-slate-900 print:py-1.5 print:px-2 print:text-xs ${printMode === "challan" ? "print:hidden" : ""}`}>
+                  <TableCell className={`text-right font-mono font-bold text-indigo-600 print:py-1.5 print:px-2 print:text-xs ${printMode === "challan" ? "print:hidden" : ""}`}>
                     {formatCurrency(tpn.grandTotal || 0)}
                   </TableCell>
                 </TableRow>
@@ -277,7 +294,7 @@ export default function TpnDetails({ tpn }: TpnDetailsProps) {
             <div className={`border-t border-b border-slate-200 py-3 mt-6 print:py-1.5 print:mt-2 ${printMode === "challan" ? "print:hidden" : ""}`}>
               <p className="text-sm print:text-[11px] text-slate-800 text-left">
                 <span className="font-bold italic">In Words: </span>
-                <span className="italic text-primary font-medium print:text-slate-900">{numberToWords(tpn.grandTotal || 0)}</span>
+                <span className="italic text-primary font-medium">{numberToWords(tpn.grandTotal || 0)}</span>
               </p>
             </div>
 
