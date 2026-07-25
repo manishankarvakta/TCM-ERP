@@ -932,15 +932,58 @@ export async function createSaleAccountingVoucher(
       }
     }
 
-    // Fallback to Accounts Receivable if no direct payment account was resolved
+    const receivableAccountId = sale.client.chartOfAccountId || salesAccounts.receivableAccountId;
+    if (!receivableAccountId) {
+      return { success: false, error: "No Accounts Receivable ledger found. Please configure sales accounts." };
+    }
+
     if (!debitAccountId) {
-      const receivableAccountId = sale.client.chartOfAccountId || salesAccounts.receivableAccountId;
-      if (!receivableAccountId) {
-        return { success: false, error: "No Cash/Bank or Accounts Receivable ledger found. Please configure sales accounts." };
+      const normalizedMethod = (paymentMethod || "").toUpperCase();
+      if (normalizedMethod === "CASH") {
+        try {
+          const allSettings = await (await import("@/lib/accounting-settings")).getAccountingOperationSettings();
+          if (allSettings?.receipt?.cashAccountId) {
+            debitAccountId = allSettings.receipt.cashAccountId;
+            debitDescription = `Cash Received - ${sale.saleNumber} - ${sale.client.name}`;
+          }
+        } catch (_) {}
+        if (!debitAccountId) {
+          const cashAcct = await client.chartOfAccount.findFirst({
+            where: {
+              name: { contains: "Cash", mode: "insensitive" },
+              type: "ASSET",
+              status: "active",
+            },
+            select: { id: true },
+          });
+          if (cashAcct) {
+            debitAccountId = cashAcct.id;
+            debitDescription = `Cash Received - ${sale.saleNumber} - ${sale.client.name}`;
+          }
+        }
+      } else if (normalizedMethod === "CARD" || normalizedMethod === "MOBILE" || normalizedMethod === "BANK") {
+        try {
+          const allSettings = await (await import("@/lib/accounting-settings")).getAccountingOperationSettings();
+          if (allSettings?.contra?.fromAccountId) {
+            debitAccountId = allSettings.contra.fromAccountId;
+            debitDescription = `Bank/Card Received - ${sale.saleNumber} - ${sale.client.name}`;
+          }
+        } catch (_) {}
+        if (!debitAccountId) {
+          const bankAcct = await client.chartOfAccount.findFirst({
+            where: {
+              name: { contains: "Bank", mode: "insensitive" },
+              type: "ASSET",
+              status: "active",
+            },
+            select: { id: true },
+          });
+          if (bankAcct) {
+            debitAccountId = bankAcct.id;
+            debitDescription = `Bank Received - ${sale.saleNumber} - ${sale.client.name}`;
+          }
+        }
       }
-      debitAccountId = receivableAccountId;
-      debitDescription = `Accounts Receivable - ${sale.saleNumber} - ${sale.client.name}`;
-      debitClientId = sale.clientId;
     }
 
     const isReturn = Number(totalSaleAmount) < 0;
@@ -961,85 +1004,17 @@ export async function createSaleAccountingVoucher(
     }
     const generalDiscount = Number((totalDiscount - couponDiscount).toFixed(2));
 
-    const paymentDetails = sale.paymentDetails as any;
-    const splitLines: Array<{ accountId: string; amount: number; description: string; clientId?: string }> = [];
-
-    if (paymentDetails) {
-      const cashAmt = Number(paymentDetails.cashAmount || 0);
-      const cardAmt = Number(paymentDetails.cardAmount || 0);
-      const mfsAmt = Number(paymentDetails.mfsAmount || 0);
-      const totalPaid = cashAmt + cardAmt + mfsAmt;
-
-      if (totalPaid > 0) {
-        const remainingDue = Number((absGrandTotal - totalPaid).toFixed(2));
-
-        if (cashAmt > 0 && paymentDetails.cashAccountId) {
-          splitLines.push({
-            accountId: paymentDetails.cashAccountId,
-            amount: cashAmt,
-            description: `Cash Received - ${sale.saleNumber} - ${sale.client.name}`,
-          });
-        }
-        if (cardAmt > 0 && paymentDetails.cardAccountId) {
-          splitLines.push({
-            accountId: paymentDetails.cardAccountId,
-            amount: cardAmt,
-            description: `Card Payment Received - ${sale.saleNumber} - ${sale.client.name}`,
-          });
-        }
-        if (mfsAmt > 0 && paymentDetails.mfsAccountId) {
-          splitLines.push({
-            accountId: paymentDetails.mfsAccountId,
-            amount: mfsAmt,
-            description: `Digital Wallet/MFS Received - ${sale.saleNumber} - ${sale.client.name}`,
-          });
-        }
-
-        if (remainingDue > 0) {
-          const receivableAccountId = sale.client.chartOfAccountId || salesAccounts.receivableAccountId;
-          if (receivableAccountId) {
-            splitLines.push({
-              accountId: receivableAccountId,
-              amount: remainingDue,
-              description: `Accounts Receivable (Remaining Due) - ${sale.saleNumber} - ${sale.client.name}`,
-              clientId: sale.clientId,
-            });
-          }
-        }
-
-        // Adjust rounding errors on the last item to make sure sum equals absGrandTotal exactly
-        if (splitLines.length > 0) {
-          const sumSplit = splitLines.reduce((sum, line) => sum + line.amount, 0);
-          const diff = Number((absGrandTotal - sumSplit).toFixed(2));
-          if (diff !== 0) {
-            splitLines[splitLines.length - 1].amount = Number((splitLines[splitLines.length - 1].amount + diff).toFixed(2));
-          }
-        }
-      }
-    }
-
-    if (splitLines.length > 0) {
-      for (const line of splitLines) {
-        voucherLines.push({
-          lineNumber: lineNumber++,
-          debitAmount: isReturn ? 0 : line.amount,
-          creditAmount: isReturn ? line.amount : 0,
-          description: line.description,
-          chartOfAccountId: line.accountId,
-          clientId: line.clientId,
-        });
-      }
-    } else {
-      // 1. Payment/Receivable
-      voucherLines.push({
-        lineNumber: lineNumber++,
-        debitAmount: isReturn ? 0 : absGrandTotal,
-        creditAmount: isReturn ? absGrandTotal : 0,
-        description: debitDescription,
-        chartOfAccountId: debitAccountId,
-        clientId: debitClientId,
-      });
-    }
+    // 1. Debit/Credit AR always for the full grand total on the primary SALES voucher
+    voucherLines.push({
+      lineNumber: lineNumber++,
+      debitAmount: isReturn ? 0 : absGrandTotal,
+      creditAmount: isReturn ? absGrandTotal : 0,
+      description: isReturn 
+        ? `Accounts Receivable (Return Credit) - ${sale.saleNumber} - ${sale.client.name}`
+        : `Accounts Receivable (Sale Debit) - ${sale.saleNumber} - ${sale.client.name}`,
+      chartOfAccountId: receivableAccountId,
+      clientId: sale.clientId,
+    });
 
     // 1.5 Debit Coupon/Sales Discount if discount > 0 (for Sales, not Returns)
     if (!isReturn && totalDiscount > 0) {
@@ -1106,6 +1081,7 @@ export async function createSaleAccountingVoucher(
       return { success: false, error: "No valid voucher lines generated." };
     }
 
+    // Create the SALES (Invoice) Voucher
     const voucherResult = await createVoucher({
       date: sale.date,
       type: VoucherType.SALES,
@@ -1131,6 +1107,106 @@ export async function createSaleAccountingVoucher(
       };
     }
 
+    // Create a second voucher for immediate payments / refunds if applicable
+    const paymentDetails = sale.paymentDetails as any;
+    const paymentLines: Array<{ accountId: string; amount: number; description: string }> = [];
+
+    if (paymentDetails) {
+      const cashAmt = Number(paymentDetails.cashAmount || 0);
+      const cardAmt = Number(paymentDetails.cardAmount || 0);
+      const mfsAmt = Number(paymentDetails.mfsAmount || 0);
+      const totalPaid = cashAmt + cardAmt + mfsAmt;
+
+      if (totalPaid > 0) {
+        if (cashAmt > 0 && paymentDetails.cashAccountId) {
+          paymentLines.push({
+            accountId: paymentDetails.cashAccountId,
+            amount: cashAmt,
+            description: isReturn 
+              ? `Cash Refund Paid - ${sale.saleNumber} - ${sale.client.name}`
+              : `Cash Received - ${sale.saleNumber} - ${sale.client.name}`,
+          });
+        }
+        if (cardAmt > 0 && paymentDetails.cardAccountId) {
+          paymentLines.push({
+            accountId: paymentDetails.cardAccountId,
+            amount: cardAmt,
+            description: isReturn
+              ? `Card Refund Paid - ${sale.saleNumber} - ${sale.client.name}`
+              : `Card Payment Received - ${sale.saleNumber} - ${sale.client.name}`,
+          });
+        }
+        if (mfsAmt > 0 && paymentDetails.mfsAccountId) {
+          paymentLines.push({
+            accountId: paymentDetails.mfsAccountId,
+            amount: mfsAmt,
+            description: isReturn
+              ? `Digital Wallet Refund Paid - ${sale.saleNumber} - ${sale.client.name}`
+              : `Digital Wallet/MFS Received - ${sale.saleNumber} - ${sale.client.name}`,
+          });
+        }
+      }
+    } else if (debitAccountId && debitAccountId !== receivableAccountId) {
+      paymentLines.push({
+        accountId: debitAccountId,
+        amount: absGrandTotal,
+        description: debitDescription || (isReturn 
+          ? `Refund Paid via cash/bank - ${sale.saleNumber} - ${sale.client.name}`
+          : `Payment Received via cash/bank - ${sale.saleNumber} - ${sale.client.name}`),
+      });
+    }
+
+    const totalCollected = paymentLines.reduce((sum, line) => sum + line.amount, 0);
+
+    if (totalCollected > 0) {
+      const receiptVoucherLines: any[] = [];
+      let receiptLineNum = 1;
+
+      // For standard Sale payment (RECEIPT): Debit Cash/Bank, Credit Client's AR
+      // For Return refund payout (PAYMENT): Debit Client's AR, Credit Cash/Bank
+      for (const line of paymentLines) {
+        receiptVoucherLines.push({
+          lineNumber: receiptLineNum++,
+          debitAmount: isReturn ? 0 : line.amount,
+          creditAmount: isReturn ? line.amount : 0,
+          description: line.description,
+          chartOfAccountId: line.accountId,
+        });
+      }
+
+      receiptVoucherLines.push({
+        lineNumber: receiptLineNum++,
+        debitAmount: isReturn ? totalCollected : 0,
+        creditAmount: isReturn ? 0 : totalCollected,
+        description: isReturn
+          ? `Refund offset from Accounts Receivable - ${sale.saleNumber}`
+          : `Payment offset to Accounts Receivable - ${sale.saleNumber}`,
+        chartOfAccountId: receivableAccountId,
+        clientId: sale.clientId,
+      });
+
+      const receiptVoucherResult = await createVoucher({
+        date: sale.date,
+        type: isReturn ? VoucherType.PAYMENT : VoucherType.RECEIPT,
+        reference: sale.saleNumber,
+        description: isReturn 
+          ? `Refund Payment for Return ${sale.saleNumber} - ${sale.client.name}`
+          : `Payment Receipt for Sale ${sale.saleNumber} - ${sale.client.name}`,
+        clientId: sale.clientId,
+        isSystemAction: true,
+        lines: receiptVoucherLines,
+      }, tx);
+
+      if (receiptVoucherResult.success && receiptVoucherResult.voucher) {
+        const postReceiptResult = await postVoucher(receiptVoucherResult.voucher.id, tx, true);
+        if (!postReceiptResult.success) {
+          console.error("Failed to auto-post receipt voucher: ", postReceiptResult.error);
+        }
+      } else {
+        console.error("Failed to create receipt voucher: ", receiptVoucherResult.error);
+      }
+    }
+
     await client.sale.update({
       where: { id: saleId },
       data: { voucherId: voucherResult.voucher.id },
@@ -1139,7 +1215,7 @@ export async function createSaleAccountingVoucher(
     await createUserLog({
       userId,
       action: LogAction.ITEM_CREATED,
-      details: `Created and posted sales accounting voucher for ${sale.saleNumber}`,
+      details: `Created and posted sales accounting vouchers for ${sale.saleNumber}`,
     });
 
     return { success: true, voucherId: voucherResult.voucher.id };
