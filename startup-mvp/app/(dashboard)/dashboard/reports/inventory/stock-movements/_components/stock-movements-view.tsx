@@ -174,8 +174,67 @@ export default function StockMovementsView({
     }
   };
 
+  const totals = data.reduce(
+    (acc, row) => ({
+      opening: acc.opening + (row.openingQuantity || 0),
+      inward: acc.inward + (row.inwardQuantity || 0),
+      outward: acc.outward + (row.outwardQuantity || 0),
+      closing: acc.closing + (row.closingQuantity || 0),
+      value: acc.value + (row.totalValue || 0),
+    }),
+    { opening: 0, inward: 0, outward: 0, closing: 0, value: 0 }
+  );
+
   return (
     <div className="space-y-6">
+      {/* Title & Summary Header */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">Stock Movements Report</h1>
+          <p className="text-xs text-muted-foreground max-w-xs sm:max-w-sm">
+            Opening, inflows, outflows, and closing balances as of target date
+          </p>
+        </div>
+        {data.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs bg-card p-3 rounded-lg border border-border shadow-sm">
+            <div className="text-right">
+              <span className="text-muted-foreground text-[10px] block">Total Items</span>
+              <span className="font-semibold text-xs">{data.length}</span>
+            </div>
+            <div className="h-6 w-px bg-border hidden sm:block" />
+            <div className="text-right">
+              <span className="text-muted-foreground text-[10px] block">Total Opening</span>
+              <span className="font-semibold text-xs">{totals.opening.toFixed(2)}</span>
+            </div>
+            <div className="h-6 w-px bg-border hidden sm:block" />
+            <div className="text-right">
+              <span className="text-muted-foreground text-[10px] block">Total Inward</span>
+              <span className="font-semibold text-xs text-emerald-600 block">+{totals.inward.toFixed(2)}</span>
+            </div>
+            <div className="h-6 w-px bg-border hidden sm:block" />
+            <div className="text-right">
+              <span className="text-muted-foreground text-[10px] block">Total Outward</span>
+              <span className="font-semibold text-xs text-rose-600 block">-{totals.outward.toFixed(2)}</span>
+            </div>
+            <div className="h-6 w-px bg-border hidden sm:block" />
+            <div className="text-right">
+              <span className="text-muted-foreground text-[10px] block">Total Closing</span>
+              <span className="font-semibold text-xs">{totals.closing.toFixed(2)}</span>
+            </div>
+            <div className="h-6 w-px bg-border hidden sm:block" />
+            <div className="text-right">
+              <span className="text-muted-foreground text-[10px] block">Total Valuation</span>
+              <span className="font-semibold text-xs text-primary block">
+                {new Intl.NumberFormat("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }).format(totals.value)}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4 items-end">

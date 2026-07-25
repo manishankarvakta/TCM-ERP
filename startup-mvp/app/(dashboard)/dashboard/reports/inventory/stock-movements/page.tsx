@@ -39,18 +39,19 @@ export default async function StockMovementsPage({
   return (
     <PageGuard permissionKey="inventory.stock-movements">
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Stock Movements Report</h1>
-          <p className="text-sm text-muted-foreground">
-            Opening balances, inflows, outflows, and closing balances as of a specific date
-          </p>
-        </div>
-
         {!result.success ? (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-            <p className="text-sm text-destructive">
-              {result.error || "Failed to load stock movements report"}
-            </p>
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-2xl font-semibold">Stock Movements Report</h1>
+              <p className="text-sm text-muted-foreground">
+                Opening balances, inflows, outflows, and closing balances as of a specific date
+              </p>
+            </div>
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+              <p className="text-sm text-destructive">
+                {result.error || "Failed to load stock movements report"}
+              </p>
+            </div>
           </div>
         ) : (
           <StockMovementsView
