@@ -1382,31 +1382,6 @@ export async function getClientLedger(
       },
     });
 
-    // Also fetch sales directly to ensure unposted or direct sales are included
-    const sales = await prisma.sale.findMany({
-      where: {
-        clientId: clientId,
-        isTrash: false,
-      },
-      select: {
-        id: true,
-        saleNumber: true,
-        date: true,
-        grandTotal: true,
-        status: true,
-        orderType: true,
-        notes: true,
-        voucherId: true,
-      },
-      orderBy: {
-        date: "asc",
-      },
-    });
-
-    const journalVoucherIds = new Set(
-      journalLines.map((jl) => jl.JournalEntry?.voucherId).filter(Boolean)
-    );
-
     const rawTransactions: Array<{
       id: string;
       date: Date;
@@ -1483,22 +1458,7 @@ export async function getClientLedger(
       });
     }
 
-    // Add sales that are not linked to a posted voucher/journal line yet
-    for (const sale of sales) {
-      if (!sale.voucherId || !journalVoucherIds.has(sale.voucherId)) {
-        rawTransactions.push({
-          id: `sale-${sale.id}`,
-          date: sale.date,
-          type: "SALE",
-          typeLabel: "Sale",
-          reference: sale.saleNumber,
-          description: sale.notes || `Sale #${sale.saleNumber} (${sale.orderType})`,
-          status: sale.status,
-          debit: Number(sale.grandTotal || 0),
-          credit: 0,
-        });
-      }
-    }
+
 
     // Sort all raw transactions chronologically by date ascending
     rawTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
