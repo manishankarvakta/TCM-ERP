@@ -193,17 +193,17 @@ export default function TpnDetails({ tpn }: TpnDetailsProps) {
           <CardContent className="print:p-1.5">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="print:py-1 print:px-2 print:text-xs">Item Code</TableHead>
-                  <TableHead className="print:py-1 print:px-2 print:text-xs">Item Name</TableHead>
-                  <TableHead className="text-right print:py-1 print:px-2 print:text-xs">Quantity</TableHead>
-                  <TableHead className={`text-right print:py-1 print:px-2 print:text-xs ${printMode === "challan" ? "print:hidden" : ""}`}>Rate</TableHead>
-                  <TableHead className={`text-right print:py-1 print:px-2 print:text-xs ${printMode === "challan" ? "print:hidden" : ""}`}>Amount</TableHead>
+                <TableRow className="print:border-b-2 print:border-slate-400">
+                  <TableHead className="print:py-1 print:px-2 print:text-xs print:text-slate-800 print:font-bold">Item Code</TableHead>
+                  <TableHead className="print:py-1 print:px-2 print:text-xs print:text-slate-800 print:font-bold">Item Name</TableHead>
+                  <TableHead className="text-right print:py-1 print:px-2 print:text-xs print:text-slate-800 print:font-bold">Quantity</TableHead>
+                  <TableHead className={`text-right print:py-1 print:px-2 print:text-xs print:text-slate-800 print:font-bold ${printMode === "challan" ? "print:hidden" : ""}`}>Rate</TableHead>
+                  <TableHead className={`text-right print:py-1 print:px-2 print:text-xs print:text-slate-800 print:font-bold ${printMode === "challan" ? "print:hidden" : ""}`}>Amount</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {tpn.items.map((item: any) => (
-                  <TableRow key={item.id}>
+                  <TableRow key={item.id} className="print:border-b print:border-slate-200">
                     <TableCell className="font-medium print:py-1.5 print:px-2 print:text-xs">{item.item.code}</TableCell>
                     <TableCell className="print:py-1.5 print:px-2 print:text-xs">
                       <div>
@@ -226,13 +226,13 @@ export default function TpnDetails({ tpn }: TpnDetailsProps) {
                     </TableCell>
                   </TableRow>
                 ))}
-                <TableRow className="bg-muted/30 font-bold">
-                  <TableCell colSpan={2} className="print:py-1.5 print:px-2 print:text-xs">Total</TableCell>
-                  <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">
+                <TableRow className="bg-muted/30 font-bold print:border-b-2 print:border-slate-400">
+                  <TableCell colSpan={2} className="print:py-1.5 print:px-2 print:text-xs print:text-slate-800">Total</TableCell>
+                  <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs print:text-slate-800">
                     {totalQuantity.toFixed(2)}
                   </TableCell>
                   <TableCell className={`text-right print:py-1.5 print:px-2 print:text-xs ${printMode === "challan" ? "print:hidden" : ""}`}></TableCell>
-                  <TableCell className={`text-right font-mono font-bold text-indigo-600 print:py-1.5 print:px-2 print:text-xs ${printMode === "challan" ? "print:hidden" : ""}`}>
+                  <TableCell className={`text-right font-mono font-bold text-indigo-600 print:text-slate-900 print:py-1.5 print:px-2 print:text-xs ${printMode === "challan" ? "print:hidden" : ""}`}>
                     {formatCurrency(tpn.grandTotal || 0)}
                   </TableCell>
                 </TableRow>
@@ -277,7 +277,7 @@ export default function TpnDetails({ tpn }: TpnDetailsProps) {
             <div className={`border-t border-b border-slate-200 py-3 mt-6 print:py-1.5 print:mt-2 ${printMode === "challan" ? "print:hidden" : ""}`}>
               <p className="text-sm print:text-[11px] text-slate-800 text-left">
                 <span className="font-bold italic">In Words: </span>
-                <span className="italic text-primary font-medium">{numberToWords(tpn.grandTotal || 0)}</span>
+                <span className="italic text-primary font-medium print:text-slate-900">{numberToWords(tpn.grandTotal || 0)}</span>
               </p>
             </div>
 
