@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { FiAlertCircle, FiLoader, FiSave, FiTrendingUp } from "react-icons/fi";
+import { FiAlertCircle, FiLoader, FiSave, FiTrendingUp, FiSearch } from "react-icons/fi";
 import { getContraAccounts, getAccountBalance } from "../../../contra/_actions/contra.action";
 import { createVoucher, postVoucher } from "../../../../vouchers/_actions/voucher.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
@@ -65,6 +65,8 @@ export default function DepositsVoucherForm() {
   const [toAccountBalance, setToAccountBalance] = useState<number | null>(null);
   const [loadingFromBalance, setLoadingFromBalance] = useState(false);
   const [loadingToBalance, setLoadingToBalance] = useState(false);
+  const [fromSearch, setFromSearch] = useState("");
+  const [toSearch, setToSearch] = useState("");
 
   // Fetch accounts on mount
   useEffect(() => {
@@ -261,84 +263,126 @@ export default function DepositsVoucherForm() {
     excludeAccountId?: string,
     balance?: number | null,
     loadingBalance?: boolean
-  ) => (
-    <div className="space-y-2">
-      <Label htmlFor={name}>{label} *</Label>
-      <Controller
-        name={name}
-        control={control}
-        render={({ field }) => (
-          <Select
-            value={field.value}
-            onValueChange={field.onChange}
-            disabled={loading}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={placeholder} />
-            </SelectTrigger>
-            <SelectContent>
-              {optionsList.cash.length === 0 && 
-               optionsList.bank.length === 0 && 
-               optionsList.digitalWallet.length === 0 ? (
-                <SelectItem value="none" disabled>
-                  No accounts available
-                </SelectItem>
-              ) : (
-                <>
-                  {optionsList.cash.length > 0 && (
+  ) => {
+    const searchQuery = name === "fromAccountId" ? fromSearch : toSearch;
+    const setSearchQuery = name === "fromAccountId" ? setFromSearch : setToSearch;
+
+    const filterGroupAccounts = (list: AccountOption[]) => {
+      if (!searchQuery) return list.filter((acc) => acc.id !== excludeAccountId);
+      const query = searchQuery.toLowerCase();
+      return list.filter(
+        (acc) =>
+          acc.id !== excludeAccountId &&
+          (acc.code.toLowerCase().includes(query) ||
+            acc.name.toLowerCase().includes(query) ||
+            acc.description?.toLowerCase().includes(query))
+      );
+    };
+
+    const filteredCash = filterGroupAccounts(optionsList.cash);
+    const filteredBank = filterGroupAccounts(optionsList.bank);
+    const filteredWallet = filterGroupAccounts(optionsList.digitalWallet);
+    const totalFilteredCount = filteredCash.length + filteredBank.length + filteredWallet.length;
+
+    return (
+      <div className="space-y-2">
+        <Label htmlFor={name}>{label} *</Label>
+        <Controller
+          name={name}
+          control={control}
+          render={({ field }) => (
+            <Select
+              value={field.value}
+              onValueChange={field.onChange}
+              disabled={loading}
+              onOpenChange={(isOpen) => {
+                if (!isOpen) {
+                  setSearchQuery("");
+                }
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={placeholder} />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                <div className="p-2 border-b sticky top-0 bg-popover z-10">
+                  <div className="relative">
+                    <FiSearch className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search accounts..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setSearchQuery(e.target.value);
+                      }}
+                      onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                        }
+                      }}
+                      className="pl-8 h-8 text-xs"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                </div>
+                <div className="max-h-[220px] overflow-y-auto">
+                  {totalFilteredCount === 0 ? (
+                    <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+                      No matching accounts found
+                    </div>
+                  ) : (
                     <>
-                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b">
-                        CASH ACCOUNTS
-                      </div>
-                      {optionsList.cash
-                        .filter((acc) => acc.id !== excludeAccountId)
-                        .map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.code} - {account.name}
-                          </SelectItem>
-                        ))}
+                      {filteredCash.length > 0 && (
+                        <>
+                          <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground tracking-wider border-b bg-muted/30 sticky top-0 z-10">
+                            CASH ACCOUNTS
+                          </div>
+                          {filteredCash.map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.code} - {account.name}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      {filteredBank.length > 0 && (
+                        <>
+                          <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground tracking-wider border-b border-t mt-1 bg-muted/30 sticky top-0 z-10">
+                            BANK ACCOUNTS
+                          </div>
+                          {filteredBank.map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.code} - {account.name}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      {filteredWallet.length > 0 && (
+                        <>
+                          <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground tracking-wider border-b border-t mt-1 bg-muted/30 sticky top-0 z-10">
+                            DIGITAL WALLETS
+                          </div>
+                          {filteredWallet.map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.code} - {account.name}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
                     </>
                   )}
-                  {optionsList.bank.length > 0 && (
-                    <>
-                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b border-t mt-1">
-                        BANK ACCOUNTS
-                      </div>
-                      {optionsList.bank
-                        .filter((acc) => acc.id !== excludeAccountId)
-                        .map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.code} - {account.name}
-                          </SelectItem>
-                        ))}
-                    </>
-                  )}
-                  {optionsList.digitalWallet.length > 0 && (
-                    <>
-                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b border-t mt-1">
-                        DIGITAL WALLETS
-                      </div>
-                      {optionsList.digitalWallet
-                        .filter((acc) => acc.id !== excludeAccountId)
-                        .map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.code} - {account.name}
-                          </SelectItem>
-                        ))}
-                    </>
-                  )}
-                </>
-              )}
-            </SelectContent>
-          </Select>
+                </div>
+              </SelectContent>
+            </Select>
+          )}
+        />
+        {renderBalance(balance ?? null, loadingBalance ?? false)}
+        {errors[name] && (
+          <p className="text-xs text-destructive mt-1">{errors[name]?.message}</p>
         )}
-      />
-      {renderBalance(balance ?? null, loadingBalance ?? false)}
-      {errors[name] && (
-        <p className="text-xs text-destructive mt-1">{errors[name]?.message}</p>
-      )}
-    </div>
-  );
+      </div>
+    );
+  };
 
   if (loadingData) {
     return (
