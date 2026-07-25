@@ -1973,7 +1973,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                         )}
                         <p className="text-sm font-bold text-foreground">৳{item.unitPrice.toFixed(2)}</p>
                       </div>
-                      <div className="flex items-center gap-2 bg-muted rounded-full border border-border px-1 py-1">
+                      <div className="flex items-center justify-between gap-2 bg-muted rounded-full border border-border px-1 py-1 w-[124px] shrink-0">
                         <button 
                           className="w-6 h-6 flex items-center justify-center bg-background rounded-full border border-border shadow-sm text-muted-foreground hover:text-foreground"
                           onClick={() => handleUpdateQuantity(item.cartKey, -1)}
@@ -1994,7 +1994,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                               handleRemoveItem(item.cartKey);
                             }
                           }}
-                          className="text-sm font-semibold w-10 text-center text-foreground bg-transparent border-none outline-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 m-0"
+                          className="text-sm font-semibold w-14 text-center text-foreground bg-background border border-border/80 rounded-md outline-none focus:border-primary/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5 px-0.5 m-0"
                         />
                         <button 
                           className="w-6 h-6 flex items-center justify-center bg-background rounded-full border border-border shadow-sm text-muted-foreground hover:text-foreground"
@@ -2745,9 +2745,18 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                                 )}
                               </td>
                               <td className="py-2.5 px-4 text-center">
-                                <div className="flex items-center justify-center gap-2">
+                                <div className="flex items-center justify-center gap-2 w-[124px] mx-auto shrink-0">
                                   <Button size="icon" variant="outline" className="h-6 w-6 rounded-full" onClick={() => handleUpdateReturnQty(state.itemId, state.returnQty - 1, state.variantId)}>-</Button>
-                                  <span className="w-8 text-center text-sm font-semibold">{state.returnQty}</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={state.returnQty === 0 ? "" : state.returnQty}
+                                    onChange={(e) => {
+                                      const val = parseInt(e.target.value, 10);
+                                      handleUpdateReturnQty(state.itemId, isNaN(val) ? 0 : val, state.variantId);
+                                    }}
+                                    className="text-sm font-semibold w-14 text-center text-foreground bg-background border border-border/80 rounded-md outline-none focus:border-primary/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5 px-0.5 m-0"
+                                  />
                                   <Button size="icon" variant="outline" className="h-6 w-6 rounded-full" onClick={() => handleUpdateReturnQty(state.itemId, state.returnQty + 1, state.variantId)}>+</Button>
                                 </div>
                               </td>
@@ -2838,9 +2847,19 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                               {` | ৳${item.unitPrice}`}
                             </p>
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 w-[128px] shrink-0 justify-end">
                             <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => handleUpdateReturnQty(item.itemId, (state?.returnQty || 0) - 1, item.variantId)}>-</Button>
-                            <span className="w-8 text-center text-sm font-semibold">{state?.returnQty || 0}</span>
+                            <input
+                              type="number"
+                              min="0"
+                              max={state?.maxQty || 9999}
+                              value={state?.returnQty === 0 ? "" : (state?.returnQty || 0)}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                handleUpdateReturnQty(item.itemId, isNaN(val) ? 0 : val, item.variantId);
+                              }}
+                              className="text-sm font-semibold w-14 text-center text-foreground bg-background border border-border/80 rounded-md outline-none focus:border-primary/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-0.5 px-0.5 m-0"
+                            />
                             <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => handleUpdateReturnQty(item.itemId, (state?.returnQty || 0) + 1, item.variantId)}>+</Button>
                           </div>
                         </div>
