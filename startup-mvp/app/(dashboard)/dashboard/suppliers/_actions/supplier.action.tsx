@@ -1262,30 +1262,6 @@ export async function getSupplierLedger(
       },
     });
 
-    // Also fetch purchases directly to ensure unposted or direct purchases are included
-    const purchases = await prisma.purchase.findMany({
-      where: {
-        supplierId: supplierId,
-        isTrash: false,
-      },
-      select: {
-        id: true,
-        purchaseNumber: true,
-        date: true,
-        grandTotal: true,
-        status: true,
-        notes: true,
-        voucherId: true,
-      },
-      orderBy: {
-        date: "asc",
-      },
-    });
-
-    const journalVoucherIds = new Set(
-      journalLines.map((jl) => jl.JournalEntry?.voucherId).filter(Boolean)
-    );
-
     const rawTransactions: Array<{
       id: string;
       date: Date;
@@ -1362,22 +1338,7 @@ export async function getSupplierLedger(
       });
     }
 
-    // Add purchases that are not linked to a posted voucher/journal line yet
-    for (const purchase of purchases) {
-      if (!purchase.voucherId || !journalVoucherIds.has(purchase.voucherId)) {
-        rawTransactions.push({
-          id: `purchase-${purchase.id}`,
-          date: purchase.date,
-          type: "PURCHASE",
-          typeLabel: "Purchase",
-          reference: purchase.purchaseNumber,
-          description: purchase.notes || `Purchase #${purchase.purchaseNumber}`,
-          status: purchase.status,
-          debit: 0,
-          credit: Number(purchase.grandTotal || 0),
-        });
-      }
-    }
+
 
     // Sort all raw transactions chronologically by date ascending
     rawTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
