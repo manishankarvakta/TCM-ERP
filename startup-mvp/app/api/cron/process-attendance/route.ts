@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { processBiometricAttendance } from "@/lib/hr/biometric/processor";
 
 export async function GET(request: Request) {
     try {
@@ -9,75 +9,16 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        // 1. Fetch raw logs from today that haven't been processed yet
-        // In a real system, you would track which logs have been processed.
         const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const result = await processBiometricAttendance(today, today);
 
-        const rawLogs = await prisma.attendanceLog.findMany({
-            where: {
-                timestamp: {
-                    gte: today
-                }
-            },
-            orderBy: {
-                timestamp: 'asc'
-            }
-        });
-
-        // 2. Group logs by employee ID
-        const groupedLogs: Record<string, typeof rawLogs> = {};
-        for (const log of rawLogs) {
-            if (!groupedLogs[log.employeeId]) {
-                groupedLogs[log.employeeId] = [];
-            }
-            groupedLogs[log.employeeId].push(log);
-        }
-
-        // 3. Process logs into Attendance records
-        let processedCount = 0;
-
-        for (const employeeId of Object.keys(groupedLogs)) {
-            const logs = groupedLogs[employeeId];
-            if (logs.length < 2) continue; // Need at least an IN and OUT punch
-
-            const checkIn = logs[0].timestamp;
-            const checkOut = logs[logs.length - 1].timestamp; // Last punch of the day
-
-            // Calculate hours worked
-            const diffMs = checkOut.getTime() - checkIn.getTime();
-            const workHours = diffMs / (1000 * 60 * 60);
-
-            // Upsert into Attendance table
-            await prisma.attendance.upsert({
-                where: {
-                    employeeId_date: {
-                        employeeId: employeeId,
-                        date: today
-                    }
-                },
-                update: {
-                    checkIn,
-                    checkOut,
-                    workHours: Number(workHours.toFixed(2)),
-                    status: "PRESENT",
-                },
-                create: {
-                    employeeId,
-                    date: today,
-                    checkIn,
-                    checkOut,
-                    workHours: Number(workHours.toFixed(2)),
-                    status: "PRESENT",
-                }
-            });
-
-            processedCount++;
+        if (!result.success) {
+            return NextResponse.json({ error: result.error || "Failed to process attendance" }, { status: 500 });
         }
 
         return NextResponse.json({
             success: true,
-            message: `Processed attendance for ${processedCount} employees today.`
+            message: `Processed biometric attendance logs for today: ${result.processedCount} records updated.`
         });
 
     } catch (error: any) {

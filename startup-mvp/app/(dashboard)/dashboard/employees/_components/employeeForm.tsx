@@ -52,6 +52,8 @@ const employeeFormSchema = z.object({
   warehouseId: z.string().optional().or(z.literal("")),
   photo: z.string().optional().or(z.literal("")),
   shiftId: z.string().optional().or(z.literal("")),
+  deviceUserId: z.string().optional().or(z.literal("")),
+  fingerprintDeviceId: z.string().optional().or(z.literal("")),
 });
 
 type EmployeeFormData = z.infer<typeof employeeFormSchema>;
@@ -83,6 +85,8 @@ interface EmployeeFormProps {
     warehouseId: string | null;
     photo: string | null;
     shiftId: string | null;
+    deviceUserId: string | null;
+    fingerprintDeviceId: string | null;
     salaryPayableAccount: {
       id: string;
       code: string;
@@ -143,6 +147,8 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           warehouseId: initialData.warehouseId || "",
           photo: initialData.photo || "",
           shiftId: initialData.shiftId || "",
+          deviceUserId: initialData.deviceUserId || "",
+          fingerprintDeviceId: initialData.fingerprintDeviceId || "",
         }
       : {
           name: "",
@@ -171,6 +177,8 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           warehouseId: "",
           photo: "",
           shiftId: "",
+          deviceUserId: "",
+          fingerprintDeviceId: "",
         },
   });
 
@@ -507,6 +515,28 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="deviceUserId">Device User ID (Biometric)</Label>
+                      <Input
+                        id="deviceUserId"
+                        type="text"
+                        placeholder="E.g. 101"
+                        {...register("deviceUserId")}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="fingerprintDeviceId">Fingerprint Machine ID</Label>
+                      <Input
+                        id="fingerprintDeviceId"
+                        type="text"
+                        placeholder="E.g. Main_Entrance"
+                        {...register("fingerprintDeviceId")}
+                        disabled={loading}
+                      />
                     </div>
                   </div>
                 </div>

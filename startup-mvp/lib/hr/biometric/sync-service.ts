@@ -53,9 +53,20 @@ export async function processNormalizedChunk(input: {
   
   // Get employees for mapping
   const employees = await prisma.employee.findMany({
-    select: { id: true, employeeCode: true },
+    select: { id: true, employeeCode: true, deviceUserId: true },
   });
-  const empMap = new Map(employees.map((e) => [e.employeeCode, e.id]));
+  const empMap = new Map<string, string>();
+  employees.forEach((e) => {
+    if (e.deviceUserId) {
+      empMap.set(e.deviceUserId, e.id);
+    }
+    if (e.employeeCode) {
+      // Map it as fallback if not already mapped by deviceUserId
+      if (!empMap.has(e.employeeCode)) {
+        empMap.set(e.employeeCode, e.id);
+      }
+    }
+  });
   
   let processedCount = 0;
   let errorCount = 0;

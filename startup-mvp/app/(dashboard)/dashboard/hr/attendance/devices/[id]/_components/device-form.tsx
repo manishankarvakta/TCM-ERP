@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { FiSave, FiChevronLeft } from "react-icons/fi";
 import { Wifi, RefreshCw } from "lucide-react";
 import { testDeviceConnection } from "@/app/actions/hr/biometric.action";
+import { getWarehouses } from "../../../../../master/warehouses/_actions/warehouse.action";
 
 const deviceSchema = z.object({
   id: z.string().optional(),
@@ -27,6 +28,14 @@ const deviceSchema = z.object({
   serialNumber: z.string().optional(),
   location: z.string().optional(),
   status: z.string().default("active"),
+  brand: z.string().optional(),
+  model: z.string().optional(),
+  protocol: z.string().default("TCP_IP"),
+  company: z.string().optional(),
+  branchId: z.string().optional(),
+  timeZone: z.string().default("Asia/Dhaka"),
+  autoSync: z.boolean().default(false),
+  syncInterval: z.coerce.number().default(60),
 });
 
 interface DeviceFormProps {
@@ -38,15 +47,41 @@ export default function DeviceForm({ initialData }: DeviceFormProps) {
   const router = useRouter();
   const [isTesting, setIsTesting] = React.useState(false);
   const [testResult, setTestResult] = React.useState<{status: 'idle' | 'testing' | 'success' | 'error', message: string}>({ status: 'idle', message: '' });
+  const [branches, setBranches] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    async function loadBranches() {
+      const res = await getWarehouses(1, 100);
+      if (res.success && res.warehouses) {
+        setBranches(res.warehouses);
+      }
+    }
+    loadBranches();
+  }, []);
 
   const form = useForm<z.infer<typeof deviceSchema>>({
     resolver: zodResolver(deviceSchema) as any,
-    defaultValues: initialData || {
+    defaultValues: initialData ? {
+      ...initialData,
+      port: initialData.port ?? 4370,
+      protocol: initialData.protocol ?? "TCP_IP",
+      timeZone: initialData.timeZone ?? "Asia/Dhaka",
+      autoSync: initialData.autoSync ?? false,
+      syncInterval: initialData.syncInterval ?? 60,
+    } : {
       name: "",
       vendor: "ZKTeco",
       connectionType: "IP",
       port: 4370,
       status: "active",
+      brand: "",
+      model: "",
+      protocol: "TCP_IP",
+      company: "",
+      branchId: "",
+      timeZone: "Asia/Dhaka",
+      autoSync: false,
+      syncInterval: 60,
     },
   }) as any;
 
@@ -133,6 +168,171 @@ export default function DeviceForm({ initialData }: DeviceFormProps) {
                   </FormItem>
                 )}
               />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="brand"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Brand</FormLabel>
+                    <FormControl>
+                      <Input placeholder="E.g. ZKTeco, Hikvision" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="model"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Model</FormLabel>
+                    <FormControl>
+                      <Input placeholder="E.g. K40, UA300" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="protocol"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Communication Protocol</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select protocol" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="TCP_IP">TCP/IP (Direct Socket)</SelectItem>
+                        <SelectItem value="UDP">UDP</SelectItem>
+                        <SelectItem value="HTTP_PUSH">HTTP Push SDK</SelectItem>
+                        <SelectItem value="REST_API">REST API</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="serialNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Device Serial Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="E.g. ZK1234567890" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="company"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company</FormLabel>
+                    <FormControl>
+                      <Input placeholder="E.g. TechSoul Ltd." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="branchId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Assigned Branch</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select branch" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {branches.map(b => (
+                          <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="timeZone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Time Zone</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select timezone" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Asia/Dhaka">Asia/Dhaka (GMT+6)</SelectItem>
+                        <SelectItem value="UTC">UTC (GMT+0)</SelectItem>
+                        <SelectItem value="Asia/Kolkata">Asia/Kolkata (GMT+5:30)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <FormField
+                  control={form.control}
+                  name="autoSync"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm mt-6">
+                      <div className="space-y-0.5">
+                        <FormLabel>Auto Sync</FormLabel>
+                      </div>
+                      <FormControl>
+                        <input
+                          type="checkbox"
+                          checked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="syncInterval"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Sync Interval (Seconds)</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">

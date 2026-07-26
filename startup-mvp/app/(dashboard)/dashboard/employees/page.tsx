@@ -65,7 +65,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
             <h1 className="text-2xl font-semibold">Employees</h1>
             <p className="text-sm text-muted-foreground">Manage employees in your system</p>
           </div>
-          {tab !== "trash" && canCreate && (
+          {tab !== "trash" && (
             <Button asChild>
               <Link href="/dashboard/employees/add">
                 <FiPlus className="mr-2 h-4 w-4" />
