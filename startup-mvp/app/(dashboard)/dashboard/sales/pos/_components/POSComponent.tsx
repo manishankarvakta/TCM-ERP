@@ -64,6 +64,7 @@ interface Client {
   id: string;
   name: string | null;
   email: string | null;
+  phone?: string | null;
   company: string | null;
   clientCode?: string | null;
   clientType?: string | null;
@@ -126,14 +127,6 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const { toast } = useToastContext();
   
   const [clients, setClients] = useState<Client[]>(initialClients);
-  
-  const clientOptions = useMemo(() => {
-    return clients.map(c => ({
-      value: c.id,
-      label: c.name || c.email || "Unnamed Customer",
-      description: c.clientType === 'wholesale' ? "Wholesale" : undefined
-    }));
-  }, [clients]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<string>("ALL");
@@ -151,8 +144,48 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const [isReturnMode, setIsReturnMode] = useState<boolean>(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [heldCarts, setHeldCarts] = useState<{ id: string, cart: CartItem[], clientId: string, amount: number }[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState<string>(clients.find(c => c.name?.toLowerCase() === "walkway customer")?.id || clients[0]?.id || "");
+  const [selectedClientId, setSelectedClientId] = useState<string>(() => {
+    const walkway = initialClients.find(c => c.name?.toLowerCase() === "walkway customer");
+    const activeMode = initialMode === "WHOLESALE" && !isWholesaleAllowed ? "RETAIL" : initialMode;
+    if (activeMode === "WHOLESALE") {
+      const firstWholesale = initialClients.find(c => {
+        return !!(
+          c.company?.toLowerCase().includes("wholesale") ||
+          c.name?.toLowerCase().includes("wholesale") ||
+          c.email?.toLowerCase().includes("wholesale") ||
+          c.clientCode?.toLowerCase().includes("wholesale") ||
+          c.clientType === 'wholesale'
+        );
+      });
+      return firstWholesale?.id || "";
+    }
+    return walkway?.id || initialClients[0]?.id || "";
+  });
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>(currentUser?.defaultWarehouseId || warehouses[0]?.id || "");
+
+  const clientOptions = useMemo(() => {
+    return clients
+      .filter(c => {
+        const isWholesale = !!(
+          c.company?.toLowerCase().includes("wholesale") ||
+          c.name?.toLowerCase().includes("wholesale") ||
+          c.email?.toLowerCase().includes("wholesale") ||
+          c.clientCode?.toLowerCase().includes("wholesale") ||
+          c.clientType === 'wholesale'
+        );
+        return orderType === "WHOLESALE" ? isWholesale : !isWholesale;
+      })
+      .map(c => {
+        const descParts = [];
+        if (c.clientType === 'wholesale') descParts.push("WS");
+        if (c.phone) descParts.push(c.phone);
+        return {
+          value: c.id,
+          label: c.name || c.email || "Unnamed Customer",
+          description: descParts.length > 0 ? descParts.join(" | ") : undefined
+        };
+      });
+  }, [clients, orderType]);
   
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("CASH");
@@ -355,6 +388,29 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setDiscountType("FLAT");
     setIsReturnMode(false);
     
+    // Auto select first customer matching the mode
+    const walkwayCustomer = clients.find(c => c.name?.toLowerCase() === "walkway customer");
+    const walkwayId = walkwayCustomer?.id || walkwayCustomerId;
+    
+    if (mode === "WHOLESALE") {
+      const firstWholesale = clients.find(c => {
+        return !!(
+          c.company?.toLowerCase().includes("wholesale") ||
+          c.name?.toLowerCase().includes("wholesale") ||
+          c.email?.toLowerCase().includes("wholesale") ||
+          c.clientCode?.toLowerCase().includes("wholesale") ||
+          c.clientType === 'wholesale'
+        );
+      });
+      if (firstWholesale) {
+        setSelectedClientId(firstWholesale.id);
+      } else {
+        setSelectedClientId("");
+      }
+    } else {
+      setSelectedClientId(walkwayId);
+    }
+
     const params = new URLSearchParams(window.location.search);
     params.set("mode", mode);
     router.replace(`?${params.toString()}`);
@@ -1271,6 +1327,22 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setCart(heldCart.cart);
     if (heldCart.clientId) {
       setSelectedClientId(heldCart.clientId);
+      const client = clients.find(c => c.id === heldCart.clientId);
+      const isWholesale = client
+        ? !!(
+            client.company?.toLowerCase().includes("wholesale") ||
+            client.name?.toLowerCase().includes("wholesale") ||
+            client.email?.toLowerCase().includes("wholesale") ||
+            client.clientCode?.toLowerCase().includes("wholesale") ||
+            client.clientType === 'wholesale'
+          )
+        : false;
+      const newMode = isWholesale ? "WHOLESALE" : "RETAIL";
+      setOrderType(newMode);
+      
+      const params = new URLSearchParams(window.location.search);
+      params.set("mode", newMode);
+      router.replace(`?${params.toString()}`);
     }
     setHeldCarts(heldCarts.filter((c: any) => c.id !== heldCart.id));
     setIsHeldCartsModalOpen(false);
@@ -1315,8 +1387,26 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setPromoCode('');
     setAppliedPromo(null);
     setPromoDiscountMsg('');
-    if (walkwayCustomerId) {
-      setSelectedClientId(walkwayCustomerId);
+    const walkwayCustomer = clients.find(c => c.name?.toLowerCase() === "walkway customer");
+    const walkwayId = walkwayCustomer?.id || walkwayCustomerId;
+    
+    if (orderType === "WHOLESALE") {
+      const firstWholesale = clients.find(c => {
+        return !!(
+          c.company?.toLowerCase().includes("wholesale") ||
+          c.name?.toLowerCase().includes("wholesale") ||
+          c.email?.toLowerCase().includes("wholesale") ||
+          c.clientCode?.toLowerCase().includes("wholesale") ||
+          c.clientType === 'wholesale'
+        );
+      });
+      if (firstWholesale) {
+        setSelectedClientId(firstWholesale.id);
+      } else {
+        setSelectedClientId("");
+      }
+    } else {
+      setSelectedClientId(walkwayId);
     }
   };
 
@@ -1663,6 +1753,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         company: newCustomerData.company,
         address: newCustomerData.address,
         status: "active",
+        clientType: orderType === "WHOLESALE" ? "wholesale" : "regular",
         membershipTier: newCustomerData.membershipTier,
         membershipStatus: newCustomerData.membershipTier !== "NONE" ? "ACTIVE" : "INACTIVE"
       });
@@ -1864,7 +1955,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
             className="flex items-center justify-center gap-2 h-10 px-4 bg-[#6366f1] text-white hover:bg-[#6366f1]/90 transition-colors border border-[#6366f1]/20 rounded-lg text-xs font-bold shadow-lg"
             onClick={() => { setPayDueClientId(""); setOutstandingSales([]); setIsPayDueModalOpen(true); }}
           >
-            Pay Due <FaMoneyBillWave className="w-3.5 h-3.5" />
+            Collect Due <FaMoneyBillWave className="w-3.5 h-3.5" />
           </button>
           
           <button 
@@ -2563,7 +2654,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       <Dialog open={isAddCustomerOpen} onOpenChange={setIsAddCustomerOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle><span className="flex items-center gap-2"><FaUsers /> Add New Customer</span></DialogTitle>
+            <DialogTitle><span className="flex items-center gap-2"><FaUsers /> Add New {orderType === "WHOLESALE" ? "Wholesale" : "Retail"} Customer</span></DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAddCustomerSubmit} className="space-y-4">
             <div>
@@ -2804,7 +2895,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 <div className="mb-4">
                   <label className="block text-sm font-medium mb-2">Select Customer</label>
                   <SearchableSelect 
-                    options={clients.map(c => ({ value: c.id, label: c.name || c.email || "Unnamed Customer" }))}
+                    options={clientOptions}
                     value={returnCustomerId || null}
                     onValueChange={(val) => setReturnCustomerId(val || "")}
                     placeholder="Search Customer..."
@@ -2936,26 +3027,28 @@ export default function POSComponent({ items, clients: initialClients, warehouse
               {/* Customer Select */}
               <div>
                 <label className="text-xs font-bold uppercase text-muted-foreground block mb-2">Select Customer</label>
-                <Select 
-                  value={payDueClientId} 
+                <SearchableSelect
+                  options={clients
+                    .filter(c => c.name?.toLowerCase() !== "walkway customer")
+                    .map((c) => {
+                      const descParts = [];
+                      if (c.clientType === 'wholesale') descParts.push("WS");
+                      if (c.phone) descParts.push(c.phone);
+                      return {
+                        value: c.id,
+                        label: c.name || c.email || "Unnamed Customer",
+                        description: descParts.length > 0 ? descParts.join(" | ") : undefined
+                      };
+                    })}
+                  value={payDueClientId || null}
                   onValueChange={(val) => {
-                    setPayDueClientId(val);
+                    setPayDueClientId(val || "");
                     setLumpSumAmount(0);
                   }}
-                >
-                  <SelectTrigger className="h-10 text-xs bg-background border-border">
-                    <SelectValue placeholder="Select Customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients
-                      .filter(c => c.name?.toLowerCase() !== "walkway customer")
-                      .map((c) => (
-                        <SelectItem key={c.id} value={c.id} className="text-xs">
-                          {c.name || c.email}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select Customer..."
+                  searchPlaceholder="Search customer..."
+                  className="w-full h-10 text-xs bg-background border-border"
+                />
               </div>
 
               {payDueClientId && outstandingSales.length > 0 && (

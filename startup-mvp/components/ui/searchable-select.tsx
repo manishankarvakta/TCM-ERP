@@ -46,6 +46,7 @@ export function SearchableSelect({
 }: SearchableSelectProps) {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [open, setOpen] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
   const filteredOptions = React.useMemo(() => {
     if (!searchQuery) return options;
@@ -75,6 +76,16 @@ export function SearchableSelect({
     </div>
   );
 
+  React.useEffect(() => {
+    if (open) {
+      inputRef.current?.focus();
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 30);
+      return () => clearTimeout(timer);
+    }
+  }, [open, filteredOptions]);
+
   return (
     <Select
       value={value || ""}
@@ -100,6 +111,7 @@ export function SearchableSelect({
           <div className="relative">
             <FiSearch className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
+              ref={inputRef}
               placeholder={searchPlaceholder}
               value={searchQuery}
               onChange={(e) => {
@@ -113,6 +125,10 @@ export function SearchableSelect({
                   e.preventDefault();
                 }
               }}
+              onKeyUp={(e) => e.stopPropagation()}
+              onKeyPress={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
               className="pl-8 h-8"
               onClick={(e) => e.stopPropagation()}
             />
