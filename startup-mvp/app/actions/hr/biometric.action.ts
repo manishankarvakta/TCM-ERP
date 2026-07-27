@@ -1,12 +1,13 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import ZKLib from "node-zklib";
 import { auth } from "@/lib/auth";
 import { syncBiometricLogs } from "@/lib/hr/biometric/sync-service";
 
 export async function testDeviceConnection(ip: string, port: number = 4370) {
     try {
+        const ZKLibModule = await import("node-zklib");
+        const ZKLib = ZKLibModule.default || ZKLibModule;
         const zkInstance = new ZKLib(ip, port, 10000, 4000);
         await zkInstance.createSocket();
         
@@ -29,6 +30,8 @@ export async function syncDeviceUsers(deviceId: string) {
             return { success: false, error: "Device or IP not found" };
         }
 
+        const ZKLibModule = await import("node-zklib");
+        const ZKLib = ZKLibModule.default || ZKLibModule;
         const zkInstance = new ZKLib(device.ipAddress, device.port || 4370, 10000, 4000);
         await zkInstance.createSocket();
         
@@ -74,6 +77,8 @@ export async function syncDeviceAttendance(deviceId: string) {
 
         let attendances: any = null;
         try {
+            const ZKLibModule = await import("node-zklib");
+            const ZKLib = ZKLibModule.default || ZKLibModule;
             const zkInstance = new ZKLib(device.ipAddress, device.port || 4370, 10000, 4000);
             await zkInstance.createSocket();
             attendances = await zkInstance.getAttendances();
