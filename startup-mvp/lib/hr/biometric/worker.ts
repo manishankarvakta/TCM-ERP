@@ -65,19 +65,26 @@ export const biometricWorker = new Worker(
         if (logs.length > 0) {
           try {
             const normalized = normalizeBiometricLogs(vendor || "ZKTeco", logs);
-            const timestamps = normalized.map(l => new Date(l.timestamp).getTime());
-            const minTime = Math.min(...timestamps);
-            const maxTime = Math.max(...timestamps);
+            const timestamps = normalized
+              .map(l => new Date(l.timestamp).getTime())
+              .filter(t => !isNaN(t));
             
-            const minDate = new Date(minTime);
-            const maxDate = new Date(maxTime);
-            
-            console.log(`Auto-queuing attendance processing from ${minDate.toISOString()} to ${maxDate.toISOString()}`);
-            await biometricQueue.add(`auto-process-${syncLogId}-${Date.now()}`, {
-              type: BiometricJobType.PROCESS_ATTENDANCE,
-              startDate: minDate,
-              endDate: maxDate,
-            });
+            if (timestamps.length > 0) {
+              const minTime = Math.min(...timestamps);
+              const maxTime = Math.max(...timestamps);
+              
+              const minDate = new Date(minTime);
+              const maxDate = new Date(maxTime);
+              
+              console.log(`Auto-queuing attendance processing from ${minDate.toISOString()} to ${maxDate.toISOString()}`);
+              await biometricQueue.add(`auto-process-${syncLogId}-${Date.now()}`, {
+                type: BiometricJobType.PROCESS_ATTENDANCE,
+                startDate: minDate,
+                endDate: maxDate,
+              });
+            } else {
+              console.log("No valid timestamps found in logs, skipping auto-queuing of attendance processing.");
+            }
           } catch (err) {
             console.error("Failed to auto-trigger attendance processing:", err);
           }

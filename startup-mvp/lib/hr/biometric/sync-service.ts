@@ -68,6 +68,17 @@ export async function processNormalizedChunk(input: {
     }
   });
   
+  // Get all biometric devices to map deviceId/IP/Serial to database ID
+  const devices = await prisma.biometricDevice.findMany({
+    select: { id: true, ipAddress: true, serialNumber: true },
+  });
+  const deviceMap = new Map<string, string>();
+  devices.forEach((d) => {
+    deviceMap.set(d.id, d.id);
+    if (d.ipAddress) deviceMap.set(d.ipAddress, d.id);
+    if (d.serialNumber) deviceMap.set(d.serialNumber, d.id);
+  });
+
   let processedCount = 0;
   let errorCount = 0;
 
@@ -76,6 +87,11 @@ export async function processNormalizedChunk(input: {
     if (!employeeId) {
       errorCount++;
       continue;
+    }
+
+    let dbDeviceId = input.deviceId ? deviceMap.get(input.deviceId) : null;
+    if (!dbDeviceId && log.deviceId) {
+      dbDeviceId = deviceMap.get(log.deviceId) || null;
     }
 
     try {
@@ -91,7 +107,7 @@ export async function processNormalizedChunk(input: {
           employeeId,
           timestamp: log.timestamp,
           source: "BIOMETRIC",
-          deviceId: log.deviceId || input.deviceId,
+          deviceId: dbDeviceId || null,
         },
       });
       processedCount++;
