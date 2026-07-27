@@ -123,39 +123,53 @@ export default function AttendanceListClient({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "PRESENT":
-        return <Badge className="bg-emerald-500 hover:bg-emerald-600">Present</Badge>;
+        return <Badge className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all font-medium rounded-full px-2.5 py-0.5">Present</Badge>;
       case "LATE":
-        return <Badge className="bg-amber-500 hover:bg-amber-600">Late</Badge>;
+        return <Badge className="bg-amber-500/10 text-amber-600 border border-amber-500/20 hover:bg-amber-500/20 transition-all font-medium rounded-full px-2.5 py-0.5">Late</Badge>;
       case "HALF_DAY":
-        return <Badge className="bg-orange-500 hover:bg-orange-600">Half Day</Badge>;
+        return <Badge className="bg-orange-500/10 text-orange-600 border border-orange-500/20 hover:bg-orange-500/20 transition-all font-medium rounded-full px-2.5 py-0.5">Half Day</Badge>;
       case "ABSENT":
-        return <Badge variant="destructive">Absent</Badge>;
+        return <Badge className="bg-rose-500/10 text-rose-600 border border-rose-500/20 hover:bg-rose-500/20 transition-all font-medium rounded-full px-2.5 py-0.5">Absent</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline" className="rounded-full px-2.5 py-0.5">{status}</Badge>;
     }
   };
 
   return (
     <div className="space-y-4">
       {/* Filters Bar */}
-      <div className="flex flex-col md:flex-row gap-4 items-center p-4 bg-card border rounded-lg">
+      <div className="flex flex-col md:flex-row gap-4 items-center p-5 bg-card/50 backdrop-blur-sm border border-muted-foreground/10 rounded-xl shadow-sm">
         <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Date</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/80">Date</label>
             <Input 
               type="date" 
               value={date} 
               onChange={(e) => handleFilterChange(e.target.value, warehouseId)}
+              className="bg-background/50 hover:bg-background/80 focus:bg-background border-muted-foreground/20 focus:border-primary transition-all duration-200"
             />
           </div>
           
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Branch</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/80">Search Employee</label>
+            <div className="relative">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+              <Input
+                placeholder="Name or Code..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 bg-background/50 hover:bg-background/80 focus:bg-background border-muted-foreground/20 focus:border-primary transition-all duration-200"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/80">Branch</label>
             <Select 
               value={warehouseId || "all"} 
               onValueChange={(val) => handleFilterChange(date, val)}
             >
-              <SelectTrigger>
+              <SelectTrigger className="bg-background/50 hover:bg-background/80 focus:bg-background border-muted-foreground/20 focus:border-primary transition-all duration-200">
                 <SelectValue placeholder="All Branches" />
               </SelectTrigger>
               <SelectContent>
@@ -166,27 +180,15 @@ export default function AttendanceListClient({
               </SelectContent>
             </Select>
           </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Search Employee</label>
-            <div className="relative">
-              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Name or Code..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
         </div>
 
         {permissions?.edit && (
-          <div className="flex-shrink-0 self-end">
+          <div className="flex-shrink-0 self-end w-full md:w-auto">
             <Button 
               variant="secondary" 
               onClick={handleProcessBulk}
               disabled={isPending}
+              className="w-full md:w-auto bg-primary/10 hover:bg-primary/20 text-primary hover:text-primary transition-all font-medium"
             >
               <FiCheckSquare className="mr-2 h-4 w-4" />
               {isPending ? "Processing..." : "Process Un-punched as Absent"}
@@ -196,33 +198,33 @@ export default function AttendanceListClient({
       </div>
 
       {/* Data Table */}
-      <div className="border rounded-lg">
+      <div className="border border-muted-foreground/10 rounded-xl overflow-hidden shadow-sm bg-card/30">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>Employee</TableHead>
-              <TableHead>Shift</TableHead>
-              <TableHead>Check In</TableHead>
-              <TableHead>Check Out</TableHead>
-              <TableHead className="text-right">Hours (WH/OT)</TableHead>
-              <TableHead>Status</TableHead>
-              {permissions?.edit && <TableHead className="text-right">Action</TableHead>}
+              <TableHead className="font-semibold text-muted-foreground">Employee</TableHead>
+              <TableHead className="font-semibold text-muted-foreground">Shift</TableHead>
+              <TableHead className="font-semibold text-muted-foreground">Check In</TableHead>
+              <TableHead className="font-semibold text-muted-foreground">Check Out</TableHead>
+              <TableHead className="font-semibold text-muted-foreground text-right">Hours (WH/OT)</TableHead>
+              <TableHead className="font-semibold text-muted-foreground">Status</TableHead>
+              {permissions?.edit && <TableHead className="font-semibold text-muted-foreground text-right">Action</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredAttendances.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                   No attendance records found for this date.
                 </TableCell>
               </TableRow>
             ) : (
               filteredAttendances.map((att) => (
-                <TableRow key={att.id}>
+                <TableRow key={att.id} className="hover:bg-muted/20 transition-colors">
                   <TableCell>
                     <div>
-                      <div className="font-medium">{att.employee.name}</div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="font-semibold text-foreground/90">{att.employee.name}</div>
+                      <div className="text-xs text-muted-foreground/75 font-medium mt-0.5">
                         {att.employee.employeeCode || "N/A"} • {att.employee.designation || "No Desig."}
                       </div>
                     </div>
@@ -230,39 +232,39 @@ export default function AttendanceListClient({
                   <TableCell>
                     {att.shift ? (
                       <div className="text-sm">
-                        <div>{att.shift.name}</div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="font-medium text-foreground/80">{att.shift.name}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
                           {att.shift.startTime} - {att.shift.endTime}
                         </div>
                       </div>
                     ) : (
-                      <span className="text-xs text-muted-foreground">Unassigned</span>
+                      <span className="text-xs text-muted-foreground/75 font-medium">Unassigned</span>
                     )}
                   </TableCell>
                   <TableCell>
                     {att.checkIn ? (
-                      <div className="flex items-center gap-1">
-                        <FiClock className="h-3 w-3 text-emerald-500" />
+                      <div className="flex items-center gap-1.5 font-medium text-foreground/80">
+                        <FiClock className="h-3.5 w-3.5 text-emerald-500" />
                         <span>{format(new Date(att.checkIn), "hh:mm a")}</span>
                       </div>
                     ) : (
-                      <span className="text-muted-foreground">-</span>
+                      <span className="text-muted-foreground/50 font-medium">-</span>
                     )}
                   </TableCell>
                   <TableCell>
                     {att.checkOut ? (
-                      <div className="flex items-center gap-1">
-                        <FiClock className="h-3 w-3 text-amber-500" />
+                      <div className="flex items-center gap-1.5 font-medium text-foreground/80">
+                        <FiClock className="h-3.5 w-3.5 text-amber-500" />
                         <span>{format(new Date(att.checkOut), "hh:mm a")}</span>
                       </div>
                     ) : (
-                      <span className="text-muted-foreground">-</span>
+                      <span className="text-muted-foreground/50 font-medium">-</span>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="font-medium">{Number(att.workHours).toFixed(1)}h</div>
+                    <div className="font-semibold text-foreground/90">{Number(att.workHours).toFixed(1)}h</div>
                     {Number(att.otHours) > 0 && (
-                      <div className="text-xs text-emerald-600 font-medium">
+                      <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">
                         +{Number(att.otHours).toFixed(1)}h OT
                       </div>
                     )}
@@ -271,13 +273,13 @@ export default function AttendanceListClient({
                     <div className="flex items-center gap-2">
                       {getStatusBadge(att.status)}
                       {att.isManual && (
-                        <FiAlertCircle className="h-3 w-3 text-muted-foreground" title="Manual Entry" />
+                        <FiAlertCircle className="h-3.5 w-3.5 text-muted-foreground" title="Manual Entry" />
                       )}
                     </div>
                   </TableCell>
                   {permissions?.edit && (
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" asChild>
+                      <Button variant="ghost" size="sm" asChild className="hover:bg-muted font-medium">
                         <Link href={`/dashboard/hr/attendance/manual-punch?employeeId=${att.employee.id}&date=${date}`}>
                           Edit
                         </Link>
