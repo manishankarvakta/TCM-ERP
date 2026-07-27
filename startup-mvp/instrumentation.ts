@@ -14,5 +14,13 @@ export async function register() {
     } catch (err) {
       console.error("❌ [System] Failed to initialize AI worker:", err);
     }
+
+    try {
+      const { initBackupScheduler } = await import("./lib/backup/scheduler");
+      await initBackupScheduler();
+      console.log("✅ [System] Backup scheduler initialized.");
+    } catch (err) {
+      console.error("❌ [System] Failed to initialize Backup scheduler:", err);
+    }
   }
 }
