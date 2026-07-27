@@ -1,5 +1,3 @@
-"use server";
-
 import React from "react";
 import { getBiometricDevices } from "../_actions/device.action";
 import DeviceList from "./_components/device-list";

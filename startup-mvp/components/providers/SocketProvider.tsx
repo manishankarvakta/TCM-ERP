@@ -32,10 +32,18 @@ export const SocketProvider = ({ children, userId }: { children: React.ReactNode
         return;
     }
 
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
+    
+    // In production, if NEXT_PUBLIC_SOCKET_URL is not set, avoid connecting to localhost
+    if (!socketUrl && typeof window !== "undefined" && window.location.hostname !== "localhost") {
+      console.warn("[Socket] NEXT_PUBLIC_SOCKET_URL is not set. Realtime features are disabled on production.");
+      return;
+    }
+
+    const finalSocketUrl = socketUrl || "http://localhost:3001";
     
     // Instantiate Socket Client
-    const socketInstance = ClientIO(socketUrl, {
+    const socketInstance = ClientIO(finalSocketUrl, {
       auth: {
         userId: userId,
       },

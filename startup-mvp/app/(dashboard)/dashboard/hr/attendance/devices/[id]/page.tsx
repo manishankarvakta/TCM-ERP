@@ -1,5 +1,3 @@
-"use server";
-
 import React from "react";
 import DeviceForm from "./_components/device-form";
 import { prisma } from "@/lib/prisma";
