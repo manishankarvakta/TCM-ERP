@@ -177,6 +177,59 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
           <span>Net Amount:</span>
           <span className="border border-black px-1">{Math.abs(sale.grandTotal.toNumber()).toFixed(2)}</span>
         </div>
+
+        {/* Payment splits and return details */}
+        {isReturn ? (
+          <div className="flex justify-between font-bold border-t border-black border-dashed pt-1 mt-1">
+            <span>Returned Amount:</span>
+            <span>{Math.abs(sale.grandTotal.toNumber()).toFixed(2)}</span>
+          </div>
+        ) : (
+          (() => {
+            const details = sale.paymentDetails as any;
+            const cash = details ? Number(details.cashAmount || 0) : (sale.grandTotal.toNumber() > 0 ? sale.grandTotal.toNumber() : 0);
+            const card = details ? Number(details.cardAmount || 0) : 0;
+            const mfs = details ? Number(details.mfsAmount || 0) : 0;
+            const totalPaid = cash + card + mfs;
+            const due = Number((sale.grandTotal.toNumber() - totalPaid).toFixed(2));
+            const change = Number((totalPaid - sale.grandTotal.toNumber()).toFixed(2));
+
+            return (
+              <div className="border-t border-dashed border-black pt-1 mt-1 space-y-1">
+                {cash > 0 && (
+                  <div className="flex justify-between">
+                    <span>{change > 0.01 ? "Cash Received:" : "Paid Cash:"}</span>
+                    <span>{cash.toFixed(2)}</span>
+                  </div>
+                )}
+                {card > 0 && (
+                  <div className="flex justify-between">
+                    <span>Paid Card:</span>
+                    <span>{card.toFixed(2)}</span>
+                  </div>
+                )}
+                {mfs > 0 && (
+                  <div className="flex justify-between">
+                    <span>Paid MFS:</span>
+                    <span>{mfs.toFixed(2)}</span>
+                  </div>
+                )}
+                {due > 0.01 && (
+                  <div className="flex justify-between font-semibold">
+                    <span>Due Amount:</span>
+                    <span>{due.toFixed(2)}</span>
+                  </div>
+                )}
+                {change > 0.01 && (
+                  <div className="flex justify-between font-semibold">
+                    <span>Change Amount:</span>
+                    <span>{change.toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })()
+        )}
       </div>
 
       {posSettings.footerText && (
