@@ -204,6 +204,13 @@ export default function BeautifulDashboard({
   const activeCy = 190 - (maxChartVal > 0 ? (salesPoints[activeIdx] / maxChartVal) * 160 : 0);
   const tooltipLeftPercent = ((activeCx) / 800) * 100;
 
+  const formatValue = (val: number) => {
+    if (val % 1 === 0) {
+      return `৳ ${val.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    }
+    return `৳ ${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   return (
     <div className="flex-1 space-y-6 p-0 bg-slate-50/50 dark:bg-zinc-950/20 text-slate-900 dark:text-zinc-100 min-h-screen">
       {/* Header Row */}
@@ -428,13 +435,13 @@ export default function BeautifulDashboard({
       </div>
 
       {/* KPI Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {/* Card 1: Sales Revenue */}
         <div className={`p-4 rounded-2xl bg-[#FCF5EC] dark:bg-amber-950/15 border border-amber-100/50 dark:border-amber-900/20 shadow-sm flex flex-col justify-between h-[120px] ${loading ? "animate-pulse" : ""}`}>
           <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Sales Revenue</p>
+            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Sale Revenue</p>
             <p className="text-xl font-bold mt-1 text-slate-900 dark:text-zinc-50">
-              {loading ? "..." : `৳ ${(stats?.revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              {loading ? "..." : formatValue(stats?.revenue || 0)}
             </p>
           </div>
           {!loading && (
@@ -449,52 +456,32 @@ export default function BeautifulDashboard({
           )}
         </div>
 
-        {/* Card 2: New Customer */}
+        {/* Card 2: Paid Sale */}
         <div className={`p-4 rounded-2xl bg-[#F2F8F2] dark:bg-emerald-950/15 border border-emerald-100/50 dark:border-emerald-900/20 shadow-sm flex flex-col justify-between h-[120px] ${loading ? "animate-pulse" : ""}`}>
           <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">New Customer</p>
+            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Paid Sale</p>
             <p className="text-xl font-bold mt-1 text-slate-900 dark:text-zinc-50">
-              {loading ? "..." : stats?.newCustomers}
+              {loading ? "..." : formatValue(stats?.paidSaleTotal || 0)}
             </p>
           </div>
           {!loading && (
             <div className="flex items-center text-[10px]">
               <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-bold ${
-                stats?.newCustomersGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400"
+                stats?.paidSaleGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400"
               }`}>
-                {stats?.newCustomersGrowth >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-                {Math.abs(stats?.newCustomersGrowth || 0).toFixed(1)} %
+                {stats?.paidSaleGrowth >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+                {Math.abs(stats?.paidSaleGrowth || 0).toFixed(1)} %
               </span>
             </div>
           )}
         </div>
 
-        {/* Card 3: Purchase */}
-        <div className={`p-4 rounded-2xl bg-[#F0F4FA] dark:bg-blue-950/15 border border-blue-100/50 dark:border-blue-900/20 shadow-sm flex flex-col justify-between h-[120px] ${loading ? "animate-pulse" : ""}`}>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Purchase</p>
-            <p className="text-xl font-bold mt-1 text-slate-900 dark:text-zinc-50">
-              {loading ? "..." : `৳ ${(stats?.purchaseTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            </p>
-          </div>
-          {!loading && (
-            <div className="flex items-center gap-1.5 text-[10px]">
-              <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-bold ${
-                stats?.purchaseGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400"
-              }`}>
-                {stats?.purchaseGrowth >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-                {Math.abs(stats?.purchaseGrowth || 0).toFixed(1)} %
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Card 4: Due */}
+        {/* Card 3: Due Sale */}
         <div className={`p-4 rounded-2xl bg-[#EBF7F5] dark:bg-teal-950/15 border border-teal-100/50 dark:border-teal-900/20 shadow-sm flex flex-col justify-between h-[120px] ${loading ? "animate-pulse" : ""}`}>
           <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Due</p>
+            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Due Sale</p>
             <p className="text-xl font-bold mt-1 text-slate-900 dark:text-zinc-50">
-              {loading ? "..." : `৳ ${(stats?.dueTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              {loading ? "..." : formatValue(stats?.dueTotal || 0)}
             </p>
           </div>
           {!loading && (
@@ -509,12 +496,52 @@ export default function BeautifulDashboard({
           )}
         </div>
 
-        {/* Card 5: Expenses */}
+        {/* Card 4: Collections Received */}
+        <div className={`p-4 rounded-2xl bg-[#F5F2F9] dark:bg-purple-950/15 border border-purple-100/50 dark:border-purple-900/20 shadow-sm flex flex-col justify-between h-[120px] ${loading ? "animate-pulse" : ""}`}>
+          <div>
+            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Collections Received</p>
+            <p className="text-xl font-bold mt-1 text-slate-900 dark:text-zinc-50">
+              {loading ? "..." : formatValue(stats?.collectionsReceived || 0)}
+            </p>
+          </div>
+          {!loading && (
+            <div className="flex items-center text-[10px]">
+              <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-bold ${
+                stats?.collectionsReceivedGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400"
+              }`}>
+                {stats?.collectionsReceivedGrowth >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+                {Math.abs(stats?.collectionsReceivedGrowth || 0).toFixed(1)} %
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Card 5: Purchase */}
+        <div className={`p-4 rounded-2xl bg-[#F0F4FA] dark:bg-blue-950/15 border border-blue-100/50 dark:border-blue-900/20 shadow-sm flex flex-col justify-between h-[120px] ${loading ? "animate-pulse" : ""}`}>
+          <div>
+            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Purchase</p>
+            <p className="text-xl font-bold mt-1 text-slate-900 dark:text-zinc-50">
+              {loading ? "..." : formatValue(stats?.purchaseTotal || 0)}
+            </p>
+          </div>
+          {!loading && (
+            <div className="flex items-center gap-1.5 text-[10px]">
+              <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-bold ${
+                stats?.purchaseGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400"
+              }`}>
+                {stats?.purchaseGrowth >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+                {Math.abs(stats?.purchaseGrowth || 0).toFixed(1)} %
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Card 6: Expenses */}
         <div className={`p-4 rounded-2xl bg-[#FAF0F2] dark:bg-rose-950/15 border border-rose-100/50 dark:border-rose-900/20 shadow-sm flex flex-col justify-between h-[120px] ${loading ? "animate-pulse" : ""}`}>
           <div>
             <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Expenses</p>
             <p className="text-xl font-bold mt-1 text-slate-900 dark:text-zinc-50">
-              {loading ? "..." : `৳ ${(stats?.expenseTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              {loading ? "..." : formatValue(stats?.expenseTotal || 0)}
             </p>
           </div>
           {!loading && (

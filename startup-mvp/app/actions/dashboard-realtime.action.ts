@@ -164,6 +164,11 @@ export async function getRealtimeDashboardStats(
     const prevDueTotal = prevSales.reduce((acc, sale) => acc + getSaleDue(sale), 0);
     const dueGrowth = prevDueTotal > 0 ? ((currentDueTotal - prevDueTotal) / prevDueTotal) * 100 : 0;
 
+    // Paid Sale calculations
+    const currentPaidSaleTotal = Math.max(0, currentRevenue - currentDueTotal);
+    const prevPaidSaleTotal = Math.max(0, prevRevenue - prevDueTotal);
+    const paidSaleGrowth = prevPaidSaleTotal > 0 ? ((currentPaidSaleTotal - prevPaidSaleTotal) / prevPaidSaleTotal) * 100 : 0;
+
     // New Customers count (first sale placed ever)
     const currentNewCustomers = await prisma.client.count({
       where: {
@@ -366,6 +371,9 @@ export async function getRealtimeDashboardStats(
 
     // In-memory aggregation of payments received
     const paymentMap = new Map<string, number>();
+    let currentCollectionsReceived = 0;
+    let prevCollectionsReceived = 0;
+
     for (const sale of salesForPayments) {
       const details = sale.paymentDetails as any;
       if (!details) continue;
@@ -388,7 +396,9 @@ export async function getRealtimeDashboardStats(
       if (Array.isArray(details.dueCollections)) {
         for (const col of details.dueCollections) {
           const colDate = new Date(col.date);
+          const colAmount = Number(col.cashAmount || 0) + Number(col.cardAmount || 0) + Number(col.mfsAmount || 0);
           if (colDate >= currentStart && colDate <= currentEnd) {
+            currentCollectionsReceived += colAmount;
             if (col.cashAmount && col.cashAccountId) {
               paymentMap.set(col.cashAccountId, (paymentMap.get(col.cashAccountId) || 0) + Number(col.cashAmount));
             }
@@ -398,10 +408,16 @@ export async function getRealtimeDashboardStats(
             if (col.mfsAmount && col.mfsAccountId) {
               paymentMap.set(col.mfsAccountId, (paymentMap.get(col.mfsAccountId) || 0) + Number(col.mfsAmount));
             }
+          } else if (colDate >= prevStart && colDate <= prevEnd) {
+            prevCollectionsReceived += colAmount;
           }
         }
       }
     }
+
+    const collectionsReceivedGrowth = prevCollectionsReceived > 0 
+      ? ((currentCollectionsReceived - prevCollectionsReceived) / prevCollectionsReceived) * 100 
+      : 0;
 
     // Filter accounts by warehouse
     const filteredAccounts = cashBankAccounts.filter((acc: any) => {
@@ -634,12 +650,16 @@ export async function getRealtimeDashboardStats(
       data: {
         revenue: currentRevenue,
         revenueGrowth,
+        paidSaleTotal: currentPaidSaleTotal,
+        paidSaleGrowth,
         newCustomers: currentNewCustomers,
         newCustomersGrowth,
         purchaseTotal: currentPurchaseTotal,
         purchaseGrowth,
         dueTotal: currentDueTotal,
         dueGrowth,
+        collectionsReceived: currentCollectionsReceived,
+        collectionsReceivedGrowth,
         expenseTotal: currentExpenseTotal,
         expenseGrowth,
         recentOrders: recentOrders.map(o => ({
