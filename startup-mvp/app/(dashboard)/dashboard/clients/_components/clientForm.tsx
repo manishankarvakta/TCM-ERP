@@ -19,6 +19,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle, FiPlus, FiTrash2, FiSearch } from "react-icons/fi";
 import { createClient, updateClient, getWarehousesForClient } from "../_actions/client.action";
+import { getMembershipTiers } from "@/app/(dashboard)/dashboard/settings/_actions/membership-tier.action";
 import MediaSelector from "@/components/MediaSelector";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import DocumentSection, { DocumentItem } from "@/components/documents/documentSection";
@@ -50,7 +51,7 @@ const clientFormSchema = z.object({
   clientType: z.enum(["regular", "wholesale"]),
   warehouseId: z.string().optional().or(z.literal("")),
   membershipNumber: z.string().optional().or(z.literal("")),
-  membershipTier: z.enum(["NONE", "BRONZE", "SILVER", "GOLD", "PLATINUM"]),
+  membershipTier: z.string(),
   membershipStatus: z.enum(["ACTIVE", "INACTIVE", "EXPIRED"]),
   membershipPoints: z.string().optional().or(z.literal("")),
   membershipExpiry: z.string().optional().or(z.literal("")),
@@ -105,6 +106,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
   const { toast } = useToast();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [membershipTiers, setMembershipTiers] = useState<any[]>([]);
   const [warehouses, setWarehouses] = useState<Array<{ id: string; name: string; code: string }>>([]);
   const [documents, setDocuments] = useState<DocumentItem[]>(
     Array.isArray(initialData?.documents) ? initialData.documents : []
@@ -230,6 +232,16 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
       }
     }
     loadWarehouses();
+  }, []);
+
+  useEffect(() => {
+    async function loadMembershipTiers() {
+      const res = await getMembershipTiers(1, 100, "", "active");
+      if (res.success && res.membershipTiers) {
+        setMembershipTiers(res.membershipTiers);
+      }
+    }
+    loadMembershipTiers();
   }, []);
 
   useEffect(() => {
@@ -677,7 +689,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
                       <Label htmlFor="membershipTier">Membership Tier</Label>
                       <Select
                         defaultValue={watch("membershipTier") || "NONE"}
-                        onValueChange={(value) => setValue("membershipTier", value as any)}
+                        onValueChange={(value) => setValue("membershipTier", value)}
                         disabled={loading}
                       >
                         <SelectTrigger>
@@ -685,12 +697,18 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="NONE">None</SelectItem>
-                          <SelectItem value="BRONZE">Bronze</SelectItem>
-                          <SelectItem value="SILVER">Silver</SelectItem>
-                          <SelectItem value="GOLD">Gold</SelectItem>
-                          <SelectItem value="PLATINUM">Platinum</SelectItem>
+                          {membershipTiers
+                            .filter(t => t.name !== "NONE")
+                            .map((tier) => (
+                              <SelectItem key={tier.id} value={tier.name}>
+                                {tier.name}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-[11px] text-muted-foreground">
+                        Select a membership tier for this client.
+                      </p>
                       {errors.membershipTier && (
                         <p className="text-xs text-destructive">{errors.membershipTier.message as string}</p>
                       )}

@@ -1,5 +1,6 @@
 import { PrismaClient, ItemType, Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { seedMembershipTiers } from "./seed-membership-tiers";
 
 const prisma = new PrismaClient();
 
@@ -1583,6 +1584,8 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
   } else {
     console.log("⚠️  Skipping sales seed: No clients, warehouses, or sellable items found");
   }
+
+  await seedMembershipTiers();
 
   console.log("\n✅ Seed complete.");
   console.log(`- Admin login: ${adminEmail} / ${adminPassword}`);

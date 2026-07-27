@@ -160,9 +160,10 @@ export default function SettingsPageClient() {
       ],
     },
     {
-      category: "POS",
+      category: "POS & Membership",
       items: [
         { id: "pos" as SettingsSection, label: "POS Settings", icon: SettingsIcon, active: activeSection === "pos" },
+        { id: "membership" as SettingsSection, label: "Membership Tiers", icon: Users, active: activeSection === "membership" },
       ],
     },
     {

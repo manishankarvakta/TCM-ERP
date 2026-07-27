@@ -231,6 +231,7 @@ async function seedPermissions() {
         "settings.tos",
         "settings.general",
         "settings.members",
+        "settings.membership",
       ],
       ["view", "edit"]
     ),

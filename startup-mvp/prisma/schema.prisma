@@ -79,6 +79,7 @@ model User {
   createdWarehouses                Warehouse[]            @relation("WarehouseCreator")
   createdSettings                  Settings[]             @relation("SettingsCreator")
   settings                         Settings[]             @relation("SettingsUser")
+  createdMembershipTiers           MembershipTier[]       @relation("MembershipTierCreator")
   rfidBundleScans                  RFIDBundleScan[]
   createdTPNs                      TransferPurchaseNote[] @relation("TPNCreatedBy")
   updatedTPNs                      TransferPurchaseNote[] @relation("TPNUpdatedBy")
@@ -616,6 +617,8 @@ model Client {
   itemDiscounts    ClientItemDiscount[]
   membershipNumber String?              @unique
   membershipTier   String               @default("NONE")
+  membershipTierId String?              @map("membership_tier_id")
+  membershipTierRel MembershipTier?     @relation("ClientMembershipTier", fields: [membershipTierId], references: [id])
   membershipStatus String               @default("INACTIVE")
   membershipPoints Int                  @default(0)
   membershipExpiry DateTime?
@@ -2528,4 +2531,19 @@ model EmployeeBonus {
   @@index([status])
   @@index([payrollId])
   @@index([isTrash])
+}
+
+model MembershipTier {
+  id                 String    @id @default(cuid())
+  name               String    @unique
+  minPurchaseValue   Decimal   @db.Decimal(12, 2) @default(0.00)
+  discountPercentage Decimal   @db.Decimal(5, 2) @default(0.00)
+  status             String    @default("active")
+  isTrash            Boolean   @default(false)
+  createdBy          String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  
+  clients            Client[]  @relation("ClientMembershipTier")
+  creator            User      @relation("MembershipTierCreator", fields: [createdBy], references: [id])
 }

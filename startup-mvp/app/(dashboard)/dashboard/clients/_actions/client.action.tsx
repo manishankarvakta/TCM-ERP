@@ -573,6 +573,16 @@ export async function createClient(input: {
         ? input.warehouseId
         : (userRecord?.defaultWarehouseId || null);
 
+      let membershipTierId: string | null = null;
+      if (input.membershipTier && input.membershipTier !== "NONE") {
+        const mt = await tx.membershipTier.findFirst({
+          where: { name: input.membershipTier, isTrash: false }
+        });
+        if (mt) {
+          membershipTierId = mt.id;
+        }
+      }
+
       // Create client with chartOfAccountId reference
       const client = await tx.client.create({
         data: {
@@ -596,6 +606,7 @@ export async function createClient(input: {
           clientType: input.clientType || "regular",
           membershipNumber: clientCode,
           membershipTier: input.membershipTier || "NONE",
+          membershipTierId: membershipTierId,
           membershipStatus: input.membershipStatus || (input.membershipTier && input.membershipTier !== "NONE" ? "ACTIVE" : "INACTIVE"),
           membershipPoints: input.membershipPoints !== undefined ? Number(input.membershipPoints) : 0,
           membershipExpiry: input.membershipExpiry ? new Date(input.membershipExpiry) : null,
@@ -929,6 +940,18 @@ export async function updateClient(input: {
         chartOfAccountId = chartOfAccount.id;
       }
 
+      let membershipTierId: string | null | undefined = undefined;
+      if (input.membershipTier !== undefined) {
+        if (input.membershipTier === "NONE") {
+          membershipTierId = null;
+        } else {
+          const mt = await tx.membershipTier.findFirst({
+            where: { name: input.membershipTier, isTrash: false }
+          });
+          membershipTierId = mt ? mt.id : null;
+        }
+      }
+
       // Build update data
       const updateData: Prisma.ClientUpdateInput = {
         name: input.name !== undefined ? (input.name || null) : undefined,
@@ -946,6 +969,7 @@ export async function updateClient(input: {
         clientType: input.clientType !== undefined ? input.clientType : undefined,
         membershipNumber: clientCode,
         membershipTier: input.membershipTier !== undefined ? input.membershipTier : undefined,
+        membershipTierRel: membershipTierId === undefined ? undefined : (membershipTierId ? { connect: { id: membershipTierId } } : { disconnect: true }),
         membershipStatus: input.membershipStatus !== undefined ? input.membershipStatus : (input.membershipTier !== undefined ? (input.membershipTier !== "NONE" ? "ACTIVE" : "INACTIVE") : undefined),
         membershipPoints: input.membershipPoints !== undefined ? Number(input.membershipPoints) : undefined,
         membershipExpiry: input.membershipExpiry !== undefined ? (input.membershipExpiry ? new Date(input.membershipExpiry) : null) : undefined,

@@ -1935,8 +1935,8 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
         const voucherResult = await createSaleAccountingVoucher(sale.id, tx, validated.paymentMethod || undefined);
         if (!voucherResult.success) throw new Error(voucherResult.error || "Failed to create accounting voucher");
 
-        // Award loyalty points if customer has active membership
-        if (client && client.membershipTier && client.membershipTier !== "NONE" && client.membershipStatus === "ACTIVE") {
+        // Award loyalty points if customer has active membership status
+        if (client && client.membershipStatus === "ACTIVE") {
           const globalSetting = await tx.settings.findFirst({
             where: {
               code: "membership",
@@ -1960,12 +1960,16 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
           }
           const pointsEarned = Math.floor(grandTotal / pointsSpentRatio);
           if (pointsEarned > 0) {
+            const clientRecord = await tx.client.findUnique({
+              where: { id: validated.clientId },
+              select: { membershipPoints: true }
+            });
+            const newPointsTotal = (clientRecord?.membershipPoints || 0) + pointsEarned;
+
             await tx.client.update({
               where: { id: validated.clientId },
               data: {
-                membershipPoints: {
-                  increment: pointsEarned
-                }
+                membershipPoints: newPointsTotal,
               }
             });
           }

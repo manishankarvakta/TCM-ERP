@@ -1,280 +1,480 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { FiSave, FiAward, FiGift, FiPercent } from "react-icons/fi";
-import { getMembershipSettingsAction, saveMembershipSettingsAction } from "../_actions/membership-settings.action";
-import type { MembershipSettings } from "../_actions/membership-settings.types";
-import { DEFAULT_MEMBERSHIP_SETTINGS } from "../_actions/membership-settings.types";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import {
+  FiPlus,
+  FiSearch,
+  FiEdit,
+  FiTrash2,
+  FiRotateCw,
+  FiMoreVertical,
+  FiAward,
+  FiPercent,
+  FiX,
+  FiCheckCircle,
+} from "react-icons/fi";
+import {
+  getMembershipTiers,
+  createMembershipTier,
+  updateMembershipTier,
+  trashMembershipTier,
+  bulkUpdateMembershipTierStatus,
+} from "../_actions/membership-tier.action";
 
-const membershipFormSchema = z.object({
-  pointsSpentRatio: z.coerce.number().min(0.01, "Earning ratio must be greater than 0"),
-  pointValue: z.coerce.number().min(0, "Point value cannot be negative"),
-  enableThresholdDiscount: z.boolean(),
-  minPurchaseForDiscount: z.coerce.number().min(0, "Purchase threshold cannot be negative"),
-  discountPercentage: z.coerce.number().min(0, "Discount percentage cannot be negative").max(100, "Discount cannot exceed 100%"),
+const tierFormSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters").toUpperCase(),
+  minPurchaseValue: z.coerce.number().min(0, "Minimum purchase cannot be negative"),
+  discountPercentage: z.coerce.number().min(0, "Discount cannot be negative").max(100, "Discount cannot exceed 100%"),
+  status: z.string().default("active"),
 });
 
-type MembershipFormData = z.infer<typeof membershipFormSchema>;
+type TierFormData = z.infer<typeof tierFormSchema>;
+
+interface MembershipTier {
+  id: string;
+  name: string;
+  minPurchaseValue: any; // Prisma Decimal
+  discountPercentage: any; // Prisma Decimal
+  status: string;
+  isTrash: boolean;
+}
 
 export default function Membership() {
-  const [loading, setLoading] = useState(false);
-  const [loadingSettings, setLoadingSettings] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [tiers, setTiers] = useState<MembershipTier[]>([]);
+  const [activeTab, setActiveTab] = useState<"all" | "trash">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingTier, setEditingTier] = useState<MembershipTier | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [restoreId, setRestoreId] = useState<string | null>(null);
+  const [actionPending, startTransition] = useTransition();
+  const { toast } = useToast();
 
-  const {
-    control,
-    handleSubmit,
-    watch,
-    reset,
-    formState: { errors },
-  } = useForm<MembershipFormData>({
-    resolver: zodResolver(membershipFormSchema) as any,
-    defaultValues: DEFAULT_MEMBERSHIP_SETTINGS,
+  const form = useForm<TierFormData>({
+    resolver: zodResolver(tierFormSchema) as any,
+    defaultValues: {
+      name: "",
+      minPurchaseValue: 0,
+      discountPercentage: 0,
+      status: "active",
+    },
   });
 
-  const enableThresholdDiscount = watch("enableThresholdDiscount");
-
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        setLoadingSettings(true);
-        const result = await getMembershipSettingsAction();
-        if (result.success && result.settings) {
-          reset(result.settings);
-        }
-      } catch (err) {
-        console.error("Failed to load membership settings:", err);
-        setError("Failed to load membership settings");
-      } finally {
-        setLoadingSettings(false);
-      }
-    };
-
-    loadSettings();
-  }, [reset]);
-
-  const onSubmit = async (data: MembershipFormData) => {
+  const loadTiers = async () => {
     try {
       setLoading(true);
-      setError("");
-      setSuccess("");
-
-      const result = await saveMembershipSettingsAction(data as MembershipSettings);
-
-      if (!result.success) {
-        throw new Error(result.error || "Failed to save membership settings");
+      const result = await getMembershipTiers(
+        1,
+        100,
+        searchQuery,
+        activeTab === "trash" ? "trash" : "all"
+      );
+      if (result.success) {
+        setTiers(result.membershipTiers as any[]);
+      } else {
+        toast({ title: "Error", description: result.error || "Failed to load tiers", variant: "destructive" });
       }
-
-      setSuccess("Membership settings saved successfully!");
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred");
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Error", description: "Unexpected error loading tiers", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  if (loadingSettings) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Membership Settings</h1>
-          <p className="text-sm text-muted-foreground">
-            Configure rules for point earning, redemption, and loyalty discounts
-          </p>
-        </div>
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-muted-foreground animate-pulse">Loading membership settings...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  useEffect(() => {
+    loadTiers();
+  }, [activeTab, searchQuery]);
+
+  const handleOpenCreate = () => {
+    setEditingTier(null);
+    form.reset({
+      name: "",
+      minPurchaseValue: 0,
+      discountPercentage: 0,
+      status: "active",
+    });
+    setIsFormOpen(true);
+  };
+
+  const handleOpenEdit = (tier: MembershipTier) => {
+    setEditingTier(tier);
+    form.reset({
+      name: tier.name,
+      minPurchaseValue: Number(tier.minPurchaseValue || 0),
+      discountPercentage: Number(tier.discountPercentage),
+      status: tier.status,
+    });
+    setIsFormOpen(true);
+  };
+
+  const onSubmit = async (data: TierFormData) => {
+    startTransition(async () => {
+      let result;
+      if (editingTier) {
+        result = await updateMembershipTier(editingTier.id, data);
+      } else {
+        result = await createMembershipTier(data);
+      }
+
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: editingTier
+            ? "Membership tier updated successfully"
+            : "Membership tier created successfully",
+        });
+        setIsFormOpen(false);
+        loadTiers();
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to save membership tier",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    startTransition(async () => {
+      const result = await trashMembershipTier(deleteId);
+      if (result.success) {
+        toast({ title: "Success", description: "Membership tier moved to trash" });
+        setDeleteId(null);
+        loadTiers();
+      } else {
+        toast({ title: "Error", description: result.error || "Failed to delete tier", variant: "destructive" });
+      }
+    });
+  };
+
+  const handleRestore = async (id: string) => {
+    startTransition(async () => {
+      const result = await bulkUpdateMembershipTierStatus([id], "restore");
+      if (result.success) {
+        toast({ title: "Success", description: "Membership tier restored successfully" });
+        loadTiers();
+      } else {
+        toast({ title: "Error", description: result.error || "Failed to restore tier", variant: "destructive" });
+      }
+    });
+  };
+
+  const handleToggleStatus = async (tier: MembershipTier) => {
+    const nextStatus = tier.status === "active" ? "inactive" : "active";
+    startTransition(async () => {
+      const result = await updateMembershipTier(tier.id, { status: nextStatus });
+      if (result.success) {
+        toast({ title: "Success", description: `Status updated to ${nextStatus}` });
+        loadTiers();
+      } else {
+        toast({ title: "Error", description: result.error || "Failed to update status", variant: "destructive" });
+      }
+    });
+  };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Membership Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Configure rules for point earning, redemption, and loyalty discounts
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Membership Tiers</h1>
+          <p className="text-sm text-muted-foreground">
+            Configure dynamic rules and automated checkout discounts for loyalty members.
+          </p>
+        </div>
+        {activeTab !== "trash" && (
+          <Button onClick={handleOpenCreate} className="gap-2">
+            <FiPlus className="h-4 w-4" />
+            Add Membership Tier
+          </Button>
+        )}
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {error && (
-          <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md">
-            {error}
-          </div>
-        )}
-        {success && (
-          <div className="p-3 bg-emerald-500/10 text-emerald-500 text-sm rounded-md">
-            {success}
-          </div>
-        )}
+      {/* Tabs and Search Filters */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+        <div className="flex gap-4">
+          <button
+            onClick={() => setActiveTab("all")}
+            className={`pb-2 text-sm font-semibold border-b-2 transition-colors ${
+              activeTab === "all"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            All Tiers
+          </button>
+          <button
+            onClick={() => setActiveTab("trash")}
+            className={`pb-2 text-sm font-semibold border-b-2 transition-colors ${
+              activeTab === "trash"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Trash
+          </button>
+        </div>
 
-        {/* Earning & Redemption Points Rules */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FiAward className="h-5 w-5 text-primary" />
-              Points Calculations
-            </CardTitle>
-            <CardDescription>
-              Configure how clients earn points and their monetary redemption value
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="pointsSpentRatio">Points Earning Ratio</Label>
-                <div className="relative">
-                  <Controller
-                    name="pointsSpentRatio"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        type="number"
-                        step="0.01"
-                        id="pointsSpentRatio"
-                        placeholder="e.g., 100"
-                        {...field}
-                      />
-                    )}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  The spent amount required to earn 1 point (e.g. spend 100 Taka = 1 point)
-                </p>
-                {errors.pointsSpentRatio && (
-                  <p className="text-xs text-destructive">{errors.pointsSpentRatio.message}</p>
-                )}
-              </div>
+        <div className="relative w-full sm:max-w-xs">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search tiers by name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 text-sm"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <FiX className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
 
+      {/* Data Table */}
+      <Card>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="py-20 text-center text-muted-foreground">Loading membership tiers...</div>
+          ) : tiers.length === 0 ? (
+            <div className="py-20 text-center text-muted-foreground">
+              {searchQuery ? "No tiers matching your search query." : "No membership tiers configured."}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tier Name</TableHead>
+                  <TableHead>Min Purchase</TableHead>
+                  <TableHead>Auto Discount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tiers.map((tier) => (
+                  <TableRow key={tier.id}>
+                    <TableCell className="font-semibold text-primary">{tier.name}</TableCell>
+                    <TableCell>৳{Number(tier.minPurchaseValue || 0).toLocaleString()} BDT</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="gap-1 border-primary/20 text-primary bg-primary/5">
+                        <FiPercent className="h-3 w-3" />
+                        {Number(tier.discountPercentage).toFixed(1)}% Discount
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {tier.isTrash ? (
+                        <Badge variant="destructive">Trashed</Badge>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={tier.status === "active"}
+                            onCheckedChange={() => handleToggleStatus(tier)}
+                            disabled={actionPending}
+                          />
+                          <span className="text-xs text-muted-foreground capitalize">{tier.status}</span>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {!tier.isTrash ? (
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenEdit(tier)}
+                            disabled={actionPending}
+                          >
+                            <FiEdit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteId(tier.id)}
+                            className="text-destructive hover:bg-destructive/10"
+                            disabled={actionPending}
+                          >
+                            <FiTrash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRestore(tier.id)}
+                            className="text-emerald-500 hover:bg-emerald-500/10"
+                            disabled={actionPending}
+                          >
+                            <FiRotateCw className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Edit/Create Dialog */}
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>{editingTier ? "Edit Membership Tier" : "Add Membership Tier"}</DialogTitle>
+              <DialogDescription>
+                Set the points threshold and checkout discount. Changes will apply immediately.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="pointValue">Point Monetary Value</Label>
+                <Label htmlFor="name">Tier Name (in CAPS)</Label>
                 <Controller
-                  name="pointValue"
-                  control={control}
+                  name="name"
+                  control={form.control}
                   render={({ field }) => (
                     <Input
-                      type="number"
-                      step="0.01"
-                      id="pointValue"
-                      placeholder="e.g., 1.0"
+                      id="name"
+                      placeholder="e.g. BRONZE"
+                      className="uppercase"
+                      disabled={actionPending}
                       {...field}
                     />
                   )}
                 />
-                <p className="text-xs text-muted-foreground">
-                  The value of 1 point during checkout redemption (e.g. 1 point = 1.0 Taka discount)
-                </p>
-                {errors.pointValue && (
-                  <p className="text-xs text-destructive">{errors.pointValue.message}</p>
+                {form.formState.errors.name && (
+                  <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
                 )}
               </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Expense Discount Rules */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <CardTitle className="flex items-center gap-2">
-                  <FiGift className="h-5 w-5 text-primary" />
-                  Membership Purchases Discount
-                </CardTitle>
-                <CardDescription>
-                  Configure discount rewards when clients hit a purchase volume threshold
-                </CardDescription>
-              </div>
-              <Controller
-                name="enableThresholdDiscount"
-                control={control}
-                render={({ field }) => (
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
+
+
+              <div className="space-y-2">
+                <Label htmlFor="minPurchaseValue">Minimum Purchase Amount (BDT)</Label>
+                <Controller
+                  name="minPurchaseValue"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Input
+                      id="minPurchaseValue"
+                      type="number"
+                      placeholder="e.g. 2000"
+                      disabled={actionPending}
+                      {...field}
+                    />
+                  )}
+                />
+                {form.formState.errors.minPurchaseValue && (
+                  <p className="text-xs text-destructive">{form.formState.errors.minPurchaseValue.message}</p>
                 )}
-              />
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {enableThresholdDiscount && (
-              <div className="grid gap-4 sm:grid-cols-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                <div className="space-y-2">
-                  <Label htmlFor="minPurchaseForDiscount">Minimum Purchase Amount (Threshold)</Label>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="discountPercentage">Checkout Discount Percentage (%)</Label>
+                <div className="relative">
                   <Controller
-                    name="minPurchaseForDiscount"
-                    control={control}
+                    name="discountPercentage"
+                    control={form.control}
                     render={({ field }) => (
                       <Input
+                        id="discountPercentage"
                         type="number"
-                        id="minPurchaseForDiscount"
-                        placeholder="e.g., 20000"
+                        step="0.1"
+                        placeholder="e.g. 5.0"
+                        disabled={actionPending}
                         {...field}
                       />
                     )}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Required total spent / purchase amount to qualify for the discount (e.g., 20,000 Taka)
-                  </p>
-                  {errors.minPurchaseForDiscount && (
-                    <p className="text-xs text-destructive">{errors.minPurchaseForDiscount.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="discountPercentage">Discount Percentage (%)</Label>
-                  <div className="relative">
-                    <Controller
-                      name="discountPercentage"
-                      control={control}
-                      render={({ field }) => (
-                        <Input
-                          type="number"
-                          id="discountPercentage"
-                          placeholder="e.g., 5"
-                          {...field}
-                        />
-                      )}
-                    />
-                    <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                      <FiPercent className="h-4 w-4 text-muted-foreground" />
-                    </div>
+                  <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-muted-foreground text-sm">
+                    %
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Discount percentage applied automatically at checkout (e.g., 5%)
-                  </p>
-                  {errors.discountPercentage && (
-                    <p className="text-xs text-destructive">{errors.discountPercentage.message}</p>
-                  )}
                 </div>
+                {form.formState.errors.discountPercentage && (
+                  <p className="text-xs text-destructive">{form.formState.errors.discountPercentage.message}</p>
+                )}
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
 
-        {/* Action Button */}
-        <div className="flex justify-end">
-          <Button type="submit" disabled={loading} className="gap-2">
-            <FiSave className="h-4 w-4" />
-            {loading ? "Saving Settings..." : "Save Settings"}
-          </Button>
-        </div>
-      </form>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} disabled={actionPending}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={actionPending}>
+                {actionPending ? "Saving..." : "Save Tier"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Alert */}
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will move the membership tier to trash. Customers under this point threshold will no longer get the tier benefits.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={actionPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Move to Trash
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

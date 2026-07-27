@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
 import { createClient } from "@/app/(dashboard)/dashboard/clients/_actions/client.action";
 import { getMembershipSettingsAction } from "@/app/(dashboard)/dashboard/settings/_actions/membership-settings.action";
+import { getMembershipTiers } from "@/app/(dashboard)/dashboard/settings/_actions/membership-tier.action";
 import { ItemType } from "@prisma/client";
 import {
   Select,
@@ -70,6 +71,7 @@ interface Client {
   clientType?: string | null;
   membershipNumber?: string | null;
   membershipTier?: string | null;
+  membershipTierId?: string | null;
   membershipStatus?: string | null;
   membershipPoints?: number | null;
   membershipExpiry?: any;
@@ -241,11 +243,17 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   }, [activeSalesmen, selectedWarehouseId, currentUser]);
 
   const [membershipSettings, setMembershipSettings] = useState<any>(null);
+  const [membershipTiers, setMembershipTiers] = useState<any[]>([]);
 
   useEffect(() => {
     getMembershipSettingsAction().then(res => {
       if (res.success && res.settings) {
         setMembershipSettings(res.settings);
+      }
+    });
+    getMembershipTiers(1, 100, "", "active").then(res => {
+      if (res.success && res.membershipTiers) {
+        setMembershipTiers(res.membershipTiers);
       }
     });
   }, []);
@@ -703,17 +711,28 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     return clients.find(c => c.id === selectedClientId);
   }, [clients, selectedClientId]);
 
-  const isMember = !!(selectedClient && selectedClient.membershipTier && selectedClient.membershipTier !== "NONE" && selectedClient.membershipStatus === "ACTIVE");
+  const matchedMembershipTier = useMemo(() => {
+    if (!selectedClient || selectedClient.membershipStatus !== "ACTIVE" || membershipTiers.length === 0) {
+      return null;
+    }
+    return membershipTiers.find(
+      t => (t.id === selectedClient.membershipTierId || t.name === selectedClient.membershipTier) &&
+           t.status === "active" &&
+           !t.isTrash
+    ) || null;
+  }, [selectedClient, membershipTiers]);
 
   const membershipDiscountAmount = useMemo(() => {
-    if (!isMember || !membershipSettings || !membershipSettings.enableThresholdDiscount) {
-      return 0;
-    }
-    if (subTotal >= membershipSettings.minPurchaseForDiscount) {
-      return Number((subTotal * (membershipSettings.discountPercentage / 100)).toFixed(2));
+    if (!matchedMembershipTier) return 0;
+    const minPurchase = Number(matchedMembershipTier.minPurchaseValue || 0);
+    if (subTotal >= minPurchase) {
+      const pct = Number(matchedMembershipTier.discountPercentage);
+      if (pct > 0) {
+        return Number((subTotal * (pct / 100)).toFixed(2));
+      }
     }
     return 0;
-  }, [isMember, membershipSettings, subTotal]);
+  }, [matchedMembershipTier, subTotal]);
 
   const effectiveDiscountAmount = (appliedPromo ? discountAmount : manualDiscountAmount) + membershipDiscountAmount;
 
@@ -2495,10 +2514,16 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                       <span>-৳{(appliedPromo ? discountAmount : manualDiscountAmount).toFixed(2)}</span>
                     </div>
                   ) : null}
-                  {membershipDiscountAmount > 0 && (
+                  {membershipDiscountAmount > 0 && matchedMembershipTier && (
                     <div className="flex justify-between text-xs font-semibold text-amber-600">
-                      <span>Membership Discount ({membershipSettings?.discountPercentage}%):</span>
+                      <span>Membership Discount ({matchedMembershipTier.name} - {Number(matchedMembershipTier.discountPercentage).toFixed(1)}%):</span>
                       <span>-৳{membershipDiscountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {matchedMembershipTier && membershipDiscountAmount === 0 && Number(matchedMembershipTier.minPurchaseValue || 0) > 0 && (
+                    <div className="flex justify-between text-[11px] text-amber-600/70 italic">
+                      <span>{matchedMembershipTier.name} Min Purchase:</span>
+                      <span>৳{Number(matchedMembershipTier.minPurchaseValue).toLocaleString()}</span>
                     </div>
                   )}
                   {tax > 0 && (
