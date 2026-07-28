@@ -33,6 +33,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getItemVariants } from "../../../master/items/_actions/item.action";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 
 // Schema
@@ -152,6 +154,18 @@ export default function TpnForm({ warehouses, items, user }: TpnFormProps) {
   });
 
   const watchedItems = form.watch("items") || [];
+
+  const otherSelectedVariants = useMemo(() => {
+    if (skuModalIndex === null) return new Set<string>();
+    const items = form.getValues("items") || [];
+    const set = new Set<string>();
+    items.forEach((item: any, idx: number) => {
+      if (idx !== skuModalIndex && item.variantId) {
+        set.add(item.variantId);
+      }
+    });
+    return set;
+  }, [skuModalIndex, watchedItems]);
   
   const totalItems = watchedItems.filter((item: any) => !!item.itemId).length;
   
@@ -579,12 +593,17 @@ export default function TpnForm({ warehouses, items, user }: TpnFormProps) {
                       <th className="w-24 px-4 py-2 text-left">
                         <div className="flex items-center gap-2">
                           <Checkbox
-                            checked={skuVariants.length > 0 && skuVariants.every(v => !!selectedVariants[v.id])}
+                            checked={
+                              skuVariants.length > 0 && 
+                              skuVariants.every(v => otherSelectedVariants.has(v.id) || !!selectedVariants[v.id])
+                            }
                             onCheckedChange={(checked) => {
                               const newSelected: Record<string, boolean> = {};
                               if (checked) {
                                 skuVariants.forEach(v => {
-                                  newSelected[v.id] = true;
+                                  if (!otherSelectedVariants.has(v.id)) {
+                                    newSelected[v.id] = true;
+                                  }
                                 });
                               }
                               setSelectedVariants(newSelected);
@@ -600,27 +619,36 @@ export default function TpnForm({ warehouses, items, user }: TpnFormProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {skuVariants.map((variant) => (
-                      <tr key={variant.id} className="border-t hover:bg-muted/50">
-                        <td className="px-4 py-2">
-                          <Checkbox
-                            checked={!!selectedVariants[variant.id]}
-                            onCheckedChange={(checked) => {
-                              setSelectedVariants(prev => ({
-                                ...prev,
-                                [variant.id]: !!checked
-                              }));
-                            }}
-                          />
-                        </td>
-                        <td className="px-4 py-2 font-mono text-xs">{variant.sku}</td>
-                        <td className="px-4 py-2">{variant.size || "-"}</td>
-                        <td className="px-4 py-2">{variant.color || "-"}</td>
-                        <td className="px-4 py-2 text-right font-medium">
-                          {stockMap[variant.id] ?? 0}
-                        </td>
-                      </tr>
-                    ))}
+                    {skuVariants.map((variant) => {
+                      const isAlreadySelected = otherSelectedVariants.has(variant.id);
+                      return (
+                        <tr key={variant.id} className={cn("border-t hover:bg-muted/50", isAlreadySelected && "opacity-50 bg-muted/20")}>
+                          <td className="px-4 py-2">
+                            <Checkbox
+                              checked={isAlreadySelected ? true : !!selectedVariants[variant.id]}
+                              disabled={isAlreadySelected || skuLoading}
+                              onCheckedChange={(checked) => {
+                                setSelectedVariants(prev => ({
+                                  ...prev,
+                                  [variant.id]: !!checked
+                                }));
+                              }}
+                            />
+                          </td>
+                          <td className="px-4 py-2 font-mono text-xs">{variant.sku}</td>
+                          <td className="px-4 py-2">{variant.size || "-"}</td>
+                          <td className="px-4 py-2">{variant.color || "-"}</td>
+                          <td className="px-4 py-2 text-right font-medium">
+                            <div className="flex items-center justify-end gap-1">
+                              <span>{stockMap[variant.id] ?? 0}</span>
+                              {isAlreadySelected && (
+                                <Badge variant="secondary" className="ml-2 text-[10px]">Added</Badge>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

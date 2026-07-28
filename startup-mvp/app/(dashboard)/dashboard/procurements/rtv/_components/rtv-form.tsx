@@ -28,6 +28,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { getItemVariants } from "@/app/(dashboard)/dashboard/master/items/_actions/item.action";
 import { getWarehouseStocks } from "@/app/(dashboard)/dashboard/inventory/stock/_actions/stock.action";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 const rtvItemSchema = z.object({
   itemId: z.string().min(1, "Item is required"),
@@ -87,6 +89,8 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
   const [skuVariants, setSkuVariants] = useState<any[]>([]);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, boolean>>({});
   const [skuLoading, setSkuLoading] = useState(false);
+
+
   const [itemSearch, setItemSearch] = useState("");
 
   const defaultDate = new Date();
@@ -130,6 +134,17 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
   });
 
   const watchedItems = watch("items") || [];
+  const otherSelectedVariants = useMemo(() => {
+    if (skuModalIndex === null) return new Set<string>();
+    const items = getValues("items") || [];
+    const set = new Set<string>();
+    items.forEach((item, idx) => {
+      if (idx !== skuModalIndex && item.variantId) {
+        set.add(item.variantId);
+      }
+    });
+    return set;
+  }, [skuModalIndex, watchedItems]);
   const watchedTax = watch("tax");
   const watchedWarehouseId = watch("warehouseId");
 
@@ -466,8 +481,21 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
                 </TableHeader>
                 <TableBody>
                   {fields.map((field, index) => {
-                    const selectedItemIds = watch("items").map((i, idx) => idx !== index ? i.itemId : null).filter(Boolean);
-                    const availableItems = items.filter((i: any) => !selectedItemIds.includes(i.id));
+                    const otherSelectedItems = watch("items")
+                      .map((item, idx) => idx !== index ? { itemId: item.itemId, variantId: item.variantId } : null)
+                      .filter((val): val is { itemId: string; variantId: string | null } => !!val && !!val.itemId);
+                    
+                    // Filter out already selected items (only if all variants are selected, or it has no variants and is selected)
+                    const availableItems = items.filter((item: any) => {
+                      const hasVariants = item.variants && item.variants.length > 0;
+                      if (!hasVariants) {
+                        return !otherSelectedItems.some(osi => osi.itemId === item.id);
+                      }
+                      const unselectedVariants = item.variants.filter(
+                        (v: any) => !otherSelectedItems.some(osi => osi.variantId === v.id)
+                      );
+                      return unselectedVariants.length > 0;
+                    });
 
                     return (
                       <TableRow key={field.id}>
@@ -783,12 +811,17 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
                     <th className="w-24 px-4 py-2 text-left">
                       <div className="flex items-center gap-2">
                         <Checkbox
-                          checked={skuVariants.length > 0 && skuVariants.every((v: any) => !!selectedVariants[v.id])}
+                          checked={
+                            skuVariants.length > 0 && 
+                            skuVariants.every((v: any) => otherSelectedVariants.has(v.id) || !!selectedVariants[v.id])
+                          }
                           onCheckedChange={(checked) => {
                             const newSelected: Record<string, boolean> = {};
                             if (checked) {
                               skuVariants.forEach((v: any) => {
-                                newSelected[v.id] = true;
+                                if (!otherSelectedVariants.has(v.id)) {
+                                  newSelected[v.id] = true;
+                                }
                               });
                             }
                             setSelectedVariants(newSelected);
@@ -805,30 +838,37 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
                   </tr>
                 </thead>
                 <tbody>
-                  {skuVariants.map((variant: any) => (
-                    <tr key={variant.id} className="border-t hover:bg-muted/50">
-                      <td className="px-4 py-2">
-                        <Checkbox
-                          checked={!!selectedVariants[variant.id]}
-                          onCheckedChange={(checked) => {
-                            setSelectedVariants(prev => ({
-                              ...prev,
-                              [variant.id]: !!checked
-                            }));
-                          }}
-                        />
-                      </td>
-                      <td className="px-4 py-2 font-mono text-xs">{variant.sku}</td>
-                      <td className="px-4 py-2">{variant.size || "-"}</td>
-                      <td className="px-4 py-2">{variant.color || "-"}</td>
-                      <td className="px-4 py-2 text-right font-medium">
-                        {stockMap[variant.id] ?? 0}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        {variant.costPrice !== null ? `৳${variant.costPrice.toFixed(2)}` : "-"}
-                      </td>
-                    </tr>
-                  ))}
+                  {skuVariants.map((variant: any) => {
+                    const isAlreadySelected = otherSelectedVariants.has(variant.id);
+                    return (
+                      <tr key={variant.id} className={cn("border-t hover:bg-muted/50", isAlreadySelected && "opacity-50 bg-muted/20")}>
+                        <td className="px-4 py-2">
+                          <Checkbox
+                            checked={isAlreadySelected ? true : !!selectedVariants[variant.id]}
+                            disabled={isAlreadySelected || skuLoading}
+                            onCheckedChange={(checked) => {
+                              setSelectedVariants(prev => ({
+                                ...prev,
+                                [variant.id]: !!checked
+                              }));
+                            }}
+                          />
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs">{variant.sku}</td>
+                        <td className="px-4 py-2">{variant.size || "-"}</td>
+                        <td className="px-4 py-2">{variant.color || "-"}</td>
+                        <td className="px-4 py-2 text-right font-medium">
+                          {stockMap[variant.id] ?? 0}
+                        </td>
+                        <td className="px-4 py-2 text-right flex items-center justify-end gap-1">
+                          {variant.costPrice !== null ? `৳${variant.costPrice.toFixed(2)}` : "-"}
+                          {isAlreadySelected && (
+                            <Badge variant="secondary" className="ml-2 text-[10px]">Added</Badge>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
