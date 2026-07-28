@@ -1019,15 +1019,17 @@ export async function createSaleAccountingVoucher(
       clientId: sale.clientId,
     });
 
-    // 1.5 Debit Coupon/Sales Discount if discount > 0 (for Sales, not Returns)
-    if (!isReturn && totalDiscount > 0) {
+    // 1.5 Debit/Credit Coupon/Sales Discount if discount > 0
+    if (totalDiscount > 0) {
       if (couponDiscount > 0) {
         const couponAcctId = salesAccounts.couponDiscountAccountId || salesAccounts.revenueAccountId;
         voucherLines.push({
           lineNumber: lineNumber++,
-          debitAmount: couponDiscount,
-          creditAmount: 0,
-          description: `Coupon Discount (${sale.coupon?.code || 'Coupon'}) - ${sale.saleNumber}`,
+          debitAmount: isReturn ? 0 : couponDiscount,
+          creditAmount: isReturn ? couponDiscount : 0,
+          description: isReturn
+            ? `Reverse Coupon Discount (${sale.coupon?.code || 'Coupon'}) - ${sale.saleNumber}`
+            : `Coupon Discount (${sale.coupon?.code || 'Coupon'}) - ${sale.saleNumber}`,
           chartOfAccountId: couponAcctId,
         });
       }
@@ -1035,9 +1037,11 @@ export async function createSaleAccountingVoucher(
         const generalDiscountAcctId = salesAccounts.salesDiscountAccountId || salesAccounts.revenueAccountId;
         voucherLines.push({
           lineNumber: lineNumber++,
-          debitAmount: generalDiscount,
-          creditAmount: 0,
-          description: `Sales General Discount - ${sale.saleNumber}`,
+          debitAmount: isReturn ? 0 : generalDiscount,
+          creditAmount: isReturn ? generalDiscount : 0,
+          description: isReturn
+            ? `Reverse Sales General Discount - ${sale.saleNumber}`
+            : `Sales General Discount - ${sale.saleNumber}`,
           chartOfAccountId: generalDiscountAcctId,
         });
       }
@@ -1087,9 +1091,11 @@ export async function createSaleAccountingVoucher(
     // Create the SALES (Invoice) Voucher
     const voucherResult = await createVoucher({
       date: sale.date,
-      type: VoucherType.SALES,
+      type: isReturn ? VoucherType.RETURN : VoucherType.SALES,
       reference: sale.saleNumber,
-      description: `Sale ${sale.saleNumber} - ${sale.client.name}`,
+      description: isReturn
+        ? `Sales Return Invoice ${sale.saleNumber} - ${sale.client.name}`
+        : `Sale ${sale.saleNumber} - ${sale.client.name}`,
       clientId: sale.clientId,
       isSystemAction: true,
       lines: voucherLines,
@@ -1121,10 +1127,14 @@ export async function createSaleAccountingVoucher(
       const totalPaid = cashAmt + cardAmt + mfsAmt;
 
       if (totalPaid > 0) {
+        // If the total paid exceeds the grand total (e.g. because of change returned),
+        // we scale down the cash/card/mfs amounts proportionally so that they total exactly absGrandTotal.
+        const scale = totalPaid > absGrandTotal ? (absGrandTotal / totalPaid) : 1;
+
         if (cashAmt > 0 && paymentDetails.cashAccountId) {
           paymentLines.push({
             accountId: paymentDetails.cashAccountId,
-            amount: cashAmt,
+            amount: Number((cashAmt * scale).toFixed(2)),
             description: isReturn 
               ? `Cash Refund Paid - ${sale.saleNumber} - ${sale.client.name}`
               : `Cash Received - ${sale.saleNumber} - ${sale.client.name}`,
@@ -1133,7 +1143,7 @@ export async function createSaleAccountingVoucher(
         if (cardAmt > 0 && paymentDetails.cardAccountId) {
           paymentLines.push({
             accountId: paymentDetails.cardAccountId,
-            amount: cardAmt,
+            amount: Number((cardAmt * scale).toFixed(2)),
             description: isReturn
               ? `Card Refund Paid - ${sale.saleNumber} - ${sale.client.name}`
               : `Card Payment Received - ${sale.saleNumber} - ${sale.client.name}`,
@@ -1142,11 +1152,18 @@ export async function createSaleAccountingVoucher(
         if (mfsAmt > 0 && paymentDetails.mfsAccountId) {
           paymentLines.push({
             accountId: paymentDetails.mfsAccountId,
-            amount: mfsAmt,
+            amount: Number((mfsAmt * scale).toFixed(2)),
             description: isReturn
               ? `Digital Wallet Refund Paid - ${sale.saleNumber} - ${sale.client.name}`
               : `Digital Wallet/MFS Received - ${sale.saleNumber} - ${sale.client.name}`,
           });
+        }
+
+        // Adjust for minor rounding discrepancies from scaling
+        const totalScaled = paymentLines.reduce((sum, line) => sum + line.amount, 0);
+        const discrepancy = Number((absGrandTotal - totalScaled).toFixed(2));
+        if (discrepancy !== 0 && paymentLines.length > 0) {
+          paymentLines[0].amount = Number((paymentLines[0].amount + discrepancy).toFixed(2));
         }
       }
     } else if (debitAccountId && debitAccountId !== receivableAccountId) {
@@ -2899,7 +2916,16 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
         where: { id: saleId },
         include: {
           items: {
-            include: { item: { select: { trackInventory: true } } }
+            include: {
+              item: {
+                select: {
+                  trackInventory: true,
+                  costPrice: true,
+                  itemType: true,
+                  name: true
+                }
+              }
+            }
           },
           client: true,
           coupon: true
@@ -2954,11 +2980,23 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
     }
 
     const returnSaleData = await prisma.$transaction(async (tx) => {
+      // Get accounts config
+      const { getSalesAccounts, getProductionAccounts } = await import("@/lib/accounting-settings");
+      let salesAccounts: any = null;
+      let productionAccounts: any = null;
+      try {
+        salesAccounts = await getSalesAccounts();
+        productionAccounts = await getProductionAccounts();
+      } catch (e) {
+        console.warn("Could not load accounting settings", e);
+      }
+
       let totalRefund = 0;
       let totalFullRevenueToDebit = 0;
       let totalCouponDiscountToCredit = 0;
       let totalGeneralDiscountToCredit = 0;
       const newSaleItems = [];
+      const cogsByAccount: Record<string, { amount: number; description: string }> = {};
 
       const originalDiscount = originalSale ? Number(originalSale.discount || 0) : 0;
       const originalSubtotal = originalSale ? Number(originalSale.subTotal || 0) : 0;
@@ -2983,6 +3021,9 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
         let itemUnitPrice = ret.unitPrice || 0;
         let trackInventory = false;
         let itemDescription = "Void Return Item";
+        let costPrice = 0;
+        let itemType = ItemType.RETAIL;
+        let itemName = "";
 
         if (originalSale) {
           const originalItem = originalSale.items.find((i: any) => 
@@ -3011,6 +3052,21 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
           itemUnitPrice = Number(originalItem.unitPrice) * (1 - discountRatio);
           trackInventory = originalItem.item?.trackInventory || false;
           itemDescription = originalItem.description;
+
+          // Cost price resolution: first check product variant cost price, then item cost price
+          let variantCost: number | null = null;
+          if (ret.variantId && originalItem.variantId === ret.variantId) {
+             const dbVariant = await tx.productVariant.findUnique({
+               where: { id: ret.variantId },
+               select: { costPrice: true }
+             });
+             if (dbVariant && dbVariant.costPrice) {
+               variantCost = Number(dbVariant.costPrice);
+             }
+          }
+          costPrice = variantCost !== null ? variantCost : Number(originalItem.item?.costPrice || 0);
+          itemType = originalItem.item?.itemType || ItemType.RETAIL;
+          itemName = originalItem.item?.name || "Item";
         } else {
           // Look up item from database
           const dbItem = await tx.item.findUnique({
@@ -3019,6 +3075,7 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
           if (!dbItem) throw new Error(`Item ${ret.itemId} not found in database`);
           
           let variantName = "";
+          let variantCost: number | null = null;
           if (ret.variantId) {
             const dbVariant = await tx.productVariant.findUnique({
               where: { id: ret.variantId }
@@ -3029,6 +3086,9 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
               } else if (!ret.unitPrice) {
                 itemUnitPrice = Number(dbItem.salesPrice || 0);
               }
+              if (dbVariant.costPrice) {
+                variantCost = Number(dbVariant.costPrice);
+              }
               variantName = ` - ${dbVariant.color} / ${dbVariant.size} (${dbVariant.sku})`;
             }
           } else if (!ret.unitPrice) {
@@ -3037,6 +3097,9 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
           
           trackInventory = dbItem.trackInventory;
           itemDescription = dbItem.name + variantName;
+          costPrice = variantCost !== null ? variantCost : Number(dbItem.costPrice || 0);
+          itemType = dbItem.itemType;
+          itemName = dbItem.name;
         }
 
         const refundAmount = itemUnitPrice * ret.quantity;
@@ -3109,6 +3172,33 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
             }
           });
         }
+
+        // Calculate COGS reversal
+        const itemCOGS = ret.quantity * costPrice;
+        if (itemCOGS !== 0) {
+          let inventoryAccountId: string | null = null;
+          if (itemType === ItemType.READY_PRODUCT) {
+            inventoryAccountId = productionAccounts?.completionFinishedGoodsInventoryId || salesAccounts?.finishedGoodsInventoryAccountId || null;
+          } else if (itemType === ItemType.RETAIL) {
+            inventoryAccountId = salesAccounts?.finishedGoodsInventoryAccountId || productionAccounts?.completionFinishedGoodsInventoryId || null;
+          }
+          if (!inventoryAccountId) {
+            inventoryAccountId = salesAccounts?.finishedGoodsInventoryAccountId;
+          }
+          if (inventoryAccountId) {
+            if (!cogsByAccount[inventoryAccountId]) {
+              cogsByAccount[inventoryAccountId] = { amount: 0, description: "COGS for " };
+            }
+            cogsByAccount[inventoryAccountId].amount += itemCOGS;
+            if (!cogsByAccount[inventoryAccountId].description.includes(itemName)) {
+              if (cogsByAccount[inventoryAccountId].description.length < 100) {
+                cogsByAccount[inventoryAccountId].description += (cogsByAccount[inventoryAccountId].description === "COGS for " ? "" : ", ") + itemName;
+              } else if (!cogsByAccount[inventoryAccountId].description.endsWith("...")) {
+                cogsByAccount[inventoryAccountId].description += "...";
+              }
+            }
+          }
+        }
       }
 
       const returnSaleNumber = await generateReturnSaleNumber(tx);
@@ -3155,17 +3245,10 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
         }
       }
 
-      // Let's get Sales Revenue account for the Debit side
       let salesRevenueAccountId = null;
-      try {
-        const { getSalesAccounts } = await import("@/lib/accounting-settings");
-        const salesAccounts = await getSalesAccounts();
+      if (salesAccounts?.revenueAccountId) {
         salesRevenueAccountId = salesAccounts.revenueAccountId;
-      } catch (e) {
-        console.warn("Could not load sales revenue account", e);
-      }
-
-      if (!salesRevenueAccountId) {
+      } else {
         const revAcct = await tx.chartOfAccount.findFirst({
           where: { name: { contains: "Sales", mode: "insensitive" }, type: "REVENUE", status: "active" }
         });
@@ -3174,111 +3257,181 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
         }
       }
 
-      // Credit account is Cash (standard for POS returns / walkway customer refund)
-      // or AR account if we want to reduce the customer balance
+      // Check if cash refund should be paid out (only if original sale had payment details, or if it is walkway client)
+      let shouldRefundCash = false;
+      if (originalSale) {
+        const paymentDetails = originalSale.paymentDetails as any;
+        if (paymentDetails) {
+          const cashAmt = Number(paymentDetails.cashAmount || 0);
+          const cardAmt = Number(paymentDetails.cardAmount || 0);
+          const mfsAmt = Number(paymentDetails.mfsAmount || 0);
+          if (cashAmt + cardAmt + mfsAmt > 0) {
+            shouldRefundCash = true;
+          }
+        }
+      } else {
+        const isWalkway = !clientId || clientId === "cmrl9t294000ecke2jw5ogbxf";
+        if (isWalkway) {
+          shouldRefundCash = true;
+        }
+      }
+
       const cashAccount = await tx.chartOfAccount.findFirst({
         where: { name: { contains: "Cash", mode: "insensitive" }, type: "ASSET", status: "active" }
       });
-      const creditAccountId = cashAccount ? cashAccount.id : (arAccountId || salesRevenueAccountId);
-
-      // If we don't have a Sales Revenue account, we fall back to arAccountId
+      const creditAccountId = shouldRefundCash && cashAccount ? cashAccount.id : arAccountId;
       const debitAccountId = salesRevenueAccountId || arAccountId;
 
-      if (debitAccountId && creditAccountId) {
-        let couponDiscountAccountId = null;
-        let salesDiscountAccountId = null;
-        try {
-          const { getSalesAccounts } = await import("@/lib/accounting-settings");
-          const salesAccounts = await getSalesAccounts();
-          couponDiscountAccountId = salesAccounts.couponDiscountAccountId;
-          salesDiscountAccountId = salesAccounts.salesDiscountAccountId;
-        } catch (e) {
-          console.warn("Could not load sales discount accounts", e);
-        }
+      if (debitAccountId && arAccountId) {
+        let couponDiscountAccountId = salesAccounts?.couponDiscountAccountId || salesRevenueAccountId;
+        let salesDiscountAccountId = salesAccounts?.salesDiscountAccountId || salesRevenueAccountId;
 
-        if (!couponDiscountAccountId) {
-          couponDiscountAccountId = salesRevenueAccountId;
-        }
-        if (!salesDiscountAccountId) {
-          salesDiscountAccountId = salesRevenueAccountId;
-        }
-
-        const lines = [
+        const returnLines = [
           {
             lineNumber: 1,
             chartOfAccountId: debitAccountId,
-            clientId: clientId || undefined,
+            clientId: undefined, // remove to avoid statement pollution
             debitAmount: Number(totalFullRevenueToDebit.toFixed(2)),
             creditAmount: 0,
             description: `Sales Return (Debit Revenue)`
           },
           {
             lineNumber: 2,
-            chartOfAccountId: creditAccountId,
+            chartOfAccountId: arAccountId, // ALWAYS route return invoice through Client AR
             clientId: clientId || undefined,
             debitAmount: 0,
             creditAmount: Number(totalRefund.toFixed(2)),
-            description: `Refund for Sales Return (Credit Cash/AR)`
+            description: `Sales Return (Credit AR)`
           }
         ];
 
         let currentLineNum = 3;
         if (totalCouponDiscountToCredit > 0 && couponDiscountAccountId) {
-          lines.push({
+          returnLines.push({
             lineNumber: currentLineNum++,
             chartOfAccountId: couponDiscountAccountId,
-            clientId: clientId || undefined,
+            clientId: undefined,
             debitAmount: 0,
             creditAmount: Number(totalCouponDiscountToCredit.toFixed(2)),
             description: `Sales Return - Reverse Coupon Discount (Credit)`
           });
         }
         if (totalGeneralDiscountToCredit > 0 && salesDiscountAccountId) {
-          lines.push({
+          returnLines.push({
             lineNumber: currentLineNum++,
             chartOfAccountId: salesDiscountAccountId,
-            clientId: clientId || undefined,
+            clientId: undefined,
             debitAmount: 0,
             creditAmount: Number(totalGeneralDiscountToCredit.toFixed(2)),
             description: `Sales Return - Reverse General Discount (Credit)`
           });
         }
 
-        // Adjust for floating point rounding discrepancies to ensure debits equal credits exactly
-        const totalDebits = lines.reduce((sum, l) => sum + l.debitAmount, 0);
-        const totalCredits = lines.reduce((sum, l) => sum + l.creditAmount, 0);
-        const discrepancy = Number((totalDebits - totalCredits).toFixed(2));
-        if (discrepancy !== 0) {
-          if (totalGeneralDiscountToCredit > 0) {
-            const idx = lines.findIndex(l => l.chartOfAccountId === salesDiscountAccountId && l.creditAmount > 0);
-            if (idx !== -1) {
-              lines[idx].creditAmount = Number((lines[idx].creditAmount + discrepancy).toFixed(2));
+        // Add COGS & Inventory lines
+        if (salesAccounts?.cogsAccountId) {
+          for (const [invAccountId, data] of Object.entries(cogsByAccount)) {
+            const absAmount = Math.abs(data.amount);
+            if (absAmount > 0) {
+              returnLines.push({
+                lineNumber: currentLineNum++,
+                chartOfAccountId: invAccountId,
+                clientId: undefined,
+                debitAmount: Number(absAmount.toFixed(2)),
+                creditAmount: 0,
+                description: `Inventory restock for return ${returnSale.saleNumber}`
+              });
+              returnLines.push({
+                lineNumber: currentLineNum++,
+                chartOfAccountId: salesAccounts.cogsAccountId,
+                clientId: undefined,
+                debitAmount: 0,
+                creditAmount: Number(absAmount.toFixed(2)),
+                description: `COGS reversal for return ${returnSale.saleNumber}`
+              });
             }
-          } else {
-            lines[1].creditAmount = Number((lines[1].creditAmount + discrepancy).toFixed(2));
           }
         }
 
-        const voucherResult = await createVoucher({
+        // Rounding adjustment
+        const totalDebits = returnLines.reduce((sum, l) => sum + l.debitAmount, 0);
+        const totalCredits = returnLines.reduce((sum, l) => sum + l.creditAmount, 0);
+        const discrepancy = Number((totalDebits - totalCredits).toFixed(2));
+        if (discrepancy !== 0) {
+          if (totalGeneralDiscountToCredit > 0) {
+            const idx = returnLines.findIndex(l => l.chartOfAccountId === salesDiscountAccountId && l.creditAmount > 0);
+            if (idx !== -1) {
+              returnLines[idx].creditAmount = Number((returnLines[idx].creditAmount + discrepancy).toFixed(2));
+            }
+          } else {
+            const arIdx = returnLines.findIndex(l => l.chartOfAccountId === arAccountId && l.creditAmount > 0);
+            if (arIdx !== -1) {
+              returnLines[arIdx].creditAmount = Number((returnLines[arIdx].creditAmount + discrepancy).toFixed(2));
+            }
+          }
+        }
+
+        // Create Voucher 1: Sales Return Invoice (RETURN)
+        const invoiceVoucherResult = await createVoucher({
           date: new Date(),
           type: "RETURN",
           reference: returnSale.saleNumber,
-          description: `Refund for sale return ${returnSale.saleNumber}`,
+          description: `Sales Return Invoice for sale return ${returnSale.saleNumber}`,
           clientId: clientId || undefined,
           isSystemAction: true,
-          lines
+          lines: returnLines
         }, tx);
 
-        if (!voucherResult.success || !voucherResult.voucher) {
-          throw new Error(voucherResult.error || "Failed to create accounting voucher");
+        if (!invoiceVoucherResult.success || !invoiceVoucherResult.voucher) {
+          throw new Error(invoiceVoucherResult.error || "Failed to create return invoice voucher");
         }
 
-        const postResult = await postVoucher(voucherResult.voucher.id, tx, true);
-        if (!postResult.success) {
-          throw new Error(postResult.error || "Failed to post accounting voucher");
+        const postInvoiceResult = await postVoucher(invoiceVoucherResult.voucher.id, tx, true);
+        if (!postInvoiceResult.success) {
+          throw new Error(postInvoiceResult.error || "Failed to post return invoice voucher");
+        }
+
+        // Create Voucher 2: Refund Payment (PAYMENT) - if cash refund was paid out
+        if (creditAccountId && creditAccountId !== arAccountId) {
+          const paymentLines = [
+            {
+              lineNumber: 1,
+              chartOfAccountId: arAccountId, // Debit Client AR to clear the credit balance
+              clientId: clientId || undefined,
+              debitAmount: Number(totalRefund.toFixed(2)),
+              creditAmount: 0,
+              description: `Refund for Sales Return (Debit AR)`
+            },
+            {
+              lineNumber: 2,
+              chartOfAccountId: creditAccountId, // Credit Cash/Bank account
+              clientId: undefined,
+              debitAmount: 0,
+              creditAmount: Number(totalRefund.toFixed(2)),
+              description: `Cash Refund for Sales Return (Credit Cash)`
+            }
+          ];
+
+          const paymentVoucherResult = await createVoucher({
+            date: new Date(),
+            type: "PAYMENT",
+            reference: returnSale.saleNumber,
+            description: `Refund payment for sale return ${returnSale.saleNumber}`,
+            clientId: clientId || undefined,
+            isSystemAction: true,
+            lines: paymentLines
+          }, tx);
+
+          if (!paymentVoucherResult.success || !paymentVoucherResult.voucher) {
+            throw new Error(paymentVoucherResult.error || "Failed to create refund payment voucher");
+          }
+
+          const postPaymentResult = await postVoucher(paymentVoucherResult.voucher.id, tx, true);
+          if (!postPaymentResult.success) {
+            throw new Error(postPaymentResult.error || "Failed to post refund payment voucher");
+          }
         }
       } else {
-        throw new Error("Cannot process return: Accounting mapping for Sales Revenue or Cash/Receivable is missing.");
+        throw new Error("Cannot process return: Accounting mapping for Sales Revenue or cash is missing.");
       }
 
       return returnSale;

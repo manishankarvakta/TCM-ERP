@@ -104,6 +104,7 @@ export async function getRevenueByClient(filters: {
           date: Date;
           grandTotal: number;
           itemCount: number;
+          orderType: string;
         }>;
       }
     >();
@@ -130,6 +131,7 @@ export async function getRevenueByClient(filters: {
         date: sale.date,
         grandTotal: Number(sale.grandTotal),
         itemCount,
+        orderType: sale.orderType || "RETAIL",
       });
     }
 
@@ -143,7 +145,8 @@ export async function getRevenueByClient(filters: {
         (sum, sale) => sum + sale.itemCount,
         0
       );
-      const salesCount = group.sales.length;
+      // Filter out returns to get the true sales transaction count
+      const salesCount = group.sales.filter(s => s.orderType !== "RETURN").length;
       const averageOrderValue = salesCount > 0 ? totalRevenue / salesCount : 0;
       const firstSaleDate = group.sales[group.sales.length - 1]?.date;
       const lastSaleDate = group.sales[0]?.date;
@@ -356,14 +359,22 @@ export async function getRevenueByItem(filters: {
               });
 
               if (journalEntry) {
-                // Sum COGS debit amounts for this sale
-                const cogsLines = journalEntry.JournalEntryLine.filter(
+                // Sum COGS debit amounts (additions) and subtract credit amounts (reversals)
+                const cogsDebitLines = journalEntry.JournalEntryLine.filter(
                   (line) =>
                     line.ChartOfAccount.name.includes("Cost of Goods Sold") &&
                     Number(line.debitAmount) > 0
                 );
-                const saleCOGS = cogsLines.reduce(
+                const cogsCreditLines = journalEntry.JournalEntryLine.filter(
+                  (line) =>
+                    line.ChartOfAccount.name.includes("Cost of Goods Sold") &&
+                    Number(line.creditAmount) > 0
+                );
+                const saleCOGS = cogsDebitLines.reduce(
                   (sum, line) => sum + Number(line.debitAmount),
+                  0
+                ) - cogsCreditLines.reduce(
+                  (sum, line) => sum + Number(line.creditAmount),
                   0
                 );
                 totalCOGS += saleCOGS;
@@ -487,6 +498,7 @@ export async function getSalesTrends(filters: {
         grandTotal: number;
         itemCount: number;
         clientId: string;
+        orderType: string;
       }>;
     }>();
 
@@ -522,13 +534,15 @@ export async function getSalesTrends(filters: {
         grandTotal: Number(sale.grandTotal),
         itemCount,
         clientId: sale.clientId,
+        orderType: sale.orderType || "RETAIL",
       });
     }
 
     // Calculate metrics per period
     const reportData = Array.from(grouped.values())
       .map((group) => {
-        const numberOfSales = group.sales.length;
+        // Filter out return sales when calculating transaction count
+        const numberOfSales = group.sales.filter(s => s.orderType !== "RETURN").length;
         const totalRevenue = group.sales.reduce(
           (sum, sale) => sum + sale.grandTotal,
           0

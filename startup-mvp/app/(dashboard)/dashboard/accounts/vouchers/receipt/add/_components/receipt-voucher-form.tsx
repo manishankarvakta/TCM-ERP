@@ -529,7 +529,7 @@ export default function ReceiptVoucherForm() {
                   <Input
                     id="amount"
                     type="number"
-                    step="1"
+                    step="any"
                     min="0.01"
                     placeholder="0.00"
                     className="pl-8"

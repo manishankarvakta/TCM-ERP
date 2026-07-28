@@ -306,7 +306,10 @@ export async function getRealtimeDashboardStats(
     // 4. Fetch Weekly Top Customers
     const topClientsBySales = await prisma.sale.groupBy({
       by: ["clientId"],
-      where: currentFilter,
+      where: {
+        ...currentFilter,
+        orderType: { not: "RETURN" }
+      },
       _count: {
         id: true,
       },
