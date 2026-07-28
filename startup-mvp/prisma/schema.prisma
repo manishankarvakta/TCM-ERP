@@ -1218,15 +1218,21 @@ model InventoryCountEntry {
 }
 
 model Shift {
-  id           String       @id @default(cuid())
-  name         String
-  startTime    String
-  endTime      String
-  graceMinutes Int          @default(0)
-  lateAfter    Int          @default(15)
-  halfDayAfter Int          @default(120)
-  otStartAfter Int          @default(30)
-  status       String       @default("active")
+  id                String       @id @default(cuid())
+  name              String
+  startTime         String
+  endTime           String
+  breakStartTime    String?
+  breakEndTime      String?
+  breakGraceMinutes Int          @default(0)
+  breakLateAfter    Int          @default(15)
+  breakType         String       @default("NONE")
+  breakDuration     Int          @default(0)
+  graceMinutes      Int          @default(0)
+  lateAfter         Int          @default(15)
+  halfDayAfter      Int          @default(120)
+  otStartAfter      Int          @default(30)
+  status            String       @default("active")
   isTrash      Boolean      @default(false)
   createdBy    String
   createdAt    DateTime     @default(now())
@@ -1395,6 +1401,10 @@ model Attendance {
   shiftId                  String?
   checkIn                  DateTime?
   checkOut                 DateTime?
+  breakCheckOut            DateTime?
+  breakCheckIn             DateTime?
+  breakLateMinutes         Int               @default(0)
+  breakLateCountValue      Decimal           @default(0) @db.Decimal(5, 2)
   workHours                Decimal           @default(0) @db.Decimal(5, 2)
   otHours                  Decimal           @default(0) @db.Decimal(5, 2)
   status                   AttendanceStatus

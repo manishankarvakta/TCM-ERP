@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { 
   calculateWorkHours, 
   calculateOTHours, 
@@ -6,10 +7,13 @@ import {
   resolveAttendanceDateForPunch,
   formatBusinessDateKey,
   toBusinessDateOnly,
-  ShiftPolicy
+  ShiftPolicy,
+  calculateWorkHoursWithBreak,
+  calculateBreakLateMinutes,
+  getShiftWindow
 } from "@/lib/hr/shift-utils";
 import { applyDailyAttendancePolicyValues } from "@/lib/hr-payroll/attendance-policy-service";
-import { startOfDay, endOfDay } from "date-fns";
+import { startOfDay, endOfDay, differenceInMinutes } from "date-fns";
 import { syncTimezoneFromDb } from "../shift-utils";
 
 /**
@@ -65,7 +69,11 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
         graceMinutes: employee.shift.graceMinutes,
         lateAfter: employee.shift.lateAfter,
         halfDayAfter: employee.shift.halfDayAfter,
-        otStartAfter: employee.shift.otStartAfter
+        otStartAfter: employee.shift.otStartAfter,
+        breakStartTime: employee.shift.breakStartTime,
+        breakEndTime: employee.shift.breakEndTime,
+        breakGraceMinutes: employee.shift.breakGraceMinutes,
+        breakLateAfter: employee.shift.breakLateAfter
       } : null;
       
       const attendanceDate = resolveAttendanceDateForPunch(log.timestamp, shiftPolicy);
@@ -98,7 +106,11 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
         graceMinutes: employee.shift.graceMinutes,
         lateAfter: employee.shift.lateAfter,
         halfDayAfter: employee.shift.halfDayAfter,
-        otStartAfter: employee.shift.otStartAfter
+        otStartAfter: employee.shift.otStartAfter,
+        breakStartTime: employee.shift.breakStartTime,
+        breakEndTime: employee.shift.breakEndTime,
+        breakGraceMinutes: employee.shift.breakGraceMinutes,
+        breakLateAfter: employee.shift.breakLateAfter
       } : null;
 
       // Import update: Need resolveAttendanceDateForPunch
@@ -133,7 +145,13 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
         graceMinutes: employee.shift.graceMinutes,
         lateAfter: employee.shift.lateAfter,
         halfDayAfter: employee.shift.halfDayAfter,
-        otStartAfter: employee.shift.otStartAfter
+        otStartAfter: employee.shift.otStartAfter,
+        breakStartTime: employee.shift.breakStartTime,
+        breakEndTime: employee.shift.breakEndTime,
+        breakGraceMinutes: employee.shift.breakGraceMinutes,
+        breakLateAfter: employee.shift.breakLateAfter,
+        breakType: employee.shift.breakType,
+        breakDuration: employee.shift.breakDuration
       } : null;
 
       for (const dateKey in groupedLogs[empId]) {
@@ -141,18 +159,106 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
         const timestamps = groupedLogs[empId][dateKey];
         // Ensure timestamps are sorted
         timestamps.sort((a, b) => a.getTime() - b.getTime());
+
+        // Deduplicate rapid/consecutive punches (within 2 minutes)
+        const deduped: Date[] = [];
+        for (const ts of timestamps) {
+          if (deduped.length === 0) {
+            deduped.push(ts);
+          } else {
+            const prev = deduped[deduped.length - 1];
+            const diffMins = Math.abs(ts.getTime() - prev.getTime()) / 60000;
+            if (diffMins >= 2) {
+              deduped.push(ts);
+            }
+          }
+        }
         
         // Normalize UTC representation back out of the dateKey
         const date = new Date(`${dateKey}T00:00:00.000Z`);
-        const checkIn = timestamps[0];
-        const checkOut = timestamps.length > 1 ? timestamps[timestamps.length - 1] : null;
+        const checkIn = deduped[0];
+        const checkOut = deduped.length > 1 ? deduped[deduped.length - 1] : null;
 
-        const workHours = calculateWorkHours(checkIn, checkOut);
+        let breakCheckOut: Date | null = null;
+        let breakCheckIn: Date | null = null;
+
+        // If shift has break configured, route punches
+        const isTrackedBreak = shiftPolicy?.breakType === "TRACKED" || (!shiftPolicy?.breakType && shiftPolicy?.breakStartTime && shiftPolicy?.breakEndTime);
+        if (isTrackedBreak && shiftPolicy && shiftPolicy.breakStartTime && shiftPolicy.breakEndTime && deduped.length > 2) {
+          const { breakStartDateTime, breakEndDateTime } = getShiftWindow(date, shiftPolicy);
+          
+          if (breakStartDateTime && breakEndDateTime) {
+            const breakStartMin = new Date(breakStartDateTime.getTime() - 2 * 60 * 60 * 1000);
+            const breakStartMax = new Date(breakStartDateTime.getTime() + 2 * 60 * 60 * 1000);
+            const breakEndMin = new Date(breakEndDateTime.getTime() - 2 * 60 * 60 * 1000);
+            const breakEndMax = new Date(breakEndDateTime.getTime() + 2 * 60 * 60 * 1000);
+
+            // Extract mid punches (excluding checkIn and checkOut)
+            const midPunches = deduped.slice(1, -1);
+
+            for (const mid of midPunches) {
+              const inStartWindow = mid >= breakStartMin && mid <= breakStartMax;
+              const inEndWindow = mid >= breakEndMin && mid <= breakEndMax;
+
+              if (inStartWindow || inEndWindow) {
+                const diffToStart = Math.abs(mid.getTime() - breakStartDateTime.getTime());
+                const diffToEnd = Math.abs(mid.getTime() - breakEndDateTime.getTime());
+
+                if (inStartWindow && (!inEndWindow || diffToStart <= diffToEnd)) {
+                  if (!breakCheckOut) {
+                    breakCheckOut = mid;
+                  }
+                } else if (inEndWindow) {
+                  if (!breakCheckIn) {
+                    breakCheckIn = mid;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        let breakDurationMins = 0;
+        if (shiftPolicy) {
+          if (shiftPolicy.breakType === "FIXED") {
+            breakDurationMins = shiftPolicy.breakDuration ?? 0;
+          } else if (shiftPolicy.breakType === "TRACKED" || !shiftPolicy.breakType) {
+            if (shiftPolicy.breakStartTime && shiftPolicy.breakEndTime) {
+              const { breakStartDateTime, breakEndDateTime } = getShiftWindow(date, shiftPolicy);
+              if (breakStartDateTime && breakEndDateTime) {
+                breakDurationMins = Math.max(0, differenceInMinutes(breakEndDateTime, breakStartDateTime));
+              } else {
+                breakDurationMins = shiftPolicy.breakDuration ?? 60;
+              }
+            } else {
+              breakDurationMins = shiftPolicy.breakDuration ?? 0;
+            }
+          }
+        }
+
+        const workHours = calculateWorkHoursWithBreak(
+          checkIn,
+          checkOut,
+          breakCheckOut,
+          breakCheckIn,
+          breakDurationMins,
+          shiftPolicy?.breakType || "NONE"
+        );
+
         let otHours = 0;
         if (checkOut && shiftPolicy) {
           otHours = calculateOTHours(checkOut, date, shiftPolicy);
         }
-        const status = determineAttendanceStatus(checkIn, date, shiftPolicy);
+
+        let breakLateMinutes = 0;
+        let breakLateCountValue = 0;
+        if (breakCheckIn && shiftPolicy) {
+          const breakLateRes = calculateBreakLateMinutes(breakCheckIn, date, shiftPolicy);
+          breakLateMinutes = breakLateRes.lateMinutes;
+          breakLateCountValue = breakLateRes.lateCountValue;
+        }
+
+        const status = determineAttendanceStatus(checkIn, date, shiftPolicy, breakCheckIn);
 
         const existingKey = `${empId}_${dateKey}`;
         const existing = existingMap.get(existingKey);
@@ -181,8 +287,12 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
         const data = {
           checkIn,
           checkOut,
-          workHours,
-          otHours,
+          breakCheckOut,
+          breakCheckIn,
+          breakLateMinutes,
+          breakLateCountValue: new Prisma.Decimal(breakLateCountValue),
+          workHours: new Prisma.Decimal(workHours),
+          otHours: new Prisma.Decimal(otHours),
           status,
           shiftId: employee.shiftId,
           isManual: false,

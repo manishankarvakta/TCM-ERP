@@ -10,6 +10,12 @@ export interface ShiftPolicy {
   lateAfter: number;
   halfDayAfter: number;
   otStartAfter: number;
+  breakStartTime?: string | null;
+  breakEndTime?: string | null;
+  breakGraceMinutes?: number;
+  breakLateAfter?: number;
+  breakType?: string | null;
+  breakDuration?: number;
 }
 
 export type AttendanceStatusType = "PRESENT" | "LATE" | "HALF_DAY" | "ABSENT";
@@ -109,12 +115,37 @@ export function getShiftWindow(attendanceDate: Date, shift: ShiftPolicy, timezon
   const halfDayAfterDateTime = addMinutes(shiftStartDateTime, shift.halfDayAfter);
   const otStartAfterDateTime = addMinutes(shiftEndDateTime, shift.otStartAfter);
 
+  // Break window calculations
+  let breakStartDateTime: Date | null = null;
+  let breakEndDateTime: Date | null = null;
+  let breakLateAfterDateTime: Date | null = null;
+
+  if (shift.breakStartTime && shift.breakEndTime) {
+    breakStartDateTime = combineDateAndTime(attendanceDate, shift.breakStartTime, timezone);
+    breakEndDateTime = combineDateAndTime(attendanceDate, shift.breakEndTime, timezone);
+
+    if (isOvernight) {
+      if (shift.breakStartTime < shift.startTime) {
+        breakStartDateTime = addDays(breakStartDateTime, 1);
+      }
+      if (shift.breakEndTime < shift.startTime) {
+        breakEndDateTime = addDays(breakEndDateTime, 1);
+      }
+    }
+
+    const breakLateAfterVal = shift.breakLateAfter ?? 15;
+    breakLateAfterDateTime = addMinutes(breakEndDateTime, breakLateAfterVal);
+  }
+
   return {
     shiftStartDateTime,
     shiftEndDateTime,
     lateAfterDateTime,
     halfDayAfterDateTime,
     otStartAfterDateTime,
+    breakStartDateTime,
+    breakEndDateTime,
+    breakLateAfterDateTime,
     isOvernight
   };
 }
@@ -157,6 +188,48 @@ export function calculateWorkHours(checkIn: Date | null, checkOut: Date | null):
 }
 
 /**
+ * Calculate total work hours excluding lunch break
+ */
+export function calculateWorkHoursWithBreak(
+  checkIn: Date | null,
+  checkOut: Date | null,
+  breakCheckOut: Date | null,
+  breakCheckIn: Date | null,
+  shiftBreakDurationMinutes: number = 0,
+  breakType: string = "NONE"
+): number {
+  if (!checkIn || !checkOut) return 0;
+
+  let totalMinutes = 0;
+  const totalElapsed = differenceInMinutes(checkOut, checkIn);
+
+  if (breakType === "NONE") {
+    totalMinutes = totalElapsed;
+  } else if (breakType === "FIXED") {
+    totalMinutes = totalElapsed - shiftBreakDurationMinutes;
+  } else if (breakType === "TRACKED") {
+    if (breakCheckOut && breakCheckIn && breakCheckOut > checkIn && breakCheckIn < checkOut && breakCheckIn > breakCheckOut) {
+      const firstHalf = differenceInMinutes(breakCheckOut, checkIn);
+      const secondHalf = differenceInMinutes(checkOut, breakCheckIn);
+      totalMinutes = Math.max(0, firstHalf) + Math.max(0, secondHalf);
+    } else {
+      totalMinutes = totalElapsed - shiftBreakDurationMinutes;
+    }
+  } else {
+    // Backwards compatibility fallback
+    if (breakCheckOut && breakCheckIn && breakCheckOut > checkIn && breakCheckIn < checkOut && breakCheckIn > breakCheckOut) {
+      const firstHalf = differenceInMinutes(breakCheckOut, checkIn);
+      const secondHalf = differenceInMinutes(checkOut, breakCheckIn);
+      totalMinutes = Math.max(0, firstHalf) + Math.max(0, secondHalf);
+    } else {
+      totalMinutes = totalElapsed - shiftBreakDurationMinutes;
+    }
+  }
+
+  return Number((Math.max(0, totalMinutes) / 60).toFixed(2));
+}
+
+/**
  * Determine late minutes
  */
 export function calculateLateMinutes(checkIn: Date, attendanceDate: Date, shift: ShiftPolicy): number {
@@ -167,6 +240,45 @@ export function calculateLateMinutes(checkIn: Date, attendanceDate: Date, shift:
     return diff;
   }
   return 0;
+}
+
+/**
+ * Determine late minutes after break
+ */
+export function calculateBreakLateMinutes(
+  breakCheckIn: Date | null,
+  attendanceDate: Date,
+  shift: ShiftPolicy,
+  timezone: string = HR_BUSINESS_TIMEZONE
+): { lateMinutes: number; lateCountValue: number } {
+  if (shift.breakType && shift.breakType !== "TRACKED") {
+    return { lateMinutes: 0, lateCountValue: 0 };
+  }
+
+  if (!breakCheckIn || !shift.breakEndTime) {
+    return { lateMinutes: 0, lateCountValue: 0 };
+  }
+
+  const { breakEndDateTime } = getShiftWindow(attendanceDate, shift, timezone);
+  if (!breakEndDateTime) {
+    return { lateMinutes: 0, lateCountValue: 0 };
+  }
+
+  const diff = differenceInMinutes(breakCheckIn, breakEndDateTime);
+  const breakGrace = shift.breakGraceMinutes ?? 0;
+  const breakLateAfter = shift.breakLateAfter ?? 15;
+
+  let lateMinutes = 0;
+  let lateCountValue = 0;
+
+  if (diff > breakGrace) {
+    lateMinutes = diff;
+    if (diff >= breakLateAfter) {
+      lateCountValue = 1;
+    }
+  }
+
+  return { lateMinutes, lateCountValue };
 }
 
 /**
@@ -186,7 +298,12 @@ export function calculateOTHours(checkOut: Date, attendanceDate: Date, shift: Sh
 /**
  * Determine the Attendance Status based on shift policies
  */
-export function determineAttendanceStatus(checkIn: Date | null, attendanceDate: Date, shift: ShiftPolicy | null): AttendanceStatusType {
+export function determineAttendanceStatus(
+  checkIn: Date | null,
+  attendanceDate: Date,
+  shift: ShiftPolicy | null,
+  breakCheckIn?: Date | null
+): AttendanceStatusType {
   if (!checkIn) {
     return "ABSENT";
   }
@@ -197,9 +314,17 @@ export function determineAttendanceStatus(checkIn: Date | null, attendanceDate: 
 
   const lateMinutes = calculateLateMinutes(checkIn, attendanceDate, shift);
 
+  let isBreakLate = false;
+  if (breakCheckIn && shift.breakType === "TRACKED") {
+    const breakLateRes = calculateBreakLateMinutes(breakCheckIn, attendanceDate, shift);
+    if (breakLateRes.lateCountValue > 0) {
+      isBreakLate = true;
+    }
+  }
+
   if (lateMinutes >= shift.halfDayAfter) {
     return "HALF_DAY";
-  } else if (lateMinutes >= shift.lateAfter) {
+  } else if (lateMinutes >= shift.lateAfter || isBreakLate) {
     return "LATE";
   }
 

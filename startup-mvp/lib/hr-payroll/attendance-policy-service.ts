@@ -7,6 +7,7 @@ import {
   ShiftPolicy,
   HR_BUSINESS_TIMEZONE,
   syncTimezoneFromDb,
+  calculateBreakLateMinutes,
 } from "@/lib/hr/shift-utils";
 import {
   calculateOvertimePreview,
@@ -30,6 +31,7 @@ export interface DailyAttendancePolicyInput {
   attendance: {
     checkIn: Date | string | null;
     checkOut: Date | string | null;
+    breakCheckIn?: Date | string | null;
     otHours: any;
     status: string;
     date: Date;
@@ -56,6 +58,12 @@ export interface DailyAttendancePolicyInput {
     lateAfter: number;
     halfDayAfter: number;
     otStartAfter: number;
+    breakStartTime?: string | null;
+    breakEndTime?: string | null;
+    breakGraceMinutes?: number;
+    breakLateAfter?: number;
+    breakType?: string | null;
+    breakDuration?: number;
   } | null;
   isWeekend: boolean;
   isPublicHoliday: boolean;
@@ -66,6 +74,8 @@ export interface DailyAttendancePolicyInput {
 export interface DailyAttendancePolicyOutput {
   lateMinutes: number;
   lateCountValue: number;
+  breakLateMinutes: number;
+  breakLateCountValue: number;
   tiffinBillAmount: number;
   nightBillAmount: number;
   holidayBillAmount: number;
@@ -78,6 +88,8 @@ export function calculateDailyAttendancePolicyValues(input: DailyAttendancePolic
   
   let lateMinutes = 0;
   let lateCountValue = 0;
+  let breakLateMinutes = 0;
+  let breakLateCountValue = 0;
   let tiffinBillAmount = 0;
   let nightBillAmount = 0;
   let holidayBillAmount = 0;
@@ -100,15 +112,37 @@ export function calculateDailyAttendancePolicyValues(input: DailyAttendancePolic
         lateAfter: shift.lateAfter,
         halfDayAfter: shift.halfDayAfter,
         otStartAfter: shift.otStartAfter,
+        breakStartTime: shift.breakStartTime,
+        breakEndTime: shift.breakEndTime,
+        breakGraceMinutes: shift.breakGraceMinutes,
+        breakLateAfter: shift.breakLateAfter,
+        breakType: shift.breakType,
+        breakDuration: shift.breakDuration
       };
       
       lateMinutes = calculateLateMinutes(new Date(attendance.checkIn), new Date(attendance.date), shiftPolicy);
       
       if (attendance.status === "LATE") {
-        lateCountValue = 1;
+        if (lateMinutes > 0) {
+          lateCountValue = 1;
+        }
       } else if (attendance.status === "HALF_DAY") {
         if (lateMinutes > 0) {
           lateCountValue = 1;
+        }
+      }
+
+      if (attendance.breakCheckIn && shiftPolicy.breakEndTime) {
+        const breakLateRes = calculateBreakLateMinutes(
+          new Date(attendance.breakCheckIn),
+          new Date(attendance.date),
+          shiftPolicy
+        );
+        breakLateMinutes = breakLateRes.lateMinutes;
+        breakLateCountValue = breakLateRes.lateCountValue;
+
+        if (breakLateMinutes > 0) {
+          notes.push(`Late after break: ${breakLateMinutes} mins`);
         }
       }
     }
@@ -192,6 +226,8 @@ export function calculateDailyAttendancePolicyValues(input: DailyAttendancePolic
   return {
     lateMinutes,
     lateCountValue,
+    breakLateMinutes,
+    breakLateCountValue,
     tiffinBillAmount,
     nightBillAmount,
     holidayBillAmount,
@@ -285,6 +321,12 @@ export async function applyDailyAttendancePolicyValues(
         lateAfter: activeShift.lateAfter,
         halfDayAfter: activeShift.halfDayAfter,
         otStartAfter: activeShift.otStartAfter,
+        breakStartTime: activeShift.breakStartTime,
+        breakEndTime: activeShift.breakEndTime,
+        breakGraceMinutes: activeShift.breakGraceMinutes,
+        breakLateAfter: activeShift.breakLateAfter,
+        breakType: activeShift.breakType,
+        breakDuration: activeShift.breakDuration,
       } : null,
       isWeekend: isWeekendDay,
       isPublicHoliday,
@@ -298,6 +340,8 @@ export async function applyDailyAttendancePolicyValues(
       data: {
         lateMinutes: result.lateMinutes,
         lateCountValue: new Prisma.Decimal(result.lateCountValue),
+        breakLateMinutes: result.breakLateMinutes,
+        breakLateCountValue: new Prisma.Decimal(result.breakLateCountValue),
         tiffinBillAmount: new Prisma.Decimal(result.tiffinBillAmount),
         nightBillAmount: new Prisma.Decimal(result.nightBillAmount),
         holidayBillAmount: new Prisma.Decimal(result.holidayBillAmount),
@@ -461,6 +505,12 @@ export async function reprocessAttendancePoliciesForDateRange(input: {
             lateAfter: activeShift.lateAfter,
             halfDayAfter: activeShift.halfDayAfter,
             otStartAfter: activeShift.otStartAfter,
+            breakStartTime: activeShift.breakStartTime,
+            breakEndTime: activeShift.breakEndTime,
+            breakGraceMinutes: activeShift.breakGraceMinutes,
+            breakLateAfter: activeShift.breakLateAfter,
+            breakType: activeShift.breakType,
+            breakDuration: activeShift.breakDuration,
           },
           isWeekend: isWeekendDay,
           isPublicHoliday,
@@ -474,6 +524,8 @@ export async function reprocessAttendancePoliciesForDateRange(input: {
           data: {
             lateMinutes: result.lateMinutes,
             lateCountValue: new Prisma.Decimal(result.lateCountValue),
+            breakLateMinutes: result.breakLateMinutes,
+            breakLateCountValue: new Prisma.Decimal(result.breakLateCountValue),
             tiffinBillAmount: new Prisma.Decimal(result.tiffinBillAmount),
             nightBillAmount: new Prisma.Decimal(result.nightBillAmount),
             holidayBillAmount: new Prisma.Decimal(result.holidayBillAmount),

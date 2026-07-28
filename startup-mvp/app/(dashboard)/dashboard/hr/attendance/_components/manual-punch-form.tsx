@@ -30,6 +30,8 @@ const punchFormSchema = z.object({
   date: z.string().min(1, "Date is required"),
   checkIn: z.string().optional().or(z.literal("")),
   checkOut: z.string().optional().or(z.literal("")),
+  breakCheckOut: z.string().optional().or(z.literal("")),
+  breakCheckIn: z.string().optional().or(z.literal("")),
   notes: z.string().optional(),
 });
 
@@ -70,6 +72,8 @@ export default function ManualPunchForm() {
       date: initialDate,
       checkIn: "",
       checkOut: "",
+      breakCheckOut: "",
+      breakCheckIn: "",
       notes: "",
     },
   });
@@ -91,10 +95,14 @@ export default function ManualPunchForm() {
           };
           setValue("checkIn", formatTime(res.record.checkIn));
           setValue("checkOut", formatTime(res.record.checkOut));
+          setValue("breakCheckOut", formatTime(res.record.breakCheckOut));
+          setValue("breakCheckIn", formatTime(res.record.breakCheckIn));
           setValue("notes", res.record.notes || "");
         } else {
           setValue("checkIn", "");
           setValue("checkOut", "");
+          setValue("breakCheckOut", "");
+          setValue("breakCheckIn", "");
           setValue("notes", "");
         }
       } catch (err) {
@@ -119,12 +127,16 @@ export default function ManualPunchForm() {
       // Combine date and time
       const checkInDateTime = data.checkIn ? `${data.date}T${data.checkIn}:00` : null;
       const checkOutDateTime = data.checkOut ? `${data.date}T${data.checkOut}:00` : null;
+      const breakCheckOutDateTime = data.breakCheckOut ? `${data.date}T${data.breakCheckOut}:00` : null;
+      const breakCheckInDateTime = data.breakCheckIn ? `${data.date}T${data.breakCheckIn}:00` : null;
 
       const result = await processManualAttendance({
         employeeId: data.employeeId,
         date: data.date,
         checkIn: checkInDateTime,
         checkOut: checkOutDateTime,
+        breakCheckOut: breakCheckOutDateTime,
+        breakCheckIn: breakCheckInDateTime,
         notes: data.notes,
       });
 
@@ -231,6 +243,36 @@ export default function ManualPunchForm() {
                       type="time"
                       className="pl-10"
                       {...register("checkOut")}
+                      disabled={loading}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Leave blank to keep existing</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="breakCheckOut">Break Check Out Time</Label>
+                  <div className="relative">
+                    <FiClock className="absolute left-3 top-3 text-rose-500" />
+                    <Input
+                      id="breakCheckOut"
+                      type="time"
+                      className="pl-10"
+                      {...register("breakCheckOut")}
+                      disabled={loading}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Leave blank to keep existing</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="breakCheckIn">Break Check In Time</Label>
+                  <div className="relative">
+                    <FiClock className="absolute left-3 top-3 text-blue-500" />
+                    <Input
+                      id="breakCheckIn"
+                      type="time"
+                      className="pl-10"
+                      {...register("breakCheckIn")}
                       disabled={loading}
                     />
                   </div>

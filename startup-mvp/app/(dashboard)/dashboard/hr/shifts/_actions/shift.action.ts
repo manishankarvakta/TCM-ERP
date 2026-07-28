@@ -79,6 +79,12 @@ export async function createShift(input: {
   name: string;
   startTime: string;
   endTime: string;
+  breakStartTime?: string | null;
+  breakEndTime?: string | null;
+  breakGraceMinutes?: number;
+  breakLateAfter?: number;
+  breakType?: string;
+  breakDuration?: number;
   graceMinutes?: number;
   lateAfter?: number;
   halfDayAfter?: number;
@@ -101,6 +107,12 @@ export async function createShift(input: {
         name: input.name,
         startTime: input.startTime,
         endTime: input.endTime,
+        breakStartTime: input.breakStartTime,
+        breakEndTime: input.breakEndTime,
+        breakGraceMinutes: input.breakGraceMinutes ?? 0,
+        breakLateAfter: input.breakLateAfter ?? 15,
+        breakType: input.breakType || "NONE",
+        breakDuration: input.breakDuration ?? 0,
         graceMinutes: input.graceMinutes ?? 0,
         lateAfter: input.lateAfter ?? 15,
         halfDayAfter: input.halfDayAfter ?? 120,
@@ -127,6 +139,12 @@ export async function updateShift(id: string, input: {
   name?: string;
   startTime?: string;
   endTime?: string;
+  breakStartTime?: string | null;
+  breakEndTime?: string | null;
+  breakGraceMinutes?: number;
+  breakLateAfter?: number;
+  breakType?: string;
+  breakDuration?: number;
   graceMinutes?: number;
   lateAfter?: number;
   halfDayAfter?: number;
@@ -155,6 +173,12 @@ export async function updateShift(id: string, input: {
         name: input.name,
         startTime: input.startTime,
         endTime: input.endTime,
+        breakStartTime: input.breakStartTime,
+        breakEndTime: input.breakEndTime,
+        breakGraceMinutes: input.breakGraceMinutes,
+        breakLateAfter: input.breakLateAfter,
+        breakType: input.breakType,
+        breakDuration: input.breakDuration,
         graceMinutes: input.graceMinutes,
         lateAfter: input.lateAfter,
         halfDayAfter: input.halfDayAfter,

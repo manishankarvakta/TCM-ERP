@@ -11,7 +11,8 @@ import {
   determineAttendanceStatus,
   getShiftWindow,
   formatBusinessDateKey,
-  ShiftPolicy
+  ShiftPolicy,
+  calculateWorkHoursWithBreak,
 } from "@/lib/hr/shift-utils";
 import { Prisma } from "@prisma/client";
 import { startOfDay, endOfDay, isWeekend } from "date-fns";
@@ -53,6 +54,8 @@ export async function processManualAttendance(input: {
   date: string;
   checkIn?: string | null;
   checkOut?: string | null;
+  breakCheckOut?: string | null;
+  breakCheckIn?: string | null;
   notes?: string;
 }) {
   try {
@@ -80,6 +83,8 @@ export async function processManualAttendance(input: {
 
     let checkInDate = input.checkIn ? new Date(input.checkIn) : null;
     let checkOutDate = input.checkOut ? new Date(input.checkOut) : null;
+    let breakCheckOutDate = input.breakCheckOut ? new Date(input.breakCheckOut) : null;
+    let breakCheckInDate = input.breakCheckIn ? new Date(input.breakCheckIn) : null;
 
     // Fetch existing attendance record for this date
     let attendance = await prisma.attendance.findUnique({
@@ -99,6 +104,8 @@ export async function processManualAttendance(input: {
     if (attendance) {
       if (input.checkIn === undefined) checkInDate = attendance.checkIn;
       if (input.checkOut === undefined) checkOutDate = attendance.checkOut;
+      if (input.breakCheckOut === undefined) breakCheckOutDate = attendance.breakCheckOut;
+      if (input.breakCheckIn === undefined) breakCheckInDate = attendance.breakCheckIn;
     }
 
     // Calculations
@@ -108,17 +115,37 @@ export async function processManualAttendance(input: {
       graceMinutes: employee.shift.graceMinutes,
       lateAfter: employee.shift.lateAfter,
       halfDayAfter: employee.shift.halfDayAfter,
-      otStartAfter: employee.shift.otStartAfter
+      otStartAfter: employee.shift.otStartAfter,
+      breakStartTime: employee.shift.breakStartTime,
+      breakEndTime: employee.shift.breakEndTime,
+      breakGraceMinutes: employee.shift.breakGraceMinutes,
+      breakLateAfter: employee.shift.breakLateAfter
     } : null;
 
-    let workHours = calculateWorkHours(checkInDate, checkOutDate);
+    let breakDurationMins = 0;
+    if (shiftPolicy?.breakStartTime && shiftPolicy?.breakEndTime) {
+      const { breakStartDateTime, breakEndDateTime } = getShiftWindow(targetDate, shiftPolicy);
+      if (breakStartDateTime && breakEndDateTime) {
+        breakDurationMins = Math.abs(breakEndDateTime.getTime() - breakStartDateTime.getTime()) / 60000;
+      } else {
+        breakDurationMins = 60; // 1 hour fallback
+      }
+    }
+
+    let workHours = calculateWorkHoursWithBreak(
+      checkInDate,
+      checkOutDate,
+      breakCheckOutDate,
+      breakCheckInDate,
+      breakDurationMins
+    );
+
     let otHours = 0;
-    
     if (checkOutDate && shiftPolicy) {
       otHours = calculateOTHours(checkOutDate, targetDate, shiftPolicy as any);
     }
 
-    const status = determineAttendanceStatus(checkInDate as any, checkOutDate as any, shiftPolicy as any);
+    const status = determineAttendanceStatus(checkInDate as any, targetDate, shiftPolicy as any, breakCheckInDate);
 
     if (attendance) {
       // Update
@@ -128,6 +155,8 @@ export async function processManualAttendance(input: {
         data: {
           checkIn: checkInDate,
           checkOut: checkOutDate,
+          breakCheckOut: breakCheckOutDate,
+          breakCheckIn: breakCheckInDate,
           workHours,
           otHours,
           status,
@@ -153,6 +182,8 @@ export async function processManualAttendance(input: {
           date: targetDate,
           checkIn: checkInDate,
           checkOut: checkOutDate,
+          breakCheckOut: breakCheckOutDate,
+          breakCheckIn: breakCheckInDate,
           workHours,
           otHours,
           status,
@@ -240,7 +271,7 @@ export async function getAttendances(startDate: Date, endDate: Date, employeeId?
       where,
       include: {
         employee: { select: { id: true, name: true, employeeCode: true, designation: true } },
-        shift: { select: { id: true, name: true, startTime: true, endTime: true } }
+        shift: { select: { id: true, name: true, startTime: true, endTime: true, breakStartTime: true, breakEndTime: true, breakType: true, breakDuration: true } }
       },
       orderBy: [{ date: 'desc' }, { employee: { name: 'asc' } }]
     });
@@ -502,7 +533,7 @@ export async function getAttendanceRecordsPaginated({
         where,
         include: {
           employee: { select: { id: true, name: true, employeeCode: true, designation: true } },
-          shift: { select: { id: true, name: true, startTime: true, endTime: true } }
+          shift: { select: { id: true, name: true, startTime: true, endTime: true, breakStartTime: true, breakEndTime: true, breakType: true, breakDuration: true } }
         },
         orderBy: [{ date: 'desc' }, { employee: { name: 'asc' } }],
         skip,

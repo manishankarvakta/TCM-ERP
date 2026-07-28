@@ -25,6 +25,12 @@ const shiftFormSchema = z.object({
   name: z.string().min(1, "Shift name is required"),
   startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)"),
   endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)"),
+  breakStartTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").nullable().or(z.literal("")).or(z.undefined()),
+  breakEndTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").nullable().or(z.literal("")).or(z.undefined()),
+  breakGraceMinutes: z.coerce.number().min(0, "Break grace minutes cannot be negative").optional(),
+  breakLateAfter: z.coerce.number().min(0, "Break late after cannot be negative").optional(),
+  breakType: z.enum(["NONE", "TRACKED", "FIXED"]),
+  breakDuration: z.coerce.number().min(0, "Break duration cannot be negative").optional(),
   graceMinutes: z.coerce.number().min(0, "Grace minutes cannot be negative"),
   lateAfter: z.coerce.number().min(0, "Late after cannot be negative"),
   halfDayAfter: z.coerce.number().min(0, "Half-day after cannot be negative"),
@@ -41,6 +47,12 @@ interface ShiftFormProps {
     name: string;
     startTime: string;
     endTime: string;
+    breakStartTime?: string | null;
+    breakEndTime?: string | null;
+    breakGraceMinutes?: number | null;
+    breakLateAfter?: number | null;
+    breakType?: string | null;
+    breakDuration?: number | null;
     graceMinutes: number;
     lateAfter: number;
     halfDayAfter: number;
@@ -69,6 +81,12 @@ export default function ShiftForm({ mode, initialData }: ShiftFormProps) {
           name: initialData.name,
           startTime: initialData.startTime,
           endTime: initialData.endTime,
+          breakStartTime: initialData.breakStartTime ?? "",
+          breakEndTime: initialData.breakEndTime ?? "",
+          breakGraceMinutes: initialData.breakGraceMinutes ?? 0,
+          breakLateAfter: initialData.breakLateAfter ?? 15,
+          breakType: (initialData.breakType ?? "NONE") as "NONE" | "TRACKED" | "FIXED",
+          breakDuration: initialData.breakDuration ?? 0,
           graceMinutes: initialData.graceMinutes,
           lateAfter: initialData.lateAfter,
           halfDayAfter: initialData.halfDayAfter,
@@ -79,6 +97,12 @@ export default function ShiftForm({ mode, initialData }: ShiftFormProps) {
           name: "",
           startTime: "09:00",
           endTime: "18:00",
+          breakStartTime: "",
+          breakEndTime: "",
+          breakGraceMinutes: 0,
+          breakLateAfter: 15,
+          breakType: "NONE",
+          breakDuration: 0,
           graceMinutes: 0,
           lateAfter: 15,
           halfDayAfter: 120,
@@ -92,8 +116,17 @@ export default function ShiftForm({ mode, initialData }: ShiftFormProps) {
       setLoading(true);
       setError("");
 
+      const payload = {
+        ...data,
+        breakStartTime: data.breakType === "TRACKED" && data.breakStartTime !== "" ? data.breakStartTime : null,
+        breakEndTime: data.breakType === "TRACKED" && data.breakEndTime !== "" ? data.breakEndTime : null,
+        breakGraceMinutes: data.breakType === "TRACKED" ? data.breakGraceMinutes : 0,
+        breakLateAfter: data.breakType === "TRACKED" ? data.breakLateAfter : 0,
+        breakDuration: data.breakType === "NONE" ? 0 : data.breakDuration,
+      };
+
       if (mode === "create") {
-        const result = await createShift(data);
+        const result = await createShift(payload);
 
         if (!result.success || !result.shift) {
           throw new Error(result.error || "Failed to create shift");
@@ -107,7 +140,7 @@ export default function ShiftForm({ mode, initialData }: ShiftFormProps) {
         const basePath = getBasePathFromPathname(pathname);
         router.push(`${basePath}/hr/shifts`);
       } else if (mode === "edit" && initialData) {
-        const result = await updateShift(initialData.id, data);
+        const result = await updateShift(initialData.id, payload);
 
         if (!result.success) {
           throw new Error(result.error || "Failed to update shift");
@@ -230,6 +263,114 @@ export default function ShiftForm({ mode, initialData }: ShiftFormProps) {
                       <p className="text-sm text-destructive">{errors.endTime.message}</p>
                     )}
                   </div>
+                </div>
+              </div>
+
+              {/* Break Settings */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b pb-2">
+                  <FiClock className="text-primary" />
+                  <h3 className="font-semibold">Break Settings</h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="breakType">Break Mode</Label>
+                    <Select
+                      disabled={loading}
+                      onValueChange={(val) => setValue("breakType", val as any)}
+                      value={watch("breakType")}
+                    >
+                      <SelectTrigger id="breakType">
+                        <SelectValue placeholder="Select Break Mode" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="NONE">None (No Break)</SelectItem>
+                        <SelectItem value="FIXED">Fixed Break Deduction</SelectItem>
+                        <SelectItem value="TRACKED">Tracked Break (Punches & Lateness)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {errors.breakType && (
+                      <p className="text-sm text-destructive">{errors.breakType.message}</p>
+                    )}
+                  </div>
+
+                  {watch("breakType") !== "NONE" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="breakDuration">Break Duration (minutes)</Label>
+                      <Input
+                        id="breakDuration"
+                        type="number"
+                        placeholder="e.g., 60"
+                        {...register("breakDuration")}
+                        disabled={loading}
+                      />
+                      <p className="text-xs text-muted-foreground">Break minutes to deduct from total work hours.</p>
+                      {errors.breakDuration && (
+                        <p className="text-sm text-destructive">{errors.breakDuration.message}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {watch("breakType") === "TRACKED" && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="breakStartTime">Break Start Time (HH:MM)</Label>
+                        <Input
+                          id="breakStartTime"
+                          type="time"
+                          {...register("breakStartTime")}
+                          disabled={loading}
+                        />
+                        {errors.breakStartTime && (
+                          <p className="text-sm text-destructive">{errors.breakStartTime.message}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="breakEndTime">Break End Time (HH:MM)</Label>
+                        <Input
+                          id="breakEndTime"
+                          type="time"
+                          {...register("breakEndTime")}
+                          disabled={loading}
+                        />
+                        {errors.breakEndTime && (
+                          <p className="text-sm text-destructive">{errors.breakEndTime.message}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="breakGraceMinutes">Break Grace Period (minutes)</Label>
+                        <Input
+                          id="breakGraceMinutes"
+                          type="number"
+                          placeholder="e.g., 5"
+                          {...register("breakGraceMinutes")}
+                          disabled={loading}
+                        />
+                        <p className="text-xs text-muted-foreground">Minutes allowed after break ends without lateness penalty.</p>
+                        {errors.breakGraceMinutes && (
+                          <p className="text-sm text-destructive">{errors.breakGraceMinutes.message}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="breakLateAfter">Break Lateness Limit (minutes)</Label>
+                        <Input
+                          id="breakLateAfter"
+                          type="number"
+                          placeholder="e.g., 15"
+                          {...register("breakLateAfter")}
+                          disabled={loading}
+                        />
+                        <p className="text-xs text-muted-foreground">Minutes after break ends to mark re-entry as Late.</p>
+                        {errors.breakLateAfter && (
+                          <p className="text-sm text-destructive">{errors.breakLateAfter.message}</p>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 

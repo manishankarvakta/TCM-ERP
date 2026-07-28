@@ -175,7 +175,7 @@ export async function generatePayroll(month: number, year: number, options?: Gen
       }
       
       acc[empId].otHours += Number(curr.otHours) || 0;
-      acc[empId].lateCountTotal += Number(curr.lateCountValue) || 0;
+      acc[empId].lateCountTotal += (Number(curr.lateCountValue) || 0) + (Number(curr.breakLateCountValue) || 0);
       acc[empId].totalCalculatedOvertimeAmount += Number(curr.calculatedOvertimeAmount) || 0;
       acc[empId].totalTiffinAllowance += Number(curr.tiffinBillAmount) || 0;
       acc[empId].totalNightAllowance += Number(curr.nightBillAmount) || 0;

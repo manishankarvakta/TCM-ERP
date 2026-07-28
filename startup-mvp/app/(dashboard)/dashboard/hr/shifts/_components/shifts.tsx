@@ -43,6 +43,12 @@ interface Shift {
   name: string;
   startTime: string;
   endTime: string;
+  breakStartTime?: string | null;
+  breakEndTime?: string | null;
+  breakGraceMinutes?: number | null;
+  breakLateAfter?: number | null;
+  breakType?: string | null;
+  breakDuration?: number | null;
   graceMinutes: number;
   lateAfter: number;
   halfDayAfter: number;
@@ -291,6 +297,7 @@ export default function ShiftsListClient({
               </TableHead>
               <TableHead>Shift Name</TableHead>
               <TableHead>Timing</TableHead>
+              <TableHead>Break Info</TableHead>
               <TableHead>Policies</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -299,7 +306,7 @@ export default function ShiftsListClient({
           <TableBody>
             {initialShifts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed shifts found" : "No shifts found"}
                 </TableCell>
               </TableRow>
@@ -322,6 +329,33 @@ export default function ShiftsListClient({
                         <FiClock className="h-4 w-4 text-muted-foreground" />
                         <span>{formatTime(shift.startTime)} - {formatTime(shift.endTime)}</span>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {shift.breakType === "FIXED" ? (
+                        <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+                          <span className="font-semibold text-foreground text-sm flex items-center gap-1">
+                            <FiClock className="h-3.5 w-3.5 text-primary" />
+                            Fixed Deduction
+                          </span>
+                          <span>Duration: {shift.breakDuration ?? 60}m</span>
+                        </div>
+                      ) : (shift.breakType === "TRACKED" || (!shift.breakType && shift.breakStartTime && shift.breakEndTime)) ? (
+                        <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+                          <span className="font-semibold text-foreground text-sm flex items-center gap-1">
+                            <FiClock className="h-3.5 w-3.5 text-primary" />
+                            {shift.breakStartTime && shift.breakEndTime 
+                              ? `${formatTime(shift.breakStartTime)} - ${formatTime(shift.breakEndTime)}`
+                              : "No Time Configured"
+                            }
+                          </span>
+                          <span>Grace: {shift.breakGraceMinutes ?? 0}m | Late: {shift.breakLateAfter ?? 15}m</span>
+                          {shift.breakDuration && shift.breakDuration > 0 ? (
+                            <span>Fallback: {shift.breakDuration}m</span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">No Break configured</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1 text-xs text-muted-foreground">

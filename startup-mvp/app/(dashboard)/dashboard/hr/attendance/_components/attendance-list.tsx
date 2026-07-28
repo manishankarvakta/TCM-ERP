@@ -36,6 +36,8 @@ interface AttendanceRecord {
   date: Date;
   checkIn: Date | null;
   checkOut: Date | null;
+  breakCheckOut?: Date | null;
+  breakCheckIn?: Date | null;
   workHours: any;
   otHours: any;
   status: string;
@@ -52,6 +54,10 @@ interface AttendanceRecord {
     name: string;
     startTime: string;
     endTime: string;
+    breakStartTime?: string | null;
+    breakEndTime?: string | null;
+    breakType?: string | null;
+    breakDuration?: number | null;
   } | null;
 }
 
@@ -285,6 +291,7 @@ export default function AttendanceListClient({
               <TableHead>Date</TableHead>
               <TableHead>Employee</TableHead>
               <TableHead>Check In</TableHead>
+              <TableHead>Break Out/In</TableHead>
               <TableHead>Check Out</TableHead>
               <TableHead>Work / OT</TableHead>
               <TableHead>Status</TableHead>
@@ -295,7 +302,7 @@ export default function AttendanceListClient({
           <TableBody>
             {initialAttendances.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   No attendance records found.
                 </TableCell>
               </TableRow>
@@ -313,6 +320,20 @@ export default function AttendanceListClient({
                   </TableCell>
                   <TableCell>
                     {record.checkIn ? format(new Date(record.checkIn), "hh:mm a") : "-"}
+                  </TableCell>
+                  <TableCell>
+                    {record.breakCheckOut || record.breakCheckIn ? (
+                      <div className="flex flex-col gap-0.5 text-xs">
+                        <div>Out: {record.breakCheckOut ? format(new Date(record.breakCheckOut), "hh:mm a") : "-"}</div>
+                        <div>In: {record.breakCheckIn ? format(new Date(record.breakCheckIn), "hh:mm a") : "-"}</div>
+                      </div>
+                    ) : record.shift?.breakType === "FIXED" ? (
+                      <div className="text-xs text-muted-foreground font-medium">
+                        Fixed: {record.shift.breakDuration ?? 60}m
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     {record.checkOut ? format(new Date(record.checkOut), "hh:mm a") : "-"}
