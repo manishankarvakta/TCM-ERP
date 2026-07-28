@@ -36,6 +36,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import {
   FiPlus,
@@ -86,6 +93,7 @@ export default function Membership() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [restoreId, setRestoreId] = useState<string | null>(null);
   const [permanentDeleteId, setPermanentDeleteId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [actionPending, startTransition] = useTransition();
   const { toast } = useToast();
 
@@ -110,6 +118,7 @@ export default function Membership() {
       );
       if (result.success) {
         setTiers(result.membershipTiers as any[]);
+        setSelectedIds(new Set());
       } else {
         toast({ title: "Error", description: result.error || "Failed to load tiers", variant: "destructive" });
       }
@@ -124,6 +133,39 @@ export default function Membership() {
   useEffect(() => {
     loadTiers();
   }, [activeTab, searchQuery]);
+
+  const handleSelect = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(tiers.map(t => t.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleBulkAction = async (action: "trash" | "active" | "inactive" | "restore" | "delete") => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    startTransition(async () => {
+      const result = await bulkUpdateMembershipTierStatus(ids, action);
+      if (result.success) {
+        toast({ title: "Success", description: `Bulk action "${action}" completed successfully` });
+        setSelectedIds(new Set());
+        loadTiers();
+      } else {
+        toast({ title: "Error", description: result.error || "Failed to complete bulk action", variant: "destructive" });
+      }
+    });
+  };
 
   const handleOpenCreate = () => {
     setEditingTier(null);
@@ -270,22 +312,68 @@ export default function Membership() {
           </button>
         </div>
 
-        <div className="relative w-full sm:max-w-xs">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search tiers by name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 text-sm"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <FiX className="h-4 w-4" />
-            </button>
+        <div className="flex flex-wrap items-center gap-2 justify-end w-full sm:w-auto">
+          {selectedIds.size > 0 && (
+            <span className="text-xs text-muted-foreground whitespace-nowrap mr-1">
+              {selectedIds.size} selected
+            </span>
           )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={actionPending || selectedIds.size === 0} className="h-9">
+                <FiMoreVertical className="mr-2 h-4 w-4" />
+                Bulk Actions
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {activeTab !== "trash" ? (
+                <>
+                  <DropdownMenuItem onClick={() => handleBulkAction("trash")}>
+                    <FiTrash2 className="mr-2 h-4 w-4 text-destructive" />
+                    Move to Trash
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleBulkAction("active")}>
+                    <FiCheckCircle className="mr-2 h-4 w-4 text-emerald-500" />
+                    Activate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleBulkAction("inactive")}>
+                    <FiX className="mr-2 h-4 w-4 text-muted-foreground" />
+                    Deactivate
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuItem onClick={() => handleBulkAction("restore")}>
+                    <FiRotateCw className="mr-2 h-4 w-4 text-emerald-500" />
+                    Restore Tiers
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleBulkAction("delete")}>
+                    <FiTrash2 className="mr-2 h-4 w-4 text-destructive" />
+                    Delete Permanently
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div className="relative w-full sm:max-w-xs">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search tiers by name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 text-sm h-9"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <FiX className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -302,6 +390,12 @@ export default function Membership() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={tiers.length > 0 && selectedIds.size === tiers.length}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>Tier Name</TableHead>
                   <TableHead>Min Purchase</TableHead>
                   <TableHead>Auto Discount</TableHead>
@@ -310,9 +404,17 @@ export default function Membership() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tiers.map((tier) => (
-                  <TableRow key={tier.id}>
-                    <TableCell className="font-semibold text-primary">{tier.name}</TableCell>
+                {tiers.map((tier) => {
+                  const isSelected = selectedIds.has(tier.id);
+                  return (
+                    <TableRow key={tier.id} className={isSelected ? "bg-muted/50" : undefined}>
+                      <TableCell className="w-12">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={(checked) => handleSelect(tier.id, checked as boolean)}
+                        />
+                      </TableCell>
+                      <TableCell className="font-semibold text-primary">{tier.name}</TableCell>
                     <TableCell>৳{Number(tier.minPurchaseValue || 0).toLocaleString()} BDT</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="gap-1 border-primary/20 text-primary bg-primary/5">
@@ -381,7 +483,7 @@ export default function Membership() {
                       )}
                     </TableCell>
                   </TableRow>
-                ))}
+                )})}
               </TableBody>
             </Table>
           )}
