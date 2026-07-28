@@ -8,6 +8,7 @@ import {
   HR_BUSINESS_TIMEZONE,
   syncTimezoneFromDb,
   calculateBreakLateMinutes,
+  determineAttendanceStatus,
 } from "@/lib/hr/shift-utils";
 import {
   calculateOvertimePreview,
@@ -72,6 +73,7 @@ export interface DailyAttendancePolicyInput {
 }
 
 export interface DailyAttendancePolicyOutput {
+  status: string;
   lateMinutes: number;
   lateCountValue: number;
   breakLateMinutes: number;
@@ -86,6 +88,7 @@ export interface DailyAttendancePolicyOutput {
 export function calculateDailyAttendancePolicyValues(input: DailyAttendancePolicyInput): DailyAttendancePolicyOutput {
   const { attendance, employeeTypePolicies, shift, isWeekend, isPublicHoliday, workedOnHoliday, grossSalary } = input;
   
+  let resolvedStatus = attendance.status;
   let lateMinutes = 0;
   let lateCountValue = 0;
   let breakLateMinutes = 0;
@@ -98,35 +101,42 @@ export function calculateDailyAttendancePolicyValues(input: DailyAttendancePolic
 
   // A. Late minutes and late count
   if (attendance.checkIn && shift) {
+    const shiftPolicy: ShiftPolicy = {
+      startTime: shift.startTime,
+      endTime: shift.endTime,
+      graceMinutes: shift.graceMinutes,
+      lateAfter: shift.lateAfter,
+      halfDayAfter: shift.halfDayAfter,
+      otStartAfter: shift.otStartAfter,
+      breakStartTime: shift.breakStartTime,
+      breakEndTime: shift.breakEndTime,
+      breakGraceMinutes: shift.breakGraceMinutes,
+      breakLateAfter: shift.breakLateAfter,
+      breakType: shift.breakType,
+      breakDuration: shift.breakDuration
+    };
+
+    resolvedStatus = determineAttendanceStatus(
+      new Date(attendance.checkIn),
+      new Date(attendance.date),
+      shiftPolicy,
+      attendance.breakCheckIn ? new Date(attendance.breakCheckIn) : null
+    );
+
     const isWorkedDay = 
-      attendance.status === "PRESENT" || 
-      attendance.status === "LATE" || 
-      attendance.status === "HALF_DAY" || 
+      resolvedStatus === "PRESENT" || 
+      resolvedStatus === "LATE" || 
+      resolvedStatus === "HALF_DAY" || 
       (!!attendance.checkIn && !!attendance.checkOut);
 
     if (isWorkedDay) {
-      const shiftPolicy: ShiftPolicy = {
-        startTime: shift.startTime,
-        endTime: shift.endTime,
-        graceMinutes: shift.graceMinutes,
-        lateAfter: shift.lateAfter,
-        halfDayAfter: shift.halfDayAfter,
-        otStartAfter: shift.otStartAfter,
-        breakStartTime: shift.breakStartTime,
-        breakEndTime: shift.breakEndTime,
-        breakGraceMinutes: shift.breakGraceMinutes,
-        breakLateAfter: shift.breakLateAfter,
-        breakType: shift.breakType,
-        breakDuration: shift.breakDuration
-      };
-      
       lateMinutes = calculateLateMinutes(new Date(attendance.checkIn), new Date(attendance.date), shiftPolicy);
       
-      if (attendance.status === "LATE") {
+      if (resolvedStatus === "LATE") {
         if (lateMinutes > 0) {
           lateCountValue = 1;
         }
-      } else if (attendance.status === "HALF_DAY") {
+      } else if (resolvedStatus === "HALF_DAY") {
         if (lateMinutes > 0) {
           lateCountValue = 1;
         }
@@ -224,6 +234,7 @@ export function calculateDailyAttendancePolicyValues(input: DailyAttendancePolic
   }
 
   return {
+    status: resolvedStatus,
     lateMinutes,
     lateCountValue,
     breakLateMinutes,
@@ -338,6 +349,7 @@ export async function applyDailyAttendancePolicyValues(
     const updated = await prisma.attendance.update({
       where: { id: attendanceId },
       data: {
+        status: result.status,
         lateMinutes: result.lateMinutes,
         lateCountValue: new Prisma.Decimal(result.lateCountValue),
         breakLateMinutes: result.breakLateMinutes,
@@ -522,6 +534,7 @@ export async function reprocessAttendancePoliciesForDateRange(input: {
         await prisma.attendance.update({
           where: { id: att.id },
           data: {
+            status: result.status,
             lateMinutes: result.lateMinutes,
             lateCountValue: new Prisma.Decimal(result.lateCountValue),
             breakLateMinutes: result.breakLateMinutes,
