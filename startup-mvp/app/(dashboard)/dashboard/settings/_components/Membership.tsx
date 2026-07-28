@@ -54,6 +54,7 @@ import {
   createMembershipTier,
   updateMembershipTier,
   trashMembershipTier,
+  deleteMembershipTier,
   bulkUpdateMembershipTierStatus,
 } from "../_actions/membership-tier.action";
 
@@ -84,6 +85,7 @@ export default function Membership() {
   const [editingTier, setEditingTier] = useState<MembershipTier | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [restoreId, setRestoreId] = useState<string | null>(null);
+  const [permanentDeleteId, setPermanentDeleteId] = useState<string | null>(null);
   const [actionPending, startTransition] = useTransition();
   const { toast } = useToast();
 
@@ -183,6 +185,20 @@ export default function Membership() {
         loadTiers();
       } else {
         toast({ title: "Error", description: result.error || "Failed to delete tier", variant: "destructive" });
+      }
+    });
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!permanentDeleteId) return;
+    startTransition(async () => {
+      const result = await deleteMembershipTier(permanentDeleteId);
+      if (result.success) {
+        toast({ title: "Success", description: "Membership tier permanently deleted" });
+        setPermanentDeleteId(null);
+        loadTiers();
+      } else {
+        toast({ title: "Error", description: result.error || "Failed to permanently delete tier", variant: "destructive" });
       }
     });
   };
@@ -347,8 +363,19 @@ export default function Membership() {
                             onClick={() => handleRestore(tier.id)}
                             className="text-emerald-500 hover:bg-emerald-500/10"
                             disabled={actionPending}
+                            title="Restore"
                           >
                             <FiRotateCw className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setPermanentDeleteId(tier.id)}
+                            className="text-destructive hover:bg-destructive/10"
+                            disabled={actionPending}
+                            title="Delete Permanently"
+                          >
+                            <FiTrash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       )}
@@ -471,6 +498,28 @@ export default function Membership() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Move to Trash
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Permanent Delete Confirmation Alert */}
+      <AlertDialog open={!!permanentDeleteId} onOpenChange={() => setPermanentDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the membership tier and disconnect it from all assigned clients.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handlePermanentDelete}
+              disabled={actionPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -221,7 +221,7 @@ export async function trashMembershipTier(id: string) {
 
 export async function bulkUpdateMembershipTierStatus(
   ids: string[],
-  action: "trash" | "active" | "inactive" | "restore"
+  action: "trash" | "active" | "inactive" | "restore" | "delete"
 ) {
   try {
     const session = await auth();
@@ -233,22 +233,28 @@ export async function bulkUpdateMembershipTierStatus(
       return { success: false, error: "Forbidden: Admin access required" };
     }
 
-    const data: any = {};
-    if (action === "trash") {
-      data.isTrash = true;
-      data.status = "trash";
-    } else if (action === "restore") {
-      data.isTrash = false;
-      data.status = "active";
+    if (action === "delete") {
+      await prisma.membershipTier.deleteMany({
+        where: { id: { in: ids } },
+      });
     } else {
-      data.isTrash = false;
-      data.status = action;
-    }
+      const data: any = {};
+      if (action === "trash") {
+        data.isTrash = true;
+        data.status = "trash";
+      } else if (action === "restore") {
+        data.isTrash = false;
+        data.status = "active";
+      } else {
+        data.isTrash = false;
+        data.status = action;
+      }
 
-    await prisma.membershipTier.updateMany({
-      where: { id: { in: ids } },
-      data,
-    });
+      await prisma.membershipTier.updateMany({
+        where: { id: { in: ids } },
+        data,
+      });
+    }
 
     revalidateBothPaths("settings/membership/tiers");
 
@@ -256,5 +262,35 @@ export async function bulkUpdateMembershipTierStatus(
   } catch (error) {
     console.error("bulkUpdateMembershipTierStatus error:", error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to perform bulk action" };
+  }
+}
+
+export async function deleteMembershipTier(id: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (session.user.role?.toLowerCase() !== "admin") {
+      return { success: false, error: "Forbidden: Admin access required" };
+    }
+
+    const oldMembershipTier = await prisma.membershipTier.findUnique({ where: { id } });
+    if (!oldMembershipTier) {
+      return { success: false, error: "Membership tier not found" };
+    }
+
+    await prisma.membershipTier.delete({
+      where: { id },
+    });
+
+    await logItemDeleted(session.user.id, "MembershipTier (Permanent)", oldMembershipTier.id, oldMembershipTier.name);
+    revalidateBothPaths("settings/membership/tiers");
+
+    return { success: true };
+  } catch (error) {
+    console.error("deleteMembershipTier error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to permanently delete membership tier" };
   }
 }

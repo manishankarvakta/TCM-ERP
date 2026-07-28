@@ -168,7 +168,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
           clientType: (initialData.clientType === "wholesale" ? "wholesale" : "regular") as "regular" | "wholesale",
           warehouseId: initialData.warehouseId || "",
           membershipNumber: initialData.membershipNumber || "",
-          membershipTier: (initialData.membershipTier || "NONE") as "NONE" | "BRONZE" | "SILVER" | "GOLD" | "PLATINUM",
+          membershipTier: (initialData.membershipTier || "NONE"),
           membershipStatus: (initialData.membershipStatus || "INACTIVE") as "ACTIVE" | "INACTIVE" | "EXPIRED",
           membershipPoints: initialData.membershipPoints?.toString() || "0",
           membershipExpiry: initialData.membershipExpiry ? new Date(initialData.membershipExpiry).toISOString().split("T")[0] : "",
