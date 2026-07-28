@@ -3022,7 +3022,7 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
         let trackInventory = false;
         let itemDescription = "Void Return Item";
         let costPrice = 0;
-        let itemType = ItemType.RETAIL;
+        let itemType: ItemType = ItemType.RETAIL;
         let itemName = "";
 
         if (originalSale) {

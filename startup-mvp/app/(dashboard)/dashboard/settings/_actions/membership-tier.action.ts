@@ -81,7 +81,7 @@ export async function createMembershipTier(input: {
       return { success: false, error: "Unauthorized", membershipTier: null };
     }
 
-    const canCreate = await hasPermission(session.user.id, "settings.membership", "create");
+    const canCreate = await hasPermission(session.user.id, "settings.membership", "edit");
     if (!canCreate) {
       return { success: false, error: "You don't have permission to create membership tiers", membershipTier: null };
     }
@@ -197,7 +197,7 @@ export async function trashMembershipTier(id: string) {
       return { success: false, error: "Unauthorized" };
     }
 
-    const canTrash = await hasPermission(session.user.id, "settings.membership", "move-to-trash");
+    const canTrash = await hasPermission(session.user.id, "settings.membership", "edit");
     if (!canTrash) {
       return { success: false, error: "You don't have permission to move membership tiers to trash" };
     }
@@ -232,10 +232,7 @@ export async function bulkUpdateMembershipTierStatus(
       return { success: false, error: "Unauthorized" };
     }
 
-    let requiredPermission = "edit";
-    if (action === "trash") requiredPermission = "move-to-trash";
-
-    const hasPerm = await hasPermission(session.user.id, "settings.membership", requiredPermission as any);
+    const hasPerm = await hasPermission(session.user.id, "settings.membership", "edit");
     if (!hasPerm) {
       return { success: false, error: `You don't have permission to perform bulk ${action}` };
     }
