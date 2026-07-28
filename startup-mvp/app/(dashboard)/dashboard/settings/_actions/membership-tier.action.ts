@@ -81,9 +81,8 @@ export async function createMembershipTier(input: {
       return { success: false, error: "Unauthorized", membershipTier: null };
     }
 
-    const canCreate = await hasPermission(session.user.id, "settings.membership", "edit");
-    if (!canCreate) {
-      return { success: false, error: "You don't have permission to create membership tiers", membershipTier: null };
+    if (session.user.role?.toLowerCase() !== "admin") {
+      return { success: false, error: "Forbidden: Admin access required", membershipTier: null };
     }
 
     const existing = await prisma.membershipTier.findUnique({
@@ -129,9 +128,8 @@ export async function updateMembershipTier(
       return { success: false, error: "Unauthorized", membershipTier: null };
     }
 
-    const canEdit = await hasPermission(session.user.id, "settings.membership", "edit");
-    if (!canEdit) {
-      return { success: false, error: "You don't have permission to edit membership tiers", membershipTier: null };
+    if (session.user.role?.toLowerCase() !== "admin") {
+      return { success: false, error: "Forbidden: Admin access required", membershipTier: null };
     }
 
     const oldMembershipTier = await prisma.membershipTier.findUnique({ where: { id } });
@@ -197,9 +195,8 @@ export async function trashMembershipTier(id: string) {
       return { success: false, error: "Unauthorized" };
     }
 
-    const canTrash = await hasPermission(session.user.id, "settings.membership", "edit");
-    if (!canTrash) {
-      return { success: false, error: "You don't have permission to move membership tiers to trash" };
+    if (session.user.role?.toLowerCase() !== "admin") {
+      return { success: false, error: "Forbidden: Admin access required" };
     }
 
     const oldMembershipTier = await prisma.membershipTier.findUnique({ where: { id } });
@@ -232,9 +229,8 @@ export async function bulkUpdateMembershipTierStatus(
       return { success: false, error: "Unauthorized" };
     }
 
-    const hasPerm = await hasPermission(session.user.id, "settings.membership", "edit");
-    if (!hasPerm) {
-      return { success: false, error: `You don't have permission to perform bulk ${action}` };
+    if (session.user.role?.toLowerCase() !== "admin") {
+      return { success: false, error: "Forbidden: Admin access required" };
     }
 
     const data: any = {};
