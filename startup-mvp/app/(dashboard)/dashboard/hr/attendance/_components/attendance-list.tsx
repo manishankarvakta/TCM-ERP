@@ -86,6 +86,21 @@ interface AttendanceListClientProps {
   };
 }
 
+const formatHoursMinutes = (decimalHours: any) => {
+  const val = Number(decimalHours);
+  if (isNaN(val) || val <= 0) return "0m";
+  let h = Math.floor(val);
+  let m = Math.round((val - h) * 60);
+  if (m === 60) {
+    h += 1;
+    m = 0;
+  }
+  if (h > 0) {
+    return `${h}h ${m}m`;
+  }
+  return `${m}m`;
+};
+
 export default function AttendanceListClient({
   initialAttendances = [],
   pagination,
@@ -339,9 +354,9 @@ export default function AttendanceListClient({
                     {record.checkOut ? format(new Date(record.checkOut), "hh:mm a") : "-"}
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm">{Number(record.workHours).toFixed(2)}h</div>
+                    <div className="text-sm">{formatHoursMinutes(record.workHours)}</div>
                     {Number(record.otHours) > 0 && (
-                      <div className="text-xs text-green-600">+{Number(record.otHours).toFixed(2)}h OT</div>
+                      <div className="text-xs text-green-600">+{formatHoursMinutes(record.otHours)} OT</div>
                     )}
                     {Number((record as any).calculatedOvertimeAmount) > 0 && (
                       <div className="text-[10px] text-orange-600 font-medium">+{Number((record as any).calculatedOvertimeAmount).toLocaleString()} BDT OT</div>
