@@ -9,6 +9,9 @@ import {
   syncTimezoneFromDb,
   calculateBreakLateMinutes,
   determineAttendanceStatus,
+  calculateWorkHoursWithBreak,
+  calculateOTHours,
+  getShiftWindow
 } from "@/lib/hr/shift-utils";
 import {
   calculateOvertimePreview,
@@ -74,6 +77,8 @@ export interface DailyAttendancePolicyInput {
 
 export interface DailyAttendancePolicyOutput {
   status: string;
+  workHours: number;
+  otHours: number;
   lateMinutes: number;
   lateCountValue: number;
   breakLateMinutes: number;
@@ -89,6 +94,8 @@ export function calculateDailyAttendancePolicyValues(input: DailyAttendancePolic
   const { attendance, employeeTypePolicies, shift, isWeekend, isPublicHoliday, workedOnHoliday, grossSalary } = input;
   
   let resolvedStatus = attendance.status;
+  let workHours = attendance.workHours ? Number(attendance.workHours) : 0;
+  let otHours = attendance.otHours ? Number(attendance.otHours) : 0;
   let lateMinutes = 0;
   let lateCountValue = 0;
   let breakLateMinutes = 0;
@@ -122,6 +129,40 @@ export function calculateDailyAttendancePolicyValues(input: DailyAttendancePolic
       shiftPolicy,
       attendance.breakCheckIn ? new Date(attendance.breakCheckIn) : null
     );
+
+    // Calculate work hours and OT hours dynamically based on new shift definitions
+    if (attendance.checkOut) {
+      let breakDurationMins = 0;
+      if (shiftPolicy.breakType === "FIXED") {
+        breakDurationMins = shiftPolicy.breakDuration ?? 0;
+      } else if (shiftPolicy.breakType === "TRACKED" || !shiftPolicy.breakType) {
+        if (shiftPolicy.breakStartTime && shiftPolicy.breakEndTime) {
+          const { breakStartDateTime, breakEndDateTime } = getShiftWindow(new Date(attendance.date), shiftPolicy);
+          if (breakStartDateTime && breakEndDateTime) {
+            breakDurationMins = Math.max(0, differenceInMinutes(new Date(breakEndDateTime), new Date(breakStartDateTime)));
+          } else {
+            breakDurationMins = shiftPolicy.breakDuration ?? 60;
+          }
+        } else {
+          breakDurationMins = shiftPolicy.breakDuration ?? 0;
+        }
+      }
+
+      workHours = calculateWorkHoursWithBreak(
+        new Date(attendance.checkIn),
+        new Date(attendance.checkOut),
+        attendance.breakCheckOut ? new Date(attendance.breakCheckOut) : null,
+        attendance.breakCheckIn ? new Date(attendance.breakCheckIn) : null,
+        breakDurationMins,
+        shiftPolicy.breakType || "NONE"
+      );
+
+      otHours = calculateOTHours(
+        new Date(attendance.checkOut),
+        new Date(attendance.date),
+        shiftPolicy
+      );
+    }
 
     const isWorkedDay = 
       resolvedStatus === "PRESENT" || 
@@ -176,7 +217,7 @@ export function calculateDailyAttendancePolicyValues(input: DailyAttendancePolic
       grossSalary,
       overtimePolicy: employeeTypePolicies.overtimePolicy,
       shiftHours,
-      otHours: toNumber(attendance.otHours),
+      otHours: toNumber(otHours),
     });
     calculatedOvertimeAmount = otRes.otAmount;
   } else {
@@ -235,6 +276,8 @@ export function calculateDailyAttendancePolicyValues(input: DailyAttendancePolic
 
   return {
     status: resolvedStatus,
+    workHours,
+    otHours,
     lateMinutes,
     lateCountValue,
     breakLateMinutes,
@@ -350,6 +393,8 @@ export async function applyDailyAttendancePolicyValues(
       where: { id: attendanceId },
       data: {
         status: result.status,
+        workHours: new Prisma.Decimal(result.workHours),
+        otHours: new Prisma.Decimal(result.otHours),
         lateMinutes: result.lateMinutes,
         lateCountValue: new Prisma.Decimal(result.lateCountValue),
         breakLateMinutes: result.breakLateMinutes,
@@ -535,6 +580,8 @@ export async function reprocessAttendancePoliciesForDateRange(input: {
           where: { id: att.id },
           data: {
             status: result.status,
+            workHours: new Prisma.Decimal(result.workHours),
+            otHours: new Prisma.Decimal(result.otHours),
             lateMinutes: result.lateMinutes,
             lateCountValue: new Prisma.Decimal(result.lateCountValue),
             breakLateMinutes: result.breakLateMinutes,
