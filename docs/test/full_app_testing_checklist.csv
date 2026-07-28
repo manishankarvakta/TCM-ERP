@@ -1,0 +1,65 @@
+Select,Module,Sub-Module,Operation,Test Case ID,Test Description,Expected Result,Status
+FALSE,Dashboard,Authentication,User Login,TC-ATH-001,"Log in with valid admin credentials.","Redirected to dashboard dashboard page successfully.",Pending
+FALSE,Dashboard,Authentication,Role Authorization,TC-ATH-002,"Log in with restricted employee credentials and access /dashboard/settings/permissions.","Access denied (403 or redirect) is displayed.",Pending
+FALSE,Dashboard,Notifications,Notifications Drawer,TC-NOT-001,"Trigger a low-stock notification and check the notification drawer in the top nav.","Notification banner shows the correct product details and increments unread count.",Pending
+FALSE,Master Data,Items,Create Item,TC-MST-001,"Create a new garment item with SKU, category, brand, UOM, and price.","Item is saved in database and appears in items list.",Pending
+FALSE,Master Data,Items,Edit Item,TC-MST-002,"Modify the unit purchase and selling price of an existing item.","Updated prices are saved and reflected in new procurements/sales.",Pending
+FALSE,Master Data,Categories,Create Category,TC-MST-003,"Add a new item category under a parent category.","Category is saved and visible in the category hierarchy tree.",Pending
+FALSE,Master Data,Brands,Create Brand,TC-MST-004,"Add a new brand name.","Brand is successfully listed and available in item creation form.",Pending
+FALSE,Master Data,Units,Create Unit,TC-MST-005,"Add a new Unit of Measurement (e.g., Pcs, Yards) with precision.","UOM is created and available in item creation.",Pending
+FALSE,Master Data,Warehouses,Create Warehouse,TC-MST-006,"Create a new warehouse with name and address.","Warehouse is added and selectable in purchase, sales, and stock forms.",Pending
+FALSE,Accounts,Chart of Accounts,Add Account,TC-ACC-001,"Create a new General Ledger account under Assets category.","Account is saved and visible in the Chart of Accounts hierarchy.",Pending
+FALSE,Accounts,Chart of Accounts,Edit Account,TC-ACC-002,"Edit the name and type of an existing GL account.","Changes are saved without affecting existing ledger transactions.",Pending
+FALSE,Accounts,Vouchers,Contra Voucher,TC-ACC-003,"Create a Contra Voucher to transfer $5,000 from Bank Account to Cash Account.","Bank Ledger is credited, Cash Ledger is debited, and balances update.",Pending
+FALSE,Accounts,Vouchers,Payment Voucher,TC-ACC-004,"Create a Payment Voucher for utility expense from cash account.","Cash Ledger is credited, Expense Ledger is debited, voucher balance matches.",Pending
+FALSE,Accounts,Vouchers,Receipt Voucher,TC-ACC-005,"Create a Receipt Voucher for client payment.","Cash/Bank Ledger is debited, Client Receivable is credited, client outstanding balance decreases.",Pending
+FALSE,Accounts,Vouchers,Journal Voucher,TC-ACC-006,"Create a Journal Voucher to adjust depreciation of machinery.","Asset Depreciation Expense is debited, Accumulated Depreciation is credited.",Pending
+FALSE,Accounts,Vouchers,Double Entry Check,TC-ACC-007,"Attempt to submit a voucher where total debits do not equal total credits.","System displays validation error and prevents voucher posting.",Pending
+FALSE,Accounts,Financial Reports,Balance Sheet,TC-ACC-008,"Generate Balance Sheet and verify total assets match total liabilities + equity.","Assets equal liabilities + equity, values match individual GL ledger balances.",Pending
+FALSE,Accounts,Financial Reports,Profit & Loss,TC-ACC-009,"Generate Profit & Loss Statement for the current fiscal period.","Revenues minus expenses equals Net Profit, matching transaction logs.",Pending
+FALSE,Accounts,Financial Reports,Trial Balance,TC-ACC-010,"Generate Trial Balance report.","Total debits equal total credits across all accounts.",Pending
+FALSE,Clients,Directory,Add Client,TC-CLI-001,"Create a new client with contact info and credit terms.","Client is saved and shows in clients table.",Pending
+FALSE,Clients,Ledger,Generate Ledger,TC-CLI-002,"Open Client Ledger for a client and verify outstanding balance.","Ledger lists all sales invoices, payments, and calculates correct running balance.",Pending
+FALSE,Suppliers,Directory,Add Supplier,TC-SUP-001,"Create a new supplier with opening balance and payment terms.","Supplier is saved and selectable in procurements.",Pending
+FALSE,Suppliers,Ledger,Generate Ledger,TC-SUP-002,"Open Supplier Ledger and verify payables.","Ledger lists all purchases, payments, and running balance due.",Pending
+FALSE,Employees,Directory,Add Employee,TC-EMP-001,"Create a new employee with department, shift, basic salary structure, and biometric ID.","Employee record is created and linked to shift and salary policy.",Pending
+FALSE,Employees,Ledger,Generate Ledger,TC-EMP-002,"Open Employee Ledger and verify salary payouts and loan advances.","Ledger shows chronological list of payments and deductions.",Pending
+FALSE,Employees,Departments,Create Department,TC-EMP-003,"Create a new department and assign employees to it.","Department is added, assigned employees are grouped correctly in payroll/reports.",Pending
+FALSE,HR & Payroll,Attendance,Manual Punch,TC-HRP-001,"Perform a manual clock-in and clock-out punch for an employee.","Attendance record is created with work hours, late status, and overtime calculated.",Pending
+FALSE,HR & Payroll,Biometric,Register Device,TC-HRP-002,"Add a new biometric device with IP address and communication port.","Device is registered and connection status shows active.",Pending
+FALSE,HR & Payroll,Biometric,Sync Logs,TC-HRP-003,"Initiate biometric device sync to download attendance logs.","Raw logs are fetched, parsed, and mapped to employee attendance records.",Pending
+FALSE,HR & Payroll,Biometric,CSV Import,TC-HRP-004,"Upload a CSV file containing employee biometric punch logs.","CSV is parsed, unmatched logs are flagged, valid logs populate the attendance table.",Pending
+FALSE,HR & Payroll,Shifts,Create Shift,TC-HRP-005,"Add a new work shift with grace period, tiffin thresholds, and weekends.","Shift is saved and can be assigned to employee rosters.",Pending
+FALSE,HR & Payroll,Leave,Apply & Approve,TC-HRP-006,"Employee applies for leave; Manager approves the leave request.","Leave status changes to Approved, and attendance report flags days as leave.",Pending
+FALSE,HR & Payroll,Loans,Add Loan,TC-HRP-007,"Issue a loan to an employee with fixed monthly deduction.","Loan ledger is debited, and subsequent payroll processes auto-deduction.",Pending
+FALSE,HR & Payroll,Payroll,Generate Payroll,TC-HRP-008,"Process monthly payroll for all employees in a department.","System calculates basic, allowances, overtime, deductions, fines, loans, and net payable.",Pending
+FALSE,HR & Payroll,Payroll,Print Payslip,TC-HRP-009,"Generate and view print-preview of an employee payslip.","Payslip loads with clear breakdown of earnings and deductions in clean printable layout.",Pending
+FALSE,HR & Payroll,Resignation,Apply Resignation,TC-HRP-010,"Submit a resignation request for an employee with notice period.","Employee status updates to resigned on release date, preventing future payroll runs.",Pending
+FALSE,Inventory,Stock,Stock Adjust,TC-INV-001,"Adjust stock level of an item manually at a specific warehouse.","Inventory level is updated, and a stock ledger entry is recorded.",Pending
+FALSE,Inventory,Count,Stock Count,TC-INV-002,"Create an inventory count entry with physical stock.","Discrepancies between physical and system count are calculated and listed.",Pending
+FALSE,Inventory,Adjustments,Verify Count Adjust,TC-INV-003,"Apply stock count adjustment to reconcile stock levels.","System auto-adjusts database stock levels, creating ledger logs.",Pending
+FALSE,Inventory,Damage,Log Damage,TC-INV-004,"Record a damaged item entry with quantity and cost.","Damaged items are deducted from active inventory and charged to loss accounts.",Pending
+FALSE,Procurements,Purchases,Create Purchase,TC-PRO-001,"Create a new purchase order with multiple items from a supplier.","Purchase order is created in pending status, GL payables are not yet hit.",Pending
+FALSE,Procurements,GRN,Receive Goods,TC-PRO-002,"Create a Goods Received Note (GRN) against a Purchase Order.","Warehouse inventory stock levels increase, purchase order status updates, accounts payable is hit.",Pending
+FALSE,Procurements,RTV,Return Goods,TC-PRO-003,"Create a Return to Vendor (RTV) for damaged goods received in GRN.","Inventory count is reduced, supplier payable is updated, and RTV voucher is posted.",Pending
+FALSE,Procurements,TPN,Thread Purchase Note,TC-PRO-004,"Create a Thread Purchase Note (TPN) for fabric/raw materials.","TPN is generated, raw material procurement queue is updated.",Pending
+FALSE,Production,BOM,Create BOM,TC-PRD-001,"Create a Bill of Materials (BOM) for a finished garment item specifying fabrics, threads, and trims.","BOM is saved with exact material quantities and CMT labor cost breakdown.",Pending
+FALSE,Production,Orders,Create Production Order,TC-PRD-002,"Start a production order for 1,000 units of a garment using a BOM.","Production order is initialized, raw material requirements are reserved.",Pending
+FALSE,Production,Cutting,Fabric Cutting,TC-PRD-003,"Record a cutting job, issuing fabric rolls and outputting cut panels.","Fabric roll stock decreases, cut panels count is logged into production stage.",Pending
+FALSE,Production,Sewing,Sewing Progress,TC-PRD-004,"Log sewing daily output lines and supervisor tracking details.","Sewing line output is recorded, moving panels from cutting to sewing status.",Pending
+FALSE,Production,Quality,QC Check,TC-PRD-005,"Input quality inspection details (Pass, Repair, Reject counts).","Passed pieces move to packaging queue; repaired/rejected pieces are flagged.",Pending
+FALSE,Production,Orders,Complete Production,TC-PRD-006,"Complete production order and transfer finished garments to inventory.","Finished items inventory increases, raw material reservation is released and consumed.",Pending
+FALSE,Sales,Invoices,Create Invoice,TC-SAL-001,"Generate a sales invoice for a client with credit terms and items.","Sales ledger is credited, Client Receivable is debited, inventory stock is reduced.",Pending
+FALSE,Sales,POS,POS Checkout,TC-SAL-002,"Perform a sale using the POS interface, scan barcode, apply coupon, and pay cash.","Invoice is created, receipt is printed, inventory drops, register cash increases.",Pending
+FALSE,Sales,POS,Drawer Reconciliation,TC-SAL-003,"Open register, complete sales, then close register and perform cash drawer reconciliation.","Register reports opening cash, calculated sales, actual cash, and discrepancy.",Pending
+FALSE,Sales,Coupons,Apply Coupon,TC-SAL-004,"Apply discount coupon code at checkout.","System verifies coupon validity and applies correct percentage/flat discount.",Pending
+FALSE,Sales,E-commerce,Sync Orders,TC-SAL-005,"Trigger e-commerce order synchronization.","E-commerce orders are imported as pending sales invoices, client profiles mapped.",Pending
+FALSE,Settings,Accounts,Map GL Accounts,TC-SET-001,"Configure default system GL accounts for Sales, Purchases, Cash, and AR.","System routes automated transactions to the designated accounts correctly.",Pending
+FALSE,Settings,Permissions,Templates,TC-SET-002,"Create a custom role permission template and assign to a user.","Permissions are applied, user's interface updates according to permissions.",Pending
+FALSE,Settings,Backups,Encrypted Backups,TC-SET-003,"Create, download, and restore encrypted database and file backups.","Backup is encrypted with AES-256-GCM, downloaded securely, restored successfully.",Pending
+FALSE,Reports,Sales,Revenue by Client,TC-REP-001,"Generate Revenue by Client report.","Lists clients ranked by total sales revenue with interactive graph.",Pending
+FALSE,Reports,Sales,Revenue by Item,TC-REP-002,"Generate Revenue by Item report.","Shows item-wise sales quantities, revenue generated, and margins.",Pending
+FALSE,Reports,Inventory,Stock Ledger,TC-REP-003,"Generate Stock Ledger report for a raw fabric item.","Shows correct running inventory balance after cutting and purchases.",Pending
+FALSE,Reports,Inventory,Raw Material Consumption,TC-REP-004,"Generate Raw Material Consumption report.","Quantities match production records and BOM requirements.",Pending
+FALSE,Reports,Production,Cost per Batch,TC-REP-005,"Generate Cost per Batch report for a completed production order.","Calculates total cost including fabrics, trims, sewing line labor, and overheads.",Pending
+FALSE,Reports,Production,Production Summary,TC-REP-006,"Generate Production Order Summary.","Displays total ordered, cut, sewn, passed, and pending quantities per style.",Pending
