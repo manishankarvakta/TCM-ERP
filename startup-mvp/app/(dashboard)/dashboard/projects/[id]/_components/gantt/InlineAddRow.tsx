@@ -24,7 +24,7 @@ export function InlineAddRow({ depth, placeholder = "Enter task name...", onSave
       inputRef.current.focus();
     }
   }, []);
-
+// 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && title.trim()) {
       onSave(title.trim());
