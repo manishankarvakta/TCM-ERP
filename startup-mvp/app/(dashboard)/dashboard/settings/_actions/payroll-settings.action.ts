@@ -51,6 +51,7 @@ const calculationSchema = z.object({
   employerPfPct:           z.number().min(0).max(100).default(0),
   defaultFestivalBonusPct: z.number().min(0).max(100).default(0),
   netPayRounding:          z.enum(["none", "nearest10", "nearest100"]).default("none"),
+  weekends:                z.array(z.number().int().min(0).max(6)).default([0, 6]),
 });
 
 const policySchema = z.object({

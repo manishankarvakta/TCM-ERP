@@ -140,6 +140,7 @@ const formSchema = z.object({
   employerPfPct:           z.number().min(0).max(100),
   defaultFestivalBonusPct: z.number().min(0).max(100),
   netPayRounding:          z.enum(["none", "nearest10", "nearest100"]),
+  weekends:                z.array(z.number().int().min(0).max(6)),
   // Policy
   maxLoanMultiplier: z.number().min(0).max(100),
   maxActiveLoans:    z.number().int().min(0).max(50),
@@ -495,6 +496,7 @@ export default function PayrollSettings() {
       employerPfPct:           0,
       defaultFestivalBonusPct: 0,
       netPayRounding:          "none",
+      weekends:                [0, 6],
       maxLoanMultiplier: 0,
       maxActiveLoans:    0,
     },
@@ -579,6 +581,7 @@ export default function PayrollSettings() {
           employerPfPct:           s.calculation.employerPfPct,
           defaultFestivalBonusPct: s.calculation.defaultFestivalBonusPct,
           netPayRounding:          s.calculation.netPayRounding,
+          weekends:                s.calculation.weekends || [0, 6],
           maxLoanMultiplier: s.policy.maxLoanMultiplier,
           maxActiveLoans:    s.policy.maxActiveLoans,
         });
@@ -660,6 +663,7 @@ export default function PayrollSettings() {
             employerPfPct:           data.employerPfPct,
             defaultFestivalBonusPct: data.defaultFestivalBonusPct,
             netPayRounding:          data.netPayRounding,
+            weekends:                data.weekends || [0, 6],
           },
           policy: {
             maxLoanMultiplier: data.maxLoanMultiplier,
@@ -2771,6 +2775,59 @@ export default function PayrollSettings() {
                         </>
                       )} />
                     </div>
+                  </div>
+
+                  {/* Weekly Holidays (Weekends) */}
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Weekly Holidays (Weekends)</p>
+                    <Controller name="weekends" control={control} render={({ field }) => {
+                      const days = [
+                        { v: 0, label: "Sunday" },
+                        { v: 1, label: "Monday" },
+                        { v: 2, label: "Tuesday" },
+                        { v: 3, label: "Wednesday" },
+                        { v: 4, label: "Thursday" },
+                        { v: 5, label: "Friday" },
+                        { v: 6, label: "Saturday" },
+                      ];
+                      const currentValue = field.value || [0, 6];
+                      const handleCheckboxChange = (dayVal: number, checked: boolean) => {
+                        if (checked) {
+                          field.onChange([...currentValue, dayVal].sort());
+                        } else {
+                          field.onChange(currentValue.filter((v: number) => v !== dayVal));
+                        }
+                      };
+                      return (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
+                          {days.map((day) => {
+                            const isChecked = currentValue.includes(day.v);
+                            return (
+                              <button
+                                key={day.v}
+                                type="button"
+                                onClick={() => handleCheckboxChange(day.v, !isChecked)}
+                                className={`flex items-center gap-2 rounded-lg border-2 p-2.5 text-left transition-all ${
+                                  isChecked ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"
+                                }`}
+                              >
+                                <div className={`h-4 w-4 rounded border flex items-center justify-center flex-shrink-0 ${
+                                  isChecked ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground"
+                                }`}>
+                                  {isChecked && (
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
+                                      <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                  )}
+                                </div>
+                                <span className="text-sm font-medium">{day.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    }} />
+                    <p className="text-xs text-muted-foreground">Select the days of the week that represent weekend holidays in your organization. Default is Saturday & Sunday.</p>
                   </div>
                 </CardContent>
               </Card>

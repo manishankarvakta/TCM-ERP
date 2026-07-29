@@ -70,6 +70,7 @@ function mergeCalculation(
     employerPfPct:           partial?.employerPfPct           ?? def.employerPfPct,
     defaultFestivalBonusPct: partial?.defaultFestivalBonusPct ?? def.defaultFestivalBonusPct,
     netPayRounding:          partial?.netPayRounding          ?? def.netPayRounding,
+    weekends:                partial?.weekends                ?? def.weekends,
   };
 }
 
@@ -122,22 +123,28 @@ async function fetchSetting(where: {
  * Never throws; always returns a complete PayrollSettings object.
  */
 export async function getPayrollSettings(): Promise<PayrollSettings> {
+  const defaults = createDefaultPayrollSettings();
   try {
-    const session = await auth();
-    const defaults = createDefaultPayrollSettings();
-    if (!session?.user) return defaults;
-
-    // 1. User-specific
-    const userSetting = await fetchSetting({
-      code: PAYROLL_SETTINGS_KEY,
-      userId: session.user.id,
-      isActive: true,
-    });
-    if (userSetting?.settings) {
-      return mergeWithDefaults(userSetting.settings as Partial<PayrollSettings>, defaults);
+    let session;
+    try {
+      session = await auth();
+    } catch (e) {
+      // ignore auth session errors in CLI
     }
 
-    // 2. Global
+    if (session?.user) {
+      // 1. User-specific
+      const userSetting = await fetchSetting({
+        code: PAYROLL_SETTINGS_KEY,
+        userId: session.user.id,
+        isActive: true,
+      });
+      if (userSetting?.settings) {
+        return mergeWithDefaults(userSetting.settings as Partial<PayrollSettings>, defaults);
+      }
+    }
+
+    // 2. Global (fallback when no user session is present)
     const globalSetting = await fetchSetting({
       code: PAYROLL_SETTINGS_KEY,
       userId: null,
@@ -150,14 +157,16 @@ export async function getPayrollSettings(): Promise<PayrollSettings> {
 
     return defaults;
   } catch (error) {
-    // If we're not in a request context (e.g. cron/cli), fallback to global settings directly
-    const globalSetting = await prisma.settings.findFirst({
-      where: { code: "PAYROLL_SETTINGS", userId: null, isGlobal: true, isActive: true },
-      orderBy: { createdAt: "desc" },
-    });
-    const defaults = createDefaultPayrollSettings();
-    if (globalSetting?.settings) {
-      return mergeWithDefaults(globalSetting.settings as Partial<PayrollSettings>, defaults);
+    try {
+      const globalSetting = await prisma.settings.findFirst({
+        where: { code: PAYROLL_SETTINGS_KEY, userId: null, isGlobal: true, isActive: true },
+        orderBy: { createdAt: "desc" },
+      });
+      if (globalSetting?.settings) {
+        return mergeWithDefaults(globalSetting.settings as Partial<PayrollSettings>, defaults);
+      }
+    } catch (dbErr) {
+      console.error("getPayrollSettings database fallback error:", dbErr);
     }
     return defaults;
   }
@@ -206,4 +215,12 @@ export async function getPayrollSettingsFull(): Promise<{
     console.error("getPayrollSettingsFull error:", error);
     return null;
   }
+}
+
+/**
+ * Check if a date falls on a weekend based on payroll settings.
+ */
+export function isConfiguredWeekend(date: Date, weekends: number[] = [0, 6]): boolean {
+  const day = date.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  return weekends.includes(day);
 }

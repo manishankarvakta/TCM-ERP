@@ -12,6 +12,8 @@ import PageGuard from "@/components/permissions/page-guard";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 
+import ExportButtons from "./_components/export-buttons";
+
 interface EmployeesPageProps {
   searchParams: Promise<{
     page?: string;
@@ -83,7 +85,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
             <p className="text-sm text-muted-foreground">Manage employees in your system</p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap items-center">
               {canEdit && (
                 <SyncBiometricButton />
               )}
@@ -138,15 +140,33 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
         </div>
 
         <Tabs defaultValue={tab} className="w-full">
-          <TabsList>
-            <TabsTrigger value="all" asChild>
-              <Link href="/dashboard/employees?tab=all&page=1">All Employees</Link>
-            </TabsTrigger>
-            <TabsTrigger value="trash" asChild>
-              <Link href="/dashboard/employees?tab=trash&page=1">Trash</Link>
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="all" className="mt-4">
+          <div className="flex justify-between items-center flex-wrap gap-4 mb-4">
+            <TabsList>
+              <TabsTrigger value="all" asChild>
+                <Link href="/dashboard/employees?tab=all&page=1">All Employees</Link>
+              </TabsTrigger>
+              <TabsTrigger value="trash" asChild>
+                <Link href="/dashboard/employees?tab=trash&page=1">Trash</Link>
+              </TabsTrigger>
+            </TabsList>
+            <div className="flex gap-2">
+              <Button variant="outline" asChild>
+                <Link href="/dashboard/hr/attendance">
+                  Attendance Sheet
+                </Link>
+              </Button>
+              <ExportButtons
+                filters={{
+                  search,
+                  status,
+                  employeeTypeId,
+                  gender,
+                  departmentId,
+                }}
+              />
+            </div>
+          </div>
+          <TabsContent value="all" className="mt-0">
             <EmployeesListClient
               initialEmployees={result.employees || []}
               initialPagination={result.pagination || {

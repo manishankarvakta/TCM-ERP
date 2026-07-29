@@ -15,7 +15,8 @@ import {
   calculateWorkHoursWithBreak,
 } from "@/lib/hr/shift-utils";
 import { Prisma } from "@prisma/client";
-import { startOfDay, endOfDay, isWeekend } from "date-fns";
+import { startOfDay, endOfDay } from "date-fns";
+import { getPayrollSettings, isConfiguredWeekend } from "@/lib/payroll-settings";
 import { applyDailyAttendancePolicyValues } from "@/lib/hr-payroll/attendance-policy-service";
 import { syncTimezoneFromDb } from "@/lib/hr/shift-utils";
 
@@ -331,10 +332,13 @@ export async function processBulkAttendance(date: string, warehouseId?: string) 
       }
     });
 
+    const payrollSettings = await getPayrollSettings();
+    const weekends = payrollSettings?.calculation?.weekends || [0, 6];
+
     let targetStatus: "HOLIDAY" | "WEEKEND" | "ABSENT" = "ABSENT";
     if (holiday) {
       targetStatus = "HOLIDAY";
-    } else if (isWeekend(targetDate)) {
+    } else if (isConfiguredWeekend(targetDate, weekends)) {
       targetStatus = "WEEKEND";
     }
     

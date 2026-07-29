@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { isWeekend } from "date-fns";
+import { getPayrollSettings, isConfiguredWeekend } from "@/lib/payroll-settings";
 import {
   calculateLateMinutes,
   formatBusinessDateKey,
@@ -332,8 +332,11 @@ export async function applyDailyAttendancePolicyValues(
       return { success: true, skipped: true, reason: "Attendance record is locked" };
     }
 
+    const payrollSettings = await getPayrollSettings();
+    const weekends = payrollSettings?.calculation?.weekends || [0, 6];
+
     // Determine weekend / public holiday
-    const isWeekendDay = isWeekend(attendance.date);
+    const isWeekendDay = isConfiguredWeekend(attendance.date, weekends);
     
     // Check if public holiday exists
     const holiday = await prisma.holiday.findFirst({
@@ -436,6 +439,9 @@ export async function reprocessAttendancePoliciesForDateRange(input: {
   const start = new Date(formatBusinessDateKey(new Date(input.fromDate)) + "T00:00:00.000Z");
   const end = new Date(formatBusinessDateKey(new Date(input.toDate)) + "T00:00:00.000Z");
 
+  const payrollSettings = await getPayrollSettings();
+  const weekends = payrollSettings?.calculation?.weekends || [0, 6];
+
   const summary = {
     totalFound: 0,
     processed: 0,
@@ -530,7 +536,7 @@ export async function reprocessAttendancePoliciesForDateRange(input: {
       }
 
       // Check holidays & weekends
-      const isWeekendDay = isWeekend(att.date);
+      const isWeekendDay = isConfiguredWeekend(att.date, weekends);
       const isPublicHoliday = holidays.some(h => 
         formatBusinessDateKey(h.date) === formatBusinessDateKey(att.date) && 
         (h.warehouseId === null || h.warehouseId === att.employee.warehouseId)

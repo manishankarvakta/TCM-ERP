@@ -165,6 +165,13 @@ export interface PayrollCalculationSettings {
    * Default: "none"
    */
   netPayRounding: "none" | "nearest10" | "nearest100";
+
+  /**
+   * Configured weekend days of the week.
+   * Array of day numbers where 0 = Sunday, 1 = Monday, ..., 6 = Saturday.
+   * Default: [0, 6] (Saturday & Sunday)
+   */
+  weekends: number[];
 }
 
 // ---------------------------------------------------------------------------
@@ -249,6 +256,7 @@ export function createDefaultPayrollSettings(): PayrollSettings {
       employerPfPct: 0,
       defaultFestivalBonusPct: 0,
       netPayRounding: "none",
+      weekends: [0, 6],
     },
     policy: {
       maxLoanMultiplier: 0,

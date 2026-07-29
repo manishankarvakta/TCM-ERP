@@ -11,6 +11,7 @@ import { notFound } from "next/navigation";
 import PageGuard from "@/components/permissions/page-guard";
 import { prisma } from "@/lib/prisma";
 import PrintIdCardDialog from "../_components/print-id-card-dialog";
+import ExportSingleAttendance from "../_components/export-single-attendance";
 import { serializeDecimalAndDate } from "@/lib/utils/serialization";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
@@ -101,6 +102,10 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
           <PrintIdCardDialog
             employee={serializeDecimalAndDate(employee)}
             orgInfo={serializeDecimalAndDate(orgInfo)}
+          />
+          <ExportSingleAttendance
+            employeeId={employee.id}
+            employeeName={employee.name}
           />
           <Button asChild>
             <Link href={`/dashboard/employees/${employee.id}`}>
