@@ -81,7 +81,7 @@ export async function getRealtimeDashboardStats(
       let initialPaid = 0;
       let totalCollected = 0;
       if (details) {
-        initialPaid = Number(details.cashAmount || 0) + Number(details.cardAmount || 0) + Number(details.mfsAmount || 0);
+        initialPaid = Number(details.cashAmount || 0) + Number(details.cardAmount || 0) + Number(details.mfsAmount || 0) - Number(details.changeAmount || 0);
         if (Array.isArray(details.dueCollections)) {
           for (const col of details.dueCollections) {
             totalCollected += Number(col.cashAmount || 0) + Number(col.cardAmount || 0) + Number(col.mfsAmount || 0);
@@ -385,7 +385,8 @@ export async function getRealtimeDashboardStats(
       const saleDate = new Date(sale.date);
       if (saleDate >= currentStart && saleDate <= currentEnd) {
         if (details.cashAmount && details.cashAccountId) {
-          paymentMap.set(details.cashAccountId, (paymentMap.get(details.cashAccountId) || 0) + Number(details.cashAmount));
+          const netCash = Number(details.cashAmount) - Number(details.changeAmount || 0);
+          paymentMap.set(details.cashAccountId, (paymentMap.get(details.cashAccountId) || 0) + netCash);
         }
         if (details.cardAmount && details.cardAccountId) {
           paymentMap.set(details.cardAccountId, (paymentMap.get(details.cardAccountId) || 0) + Number(details.cardAmount));

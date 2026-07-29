@@ -45,6 +45,7 @@ const saleSchema = z.object({
     cardAccountId: z.string().optional().nullable(),
     mfsAmount: z.number().optional().nullable(),
     mfsAccountId: z.string().optional().nullable(),
+    changeAmount: z.number().optional().nullable(),
   }).optional().nullable(),
 });
 
@@ -1903,6 +1904,20 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
         }
       }
 
+      let paymentDetailsDb = validated.paymentDetails;
+      if (paymentDetailsDb) {
+        const cashAmt = Number(paymentDetailsDb.cashAmount || 0);
+        const cardAmt = Number(paymentDetailsDb.cardAmount || 0);
+        const mfsAmt = Number(paymentDetailsDb.mfsAmount || 0);
+        const totalPaid = cashAmt + cardAmt + mfsAmt;
+        const changeAmt = totalPaid > grandTotal ? (totalPaid - grandTotal) : 0;
+        
+        paymentDetailsDb = {
+          ...paymentDetailsDb,
+          changeAmount: changeAmt > 0 ? Number(changeAmt.toFixed(2)) : 0,
+        };
+      }
+
       const sale = await tx.sale.create({
         data: {
           saleNumber,
@@ -1919,7 +1934,7 @@ export async function createSale(input: z.infer<typeof saleSchema>) {
           grandTotal: new Prisma.Decimal(grandTotal),
           createdBy: userId,
           salesAssistantId: validated.salesAssistantId || null,
-          paymentDetails: validated.paymentDetails ? (validated.paymentDetails as any) : null,
+          paymentDetails: paymentDetailsDb ? (paymentDetailsDb as any) : null,
           ...(resolvedCouponId ? { couponId: resolvedCouponId } : {}),
           items: {
             create: itemsToCreate.map((item) => ({

@@ -99,7 +99,13 @@ export default function SaleDetailsClient({
     cardAccountId?: string;
     mfsAmount?: number;
     mfsAccountId?: string;
+    changeAmount?: number;
   } | null;
+
+  const totalReceived = paymentDetails 
+    ? (Number(paymentDetails.cashAmount || 0) + Number(paymentDetails.cardAmount || 0) + Number(paymentDetails.mfsAmount || 0))
+    : 0;
+  const changeAmount = paymentDetails ? Number(paymentDetails.changeAmount || 0) : 0;
 
   return (
     <div className="space-y-6 print:space-y-3">
@@ -395,18 +401,37 @@ export default function SaleDetailsClient({
                   <span className="font-medium">{formatCurrency(sale.tax)}</span>
                 </div>
               )}
+              {totalReceived > 0 && (
+                <div className="flex items-center justify-between text-sm border-t pt-1.5 border-muted mt-1.5">
+                  <span className="text-muted-foreground">Total Received</span>
+                  <span className="font-medium">{formatCurrency(totalReceived)}</span>
+                </div>
+              )}
+              {changeAmount > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Change Amount</span>
+                  <span className="font-medium">{formatCurrency(changeAmount)}</span>
+                </div>
+              )}
               {((paymentDetails && (Number(paymentDetails.cashAmount || 0) > 0 || Number(paymentDetails.cardAmount || 0) > 0 || Number(paymentDetails.mfsAmount || 0) > 0)) || totalDiscount > 0) && (
                 <>
                   <Separator className="my-2" />
                   <div className="space-y-1.5 pt-1">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Payment Split Details</p>
                     {paymentDetails && Number(paymentDetails.cashAmount || 0) > 0 && (
-                      <div className="flex justify-between items-start text-xs gap-2">
-                        <span className="text-muted-foreground text-left leading-normal">
-                          Cash {cashAccount ? `(${cashAccount.code} - ${cashAccount.name})` : ""}
-                        </span>
-                        <span className="font-semibold shrink-0">{formatCurrency(Number(paymentDetails.cashAmount))}</span>
-                      </div>
+                      (() => {
+                        const cashAmount = Number(paymentDetails.cashAmount || 0);
+                        const changeAmt = Number(paymentDetails.changeAmount || 0);
+                        const netCash = cashAmount - changeAmt;
+                        return (
+                          <div className="flex justify-between items-start text-xs gap-2">
+                            <span className="text-muted-foreground text-left leading-normal">
+                              Cash {cashAccount ? `(${cashAccount.code} - ${cashAccount.name})` : ""}
+                            </span>
+                            <span className="font-semibold shrink-0">{formatCurrency(netCash)}</span>
+                          </div>
+                        );
+                      })()
                     )}
                     {paymentDetails && Number(paymentDetails.cardAmount || 0) > 0 && (
                       <div className="flex justify-between items-start text-xs gap-2">

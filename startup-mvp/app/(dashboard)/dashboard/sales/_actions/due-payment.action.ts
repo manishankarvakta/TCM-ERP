@@ -44,7 +44,7 @@ export async function getOutstandingSales(clientId: string) {
       let totalCollected = 0;
 
       if (details) {
-        initialPaid = Number(details.cashAmount || 0) + Number(details.cardAmount || 0) + Number(details.mfsAmount || 0);
+        initialPaid = Number(details.cashAmount || 0) + Number(details.cardAmount || 0) + Number(details.mfsAmount || 0) - Number(details.changeAmount || 0);
 
         if (Array.isArray(details.dueCollections)) {
           for (const col of details.dueCollections) {
