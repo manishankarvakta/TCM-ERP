@@ -1,3 +1,27 @@
+import { prisma } from "@/lib/prisma";
+
+/**
+ * Resolves Meta & WhatsApp API credentials from database settings,
+ * falling back to process.env variables if database settings are not set.
+ */
+export async function getMetaCredentials() {
+  const setting = await prisma.settings.findFirst({
+    where: { category: "integrations", code: "meta_credentials", is_active: true }
+  });
+  
+  const dbSettings = (setting?.settings as any) || {};
+
+  return {
+    FB_APP_SECRET: dbSettings.fbAppSecret || process.env.FB_APP_SECRET,
+    FB_VERIFY_TOKEN: dbSettings.fbVerifyToken || process.env.FB_VERIFY_TOKEN,
+    FB_PAGE_ACCESS_TOKEN: dbSettings.fbPageAccessToken || process.env.FB_PAGE_ACCESS_TOKEN,
+    WHATSAPP_VERIFY_TOKEN: dbSettings.whatsappVerifyToken || process.env.WHATSAPP_VERIFY_TOKEN,
+    WHATSAPP_ACCESS_TOKEN: dbSettings.whatsappAccessToken || process.env.WHATSAPP_ACCESS_TOKEN,
+    WHATSAPP_PHONE_NUMBER_ID: dbSettings.whatsappPhoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID,
+    WHATSAPP_BUSINESS_ACCOUNT_ID: dbSettings.whatsappBusinessAccountId || process.env.WHATSAPP_BUSINESS_ACCOUNT_ID,
+  };
+}
+
 /**
  * Sends a WhatsApp message reply using the WhatsApp Cloud API.
  * POST https://graph.facebook.com/v22.0/{PHONE_NUMBER_ID}/messages
@@ -7,13 +31,14 @@
  * @returns Response data from the Meta Graph API
  */
 export async function sendWhatsAppMessage(to: string, text: string) {
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const creds = await getMetaCredentials();
+  const accessToken = creds.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = creds.WHATSAPP_PHONE_NUMBER_ID;
 
   if (!accessToken || !phoneNumberId) {
     throw new Error(
       "Missing WhatsApp Cloud API configurations. " +
-      "Please configure WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID in env vars."
+      "Please configure WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID in env vars or CRM settings."
     );
   }
 

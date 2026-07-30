@@ -3,6 +3,7 @@ import { redis } from "@/lib/redis";
 import { prisma } from "@/lib/prisma";
 import { WebhookJob } from "./webhook-queue";
 import { LeadStatus } from "@prisma/client";
+import { getMetaCredentials } from "@/lib/whatsapp";
 
 // Self-contained generator for lead numbers to prevent import issues in Worker thread
 async function workerGenerateLeadNumber(): Promise<string> {
@@ -83,9 +84,10 @@ async function processFacebookLead(event: any) {
   const formId = payload.form_id;
   const pageId = payload.page_id;
 
-  const pageAccessToken = process.env.FB_PAGE_ACCESS_TOKEN;
+  const creds = await getMetaCredentials();
+  const pageAccessToken = creds.FB_PAGE_ACCESS_TOKEN;
   if (!pageAccessToken) {
-    throw new Error("FB_PAGE_ACCESS_TOKEN env var is missing");
+    throw new Error("FB_PAGE_ACCESS_TOKEN is not configured in env vars or CRM settings");
   }
 
   // Fetch lead details from Meta Graph API

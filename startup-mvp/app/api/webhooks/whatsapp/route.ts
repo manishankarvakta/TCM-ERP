@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { WebhookQueueService } from "@/lib/system/webhook-queue";
+import { getMetaCredentials } from "@/lib/whatsapp";
 
 /**
  * GET Handler: Verifies WhatsApp webhook handshake token
@@ -12,9 +13,10 @@ export async function GET(request: Request) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
+  const creds = await getMetaCredentials();
+  const verifyToken = creds.WHATSAPP_VERIFY_TOKEN;
   if (!verifyToken) {
-    console.error("[WhatsApp Webhook] WHATSAPP_VERIFY_TOKEN environment variable is not defined");
+    console.error("[WhatsApp Webhook] WHATSAPP_VERIFY_TOKEN is not configured in env vars or CRM settings.");
     return new NextResponse("Server Configuration Error", { status: 500 });
   }
 
@@ -54,9 +56,10 @@ function verifyRequestSignature(rawBody: string, signatureHeader: string | null,
  */
 export async function POST(request: Request) {
   try {
-    const appSecret = process.env.FB_APP_SECRET;
+    const creds = await getMetaCredentials();
+    const appSecret = creds.FB_APP_SECRET;
     if (!appSecret) {
-      console.error("[WhatsApp Webhook] FB_APP_SECRET is not configured.");
+      console.error("[WhatsApp Webhook] FB_APP_SECRET is not configured in env vars or CRM settings.");
       return new NextResponse("Server Configuration Error", { status: 500 });
     }
 
