@@ -16,6 +16,13 @@ export async function register() {
     }
 
     try {
+      await import("./lib/system/webhook-worker");
+      console.log("✅ [System] Webhook worker initialized.");
+    } catch (err) {
+      console.error("❌ [System] Failed to initialize Webhook worker:", err);
+    }
+
+    try {
       const { initBackupScheduler } = await import("./lib/backup/scheduler");
       await initBackupScheduler();
       console.log("✅ [System] Backup scheduler initialized.");
