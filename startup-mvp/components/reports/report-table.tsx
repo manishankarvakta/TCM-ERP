@@ -300,7 +300,7 @@ export default function ReportTable({
               {renderPaginationButtons()}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" disabled={isExporting}>
+                  <Button variant="default" className="bg-black text-white hover:bg-black/90 shadow-sm" size="sm" disabled={isExporting}>
                     <FiDownload className="h-4 w-4 mr-2" />
                     {isExporting ? "Exporting..." : "Export"}
                   </Button>
