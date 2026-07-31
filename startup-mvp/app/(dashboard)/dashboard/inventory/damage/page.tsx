@@ -18,6 +18,7 @@ interface DamagePageProps {
     tab?: string;
     startDate?: string;
     endDate?: string;
+    limit?: string;
   }>;
 }
 
@@ -26,6 +27,7 @@ export default async function DamagePage({ searchParams }: DamagePageProps) {
   const userId = session?.user?.id || "";
   const params = await searchParams;
   const page = Number(params.page) || 1;
+  const limit = Number(params.limit) || 20;
   const search = params.search || "";
   const tab = params.tab || "active";
   const isTrash = tab === "trash";
@@ -48,7 +50,7 @@ export default async function DamagePage({ searchParams }: DamagePageProps) {
     : (params.warehouseId || "all");
 
   const [res, warehousesRes, settings] = await Promise.all([
-    getDamages(page, 10, {
+    getDamages(page, limit, {
       search,
       warehouseId: selectedWarehouseId,
       isTrash,
@@ -60,7 +62,7 @@ export default async function DamagePage({ searchParams }: DamagePageProps) {
   ]);
 
   const damages = res.success ? res.damages : [];
-  const totalPages = res.success ? res.pagination?.totalPages || 1 : 1;
+  const pagination = res.success ? res.pagination : { page: 1, limit, total: 0, totalPages: 0 };
   
   const activeWarehouses = !isNormalUser
     ? (warehousesRes.success ? warehousesRes.warehouses : [])
@@ -109,8 +111,7 @@ export default async function DamagePage({ searchParams }: DamagePageProps) {
         <TabsContent value="active" className="mt-4">
           <DamageList 
             initialData={damages || []} 
-            totalPages={totalPages}
-            currentPage={page}
+            pagination={pagination || { page: 1, limit: 20, total: 0, totalPages: 0 }}
             warehouses={activeWarehouses}
             selectedWarehouseId={selectedWarehouseId}
             startDate={startDate}
@@ -122,8 +123,7 @@ export default async function DamagePage({ searchParams }: DamagePageProps) {
         <TabsContent value="trash" className="mt-4">
           <DamageList 
             initialData={damages || []} 
-            totalPages={totalPages}
-            currentPage={page}
+            pagination={pagination || { page: 1, limit: 20, total: 0, totalPages: 0 }}
             warehouses={activeWarehouses}
             selectedWarehouseId={selectedWarehouseId}
             startDate={startDate}

@@ -4,6 +4,8 @@ import ReportFilters from "@/components/reports/report-filters";
 import ReportTable from "@/components/reports/report-table";
 import { format } from "date-fns";
 import { ItemType } from "@prisma/client";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useTransition } from "react";
 
 interface RevenueByItemViewProps {
   data: Array<{
@@ -31,6 +33,12 @@ interface RevenueByItemViewProps {
     dateTo?: string;
     warehouseId?: string;
   };
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export default function RevenueByItemView({
@@ -40,7 +48,24 @@ export default function RevenueByItemView({
   clients,
   itemTypeOptions,
   filters,
+  pagination,
 }: RevenueByItemViewProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
+
+  const handlePageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", page.toString());
+    router.push(`?${params.toString()}`);
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("limit", newLimit.toString());
+    params.set("page", "1");
+    router.push(`?${params.toString()}`);
+  };
   const columns = [
     {
       key: "itemCode",
@@ -170,6 +195,15 @@ export default function RevenueByItemView({
         data={data}
         exportFilename={`revenue-by-item-${format(new Date(), "yyyy-MM-dd")}`}
         emptyMessage="No revenue data available"
+        hideTopPagination={true}
+        pagination={{
+          page: pagination.page,
+          limit: pagination.limit,
+          total: pagination.total,
+          totalPages: pagination.totalPages,
+          onPageChange: handlePageChange,
+          onLimitChange: handleLimitChange,
+        }}
       />
 
       {data.length > 0 && (

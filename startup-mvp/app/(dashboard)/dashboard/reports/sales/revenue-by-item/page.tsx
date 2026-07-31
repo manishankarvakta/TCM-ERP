@@ -13,6 +13,8 @@ interface RevenueByItemPageProps {
     dateFrom?: string;
     dateTo?: string;
     warehouseId?: string;
+    page?: string;
+    limit?: string;
   }>;
 }
 
@@ -20,6 +22,8 @@ export default async function RevenueByItemPage({
   searchParams,
 }: RevenueByItemPageProps) {
   const params = await searchParams;
+  const page = parseInt(params.page || "1", 10);
+  const limit = parseInt(params.limit || "20", 10);
 
   const filters = {
     itemId: params.itemId || undefined,
@@ -28,6 +32,8 @@ export default async function RevenueByItemPage({
     dateFrom: params.dateFrom || undefined,
     dateTo: params.dateTo || undefined,
     warehouseId: params.warehouseId || undefined,
+    page,
+    limit,
   };
 
   const result = await getRevenueByItem(filters);
@@ -83,6 +89,7 @@ export default async function RevenueByItemPage({
             clients={clients as any}
             itemTypeOptions={itemTypeOptions}
             filters={filters}
+            pagination={result.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 }}
           />
         )}
       </div>

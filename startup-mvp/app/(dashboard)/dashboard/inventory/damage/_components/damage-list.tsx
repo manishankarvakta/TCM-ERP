@@ -45,8 +45,12 @@ import type { InventoryDamageStatus } from "@prisma/client";
 
 interface DamageListProps {
   initialData: any[];
-  totalPages: number;
-  currentPage: number;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
   warehouses: Array<{ id: string; name: string; code: string }>;
   selectedWarehouseId: string;
   startDate: string;
@@ -57,8 +61,7 @@ interface DamageListProps {
 
 export default function DamageList({
   initialData,
-  totalPages,
-  currentPage,
+  pagination,
   warehouses = [],
   selectedWarehouseId,
   startDate,
@@ -77,6 +80,118 @@ export default function DamageList({
 
   const [isPending, setIsPending] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isTransitionPending, startTransition] = React.useTransition();
+
+  const getPageNumbers = (currentPage: number, totalPages: number) => {
+    const pages: (number | string)[] = [];
+    const windowSize = 2;
+    pages.push(1);
+    const startRange = Math.max(2, currentPage - windowSize);
+    const endRange = Math.min(totalPages - 1, currentPage + windowSize);
+    if (startRange > 2) {
+      pages.push("...");
+    }
+    for (let i = startRange; i <= endRange; i++) {
+      pages.push(i);
+    }
+    if (endRange < totalPages - 1) {
+      pages.push("...");
+    }
+    if (totalPages > 1) {
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  const handlePageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", page.toString());
+    router.push(`/dashboard/inventory/damage?${params.toString()}`);
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("limit", newLimit.toString());
+    params.set("page", "1");
+    router.push(`/dashboard/inventory/damage?${params.toString()}`);
+  };
+
+  const renderLimitSelector = () => {
+    const limit = pagination?.limit ?? 20;
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">Rows per page:</span>
+        <Select
+          value={String(limit)}
+          onValueChange={(val: string) => handleLimitChange(Number(val))}
+          disabled={isPending || isTransitionPending}
+        >
+          <SelectTrigger className="w-[70px] h-8 text-xs">
+            <SelectValue placeholder={String(limit)} />
+          </SelectTrigger>
+          <SelectContent>
+            {[20, 50, 100, 200].map((opt) => (
+              <SelectItem key={opt} value={String(opt)}>
+                {opt}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  };
+
+  const renderPaginationButtons = () => {
+    const totalPages = pagination?.totalPages ?? 0;
+    const page = pagination?.page ?? 1;
+    if (totalPages <= 1) return null;
+    return (
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(page - 1)}
+          disabled={page === 1 || isPending || isTransitionPending}
+        >
+          Previous
+        </Button>
+        
+        <div className="flex items-center gap-1">
+          {getPageNumbers(page, totalPages).map((p, idx) => {
+            if (p === "...") {
+              return (
+                <span key={`dots-${idx}`} className="px-1 text-sm text-muted-foreground">
+                  ...
+                </span>
+              );
+            }
+            const isCurrent = p === page;
+            return (
+              <Button
+                key={`page-${p}`}
+                variant={isCurrent ? "default" : "outline"}
+                size="sm"
+                className="h-8 w-8 p-0 text-xs"
+                onClick={() => handlePageChange(p as number)}
+                disabled={isPending || isTransitionPending}
+              >
+                {p}
+              </Button>
+            );
+          })}
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(page + 1)}
+          disabled={page === totalPages || isPending || isTransitionPending}
+        >
+          Next
+        </Button>
+      </div>
+    );
+  };
 
   const updateFilters = (newParams: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -298,33 +413,18 @@ export default function DamageList({
           </Table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-end space-x-2 p-4 border-t">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage <= 1}
-              onClick={() => {
-                const params = new URLSearchParams(searchParams.toString());
-                params.set("page", (currentPage - 1).toString());
-                router.push(`/dashboard/inventory/damage?${params.toString()}`);
-              }}
-            >
-              Previous
-            </Button>
-            <div className="text-sm">Page {currentPage} of {totalPages}</div>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage >= totalPages}
-              onClick={() => {
-                const params = new URLSearchParams(searchParams.toString());
-                params.set("page", (currentPage + 1).toString());
-                router.push(`/dashboard/inventory/damage?${params.toString()}`);
-              }}
-            >
-              Next
-            </Button>
+        {/* Pagination controls */}
+        {pagination && ((pagination.totalPages ?? 0) > 1 || (pagination.total ?? 0) > 0) && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 px-4 pb-4">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="text-sm text-muted-foreground">
+                Showing {(((pagination.page ?? 1) - 1) * (pagination.limit ?? 20)) + 1} to{" "}
+                {Math.min((pagination.page ?? 1) * (pagination.limit ?? 20), pagination.total ?? 0)} of{" "}
+                {pagination.total ?? 0} damages
+              </div>
+              {renderLimitSelector()}
+            </div>
+            {renderPaginationButtons()}
           </div>
         )}
       </CardContent>

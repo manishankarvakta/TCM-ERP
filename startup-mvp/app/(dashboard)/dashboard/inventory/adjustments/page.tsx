@@ -14,6 +14,7 @@ interface PageProps {
     warehouseId?: string;
     startDate?: string;
     endDate?: string;
+    limit?: string;
   }>;
 }
 
@@ -22,6 +23,7 @@ export default async function AdjustmentPage({ searchParams }: PageProps) {
   const userId = session?.user?.id || "";
   const params = await searchParams;
   const page = Number(params.page) || 1;
+  const limit = Number(params.limit) || 20;
 
   const todayStr = new Date().toISOString().split("T")[0];
   const startDate = params.startDate || todayStr;
@@ -42,7 +44,7 @@ export default async function AdjustmentPage({ searchParams }: PageProps) {
 
   const warehousesResult = await getActiveWarehouses();
 
-  const { adjustments, pagination, success, error } = await getAdjustments(page, 10, {
+  const { adjustments, pagination, success, error } = await getAdjustments(page, limit, {
     search: params.search,
     warehouseId: selectedWarehouseId,
     startDate,
@@ -81,7 +83,7 @@ export default async function AdjustmentPage({ searchParams }: PageProps) {
 
         <AdjustmentList 
           adjustments={adjustments || []} 
-          pagination={pagination || { page: 1, totalPages: 1, total: 0, limit: 10 }}
+          pagination={pagination || { page: 1, totalPages: 1, total: 0, limit: 20 }}
           warehouses={activeWarehouses}
           selectedWarehouseId={selectedWarehouseId}
           startDate={startDate}

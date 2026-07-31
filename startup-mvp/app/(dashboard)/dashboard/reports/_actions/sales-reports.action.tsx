@@ -191,6 +191,8 @@ export async function getRevenueByItem(filters: {
   dateFrom?: string;
   dateTo?: string;
   warehouseId?: string;
+  page?: number;
+  limit?: number;
 }) {
   try {
     const session = await auth();
@@ -406,9 +408,21 @@ export async function getRevenueByItem(filters: {
     // Sort by total revenue descending
     reportData.sort((a, b) => b.totalRevenue - a.totalRevenue);
 
+    const total = reportData.length;
+    const page = filters.page || 1;
+    const limit = filters.limit || 20;
+    const skip = (page - 1) * limit;
+    const paginatedData = reportData.slice(skip, skip + limit);
+
     return {
       success: true,
-      data: reportData,
+      data: paginatedData,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
     };
   } catch (error) {
     console.error("getRevenueByItem error:", error);

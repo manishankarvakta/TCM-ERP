@@ -59,6 +59,7 @@ interface ReportTableProps {
   loading?: boolean;
   emptyMessage?: string;
   onExport?: (type: "csv" | "excel") => void | Promise<void>;
+  hideTopPagination?: boolean;
 }
 
 export default function ReportTable({
@@ -70,6 +71,7 @@ export default function ReportTable({
   loading = false,
   emptyMessage = "No data available",
   onExport,
+  hideTopPagination = false,
 }: ReportTableProps) {
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
@@ -296,8 +298,8 @@ export default function ReportTable({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <CardTitle className="text-base font-semibold">{title}</CardTitle>
             <div className="flex flex-wrap items-center gap-4">
-              {renderLimitSelector()}
-              {renderPaginationButtons()}
+              {!hideTopPagination && renderLimitSelector()}
+              {!hideTopPagination && renderPaginationButtons()}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="default" className="bg-black text-white hover:bg-black/90 shadow-sm" size="sm" disabled={isExporting}>

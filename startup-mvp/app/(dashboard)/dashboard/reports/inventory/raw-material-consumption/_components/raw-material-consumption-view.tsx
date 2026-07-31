@@ -3,6 +3,8 @@
 import ReportFilters from "@/components/reports/report-filters";
 import ReportTable from "@/components/reports/report-table";
 import { format } from "date-fns";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useTransition } from "react";
 
 interface RawMaterialConsumptionViewProps {
   data: Array<{
@@ -26,6 +28,12 @@ interface RawMaterialConsumptionViewProps {
     dateTo?: string;
     productionOrderId?: string;
   };
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export default function RawMaterialConsumptionView({
@@ -33,7 +41,24 @@ export default function RawMaterialConsumptionView({
   warehouses,
   items,
   filters,
+  pagination,
 }: RawMaterialConsumptionViewProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
+
+  const handlePageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", page.toString());
+    router.push(`?${params.toString()}`);
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("limit", newLimit.toString());
+    params.set("page", "1");
+    router.push(`?${params.toString()}`);
+  };
   const columns = [
     {
       key: "itemCode",
@@ -128,6 +153,15 @@ export default function RawMaterialConsumptionView({
         data={data}
         exportFilename={`raw-material-consumption-${format(new Date(), "yyyy-MM-dd")}`}
         emptyMessage="No raw material consumption data available"
+        hideTopPagination={true}
+        pagination={{
+          page: pagination.page,
+          limit: pagination.limit,
+          total: pagination.total,
+          totalPages: pagination.totalPages,
+          onPageChange: handlePageChange,
+          onLimitChange: handleLimitChange,
+        }}
       />
 
       {data.length > 0 && (
