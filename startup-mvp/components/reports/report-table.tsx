@@ -187,30 +187,111 @@ export default function ReportTable({
     });
   };
 
+  const renderPaginationButtons = () => {
+    if (!pagination || pagination.totalPages <= 1) return null;
+    return (
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => pagination.onPageChange(pagination.page - 1)}
+          disabled={pagination.page === 1}
+        >
+          <FiChevronLeft className="h-4 w-4 mr-1" />
+          Previous
+        </Button>
+        
+        <div className="flex items-center gap-1">
+          {(() => {
+            const pages: (number | string)[] = [];
+            const windowSize = 2;
+            const currentPage = pagination.page;
+            const totalPages = pagination.totalPages;
+            
+            pages.push(1);
+            const startRange = Math.max(2, currentPage - windowSize);
+            const endRange = Math.min(totalPages - 1, currentPage + windowSize);
+            
+            if (startRange > 2) {
+              pages.push("...");
+            }
+            
+            for (let i = startRange; i <= endRange; i++) {
+              pages.push(i);
+            }
+            
+            if (endRange < totalPages - 1) {
+              pages.push("...");
+            }
+            
+            if (totalPages > 1) {
+              pages.push(totalPages);
+            }
+            
+            return pages.map((p, idx) => {
+              if (p === "...") {
+                return (
+                  <span key={`dots-${idx}`} className="px-1 text-sm text-muted-foreground">
+                    ...
+                  </span>
+                );
+              }
+              const isCurrent = p === currentPage;
+              return (
+                <Button
+                  key={`page-${p}`}
+                  variant={isCurrent ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 w-8 p-0 text-xs"
+                  onClick={() => pagination.onPageChange(p as number)}
+                >
+                  {p}
+                </Button>
+              );
+            });
+          })()}
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => pagination.onPageChange(pagination.page + 1)}
+          disabled={pagination.page === pagination.totalPages}
+        >
+          Next
+          <FiChevronRight className="h-4 w-4 ml-1" />
+        </Button>
+      </div>
+    );
+  };
+
   return (
     <Card>
       {title && (
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <CardTitle className="text-base font-semibold">{title}</CardTitle>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" disabled={isExporting}>
-                  <FiDownload className="h-4 w-4 mr-2" />
-                  {isExporting ? "Exporting..." : "Export"}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleExportCSV}>
-                  <FiFileText className="h-4 w-4 mr-2" />
-                  Export as CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleExportExcel}>
-                  <FiFile className="h-4 w-4 mr-2" />
-                  Export as Excel
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex flex-wrap items-center gap-4">
+              {renderPaginationButtons()}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={isExporting}>
+                    <FiDownload className="h-4 w-4 mr-2" />
+                    {isExporting ? "Exporting..." : "Export"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleExportCSV}>
+                    <FiFileText className="h-4 w-4 mr-2" />
+                    Export as CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportExcel}>
+                    <FiFile className="h-4 w-4 mr-2" />
+                    Export as Excel
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </CardHeader>
       )}
