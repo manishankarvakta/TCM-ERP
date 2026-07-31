@@ -15,6 +15,7 @@ interface StockLedgerPageProps {
     dateTo?: string;
     referenceType?: string;
     referenceId?: string;
+    limit?: string;
   }>;
 }
 
@@ -23,6 +24,7 @@ export default async function StockLedgerPage({
 }: StockLedgerPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
+  const limit = parseInt(params.limit || "50");
 
   const filters = {
     itemId: params.itemId || undefined,
@@ -37,7 +39,7 @@ export default async function StockLedgerPage({
     referenceId: params.referenceId || undefined,
   };
 
-  const result = await getStockLedger(filters as any, { page, limit: 50 });
+  const result = await getStockLedger(filters as any, { page, limit });
 
   // Get filter options
   const [warehouses, items] = await Promise.all([
