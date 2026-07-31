@@ -16,12 +16,14 @@ interface StockLedgerPageProps {
     transactionType?: string;
     dateFrom?: string;
     dateTo?: string;
+    limit?: string;
   }>;
 }
 
 export default async function StockLedgerPage({ searchParams }: StockLedgerPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
+  const limit = parseInt(params.limit || "20");
   const search = params.search || "";
   const itemId = params.itemId;
   const warehouseId = params.warehouseId;
@@ -54,7 +56,7 @@ export default async function StockLedgerPage({ searchParams }: StockLedgerPageP
 
   // Check permissions and fetch data
   const [result, itemsResult, warehousesResult, canView] = await Promise.all([
-    getStockLedger(page, 10, {
+    getStockLedger(page, limit, {
       itemId,
       warehouseId: finalWarehouseId,
       transactionType,
@@ -102,7 +104,7 @@ export default async function StockLedgerPage({ searchParams }: StockLedgerPageP
           initialEntries={(result.entries as any) || []}
           initialPagination={result.pagination || {
             page: 1,
-            limit: 10,
+            limit: 20,
             total: 0,
             totalPages: 0,
           }}

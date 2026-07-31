@@ -137,13 +137,6 @@ export default function StockLedgerView({
     router.push(`?${params.toString()}`);
   };
 
-  const handleLimitChange = (newLimit: number) => {
-    const params = new URLSearchParams(window.location.search);
-    params.set("limit", newLimit.toString());
-    params.set("page", "1");
-    router.push(`?${params.toString()}`);
-  };
-
   return (
     <div className="space-y-4">
       <ReportFilters
@@ -171,10 +164,7 @@ export default function StockLedgerView({
         pagination={{
           ...pagination,
           onPageChange: handlePageChange,
-          onLimitChange: handleLimitChange,
-          limitOptions: [20, 50, 100, 200],
         }}
-        disableTopPagination={true}
         exportFilename={`stock-ledger-${format(new Date(), "yyyy-MM-dd")}`}
         emptyMessage="No stock ledger entries found"
       />
