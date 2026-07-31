@@ -13,6 +13,7 @@ interface StockMovementsPageProps {
     startDate?: string;
     endDate?: string;
     itemType?: string;
+    limit?: string;
   }>;
 }
 
@@ -21,6 +22,7 @@ export default async function StockMovementsPage({
 }: StockMovementsPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
+  const limit = parseInt(params.limit || "20");
   const today = new Date().toISOString().split("T")[0];
   
   const startDate = params.startDate || params.date || today;
@@ -33,9 +35,10 @@ export default async function StockMovementsPage({
     startDate,
     endDate,
     itemType,
+    limit,
   };
 
-  const result = await getStockMovements(filters, { page, limit: 20 });
+  const result = await getStockMovements(filters, { page, limit });
 
   // Load warehouses for selection filter
   const warehouses = await prisma.warehouse.findMany({

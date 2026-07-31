@@ -27,6 +27,7 @@ interface StockMovementsViewProps {
     startDate?: string;
     endDate?: string;
     itemType?: string;
+    limit?: number;
   };
   summaryTotals?: {
     opening: number;
@@ -57,12 +58,14 @@ export default function StockMovementsView({
 
   const handleApply = () => {
     startTransition(() => {
+      const currentLimit = new URLSearchParams(window.location.search).get("limit");
       const params = new URLSearchParams();
       if (startDate) params.set("startDate", startDate);
       if (endDate) params.set("endDate", endDate);
       if (itemType && itemType !== "all") params.set("itemType", itemType);
       if (warehouseId && warehouseId !== "all") params.set("warehouseId", warehouseId);
       if (search) params.set("search", search);
+      if (currentLimit) params.set("limit", currentLimit);
       router.push(`?${params.toString()}`);
     });
   };
@@ -81,6 +84,13 @@ export default function StockMovementsView({
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(window.location.search);
     params.set("page", newPage.toString());
+    router.push(`?${params.toString()}`);
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("limit", newLimit.toString());
+    params.set("page", "1");
     router.push(`?${params.toString()}`);
   };
 
@@ -444,6 +454,8 @@ export default function StockMovementsView({
         pagination={{
           ...pagination,
           onPageChange: handlePageChange,
+          onLimitChange: handleLimitChange,
+          limitOptions: [10, 20, 50, 100, 200],
         }}
         exportFilename={`stock-movements-${startDate}-to-${endDate}`}
         onExport={handleExport}
