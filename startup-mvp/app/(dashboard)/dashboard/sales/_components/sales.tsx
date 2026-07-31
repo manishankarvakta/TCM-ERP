@@ -426,98 +426,91 @@ export default function SalesListClient({
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 mb-6 bg-muted/20 p-4 rounded-lg border border-border/50">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center gap-2 flex-wrap flex-1">
-            <div className="relative flex-1 max-w-sm">
-              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by number or client..."
-                value={search}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="pl-10"
-              />
-              {search && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                  onClick={() => handleSearch("")}
-                >
-                  <FiX className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              {selectedSales.size > 0 && (
-                <span className="text-sm text-muted-foreground whitespace-nowrap">
-                  {selectedSales.size} selected
-                </span>
-              )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isPending || selectedSales.size === 0}
-                  >
-                    <FiMoreVertical className="mr-2 h-4 w-4" />
-                    Bulk Actions
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {!isTrash ? (
-                    <>
-                      <DropdownMenuItem
-                        onClick={() => handleBulkAction("COMPLETED")}
-                        disabled={selectedSales.size === 0}
-                      >
-                        <FiRotateCw className="mr-2 h-4 w-4" />
-                        Mark as Completed
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleBulkAction("CANCELLED")}
-                        disabled={selectedSales.size === 0}
-                      >
-                        <FiX className="mr-2 h-4 w-4" />
-                        Cancel Sales
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleBulkAction("trash")}
-                        className="text-destructive"
-                        disabled={selectedSales.size === 0}
-                      >
-                        <FiTrash2 className="mr-2 h-4 w-4" />
-                        Move to Trash
-                      </DropdownMenuItem>
-                    </>
-                  ) : (
-                    <>
-                      <DropdownMenuItem
-                        onClick={() => handleBulkAction("restore")}
-                        disabled={selectedSales.size === 0}
-                      >
-                        <FiRotateCw className="mr-2 h-4 w-4" />
-                        Restore
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleBulkAction("delete-permanently")}
-                        className="text-destructive"
-                        disabled={selectedSales.size === 0}
-                      >
-                        <FiTrash2 className="mr-2 h-4 w-4" />
-                        Delete Permanently
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by number or client..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="pl-10"
+            />
+            {search && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => handleSearch("")}
+              >
+                <FiX className="h-4 w-4" />
+              </Button>
+            )}
           </div>
 
-          <div className="flex items-center gap-4">
-            {renderLimitSelector()}
-            {renderPaginationButtons()}
+          <div className="flex items-center gap-2">
+            {selectedSales.size > 0 && (
+              <span className="text-sm text-muted-foreground whitespace-nowrap">
+                {selectedSales.size} selected
+              </span>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isPending || selectedSales.size === 0}
+                >
+                  <FiMoreVertical className="mr-2 h-4 w-4" />
+                  Bulk Actions
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {!isTrash ? (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => handleBulkAction("COMPLETED")}
+                      disabled={selectedSales.size === 0}
+                    >
+                      <FiRotateCw className="mr-2 h-4 w-4" />
+                      Mark as Completed
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleBulkAction("CANCELLED")}
+                      disabled={selectedSales.size === 0}
+                    >
+                      <FiX className="mr-2 h-4 w-4" />
+                      Cancel Sales
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleBulkAction("trash")}
+                      className="text-destructive"
+                      disabled={selectedSales.size === 0}
+                    >
+                      <FiTrash2 className="mr-2 h-4 w-4" />
+                      Move to Trash
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => handleBulkAction("restore")}
+                      disabled={selectedSales.size === 0}
+                    >
+                      <FiRotateCw className="mr-2 h-4 w-4" />
+                      Restore
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleBulkAction("delete-permanently")}
+                      className="text-destructive"
+                      disabled={selectedSales.size === 0}
+                    >
+                      <FiTrash2 className="mr-2 h-4 w-4" />
+                      Delete Permanently
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
