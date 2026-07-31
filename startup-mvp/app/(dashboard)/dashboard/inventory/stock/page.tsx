@@ -14,12 +14,14 @@ interface StockPageProps {
     search?: string;
     itemId?: string;
     warehouseId?: string;
+    limit?: string;
   }>;
 }
 
 export default async function StockPage({ searchParams }: StockPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
+  const limit = parseInt(params.limit || "20");
   const search = params.search || "";
   const itemId = params.itemId;
   const warehouseId = params.warehouseId;
@@ -50,7 +52,7 @@ export default async function StockPage({ searchParams }: StockPageProps) {
 
   // Check permissions and fetch data
   const [result, itemsResult, warehousesResult, canView, canAdjust, metricsResult] = await Promise.all([
-    getStocks(page, 10, {
+    getStocks(page, limit, {
       itemId,
       warehouseId: finalWarehouseId,
       search,
@@ -141,7 +143,7 @@ export default async function StockPage({ searchParams }: StockPageProps) {
           initialStocks={(result.stocks as any) || []}
           initialPagination={result.pagination || {
             page: 1,
-            limit: 10,
+            limit: 20,
             total: 0,
             totalPages: 0,
           }}
