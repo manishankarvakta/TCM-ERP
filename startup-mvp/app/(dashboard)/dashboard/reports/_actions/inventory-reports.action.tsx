@@ -576,6 +576,8 @@ export async function getStockMovements(
       closing: 0,
       value: 0,
       itemsCount: 0,
+      inwardValue: 0,
+      outwardValue: 0,
     };
 
     for (const warehouse of warehouses) {
@@ -649,12 +651,16 @@ export async function getStockMovements(
             if (opening !== 0 || inward !== 0 || outward !== 0 || closing !== 0) {
               const cost = Number(variant.costPrice || item.costPrice || 0);
               const totalValue = closing * cost;
+              const inwardValue = inward * cost;
+              const outwardValue = outward * cost;
 
               summaryTotals.opening += opening;
               summaryTotals.inward += inward;
               summaryTotals.outward += outward;
               summaryTotals.closing += closing;
               summaryTotals.value += totalValue;
+              summaryTotals.inwardValue += inwardValue;
+              summaryTotals.outwardValue += outwardValue;
               summaryTotals.itemsCount += 1;
 
               reportData.push({
@@ -749,12 +755,16 @@ export async function getStockMovements(
           if (opening !== 0 || inward !== 0 || outward !== 0 || closing !== 0) {
             const cost = Number(item.costPrice || 0);
             const totalValue = closing * cost;
+            const inwardValue = inward * cost;
+            const outwardValue = outward * cost;
 
             summaryTotals.opening += opening;
             summaryTotals.inward += inward;
             summaryTotals.outward += outward;
             summaryTotals.closing += closing;
             summaryTotals.value += totalValue;
+            summaryTotals.inwardValue += inwardValue;
+            summaryTotals.outwardValue += outwardValue;
             summaryTotals.itemsCount += 1;
 
             reportData.push({

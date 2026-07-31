@@ -36,6 +36,8 @@ interface StockMovementsViewProps {
     closing: number;
     value: number;
     itemsCount: number;
+    inwardValue?: number;
+    outwardValue?: number;
   };
 }
 
@@ -311,6 +313,8 @@ export default function StockMovementsView({
     closing: 0,
     value: 0,
     itemsCount: 0,
+    inwardValue: 0,
+    outwardValue: 0,
   };
 
   return (
@@ -329,27 +333,39 @@ export default function StockMovementsView({
               <span className="text-muted-foreground text-[10px] block">Total Items</span>
               <span className="font-semibold text-xs">{totals.itemsCount || data.length}</span>
             </div>
-            <div className="h-6 w-px bg-border hidden sm:block" />
+            <div className="h-8 w-px bg-border hidden sm:block" />
             <div className="text-right">
               <span className="text-muted-foreground text-[10px] block">Total Opening</span>
               <span className="font-semibold text-xs">{totals.opening.toFixed(2)}</span>
             </div>
-            <div className="h-6 w-px bg-border hidden sm:block" />
+            <div className="h-8 w-px bg-border hidden sm:block" />
             <div className="text-right">
               <span className="text-muted-foreground text-[10px] block">Total Inward</span>
               <span className="font-semibold text-xs text-emerald-600 block">+{totals.inward.toFixed(2)}</span>
+              <span className="text-[9px] text-muted-foreground block font-medium">
+                +{new Intl.NumberFormat("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }).format(totals.inwardValue || 0)}
+              </span>
             </div>
-            <div className="h-6 w-px bg-border hidden sm:block" />
+            <div className="h-8 w-px bg-border hidden sm:block" />
             <div className="text-right">
               <span className="text-muted-foreground text-[10px] block">Total Outward</span>
               <span className="font-semibold text-xs text-rose-600 block">-{totals.outward.toFixed(2)}</span>
+              <span className="text-[9px] text-muted-foreground block font-medium">
+                -{new Intl.NumberFormat("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }).format(totals.outwardValue || 0)}
+              </span>
             </div>
-            <div className="h-6 w-px bg-border hidden sm:block" />
+            <div className="h-8 w-px bg-border hidden sm:block" />
             <div className="text-right">
               <span className="text-muted-foreground text-[10px] block">Total Closing</span>
               <span className="font-semibold text-xs">{totals.closing.toFixed(2)}</span>
             </div>
-            <div className="h-6 w-px bg-border hidden sm:block" />
+            <div className="h-8 w-px bg-border hidden sm:block" />
             <div className="text-right">
               <span className="text-muted-foreground text-[10px] block">Total Valuation</span>
               <span className="font-semibold text-xs text-primary block">
