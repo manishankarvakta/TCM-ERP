@@ -14,12 +14,14 @@ interface BrandsPageProps {
     page?: string;
     search?: string;
     tab?: string;
+    limit?: string;
   }>;
 }
 
 export default async function BrandsPage({ searchParams }: BrandsPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
+  const limit = parseInt(params.limit || "20");
   const search = params.search || "";
   const tab = params.tab || "all";
 
@@ -28,7 +30,7 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
 
   // Check permissions on server side for better performance
   const [result, canView, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
-    getBrands(page, 10, search, tab === "trash" ? "trash" : "all"),
+    getBrands(page, limit, search, tab === "trash" ? "trash" : "all"),
     userId ? hasPermission(userId, "master.brands", "view") : false,
     userId ? hasPermission(userId, "master.brands", "edit") : false,
     userId ? hasPermission(userId, "master.brands", "move-to-trash") : false,
@@ -86,7 +88,7 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
               initialBrands={result.brands || []}
               initialPagination={result.pagination || {
                 page: 1,
-                limit: 10,
+                limit: 20,
                 total: 0,
                 totalPages: 0,
               }}
@@ -99,7 +101,7 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
               initialBrands={result.brands || []}
               initialPagination={result.pagination || {
                 page: 1,
-                limit: 10,
+                limit: 20,
                 total: 0,
                 totalPages: 0,
               }}
