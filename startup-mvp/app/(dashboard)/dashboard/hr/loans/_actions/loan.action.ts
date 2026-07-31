@@ -10,25 +10,41 @@ import { LoanStatus } from "@prisma/client";
 /**
  * Get all loans
  */
-export async function getLoans() {
+export async function getLoans(page: number = 1, limit: number = 20) {
   try {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
 
-    const loans = await prisma.employeeLoan.findMany({
-      include: {
-        employee: {
-          select: {
-            id: true,
-            name: true,
-            employeeCode: true,
-          }
-        }
-      },
-      orderBy: { createdAt: "desc" }
-    });
+    const skip = (page - 1) * limit;
 
-    return { success: true, loans };
+    const [loans, total] = await Promise.all([
+      prisma.employeeLoan.findMany({
+        skip,
+        take: limit,
+        include: {
+          employee: {
+            select: {
+              id: true,
+              name: true,
+              employeeCode: true,
+            }
+          }
+        },
+        orderBy: { createdAt: "desc" }
+      }),
+      prisma.employeeLoan.count()
+    ]);
+
+    return {
+      success: true,
+      loans,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
   } catch (error) {
     console.error("Error fetching loans:", error);
     return { success: false, error: "Failed to fetch loans" };

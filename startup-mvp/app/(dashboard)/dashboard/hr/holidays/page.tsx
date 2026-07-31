@@ -24,6 +24,7 @@ interface HolidaysPageProps {
     search?: string;
     tab?: string;
     month?: string;
+    limit?: string;
   }>;
 }
 
@@ -43,6 +44,7 @@ function formatShortDate(date: Date): string {
 export default async function HolidaysPage({ searchParams }: HolidaysPageProps) {
   const params = await searchParams;
   const page   = parseInt(params.page  || "1");
+  const limit  = parseInt(params.limit || "20");
   const search = params.search || "";
   const tab    = params.tab   || "all";
   const monthParam = params.month;
@@ -54,7 +56,7 @@ export default async function HolidaysPage({ searchParams }: HolidaysPageProps) 
 
   const [result, statsResult, canView, canEdit, canMoveToTrash, canDeletePermanently] =
     await Promise.all([
-      getHolidays(page, 10, search, tab === "trash" ? "trash" : "all"),
+      getHolidays(page, limit, search, tab === "trash" ? "trash" : "all"),
       getHolidayStats(),
       userId ? hasPermission(userId, "hr.holidays", "view")               : false,
       userId ? hasPermission(userId, "hr.holidays", "edit")               : false,
@@ -176,7 +178,7 @@ export default async function HolidaysPage({ searchParams }: HolidaysPageProps) 
         <TabsContent value="all" className="mt-4">
           <HolidaysListClient
             initialHolidays={result.holidays || []}
-            initialPagination={result.pagination || { page: 1, limit: 10, total: 0, totalPages: 0 }}
+            initialPagination={result.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 }}
             initialSearch={search}
             isTrash={false}
             userId={userId}
@@ -196,7 +198,7 @@ export default async function HolidaysPage({ searchParams }: HolidaysPageProps) 
         <TabsContent value="trash" className="mt-4">
           <HolidaysListClient
             initialHolidays={result.holidays || []}
-            initialPagination={result.pagination || { page: 1, limit: 10, total: 0, totalPages: 0 }}
+            initialPagination={result.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 }}
             initialSearch={search}
             isTrash={true}
             userId={userId}

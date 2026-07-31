@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -10,6 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   FiSearch,
   FiCheckCircle,
@@ -92,6 +99,118 @@ export default function FinesClient({
 
   // Selection state for bulk operations
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isPending, startTransition] = useTransition();
+
+  const getPageNumbers = (currentPage: number, totalPages: number) => {
+    const pages: (number | string)[] = [];
+    const windowSize = 2;
+    pages.push(1);
+    const startRange = Math.max(2, currentPage - windowSize);
+    const endRange = Math.min(totalPages - 1, currentPage + windowSize);
+    if (startRange > 2) {
+      pages.push("...");
+    }
+    for (let i = startRange; i <= endRange; i++) {
+      pages.push(i);
+    }
+    if (endRange < totalPages - 1) {
+      pages.push("...");
+    }
+    if (totalPages > 1) {
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  const handlePageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", page.toString());
+    router.push(`/dashboard/hr/fines?${params.toString()}`);
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("limit", newLimit.toString());
+    params.set("page", "1");
+    router.push(`/dashboard/hr/fines?${params.toString()}`);
+  };
+
+  const renderLimitSelector = () => {
+    const limit = pagination?.limit ?? 20;
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">Rows per page:</span>
+        <Select
+          value={String(limit)}
+          onValueChange={(val: string) => handleLimitChange(Number(val))}
+          disabled={isPending}
+        >
+          <SelectTrigger className="w-[70px] h-8 text-xs">
+            <SelectValue placeholder={String(limit)} />
+          </SelectTrigger>
+          <SelectContent>
+            {[20, 50, 100, 200].map((opt) => (
+              <SelectItem key={opt} value={String(opt)}>
+                {opt}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  };
+
+  const renderPaginationButtons = () => {
+    const totalPages = pagination?.totalPages ?? 0;
+    const page = pagination?.page ?? 1;
+    if (totalPages <= 1) return null;
+    return (
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(page - 1)}
+          disabled={page === 1 || isPending}
+        >
+          Previous
+        </Button>
+        
+        <div className="flex items-center gap-1">
+          {getPageNumbers(page, totalPages).map((p, idx) => {
+            if (p === "...") {
+              return (
+                <span key={`dots-${idx}`} className="px-1 text-sm text-muted-foreground">
+                  ...
+                </span>
+              );
+            }
+            const isCurrent = p === page;
+            return (
+              <Button
+                key={`page-${p}`}
+                variant={isCurrent ? "default" : "outline"}
+                size="sm"
+                className="h-8 w-8 p-0 text-xs"
+                onClick={() => handlePageChange(p as number)}
+                disabled={isPending}
+              >
+                {p}
+              </Button>
+            );
+          })}
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(page + 1)}
+          disabled={page === totalPages || isPending}
+        >
+          Next
+        </Button>
+      </div>
+    );
+  };
 
   // Details dialog state
   const [selectedFine, setSelectedFine] = useState<FineItem | null>(null);
@@ -695,6 +814,21 @@ export default function FinesClient({
           </TableBody>
         </Table>
       </Card>
+
+      {/* Pagination controls */}
+      {pagination && ((pagination.totalPages ?? 0) > 1 || (pagination.total ?? 0) > 0) && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 px-1">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="text-sm text-muted-foreground">
+              Showing {(((pagination.page ?? 1) - 1) * (pagination.limit ?? 20)) + 1} to{" "}
+              {Math.min((pagination.page ?? 1) * (pagination.limit ?? 20), pagination.total ?? 0)} of{" "}
+              {pagination.total ?? 0} fines
+            </div>
+            {renderLimitSelector()}
+          </div>
+          {renderPaginationButtons()}
+        </div>
+      )}
     </div>
   );
 }

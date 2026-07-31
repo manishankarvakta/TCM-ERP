@@ -26,7 +26,7 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
   const params = await searchParams;
   
   const page = parseInt(params.page || "1", 10);
-  const limit = parseInt(params.limit || "10", 10);
+  const limit = parseInt(params.limit || "20", 10);
   const search = params.search || "";
   const warehouseId = params.warehouseId || undefined;
   const deviceId = params.deviceId || undefined;
@@ -106,7 +106,7 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
 
       <AttendanceListClient
         initialAttendances={result.attendances || []}
-        pagination={result.pagination}
+        pagination={result.pagination || { page: 1, limit: 20, total: 0, pages: 0 }}
         filters={{
           page,
           limit,

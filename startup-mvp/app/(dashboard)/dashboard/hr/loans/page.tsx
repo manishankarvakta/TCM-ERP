@@ -11,8 +11,19 @@ export const metadata: Metadata = {
   description: "Manage employee loans and advances",
 };
 
-export default async function LoansPage() {
-  const result = await getLoans();
+interface LoansPageProps {
+  searchParams: Promise<{
+    page?: string;
+    limit?: string;
+  }>;
+}
+
+export default async function LoansPage({ searchParams }: LoansPageProps) {
+  const params = await searchParams;
+  const page = parseInt(params.page || "1");
+  const limit = parseInt(params.limit || "20");
+
+  const result = await getLoans(page, limit);
   const loans = result.success ? result.loans : [];
 
   return (
@@ -50,7 +61,10 @@ export default async function LoansPage() {
       </div>
 
       <Suspense fallback={<div>Loading loans...</div>}>
-        <LoanList initialLoans={(loans as any) || []} />
+        <LoanList
+          initialLoans={(loans as any) || []}
+          initialPagination={result.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 }}
+        />
       </Suspense>
     </div>
   );

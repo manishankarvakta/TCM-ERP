@@ -18,12 +18,14 @@ interface BonusesPageProps {
     search?: string;
     status?: string;
     tab?: string;
+    limit?: string;
   }>;
 }
 
 export default async function BonusesPage({ searchParams }: BonusesPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1", 10);
+  const limit = parseInt(params.limit || "20", 10);
   const search = params.search || "";
   const status = (params.status as BonusStatus) || "ALL";
   const tab = params.tab || "all";
@@ -32,7 +34,7 @@ export default async function BonusesPage({ searchParams }: BonusesPageProps) {
   const userId = session?.user?.id;
 
   const [res, canCreate, canApprove, canDelete] = await Promise.all([
-    getBonuses(page, 10, search, status, tab),
+    getBonuses(page, limit, search, status, tab),
     userId ? hasPermission(userId, "hr.bonuses", "create") : false,
     userId ? hasPermission(userId, "hr.bonuses", "approve") : false,
     userId ? hasPermission(userId, "hr.bonuses", "delete-permanently") : false,
@@ -43,7 +45,7 @@ export default async function BonusesPage({ searchParams }: BonusesPageProps) {
       <Suspense fallback={<div className="p-6">Loading bonuses...</div>}>
         <BonusesClient
           initialBonuses={(res.bonuses as any) || []}
-          pagination={res.pagination}
+          pagination={res.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 }}
           currentSearch={search}
           currentStatus={status}
           currentTab={tab}

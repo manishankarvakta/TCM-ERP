@@ -128,13 +128,117 @@ export default function AttendanceListClient({
     loadDropdowns();
   }, []);
 
+  const getPageNumbers = (currentPage: number, totalPages: number) => {
+    const pages: (number | string)[] = [];
+    const windowSize = 2;
+    pages.push(1);
+    const startRange = Math.max(2, currentPage - windowSize);
+    const endRange = Math.min(totalPages - 1, currentPage + windowSize);
+    if (startRange > 2) {
+      pages.push("...");
+    }
+    for (let i = startRange; i <= endRange; i++) {
+      pages.push(i);
+    }
+    if (endRange < totalPages - 1) {
+      pages.push("...");
+    }
+    if (totalPages > 1) {
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  const handlePageChange = (page: number) => {
+    pushFilters({ page });
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    pushFilters({ limit: newLimit, page: 1 });
+  };
+
+  const renderLimitSelector = () => {
+    if (!pagination) return null;
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">Rows per page:</span>
+        <Select
+          value={String(pagination.limit)}
+          onValueChange={(val: string) => handleLimitChange(Number(val))}
+          disabled={isPending}
+        >
+          <SelectTrigger className="w-[70px] h-8 text-xs">
+            <SelectValue placeholder={String(pagination.limit)} />
+          </SelectTrigger>
+          <SelectContent>
+            {[20, 50, 100, 200].map((opt) => (
+              <SelectItem key={opt} value={String(opt)}>
+                {opt}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  };
+
+  const renderPaginationButtons = () => {
+    if (!pagination || pagination.pages <= 1) return null;
+    return (
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(pagination.page - 1)}
+          disabled={pagination.page === 1 || isPending}
+        >
+          Previous
+        </Button>
+        
+        <div className="flex items-center gap-1">
+          {getPageNumbers(pagination.page, pagination.pages).map((p, idx) => {
+            if (p === "...") {
+              return (
+                <span key={`dots-${idx}`} className="px-1 text-sm text-muted-foreground">
+                  ...
+                </span>
+              );
+            }
+            const isCurrent = p === pagination.page;
+            return (
+              <Button
+                key={`page-${p}`}
+                variant={isCurrent ? "default" : "outline"}
+                size="sm"
+                className="h-8 w-8 p-0 text-xs"
+                onClick={() => handlePageChange(p as number)}
+                disabled={isPending}
+              >
+                {p}
+              </Button>
+            );
+          })}
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(pagination.page + 1)}
+          disabled={pagination.page === pagination.pages || isPending}
+        >
+          Next
+        </Button>
+      </div>
+    );
+  };
+
   const pushFilters = useCallback((newFilters: Partial<typeof filters>) => {
     const updated = { ...localFilters, ...newFilters, page: newFilters.page || 1 };
     setLocalFilters(updated);
     
     const params = new URLSearchParams();
     if (updated.page > 1) params.set("page", updated.page.toString());
-    if (updated.limit !== 10) params.set("limit", updated.limit.toString());
+    if (updated.limit !== 20) params.set("limit", updated.limit.toString());
     if (updated.search) params.set("search", updated.search);
     if (updated.warehouseId && updated.warehouseId !== "all") params.set("warehouseId", updated.warehouseId);
     if (updated.employeeId && updated.employeeId !== "all") params.set("employeeId", updated.employeeId);
@@ -143,6 +247,9 @@ export default function AttendanceListClient({
     if (updated.status && updated.status !== "ALL") params.set("status", updated.status);
     if (updated.deviceId) params.set("deviceId", updated.deviceId);
 
+    // Keep active limit
+    if (updated.limit) params.set("limit", updated.limit.toString());
+
     startTransition(() => {
       router.push(`/dashboard/hr/attendance?${params.toString()}`);
     });
@@ -150,9 +257,9 @@ export default function AttendanceListClient({
 
   const resetFilters = useCallback(() => {
     const todayStr = format(new Date(), "yyyy-MM-dd");
-    setLocalFilters({ page: 1, limit: 10, search: "", warehouseId: "", deviceId: "", employeeId: "", status: "ALL", fromDate: todayStr, toDate: todayStr });
+    setLocalFilters({ page: 1, limit: 20, search: "", warehouseId: "", deviceId: "", employeeId: "", status: "ALL", fromDate: todayStr, toDate: todayStr });
     startTransition(() => {
-      router.push(`/dashboard/hr/attendance?fromDate=${todayStr}&toDate=${todayStr}`);
+      router.push(`/dashboard/hr/attendance?fromDate=${todayStr}&toDate=${todayStr}&limit=20`);
     });
   }, [router]);
 
@@ -407,27 +514,17 @@ export default function AttendanceListClient({
       </div>
 
       {/* Pagination Controls */}
-      {pagination && pagination.pages > 1 && (
-        <div className="flex items-center justify-end space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => pushFilters({ page: pagination.page - 1 })}
-            disabled={pagination.page <= 1 || isPending}
-          >
-            Previous
-          </Button>
-          <div className="text-sm text-muted-foreground">
-            Page {pagination.page} of {pagination.pages}
+      {pagination && (pagination.pages > 1 || pagination.total > 0) && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="text-sm text-muted-foreground">
+              Showing {((pagination.page - 1) * pagination.limit) + 1} to{" "}
+              {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
+              {pagination.total} records
+            </div>
+            {renderLimitSelector()}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => pushFilters({ page: pagination.page + 1 })}
-            disabled={pagination.page >= pagination.pages || isPending}
-          >
-            Next
-          </Button>
+          {renderPaginationButtons()}
         </div>
       )}
     </div>

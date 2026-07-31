@@ -18,12 +18,14 @@ interface FinesPageProps {
     search?: string;
     status?: string;
     tab?: string;
+    limit?: string;
   }>;
 }
 
 export default async function FinesPage({ searchParams }: FinesPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1", 10);
+  const limit = parseInt(params.limit || "20", 10);
   const search = params.search || "";
   const status = (params.status as FineStatus) || "ALL";
   const tab = params.tab || "all";
@@ -32,7 +34,7 @@ export default async function FinesPage({ searchParams }: FinesPageProps) {
   const userId = session?.user?.id;
 
   const [res, canCreate, canApprove, canDelete] = await Promise.all([
-    getFines(page, 10, search, status, tab),
+    getFines(page, limit, search, status, tab),
     userId ? hasPermission(userId, "hr.fines", "create") : false,
     userId ? hasPermission(userId, "hr.fines", "approve") : false,
     userId ? hasPermission(userId, "hr.fines", "delete-permanently") : false,
@@ -43,7 +45,7 @@ export default async function FinesPage({ searchParams }: FinesPageProps) {
       <Suspense fallback={<div className="p-6">Loading fines...</div>}>
         <FinesClient
           initialFines={(res.fines as any) || []}
-          pagination={res.pagination}
+          pagination={res.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 }}
           currentSearch={search}
           currentStatus={status}
           currentTab={tab}

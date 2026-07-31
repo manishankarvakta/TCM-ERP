@@ -15,11 +15,12 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { FiSearch, FiX, FiMoreVertical, FiCheck, FiXCircle } from "react-icons/fi";
 import { updateLeaveStatus } from "../_actions/leave-application.action";
 import { useToast } from "@/hooks/use-toast";
@@ -78,6 +79,114 @@ export default function LeaveApplicationsListClient({
   const [search, setSearch] = useState(initialSearch);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+
+  const getPageNumbers = (currentPage: number, totalPages: number) => {
+    const pages: (number | string)[] = [];
+    const windowSize = 2;
+    pages.push(1);
+    const startRange = Math.max(2, currentPage - windowSize);
+    const endRange = Math.min(totalPages - 1, currentPage + windowSize);
+    if (startRange > 2) {
+      pages.push("...");
+    }
+    for (let i = startRange; i <= endRange; i++) {
+      pages.push(i);
+    }
+    if (endRange < totalPages - 1) {
+      pages.push("...");
+    }
+    if (totalPages > 1) {
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  const handlePageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", page.toString());
+    router.push(`/dashboard/hr/leave?${params.toString()}`);
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("limit", newLimit.toString());
+    params.set("page", "1");
+    router.push(`/dashboard/hr/leave?${params.toString()}`);
+  };
+
+  const renderLimitSelector = () => {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">Rows per page:</span>
+        <Select
+          value={String(initialPagination.limit)}
+          onValueChange={(val: string) => handleLimitChange(Number(val))}
+          disabled={isPending}
+        >
+          <SelectTrigger className="w-[70px] h-8 text-xs">
+            <SelectValue placeholder={String(initialPagination.limit)} />
+          </SelectTrigger>
+          <SelectContent>
+            {[20, 50, 100, 200].map((opt) => (
+              <SelectItem key={opt} value={String(opt)}>
+                {opt}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  };
+
+  const renderPaginationButtons = () => {
+    if (initialPagination.totalPages <= 1) return null;
+    return (
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(initialPagination.page - 1)}
+          disabled={initialPagination.page === 1 || isPending}
+        >
+          Previous
+        </Button>
+        
+        <div className="flex items-center gap-1">
+          {getPageNumbers(initialPagination.page, initialPagination.totalPages).map((p, idx) => {
+            if (p === "...") {
+              return (
+                <span key={`dots-${idx}`} className="px-1 text-sm text-muted-foreground">
+                  ...
+                </span>
+              );
+            }
+            const isCurrent = p === initialPagination.page;
+            return (
+              <Button
+                key={`page-${p}`}
+                variant={isCurrent ? "default" : "outline"}
+                size="sm"
+                className="h-8 w-8 p-0 text-xs"
+                onClick={() => handlePageChange(p as number)}
+                disabled={isPending}
+              >
+                {p}
+              </Button>
+            );
+          })}
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(initialPagination.page + 1)}
+          disabled={initialPagination.page === initialPagination.totalPages || isPending}
+        >
+          Next
+        </Button>
+      </div>
+    );
+  };
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -212,39 +321,17 @@ export default function LeaveApplicationsListClient({
         </Table>
       </div>
 
-      {initialPagination.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Showing {((initialPagination.page - 1) * initialPagination.limit) + 1} to{" "}
-            {Math.min(initialPagination.page * initialPagination.limit, initialPagination.total)} of{" "}
-            {initialPagination.total} applications
+      {(initialPagination.totalPages > 1 || initialPagination.total > 0) && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="text-sm text-muted-foreground">
+              Showing {((initialPagination.page - 1) * initialPagination.limit) + 1} to{" "}
+              {Math.min(initialPagination.page * initialPagination.limit, initialPagination.total)} of{" "}
+              {initialPagination.total} applications
+            </div>
+            {renderLimitSelector()}
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={initialPagination.page === 1}
-              onClick={() => {
-                const params = new URLSearchParams(searchParams.toString());
-                params.set("page", String(initialPagination.page - 1));
-                router.push(`/dashboard/hr/leave?${params.toString()}`);
-              }}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={initialPagination.page === initialPagination.totalPages}
-              onClick={() => {
-                const params = new URLSearchParams(searchParams.toString());
-                params.set("page", String(initialPagination.page + 1));
-                router.push(`/dashboard/hr/leave?${params.toString()}`);
-              }}
-            >
-              Next
-            </Button>
-          </div>
+          {renderPaginationButtons()}
         </div>
       )}
     </div>
