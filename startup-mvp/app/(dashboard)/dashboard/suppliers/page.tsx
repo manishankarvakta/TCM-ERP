@@ -14,12 +14,14 @@ interface SuppliersPageProps {
     search?: string;
     tab?: string;
     warehouse?: string;
+    limit?: string;
   }>;
 }
 
 export default async function SuppliersPage({ searchParams }: SuppliersPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
+  const limit = parseInt(params.limit || "20");
   const search = params.search || "";
   const tab = params.tab || "all";
   const warehouse = params.warehouse || "all";
@@ -31,7 +33,7 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
   
   // Check permissions on server side for better performance
   const [result, warehousesResult, canView, canEdit, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
-    getSuppliers(page, 10, search, status, warehouse),
+    getSuppliers(page, limit, search, status, warehouse),
     getWarehousesForSupplier(),
     userId ? hasPermission(userId, "peoples.suppliers", "view") : false,
     userId ? hasPermission(userId, "peoples.suppliers", "edit") : false,
@@ -90,7 +92,7 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
             initialSuppliers={(result.suppliers as any) || []}
             initialPagination={result.pagination || {
               page: 1,
-              limit: 10,
+              limit: 20,
               total: 0,
               totalPages: 0,
             }}
@@ -113,7 +115,7 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
             initialSuppliers={(result.suppliers as any) || []}
             initialPagination={result.pagination || {
               page: 1,
-              limit: 10,
+              limit: 20,
               total: 0,
               totalPages: 0,
             }}

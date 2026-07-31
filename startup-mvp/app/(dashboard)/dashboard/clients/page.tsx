@@ -15,12 +15,14 @@ interface ClientsPageProps {
     search?: string;
     tab?: string;
     warehouse?: string;
+    limit?: string;
   }>;
 }
 
 export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
+  const limit = parseInt(params.limit || "20");
   const search = params.search || "";
   const tab = params.tab || "all";
   const warehouse = params.warehouse || "all";
@@ -33,7 +35,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   
   // Check permissions on server side for better performance
   const [result, warehousesResult, canView, canEdit, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
-    getClients(page, 10, search, status, warehouse),
+    getClients(page, limit, search, status, warehouse),
     getWarehousesForClient(),
     userId ? hasPermission(userId, "peoples.clients", "view") : false,
     userId ? hasPermission(userId, "peoples.clients", "edit") : false,
@@ -95,7 +97,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
               initialClients={result.clients || []}
               initialPagination={result.pagination || {
                 page: 1,
-                limit: 10,
+                limit: 20,
                 total: 0,
                 totalPages: 0,
               }}
@@ -118,7 +120,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
               initialClients={result.clients || []}
               initialPagination={result.pagination || {
                 page: 1,
-                limit: 10,
+                limit: 20,
                 total: 0,
                 totalPages: 0,
               }}

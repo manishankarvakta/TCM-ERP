@@ -23,12 +23,14 @@ interface EmployeesPageProps {
     gender?: string;
     status?: string;
     departmentId?: string;
+    limit?: string;
   }>;
 }
 
 export default async function EmployeesPage({ searchParams }: EmployeesPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
+  const limit = parseInt(params.limit || "20");
   const search = params.search || "";
   const tab = params.tab || "all";
   const employeeTypeId = params.employeeTypeId || "all";
@@ -43,7 +45,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
   
   // Check permissions and fetch data concurrently
   const [result, statsResult, typesResult, departmentsResult, canView, canEdit, canCreate, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
-    getEmployees(page, 10, search, status, employeeTypeId, gender, departmentId),
+    getEmployees(page, limit, search, status, employeeTypeId, gender, departmentId),
     getEmployeeStats(),
     getEmployeeTypes(1, 100, "", "active"),
     getDepartments(1, 100, "", "active"),
@@ -171,7 +173,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
               initialEmployees={result.employees || []}
               initialPagination={result.pagination || {
                 page: 1,
-                limit: 10,
+                limit: 20,
                 total: 0,
                 totalPages: 0,
               }}
@@ -198,7 +200,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
               initialEmployees={result.employees || []}
               initialPagination={result.pagination || {
                 page: 1,
-                limit: 10,
+                limit: 20,
                 total: 0,
                 totalPages: 0,
               }}
