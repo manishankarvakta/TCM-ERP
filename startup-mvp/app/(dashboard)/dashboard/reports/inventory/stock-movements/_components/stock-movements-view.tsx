@@ -455,7 +455,7 @@ export default function StockMovementsView({
           ...pagination,
           onPageChange: handlePageChange,
           onLimitChange: handleLimitChange,
-          limitOptions: [10, 20, 50, 100, 200],
+          limitOptions: [20, 50, 100, 200],
         }}
         exportFilename={`stock-movements-${startDate}-to-${endDate}`}
         onExport={handleExport}

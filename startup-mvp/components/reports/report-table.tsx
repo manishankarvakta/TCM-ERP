@@ -200,7 +200,7 @@ export default function ReportTable({
             <SelectValue placeholder={String(pagination.limit)} />
           </SelectTrigger>
           <SelectContent>
-            {(pagination.limitOptions || [10, 20, 50, 100, 200]).map((opt) => (
+            {(pagination.limitOptions || [20, 50, 100, 200]).map((opt) => (
               <SelectItem key={opt} value={String(opt)}>
                 {opt}
               </SelectItem>
