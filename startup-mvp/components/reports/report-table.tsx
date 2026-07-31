@@ -187,6 +187,30 @@ export default function ReportTable({
     });
   };
 
+  const renderLimitSelector = () => {
+    if (!pagination || !pagination.onLimitChange) return null;
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">Rows per page:</span>
+        <Select
+          value={String(pagination.limit)}
+          onValueChange={(val) => pagination.onLimitChange!(Number(val))}
+        >
+          <SelectTrigger className="w-[70px] h-8 text-xs">
+            <SelectValue placeholder={String(pagination.limit)} />
+          </SelectTrigger>
+          <SelectContent>
+            {(pagination.limitOptions || [10, 20, 50, 100, 200]).map((opt) => (
+              <SelectItem key={opt} value={String(opt)}>
+                {opt}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  };
+
   const renderPaginationButtons = () => {
     if (!pagination || pagination.totalPages <= 1) return null;
     return (
@@ -272,6 +296,7 @@ export default function ReportTable({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <CardTitle className="text-base font-semibold">{title}</CardTitle>
             <div className="flex flex-wrap items-center gap-4">
+              {renderLimitSelector()}
               {renderPaginationButtons()}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -376,26 +401,7 @@ export default function ReportTable({
                     {Math.min(pagination.page * pagination.limit, pagination.total)}{" "}
                     of {pagination.total} results
                   </div>
-                  {pagination.onLimitChange && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Rows per page:</span>
-                      <Select
-                        value={String(pagination.limit)}
-                        onValueChange={(val) => pagination.onLimitChange!(Number(val))}
-                      >
-                        <SelectTrigger className="w-[70px] h-8 text-xs">
-                          <SelectValue placeholder={String(pagination.limit)} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(pagination.limitOptions || [10, 20, 50, 100, 200]).map((opt) => (
-                            <SelectItem key={opt} value={String(opt)}>
-                              {opt}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
+                  {renderLimitSelector()}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
