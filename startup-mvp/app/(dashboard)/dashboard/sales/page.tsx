@@ -20,12 +20,14 @@ interface SalesPageProps {
     startDate?: string;
     endDate?: string;
     salesAssistantId?: string;
+    limit?: string;
   }>;
 }
 
 export default async function SalesPage({ searchParams }: SalesPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
+  const limit = parseInt(params.limit || "20");
   const search = params.search || "";
   const tab = params.tab || "all";
   const billerId = params.billerId || undefined;
@@ -71,7 +73,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
   }
 
   const [result, canView, canEdit, canMoveToTrash, canDeletePermanently, warehousesRes, users, salesmen] = await Promise.all([
-    getSales(page, 10, search, status, { billerId, warehouseId: effectiveWarehouseId !== "all" ? effectiveWarehouseId : undefined, type, startDate, endDate, salesAssistantId }),
+    getSales(page, limit, search, status, { billerId, warehouseId: effectiveWarehouseId !== "all" ? effectiveWarehouseId : undefined, type, startDate, endDate, salesAssistantId }),
     userId ? hasPermission(userId, "sales.sales", "view") : false,
     userId ? hasPermission(userId, "sales.sales", "edit") : false,
     userId ? hasPermission(userId, "sales.sales", "move-to-trash") : false,
@@ -173,7 +175,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
             initialPagination={
               result.pagination || {
                 page: 1,
-                limit: 10,
+                limit: 20,
                 total: 0,
                 totalPages: 0,
               }
@@ -208,7 +210,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
             initialPagination={
               result.pagination || {
                 page: 1,
-                limit: 10,
+                limit: 20,
                 total: 0,
                 totalPages: 0,
               }
