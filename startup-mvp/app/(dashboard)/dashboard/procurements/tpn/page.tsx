@@ -16,12 +16,14 @@ interface TPNPageProps {
     warehouseId?: string;
     startDate?: string;
     endDate?: string;
+    limit?: string;
   }>;
 }
 
 export default async function TPNPage({ searchParams }: TPNPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
+  const limit = parseInt(params.limit || "20");
   const search = params.search || "";
   const tab = params.tab || "all";
 
@@ -46,7 +48,7 @@ export default async function TPNPage({ searchParams }: TPNPageProps) {
   const status = tab === "trash" ? "trash" : "all";
 
   const [result, warehousesResult, canView, canCreate, canEdit, canMoveToTrash, canDeletePermanently, canApprove] = await Promise.all([
-    getTPNs(page, 10, search, status, selectedWarehouseId, startDate, endDate),
+    getTPNs(page, limit, search, status, selectedWarehouseId, startDate, endDate),
     getActiveWarehouses(),
     userId ? hasPermission(userId, "procurements.tpn", "view") : false,
     userId ? hasPermission(userId, "procurements.tpn", "create") : false,
@@ -114,7 +116,7 @@ export default async function TPNPage({ searchParams }: TPNPageProps) {
             initialPagination={
               result.pagination || {
                 page: 1,
-                limit: 10,
+                limit: 20,
                 total: 0,
                 totalPages: 0,
               }
@@ -142,7 +144,7 @@ export default async function TPNPage({ searchParams }: TPNPageProps) {
             initialPagination={
               result.pagination || {
                 page: 1,
-                limit: 10,
+                limit: 20,
                 total: 0,
                 totalPages: 0,
               }

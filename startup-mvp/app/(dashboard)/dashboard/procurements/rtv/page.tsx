@@ -14,12 +14,14 @@ interface RTVPageProps {
     warehouseId?: string;
     startDate?: string;
     endDate?: string;
+    limit?: string;
   }>;
 }
 
 export default async function RTVPage({ searchParams }: RTVPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
+  const limit = parseInt(params.limit || "20");
   const search = params.search || "";
 
   const todayStr = new Date().toISOString().split("T")[0];
@@ -41,7 +43,7 @@ export default async function RTVPage({ searchParams }: RTVPageProps) {
     : (params.warehouseId || "all");
 
   const [result, warehousesResult, canView, canCreate] = await Promise.all([
-    getReturnsToVendor(page, 10, search, selectedWarehouseId, startDate, endDate),
+    getReturnsToVendor(page, limit, search, selectedWarehouseId, startDate, endDate),
     getActiveWarehouses(),
     userId ? hasPermission(userId, "procurements.rtv", "view") : false,
     userId ? hasPermission(userId, "procurements.rtv", "create") : false,
@@ -81,7 +83,7 @@ export default async function RTVPage({ searchParams }: RTVPageProps) {
 
       <RTVListClient 
         initialData={result.rtvs || []} 
-        pagination={result.pagination || { page: 1, limit: 10, total: 0, totalPages: 0 }} 
+        pagination={result.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 }} 
         searchStr={search} 
         warehouses={activeWarehouses}
         selectedWarehouseId={selectedWarehouseId}

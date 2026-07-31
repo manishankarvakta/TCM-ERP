@@ -15,12 +15,14 @@ interface PurchasesPageProps {
     warehouseId?: string;
     startDate?: string;
     endDate?: string;
+    limit?: string;
   }>;
 }
 
 export default async function PurchasesPage({ searchParams }: PurchasesPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
+  const limit = parseInt(params.limit || "20");
   const search = params.search || "";
   const tab = params.tab || "all";
   
@@ -59,7 +61,7 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
   const status = tab === "trash" ? "trash" : "all";
 
   const [result, canView, canCreate, canEdit, canMoveToTrash, canDeletePermanently] = await Promise.all([
-    getPurchases(page, 10, search, status, selectedWarehouseId, startDate, endDate),
+    getPurchases(page, limit, search, status, selectedWarehouseId, startDate, endDate),
     userId ? hasPermission(userId, "procurements.purchases", "view") : false,
     userId ? hasPermission(userId, "procurements.purchases", "create") : false,
     userId ? hasPermission(userId, "procurements.purchases", "edit") : false,
@@ -115,7 +117,7 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
             initialPagination={
               result.pagination || {
                 page: 1,
-                limit: 10,
+                limit: 20,
                 total: 0,
                 totalPages: 0,
               }
@@ -142,7 +144,7 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
             initialPagination={
               result.pagination || {
                 page: 1,
-                limit: 10,
+                limit: 20,
                 total: 0,
                 totalPages: 0,
               }
