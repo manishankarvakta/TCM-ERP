@@ -447,72 +447,72 @@ export default function SalesListClient({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            {selectedSales.size > 0 && (
-              <span className="text-sm text-muted-foreground whitespace-nowrap">
-                {selectedSales.size} selected
-              </span>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isPending || selectedSales.size === 0}
-                >
-                  <FiMoreVertical className="mr-2 h-4 w-4" />
-                  Bulk Actions
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {!isTrash ? (
-                  <>
-                    <DropdownMenuItem
-                      onClick={() => handleBulkAction("COMPLETED")}
-                      disabled={selectedSales.size === 0}
-                    >
-                      <FiRotateCw className="mr-2 h-4 w-4" />
-                      Mark as Completed
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleBulkAction("CANCELLED")}
-                      disabled={selectedSales.size === 0}
-                    >
-                      <FiX className="mr-2 h-4 w-4" />
-                      Cancel Sales
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleBulkAction("trash")}
-                      className="text-destructive"
-                      disabled={selectedSales.size === 0}
-                    >
-                      <FiTrash2 className="mr-2 h-4 w-4" />
-                      Move to Trash
-                    </DropdownMenuItem>
-                  </>
-                ) : (
-                  <>
-                    <DropdownMenuItem
-                      onClick={() => handleBulkAction("restore")}
-                      disabled={selectedSales.size === 0}
-                    >
-                      <FiRotateCw className="mr-2 h-4 w-4" />
-                      Restore
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleBulkAction("delete-permanently")}
-                      className="text-destructive"
-                      disabled={selectedSales.size === 0}
-                    >
-                      <FiTrash2 className="mr-2 h-4 w-4" />
-                      Delete Permanently
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+        <div className="flex items-center gap-2">
+          {selectedSales.size > 0 && (
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              {selectedSales.size} selected
+            </span>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isPending || selectedSales.size === 0}
+              >
+                <FiMoreVertical className="mr-2 h-4 w-4" />
+                Bulk Actions
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {!isTrash ? (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("COMPLETED")}
+                    disabled={selectedSales.size === 0}
+                  >
+                    <FiRotateCw className="mr-2 h-4 w-4" />
+                    Mark as Completed
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("CANCELLED")}
+                    disabled={selectedSales.size === 0}
+                  >
+                    <FiX className="mr-2 h-4 w-4" />
+                    Cancel Sales
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("trash")}
+                    className="text-destructive"
+                    disabled={selectedSales.size === 0}
+                  >
+                    <FiTrash2 className="mr-2 h-4 w-4" />
+                    Move to Trash
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("restore")}
+                    disabled={selectedSales.size === 0}
+                  >
+                    <FiRotateCw className="mr-2 h-4 w-4" />
+                    Restore
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleBulkAction("delete-permanently")}
+                    className="text-destructive"
+                    disabled={selectedSales.size === 0}
+                  >
+                    <FiTrash2 className="mr-2 h-4 w-4" />
+                    Delete Permanently
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
+      </div>
 
       {/* Filters Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
