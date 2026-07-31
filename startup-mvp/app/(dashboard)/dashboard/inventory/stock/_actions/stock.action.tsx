@@ -1002,20 +1002,47 @@ export async function getStockSummaryMetrics(filters: {
       where.warehouseId = filters.warehouseId;
     }
 
-    if (filters.search) {
-      where.OR = [
-        { item: { name: { contains: filters.search, mode: "insensitive" } } },
-        { item: { code: { contains: filters.search, mode: "insensitive" } } },
-        { item: { barcode: { contains: filters.search, mode: "insensitive" } } },
-        { variant: { sku: { contains: filters.search, mode: "insensitive" } } },
-        { variant: { barcode: { contains: filters.search, mode: "insensitive" } } },
-        { variant: { item: { name: { contains: filters.search, mode: "insensitive" } } } },
-        { variant: { item: { code: { contains: filters.search, mode: "insensitive" } } } },
-        { variant: { item: { barcode: { contains: filters.search, mode: "insensitive" } } } },
-        { warehouse: { name: { contains: filters.search, mode: "insensitive" } } },
-        { warehouse: { code: { contains: filters.search, mode: "insensitive" } } },
-      ];
-    }
+    // Combine Search query AND Item status filters
+    where.AND = [
+      ...(filters.search
+        ? [
+            {
+              OR: [
+                { item: { name: { contains: filters.search, mode: "insensitive" as const } } },
+                { item: { code: { contains: filters.search, mode: "insensitive" as const } } },
+                { item: { barcode: { contains: filters.search, mode: "insensitive" as const } } },
+                { variant: { sku: { contains: filters.search, mode: "insensitive" as const } } },
+                { variant: { barcode: { contains: filters.search, mode: "insensitive" as const } } },
+                { variant: { item: { name: { contains: filters.search, mode: "insensitive" as const } } } },
+                { variant: { item: { code: { contains: filters.search, mode: "insensitive" as const } } } },
+                { variant: { item: { barcode: { contains: filters.search, mode: "insensitive" as const } } } },
+                { warehouse: { name: { contains: filters.search, mode: "insensitive" as const } } },
+                { warehouse: { code: { contains: filters.search, mode: "insensitive" as const } } },
+              ],
+            },
+          ]
+        : []),
+      {
+        OR: [
+          {
+            item: {
+              isTrash: false,
+              status: "active",
+              trackInventory: true,
+            },
+          },
+          {
+            variant: {
+              item: {
+                isTrash: false,
+                status: "active",
+                trackInventory: true,
+              },
+            },
+          },
+        ],
+      },
+    ];
 
     const stocks = await prisma.stock.findMany({
       where,
@@ -1028,6 +1055,7 @@ export async function getStockSummaryMetrics(filters: {
         },
         variant: {
           select: {
+            costPrice: true,
             item: {
               select: {
                 costPrice: true
@@ -1043,8 +1071,9 @@ export async function getStockSummaryMetrics(filters: {
 
     for (const stock of stocks) {
       const qty = Number(stock.quantity);
-      const parentItem = stock.item || stock.variant?.item;
-      const costPrice = parentItem ? Number(parentItem.costPrice) : 0;
+      const costPrice = stock.variant
+        ? Number(stock.variant.costPrice || stock.variant.item?.costPrice || 0)
+        : Number(stock.item?.costPrice || 0);
       totalQuantity += qty;
       totalValue += qty * costPrice;
     }
@@ -1128,25 +1157,52 @@ export async function getStocks(
       where.warehouseId = filters.warehouseId;
     }
 
-    if (filters.search) {
-      where.OR = [
-        // 1. Direct Item match (simple items)
-        { item: { name: { contains: filters.search, mode: "insensitive" } } },
-        { item: { code: { contains: filters.search, mode: "insensitive" } } },
-        { item: { barcode: { contains: filters.search, mode: "insensitive" } } },
+    // Combine Search query AND Item status filters
+    where.AND = [
+      ...(filters.search
+        ? [
+            {
+              OR: [
+                // 1. Direct Item match (simple items)
+                { item: { name: { contains: filters.search, mode: "insensitive" as const } } },
+                { item: { code: { contains: filters.search, mode: "insensitive" as const } } },
+                { item: { barcode: { contains: filters.search, mode: "insensitive" as const } } },
 
-        // 2. Variant match (SKUs / barcodes / parent details)
-        { variant: { sku: { contains: filters.search, mode: "insensitive" } } },
-        { variant: { barcode: { contains: filters.search, mode: "insensitive" } } },
-        { variant: { item: { name: { contains: filters.search, mode: "insensitive" } } } },
-        { variant: { item: { code: { contains: filters.search, mode: "insensitive" } } } },
-        { variant: { item: { barcode: { contains: filters.search, mode: "insensitive" } } } },
+                // 2. Variant match (SKUs / barcodes / parent details)
+                { variant: { sku: { contains: filters.search, mode: "insensitive" as const } } },
+                { variant: { barcode: { contains: filters.search, mode: "insensitive" as const } } },
+                { variant: { item: { name: { contains: filters.search, mode: "insensitive" as const } } } },
+                { variant: { item: { code: { contains: filters.search, mode: "insensitive" as const } } } },
+                { variant: { item: { barcode: { contains: filters.search, mode: "insensitive" as const } } } },
 
-        // 3. Warehouse match
-        { warehouse: { name: { contains: filters.search, mode: "insensitive" } } },
-        { warehouse: { code: { contains: filters.search, mode: "insensitive" } } },
-      ];
-    }
+                // 3. Warehouse match
+                { warehouse: { name: { contains: filters.search, mode: "insensitive" as const } } },
+                { warehouse: { code: { contains: filters.search, mode: "insensitive" as const } } },
+              ],
+            },
+          ]
+        : []),
+      {
+        OR: [
+          {
+            item: {
+              isTrash: false,
+              status: "active",
+              trackInventory: true,
+            },
+          },
+          {
+            variant: {
+              item: {
+                isTrash: false,
+                status: "active",
+                trackInventory: true,
+              },
+            },
+          },
+        ],
+      },
+    ];
 
     // Get total count
     const total = await prisma.stock.count({ where });

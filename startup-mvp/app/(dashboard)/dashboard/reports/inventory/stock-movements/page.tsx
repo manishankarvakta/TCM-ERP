@@ -10,6 +10,9 @@ interface StockMovementsPageProps {
     warehouseId?: string;
     search?: string;
     date?: string;
+    startDate?: string;
+    endDate?: string;
+    itemType?: string;
   }>;
 }
 
@@ -19,12 +22,17 @@ export default async function StockMovementsPage({
   const params = await searchParams;
   const page = parseInt(params.page || "1");
   const today = new Date().toISOString().split("T")[0];
-  const date = params.date || today;
+  
+  const startDate = params.startDate || params.date || today;
+  const endDate = params.endDate || params.date || today;
+  const itemType = params.itemType || "all";
 
   const filters = {
     warehouseId: params.warehouseId || undefined,
     search: params.search || undefined,
-    date,
+    startDate,
+    endDate,
+    itemType,
   };
 
   const result = await getStockMovements(filters, { page, limit: 20 });
@@ -59,6 +67,7 @@ export default async function StockMovementsPage({
             pagination={result.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 }}
             warehouses={warehouses}
             filters={filters}
+            summaryTotals={(result as any).summaryTotals}
           />
         )}
       </div>

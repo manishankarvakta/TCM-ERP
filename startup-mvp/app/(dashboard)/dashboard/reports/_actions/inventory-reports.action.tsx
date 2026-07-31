@@ -449,7 +449,10 @@ export async function getStockMovements(
   filters: {
     warehouseId?: string;
     search?: string;
-    date?: string; // Target day (e.g. YYYY-MM-DD)
+    date?: string; // Target day fallback (e.g. YYYY-MM-DD)
+    startDate?: string;
+    endDate?: string;
+    itemType?: string;
   },
   pagination: {
     page: number;
@@ -478,53 +481,55 @@ export async function getStockMovements(
       };
     }
 
-    const targetDateStr = filters.date || new Date().toISOString().split("T")[0];
-    const targetDate = new Date(targetDateStr);
+    const targetStartDateStr = filters.startDate || filters.date || new Date().toISOString().split("T")[0];
+    const targetEndDateStr = filters.endDate || filters.date || new Date().toISOString().split("T")[0];
+
+    const startDate = new Date(targetStartDateStr);
+    const endDate = new Date(targetEndDateStr);
     
     // Set boundaries in local server time
-    const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0, 0);
-    const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
+    const startOfDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0);
+    const endOfDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999);
 
     const itemWhere: Prisma.ItemWhereInput = {
       trackInventory: true,
       isTrash: false,
       status: "active",
+      ...(filters.itemType && filters.itemType !== "all"
+        ? { itemType: filters.itemType as ItemType }
+        : {}),
       ...(filters.warehouseId && filters.warehouseId !== "all"
         ? {
             OR: [
+              // Direct item stocks/ledgers in target warehouse
               { stocks: { some: { warehouseId: filters.warehouseId } } },
               { stockLedgers: { some: { warehouseId: filters.warehouseId } } },
+              // Nested variant stocks/ledgers in target warehouse
+              { variants: { some: { stocks: { some: { warehouseId: filters.warehouseId } } } } },
+              { variants: { some: { stockLedgers: { some: { warehouseId: filters.warehouseId } } } } },
             ],
           }
         : {}),
       ...(filters.search
         ? {
             OR: [
-              { name: { contains: filters.search, mode: "insensitive" } },
-              { code: { contains: filters.search, mode: "insensitive" } },
+              { name: { contains: filters.search, mode: "insensitive" as const } },
+              { code: { contains: filters.search, mode: "insensitive" as const } },
             ],
           }
         : {}),
     };
 
-    const isPaginated = pagination.limit > 0;
-    const skip = isPaginated ? (pagination.page - 1) * pagination.limit : undefined;
-    const take = isPaginated ? pagination.limit : undefined;
-
-    const [items, total] = await Promise.all([
-      prisma.item.findMany({
-        where: itemWhere,
-        include: {
-          unit: { select: { symbol: true } },
-          variants: {
-            select: { id: true, sku: true, color: true, size: true, costPrice: true },
-          },
+    const items = await prisma.item.findMany({
+      where: itemWhere,
+      include: {
+        unit: { select: { symbol: true } },
+        variants: {
+          select: { id: true, sku: true, color: true, size: true, costPrice: true },
         },
-        orderBy: { code: "asc" },
-        ...(isPaginated ? { skip, take } : {}),
-      }),
-      prisma.item.count({ where: itemWhere }),
-    ]);
+      },
+      orderBy: { code: "asc" },
+    });
 
     const itemIds = items.map((i) => i.id);
     const variantIds = items
@@ -559,10 +564,19 @@ export async function getStockMovements(
         warehouseId: true,
         quantity: true,
         createdAt: true,
+        referenceType: true,
       },
     });
 
     const reportData: any[] = [];
+    const summaryTotals = {
+      opening: 0,
+      inward: 0,
+      outward: 0,
+      closing: 0,
+      value: 0,
+      itemsCount: 0,
+    };
 
     for (const warehouse of warehouses) {
       for (const item of items) {
@@ -577,16 +591,54 @@ export async function getStockMovements(
             let opening = 0;
             let inward = 0;
             let outward = 0;
+            let grnIn = 0;
+            let salesReturnIn = 0;
+            let tpnIn = 0;
+            let adjIn = 0;
+            let otherIn = 0;
+
+            let salesOut = 0;
+            let rtvOut = 0;
+            let tpnOut = 0;
+            let damageOut = 0;
+            let adjOut = 0;
+            let otherOut = 0;
 
             for (const entry of variantLedger) {
               const qty = Number(entry.quantity);
               if (entry.createdAt < startOfDay) {
                 opening += qty;
               } else {
+                const refType = (entry.referenceType || "").toUpperCase();
                 if (qty > 0) {
                   inward += qty;
+                  if (refType === "GRN" || refType === "PURCHASE") {
+                    grnIn += qty;
+                  } else if (refType === "SALE_RETURN") {
+                    salesReturnIn += qty;
+                  } else if (refType === "TPN") {
+                    tpnIn += qty;
+                  } else if (refType === "ADJUSTMENT") {
+                    adjIn += qty;
+                  } else {
+                    otherIn += qty;
+                  }
                 } else {
-                  outward += Math.abs(qty);
+                  const absQty = Math.abs(qty);
+                  outward += absQty;
+                  if (refType === "SALE" || refType === "SALE_VOID") {
+                    salesOut += absQty;
+                  } else if (refType === "PURCHASE_RETURN") {
+                    rtvOut += absQty;
+                  } else if (refType === "TPN") {
+                    tpnOut += absQty;
+                  } else if (refType === "DAMAGE") {
+                    damageOut += absQty;
+                  } else if (refType === "ADJUSTMENT") {
+                    adjOut += absQty;
+                  } else {
+                    otherOut += absQty;
+                  }
                 }
               }
             }
@@ -596,6 +648,15 @@ export async function getStockMovements(
             // Only show item variant at warehouse if it has history or movements
             if (opening !== 0 || inward !== 0 || outward !== 0 || closing !== 0) {
               const cost = Number(variant.costPrice || item.costPrice || 0);
+              const totalValue = closing * cost;
+
+              summaryTotals.opening += opening;
+              summaryTotals.inward += inward;
+              summaryTotals.outward += outward;
+              summaryTotals.closing += closing;
+              summaryTotals.value += totalValue;
+              summaryTotals.itemsCount += 1;
+
               reportData.push({
                 id: `${variant.id}_${warehouse.id}`,
                 itemCode: variant.sku,
@@ -604,11 +665,22 @@ export async function getStockMovements(
                 warehouseCode: warehouse.code,
                 openingQuantity: opening,
                 inwardQuantity: inward,
+                grnIn,
+                salesReturnIn,
+                tpnIn,
+                adjIn,
+                otherIn,
                 outwardQuantity: outward,
+                salesOut,
+                rtvOut,
+                tpnOut,
+                damageOut,
+                adjOut,
+                otherOut,
                 closingQuantity: closing,
                 unit: item.unit?.symbol || "pcs",
                 unitCost: cost,
-                totalValue: closing * cost,
+                totalValue: totalValue,
               });
             }
           }
@@ -620,16 +692,54 @@ export async function getStockMovements(
           let opening = 0;
           let inward = 0;
           let outward = 0;
+          let grnIn = 0;
+          let salesReturnIn = 0;
+          let tpnIn = 0;
+          let adjIn = 0;
+          let otherIn = 0;
+
+          let salesOut = 0;
+          let rtvOut = 0;
+          let tpnOut = 0;
+          let damageOut = 0;
+          let adjOut = 0;
+          let otherOut = 0;
 
           for (const entry of itemLedger) {
             const qty = Number(entry.quantity);
             if (entry.createdAt < startOfDay) {
               opening += qty;
             } else {
+              const refType = (entry.referenceType || "").toUpperCase();
               if (qty > 0) {
                 inward += qty;
+                if (refType === "GRN" || refType === "PURCHASE") {
+                  grnIn += qty;
+                } else if (refType === "SALE_RETURN") {
+                  salesReturnIn += qty;
+                } else if (refType === "TPN") {
+                  tpnIn += qty;
+                } else if (refType === "ADJUSTMENT") {
+                  adjIn += qty;
+                } else {
+                  otherIn += qty;
+                }
               } else {
-                outward += Math.abs(qty);
+                const absQty = Math.abs(qty);
+                outward += absQty;
+                if (refType === "SALE" || refType === "SALE_VOID") {
+                  salesOut += absQty;
+                } else if (refType === "PURCHASE_RETURN") {
+                  rtvOut += absQty;
+                } else if (refType === "TPN") {
+                  tpnOut += absQty;
+                } else if (refType === "DAMAGE") {
+                  damageOut += absQty;
+                } else if (refType === "ADJUSTMENT") {
+                  adjOut += absQty;
+                } else {
+                  otherOut += absQty;
+                }
               }
             }
           }
@@ -638,6 +748,15 @@ export async function getStockMovements(
 
           if (opening !== 0 || inward !== 0 || outward !== 0 || closing !== 0) {
             const cost = Number(item.costPrice || 0);
+            const totalValue = closing * cost;
+
+            summaryTotals.opening += opening;
+            summaryTotals.inward += inward;
+            summaryTotals.outward += outward;
+            summaryTotals.closing += closing;
+            summaryTotals.value += totalValue;
+            summaryTotals.itemsCount += 1;
+
             reportData.push({
               id: `${item.id}_${warehouse.id}`,
               itemCode: item.code,
@@ -646,26 +765,45 @@ export async function getStockMovements(
               warehouseCode: warehouse.code,
               openingQuantity: opening,
               inwardQuantity: inward,
+              grnIn,
+              salesReturnIn,
+              tpnIn,
+              adjIn,
+              otherIn,
               outwardQuantity: outward,
+              salesOut,
+              rtvOut,
+              tpnOut,
+              damageOut,
+              adjOut,
+              otherOut,
               closingQuantity: closing,
               unit: item.unit?.symbol || "pcs",
               unitCost: cost,
-              totalValue: closing * cost,
+              totalValue: totalValue,
             });
           }
         }
       }
     }
 
+    const totalRows = reportData.length;
+    const isPaginated = pagination.limit > 0;
+    const skip = isPaginated ? (pagination.page - 1) * pagination.limit : 0;
+    const paginatedData = isPaginated
+      ? reportData.slice(skip, skip + pagination.limit)
+      : reportData;
+
     return {
       success: true,
-      data: reportData,
+      data: paginatedData,
       pagination: {
         page: pagination.page,
         limit: pagination.limit,
-        total,
-        totalPages: pagination.limit > 0 ? Math.ceil(total / pagination.limit) : 1,
+        total: totalRows,
+        totalPages: pagination.limit > 0 ? Math.ceil(totalRows / pagination.limit) : 1,
       },
+      summaryTotals,
     };
   } catch (error) {
     console.error("getStockMovements error:", error);
