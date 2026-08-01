@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import CategoriesListClient from "./_components/categories";
+import ExportCategoriesButton from "./_components/ExportCategoriesButton";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import PageGuard from "@/components/permissions/page-guard";
@@ -64,15 +65,19 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
             <h1 className="text-2xl font-semibold">Categories</h1>
             <p className="text-sm text-muted-foreground">Manage categories in your system</p>
           </div>
-          {tab !== "trash" && canEdit && (
-            <Button asChild>
-              <Link href="/dashboard/master/categories/add">
-                <FiPlus className="mr-2 h-4 w-4" />
-                Add Category
-              </Link>
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <ExportCategoriesButton search={search} tab={tab} />
+            {tab !== "trash" && canEdit && (
+              <Button asChild>
+                <Link href="/dashboard/master/categories/add">
+                  <FiPlus className="mr-2 h-4 w-4" />
+                  Add Category
+                </Link>
+              </Button>
+            )}
+          </div>
         </div>
+
 
         <Tabs defaultValue={tab} className="w-full">
           <TabsList>

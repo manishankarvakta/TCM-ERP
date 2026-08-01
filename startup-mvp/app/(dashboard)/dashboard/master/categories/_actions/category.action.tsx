@@ -762,3 +762,85 @@ export async function getActiveRootCategories() {
     };
   }
 }
+
+/**
+ * Get all categories matching filters for export (no pagination limit)
+ */
+export async function getAllCategoriesForExport(
+  search: string = "",
+  status: "active" | "inactive" | "trash" | "all" = "all",
+  categoryIds?: string[]
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", categories: [] };
+    }
+
+    const canView = await hasPermission(session.user.id, "master.categories", "view");
+    if (!canView) {
+      return { success: false, error: "You do not have permission to view categories", categories: [] };
+    }
+
+    const where: Prisma.CategoryWhereInput = {};
+
+    if (categoryIds && categoryIds.length > 0) {
+      where.id = { in: categoryIds };
+    } else {
+      if (search) {
+        where.OR = [
+          { name: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      if (status === "trash") {
+        where.status = "trash";
+      } else if (status === "active") {
+        where.status = "active";
+      } else if (status === "inactive") {
+        where.status = "inactive";
+      } else if (status === "all") {
+        where.status = { not: "trash" };
+      }
+    }
+
+    const categories = await prisma.category.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        status: true,
+        parentId: true,
+        parent: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: {
+            items: true,
+            children: true,
+          },
+        },
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return { success: true, categories };
+  } catch (error) {
+    console.error("getAllCategoriesForExport error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch categories for export",
+      categories: [],
+    };
+  }
+}
+
