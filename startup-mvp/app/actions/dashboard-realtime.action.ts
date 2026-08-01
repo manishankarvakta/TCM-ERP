@@ -527,14 +527,39 @@ export async function getRealtimeDashboardStats(
       return acc.warehouses.some((w: any) => w.id === warehouseId);
     });
 
-    // 3. Outflows / Expenses & Journal movements paid from Cash, Bank, and MFS Accounts (within selected date range)
+    // 3. Proper Accounts System: Calculate account balance from JournalEntryLine & VoucherLine for each COA
     const accountCoaIds = filteredAccounts.map((acc: any) => acc.chartOfAccountId).filter(Boolean);
 
     if (accountCoaIds.length > 0) {
+      // Query JournalEntryLine aggregates (standard accounting system formula: debit - credit)
+      const journalAggregates = await prisma.journalEntryLine.groupBy({
+        by: ["chartOfAccountId"],
+        where: {
+          chartOfAccountId: { in: accountCoaIds },
+          JournalEntry: {
+            date: { gte: currentStart, lte: currentEnd },
+          },
+        },
+        _sum: {
+          debitAmount: true,
+          creditAmount: true,
+        },
+      });
+
+      for (const agg of journalAggregates) {
+        const netJournalEffect = Number(agg._sum.debitAmount || 0) - Number(agg._sum.creditAmount || 0);
+        paymentMap.set(
+          agg.chartOfAccountId,
+          (paymentMap.get(agg.chartOfAccountId) || 0) + netJournalEffect
+        );
+      }
+
+      // Query VoucherLines (for vouchers where journal entries are not linked)
       const voucherLines = await prisma.voucherLine.findMany({
         where: {
           chartOfAccountId: { in: accountCoaIds },
           createdAt: { gte: currentStart, lte: currentEnd },
+          Voucher: { JournalEntry: { none: {} } },
           ...(warehouseId !== "all" ? { Voucher: { warehouseId } } : {}),
         },
         select: {
