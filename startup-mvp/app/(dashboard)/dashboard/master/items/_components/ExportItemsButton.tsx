@@ -18,7 +18,7 @@ import { ItemType } from "@prisma/client";
 interface ExportItemsButtonProps {
   search?: string;
   tab?: string;
-  itemType?: ItemType;
+  itemType?: ItemType | "all";
 }
 
 export default function ExportItemsButton({

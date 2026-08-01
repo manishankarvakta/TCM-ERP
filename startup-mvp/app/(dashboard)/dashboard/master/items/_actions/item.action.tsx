@@ -1971,7 +1971,8 @@ export async function toggleItemEcom(itemId: string, enabled: boolean) {
 export async function getAllItemsForExport(
   search: string = "",
   status: "active" | "inactive" | "trash" | "all" = "all",
-  itemType?: ItemType
+  itemType?: ItemType | "all",
+  itemIds?: string[]
 ) {
   try {
     const session = await auth();
@@ -1986,30 +1987,35 @@ export async function getAllItemsForExport(
 
     const where: Prisma.ItemWhereInput = {};
 
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { code: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
-      ];
+    if (itemIds && itemIds.length > 0) {
+      where.id = { in: itemIds };
+    } else {
+      if (search) {
+        where.OR = [
+          { name: { contains: search, mode: "insensitive" } },
+          { code: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      if (status === "trash") {
+        where.isTrash = true;
+        where.status = "trash";
+      } else if (status === "active") {
+        where.isTrash = false;
+        where.status = "active";
+      } else if (status === "inactive") {
+        where.isTrash = false;
+        where.status = "inactive";
+      } else if (status === "all") {
+        where.isTrash = false;
+      }
+
+      if (itemType && itemType !== ("all" as any)) {
+        where.itemType = itemType as ItemType;
+      }
     }
 
-    if (status === "trash") {
-      where.isTrash = true;
-      where.status = "trash";
-    } else if (status === "active") {
-      where.isTrash = false;
-      where.status = "active";
-    } else if (status === "inactive") {
-      where.isTrash = false;
-      where.status = "inactive";
-    } else if (status === "all") {
-      where.isTrash = false;
-    }
-
-    if (itemType) {
-      where.itemType = itemType;
-    }
 
     const items = await prisma.item.findMany({
       where,
