@@ -556,11 +556,8 @@ export async function getRealtimeDashboardStats(
 
     const receivedAccounts = filteredAccounts.map((acc: any) => {
       const coa = acc.ChartOfAccount;
-      // If journal entries exist, use Net GL Balance (Total Debit - Total Credit).
-      // Otherwise, fallback to net balance from paymentMap.
-      const balance = netAccountBalanceMap.has(coa.id)
-        ? netAccountBalanceMap.get(coa.id)!
-        : (paymentMap.get(coa.id) || 0);
+      // Always calculate Net Account Balance strictly from General Ledger (Total Debits - Total Credits)
+      const balance = netAccountBalanceMap.get(coa.id) || 0;
 
       return {
         id: acc.id,
