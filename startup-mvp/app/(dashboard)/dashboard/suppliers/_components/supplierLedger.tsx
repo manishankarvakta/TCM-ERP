@@ -24,6 +24,7 @@ import {
   FiTrendingDown,
 } from "react-icons/fi";
 import { format } from "date-fns";
+import PrintHeader, { PrintStyle } from "@/app/(dashboard)/dashboard/procurements/_components/print-header";
 
 interface LedgerItem {
   id: string;
@@ -74,6 +75,12 @@ interface SupplierLedgerProps {
   summary: LedgerSummary;
   initialStartDate?: string;
   initialEndDate?: string;
+  organization?: {
+    name?: string | null;
+    address?: string | null;
+    email?: string | null;
+    phone?: string | null;
+  } | null;
 }
 
 export default function SupplierLedger({
@@ -82,6 +89,7 @@ export default function SupplierLedger({
   summary,
   initialStartDate = "",
   initialEndDate = "",
+  organization,
 }: SupplierLedgerProps) {
   const router = useRouter();
   const [startDate, setStartDate] = useState(initialStartDate);
@@ -150,6 +158,19 @@ export default function SupplierLedger({
 
   return (
     <div className="space-y-6 print:p-0 print:space-y-4">
+      {/* Print-only: multi-page print fix + page numbering */}
+      <PrintStyle />
+
+      {/* Print-only Branded Header */}
+      <PrintHeader
+        docNumber={supplier.supplierCode || supplier.id.slice(-8).toUpperCase()}
+        docTitle="SUPPLIER LEDGER STATEMENT"
+        organizationName={organization?.name}
+        organizationAddress={organization?.address}
+        organizationEmail={organization?.email}
+        organizationPhone={organization?.phone}
+      />
+
       {/* Top Header Actions (hidden on print) */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
         <div className="flex items-center gap-3">
@@ -174,100 +195,6 @@ export default function SupplierLedger({
         </div>
       </div>
 
-      {/* Minimalistic Print Header & Overview (Visible ONLY when printing) */}
-      <div className="hidden print:block space-y-4 mb-6">
-        <div className="flex justify-between items-start border-b pb-3">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight uppercase">Supplier Ledger Statement</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Statement Date: {format(new Date(), "dd MMMM yyyy")}
-              {startDate && endDate
-                ? ` | Period: ${format(new Date(startDate), "dd MMM yyyy")} to ${format(new Date(endDate), "dd MMM yyyy")}`
-                : " | Period: All Time"}
-            </p>
-          </div>
-          <div className="text-right">
-            <div className="text-base font-bold">{supplier.name || "Supplier"}</div>
-            {supplier.supplierCode && (
-              <div className="text-xs font-mono text-muted-foreground">Code: {supplier.supplierCode}</div>
-            )}
-            {supplier.phone && <div className="text-xs text-muted-foreground">{supplier.phone}</div>}
-          </div>
-        </div>
-
-        {/* Minimalistic Overview Grid */}
-        <div className="grid grid-cols-2 gap-4 text-xs border rounded-md p-3 bg-muted/20">
-          <div className="space-y-1">
-            <div className="font-semibold text-muted-foreground uppercase text-[10px] tracking-wider mb-1">
-              Supplier Details
-            </div>
-            <div>
-              <span className="font-semibold">Name:</span> {supplier.name || "-"}
-            </div>
-            <div>
-              <span className="font-semibold">Code:</span> {supplier.supplierCode || "-"}
-            </div>
-            {supplier.company && (
-              <div>
-                <span className="font-semibold">Company:</span> {supplier.company}
-              </div>
-            )}
-            {supplier.phone && (
-              <div>
-                <span className="font-semibold">Phone:</span> {supplier.phone}
-              </div>
-            )}
-            {supplier.email && (
-              <div>
-                <span className="font-semibold">Email:</span> {supplier.email}
-              </div>
-            )}
-            {(supplier.address || supplier.city) && (
-              <div>
-                <span className="font-semibold">Address:</span>{" "}
-                {[supplier.address, supplier.city, supplier.country].filter(Boolean).join(", ")}
-              </div>
-            )}
-          </div>
-          <div className="space-y-1.5 border-l pl-4">
-            <div className="font-semibold text-muted-foreground uppercase text-[10px] tracking-wider mb-1">
-              Account Overview Summary
-            </div>
-            <div className="flex justify-between border-b border-dashed pb-0.5">
-              <span className="text-muted-foreground">Opening Balance:</span>
-              <span className="font-mono font-medium">
-                ৳{supplier.openingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-            <div className="flex justify-between border-b border-dashed pb-0.5">
-              <span className="text-muted-foreground">Total Purchased (Billed):</span>
-              <span className="font-mono font-medium text-blue-700">
-                ৳{summary.totalPurchased.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-            <div className="flex justify-between border-b border-dashed pb-0.5">
-              <span className="text-muted-foreground">Total Paid (Settled):</span>
-              <span className="font-mono font-medium text-emerald-700">
-                ৳{summary.totalPaid.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-            <div className="flex justify-between pt-1 font-bold">
-              <span className="uppercase text-[10px]">Net Outstanding Payable:</span>
-              <span
-                className={`font-mono text-sm ${
-                  summary.closingBalance > 0
-                    ? "text-amber-700"
-                    : summary.closingBalance < 0
-                    ? "text-emerald-700"
-                    : "text-slate-800"
-                }`}
-              >
-                ৳{summary.closingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Supplier Overview Header Card (Screen View) */}
       <Card className="border-2 shadow-sm bg-card print:hidden">

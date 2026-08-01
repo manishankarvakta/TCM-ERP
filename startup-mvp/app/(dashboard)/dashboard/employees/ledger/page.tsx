@@ -3,6 +3,7 @@ import { getEmployeeLedger } from "../_actions/employee.action";
 import EmployeeLedger from "../_components/employeeLedger";
 import PageGuard from "@/components/permissions/page-guard";
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 
 interface EmployeeLedgerPageProps {
   searchParams: Promise<{
@@ -20,7 +21,10 @@ export default async function EmployeeLedgerPage({ searchParams }: EmployeeLedge
     notFound();
   }
 
-  const result = await getEmployeeLedger(employeeId, params.startDate, params.endDate);
+  const [result, org] = await Promise.all([
+    getEmployeeLedger(employeeId, params.startDate, params.endDate),
+    prisma.organization.findFirst({ where: { status: "active" } }).catch(() => null),
+  ]);
 
   if (!result.success || !result.employee) {
     return (
@@ -42,6 +46,7 @@ export default async function EmployeeLedgerPage({ searchParams }: EmployeeLedge
         summary={result.summary || { totalEarned: 0, totalPaid: 0, closingBalance: 0, totalTransactions: 0 }}
         initialStartDate={params.startDate}
         initialEndDate={params.endDate}
+        organization={org}
       />
     </PageGuard>
   );

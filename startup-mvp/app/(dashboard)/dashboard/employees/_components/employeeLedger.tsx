@@ -24,6 +24,7 @@ import {
   FiTrendingDown,
 } from "react-icons/fi";
 import { format } from "date-fns";
+import PrintHeader, { PrintStyle } from "@/app/(dashboard)/dashboard/procurements/_components/print-header";
 
 interface LedgerItem {
   id: string;
@@ -77,6 +78,12 @@ interface EmployeeLedgerProps {
   summary: LedgerSummary;
   initialStartDate?: string;
   initialEndDate?: string;
+  organization?: {
+    name?: string | null;
+    address?: string | null;
+    email?: string | null;
+    phone?: string | null;
+  } | null;
 }
 
 export default function EmployeeLedger({
@@ -85,6 +92,7 @@ export default function EmployeeLedger({
   summary,
   initialStartDate = "",
   initialEndDate = "",
+  organization,
 }: EmployeeLedgerProps) {
   const router = useRouter();
   const [startDate, setStartDate] = useState(initialStartDate);
@@ -159,6 +167,19 @@ export default function EmployeeLedger({
 
   return (
     <div className="space-y-6 print:p-0 print:space-y-4">
+      {/* Print-only: multi-page print fix + page numbering */}
+      <PrintStyle />
+
+      {/* Print-only Branded Header */}
+      <PrintHeader
+        docNumber={employee.employeeCode || employee.id.slice(-8).toUpperCase()}
+        docTitle="EMPLOYEE LEDGER STATEMENT"
+        organizationName={organization?.name}
+        organizationAddress={organization?.address}
+        organizationEmail={organization?.email}
+        organizationPhone={organization?.phone}
+      />
+
       {/* Top Header Actions (hidden on print) */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
         <div className="flex items-center gap-3">
@@ -183,99 +204,6 @@ export default function EmployeeLedger({
         </div>
       </div>
 
-      {/* Minimalistic Print Header & Overview (Visible ONLY when printing) */}
-      <div className="hidden print:block space-y-4 mb-6">
-        <div className="flex justify-between items-start border-b pb-3">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight uppercase">Employee Ledger Statement</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Statement Date: {format(new Date(), "dd MMMM yyyy")}
-              {startDate && endDate
-                ? ` | Period: ${format(new Date(startDate), "dd MMM yyyy")} to ${format(new Date(endDate), "dd MMM yyyy")}`
-                : " | Period: All Time"}
-            </p>
-          </div>
-          <div className="text-right">
-            <div className="text-base font-bold">{employee.name}</div>
-            {employee.employeeCode && (
-              <div className="text-xs font-mono text-muted-foreground">ID: {employee.employeeCode}</div>
-            )}
-            {employee.phone && <div className="text-xs text-muted-foreground">{employee.phone}</div>}
-          </div>
-        </div>
-
-        {/* Minimalistic Overview Grid */}
-        <div className="grid grid-cols-2 gap-4 text-xs border rounded-md p-3 bg-muted/20">
-          <div className="space-y-1">
-            <div className="font-semibold text-muted-foreground uppercase text-[10px] tracking-wider mb-1">
-              Employee Details
-            </div>
-            <div>
-              <span className="font-semibold">Name:</span> {employee.name}
-            </div>
-            <div>
-              <span className="font-semibold">ID:</span> {employee.employeeCode || "-"}
-            </div>
-            {employee.designation && (
-              <div>
-                <span className="font-semibold">Designation:</span> {employee.designation}
-              </div>
-            )}
-            {employee.department && (
-              <div>
-                <span className="font-semibold">Department:</span> {employee.department}
-              </div>
-            )}
-            {employee.phone && (
-              <div>
-                <span className="font-semibold">Phone:</span> {employee.phone}
-              </div>
-            )}
-            {employee.email && (
-              <div>
-                <span className="font-semibold">Email:</span> {employee.email}
-              </div>
-            )}
-          </div>
-          <div className="space-y-1.5 border-l pl-4">
-            <div className="font-semibold text-muted-foreground uppercase text-[10px] tracking-wider mb-1">
-              Account Overview Summary
-            </div>
-            <div className="flex justify-between border-b border-dashed pb-0.5">
-              <span className="text-muted-foreground">Base Salary:</span>
-              <span className="font-mono font-medium">
-                ৳{employee.salary.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-            <div className="flex justify-between border-b border-dashed pb-0.5">
-              <span className="text-muted-foreground">Total Earned / Accrued:</span>
-              <span className="font-mono font-medium text-blue-700">
-                ৳{summary.totalEarned.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-            <div className="flex justify-between border-b border-dashed pb-0.5">
-              <span className="text-muted-foreground">Total Paid / Disbursed:</span>
-              <span className="font-mono font-medium text-emerald-700">
-                ৳{summary.totalPaid.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-            <div className="flex justify-between pt-1 font-bold">
-              <span className="uppercase text-[10px]">Net Outstanding Balance:</span>
-              <span
-                className={`font-mono text-sm ${
-                  summary.closingBalance > 0
-                    ? "text-amber-700"
-                    : summary.closingBalance < 0
-                    ? "text-emerald-700"
-                    : "text-slate-800"
-                }`}
-              >
-                ৳{summary.closingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Employee Overview Header Card (Screen View) */}
       <Card className="border-2 shadow-sm bg-card print:hidden">

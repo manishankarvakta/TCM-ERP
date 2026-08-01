@@ -3,6 +3,7 @@ import { getSupplierLedger } from "../_actions/supplier.action";
 import SupplierLedger from "../_components/supplierLedger";
 import PageGuard from "@/components/permissions/page-guard";
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 
 interface SupplierLedgerPageProps {
   searchParams: Promise<{
@@ -20,7 +21,10 @@ export default async function SupplierLedgerPage({ searchParams }: SupplierLedge
     notFound();
   }
 
-  const result = await getSupplierLedger(supplierId, params.startDate, params.endDate);
+  const [result, org] = await Promise.all([
+    getSupplierLedger(supplierId, params.startDate, params.endDate),
+    prisma.organization.findFirst({ where: { status: "active" } }).catch(() => null),
+  ]);
 
   if (!result.success || !result.supplier) {
     return (
@@ -42,6 +46,7 @@ export default async function SupplierLedgerPage({ searchParams }: SupplierLedge
         summary={result.summary || { totalPurchased: 0, totalPaid: 0, closingBalance: 0, totalTransactions: 0 }}
         initialStartDate={params.startDate}
         initialEndDate={params.endDate}
+        organization={org}
       />
     </PageGuard>
   );
