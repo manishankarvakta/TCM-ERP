@@ -85,34 +85,45 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
     );
   }
 
+  const buildTabHref = (targetTab: string) => {
+    const qParams = new URLSearchParams();
+    qParams.set("tab", targetTab);
+    qParams.set("page", "1");
+    if (search) qParams.set("search", search);
+    if (params.type) qParams.set("type", params.type);
+    if (params.warehouseId) qParams.set("warehouseId", params.warehouseId);
+    if (params.limit) qParams.set("limit", params.limit);
+    if (params.dateFrom) qParams.set("dateFrom", params.dateFrom);
+    if (params.dateTo) qParams.set("dateTo", params.dateTo);
+    return `/dashboard/accounts/vouchers?${qParams.toString()}`;
+  };
+
   return (
     <PageGuard permissionKey="accounts.vouchers">
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold">Vouchers</h1>
             <p className="text-sm text-muted-foreground">Create and manage accounting vouchers</p>
           </div>
+          {canCreate && (
+            <VoucherQuickCreate basePath="/dashboard/accounts/vouchers" />
+          )}
         </div>
-
-        {/* Quick Create Section */}
-        {canCreate && (
-          <VoucherQuickCreate basePath="/dashboard/accounts/vouchers" />
-        )}
 
         <Tabs defaultValue={tab} className="w-full">
           <TabsList>
             <TabsTrigger value="all" asChild>
-              <Link href="/dashboard/accounts/vouchers?tab=all&page=1">All Vouchers</Link>
+              <Link href={buildTabHref("all")}>All Vouchers</Link>
             </TabsTrigger>
             <TabsTrigger value="draft" asChild>
-              <Link href="/dashboard/accounts/vouchers?tab=draft&page=1">Draft</Link>
+              <Link href={buildTabHref("draft")}>Draft</Link>
             </TabsTrigger>
             <TabsTrigger value="posted" asChild>
-              <Link href="/dashboard/accounts/vouchers?tab=posted&page=1">Posted</Link>
+              <Link href={buildTabHref("posted")}>Posted</Link>
             </TabsTrigger>
             <TabsTrigger value="cancelled" asChild>
-              <Link href="/dashboard/accounts/vouchers?tab=cancelled&page=1">Cancelled</Link>
+              <Link href={buildTabHref("cancelled")}>Cancelled</Link>
             </TabsTrigger>
           </TabsList>
           <TabsContent value="all" className="mt-4">
@@ -133,6 +144,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
               }}
               warehouses={warehouses}
               selectedWarehouseId={selectedWarehouseId || ""}
+              selectedType={params.type || "all"}
               isAdmin={isAdmin}
             />
           </TabsContent>
@@ -154,6 +166,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
               }}
               warehouses={warehouses}
               selectedWarehouseId={selectedWarehouseId || ""}
+              selectedType={params.type || "all"}
               isAdmin={isAdmin}
             />
           </TabsContent>
@@ -175,6 +188,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
               }}
               warehouses={warehouses}
               selectedWarehouseId={selectedWarehouseId || ""}
+              selectedType={params.type || "all"}
               isAdmin={isAdmin}
             />
           </TabsContent>
@@ -196,6 +210,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
               }}
               warehouses={warehouses}
               selectedWarehouseId={selectedWarehouseId || ""}
+              selectedType={params.type || "all"}
               isAdmin={isAdmin}
             />
           </TabsContent>

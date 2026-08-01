@@ -73,6 +73,7 @@ interface VouchersListClientProps {
   };
   warehouses?: Array<{ id: string; name: string; code: string }>;
   selectedWarehouseId?: string;
+  selectedType?: string;
   isAdmin?: boolean;
 }
 
@@ -84,6 +85,7 @@ export default function VouchersListClient({
   permissions,
   warehouses = [],
   selectedWarehouseId = "",
+  selectedType = "all",
   isAdmin = false,
 }: VouchersListClientProps) {
   const router = useRouter();
@@ -231,6 +233,54 @@ export default function VouchersListClient({
     router.push(`/dashboard/accounts/vouchers?${params.toString()}`);
   };
 
+  const dateFrom = searchParams.get("dateFrom") || "";
+  const dateTo = searchParams.get("dateTo") || "";
+
+  const handleDateFromChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set("dateFrom", value);
+    } else {
+      params.delete("dateFrom");
+    }
+    params.set("page", "1");
+    const tab = searchParams.get("tab") || "all";
+    if (tab) {
+      params.set("tab", tab);
+    }
+    router.push(`/dashboard/accounts/vouchers?${params.toString()}`);
+  };
+
+  const handleDateToChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set("dateTo", value);
+    } else {
+      params.delete("dateTo");
+    }
+    params.set("page", "1");
+    const tab = searchParams.get("tab") || "all";
+    if (tab) {
+      params.set("tab", tab);
+    }
+    router.push(`/dashboard/accounts/vouchers?${params.toString()}`);
+  };
+
+  const handleTypeChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value && value !== "all") {
+      params.set("type", value);
+    } else {
+      params.delete("type");
+    }
+    params.set("page", "1");
+    const tab = searchParams.get("tab") || "all";
+    if (tab) {
+      params.set("tab", tab);
+    }
+    router.push(`/dashboard/accounts/vouchers?${params.toString()}`);
+  };
+
   const handlePostVoucher = async (voucherId: string) => {
     startTransition(async () => {
       const result = await postVoucher(voucherId);
@@ -284,51 +334,107 @@ export default function VouchersListClient({
 
   return (
     <div className="space-y-4">
-      {/* Search & Warehouse Filter */}
-      <div className="flex flex-col md:flex-row md:items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by voucher number, reference, or description..."
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="pl-10"
-          />
-          {search && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-              onClick={() => handleSearch("")}
+      {/* Search, Type, Date Range & Warehouse Filters */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-center gap-4 flex-1">
+          <div className="relative flex-1 max-w-sm w-full">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by voucher number, reference, or description..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="pl-10"
+            />
+            {search && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => handleSearch("")}
+              >
+                <FiX className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          <div className="w-full sm:w-[160px]">
+            <Select
+              value={selectedType || "all"}
+              onValueChange={handleTypeChange}
             >
-              <FiX className="h-4 w-4" />
-            </Button>
-          )}
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Filter by Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="PAYMENT">Payment</SelectItem>
+                <SelectItem value="RECEIPT">Receipt</SelectItem>
+                <SelectItem value="JOURNAL">Journal</SelectItem>
+                <SelectItem value="CONTRA">Transfer</SelectItem>
+                <SelectItem value="SALES">Sales</SelectItem>
+                <SelectItem value="PURCHASE">Purchase</SelectItem>
+                <SelectItem value="RETURN">Return</SelectItem>
+                <SelectItem value="DAMAGE">Damage</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full sm:w-[200px]">
+            <Select
+              value={selectedWarehouseId || "all"}
+              onValueChange={handleWarehouseChange}
+              disabled={!isAdmin}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Filter by Warehouse" />
+              </SelectTrigger>
+              <SelectContent>
+                {isAdmin && (
+                  <SelectItem value="all">All Warehouses</SelectItem>
+                )}
+                {warehouses.map((w) => (
+                  <SelectItem key={w.id} value={w.id}>
+                    {w.name} ({w.code})
+                  </SelectItem>
+                ))}
+                {!isAdmin && warehouses.length === 0 && (
+                  <SelectItem value="none">No Warehouse Assigned</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <div className="w-full md:w-[220px]">
-          <Select
-            value={selectedWarehouseId || "all"}
-            onValueChange={handleWarehouseChange}
-            disabled={!isAdmin}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Filter by Warehouse" />
-            </SelectTrigger>
-            <SelectContent>
-              {isAdmin && (
-                <SelectItem value="all">All Warehouses</SelectItem>
-              )}
-              {warehouses.map((w) => (
-                <SelectItem key={w.id} value={w.id}>
-                  {w.name} ({w.code})
-                </SelectItem>
-              ))}
-              {!isAdmin && warehouses.length === 0 && (
-                <SelectItem value="none">No Warehouse Assigned</SelectItem>
-              )}
-            </SelectContent>
-          </Select>
+        {/* Date Range Inputs */}
+        <div className="flex items-center gap-2 w-full xl:w-auto">
+          <Input
+            type="date"
+            placeholder="From Date"
+            value={dateFrom}
+            onChange={(e) => handleDateFromChange(e.target.value)}
+            className="w-[140px] text-xs h-9"
+          />
+          <span className="text-xs text-muted-foreground">to</span>
+          <Input
+            type="date"
+            placeholder="To Date"
+            value={dateTo}
+            onChange={(e) => handleDateToChange(e.target.value)}
+            className="w-[140px] text-xs h-9"
+          />
+          {(dateFrom || dateTo) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 px-2 text-xs"
+              onClick={() => {
+                handleDateFromChange("");
+                handleDateToChange("");
+              }}
+            >
+              Clear Dates
+            </Button>
+          )}
         </div>
       </div>
 
