@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +17,28 @@ import { ArrowLeft, Printer } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { numberToWords } from "@/lib/utils/number-to-words";
 import { Separator } from "@/components/ui/separator";
+import JsBarcode from "jsbarcode";
+
+function TpnBarcode({ value }: { value: string }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  useEffect(() => {
+    if (svgRef.current && value) {
+      try {
+        JsBarcode(svgRef.current, value, {
+          format: "CODE128",
+          width: 1.2,
+          height: 36,
+          displayValue: false,
+          margin: 0,
+          background: "transparent",
+        });
+      } catch (err) {
+        console.error("Failed to render TPN barcode:", err);
+      }
+    }
+  }, [value]);
+  return <svg ref={svgRef} />;
+}
 
 interface TpnDetailsProps {
   tpn: any;
@@ -51,69 +73,85 @@ export default function TpnDetails({ tpn, organization }: TpnDetailsProps) {
 
   return (
     <div className="space-y-6 print:space-y-3">
-      {/* Print-only Invoice Header */}
-      <div className="hidden print:block border-b border-slate-300 pb-2 mb-3">
-        <div className="flex justify-between items-start gap-4">
-          <div className="w-1/3 text-left">
-            <h1 className="text-sm font-bold uppercase tracking-wide text-slate-500">From:</h1>
-            <p className="text-base font-bold text-slate-900">{tpn.sourceWarehouse?.name}</p>
-            {tpn.sourceWarehouse?.address && (
-              <p className="text-xs text-slate-600">{tpn.sourceWarehouse.address}</p>
-            )}
-            {(tpn.sourceWarehouse?.city || tpn.sourceWarehouse?.state || tpn.sourceWarehouse?.zip || tpn.sourceWarehouse?.country) && (
-              <p className="text-xs text-slate-600">
-                {[
-                  tpn.sourceWarehouse.city,
-                  tpn.sourceWarehouse.state,
-                  tpn.sourceWarehouse.zip,
-                  tpn.sourceWarehouse.country,
-                ]
-                  .filter(Boolean)
-                  .join(", ")}
-              </p>
-            )}
-          </div>
-          <div className="w-1/3 text-center self-center">
-            <h2 className="text-lg font-extrabold text-slate-900 uppercase tracking-tight">{organization?.name || "Ferrari Fashion"}</h2>
-            {organization?.details && <p className="text-[11px] text-slate-600 font-semibold">{organization.details}</p>}
-            {organization?.address && <p className="text-[10px] text-slate-500 mt-0.5">{organization.address}</p>}
-            {(organization?.phone || organization?.email) && (
-              <p className="text-[10px] text-slate-500">
-                {[organization.phone && `Phone: ${organization.phone}`, organization.email && `Email: ${organization.email}`].filter(Boolean).join(" | ")}
-              </p>
-            )}
-          </div>
-          <div className="w-1/3 text-right">
-            <h1 className="text-sm font-bold uppercase tracking-wide text-slate-500">To:</h1>
-            <p className="text-base font-bold text-slate-900">{tpn.destinationWarehouse?.name}</p>
-            {tpn.destinationWarehouse?.address && (
-              <p className="text-xs text-slate-600">{tpn.destinationWarehouse.address}</p>
-            )}
-            {(tpn.destinationWarehouse?.city || tpn.destinationWarehouse?.state || tpn.destinationWarehouse?.zip || tpn.destinationWarehouse?.country) && (
-              <p className="text-xs text-slate-600">
-                {[
-                  tpn.destinationWarehouse.city,
-                  tpn.destinationWarehouse.state,
-                  tpn.destinationWarehouse.zip,
-                  tpn.destinationWarehouse.country,
-                ]
-                  .filter(Boolean)
-                  .join(", ")}
-              </p>
-            )}
-          </div>
-        </div>
+      {/* Print-only: override dashboard layout overflow clipping for multi-page print */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          html, body {
+            overflow: visible !important;
+            height: auto !important;
+            background-color: white !important;
+            color: black !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
 
-        <div className="mt-4 flex justify-between items-end border-t pt-2 border-slate-200">
-          <div>
-            <h2 className="text-lg font-bold uppercase text-slate-800">
-              {printMode === "challan" ? "Delivery Challan" : "Transfer Purchase Note"}
-            </h2>
+          /* Override Next.js dashboard layout containers that clip content to viewport height */
+          div.flex.h-screen.overflow-hidden,
+          div.flex.flex-1.flex-col.overflow-hidden,
+          main.flex-1.overflow-y-auto {
+            display: block !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+          }
+
+          @page {
+            size: A4 portrait;
+            margin: 10mm 12mm 18mm 12mm;
+
+            @bottom-center {
+              content: "Page " counter(page) " / " counter(pages);
+              font-size: 9pt;
+              color: #64748b;
+              font-family: sans-serif;
+            }
+          }
+        }
+      ` }} />
+
+      {/* Print-only Invoice Header */}
+      <div className="hidden print:block border-b border-slate-300 pb-3 mb-4">
+        <div className="flex justify-between items-start gap-4">
+          {/* Left Side: Logo + Organization Info */}
+          <div className="flex items-start gap-3">
+            <div className="border border-slate-800 p-1 bg-white flex items-center justify-center w-16 h-16 shrink-0">
+              <img
+                src="/main_logo.png"
+                alt="Ferrari Fashion Logo"
+                className="max-h-full max-w-full object-contain"
+              />
+            </div>
+            <div>
+              <h1 className="text-base font-bold uppercase tracking-tight text-slate-900 leading-tight">
+                {organization?.name || "FERRARI FASHION"}
+              </h1>
+              <p className="text-xs italic text-slate-600 mt-0.5">
+                {organization?.address || "Unique, Ashulia, Dhaka"}
+              </p>
+              <p className="text-xs italic text-slate-600">
+                {organization?.email || "msferrarifashion4475@gmail.com"}
+              </p>
+              <p className="text-xs italic text-slate-600">
+                {organization?.phone || "01956-582108, 01745-645502"}
+              </p>
+            </div>
           </div>
-          <div className="text-right text-xs space-y-0.5">
-            <p><span className="font-semibold">TPN Number:</span> {tpn.tpnNumber}</p>
-            <p><span className="font-semibold">Date:</span> {format(new Date(tpn.date), "dd MMM yyyy")}</p>
-            <p><span className="font-semibold">Status:</span> {tpn.status}</p>
+
+          {/* Right Side: Document Title + Meta */}
+          <div className="text-right">
+            <h2 className="text-lg font-bold uppercase text-slate-900 tracking-wide mb-0 leading-tight">
+              {printMode === "challan" ? "DELIVERY CHALLAN" : "TRANSFER PURCHASE NOTE"}
+            </h2>
+            <div className="text-xs text-slate-700 text-right">
+              <p className="mb-0 leading-none">
+                <span className="italic text-slate-600">TPN Number: </span>
+                <span className="font-bold text-slate-900">{tpn.tpnNumber}</span>
+              </p>
+              <div className="flex justify-end">
+                <TpnBarcode value={tpn.tpnNumber} />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -138,64 +176,63 @@ export default function TpnDetails({ tpn, organization }: TpnDetailsProps) {
 
       <div className="grid gap-6 md:grid-cols-1 print:gap-2">
         <Card className="print:shadow-none print:border-0 print:bg-transparent">
-          <CardHeader className="print:p-1.5 print:pb-0">
-            <CardTitle className="print:text-xs">Transfer Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 print:space-y-2 print:p-1.5">
-            <div className="grid grid-cols-2 gap-4 print:gap-2">
+          <CardContent className="pt-6 print:p-1.5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:grid-cols-3 print:gap-4">
+              {/* Col 1: Source Warehouse */}
               <div>
-                <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Date</p>
-                <p className="print:text-xs">{format(new Date(tpn.date), "dd MMMM yyyy")}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Status</p>
-                <Badge variant={
-                  tpn.status === "RECEIVED" ? "default" : 
-                  tpn.status === "SHIPPED" ? "secondary" : "outline"
-                } className="print:text-[10px] print:px-1.5 print:py-0">
-                  {tpn.status}
-                </Badge>
-              </div>
-            </div>
-            <Separator className="my-2" />
-            <div className="grid grid-cols-2 gap-4 print:gap-2">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Source Warehouse</p>
-                <p className="print:text-xs font-semibold">{tpn.sourceWarehouse.name}</p>
+                <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">Source Warehouse</p>
+                <p className="text-base font-bold print:text-xs text-slate-900">{tpn.sourceWarehouse.name}</p>
                 {tpn.sourceWarehouse.address && (
-                  <p className="text-xs text-muted-foreground print:text-[9px] mt-0.5">
-                    {tpn.sourceWarehouse.address}
+                  <div className="text-xs text-muted-foreground print:text-[9px] mt-0.5 space-y-0.5">
+                    <p>{tpn.sourceWarehouse.address}</p>
                     {(tpn.sourceWarehouse.city || tpn.sourceWarehouse.state || tpn.sourceWarehouse.zip || tpn.sourceWarehouse.country) && (
-                      <span>
-                        , {[
+                      <p>
+                        {[
                           tpn.sourceWarehouse.city,
                           tpn.sourceWarehouse.state,
                           tpn.sourceWarehouse.zip,
                           tpn.sourceWarehouse.country
                         ].filter(Boolean).join(", ")}
-                      </span>
+                      </p>
                     )}
-                  </p>
+                  </div>
                 )}
               </div>
+
+              {/* Col 2: Destination Warehouse */}
               <div>
-                 <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Destination Warehouse</p>
-                 <p className="print:text-xs font-semibold">{tpn.destinationWarehouse.name}</p>
-                 {tpn.destinationWarehouse.address && (
-                   <p className="text-xs text-muted-foreground print:text-[9px] mt-0.5">
-                     {tpn.destinationWarehouse.address}
-                     {(tpn.destinationWarehouse.city || tpn.destinationWarehouse.state || tpn.destinationWarehouse.zip || tpn.destinationWarehouse.country) && (
-                       <span>
-                         , {[
-                           tpn.destinationWarehouse.city,
-                           tpn.destinationWarehouse.state,
-                           tpn.destinationWarehouse.zip,
-                           tpn.destinationWarehouse.country
-                         ].filter(Boolean).join(", ")}
-                       </span>
-                     )}
-                   </p>
-                 )}
+                <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">Destination Warehouse</p>
+                <p className="text-base font-bold print:text-xs text-slate-900">{tpn.destinationWarehouse.name}</p>
+                {tpn.destinationWarehouse.address && (
+                  <div className="text-xs text-muted-foreground print:text-[9px] mt-0.5 space-y-0.5">
+                    <p>{tpn.destinationWarehouse.address}</p>
+                    {(tpn.destinationWarehouse.city || tpn.destinationWarehouse.state || tpn.destinationWarehouse.zip || tpn.destinationWarehouse.country) && (
+                      <p>
+                        {[
+                          tpn.destinationWarehouse.city,
+                          tpn.destinationWarehouse.state,
+                          tpn.destinationWarehouse.zip,
+                          tpn.destinationWarehouse.country
+                        ].filter(Boolean).join(", ")}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Col 3: Transfer Information (Right Aligned) */}
+              <div className="text-right">
+                <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">Transfer Information</p>
+                <div className="space-y-1 text-sm print:text-xs">
+                  <p>
+                    <span className="text-muted-foreground">Date: </span>
+                    <span className="font-medium text-slate-900">{format(new Date(tpn.date), "dd MMMM yyyy")}</span>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Status: </span>
+                    <span className="font-semibold uppercase text-slate-800">{tpn.status}</span>
+                  </p>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -211,6 +248,7 @@ export default function TpnDetails({ tpn, organization }: TpnDetailsProps) {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="print:py-1 print:px-2 print:text-xs w-8">#</TableHead>
                   <TableHead className="print:py-1 print:px-2 print:text-xs">Item Code</TableHead>
                   <TableHead className="print:py-1 print:px-2 print:text-xs">Item Name</TableHead>
                   <TableHead className="text-right print:py-1 print:px-2 print:text-xs">Quantity</TableHead>
@@ -219,8 +257,9 @@ export default function TpnDetails({ tpn, organization }: TpnDetailsProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tpn.items.map((item: any) => (
+                {tpn.items.map((item: any, index: number) => (
                   <TableRow key={item.id}>
+                    <TableCell className="print:py-1.5 print:px-2 print:text-xs text-muted-foreground">{index + 1}</TableCell>
                     <TableCell className="font-medium print:py-1.5 print:px-2 print:text-xs">{item.item.code}</TableCell>
                     <TableCell className="print:py-1.5 print:px-2 print:text-xs">
                       <div>
@@ -244,7 +283,7 @@ export default function TpnDetails({ tpn, organization }: TpnDetailsProps) {
                   </TableRow>
                 ))}
                 <TableRow className="bg-muted/30 font-bold">
-                  <TableCell colSpan={2} className="print:py-1.5 print:px-2 print:text-xs">Total</TableCell>
+                  <TableCell colSpan={3} className="print:py-1.5 print:px-2 print:text-xs">Total</TableCell>
                   <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">
                     {totalQuantity.toFixed(2)}
                   </TableCell>
