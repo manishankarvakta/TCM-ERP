@@ -122,6 +122,8 @@ export async function getRealtimeDashboardStats(
           grandTotal: true,
           clientId: true,
           paymentDetails: true,
+          discount: true,
+          couponId: true,
         },
       }),
       prisma.sale.findMany({
@@ -129,6 +131,8 @@ export async function getRealtimeDashboardStats(
         select: {
           grandTotal: true,
           paymentDetails: true,
+          discount: true,
+          couponId: true,
         },
       }),
     ]);
@@ -137,6 +141,32 @@ export async function getRealtimeDashboardStats(
     const currentRevenue = currentSales.reduce((acc, sale) => acc + Number(sale.grandTotal), 0);
     const prevRevenue = prevSales.reduce((acc, sale) => acc + Number(sale.grandTotal), 0);
     const revenueGrowth = prevRevenue > 0 ? ((currentRevenue - prevRevenue) / prevRevenue) * 100 : 0;
+
+    // Discount calculations
+    let currentGeneralDiscount = 0;
+    let currentCouponDiscount = 0;
+    currentSales.forEach((sale) => {
+      const d = Number(sale.discount || 0);
+      if (sale.couponId) {
+        currentCouponDiscount += d;
+      } else {
+        currentGeneralDiscount += d;
+      }
+    });
+    const currentTotalSaleDiscount = currentGeneralDiscount + currentCouponDiscount;
+
+    let prevGeneralDiscount = 0;
+    let prevCouponDiscount = 0;
+    prevSales.forEach((sale) => {
+      const d = Number(sale.discount || 0);
+      if (sale.couponId) {
+        prevCouponDiscount += d;
+      } else {
+        prevGeneralDiscount += d;
+      }
+    });
+    const prevTotalSaleDiscount = prevGeneralDiscount + prevCouponDiscount;
+    const totalSaleDiscountGrowth = prevTotalSaleDiscount > 0 ? ((currentTotalSaleDiscount - prevTotalSaleDiscount) / prevTotalSaleDiscount) * 100 : 0;
 
     // Purchase calculations
     const [currentPurchases, prevPurchases] = await Promise.all([
@@ -240,6 +270,72 @@ export async function getRealtimeDashboardStats(
     const currentExpenseTotal = Number(currentExpensesAgg._sum?.debitAmount || 0);
     const prevExpenseTotal = Number(prevExpensesAgg._sum?.debitAmount || 0);
     const expenseGrowth = prevExpenseTotal > 0 ? ((currentExpenseTotal - prevExpenseTotal) / prevExpenseTotal) * 100 : 0;
+
+    // Retail Stock & Value Calculations
+    const stockWhere: any = {};
+    if (warehouseId !== "all") {
+      stockWhere.warehouseId = warehouseId;
+    }
+    const stockItems = await prisma.stock.findMany({
+      where: stockWhere,
+      include: {
+        item: {
+          select: {
+            costPrice: true,
+            salesPrice: true,
+            wholesalePrice: true,
+            itemType: true,
+            isTrash: true,
+            status: true,
+          },
+        },
+        variant: {
+          select: {
+            costPrice: true,
+            salesPrice: true,
+            wholesalePrice: true,
+            item: {
+              select: {
+                itemType: true,
+                isTrash: true,
+                status: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    let retailTotalQuantity = 0;
+    let retailSaleValue = 0;
+    let retailStockCostValue = 0;
+
+    let wholesaleTotalQuantity = 0;
+    let wholesaleSaleValue = 0;
+    let wholesaleStockCostValue = 0;
+
+    for (const s of stockItems) {
+      const parentItem = s.item || s.variant?.item;
+      if (parentItem?.isTrash || parentItem?.status === "inactive") continue;
+
+      const qty = Number(s.quantity || 0);
+      if (qty <= 0) continue;
+
+      const itemType = parentItem?.itemType;
+      const sellingPrice = Number(s.variant?.salesPrice ?? s.item?.salesPrice ?? 0);
+      const wholesalePrice = Number(s.variant?.wholesalePrice ?? s.item?.wholesalePrice ?? sellingPrice);
+      const purchasePrice = Number(s.variant?.costPrice ?? s.item?.costPrice ?? 0);
+
+      if (itemType === "WHOLESALE") {
+        wholesaleTotalQuantity += qty;
+        wholesaleSaleValue += qty * (wholesalePrice > 0 ? wholesalePrice : sellingPrice);
+        wholesaleStockCostValue += qty * purchasePrice;
+      } else if (itemType === "RETAIL" || itemType === "READY_PRODUCT") {
+        retailTotalQuantity += qty;
+        retailSaleValue += qty * sellingPrice;
+        retailStockCostValue += qty * purchasePrice;
+      }
+    }
 
     // 2. Fetch Recent Orders (latest 3)
     const recentOrders = await prisma.sale.findMany({
@@ -666,6 +762,20 @@ export async function getRealtimeDashboardStats(
         collectionsReceivedGrowth,
         expenseTotal: currentExpenseTotal,
         expenseGrowth,
+        generalDiscount: currentGeneralDiscount,
+        couponDiscount: currentCouponDiscount,
+        totalSaleDiscount: currentTotalSaleDiscount,
+        totalSaleDiscountGrowth,
+        retailStock: {
+          totalQuantity: retailTotalQuantity,
+          saleValue: retailSaleValue,
+          stockValue: retailStockCostValue,
+        },
+        wholesaleStock: {
+          totalQuantity: wholesaleTotalQuantity,
+          saleValue: wholesaleSaleValue,
+          stockValue: wholesaleStockCostValue,
+        },
         recentOrders: recentOrders.map(o => ({
           id: o.id,
           orderId: o.saleNumber,

@@ -62,6 +62,9 @@ export default function BeautifulDashboard({
   });
   const [showCustomInputs, setShowCustomInputs] = useState(false);
 
+  // State for Stock & Value Card tab (Retail vs Wholesale)
+  const [stockTab, setStockTab] = useState<"retail" | "wholesale">("retail");
+
   // State for Chart specific range
   const [chartRange, setChartRange] = useState<"7-days" | "last-month" | "3-months" | "last-year">("7-days");
   const [chartMenuOpen, setChartMenuOpen] = useState(false);
@@ -434,126 +437,249 @@ export default function BeautifulDashboard({
         </div>
       </div>
 
-      {/* KPI Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        {/* Card 1: Sales Revenue */}
-        <div className={`p-4 rounded-2xl bg-[#FCF5EC] dark:bg-amber-950/15 border border-amber-100/50 dark:border-amber-900/20 shadow-sm flex flex-col justify-between h-[120px] ${loading ? "animate-pulse" : ""}`}>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Sale Revenue</p>
-            <p className="text-xl font-bold mt-1 text-slate-900 dark:text-zinc-50">
-              {loading ? "..." : formatValue(stats?.revenue || 0)}
-            </p>
-          </div>
-          {!loading && (
-            <div className="flex items-center gap-1.5 text-[10px]">
-              <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-bold ${
-                stats?.revenueGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400"
-              }`}>
-                {stats?.revenueGrowth >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-                {Math.abs(stats?.revenueGrowth || 0).toFixed(1)} %
-              </span>
+      {/* KPI Cards Section - 2 Row Layout (3/5 and 2/5 Split) */}
+      <div className="space-y-4">
+        {/* ROW 1: 3/5 (Sales Revenue, Paid Sale, Due Sale) | 2/5 (Sale Discounts) */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          {/* Left 3/5 Block */}
+          <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Card 1: Sales Revenue */}
+            <div className={`p-4 rounded-2xl bg-[#FCF5EC] dark:bg-amber-950/15 border border-amber-100/50 dark:border-amber-900/20 shadow-sm flex flex-col justify-between h-full min-h-[135px] ${loading ? "animate-pulse" : ""}`}>
+              <div>
+                <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Sale Revenue</p>
+                <p className="text-xl font-bold mt-2 text-slate-900 dark:text-zinc-50">
+                  {loading ? "..." : formatValue(stats?.revenue || 0)}
+                </p>
+              </div>
+              {!loading && (
+                <div className="flex items-center gap-1.5 text-[10px] mt-2">
+                  <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-bold ${
+                    stats?.revenueGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400"
+                  }`}>
+                    {stats?.revenueGrowth >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+                    {Math.abs(stats?.revenueGrowth || 0).toFixed(1)} %
+                  </span>
+                </div>
+              )}
             </div>
-          )}
+
+            {/* Card 3: Paid Sale */}
+            <div className={`p-4 rounded-2xl bg-[#F2F8F2] dark:bg-emerald-950/15 border border-emerald-100/50 dark:border-emerald-900/20 shadow-sm flex flex-col justify-between h-full min-h-[135px] ${loading ? "animate-pulse" : ""}`}>
+              <div>
+                <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Paid Sale</p>
+                <p className="text-xl font-bold mt-2 text-slate-900 dark:text-zinc-50">
+                  {loading ? "..." : formatValue(stats?.paidSaleTotal || 0)}
+                </p>
+              </div>
+              {!loading && (
+                <div className="flex items-center text-[10px] mt-2">
+                  <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-bold ${
+                    stats?.paidSaleGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400"
+                  }`}>
+                    {stats?.paidSaleGrowth >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+                    {Math.abs(stats?.paidSaleGrowth || 0).toFixed(1)} %
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Card 4: Due Sale */}
+            <div className={`p-4 rounded-2xl bg-[#EBF7F5] dark:bg-teal-950/15 border border-teal-100/50 dark:border-teal-900/20 shadow-sm flex flex-col justify-between h-full min-h-[135px] ${loading ? "animate-pulse" : ""}`}>
+              <div>
+                <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Due Sale</p>
+                <p className="text-xl font-bold mt-2 text-slate-900 dark:text-zinc-50">
+                  {loading ? "..." : formatValue(stats?.dueTotal || 0)}
+                </p>
+              </div>
+              {!loading && (
+                <div className="flex items-center gap-1.5 text-[10px] mt-2">
+                  <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-bold ${
+                    stats?.dueGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400"
+                  }`}>
+                    {stats?.dueGrowth >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+                    {Math.abs(stats?.dueGrowth || 0).toFixed(1)} %
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right 2/5 Block: Card 2 - Sale Discounts */}
+          <div className="lg:col-span-2">
+            <div className={`p-4 rounded-2xl bg-[#FDF2F8] dark:bg-pink-950/15 border border-pink-100/50 dark:border-pink-900/20 shadow-sm flex flex-col justify-between h-full min-h-[135px] ${loading ? "animate-pulse" : ""}`}>
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Sale Discounts</p>
+                  {!loading && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-pink-100 dark:bg-pink-950/50 text-pink-700 dark:text-pink-400">
+                      Total: {formatValue(stats?.totalSaleDiscount || 0)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 mt-3 text-xs">
+                  <div className="p-2.5 rounded-xl bg-white/70 dark:bg-zinc-900/40 border border-pink-100/60 dark:border-pink-900/20">
+                    <p className="text-[10px] font-medium text-slate-400">General</p>
+                    <p className="font-bold text-slate-800 dark:text-zinc-100 mt-0.5">
+                      {loading ? "..." : formatValue(stats?.generalDiscount || 0)}
+                    </p>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white/70 dark:bg-zinc-900/40 border border-pink-100/60 dark:border-pink-900/20">
+                    <p className="text-[10px] font-medium text-slate-400">Coupon</p>
+                    <p className="font-bold text-slate-800 dark:text-zinc-100 mt-0.5">
+                      {loading ? "..." : formatValue(stats?.couponDiscount || 0)}
+                    </p>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-pink-50/80 dark:bg-pink-950/30 border border-pink-200/60 dark:border-pink-900/40">
+                    <p className="text-[10px] font-bold text-pink-600 dark:text-pink-400">Total Disc</p>
+                    <p className="font-bold text-pink-700 dark:text-pink-300 mt-0.5">
+                      {loading ? "..." : formatValue(stats?.totalSaleDiscount || 0)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Card 2: Paid Sale */}
-        <div className={`p-4 rounded-2xl bg-[#F2F8F2] dark:bg-emerald-950/15 border border-emerald-100/50 dark:border-emerald-900/20 shadow-sm flex flex-col justify-between h-[120px] ${loading ? "animate-pulse" : ""}`}>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Paid Sale</p>
-            <p className="text-xl font-bold mt-1 text-slate-900 dark:text-zinc-50">
-              {loading ? "..." : formatValue(stats?.paidSaleTotal || 0)}
-            </p>
-          </div>
-          {!loading && (
-            <div className="flex items-center text-[10px]">
-              <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-bold ${
-                stats?.paidSaleGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400"
-              }`}>
-                {stats?.paidSaleGrowth >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-                {Math.abs(stats?.paidSaleGrowth || 0).toFixed(1)} %
-              </span>
+        {/* ROW 2: 3/5 (Collections Received, Purchase, Expenses) | 2/5 (Retail Stock & Value) */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          {/* Left 3/5 Block */}
+          <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Card 5: Collections Received */}
+            <div className={`p-4 rounded-2xl bg-[#F5F2F9] dark:bg-purple-950/15 border border-purple-100/50 dark:border-purple-900/20 shadow-sm flex flex-col justify-between h-full min-h-[135px] ${loading ? "animate-pulse" : ""}`}>
+              <div>
+                <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Collections Received</p>
+                <p className="text-xl font-bold mt-2 text-slate-900 dark:text-zinc-50">
+                  {loading ? "..." : formatValue(stats?.collectionsReceived || 0)}
+                </p>
+              </div>
+              {!loading && (
+                <div className="flex items-center text-[10px] mt-2">
+                  <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-bold ${
+                    stats?.collectionsReceivedGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400"
+                  }`}>
+                    {stats?.collectionsReceivedGrowth >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+                    {Math.abs(stats?.collectionsReceivedGrowth || 0).toFixed(1)} %
+                  </span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Card 3: Due Sale */}
-        <div className={`p-4 rounded-2xl bg-[#EBF7F5] dark:bg-teal-950/15 border border-teal-100/50 dark:border-teal-900/20 shadow-sm flex flex-col justify-between h-[120px] ${loading ? "animate-pulse" : ""}`}>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Due Sale</p>
-            <p className="text-xl font-bold mt-1 text-slate-900 dark:text-zinc-50">
-              {loading ? "..." : formatValue(stats?.dueTotal || 0)}
-            </p>
-          </div>
-          {!loading && (
-            <div className="flex items-center gap-1.5 text-[10px]">
-              <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-bold ${
-                stats?.dueGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400"
-              }`}>
-                {stats?.dueGrowth >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-                {Math.abs(stats?.dueGrowth || 0).toFixed(1)} %
-              </span>
+            {/* Card 6: Purchase */}
+            <div className={`p-4 rounded-2xl bg-[#F0F4FA] dark:bg-blue-950/15 border border-blue-100/50 dark:border-blue-900/20 shadow-sm flex flex-col justify-between h-full min-h-[135px] ${loading ? "animate-pulse" : ""}`}>
+              <div>
+                <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Purchase</p>
+                <p className="text-xl font-bold mt-2 text-slate-900 dark:text-zinc-50">
+                  {loading ? "..." : formatValue(stats?.purchaseTotal || 0)}
+                </p>
+              </div>
+              {!loading && (
+                <div className="flex items-center gap-1.5 text-[10px] mt-2">
+                  <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-bold ${
+                    stats?.purchaseGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400"
+                  }`}>
+                    {stats?.purchaseGrowth >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+                    {Math.abs(stats?.purchaseGrowth || 0).toFixed(1)} %
+                  </span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Card 4: Collections Received */}
-        <div className={`p-4 rounded-2xl bg-[#F5F2F9] dark:bg-purple-950/15 border border-purple-100/50 dark:border-purple-900/20 shadow-sm flex flex-col justify-between h-[120px] ${loading ? "animate-pulse" : ""}`}>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Collections Received</p>
-            <p className="text-xl font-bold mt-1 text-slate-900 dark:text-zinc-50">
-              {loading ? "..." : formatValue(stats?.collectionsReceived || 0)}
-            </p>
-          </div>
-          {!loading && (
-            <div className="flex items-center text-[10px]">
-              <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-bold ${
-                stats?.collectionsReceivedGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400"
-              }`}>
-                {stats?.collectionsReceivedGrowth >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-                {Math.abs(stats?.collectionsReceivedGrowth || 0).toFixed(1)} %
-              </span>
+            {/* Card 7: Expenses */}
+            <div className={`p-4 rounded-2xl bg-[#FAF0F2] dark:bg-rose-950/15 border border-rose-100/50 dark:border-rose-900/20 shadow-sm flex flex-col justify-between h-full min-h-[135px] ${loading ? "animate-pulse" : ""}`}>
+              <div>
+                <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Expenses</p>
+                <p className="text-xl font-bold mt-2 text-slate-900 dark:text-zinc-50">
+                  {loading ? "..." : formatValue(stats?.expenseTotal || 0)}
+                </p>
+              </div>
+              {!loading && (
+                <div className="flex items-center text-[10px] mt-2">
+                  <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-bold ${
+                    stats?.expenseGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400"
+                  }`}>
+                    {stats?.expenseGrowth >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+                    {Math.abs(stats?.expenseGrowth || 0).toFixed(1)} %
+                  </span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Card 5: Purchase */}
-        <div className={`p-4 rounded-2xl bg-[#F0F4FA] dark:bg-blue-950/15 border border-blue-100/50 dark:border-blue-900/20 shadow-sm flex flex-col justify-between h-[120px] ${loading ? "animate-pulse" : ""}`}>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Purchase</p>
-            <p className="text-xl font-bold mt-1 text-slate-900 dark:text-zinc-50">
-              {loading ? "..." : formatValue(stats?.purchaseTotal || 0)}
-            </p>
-          </div>
-          {!loading && (
-            <div className="flex items-center gap-1.5 text-[10px]">
-              <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-bold ${
-                stats?.purchaseGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400"
-              }`}>
-                {stats?.purchaseGrowth >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-                {Math.abs(stats?.purchaseGrowth || 0).toFixed(1)} %
-              </span>
-            </div>
-          )}
-        </div>
+          {/* Right 2/5 Block: Card 8 - Stock & Value (Retail / Wholesale Tabs) */}
+          <div className="lg:col-span-2">
+            <div className={`p-4 rounded-2xl bg-[#F0FDF4] dark:bg-emerald-950/15 border border-emerald-100/50 dark:border-emerald-900/20 shadow-sm flex flex-col justify-between h-full min-h-[135px] ${loading ? "animate-pulse" : ""}`}>
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
+                    {stockTab === "retail" ? "Retail Stock & Value" : "Wholesale Stock & Value"}
+                  </p>
+                  
+                  {/* Retail / Wholesale Tab Switcher */}
+                  <div className="flex items-center p-0.5 rounded-lg bg-emerald-100/70 dark:bg-emerald-950/50 border border-emerald-200/60 dark:border-emerald-900/40 text-[10px] font-bold">
+                    <button
+                      onClick={() => setStockTab("retail")}
+                      className={`px-2 py-0.5 rounded-md transition-all ${
+                        stockTab === "retail"
+                          ? "bg-white dark:bg-zinc-800 text-emerald-700 dark:text-emerald-300 shadow-xs"
+                          : "text-slate-500 dark:text-zinc-400 hover:text-emerald-600"
+                      }`}
+                    >
+                      Retail
+                    </button>
+                    <button
+                      onClick={() => setStockTab("wholesale")}
+                      className={`px-2 py-0.5 rounded-md transition-all ${
+                        stockTab === "wholesale"
+                          ? "bg-white dark:bg-zinc-800 text-emerald-700 dark:text-emerald-300 shadow-xs"
+                          : "text-slate-500 dark:text-zinc-400 hover:text-emerald-600"
+                      }`}
+                    >
+                      Wholesale
+                    </button>
+                  </div>
+                </div>
 
-        {/* Card 6: Expenses */}
-        <div className={`p-4 rounded-2xl bg-[#FAF0F2] dark:bg-rose-950/15 border border-rose-100/50 dark:border-rose-900/20 shadow-sm flex flex-col justify-between h-[120px] ${loading ? "animate-pulse" : ""}`}>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Expenses</p>
-            <p className="text-xl font-bold mt-1 text-slate-900 dark:text-zinc-50">
-              {loading ? "..." : formatValue(stats?.expenseTotal || 0)}
-            </p>
-          </div>
-          {!loading && (
-            <div className="flex items-center text-[10px]">
-              <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-bold ${
-                stats?.expenseGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400" : "bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400"
-              }`}>
-                {stats?.expenseGrowth >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-                {Math.abs(stats?.expenseGrowth || 0).toFixed(1)} %
-              </span>
+                <div className="grid grid-cols-3 gap-2 mt-3 text-xs">
+                  <div className="p-2.5 rounded-xl bg-white/70 dark:bg-zinc-900/40 border border-emerald-100/60 dark:border-emerald-900/20">
+                    <p className="text-[10px] font-medium text-slate-400">Total Quantity</p>
+                    <p className="font-bold text-slate-800 dark:text-zinc-100 mt-0.5">
+                      {loading
+                        ? "..."
+                        : `${(stockTab === "retail" ? stats?.retailStock?.totalQuantity || 0 : stats?.wholesaleStock?.totalQuantity || 0).toLocaleString()} pcs`}
+                    </p>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white/70 dark:bg-zinc-900/40 border border-emerald-100/60 dark:border-emerald-900/20">
+                    <p className="text-[10px] font-medium text-slate-400">
+                      {stockTab === "retail" ? "Sale Value" : "Wholesale Value"}
+                    </p>
+                    <p className="font-bold text-slate-800 dark:text-zinc-100 mt-0.5">
+                      {loading
+                        ? "..."
+                        : formatValue(
+                            stockTab === "retail"
+                              ? stats?.retailStock?.saleValue || 0
+                              : stats?.wholesaleStock?.saleValue || 0
+                          )}
+                    </p>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white/70 dark:bg-zinc-900/40 border border-emerald-100/60 dark:border-emerald-900/20">
+                    <p className="text-[10px] font-medium text-slate-400">Stock Value</p>
+                    <p className="font-bold text-slate-800 dark:text-zinc-100 mt-0.5">
+                      {loading
+                        ? "..."
+                        : formatValue(
+                            stockTab === "retail"
+                              ? stats?.retailStock?.stockValue || 0
+                              : stats?.wholesaleStock?.stockValue || 0
+                          )}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
 
