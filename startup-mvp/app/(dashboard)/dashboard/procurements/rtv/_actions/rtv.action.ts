@@ -301,9 +301,9 @@ export async function getReturnToVendorById(rtvId: string) {
     const rtv = await prisma.returnToVendor.findUnique({
       where: { id: rtvId },
       include: {
-        supplier: { select: { id: true, name: true, email: true, phone: true } },
+        supplier: { select: { id: true, name: true, email: true, phone: true, company: true } },
         warehouse: { select: { id: true, name: true, code: true, address: true, city: true, state: true, zip: true, country: true } },
-        purchase: { select: { id: true, purchaseNumber: true } },
+        purchase: { select: { id: true, purchaseNumber: true, date: true } },
         items: {
           include: {
             item: { select: { id: true, code: true, name: true, unit: { select: { symbol: true } } } },

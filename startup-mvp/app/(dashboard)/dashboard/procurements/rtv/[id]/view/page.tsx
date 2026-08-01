@@ -19,6 +19,8 @@ import { notFound } from "next/navigation";
 import type { ReturnToVendorStatus } from "@prisma/client";
 import PrintButton from "@/app/(dashboard)/dashboard/procurements/purchases/_components/print-button";
 import { numberToWords } from "@/lib/utils/number-to-words";
+import PrintHeader, { PrintStyle } from "@/app/(dashboard)/dashboard/procurements/_components/print-header";
+import { prisma } from "@/lib/prisma";
 
 interface RTVDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -35,7 +37,10 @@ const STATUS_LABELS: Record<ReturnToVendorStatus, string> = {
 export default async function RTVDetailsPage({ params }: RTVDetailsPageProps) {
   const { id } = await params;
 
-  const result = await getReturnToVendorById(id);
+  const [result, org] = await Promise.all([
+    getReturnToVendorById(id),
+    prisma.organization.findFirst({ where: { status: "active" } }).catch(() => null),
+  ]);
 
   if (!result.success || !result.rtv) {
     notFound();
@@ -65,47 +70,18 @@ export default async function RTVDetailsPage({ params }: RTVDetailsPageProps) {
 
   return (
     <div className="space-y-6 print:space-y-3">
+      {/* Print-only: multi-page print fix + page numbering */}
+      <PrintStyle />
+
       {/* Print-only Invoice Header */}
-      <div className="hidden print:block border-b border-slate-300 pb-2 mb-3">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">
-              {rtv.warehouse?.name || "Ferrari Fashion"}
-            </h1>
-            {rtv.warehouse?.address ? (
-              <>
-                <p className="text-xs text-slate-600">{rtv.warehouse.address}</p>
-                {(rtv.warehouse.city || rtv.warehouse.state || rtv.warehouse.zip || rtv.warehouse.country) && (
-                  <p className="text-xs text-slate-600">
-                    {[
-                      rtv.warehouse.city,
-                      rtv.warehouse.state,
-                      rtv.warehouse.zip,
-                      rtv.warehouse.country,
-                    ]
-                      .filter(Boolean)
-                      .join(", ")}
-                  </p>
-                )}
-              </>
-            ) : (
-              <>
-                <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
-                <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
-              </>
-            )}
-            <p className="text-xs text-slate-600">Phone: +880 1841 556677</p>
-          </div>
-          <div className="text-right">
-            <h2 className="text-xl font-bold uppercase text-slate-800">Return To Vendor</h2>
-            <div className="mt-2 text-xs space-y-0.5">
-              <p><span className="font-semibold">RTV Number:</span> {rtv.rtvNumber}</p>
-              <p><span className="font-semibold">Date:</span> {format(new Date(rtv.date), "dd MMM yyyy")}</p>
-              <p><span className="font-semibold">Status:</span> {STATUS_LABELS[rtv.status]}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PrintHeader
+        docNumber={rtv.rtvNumber}
+        docTitle="Return To Vendor"
+        organizationName={org?.name}
+        organizationAddress={org?.address}
+        organizationEmail={org?.email}
+        organizationPhone={org?.phone}
+      />
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
@@ -137,108 +113,102 @@ export default async function RTVDetailsPage({ params }: RTVDetailsPageProps) {
         </div>
       </div>
 
-      {/* Main Information Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:grid-cols-3 print:gap-2 print:space-y-0">
-        {/* RTV Information */}
-        <Card className="print:shadow-none print:border-0 print:bg-transparent">
-          <CardHeader className="print:p-1.5 print:pb-0">
-            <CardTitle className="flex items-center gap-2 print:text-xs">
-              <FiFileText className="h-5 w-5 print:h-4 print:w-4" aria-hidden="true" />
-              Return Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 print:space-y-1 print:p-1.5">
-            <div className="space-y-1 print:space-y-0">
-              <p className="text-sm font-medium text-muted-foreground print:text-[10px]">RTV Number</p>
-              <p className="font-mono text-lg font-semibold print:text-xs">{rtv.rtvNumber}</p>
+      {/* Main Information Grid (Single Card 4-Column Layout) */}
+      <Card className="print:shadow-none print:border-0 print:bg-transparent">
+        <CardContent className="pt-6 print:p-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 print:grid-cols-4 print:gap-3">
+            {/* Col 1: Source Document */}
+            <div>
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">Source Document</p>
+              <div className="space-y-1 text-xs print:text-[9px]">
+                <p>
+                  <span className="text-muted-foreground">Type: </span>
+                  <span className="font-semibold text-slate-800">Return To Vendor</span>
+                </p>
+                {rtv.purchase && (
+                  <>
+                    <p>
+                      <span className="text-muted-foreground">Original PO: </span>
+                      <Link
+                        href={`/dashboard/procurements/purchases/${rtv.purchase.id}/view`}
+                        className="font-bold text-slate-900 hover:underline print:no-underline"
+                      >
+                        {rtv.purchase.purchaseNumber}
+                      </Link>
+                    </p>
+                    {rtv.purchase.date && (
+                      <p>
+                        <span className="text-muted-foreground">PO Date: </span>
+                        <span className="font-medium text-slate-900">
+                          {format(new Date(rtv.purchase.date), "dd MMM yyyy")}
+                        </span>
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
-            {rtv.purchase && (
-              <>
-                <Separator className="print:my-1" />
-                <div className="space-y-1 print:space-y-0">
-                  <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Original Purchase</p>
-                  <Link 
-                    href={`/dashboard/procurements/purchases/${rtv.purchase.id}/view`}
-                    className="font-mono hover:underline block print:text-slate-900 print:no-underline print:text-xs"
-                  >
-                    {rtv.purchase.purchaseNumber}
-                  </Link>
-                </div>
-              </>
-            )}
-            <Separator className="print:my-1" />
-            <div className="space-y-1 print:space-y-0">
-              <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Status</p>
-              <Badge variant={getStatusBadgeVariant(rtv.status)} className="text-sm print:text-[10px] print:px-1.5 print:py-0">
-                {STATUS_LABELS[rtv.status]}
-              </Badge>
-            </div>
-            <Separator className="print:my-1" />
-            <div className="space-y-1 print:space-y-0">
-              <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Return Date</p>
-              <p className="font-medium print:text-xs">
-                {format(new Date(rtv.date), "MMM d, yyyy")}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Supplier Information */}
-        <Card className="print:shadow-none print:border-0 print:bg-transparent">
-          <CardHeader className="print:p-1.5 print:pb-0">
-            <CardTitle className="flex items-center gap-2 print:text-xs">
-              <FiTruck className="h-5 w-5 print:h-4 print:w-4" aria-hidden="true" />
-              Supplier
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 print:space-y-1 print:p-1.5">
-            <div className="space-y-1 print:space-y-0">
-              <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Supplier Name</p>
-              <Link
-                href={`/dashboard/suppliers/${rtv.supplier.id}`}
-                className="font-semibold text-lg hover:underline block print:text-slate-900 print:no-underline print:text-xs"
-              >
-                {rtv.supplier.name || rtv.supplier.email}
-              </Link>
-            </div>
-            <Separator className="print:my-1" />
-            <div className="space-y-1 print:space-y-0">
-              <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Email</p>
-              <p className="text-sm print:text-xs">{rtv.supplier.email}</p>
-            </div>
-            {rtv.supplier.phone && (
-              <>
-                <Separator className="print:my-1" />
-                <div className="space-y-1 print:space-y-0">
-                  <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Phone</p>
-                  <p className="text-sm print:text-xs">{rtv.supplier.phone}</p>
+            {/* Col 2: Supplier Details */}
+            <div>
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">Supplier Details</p>
+              {rtv.supplier ? (
+                <div>
+                  <p className="text-base font-bold print:text-xs text-slate-900">
+                    {rtv.supplier.name || rtv.supplier.company || rtv.supplier.email}
+                  </p>
+                  <div className="text-xs text-muted-foreground print:text-[9px] mt-0.5 space-y-0.5">
+                    {rtv.supplier.phone && <p>Phone: {rtv.supplier.phone}</p>}
+                    {rtv.supplier.email && <p>Email: {rtv.supplier.email}</p>}
+                  </div>
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Warehouse Details */}
-        <Card className="print:shadow-none print:border-0 print:bg-transparent">
-          <CardHeader className="print:p-1.5 print:pb-0">
-            <CardTitle className="flex items-center gap-2 print:text-xs">
-              <FiHome className="h-5 w-5 print:h-4 print:w-4" aria-hidden="true" />
-              Warehouse Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 print:space-y-1 print:p-1.5">
-            <div className="space-y-1 print:space-y-0">
-              <p className="text-sm font-medium text-muted-foreground print:text-[10px]">Warehouse</p>
-              <Link
-                href={`/dashboard/master/warehouses/${rtv.warehouse.id}`}
-                className="font-semibold hover:underline block print:text-slate-900 print:no-underline print:text-xs"
-              >
-                {rtv.warehouse.name}
-              </Link>
+              ) : (
+                <p className="text-xs text-muted-foreground print:text-[9px]">N/A</p>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+
+            {/* Col 3: Warehouse Details */}
+            <div>
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">Warehouse Details</p>
+              <p className="text-base font-bold print:text-xs text-slate-900">{rtv.warehouse.name}</p>
+              {rtv.warehouse.address ? (
+                <div className="text-xs text-muted-foreground print:text-[9px] mt-0.5 space-y-0.5">
+                  <p>{rtv.warehouse.address}</p>
+                  {(rtv.warehouse.city || rtv.warehouse.state || rtv.warehouse.zip || rtv.warehouse.country) && (
+                    <p>
+                      {[
+                        rtv.warehouse.city,
+                        rtv.warehouse.state,
+                        rtv.warehouse.zip,
+                        rtv.warehouse.country,
+                      ]
+                        .filter(Boolean)
+                        .join(", ")}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground print:text-[9px] mt-0.5">Code: {rtv.warehouse.code}</p>
+              )}
+            </div>
+
+            {/* Col 4: Return Information (Right Aligned) */}
+            <div className="text-right">
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">Return Information</p>
+              <div className="space-y-1 text-sm print:text-xs">
+                <p>
+                  <span className="text-muted-foreground">Date: </span>
+                  <span className="font-medium text-slate-900">{format(new Date(rtv.date), "dd MMMM yyyy")}</span>
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Status: </span>
+                  <span className="font-semibold uppercase text-slate-800">{STATUS_LABELS[rtv.status]}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* RTV Items */}
       <Card className="print:shadow-none print:border-0 print:bg-transparent">
@@ -262,6 +232,7 @@ export default async function RTVDetailsPage({ params }: RTVDetailsPageProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8 print:py-1 print:px-2 print:text-xs">#</TableHead>
                     <TableHead className="print:py-1 print:px-2 print:text-xs">Item Code</TableHead>
                     <TableHead className="print:py-1 print:px-2 print:text-xs">Description</TableHead>
                     <TableHead className="print:py-1 print:px-2 print:text-xs">Reason</TableHead>
@@ -271,8 +242,9 @@ export default async function RTVDetailsPage({ params }: RTVDetailsPageProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rtv.items.map((item: any) => (
+                  {rtv.items.map((item: any, index: number) => (
                     <TableRow key={item.id}>
+                      <TableCell className="print:py-1.5 print:px-2 print:text-xs text-muted-foreground">{index + 1}</TableCell>
                       <TableCell className="print:py-1.5 print:px-2 print:text-xs">
                         {item.item ? (
                           <Link
@@ -317,7 +289,7 @@ export default async function RTVDetailsPage({ params }: RTVDetailsPageProps) {
                   ))}
                   {rtv.items.length > 0 && (
                     <TableRow className="font-bold bg-muted/20 hover:bg-muted/20">
-                      <TableCell colSpan={3} className="print:py-1.5 print:px-2 print:text-xs">Total</TableCell>
+                      <TableCell colSpan={4} className="print:py-1.5 print:px-2 print:text-xs">Total</TableCell>
                       <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">
                         {totalQuantity.toFixed(2)}
                       </TableCell>
