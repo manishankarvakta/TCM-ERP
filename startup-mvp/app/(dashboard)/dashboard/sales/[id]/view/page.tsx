@@ -12,7 +12,10 @@ interface SaleDetailsPageProps {
 export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) {
   const { id } = await params;
 
-  const result = await getSaleById(id);
+  const [result, org] = await Promise.all([
+    getSaleById(id),
+    prisma.organization.findFirst({ where: { status: "active" } }).catch(() => null),
+  ]);
 
   if (!result.success || !result.sale) {
     notFound();
@@ -88,6 +91,7 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
     <PageGuard permissionKey="sales.sales" requiredOperation="view">
       <SaleDetailsClient
         sale={sale}
+        organization={org}
         cashAccount={cashAccount}
         cardAccount={cardAccount}
         mfsAccount={mfsAccount}

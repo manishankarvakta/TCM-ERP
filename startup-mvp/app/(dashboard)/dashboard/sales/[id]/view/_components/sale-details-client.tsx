@@ -19,9 +19,11 @@ import { Separator } from "@/components/ui/separator";
 import type { SaleStatus } from "@prisma/client";
 import PosReceiptPrint from "./pos-receipt-print";
 import { numberToWords } from "@/lib/utils/number-to-words";
+import PrintHeader, { PrintStyle } from "@/app/(dashboard)/dashboard/procurements/_components/print-header";
 
 interface SaleDetailsClientProps {
   sale: any;
+  organization?: any;
   cashAccount: any;
   cardAccount: any;
   mfsAccount: any;
@@ -39,6 +41,7 @@ const STATUS_LABELS: Record<SaleStatus, string> = {
 
 export default function SaleDetailsClient({
   sale,
+  organization,
   cashAccount,
   cardAccount,
   mfsAccount,
@@ -109,49 +112,18 @@ export default function SaleDetailsClient({
 
   return (
     <div className="space-y-6 print:space-y-3">
+      {/* Print-only: multi-page print fix + page numbering */}
+      <PrintStyle />
+
       {/* Print-only Invoice/Challan Header */}
-      <div className="hidden print:block border-b border-slate-300 pb-2 mb-3">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">
-              {sale.warehouse?.name || "Ferrari Fashion"}
-            </h1>
-            {sale.warehouse?.address ? (
-              <>
-                <p className="text-xs text-slate-600">{sale.warehouse.address}</p>
-                {(sale.warehouse.city || sale.warehouse.state || sale.warehouse.zip || sale.warehouse.country) && (
-                  <p className="text-xs text-slate-600">
-                    {[
-                      sale.warehouse.city,
-                      sale.warehouse.state,
-                      sale.warehouse.zip,
-                      sale.warehouse.country,
-                    ]
-                      .filter(Boolean)
-                      .join(", ")}
-                  </p>
-                )}
-              </>
-            ) : (
-              <>
-                <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
-                <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
-              </>
-            )}
-            <p className="text-xs text-slate-600">Phone: +880 1841 556677</p>
-          </div>
-          <div className="text-right">
-            <h2 className="text-xl font-bold uppercase text-slate-800">
-              {printMode === "challan" ? "Delivery Challan" : "Sales Invoice"}
-            </h2>
-            <div className="mt-2 text-xs space-y-0.5">
-              <p><span className="font-semibold">Invoice Number:</span> {sale.saleNumber}</p>
-              <p><span className="font-semibold">Date:</span> {format(new Date(sale.date), "dd MMM yyyy")}</p>
-              <p><span className="font-semibold">Status:</span> {STATUS_LABELS[sale.status as SaleStatus]}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PrintHeader
+        docNumber={sale.saleNumber}
+        docTitle={printMode === "challan" ? "DELIVERY CHALLAN" : "SALES INVOICE"}
+        organizationName={organization?.name}
+        organizationAddress={organization?.address}
+        organizationEmail={organization?.email}
+        organizationPhone={organization?.phone}
+      />
 
       {/* Header */}
       <div className="flex items-center justify-between print:hidden">
@@ -192,33 +164,77 @@ export default function SaleDetailsClient({
         </div>
       </div>
 
-      {/* Print-only Metadata block (Customer & Warehouse) */}
-      <div className="hidden print:grid print:grid-cols-2 print:gap-4 print:border print:border-slate-200 print:rounded-lg print:p-3 print:mb-2 text-xs">
-        <div>
-          <h3 className="font-semibold text-slate-800 mb-1 uppercase tracking-wide text-xs">Customer Details:</h3>
-          <p className="font-bold text-slate-900">{sale.client.name || sale.client.email}</p>
-          {sale.client.company && (
-            <p className="text-slate-600 text-xs">{sale.client.company}</p>
-          )}
-          {sale.client.email && (
-            <p className="text-slate-600 text-xs">Email: {sale.client.email}</p>
-          )}
-          {sale.client.phone && (
-            <p className="text-slate-600 text-xs">Phone: {sale.client.phone}</p>
-          )}
-        </div>
-        <div>
-          <h3 className="font-semibold text-slate-800 mb-1 uppercase tracking-wide text-xs">Outlet / Warehouse:</h3>
-          {sale.warehouse ? (
-            <>
-              <p className="font-bold text-slate-900">{sale.warehouse.name}</p>
-              <p className="text-slate-600 text-xs font-mono">Code: {sale.warehouse.code}</p>
-            </>
-          ) : (
-            <p className="text-slate-500 italic">Not assigned</p>
-          )}
-        </div>
-      </div>
+      {/* Main Information Grid (Single Card 3-Column Layout matching TPN/GRN/RTV) */}
+      <Card className="print:shadow-none print:border-0 print:bg-transparent">
+        <CardContent className="pt-6 print:p-1.5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:grid-cols-3 print:gap-4">
+            {/* Col 1: Customer Details */}
+            <div>
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">Customer Details</p>
+              {sale.client ? (
+                <div>
+                  <p className="text-base font-bold print:text-xs text-slate-900">
+                    {sale.client.name || sale.client.company || sale.client.email}
+                  </p>
+                  <div className="text-xs text-muted-foreground print:text-[9px] mt-0.5 space-y-0.5">
+                    {sale.client.company && sale.client.name && <p>{sale.client.company}</p>}
+                    {sale.client.phone && <p>Phone: {sale.client.phone}</p>}
+                    {sale.client.email && <p>Email: {sale.client.email}</p>}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground print:text-[9px]">Walk-in Customer</p>
+              )}
+            </div>
+
+            {/* Col 2: Outlet / Warehouse */}
+            <div>
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">Outlet / Warehouse</p>
+              {sale.warehouse ? (
+                <div>
+                  <p className="text-base font-bold print:text-xs text-slate-900">{sale.warehouse.name}</p>
+                  {sale.warehouse.address ? (
+                    <div className="text-xs text-muted-foreground print:text-[9px] mt-0.5 space-y-0.5">
+                      <p>{sale.warehouse.address}</p>
+                      {(sale.warehouse.city || sale.warehouse.state || sale.warehouse.zip || sale.warehouse.country) && (
+                        <p>
+                          {[
+                            sale.warehouse.city,
+                            sale.warehouse.state,
+                            sale.warehouse.zip,
+                            sale.warehouse.country,
+                          ]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground print:text-[9px] mt-0.5">Code: {sale.warehouse.code}</p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground print:text-[9px]">Not assigned</p>
+              )}
+            </div>
+
+            {/* Col 3: Sale Information (Right Aligned) */}
+            <div className="text-right">
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">Sale Information</p>
+              <div className="space-y-1 text-sm print:text-xs">
+                <p>
+                  <span className="text-muted-foreground">Date: </span>
+                  <span className="font-medium text-slate-900">{format(new Date(sale.date), "dd MMMM yyyy")}</span>
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Status: </span>
+                  <span className="font-semibold uppercase text-slate-800">{STATUS_LABELS[sale.status as SaleStatus]}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Main Information Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:hidden">
@@ -495,6 +511,7 @@ export default function SaleDetailsClient({
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8 print:py-1 print:px-2 print:text-xs">#</TableHead>
                     <TableHead className="print:py-1 print:px-2 print:text-xs">Item Code</TableHead>
                     <TableHead className="print:py-1 print:px-2 print:text-xs">Description</TableHead>
                     <TableHead className="text-right print:py-1 print:px-2 print:text-xs">Quantity</TableHead>
@@ -503,8 +520,9 @@ export default function SaleDetailsClient({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sale.items.map((item: any) => (
+                  {sale.items.map((item: any, index: number) => (
                     <TableRow key={item.id}>
+                      <TableCell className="print:py-1.5 print:px-2 print:text-xs text-muted-foreground">{index + 1}</TableCell>
                       <TableCell className="print:py-1.5 print:px-2">
                         {item.item ? (
                           <Link
@@ -539,7 +557,7 @@ export default function SaleDetailsClient({
                   ))}
                   {sale.items.length > 0 && (
                     <TableRow className="font-bold bg-muted/20 hover:bg-muted/20">
-                      <TableCell colSpan={2} className="print:py-1.5 print:px-2 print:text-xs">Total</TableCell>
+                      <TableCell colSpan={3} className="print:py-1.5 print:px-2 print:text-xs">Total</TableCell>
                       <TableCell className="text-right font-mono print:py-1.5 print:px-2 print:text-xs">
                         {totalQuantity.toFixed(2)}
                       </TableCell>
