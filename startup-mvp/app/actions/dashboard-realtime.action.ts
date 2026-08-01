@@ -527,7 +527,7 @@ export async function getRealtimeDashboardStats(
       return acc.warehouses.some((w: any) => w.id === warehouseId);
     });
 
-    // 3. Proper Accounts System: Calculate net account balance (Total Debit - Total Credit) from JournalEntryLine & VoucherLine
+    // 3. Proper Accounts System: Calculate net account balance (Total Debit - Total Credit) directly from JournalEntryLine
     const accountCoaIds = filteredAccounts.map((acc: any) => acc.chartOfAccountId).filter(Boolean);
     const netAccountBalanceMap = new Map<string, number>();
 
@@ -551,29 +551,6 @@ export async function getRealtimeDashboardStats(
         const debit = Number(agg._sum.debitAmount || 0);
         const credit = Number(agg._sum.creditAmount || 0);
         netAccountBalanceMap.set(agg.chartOfAccountId, debit - credit);
-      }
-
-      // Query VoucherLines for vouchers where journal entries are not linked
-      const voucherLines = await prisma.voucherLine.findMany({
-        where: {
-          chartOfAccountId: { in: accountCoaIds },
-          createdAt: { gte: currentStart, lte: currentEnd },
-          Voucher: { JournalEntry: { none: {} } },
-          ...(warehouseId !== "all" ? { Voucher: { warehouseId } } : {}),
-        },
-        select: {
-          chartOfAccountId: true,
-          debitAmount: true,
-          creditAmount: true,
-        },
-      });
-
-      for (const line of voucherLines) {
-        const netVoucherEffect = Number(line.debitAmount || 0) - Number(line.creditAmount || 0);
-        netAccountBalanceMap.set(
-          line.chartOfAccountId,
-          (netAccountBalanceMap.get(line.chartOfAccountId) || 0) + netVoucherEffect
-        );
       }
     }
 
