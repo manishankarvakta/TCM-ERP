@@ -20,6 +20,8 @@ import type { PurchaseStatus } from "@prisma/client";
 import PurchaseStatusActions from "../../_components/purchase-status-actions";
 import PrintButton from "../../_components/print-button";
 import { numberToWords } from "@/lib/utils/number-to-words";
+import PurchasePrintHeader, { PurchasePrintStyle } from "../../_components/purchase-print-header";
+import { prisma } from "@/lib/prisma";
 
 interface PurchaseDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -37,7 +39,10 @@ const STATUS_LABELS: Record<PurchaseStatus, string> = {
 export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPageProps) {
   const { id } = await params;
 
-  const result = await getPurchaseById(id);
+  const [result, org] = await Promise.all([
+    getPurchaseById(id),
+    prisma.organization.findFirst({ where: { status: "active" } }).catch(() => null),
+  ]);
 
   if (!result.success || !result.purchase) {
     notFound();
@@ -72,47 +77,17 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
 
   return (
     <div className="space-y-6 print:space-y-3">
+      {/* Print-only: multi-page print fix + page numbering */}
+      <PurchasePrintStyle />
+
       {/* Print-only Invoice Header */}
-      <div className="hidden print:block border-b border-slate-300 pb-2 mb-3">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900">
-              {purchase.warehouse?.name || "Ferrari Fashion"}
-            </h1>
-            {purchase.warehouse?.address ? (
-              <>
-                <p className="text-xs text-slate-600">{purchase.warehouse.address}</p>
-                {(purchase.warehouse.city || purchase.warehouse.state || purchase.warehouse.zip || purchase.warehouse.country) && (
-                  <p className="text-xs text-slate-600">
-                    {[
-                      purchase.warehouse.city,
-                      purchase.warehouse.state,
-                      purchase.warehouse.zip,
-                      purchase.warehouse.country,
-                    ]
-                      .filter(Boolean)
-                      .join(", ")}
-                  </p>
-                )}
-              </>
-            ) : (
-              <>
-                <p className="text-xs text-slate-600">House #14, Road #04, Sector #03</p>
-                <p className="text-xs text-slate-600">Uttara, Dhaka-1230, Bangladesh</p>
-              </>
-            )}
-            <p className="text-xs text-slate-600">Phone: +880 1841 556677</p>
-          </div>
-          <div className="text-right">
-            <h2 className="text-xl font-bold uppercase text-slate-800">Purchase Order</h2>
-            <div className="mt-2 text-xs space-y-0.5">
-              <p><span className="font-semibold">PO Number:</span> {purchase.purchaseNumber}</p>
-              <p><span className="font-semibold">Date:</span> {format(new Date(purchase.date), "dd MMM yyyy")}</p>
-              <p><span className="font-semibold">Status:</span> {STATUS_LABELS[purchase.status]}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PurchasePrintHeader
+        purchaseNumber={purchase.purchaseNumber}
+        organizationName={org?.name}
+        organizationAddress={org?.address}
+        organizationEmail={org?.email}
+        organizationPhone={org?.phone}
+      />
 
       {/* Header */}
       <div className="flex items-center justify-between print:hidden">
@@ -366,16 +341,18 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Item Code</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
-                    <TableHead className="text-right">Unit Price</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="w-8 print:py-1 print:px-2 print:text-xs">#</TableHead>
+                    <TableHead className="print:py-1 print:px-2 print:text-xs">Item Code</TableHead>
+                    <TableHead className="print:py-1 print:px-2 print:text-xs">Description</TableHead>
+                    <TableHead className="text-right print:py-1 print:px-2 print:text-xs">Quantity</TableHead>
+                    <TableHead className="text-right print:py-1 print:px-2 print:text-xs">Unit Price</TableHead>
+                    <TableHead className="text-right print:py-1 print:px-2 print:text-xs">Amount</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {purchase.items.map((item) => (
+                  {purchase.items.map((item, index) => (
                     <TableRow key={item.id}>
+                      <TableCell className="print:py-1.5 print:px-2 print:text-xs text-muted-foreground">{index + 1}</TableCell>
                       <TableCell className="print:py-1.5 print:px-2">
                         {item.item ? (
                           <Link
