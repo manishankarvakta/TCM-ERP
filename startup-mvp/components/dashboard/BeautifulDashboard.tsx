@@ -683,9 +683,9 @@ export default function BeautifulDashboard({
         </div>
       </div>
 
-      {/* Payment Inflows Section */}
+      {/* Account Balances Section */}
       <div className="space-y-2">
-        <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">Payment Inflows (By Account)</h2>
+        <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">Account Balances (By Account)</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {loading ? (
             // Skeleton load state
