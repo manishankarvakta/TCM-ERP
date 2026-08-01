@@ -24,6 +24,7 @@ import {
   FiTrendingDown,
 } from "react-icons/fi";
 import { format } from "date-fns";
+import PrintHeader, { PrintStyle } from "@/app/(dashboard)/dashboard/procurements/_components/print-header";
 
 interface LedgerItem {
   id: string;
@@ -77,6 +78,12 @@ interface ClientLedgerProps {
   summary: LedgerSummary;
   initialStartDate?: string;
   initialEndDate?: string;
+  organization?: {
+    name?: string | null;
+    address?: string | null;
+    email?: string | null;
+    phone?: string | null;
+  } | null;
 }
 
 export default function ClientLedger({
@@ -85,6 +92,7 @@ export default function ClientLedger({
   summary,
   initialStartDate = "",
   initialEndDate = "",
+  organization,
 }: ClientLedgerProps) {
   const router = useRouter();
   const [startDate, setStartDate] = useState(initialStartDate);
@@ -137,7 +145,19 @@ export default function ClientLedger({
 
   return (
     <div className="space-y-6 print:p-0 print:space-y-4">
-      {/* Top Header Actions (hidden on print) */}
+      {/* Print-only: multi-page print fix + page numbering */}
+      <PrintStyle />
+
+      {/* Print-only Branded Header */}
+      <PrintHeader
+        docNumber={client.clientCode || client.id.slice(-8).toUpperCase()}
+        docTitle="CLIENT LEDGER STATEMENT"
+        organizationName={organization?.name}
+        organizationAddress={organization?.address}
+        organizationEmail={organization?.email}
+        organizationPhone={organization?.phone}
+      />
+
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" asChild>
