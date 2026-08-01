@@ -532,13 +532,13 @@ export async function getRealtimeDashboardStats(
     const netAccountBalanceMap = new Map<string, number>();
 
     if (accountCoaIds.length > 0) {
-      // Query JournalEntryLine aggregates (standard accounting formula: Total Debit - Total Credit)
+      // Query JournalEntryLine aggregates up to currentEnd (cumulative balance as of the selected date)
       const journalAggregates = await prisma.journalEntryLine.groupBy({
         by: ["chartOfAccountId"],
         where: {
           chartOfAccountId: { in: accountCoaIds },
           JournalEntry: {
-            date: { gte: currentStart, lte: currentEnd },
+            date: { lte: currentEnd },
           },
         },
         _sum: {
