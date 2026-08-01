@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import BeautifulDashboard from "@/components/dashboard/BeautifulDashboard";
