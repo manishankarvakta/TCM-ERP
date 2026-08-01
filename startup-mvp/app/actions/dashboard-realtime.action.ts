@@ -527,12 +527,12 @@ export async function getRealtimeDashboardStats(
       return acc.warehouses.some((w: any) => w.id === warehouseId);
     });
 
-    // 3. Proper Accounts System: Calculate net account balance (Inflow - Outflow / Debit - Credit)
+    // 3. Proper Accounts System: Compute Net Calculated Balance (Inflows - Outflows) for each account
     const accountCoaIds = filteredAccounts.map((acc: any) => acc.chartOfAccountId).filter(Boolean);
     const netAccountBalanceMap = new Map<string, number>();
 
     if (accountCoaIds.length > 0) {
-      // Query JournalEntryLine aggregates up to currentEnd (cumulative balance as of the selected date)
+      // Query JournalEntryLine aggregates (standard accounting formula: Total Debit - Total Credit)
       const journalAggregates = await prisma.journalEntryLine.groupBy({
         by: ["chartOfAccountId"],
         where: {
@@ -552,12 +552,47 @@ export async function getRealtimeDashboardStats(
         const credit = Number(agg._sum.creditAmount || 0);
         netAccountBalanceMap.set(agg.chartOfAccountId, debit - credit);
       }
+
+      // Query VoucherLine for expense outflows paid out from Cash/Bank/MFS
+      const voucherLines = await prisma.voucherLine.findMany({
+        where: {
+          chartOfAccountId: { in: accountCoaIds },
+          createdAt: { lte: currentEnd },
+        },
+        select: {
+          chartOfAccountId: true,
+          debitAmount: true,
+          creditAmount: true,
+        },
+      });
+
+      const voucherOutflowMap = new Map<string, number>();
+      for (const line of voucherLines) {
+        const netOutflow = Number(line.creditAmount || 0) - Number(line.debitAmount || 0);
+        voucherOutflowMap.set(
+          line.chartOfAccountId,
+          (voucherOutflowMap.get(line.chartOfAccountId) || 0) + netOutflow
+        );
+      }
+
+      // Combine POS Inflow - Voucher Outflow for any accounts lacking GL entries
+      for (const acc of filteredAccounts) {
+        const coaId = acc.ChartOfAccount?.id;
+        if (!coaId) continue;
+
+        if (!netAccountBalanceMap.has(coaId) || netAccountBalanceMap.get(coaId) === 0) {
+          const posInflow = paymentMap.get(coaId) || 0;
+          const vOutflow = voucherOutflowMap.get(coaId) || 0;
+          if (posInflow !== 0 || vOutflow !== 0) {
+            netAccountBalanceMap.set(coaId, posInflow - vOutflow);
+          }
+        }
+      }
     }
 
     const receivedAccounts = filteredAccounts.map((acc: any) => {
       const coa = acc.ChartOfAccount;
-      // Always calculate Net Account Balance strictly from General Ledger (Total Debits - Total Credits)
-      const balance = netAccountBalanceMap.get(coa.id) || 0;
+      const balance = netAccountBalanceMap.get(coa.id) ?? 0;
 
       return {
         id: acc.id,
