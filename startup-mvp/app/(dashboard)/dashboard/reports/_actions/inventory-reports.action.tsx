@@ -525,12 +525,31 @@ export async function getStockMovements(
           }
         : {}),
       ...(filters.search
-        ? {
-            OR: [
-              { name: { contains: filters.search, mode: "insensitive" as const } },
-              { code: { contains: filters.search, mode: "insensitive" as const } },
-            ],
-          }
+        ? (() => {
+            const trimmed = filters.search.trim();
+            const words = trimmed.split(/\s+/).filter(Boolean);
+            const conditions: Prisma.ItemWhereInput[] = [
+              { name: { contains: trimmed, mode: "insensitive" as const } },
+              { code: { contains: trimmed, mode: "insensitive" as const } },
+              { barcode: { contains: trimmed, mode: "insensitive" as const } },
+              { variants: { some: { sku: { contains: trimmed, mode: "insensitive" as const } } } },
+              { variants: { some: { barcode: { contains: trimmed, mode: "insensitive" as const } } } },
+            ];
+            if (words.length > 1) {
+              conditions.push({
+                AND: words.map((w) => ({
+                  OR: [
+                    { name: { contains: w, mode: "insensitive" as const } },
+                    { code: { contains: w, mode: "insensitive" as const } },
+                    { barcode: { contains: w, mode: "insensitive" as const } },
+                    { variants: { some: { sku: { contains: w, mode: "insensitive" as const } } } },
+                    { variants: { some: { barcode: { contains: w, mode: "insensitive" as const } } } },
+                  ],
+                })),
+              });
+            }
+            return { OR: conditions };
+          })()
         : {}),
     };
 
@@ -539,7 +558,7 @@ export async function getStockMovements(
       include: {
         unit: { select: { symbol: true } },
         variants: {
-          select: { id: true, sku: true, color: true, size: true, costPrice: true },
+          select: { id: true, sku: true, barcode: true, color: true, size: true, costPrice: true },
         },
       },
       orderBy: { code: "asc" },
@@ -599,7 +618,35 @@ export async function getStockMovements(
         const hasVariants = item.variants && item.variants.length > 0;
 
         if (hasVariants) {
+          const searchLower = (filters.search || "").trim().toLowerCase();
+          const searchWords = searchLower.split(/\s+/).filter(Boolean);
+
+          const normName = (item.name || "").toLowerCase();
+          const normCode = (item.code || "").toLowerCase();
+          const normBarcode = (item.barcode || "").toLowerCase();
+
+          const parentMatchesFull = searchLower
+            ? normName.includes(searchLower) || normCode.includes(searchLower) || normBarcode.includes(searchLower)
+            : true;
+          const parentMatchesWords = searchWords.length > 1
+            ? searchWords.every((w) => normName.includes(w) || normCode.includes(w) || normBarcode.includes(w))
+            : parentMatchesFull;
+          const parentMatches = parentMatchesFull || parentMatchesWords;
+
           for (const variant of item.variants) {
+            if (searchLower && !parentMatches) {
+              const vSku = (variant.sku || "").toLowerCase();
+              const vBarcode = (variant.barcode || "").toLowerCase();
+              const vColor = (variant.color || "").toLowerCase();
+              const vSize = (variant.size || "").toLowerCase();
+
+              const vMatchFull = vSku.includes(searchLower) || vBarcode.includes(searchLower) || `${normName} ${vColor} ${vSize}`.includes(searchLower);
+              const vMatchWords = searchWords.length > 1 && searchWords.every((w) => vSku.includes(w) || vBarcode.includes(w) || normName.includes(w) || vColor.includes(w) || vSize.includes(w));
+
+              if (!vMatchFull && !vMatchWords) {
+                continue;
+              }
+            }
             const variantLedger = ledgerEntries.filter(
               (le) => le.variantId === variant.id && le.warehouseId === warehouse.id
             );

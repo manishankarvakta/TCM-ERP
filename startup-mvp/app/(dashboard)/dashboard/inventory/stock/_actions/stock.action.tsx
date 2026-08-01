@@ -1413,6 +1413,9 @@ export async function getStockLedger(
       where.OR = [
         { item: { name: { contains: filters.search, mode: "insensitive" } } },
         { item: { code: { contains: filters.search, mode: "insensitive" } } },
+        { item: { barcode: { contains: filters.search, mode: "insensitive" } } },
+        { variant: { sku: { contains: filters.search, mode: "insensitive" } } },
+        { variant: { barcode: { contains: filters.search, mode: "insensitive" } } },
         { warehouse: { name: { contains: filters.search, mode: "insensitive" } } },
         { warehouse: { code: { contains: filters.search, mode: "insensitive" } } },
       ];

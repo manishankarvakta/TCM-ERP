@@ -18,12 +18,14 @@ interface VouchersPageProps {
     dateFrom?: string;
     dateTo?: string;
     warehouseId?: string;
+    limit?: string;
   }>;
 }
 
 export default async function VouchersPage({ searchParams }: VouchersPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
+  const limit = parseInt(params.limit || "20");
   const search = params.search || "";
   const tab = params.tab || "all";
 
@@ -47,7 +49,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
   
   // Check permissions on server side
   const [result, canView, canEdit, canCreate] = await Promise.all([
-    listVouchers(page, 10, search, status, params.type, params.dateFrom, params.dateTo, selectedWarehouseId),
+    listVouchers(page, limit, search, status, params.type, params.dateFrom, params.dateTo, selectedWarehouseId),
     userId ? hasPermission(userId, "accounts.vouchers", "view") : false,
     userId ? hasPermission(userId, "accounts.vouchers", "edit") : false,
     userId ? hasPermission(userId, "accounts.vouchers", "create") : false,
@@ -118,7 +120,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
               initialVouchers={result.vouchers || []}
               initialPagination={result.pagination || {
                 page: 1,
-                limit: 10,
+                limit: 20,
                 total: 0,
                 totalPages: 0,
               }}
@@ -139,7 +141,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
               initialVouchers={result.vouchers || []}
               initialPagination={result.pagination || {
                 page: 1,
-                limit: 10,
+                limit: 20,
                 total: 0,
                 totalPages: 0,
               }}
@@ -160,7 +162,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
               initialVouchers={result.vouchers || []}
               initialPagination={result.pagination || {
                 page: 1,
-                limit: 10,
+                limit: 20,
                 total: 0,
                 totalPages: 0,
               }}
@@ -181,7 +183,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
               initialVouchers={result.vouchers || []}
               initialPagination={result.pagination || {
                 page: 1,
-                limit: 10,
+                limit: 20,
                 total: 0,
                 totalPages: 0,
               }}

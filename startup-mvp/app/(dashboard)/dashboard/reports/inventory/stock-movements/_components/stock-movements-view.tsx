@@ -386,7 +386,7 @@ export default function StockMovementsView({
               <Label htmlFor="search">Search Items</Label>
               <Input
                 id="search"
-                placeholder="Search by code or name..."
+                placeholder="Search by name, code, SKU, or barcode..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => {
