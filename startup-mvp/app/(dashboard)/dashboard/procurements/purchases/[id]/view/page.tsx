@@ -12,13 +12,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Link from "next/link";
-import { FiArrowLeft, FiEdit, FiFileText, FiTruck, FiPackage, FiUser, FiCalendar, FiClock, FiHome, FiAlertCircle } from "react-icons/fi";
+import { FiArrowLeft, FiEdit, FiFileText, FiTruck, FiPackage, FiUser, FiCalendar, FiClock, FiHome, FiAlertCircle, FiPaperclip } from "react-icons/fi";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 import { notFound } from "next/navigation";
 import type { PurchaseStatus } from "@prisma/client";
 import PurchaseStatusActions from "../../_components/purchase-status-actions";
 import PrintButton from "../../_components/print-button";
+import AttachmentViewer from "../../_components/attachment-viewer";
 import { numberToWords } from "@/lib/utils/number-to-words";
 import PurchasePrintHeader, { PurchasePrintStyle } from "../../_components/purchase-print-header";
 import { prisma } from "@/lib/prisma";
@@ -185,21 +186,22 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
               <p className="font-mono text-lg font-semibold">{purchase.purchaseNumber}</p>
             </div>
             <Separator />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Status</p>
-              <Badge variant={getStatusBadgeVariant(purchase.status)} className="text-sm">
-                {STATUS_LABELS[purchase.status]}
-              </Badge>
-            </div>
-            <Separator />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Purchase Date</p>
-              <p className="font-medium">
-                {format(new Date(purchase.date), "MMM d, yyyy")}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {format(new Date(purchase.date), "EEEE, h:mm a")}
-              </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Status</p>
+                <Badge variant={getStatusBadgeVariant(purchase.status)} className="text-sm">
+                  {STATUS_LABELS[purchase.status]}
+                </Badge>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Purchase Date</p>
+                <p className="font-medium">
+                  {format(new Date(purchase.date), "MMM d, yyyy")}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {format(new Date(purchase.date), "EEEE, h:mm a")}
+                </p>
+              </div>
             </div>
             {purchase.notes && (
               <>
@@ -210,8 +212,21 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
                 </div>
               </>
             )}
+            {purchase.attachmentUrl && (
+              <>
+                <Separator />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <FiPaperclip className="h-4 w-4" />
+                    Attached Document
+                  </p>
+                  <AttachmentViewer url={purchase.attachmentUrl} label="Purchase Attachment" purchaseNumber={purchase.purchaseNumber} />
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
+
 
         {/* Supplier Information */}
         <Card className="print:shadow-none print:border-0">

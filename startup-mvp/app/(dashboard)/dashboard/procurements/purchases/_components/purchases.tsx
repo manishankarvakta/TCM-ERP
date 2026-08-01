@@ -28,6 +28,7 @@ import {
   FiRotateCw,
   FiDownload,
   FiPlus,
+  FiPaperclip,
 } from "react-icons/fi";
 import {
   Select,
@@ -46,6 +47,7 @@ import {
   deletePurchasesPermanently,
 } from "../_actions/purchase.action";
 import ProtectedAction from "@/components/permissions/protected-action";
+import AttachmentViewer from "./attachment-viewer";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,6 +79,7 @@ interface Purchase {
   warehouse?: {
     name: string;
   } | null;
+  attachmentUrl?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -604,6 +607,14 @@ export default function PurchasesListClient({
                                   href={`/dashboard/procurements/purchases/${purchase.id}/edit`}
                                   userId={providedUserId || undefined}
                                   hasAccess={permissions?.edit}
+                                />
+                              )}
+                              {(purchase as any).attachmentUrl && (
+                                <AttachmentViewer
+                                  url={(purchase as any).attachmentUrl}
+                                  label="Purchase Attachment"
+                                  purchaseNumber={purchase.purchaseNumber}
+                                  triggerIcon
                                 />
                               )}
                               <ProtectedAction

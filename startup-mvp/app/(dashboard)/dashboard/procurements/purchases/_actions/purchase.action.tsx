@@ -305,6 +305,7 @@ export async function getPurchases(
             items: true,
           },
         },
+        attachmentUrl: true,
         createdAt: true,
         updatedAt: true,
       },
