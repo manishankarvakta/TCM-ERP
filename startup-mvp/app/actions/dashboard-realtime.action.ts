@@ -527,11 +527,12 @@ export async function getRealtimeDashboardStats(
       return acc.warehouses.some((w: any) => w.id === warehouseId);
     });
 
-    // 3. Proper Accounts System: Calculate account balance from JournalEntryLine & VoucherLine for each COA
+    // 3. Proper Accounts System: Calculate net account balance (Total Debit - Total Credit) from JournalEntryLine & VoucherLine
     const accountCoaIds = filteredAccounts.map((acc: any) => acc.chartOfAccountId).filter(Boolean);
+    const netAccountBalanceMap = new Map<string, number>();
 
     if (accountCoaIds.length > 0) {
-      // Query JournalEntryLine aggregates (standard accounting system formula: debit - credit)
+      // Query JournalEntryLine aggregates (standard accounting formula: Total Debit - Total Credit)
       const journalAggregates = await prisma.journalEntryLine.groupBy({
         by: ["chartOfAccountId"],
         where: {
@@ -547,14 +548,12 @@ export async function getRealtimeDashboardStats(
       });
 
       for (const agg of journalAggregates) {
-        const netJournalEffect = Number(agg._sum.debitAmount || 0) - Number(agg._sum.creditAmount || 0);
-        paymentMap.set(
-          agg.chartOfAccountId,
-          (paymentMap.get(agg.chartOfAccountId) || 0) + netJournalEffect
-        );
+        const debit = Number(agg._sum.debitAmount || 0);
+        const credit = Number(agg._sum.creditAmount || 0);
+        netAccountBalanceMap.set(agg.chartOfAccountId, debit - credit);
       }
 
-      // Query VoucherLines (for vouchers where journal entries are not linked)
+      // Query VoucherLines for vouchers where journal entries are not linked
       const voucherLines = await prisma.voucherLine.findMany({
         where: {
           chartOfAccountId: { in: accountCoaIds },
@@ -571,22 +570,27 @@ export async function getRealtimeDashboardStats(
 
       for (const line of voucherLines) {
         const netVoucherEffect = Number(line.debitAmount || 0) - Number(line.creditAmount || 0);
-        paymentMap.set(
+        netAccountBalanceMap.set(
           line.chartOfAccountId,
-          (paymentMap.get(line.chartOfAccountId) || 0) + netVoucherEffect
+          (netAccountBalanceMap.get(line.chartOfAccountId) || 0) + netVoucherEffect
         );
       }
     }
 
     const receivedAccounts = filteredAccounts.map((acc: any) => {
       const coa = acc.ChartOfAccount;
+      // If the COA has journal ledger entries, use its net balance (Total Debit - Total Credit).
+      // Otherwise, fallback to paymentMap from POS sales.
+      const hasJournal = netAccountBalanceMap.has(coa.id);
+      const balance = hasJournal ? netAccountBalanceMap.get(coa.id)! : (paymentMap.get(coa.id) || 0);
+
       return {
         id: acc.id,
         type: acc.type, // "CASH" | "BANK" | "MFS"
         coaId: coa.id,
         coaCode: coa.code,
         coaName: coa.name,
-        receivedAmount: paymentMap.get(coa.id) || 0,
+        receivedAmount: balance,
       };
     });
 
