@@ -477,9 +477,9 @@ export async function getRealtimeDashboardStats(
       const details = sale.paymentDetails as any;
       if (!details) continue;
 
-      // 1. Initial Payments (sales up to currentEnd)
+      // 1. Initial Payments (sales within selected date range)
       const saleDate = new Date(sale.date);
-      if (saleDate <= currentEnd) {
+      if (saleDate >= currentStart && saleDate <= currentEnd) {
         if (details.cashAmount && details.cashAccountId) {
           const netCash = Number(details.cashAmount) - Number(details.changeAmount || 0);
           paymentMap.set(details.cashAccountId, (paymentMap.get(details.cashAccountId) || 0) + netCash);
@@ -492,16 +492,14 @@ export async function getRealtimeDashboardStats(
         }
       }
 
-      // 2. Due Collections
+      // 2. Due Collections (collections within selected date range)
       if (Array.isArray(details.dueCollections)) {
         for (const col of details.dueCollections) {
           const colDate = new Date(col.date);
           const colAmount = Number(col.cashAmount || 0) + Number(col.cardAmount || 0) + Number(col.mfsAmount || 0);
           
-          if (colDate <= currentEnd) {
-            if (colDate >= currentStart) {
-              currentCollectionsReceived += colAmount;
-            }
+          if (colDate >= currentStart && colDate <= currentEnd) {
+            currentCollectionsReceived += colAmount;
             if (col.cashAmount && col.cashAccountId) {
               paymentMap.set(col.cashAccountId, (paymentMap.get(col.cashAccountId) || 0) + Number(col.cashAmount));
             }
@@ -529,14 +527,14 @@ export async function getRealtimeDashboardStats(
       return acc.warehouses.some((w: any) => w.id === warehouseId);
     });
 
-    // 3. Outflows / Expenses & Journal movements paid from Cash, Bank, and MFS Accounts (cumulative up to currentEnd)
+    // 3. Outflows / Expenses & Journal movements paid from Cash, Bank, and MFS Accounts (within selected date range)
     const accountCoaIds = filteredAccounts.map((acc: any) => acc.chartOfAccountId).filter(Boolean);
 
     if (accountCoaIds.length > 0) {
       const voucherLines = await prisma.voucherLine.findMany({
         where: {
           chartOfAccountId: { in: accountCoaIds },
-          createdAt: { lte: currentEnd },
+          createdAt: { gte: currentStart, lte: currentEnd },
           ...(warehouseId !== "all" ? { Voucher: { warehouseId } } : {}),
         },
         select: {
