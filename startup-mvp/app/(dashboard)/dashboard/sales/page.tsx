@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import SalesListClient from "./_components/sales";
+import ExportSalesButton from "./_components/ExportSalesButton";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import PageGuard from "@/components/permissions/page-guard";
@@ -131,15 +132,30 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
           <h1 className="text-2xl font-semibold">Sales</h1>
           <p className="text-sm text-muted-foreground">Manage sales in your system</p>
         </div>
-        {tab !== "trash" && (
-          <Button asChild>
-            <Link href="/dashboard/sales/pos">
-              <FiPlus className="mr-2 h-4 w-4" />
-              Add Sale
-            </Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportSalesButton
+            search={search}
+            tab={tab}
+            filters={{
+              billerId,
+              warehouseId: effectiveWarehouseId !== "all" ? effectiveWarehouseId : undefined,
+              type,
+              startDate,
+              endDate,
+              salesAssistantId,
+            }}
+          />
+          {tab !== "trash" && (
+            <Button asChild>
+              <Link href="/dashboard/sales/pos">
+                <FiPlus className="mr-2 h-4 w-4" />
+                Add Sale
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
+
 
       <Tabs defaultValue={tab} className="w-full">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">

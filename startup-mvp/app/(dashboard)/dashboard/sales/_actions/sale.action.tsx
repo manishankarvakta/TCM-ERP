@@ -3536,3 +3536,132 @@ export async function getLastSaleForUser() {
     };
   }
 }
+
+/**
+ * Get all sales matching filters for export (no pagination limit)
+ */
+export async function getAllSalesForExport(
+  search: string = "",
+  status: "trash" | "all" = "all",
+  filters?: {
+    billerId?: string;
+    warehouseId?: string;
+    type?: OrderType;
+    startDate?: string;
+    endDate?: string;
+    salesAssistantId?: string;
+  },
+  saleIds?: string[]
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", sales: [] };
+    }
+
+    const where: Prisma.SaleWhereInput = {
+      isTrash: status === "trash",
+    };
+
+    if (saleIds && saleIds.length > 0) {
+      where.id = { in: saleIds };
+    } else {
+      if (filters?.billerId) {
+        where.createdBy = filters.billerId;
+      }
+      if (filters?.salesAssistantId) {
+        where.salesAssistantId = filters.salesAssistantId;
+      }
+      if (filters?.warehouseId) {
+        where.warehouseId = filters.warehouseId;
+      }
+      if (filters?.type && (filters.type as any) !== "all") {
+        where.orderType = filters.type;
+      }
+      if (filters?.startDate || filters?.endDate) {
+        where.date = {};
+        if (filters.startDate) {
+          where.date.gte = new Date(filters.startDate);
+        }
+        if (filters.endDate) {
+          where.date.lte = new Date(filters.endDate);
+        }
+      }
+
+      if (search) {
+        where.OR = [
+          { saleNumber: { contains: search, mode: "insensitive" } },
+          { client: { name: { contains: search, mode: "insensitive" } } },
+          { client: { email: { contains: search, mode: "insensitive" } } },
+        ];
+      }
+    }
+
+    const sales = await prisma.sale.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        saleNumber: true,
+        date: true,
+        status: true,
+        orderType: true,
+        subTotal: true,
+        discount: true,
+        tax: true,
+        grandTotal: true,
+        paymentMethod: true,
+        notes: true,
+        isTrash: true,
+        createdAt: true,
+        _count: {
+          select: {
+            items: true,
+          },
+        },
+        client: {
+          select: {
+            name: true,
+            email: true,
+            company: true,
+            phone: true,
+          },
+        },
+        warehouse: {
+          select: {
+            name: true,
+            code: true,
+          },
+        },
+        createdByUser: {
+          select: {
+            name: true,
+          },
+        },
+        salesAssistant: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    const serializedSales = sales.map((sale) => ({
+      ...sale,
+      subTotal: Number(sale.subTotal),
+      discount: sale.discount ? Number(sale.discount) : 0,
+      tax: sale.tax ? Number(sale.tax) : 0,
+      grandTotal: Number(sale.grandTotal),
+    }));
+
+    return { success: true, sales: serializedSales };
+  } catch (error) {
+    console.error("getAllSalesForExport error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch sales for export",
+      sales: [],
+    };
+  }
+}
+
