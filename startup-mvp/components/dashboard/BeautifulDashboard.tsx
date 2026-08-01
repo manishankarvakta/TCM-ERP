@@ -43,14 +43,8 @@ export default function BeautifulDashboard({
     canViewPayments: false,
   });
 
-  // State for Warehouse selection
-  const [selectedWarehouse, setSelectedWarehouse] = useState<{ id: string; name: string } | "all">(
-    !isAdmin && defaultWarehouse 
-      ? defaultWarehouse 
-      : (!isAdmin && warehouses.length > 0)
-        ? warehouses[0]
-        : "all"
-  );
+  // State for Warehouse selection (defaults to "all" to show all account balances)
+  const [selectedWarehouse, setSelectedWarehouse] = useState<{ id: string; name: string } | "all">("all");
   const [warehouseMenuOpen, setWarehouseMenuOpen] = useState(false);
 
   // State for Date range filter
@@ -280,17 +274,14 @@ export default function BeautifulDashboard({
           {/* Warehouse Dropdown */}
           <div className="relative">
             <button 
-              onClick={() => isAdmin && setWarehouseMenuOpen(!warehouseMenuOpen)}
-              disabled={!isAdmin}
-              className={`flex items-center gap-2 bg-white dark:bg-zinc-900 px-4 h-10 rounded-xl shadow-sm border border-slate-100 dark:border-zinc-800/80 text-slate-800 dark:text-zinc-200 font-semibold text-sm transition-colors ${
-                !isAdmin ? "opacity-60 cursor-not-allowed bg-slate-100/50 dark:bg-zinc-950/50" : "hover:bg-slate-50 dark:hover:bg-zinc-800/80"
-              }`}
+              onClick={() => setWarehouseMenuOpen(!warehouseMenuOpen)}
+              className="flex items-center gap-2 bg-white dark:bg-zinc-900 px-4 h-10 rounded-xl shadow-sm border border-slate-100 dark:border-zinc-800/80 text-slate-800 dark:text-zinc-200 font-semibold text-sm transition-colors hover:bg-slate-50 dark:hover:bg-zinc-800/80"
             >
               <span>{selectedWarehouse === "all" ? "All Warehouse" : selectedWarehouse.name}</span>
-              {isAdmin && <ChevronDown className="h-4 w-4 text-slate-400" />}
+              <ChevronDown className="h-4 w-4 text-slate-400" />
             </button>
             
-            {isAdmin && warehouseMenuOpen && (
+            {warehouseMenuOpen && (
               <div className="absolute right-0 mt-1.5 w-56 rounded-xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-lg py-1 z-50 max-h-60 overflow-y-auto">
                 <button
                   onClick={() => {
@@ -746,39 +737,88 @@ export default function BeautifulDashboard({
                 }
               }
 
+              const debitVal = account.debit ?? 0;
+              const creditVal = account.credit ?? 0;
+              const balVal = account.balance ?? account.ledgerBalance ?? account.receivedAmount ?? 0;
+
+              const formatAmt = (val: number) =>
+                `৳ ${val % 1 === 0 ? val.toLocaleString(undefined, { maximumFractionDigits: 0 }) : val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
               return (
-                <Link
-                  key={account.id}
-                  href={`/dashboard/accounts/ledgers?accountId=${account.coaId}${dateParams}`}
-                  className="p-3 rounded-xl bg-white hover:bg-slate-50/80 dark:bg-zinc-900/50 dark:hover:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800/80 shadow-sm flex flex-col justify-between transition-all hover:scale-[1.01] cursor-pointer h-[74px]"
-                >
-                  {/* Row 1: Code/Type and Icon */}
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-1 flex-wrap">
-                      <span className={`text-[8px] font-bold px-1 py-0.2 rounded uppercase tracking-wider ${bgClass} ${textClass}`}>
-                        {account.type}
-                      </span>
-                      <span className="text-[9px] font-semibold text-slate-400 dark:text-zinc-500">
-                        {account.coaCode}
-                      </span>
+                <div key={account.id} className="relative group">
+                  {/* Hover Popover Overlay with Full Details */}
+                  <div className="opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-64 p-3 bg-white dark:bg-zinc-900 border border-slate-200/90 dark:border-zinc-800 rounded-xl shadow-xl z-50 space-y-2">
+                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${bgClass} ${textClass}`}>
+                          {account.type}
+                        </span>
+                        <span className="text-[10px] font-semibold text-slate-400 dark:text-zinc-500">
+                          {account.coaCode}
+                        </span>
+                      </div>
+                      <div className={`p-1 rounded-md ${bgClass}`}>
+                        <Icon className={`h-3.5 w-3.5 ${textClass}`} />
+                      </div>
                     </div>
-                    <div className={`p-1.5 rounded-lg shrink-0 ${bgClass}`}>
-                      <Icon className={`h-4 w-4 ${textClass}`} />
+
+                    <p className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate">
+                      {account.coaName}
+                    </p>
+
+                    <div className="space-y-1.5 pt-1 text-xs">
+                      <div className="flex justify-between items-center text-slate-600 dark:text-zinc-400">
+                        <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 uppercase">Debit (Dr)</span>
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatAmt(debitVal)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-slate-600 dark:text-zinc-400">
+                        <span className="text-[10px] font-medium text-rose-500 dark:text-rose-400 uppercase">Credit (Cr)</span>
+                        <span className="font-semibold text-rose-500 dark:text-rose-400">{formatAmt(creditVal)}</span>
+                      </div>
+                      <div className="flex justify-between items-center border-t border-slate-100 dark:border-zinc-800 pt-1.5 font-bold">
+                        <span className="text-[10px] uppercase text-slate-500 dark:text-zinc-400">Net Balance</span>
+                        <span className={balVal >= 0 ? "text-slate-950 dark:text-zinc-50" : "text-rose-600 dark:text-rose-400"}>
+                          {formatAmt(balVal)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-[9px] text-center text-slate-400 dark:text-zinc-500 pt-1">
+                      Click card to open full ledger →
                     </div>
                   </div>
 
-                  {/* Row 2: Name and Amount */}
-                  <div className="flex items-end justify-between w-full mt-2 gap-2 overflow-hidden">
-                    <p className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 truncate flex-1" title={account.coaName}>
-                      {account.coaName}
-                    </p>
-                    <p className="text-xs font-extrabold text-slate-950 dark:text-zinc-50 shrink-0">
-                      ৳ {account.receivedAmount % 1 === 0 
-                        ? account.receivedAmount.toLocaleString(undefined, { maximumFractionDigits: 0 }) 
-                        : account.receivedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </p>
-                  </div>
-                </Link>
+                  {/* Dashboard Card Surface (Shows ONLY Balance) */}
+                  <Link
+                    href={`/dashboard/accounts/ledgers?accountId=${account.coaId}${dateParams}`}
+                    className="p-3 rounded-xl bg-white hover:bg-slate-50/80 dark:bg-zinc-900/50 dark:hover:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800/80 shadow-sm flex flex-col justify-between transition-all hover:scale-[1.01] cursor-pointer h-[74px] w-full"
+                  >
+                    {/* Row 1: Code/Type and Icon */}
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <span className={`text-[8px] font-bold px-1 py-0.2 rounded uppercase tracking-wider ${bgClass} ${textClass}`}>
+                          {account.type}
+                        </span>
+                        <span className="text-[9px] font-semibold text-slate-400 dark:text-zinc-500">
+                          {account.coaCode}
+                        </span>
+                      </div>
+                      <div className={`p-1.5 rounded-lg shrink-0 ${bgClass}`}>
+                        <Icon className={`h-4 w-4 ${textClass}`} />
+                      </div>
+                    </div>
+
+                    {/* Row 2: Name and Balance ONLY */}
+                    <div className="flex items-end justify-between w-full mt-2 gap-2 overflow-hidden">
+                      <p className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 truncate flex-1" title={account.coaName}>
+                        {account.coaName}
+                      </p>
+                      <p className={`text-xs font-extrabold shrink-0 ${balVal >= 0 ? "text-slate-950 dark:text-zinc-50" : "text-rose-600 dark:text-rose-400"}`}>
+                        {formatAmt(balVal)}
+                      </p>
+                    </div>
+                  </Link>
+                </div>
               );
             })
           )}

@@ -432,13 +432,15 @@ export async function getRealtimeDashboardStats(
       })
     );
 
-    // Fetch all active Cash & Bank & MFS Accounts
+    // Fetch all active & visible Cash & Bank & MFS Accounts
     const cashBankAccounts = await prisma.cashBankAccount.findMany({
       where: {
         status: "active",
+        isVisible: true,
       },
       select: {
         id: true,
+        chartOfAccountId: true,
         type: true,
         ChartOfAccount: {
           select: {
@@ -455,12 +457,12 @@ export async function getRealtimeDashboardStats(
       },
     });
 
-    // Fetch completed, non-trash sales for warehouse and date range
+    // Fetch completed, non-trash sales up to currentEnd
     const salesForPayments = await prisma.sale.findMany({
       where: {
         isTrash: false,
         status: "COMPLETED",
-        ...(warehouseId !== "all" ? { warehouseId } : {}),
+        date: { lte: currentEnd },
       },
       select: {
         date: true,
@@ -468,7 +470,7 @@ export async function getRealtimeDashboardStats(
       },
     });
 
-    // In-memory aggregation of payments received
+    // In-memory aggregation of payments received up to currentEnd
     const paymentMap = new Map<string, number>();
     let currentCollectionsReceived = 0;
     let prevCollectionsReceived = 0;
@@ -477,9 +479,9 @@ export async function getRealtimeDashboardStats(
       const details = sale.paymentDetails as any;
       if (!details) continue;
 
-      // 1. Initial Payments (sales within selected date range)
+      // 1. Initial Payments (sales up to selected date filter end boundary)
       const saleDate = new Date(sale.date);
-      if (saleDate >= currentStart && saleDate <= currentEnd) {
+      if (saleDate <= currentEnd) {
         if (details.cashAmount && details.cashAccountId) {
           const netCash = Number(details.cashAmount) - Number(details.changeAmount || 0);
           paymentMap.set(details.cashAccountId, (paymentMap.get(details.cashAccountId) || 0) + netCash);
@@ -492,14 +494,16 @@ export async function getRealtimeDashboardStats(
         }
       }
 
-      // 2. Due Collections (collections within selected date range)
+      // 2. Due Collections (collections up to selected date filter end boundary)
       if (Array.isArray(details.dueCollections)) {
         for (const col of details.dueCollections) {
           const colDate = new Date(col.date);
           const colAmount = Number(col.cashAmount || 0) + Number(col.cardAmount || 0) + Number(col.mfsAmount || 0);
           
-          if (colDate >= currentStart && colDate <= currentEnd) {
-            currentCollectionsReceived += colAmount;
+          if (colDate <= currentEnd) {
+            if (colDate >= currentStart) {
+              currentCollectionsReceived += colAmount;
+            }
             if (col.cashAmount && col.cashAccountId) {
               paymentMap.set(col.cashAccountId, (paymentMap.get(col.cashAccountId) || 0) + Number(col.cashAmount));
             }
@@ -527,12 +531,12 @@ export async function getRealtimeDashboardStats(
       return acc.warehouses.some((w: any) => w.id === warehouseId);
     });
 
-    // 3. Proper Accounts System: Compute Net Calculated Balance (Inflows - Outflows) for each account
-    const accountCoaIds = filteredAccounts.map((acc: any) => acc.chartOfAccountId).filter(Boolean);
-    const netAccountBalanceMap = new Map<string, number>();
+    // 3. Proper Accounts System: Compute Debit, Credit, and Net Cumulative Balance for each account up to currentEnd
+    const accountCoaIds = filteredAccounts.map((acc: any) => acc.chartOfAccountId || acc.ChartOfAccount?.id).filter(Boolean);
+    const accountDetailsMap = new Map<string, { debit: number; credit: number; balance: number }>();
 
     if (accountCoaIds.length > 0) {
-      // Query JournalEntryLine aggregates (standard accounting formula: Total Debit - Total Credit)
+      // Query JournalEntryLine aggregates
       const journalAggregates = await prisma.journalEntryLine.groupBy({
         by: ["chartOfAccountId"],
         where: {
@@ -547,13 +551,14 @@ export async function getRealtimeDashboardStats(
         },
       });
 
+      const glDebitMap = new Map<string, number>();
+      const glCreditMap = new Map<string, number>();
       for (const agg of journalAggregates) {
-        const debit = Number(agg._sum.debitAmount || 0);
-        const credit = Number(agg._sum.creditAmount || 0);
-        netAccountBalanceMap.set(agg.chartOfAccountId, debit - credit);
+        glDebitMap.set(agg.chartOfAccountId, Number(agg._sum.debitAmount || 0));
+        glCreditMap.set(agg.chartOfAccountId, Number(agg._sum.creditAmount || 0));
       }
 
-      // Query VoucherLine for expense outflows paid out from Cash/Bank/MFS
+      // Query VoucherLine for expense outflows / deposits
       const voucherLines = await prisma.voucherLine.findMany({
         where: {
           chartOfAccountId: { in: accountCoaIds },
@@ -566,33 +571,40 @@ export async function getRealtimeDashboardStats(
         },
       });
 
-      const voucherOutflowMap = new Map<string, number>();
+      const vDebitMap = new Map<string, number>();
+      const vCreditMap = new Map<string, number>();
       for (const line of voucherLines) {
-        const netOutflow = Number(line.creditAmount || 0) - Number(line.debitAmount || 0);
-        voucherOutflowMap.set(
-          line.chartOfAccountId,
-          (voucherOutflowMap.get(line.chartOfAccountId) || 0) + netOutflow
-        );
+        const d = Number(line.debitAmount || 0);
+        const c = Number(line.creditAmount || 0);
+        vDebitMap.set(line.chartOfAccountId, (vDebitMap.get(line.chartOfAccountId) || 0) + d);
+        vCreditMap.set(line.chartOfAccountId, (vCreditMap.get(line.chartOfAccountId) || 0) + c);
       }
 
-      // Combine POS Inflow - Voucher Outflow for any accounts lacking GL entries
       for (const acc of filteredAccounts) {
         const coaId = acc.ChartOfAccount?.id;
         if (!coaId) continue;
 
-        if (!netAccountBalanceMap.has(coaId) || netAccountBalanceMap.get(coaId) === 0) {
-          const posInflow = paymentMap.get(coaId) || 0;
-          const vOutflow = voucherOutflowMap.get(coaId) || 0;
-          if (posInflow !== 0 || vOutflow !== 0) {
-            netAccountBalanceMap.set(coaId, posInflow - vOutflow);
-          }
-        }
+        const glDebit = glDebitMap.get(coaId) || 0;
+        const glCredit = glCreditMap.get(coaId) || 0;
+        const posInflow = paymentMap.get(coaId) || 0;
+        const vDebit = vDebitMap.get(coaId) || 0;
+        const vCredit = vCreditMap.get(coaId) || 0;
+
+        let debit = glDebit;
+        let credit = glCredit;
+
+        if (debit === 0 && posInflow > 0) debit += posInflow;
+        if (glDebit === 0 && vDebit > 0) debit += vDebit;
+        if (glCredit === 0 && vCredit > 0) credit += vCredit;
+
+        const balance = debit - credit;
+        accountDetailsMap.set(coaId, { debit, credit, balance });
       }
     }
 
     const receivedAccounts = filteredAccounts.map((acc: any) => {
       const coa = acc.ChartOfAccount;
-      const balance = netAccountBalanceMap.get(coa.id) ?? 0;
+      const details = accountDetailsMap.get(coa.id) || { debit: 0, credit: 0, balance: 0 };
 
       return {
         id: acc.id,
@@ -600,7 +612,11 @@ export async function getRealtimeDashboardStats(
         coaId: coa.id,
         coaCode: coa.code,
         coaName: coa.name,
-        receivedAmount: balance,
+        debit: details.debit,
+        credit: details.credit,
+        balance: details.balance,
+        ledgerBalance: details.balance,
+        receivedAmount: details.balance,
       };
     });
 

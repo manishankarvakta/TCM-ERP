@@ -70,8 +70,9 @@ export async function getAdminFinancialOverview() {
       })
     ]);
 
-    // Cash & Bank Balances
+    // Cash & Bank Balances (Active & Visible)
     const cashBankAccounts = await prisma.cashBankAccount.findMany({
+      where: { status: "active", isVisible: true },
       include: { ChartOfAccount: { select: { id: true, name: true } } }
     });
     

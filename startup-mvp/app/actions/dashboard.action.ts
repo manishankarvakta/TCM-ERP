@@ -315,8 +315,9 @@ export async function getAccountingDashboardData() {
     const start = startOfDay(today);
     const end = endOfDay(today);
 
-    // Get Cash & Bank Balances
+    // Get Cash & Bank Balances (Active & Visible)
     const cashBankAccounts = await prisma.cashBankAccount.findMany({
+      where: { status: "active", isVisible: true },
       include: {
         ChartOfAccount: {
           select: {
