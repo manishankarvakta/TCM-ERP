@@ -1965,3 +1965,100 @@ export async function toggleItemEcom(itemId: string, enabled: boolean) {
   }
 }
 
+/**
+ * Get all items matching filters for export (no pagination limit)
+ */
+export async function getAllItemsForExport(
+  search: string = "",
+  status: "active" | "inactive" | "trash" | "all" = "all",
+  itemType?: ItemType
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", items: [] };
+    }
+
+    const canView = await hasPermission(session.user.id, "master.items", "view");
+    if (!canView) {
+      return { success: false, error: "You do not have permission to view items", items: [] };
+    }
+
+    const where: Prisma.ItemWhereInput = {};
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { code: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    if (status === "trash") {
+      where.isTrash = true;
+      where.status = "trash";
+    } else if (status === "active") {
+      where.isTrash = false;
+      where.status = "active";
+    } else if (status === "inactive") {
+      where.isTrash = false;
+      where.status = "inactive";
+    } else if (status === "all") {
+      where.isTrash = false;
+    }
+
+    if (itemType) {
+      where.itemType = itemType;
+    }
+
+    const items = await prisma.item.findMany({
+      where,
+      select: {
+        id: true,
+        code: true,
+        slug: true,
+        name: true,
+        description: true,
+        itemType: true,
+        costPrice: true,
+        salesPrice: true,
+        wholesalePrice: true,
+        wholesaleDiscountAmount: true,
+        discount: true,
+        trackInventory: true,
+        isEnableEcom: true,
+        isVatEnabled: true,
+        vatPercentage: true,
+        barcode: true,
+        status: true,
+        createdAt: true,
+        category: { select: { name: true } },
+        subCategory: { select: { name: true } },
+        brand: { select: { name: true } },
+        unit: { select: { symbol: true, details: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const serializedItems = items.map((item) => ({
+      ...item,
+      costPrice: Number(item.costPrice),
+      salesPrice: item.salesPrice ? Number(item.salesPrice) : null,
+      wholesalePrice: item.wholesalePrice ? Number(item.wholesalePrice) : null,
+      wholesaleDiscountAmount: item.wholesaleDiscountAmount ? Number(item.wholesaleDiscountAmount) : null,
+      discount: item.discount ? Number(item.discount) : null,
+      vatPercentage: item.vatPercentage ? Number(item.vatPercentage) : 0,
+    }));
+
+    return { success: true, items: serializedItems };
+  } catch (error) {
+    console.error("getAllItemsForExport error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch items for export",
+      items: [],
+    };
+  }
+}
+
+

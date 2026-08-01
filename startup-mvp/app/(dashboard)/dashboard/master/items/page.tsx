@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import ItemsListClient from "./_components/items";
+import ExportItemsButton from "./_components/ExportItemsButton";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import PageGuard from "@/components/permissions/page-guard";
@@ -18,7 +19,7 @@ interface ItemsPageProps {
     itemType?: string;
     limit?: string;
   }>;
-}
+};
 
 export default async function ItemsPage({ searchParams }: ItemsPageProps) {
   const params = await searchParams;
@@ -69,15 +70,19 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
             <h1 className="text-2xl font-semibold">Items</h1>
             <p className="text-sm text-muted-foreground">Manage items in your system</p>
           </div>
-          {tab !== "trash" && canEdit && (
-            <Button asChild>
-              <Link href="/dashboard/master/items/add">
-                <FiPlus className="mr-2 h-4 w-4" />
-                Add Item
-              </Link>
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <ExportItemsButton search={search} tab={tab} itemType={itemType} />
+            {tab !== "trash" && canEdit && (
+              <Button asChild>
+                <Link href="/dashboard/master/items/add">
+                  <FiPlus className="mr-2 h-4 w-4" />
+                  Add Item
+                </Link>
+              </Button>
+            )}
+          </div>
         </div>
+
 
         <Tabs defaultValue={tab} className="w-full">
           <TabsList>
