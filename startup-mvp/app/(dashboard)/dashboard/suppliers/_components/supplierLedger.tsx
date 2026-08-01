@@ -171,6 +171,84 @@ export default function SupplierLedger({
         organizationPhone={organization?.phone}
       />
 
+      {/* Print-only Summary Section — 2-col: entity details + account overview */}
+      <div className="hidden print:block mb-4">
+        <div className="grid grid-cols-2 text-[11px] border border-gray-300 rounded overflow-hidden">
+          {/* Left: Supplier Details */}
+          <div className="p-3 space-y-1 border-r border-gray-300">
+            <div className="font-semibold text-gray-500 uppercase text-[9px] tracking-widest mb-1.5">
+              Supplier Details
+            </div>
+            <div>
+              <span className="font-semibold">Name:</span> {supplier.name || "-"}
+            </div>
+            <div>
+              <span className="font-semibold">Code:</span> {supplier.supplierCode || "-"}
+            </div>
+            {supplier.company && (
+              <div>
+                <span className="font-semibold">Company:</span> {supplier.company}
+              </div>
+            )}
+            {supplier.phone && (
+              <div>
+                <span className="font-semibold">Phone:</span> {supplier.phone}
+              </div>
+            )}
+            {supplier.email && (
+              <div>
+                <span className="font-semibold">Email:</span> {supplier.email}
+              </div>
+            )}
+            {(supplier.address || supplier.city) && (
+              <div>
+                <span className="font-semibold">Address:</span>{" "}
+                {[supplier.address, supplier.city, supplier.country].filter(Boolean).join(", ")}
+              </div>
+            )}
+          </div>
+
+          {/* Right: Account Overview Summary */}
+          <div className="p-3 space-y-1">
+            <div className="font-semibold text-gray-500 uppercase text-[9px] tracking-widest mb-1.5">
+              Account Overview Summary
+            </div>
+            <div className="flex justify-between border-b border-dashed border-gray-200 pb-1">
+              <span className="text-gray-600">Opening Balance:</span>
+              <span className="font-mono font-medium">
+                ৳{supplier.openingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="flex justify-between border-b border-dashed border-gray-200 pb-1">
+              <span className="text-gray-600">Total Purchased (Billed):</span>
+              <span className="font-mono font-semibold text-blue-700">
+                ৳{summary.totalPurchased.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="flex justify-between border-b border-dashed border-gray-200 pb-1">
+              <span className="text-gray-600">Total Paid (Settled):</span>
+              <span className="font-mono font-semibold text-emerald-700">
+                ৳{summary.totalPaid.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="flex justify-between pt-1">
+              <span className="font-bold uppercase text-[9px] tracking-wide">Net Outstanding Payable:</span>
+              <span
+                className={`font-mono font-black text-sm ${
+                  summary.closingBalance > 0
+                    ? "text-amber-600"
+                    : summary.closingBalance < 0
+                    ? "text-emerald-600"
+                    : "text-gray-800"
+                }`}
+              >
+                ৳{summary.closingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Top Header Actions (hidden on print) */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
         <div className="flex items-center gap-3">

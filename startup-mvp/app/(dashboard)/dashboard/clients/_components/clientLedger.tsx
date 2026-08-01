@@ -181,31 +181,12 @@ export default function ClientLedger({
         </div>
       </div>
 
-      {/* Minimalistic Print Header & Overview (Visible ONLY when printing) */}
-      <div className="hidden print:block space-y-4 mb-6">
-        <div className="flex justify-between items-start border-b pb-3">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight uppercase">Client Ledger Statement</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Statement Date: {format(new Date(), "dd MMMM yyyy")}
-              {startDate && endDate
-                ? ` | Period: ${format(new Date(startDate), "dd MMM yyyy")} to ${format(new Date(endDate), "dd MMM yyyy")}`
-                : " | Period: All Time"}
-            </p>
-          </div>
-          <div className="text-right">
-            <div className="text-base font-bold">{client.name || "Client"}</div>
-            {client.clientCode && (
-              <div className="text-xs font-mono text-muted-foreground">Code: {client.clientCode}</div>
-            )}
-            {client.phone && <div className="text-xs text-muted-foreground">{client.phone}</div>}
-          </div>
-        </div>
-
-        {/* Minimalistic Overview Grid */}
-        <div className="grid grid-cols-2 gap-4 text-xs border rounded-md p-3 bg-muted/20">
-          <div className="space-y-1">
-            <div className="font-semibold text-muted-foreground uppercase text-[10px] tracking-wider mb-1">
+      {/* Print-only Summary Section — 2-col: entity details + account overview */}
+      <div className="hidden print:block mb-4">
+        <div className="grid grid-cols-2 text-[11px] border border-gray-300 rounded overflow-hidden">
+          {/* Left: Client Details */}
+          <div className="p-3 space-y-1 border-r border-gray-300">
+            <div className="font-semibold text-gray-500 uppercase text-[9px] tracking-widest mb-1.5">
               Client Details
             </div>
             <div>
@@ -236,37 +217,39 @@ export default function ClientLedger({
               </div>
             )}
           </div>
-          <div className="space-y-1.5 border-l pl-4">
-            <div className="font-semibold text-muted-foreground uppercase text-[10px] tracking-wider mb-1">
+
+          {/* Right: Account Overview Summary */}
+          <div className="p-3 space-y-1">
+            <div className="font-semibold text-gray-500 uppercase text-[9px] tracking-widest mb-1.5">
               Account Overview Summary
             </div>
-            <div className="flex justify-between border-b border-dashed pb-0.5">
-              <span className="text-muted-foreground">Opening Balance:</span>
+            <div className="flex justify-between border-b border-dashed border-gray-200 pb-1">
+              <span className="text-gray-600">Opening Balance:</span>
               <span className="font-mono font-medium">
                 ৳{client.openingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
-            <div className="flex justify-between border-b border-dashed pb-0.5">
-              <span className="text-muted-foreground">Total Billed (Sales):</span>
-              <span className="font-mono font-medium text-blue-700">
+            <div className="flex justify-between border-b border-dashed border-gray-200 pb-1">
+              <span className="text-gray-600">Total Billed (Sales):</span>
+              <span className="font-mono font-semibold text-blue-700">
                 ৳{summary.totalBilled.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
-            <div className="flex justify-between border-b border-dashed pb-0.5">
-              <span className="text-muted-foreground">Total Paid (Received):</span>
-              <span className="font-mono font-medium text-emerald-700">
+            <div className="flex justify-between border-b border-dashed border-gray-200 pb-1">
+              <span className="text-gray-600">Total Paid (Received):</span>
+              <span className="font-mono font-semibold text-emerald-700">
                 ৳{summary.totalPaid.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
-            <div className="flex justify-between pt-1 font-bold">
-              <span className="uppercase text-[10px]">Net Outstanding Due:</span>
+            <div className="flex justify-between pt-1">
+              <span className="font-bold uppercase text-[9px] tracking-wide">Net Outstanding Due:</span>
               <span
-                className={`font-mono text-sm ${
+                className={`font-mono font-black text-sm ${
                   summary.closingBalance > 0
-                    ? "text-amber-700"
+                    ? "text-amber-600"
                     : summary.closingBalance < 0
-                    ? "text-emerald-700"
-                    : "text-slate-800"
+                    ? "text-emerald-600"
+                    : "text-gray-800"
                 }`}
               >
                 ৳{summary.closingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
