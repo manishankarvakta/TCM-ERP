@@ -113,43 +113,11 @@ export default async function RTVDetailsPage({ params }: RTVDetailsPageProps) {
         </div>
       </div>
 
-      {/* Main Information Grid (Single Card 4-Column Layout) */}
+      {/* Main Information Grid (Single Card 3-Column Layout) */}
       <Card className="print:shadow-none print:border-0 print:bg-transparent">
         <CardContent className="pt-6 print:p-1.5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 print:grid-cols-4 print:gap-3">
-            {/* Col 1: Source Document */}
-            <div>
-              <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">Source Document</p>
-              <div className="space-y-1 text-xs print:text-[9px]">
-                <p>
-                  <span className="text-muted-foreground">Type: </span>
-                  <span className="font-semibold text-slate-800">Return To Vendor</span>
-                </p>
-                {rtv.purchase && (
-                  <>
-                    <p>
-                      <span className="text-muted-foreground">Original PO: </span>
-                      <Link
-                        href={`/dashboard/procurements/purchases/${rtv.purchase.id}/view`}
-                        className="font-bold text-slate-900 hover:underline print:no-underline"
-                      >
-                        {rtv.purchase.purchaseNumber}
-                      </Link>
-                    </p>
-                    {rtv.purchase.date && (
-                      <p>
-                        <span className="text-muted-foreground">PO Date: </span>
-                        <span className="font-medium text-slate-900">
-                          {format(new Date(rtv.purchase.date), "dd MMM yyyy")}
-                        </span>
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Col 2: Supplier Details */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:grid-cols-3 print:gap-4">
+            {/* Col 1: Supplier Details */}
             <div>
               <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">Supplier Details</p>
               {rtv.supplier ? (
@@ -160,6 +128,11 @@ export default async function RTVDetailsPage({ params }: RTVDetailsPageProps) {
                   <div className="text-xs text-muted-foreground print:text-[9px] mt-0.5 space-y-0.5">
                     {rtv.supplier.phone && <p>Phone: {rtv.supplier.phone}</p>}
                     {rtv.supplier.email && <p>Email: {rtv.supplier.email}</p>}
+                    {rtv.purchase && (
+                      <p className="pt-0.5 font-medium text-slate-700">
+                        PO Ref: {rtv.purchase.purchaseNumber}
+                      </p>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -167,7 +140,7 @@ export default async function RTVDetailsPage({ params }: RTVDetailsPageProps) {
               )}
             </div>
 
-            {/* Col 3: Warehouse Details */}
+            {/* Col 2: Warehouse Details */}
             <div>
               <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">Warehouse Details</p>
               <p className="text-base font-bold print:text-xs text-slate-900">{rtv.warehouse.name}</p>
@@ -192,7 +165,7 @@ export default async function RTVDetailsPage({ params }: RTVDetailsPageProps) {
               )}
             </div>
 
-            {/* Col 4: Return Information (Right Aligned) */}
+            {/* Col 3: Return Information (Right Aligned) */}
             <div className="text-right">
               <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">Return Information</p>
               <div className="space-y-1 text-sm print:text-xs">
