@@ -526,6 +526,32 @@ export async function getRealtimeDashboardStats(
       return acc.warehouses.some((w: any) => w.id === warehouseId);
     });
 
+    // 3. Outflows / Expenses & Journal movements paid from Cash, Bank, and MFS Accounts
+    const accountCoaIds = filteredAccounts.map((acc: any) => acc.chartOfAccountId).filter(Boolean);
+
+    if (accountCoaIds.length > 0) {
+      const voucherLines = await prisma.voucherLine.findMany({
+        where: {
+          chartOfAccountId: { in: accountCoaIds },
+          createdAt: { gte: currentStart, lte: currentEnd },
+          ...(warehouseId !== "all" ? { Voucher: { warehouseId } } : {}),
+        },
+        select: {
+          chartOfAccountId: true,
+          debitAmount: true,
+          creditAmount: true,
+        },
+      });
+
+      for (const line of voucherLines) {
+        const netVoucherEffect = Number(line.debitAmount || 0) - Number(line.creditAmount || 0);
+        paymentMap.set(
+          line.chartOfAccountId,
+          (paymentMap.get(line.chartOfAccountId) || 0) + netVoucherEffect
+        );
+      }
+    }
+
     const receivedAccounts = filteredAccounts.map((acc: any) => {
       const coa = acc.ChartOfAccount;
       return {
