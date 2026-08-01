@@ -527,7 +527,7 @@ export async function getRealtimeDashboardStats(
       return acc.warehouses.some((w: any) => w.id === warehouseId);
     });
 
-    // 3. Proper Accounts System: Calculate net account balance (Total Debit - Total Credit) directly from JournalEntryLine
+    // 3. Proper Accounts System: Calculate net account balance (Inflow - Outflow / Debit - Credit)
     const accountCoaIds = filteredAccounts.map((acc: any) => acc.chartOfAccountId).filter(Boolean);
     const netAccountBalanceMap = new Map<string, number>();
 
@@ -556,10 +556,11 @@ export async function getRealtimeDashboardStats(
 
     const receivedAccounts = filteredAccounts.map((acc: any) => {
       const coa = acc.ChartOfAccount;
-      // If the COA has journal ledger entries, use its net balance (Total Debit - Total Credit).
-      // Otherwise, fallback to paymentMap from POS sales.
-      const hasJournal = netAccountBalanceMap.has(coa.id);
-      const balance = hasJournal ? netAccountBalanceMap.get(coa.id)! : (paymentMap.get(coa.id) || 0);
+      // If journal entries exist, use Net GL Balance (Total Debit - Total Credit).
+      // Otherwise, fallback to net balance from paymentMap.
+      const balance = netAccountBalanceMap.has(coa.id)
+        ? netAccountBalanceMap.get(coa.id)!
+        : (paymentMap.get(coa.id) || 0);
 
       return {
         id: acc.id,
