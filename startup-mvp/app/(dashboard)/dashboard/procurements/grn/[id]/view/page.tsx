@@ -117,17 +117,21 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
         </div>
       </div>
 
-      {/* Main Information Grid (Single Card 3-Column Layout matching TPN) */}
+      {/* Main Information Grid (Single Card 4-Column Layout) */}
       <Card className="print:shadow-none print:border-0 print:bg-transparent">
         <CardContent className="pt-6 print:p-1.5">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:grid-cols-3 print:gap-4">
-            {/* Col 1: Source Details */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 print:grid-cols-4 print:gap-3">
+            {/* Col 1: Source Document */}
             <div>
-              <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">Source Details</p>
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">Source Document</p>
               {grn.purchase ? (
                 <div className="space-y-1 text-xs print:text-[9px]">
                   <p>
-                    <span className="text-muted-foreground">PO Number: </span>
+                    <span className="text-muted-foreground">Type: </span>
+                    <span className="font-semibold text-slate-800">Purchase Order</span>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">PO No: </span>
                     <Link
                       href={`/dashboard/procurements/purchases/${grn.purchase.id}/view`}
                       className="font-bold text-slate-900 hover:underline print:no-underline"
@@ -141,22 +145,17 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
                       {format(new Date(grn.purchase.date), "dd MMM yyyy")}
                     </span>
                   </p>
-                  {grn.purchase.supplier && (
-                    <div className="pt-1 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-0.5">
-                      <p className="font-bold text-slate-900">
-                        {grn.purchase.supplier.name || grn.purchase.supplier.company || grn.purchase.supplier.email}
-                      </p>
-                      {grn.purchase.supplier.phone && <p className="text-muted-foreground">Phone: {grn.purchase.supplier.phone}</p>}
-                      {grn.purchase.supplier.email && <p className="text-muted-foreground">Email: {grn.purchase.supplier.email}</p>}
-                    </div>
-                  )}
                 </div>
               ) : grn.tpn ? (
                 <div className="space-y-1 text-xs print:text-[9px]">
                   <p>
-                    <span className="text-muted-foreground">TPN Number: </span>
+                    <span className="text-muted-foreground">Type: </span>
+                    <span className="font-semibold text-slate-800">Transfer Note</span>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">TPN No: </span>
                     <Link
-                      href={`/dashboard/procurements/tpn/${grn.tpn.id}`}
+                      href={`/dashboard/procurements/tpn`}
                       className="font-bold text-slate-900 hover:underline print:no-underline"
                     >
                       {grn.tpn.tpnNumber}
@@ -168,20 +167,46 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
                       {format(new Date(grn.tpn.date), "dd MMM yyyy")}
                     </span>
                   </p>
-                  {grn.tpn.sourceWarehouse && (
-                    <div className="pt-1 mt-1 border-t border-slate-100 dark:border-slate-800">
-                      <p className="font-bold text-slate-900">From: {grn.tpn.sourceWarehouse.name}</p>
-                    </div>
-                  )}
                 </div>
               ) : (
-                <p className="text-base font-bold print:text-xs text-slate-900">
+                <p className="text-sm font-bold print:text-xs text-slate-900">
                   {sourceType}: {sourceNumber}
                 </p>
               )}
             </div>
 
-            {/* Col 2: Destination Warehouse */}
+            {/* Col 2: Supplier / Origin */}
+            <div>
+              <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">
+                {grn.purchase ? "Supplier Details" : grn.tpn ? "Source Warehouse" : "Origin Info"}
+              </p>
+              {grn.purchase?.supplier ? (
+                <div>
+                  <p className="text-base font-bold print:text-xs text-slate-900">
+                    {grn.purchase.supplier.name || grn.purchase.supplier.company || grn.purchase.supplier.email}
+                  </p>
+                  <div className="text-xs text-muted-foreground print:text-[9px] mt-0.5 space-y-0.5">
+                    {grn.purchase.supplier.phone && <p>Phone: {grn.purchase.supplier.phone}</p>}
+                    {grn.purchase.supplier.email && <p>Email: {grn.purchase.supplier.email}</p>}
+                  </div>
+                </div>
+              ) : grn.tpn?.sourceWarehouse ? (
+                <div>
+                  <p className="text-base font-bold print:text-xs text-slate-900">
+                    {grn.tpn.sourceWarehouse.name}
+                  </p>
+                  {grn.tpn.sourceWarehouse.address && (
+                    <div className="text-xs text-muted-foreground print:text-[9px] mt-0.5 space-y-0.5">
+                      <p>{grn.tpn.sourceWarehouse.address}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground print:text-[9px]">N/A</p>
+              )}
+            </div>
+
+            {/* Col 3: Destination Warehouse */}
             <div>
               <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">Destination Warehouse</p>
               <p className="text-base font-bold print:text-xs text-slate-900">{grn.warehouse.name}</p>
@@ -206,7 +231,7 @@ export default async function GRNDetailsPage({ params }: GRNDetailsPageProps) {
               )}
             </div>
 
-            {/* Col 3: GRN Information (Right Aligned) */}
+            {/* Col 4: GRN Information (Right Aligned) */}
             <div className="text-right">
               <p className="text-sm font-medium text-muted-foreground print:text-[10px] mb-1">GRN Information</p>
               <div className="space-y-1 text-sm print:text-xs">
