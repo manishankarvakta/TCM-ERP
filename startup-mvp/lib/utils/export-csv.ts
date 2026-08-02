@@ -52,7 +52,8 @@ export function arrayToCSV(
     rows.push(values.join(delimiter));
   }
 
-  return rows.join("\n");
+  // Prepend UTF-8 BOM (\uFEFF) so Excel and external readers parse Unicode / Bengali characters correctly
+  return "\uFEFF" + rows.join("\n");
 }
 
 /**
