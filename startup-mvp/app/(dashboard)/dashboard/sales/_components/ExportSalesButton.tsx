@@ -21,7 +21,7 @@ interface ExportSalesButtonProps {
   filters?: {
     billerId?: string;
     warehouseId?: string;
-    type?: OrderType | "all";
+    type?: OrderType;
     startDate?: string;
     endDate?: string;
     salesAssistantId?: string;
@@ -31,7 +31,7 @@ interface ExportSalesButtonProps {
 export default function ExportSalesButton({
   search = "",
   tab = "all",
-  filters = {},
+  filters,
 }: ExportSalesButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
@@ -40,7 +40,7 @@ export default function ExportSalesButton({
     try {
       setIsExporting(true);
       const statusParam = tab === "trash" ? "trash" : "all";
-      const result = await getAllSalesForExport(search, statusParam, filters as any);
+      const result = await getAllSalesForExport(search, statusParam, filters);
 
       if (!result.success || !result.sales) {
         toast({
@@ -64,19 +64,19 @@ export default function ExportSalesButton({
         "Date": sale.date ? new Date(sale.date).toISOString().split("T")[0] : "",
         "Customer Name": sale.client?.name || "-",
         "Customer Phone": sale.client?.phone || "-",
-        "Customer Email": sale.client?.email || "-",
         "Warehouse": sale.warehouse?.name || "-",
-        "Order Type": sale.orderType || "",
-        "Biller / Created By": sale.createdByUser?.name || "-",
-        "Sales Assistant": sale.salesAssistant?.name || "-",
+        "Order Type": sale.orderType || "-",
         "Total Items": sale._count?.items ?? 0,
-        "Subtotal": sale.subTotal ?? 0,
+        "Sub Total": sale.subTotal ?? 0,
         "Discount": sale.discount ?? 0,
         "Tax": sale.tax ?? 0,
         "Grand Total": sale.grandTotal ?? 0,
-        "Payment Method": sale.paymentMethod || "-",
+        "Paid Amount": sale.paidAmount ?? 0,
+        "Due Amount": sale.dueAmount ?? 0,
+        "Payment Status": sale.paymentStatus || "-",
         "Status": sale.status || "",
-        "Notes": sale.notes || "-",
+        "Biller": sale.createdByUser?.name || "-",
+        "Sales Assistant": sale.salesAssistant?.name || "-",
       }));
 
       const dateStr = new Date().toISOString().split("T")[0];

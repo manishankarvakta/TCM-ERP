@@ -3559,6 +3559,11 @@ export async function getAllSalesForExport(
       return { success: false, error: "Unauthorized", sales: [] };
     }
 
+    const canView = await hasPermission(session.user.id, "sales.sales", "view");
+    if (!canView) {
+      return { success: false, error: "You do not have permission to view sales", sales: [] };
+    }
+
     const where: Prisma.SaleWhereInput = {
       isTrash: status === "trash",
     };
@@ -3575,7 +3580,7 @@ export async function getAllSalesForExport(
       if (filters?.warehouseId) {
         where.warehouseId = filters.warehouseId;
       }
-      if (filters?.type && (filters.type as any) !== "all") {
+      if (filters?.type) {
         where.orderType = filters.type;
       }
       if (filters?.startDate || filters?.endDate) {
@@ -3608,12 +3613,14 @@ export async function getAllSalesForExport(
         orderType: true,
         subTotal: true,
         discount: true,
+        shippingCost: true,
         tax: true,
         grandTotal: true,
+        paidAmount: true,
+        dueAmount: true,
+        paymentStatus: true,
         paymentMethod: true,
-        notes: true,
         isTrash: true,
-        createdAt: true,
         _count: {
           select: {
             items: true,
@@ -3621,37 +3628,47 @@ export async function getAllSalesForExport(
         },
         client: {
           select: {
+            id: true,
             name: true,
             email: true,
-            company: true,
             phone: true,
+            company: true,
           },
         },
         warehouse: {
           select: {
+            id: true,
             name: true,
             code: true,
           },
         },
         createdByUser: {
           select: {
+            id: true,
             name: true,
+            email: true,
           },
         },
         salesAssistant: {
           select: {
+            id: true,
             name: true,
           },
         },
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
     const serializedSales = sales.map((sale) => ({
       ...sale,
-      subTotal: Number(sale.subTotal),
-      discount: sale.discount ? Number(sale.discount) : 0,
-      tax: sale.tax ? Number(sale.tax) : 0,
-      grandTotal: Number(sale.grandTotal),
+      subTotal: Number(sale.subTotal || 0),
+      discount: Number(sale.discount || 0),
+      shippingCost: Number(sale.shippingCost || 0),
+      tax: Number(sale.tax || 0),
+      grandTotal: Number(sale.grandTotal || 0),
+      paidAmount: Number(sale.paidAmount || 0),
+      dueAmount: Number(sale.dueAmount || 0),
     }));
 
     return { success: true, sales: serializedSales };
