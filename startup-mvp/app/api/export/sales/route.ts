@@ -93,8 +93,8 @@ export async function GET(req: NextRequest) {
       const cashAmount = Number(details.cashAmount || 0);
       const cardAmount = Number(details.cardAmount || 0);
       const mfsAmount = Number(details.mfsAmount || 0);
-      const givenAmount = Number(details.givenAmount || 0);
       const changeAmount = Number(details.changeAmount || 0);
+      const totalReceived = cashAmount + cardAmount + mfsAmount;
 
       return {
         "Sale Number": sale.saleNumber || "",
@@ -112,7 +112,7 @@ export async function GET(req: NextRequest) {
         "Cash Paid": cashAmount,
         "Card Paid": cardAmount,
         "MFS Paid": mfsAmount,
-        "Given Amount": givenAmount,
+        "Total Received": totalReceived,
         "Change Amount": changeAmount,
         "Status": sale.status || "",
         "Biller": sale.createdByUser?.name || "-",

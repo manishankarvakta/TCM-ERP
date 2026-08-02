@@ -3672,6 +3672,12 @@ export async function getAllSalesForExport(
 
     const serializedSales = sales.map((sale) => {
       const details = (sale.paymentDetails as any) || {};
+      const cashAmount = Number(details.cashAmount || 0);
+      const cardAmount = Number(details.cardAmount || 0);
+      const mfsAmount = Number(details.mfsAmount || 0);
+      const changeAmount = Number(details.changeAmount || 0);
+      const totalReceived = cashAmount + cardAmount + mfsAmount;
+
       return {
         ...sale,
         subTotal: Number(sale.subTotal || 0),
@@ -3679,11 +3685,11 @@ export async function getAllSalesForExport(
         deliveryCharge: Number(sale.deliveryCharge || 0),
         tax: Number(sale.tax || 0),
         grandTotal: Number(sale.grandTotal || 0),
-        cashAmount: Number(details.cashAmount || 0),
-        cardAmount: Number(details.cardAmount || 0),
-        mfsAmount: Number(details.mfsAmount || 0),
-        givenAmount: Number(details.givenAmount || 0),
-        changeAmount: Number(details.changeAmount || 0),
+        cashAmount,
+        cardAmount,
+        mfsAmount,
+        totalReceived,
+        changeAmount,
       };
     });
 
