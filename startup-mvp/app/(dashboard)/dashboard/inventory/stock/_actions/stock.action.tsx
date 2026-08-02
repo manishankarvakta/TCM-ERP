@@ -2036,8 +2036,8 @@ export async function getAllStocksForExport(filters: {
             id: true,
             name: true,
             code: true,
-            purchasePrice: true,
-            sellingPrice: true,
+            costPrice: true,
+            salesPrice: true,
             category: { select: { name: true } },
             unit: { select: { symbol: true } },
           },
@@ -2046,8 +2046,8 @@ export async function getAllStocksForExport(filters: {
           select: {
             id: true,
             sku: true,
-            purchasePrice: true,
-            sellingPrice: true,
+            costPrice: true,
+            salesPrice: true,
             item: {
               select: {
                 name: true,
@@ -2075,16 +2075,16 @@ export async function getAllStocksForExport(filters: {
       const quantity = Number(stock.quantity);
       const reservedQuantity = Number(stock.reservedQuantity);
       
-      const purchasePrice = Number(
-        stock.variant?.purchasePrice || stock.item?.purchasePrice || 0
+      const costPrice = Number(
+        stock.variant?.costPrice || stock.item?.costPrice || 0
       );
-      const totalValue = quantity * purchasePrice;
+      const totalValue = quantity * costPrice;
 
       return {
         ...stock,
         quantity,
         reservedQuantity,
-        purchasePrice,
+        costPrice,
         totalValue,
       };
     });

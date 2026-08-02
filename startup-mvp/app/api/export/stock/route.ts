@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
           select: {
             name: true,
             code: true,
-            purchasePrice: true,
+            costPrice: true,
             category: { select: { name: true } },
             unit: { select: { symbol: true } },
           },
@@ -99,7 +99,7 @@ export async function GET(req: NextRequest) {
         variant: {
           select: {
             sku: true,
-            purchasePrice: true,
+            costPrice: true,
             item: {
               select: {
                 name: true,
@@ -124,8 +124,8 @@ export async function GET(req: NextRequest) {
       const unit = s.item?.unit?.symbol || s.variant?.item?.unit?.symbol || "-";
       const qty = Number(s.quantity || 0);
       const reservedQty = Number(s.reservedQuantity || 0);
-      const purchasePrice = Number(s.variant?.purchasePrice || s.item?.purchasePrice || 0);
-      const totalValue = qty * purchasePrice;
+      const costPrice = Number(s.variant?.costPrice || s.item?.costPrice || 0);
+      const totalValue = qty * costPrice;
 
       return {
         "Item Code": itemCode,
@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
         "Quantity": qty,
         "Reserved Quantity": reservedQty,
         "Unit": unit,
-        "Purchase Price": purchasePrice,
+        "Cost Price": costPrice,
         "Total Value": totalValue,
       };
     });

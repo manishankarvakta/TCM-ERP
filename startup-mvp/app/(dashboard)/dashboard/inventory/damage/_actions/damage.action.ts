@@ -524,7 +524,7 @@ export async function getAllDamagesForExport(filters: {
       where,
       include: {
         warehouse: { select: { name: true, code: true } },
-        creator: { select: { name: true } },
+        createdByUser: { select: { name: true } },
         items: {
           include: {
             item: { select: { name: true, code: true } },
@@ -534,16 +534,19 @@ export async function getAllDamagesForExport(filters: {
       orderBy: { date: "desc" },
     });
 
-    const serializedDamages = damages.map((d) => ({
-      ...d,
-      totalAmount: Number(d.totalAmount || 0),
-      items: d.items.map((it) => ({
-        ...it,
-        quantity: Number(it.quantity || 0),
-        unitRate: Number(it.unitRate || 0),
-        totalAmount: Number(it.totalAmount || 0),
-      })),
-    }));
+    const serializedDamages = damages.map((d) => {
+      const totalAmount = d.items.reduce((sum, it) => sum + Number(it.amount || 0), 0);
+      return {
+        ...d,
+        totalAmount,
+        items: d.items.map((it) => ({
+          ...it,
+          quantity: Number(it.quantity || 0),
+          unitRate: Number(it.unitRate || 0),
+          amount: Number(it.amount || 0),
+        })),
+      };
+    });
 
     return { success: true, damages: serializedDamages };
   } catch (error) {

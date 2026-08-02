@@ -467,27 +467,30 @@ export async function getAllAdjustmentsForExport(filters: {
       where,
       include: {
         warehouse: { select: { name: true, code: true } },
-        creator: { select: { name: true } },
+        createdByUser: { select: { name: true } },
         items: {
           include: {
-            item: { select: { name: true, code: true, unit: { select: { code: true } } } },
-            variant: { select: { sku: { select: { code: true } } } },
+            item: { select: { name: true, code: true, unit: { select: { symbol: true } } } },
+            variant: { select: { sku: true } },
           },
         },
       },
       orderBy: { date: "desc" },
     });
 
-    const serializedAdjustments = adjustments.map((adj) => ({
-      ...adj,
-      totalAmount: Number(adj.totalAmount || 0),
-      items: adj.items.map((it) => ({
-        ...it,
-        quantity: Number(it.quantity || 0),
-        unitRate: Number(it.unitRate || 0),
-        totalAmount: Number(it.totalAmount || 0),
-      })),
-    }));
+    const serializedAdjustments = adjustments.map((adj) => {
+      const totalAmount = adj.items.reduce((sum, it) => sum + Number(it.amount || 0), 0);
+      return {
+        ...adj,
+        totalAmount,
+        items: adj.items.map((it) => ({
+          ...it,
+          quantity: Number(it.quantity || 0),
+          unitRate: Number(it.unitRate || 0),
+          amount: Number(it.amount || 0),
+        })),
+      };
+    });
 
     return { success: true, adjustments: serializedAdjustments };
   } catch (error) {

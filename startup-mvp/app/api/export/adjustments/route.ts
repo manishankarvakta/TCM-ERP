@@ -59,10 +59,10 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         warehouse: { select: { name: true, code: true } },
-        creator: { select: { name: true } },
+        createdByUser: { select: { name: true } },
         items: {
           include: {
-            item: { select: { name: true, code: true, unit: { select: { code: true } } } },
+            item: { select: { name: true, code: true, unit: { select: { symbol: true } } } },
           },
         },
       },
@@ -70,8 +70,9 @@ export async function GET(req: NextRequest) {
     });
 
     const formattedData = adjustments.map((adj) => {
-      const itemNames = adj.items.map((i) => `${i.item?.name || "Item"} (${i.quantity > 0 ? "+" : ""}${Number(i.quantity)})`).join("; ");
+      const itemNames = adj.items.map((i: any) => `${i.item?.name || "Item"} (${Number(i.quantity) > 0 ? "+" : ""}${Number(i.quantity)})`).join("; ");
       const totalItemCount = adj.items.length;
+      const totalAmount = adj.items.reduce((sum: number, i: any) => sum + Number(i.amount || 0), 0);
 
       return {
         "Adjustment No": adj.adjustmentNumber || "",
@@ -80,8 +81,8 @@ export async function GET(req: NextRequest) {
         "Status": adj.status || "",
         "Items Count": totalItemCount,
         "Items Detail": itemNames,
-        "Total Amount": Number(adj.totalAmount || 0),
-        "Created By": adj.creator?.name || "-",
+        "Total Amount": totalAmount,
+        "Created By": adj.createdByUser?.name || "-",
         "Notes": adj.notes || "-",
       };
     });
