@@ -6,6 +6,9 @@ import VouchersListClient from "./_components/vouchers-list";
 import VoucherQuickCreate from "./_components/voucher-quick-create";
 import ExportVouchersButton from "./_components/ExportVouchersButton";
 import PageGuard from "@/components/permissions/page-guard";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 
 interface VouchersPageProps {
   searchParams: Promise<{
@@ -62,7 +65,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
 
   const warehouses = isAdmin 
     ? allWarehouses 
-    : allWarehouses.filter((w) => w.id === userWarehouseId);
+    : allWarehouses.filter((w: any) => w.id === userWarehouseId);
 
   // Handle errors
   if (!result.success) {
