@@ -10,9 +10,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FiDownload, FiFileText, FiFile } from "react-icons/fi";
 import { useToast } from "@/hooks/use-toast";
-import { getAllCategoriesForExport } from "../_actions/category.action";
-import { exportToCSV } from "@/lib/utils/export-csv";
-import { exportToExcel } from "@/lib/utils/export-excel";
 
 interface ExportCategoriesButtonProps {
   search?: string;
@@ -26,68 +23,38 @@ export default function ExportCategoriesButton({
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
-  const handleExport = async (format: "csv" | "excel") => {
+  const handleExport = (format: "csv" | "excel") => {
     try {
       setIsExporting(true);
-      const statusParam = tab === "trash" ? "trash" : "all";
-      const result = await getAllCategoriesForExport(search, statusParam);
+      const params = new URLSearchParams();
+      params.set("format", format);
+      if (search) params.set("search", search);
+      if (tab) params.set("tab", tab);
 
-      if (!result.success || !result.categories) {
+      const url = `/api/export/categories?${params.toString()}`;
+
+      const iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      iframe.src = url;
+      document.body.appendChild(iframe);
+
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+        setIsExporting(false);
         toast({
-          title: "Export Failed",
-          description: result.error || "Failed to fetch categories for export",
-          variant: "destructive",
+          title: "Export Triggered",
+          description: `Downloading categories list as ${format.toUpperCase()}...`,
         });
-        return;
-      }
-
-      if (result.categories.length === 0) {
-        toast({
-          title: "No Data",
-          description: "No categories available to export",
-        });
-        return;
-      }
-
-      const formattedData = result.categories.map((cat: any) => ({
-        "Category Name": cat.name || "",
-        "Type": cat.parentId ? "Sub-Category" : "Primary Category",
-        "Parent Category": cat.parent?.name || "-",
-        "Description": cat.description || "-",
-        "Total Items": cat._count?.items ?? 0,
-        "Sub-Categories": cat._count?.children ?? 0,
-        "Status": cat.status || "",
-        "Created At": cat.createdAt ? new Date(cat.createdAt).toISOString().split("T")[0] : "",
-      }));
-
-      const dateStr = new Date().toISOString().split("T")[0];
-
-      if (format === "csv") {
-        exportToCSV(formattedData, {
-          filename: `categories-export-${dateStr}.csv`,
-        });
-        toast({
-          title: "Success",
-          description: `Exported ${formattedData.length} categories to CSV`,
-        });
-      } else {
-        exportToExcel(formattedData, {
-          filename: `categories-export-${dateStr}.xlsx`,
-          sheetName: "Categories",
-        });
-        toast({
-          title: "Success",
-          description: `Exported ${formattedData.length} categories to Excel`,
-        });
-      }
+      }, 1200);
     } catch (err: any) {
+      setIsExporting(false);
       toast({
         title: "Error",
         description: err.message || "An unexpected error occurred during export",
         variant: "destructive",
       });
-    } finally {
-      setIsExporting(false);
     }
   };
 
@@ -100,11 +67,11 @@ export default function ExportCategoriesButton({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => handleExport("csv")}>
+        <DropdownMenuItem onSelect={() => handleExport("csv")}>
           <FiFileText className="mr-2 h-4 w-4" />
           Export as CSV
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleExport("excel")}>
+        <DropdownMenuItem onSelect={() => handleExport("excel")}>
           <FiFile className="mr-2 h-4 w-4" />
           Export as Excel
         </DropdownMenuItem>

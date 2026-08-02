@@ -10,9 +10,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FiDownload, FiFileText, FiFile } from "react-icons/fi";
 import { useToast } from "@/hooks/use-toast";
-import { getAllItemsForExport } from "../_actions/item.action";
-import { exportToCSV } from "@/lib/utils/export-csv";
-import { exportToExcel } from "@/lib/utils/export-excel";
 import { ItemType } from "@prisma/client";
 
 interface ExportItemsButtonProps {
@@ -29,77 +26,39 @@ export default function ExportItemsButton({
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
-  const handleExport = async (format: "csv" | "excel") => {
+  const handleExport = (format: "csv" | "excel") => {
     try {
       setIsExporting(true);
-      const statusParam = tab === "trash" ? "trash" : "all";
-      const result = await getAllItemsForExport(search, statusParam, itemType);
+      const params = new URLSearchParams();
+      params.set("format", format);
+      if (search) params.set("search", search);
+      if (tab) params.set("tab", tab);
+      if (itemType && itemType !== "all") params.set("itemType", itemType);
 
-      if (!result.success || !result.items) {
+      const url = `/api/export/items?${params.toString()}`;
+
+      const iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      iframe.src = url;
+      document.body.appendChild(iframe);
+
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+        setIsExporting(false);
         toast({
-          title: "Export Failed",
-          description: result.error || "Failed to fetch items for export",
-          variant: "destructive",
+          title: "Export Triggered",
+          description: `Downloading items catalog as ${format.toUpperCase()}...`,
         });
-        return;
-      }
-
-      if (result.items.length === 0) {
-        toast({
-          title: "No Data",
-          description: "No items available to export",
-        });
-        return;
-      }
-
-      const formattedData = result.items.map((item: any) => ({
-        "Item Code": item.code || "",
-        "Item Name": item.name || "",
-        "Item Type": item.itemType || "",
-        "Category": item.category?.name || "-",
-        "Sub Category": item.subCategory?.name || "-",
-        "Brand": item.brand?.name || "-",
-        "Unit": item.unit?.symbol || "-",
-        "Cost Price": item.costPrice ?? 0,
-        "Sales Price": item.salesPrice ?? 0,
-        "Wholesale Price": item.wholesalePrice ?? 0,
-        "Track Inventory": item.trackInventory ? "Yes" : "No",
-        "E-Commerce Enabled": item.isEnableEcom ? "Yes" : "No",
-        "Barcode": item.barcode || "-",
-        "VAT Enabled": item.isVatEnabled ? "Yes" : "No",
-        "VAT Percentage": item.isVatEnabled ? `${item.vatPercentage}%` : "0%",
-        "Status": item.status || "",
-        "Created At": item.createdAt ? new Date(item.createdAt).toISOString().split("T")[0] : "",
-      }));
-
-      const dateStr = new Date().toISOString().split("T")[0];
-
-      if (format === "csv") {
-        exportToCSV(formattedData, {
-          filename: `items-export-${dateStr}.csv`,
-        });
-        toast({
-          title: "Success",
-          description: `Exported ${formattedData.length} items to CSV`,
-        });
-      } else {
-        exportToExcel(formattedData, {
-          filename: `items-export-${dateStr}.xlsx`,
-          sheetName: "Items",
-        });
-        toast({
-          title: "Success",
-          description: `Exported ${formattedData.length} items to Excel`,
-        });
-      }
+      }, 1200);
     } catch (err: any) {
+      setIsExporting(false);
       toast({
         title: "Error",
         description: err.message || "An unexpected error occurred during export",
         variant: "destructive",
       });
-    } finally {
-      setIsExporting(false);
     }
   };
 
@@ -112,11 +71,11 @@ export default function ExportItemsButton({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => handleExport("csv")}>
+        <DropdownMenuItem onSelect={() => handleExport("csv")}>
           <FiFileText className="mr-2 h-4 w-4" />
           Export as CSV
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleExport("excel")}>
+        <DropdownMenuItem onSelect={() => handleExport("excel")}>
           <FiFile className="mr-2 h-4 w-4" />
           Export as Excel
         </DropdownMenuItem>
