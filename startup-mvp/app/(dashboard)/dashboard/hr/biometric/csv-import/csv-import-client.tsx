@@ -167,7 +167,7 @@ export default function CsvImportClient({ devices }: { devices: Device[] }) {
             </div>
           </div>
           
-          <div className="max-h-96 overflow-y-auto border rounded-md bg-white">
+          <div className="max-h-96 overflow-y-auto border rounded-md bg-card">
             <Table>
               <TableHeader>
                 <TableRow>

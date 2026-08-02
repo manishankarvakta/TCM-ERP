@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FiPrinter, FiEdit } from "react-icons/fi";
+import { FiPrinter, FiEdit, FiFileText } from "react-icons/fi";
 import Link from "next/link";
 import BarcodePrintModal from "./BarcodePrintModal";
 
@@ -25,6 +25,13 @@ export default function ItemActionButtons({ item, canEdit }: ItemActionButtonsPr
 
   return (
     <div className="flex items-center gap-2">
+      <Button variant="outline" asChild>
+        <Link href={`/dashboard/master/items/ledger?id=${item.id}`}>
+          <FiFileText className="mr-2 h-4 w-4" />
+          Item Ledger
+        </Link>
+      </Button>
+
       <Button variant="outline" onClick={() => setIsPrintOpen(true)}>
         <FiPrinter className="mr-2 h-4 w-4" />
         Print Barcodes

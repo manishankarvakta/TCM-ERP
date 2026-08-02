@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Link from "next/link";
-import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw, FiShoppingCart, FiImage } from "react-icons/fi";
+import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw, FiShoppingCart, FiImage, FiFileText } from "react-icons/fi";
 import { deleteItem, bulkUpdateItemStatus, deleteItemsPermanently, toggleItemEcom } from "../_actions/item.action";
 import {
   AlertDialog,
@@ -406,7 +406,7 @@ export default function ItemsListClient({
         </div>
       </div>
 
-      <div className="rounded-md border bg-white overflow-hidden">
+      <div className="rounded-md border bg-card overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -501,13 +501,30 @@ export default function ItemsListClient({
                       <div className="flex items-center justify-end gap-1">
                         {!isTrash ? (
                           <>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" asChild><Link href={`/dashboard/master/items/${item.id}`}><FiEye className="h-4 w-4" /></Link></Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" asChild><Link href={`/dashboard/master/items/${item.id}/edit`}><FiEdit className="h-4 w-4" /></Link></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="View Ledger" asChild>
+                              <Link href={`/dashboard/master/items/ledger?id=${item.id}`}>
+                                <FiFileText className="h-4 w-4 text-amber-600" />
+                              </Link>
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="View Details" asChild>
+                              <Link href={`/dashboard/master/items/${item.id}`}>
+                                <FiEye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit Item" asChild>
+                              <Link href={`/dashboard/master/items/${item.id}/edit`}>
+                                <FiEdit className="h-4 w-4" />
+                              </Link>
+                            </Button>
                           </>
                         ) : (
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setRestoreItemId(item.id)}><FiRotateCw className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Restore Item" onClick={() => setRestoreItemId(item.id)}>
+                            <FiRotateCw className="h-4 w-4" />
+                          </Button>
                         )}
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteItemId(item.id)}><FiTrash2 className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Delete Item" onClick={() => setDeleteItemId(item.id)}>
+                          <FiTrash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

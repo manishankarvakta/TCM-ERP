@@ -2067,4 +2067,527 @@ export async function getAllItemsForExport(
   }
 }
 
+/**
+ * Get Item Stock Ledger with running stock balance, transactions, and totals
+ */
+export async function getItemLedger(
+  itemId: string,
+  startDate?: string,
+  endDate?: string,
+  warehouseId?: string
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const canView = await hasPermission(session.user.id, "master.items", "view");
+    if (!canView) {
+      return { success: false, error: "Permission denied" };
+    }
+
+    const item = await prisma.item.findUnique({
+      where: { id: itemId },
+      include: {
+        unit: { select: { id: true, symbol: true, details: true } },
+        category: { select: { id: true, name: true } },
+        subCategory: { select: { id: true, name: true } },
+        brand: { select: { id: true, name: true } },
+        stocks: {
+          select: {
+            quantity: true,
+            warehouseId: true,
+            warehouse: { select: { id: true, name: true, code: true } },
+          },
+        },
+      },
+    });
+
+    if (!item) {
+      return { success: false, error: "Item not found" };
+    }
+
+    const dateCondition: any = {};
+    if (startDate) {
+      const sDate = new Date(startDate);
+      sDate.setHours(0, 0, 0, 0);
+      dateCondition.gte = sDate;
+    }
+    if (endDate) {
+      const eDate = new Date(endDate);
+      eDate.setHours(23, 59, 59, 999);
+      dateCondition.lte = eDate;
+    }
+
+    // Opening stock prior to start date
+    let openingStock = 0;
+    if (startDate) {
+      const sDate = new Date(startDate);
+      sDate.setHours(0, 0, 0, 0);
+      const priorWhere: any = {
+        itemId,
+        createdAt: { lt: sDate },
+      };
+      if (warehouseId && warehouseId !== "all") {
+        priorWhere.warehouseId = warehouseId;
+      }
+      const priorEntries = await prisma.stockLedger.findMany({
+        where: priorWhere,
+        select: { transactionType: true, quantity: true },
+      });
+      for (const entry of priorEntries) {
+        const qty = Number(entry.quantity);
+        if (["IN", "PURCHASE", "PRODUCTION", "ADJUSTMENT"].includes(entry.transactionType) && qty > 0) {
+          openingStock += Math.abs(qty);
+        } else if (["OUT", "SALE", "DAMAGE", "PURCHASE_RETURN"].includes(entry.transactionType) || qty < 0) {
+          openingStock -= Math.abs(qty);
+        }
+      }
+    }
+
+    const ledgerWhere: any = { itemId };
+    if (warehouseId && warehouseId !== "all") {
+      ledgerWhere.warehouseId = warehouseId;
+    }
+    if (Object.keys(dateCondition).length > 0) {
+      ledgerWhere.createdAt = dateCondition;
+    }
+
+    const rawEntries = await prisma.stockLedger.findMany({
+      where: ledgerWhere,
+      include: {
+        warehouse: { select: { id: true, name: true, code: true } },
+        creator: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    // Collect reference IDs to batch fetch exact document numbers
+    const grnIds = new Set<string>();
+    const tpnIds = new Set<string>();
+    const purchaseIds = new Set<string>();
+    const saleIds = new Set<string>();
+    const rtvIds = new Set<string>();
+    const prodIds = new Set<string>();
+    const adjIds = new Set<string>();
+    const damageIds = new Set<string>();
+
+    // Map of txId → referenceType for fallback party building
+    const txRefTypeMap = new Map<string, string>();
+    rawEntries.forEach((tx) => {
+      const refId = tx.referenceId;
+      if (!refId) return;
+      const refType = (tx.referenceType || "").toUpperCase();
+      txRefTypeMap.set(tx.id, refType);
+
+      // Use exact equality to avoid PURCHASE_RETURN being miscategorised as PURCHASE
+      if (refType === "GRN") grnIds.add(refId);
+      else if (refType === "TPN" || refType === "TRANSFER") tpnIds.add(refId);
+      else if (refType === "PURCHASE" || refType === "PO") purchaseIds.add(refId);
+      else if (refType === "SALE" || refType === "SO" || refType === "POS" || refType === "SALE_VOID") saleIds.add(refId);
+      else if (refType === "RTV" || refType === "PURCHASE_RETURN") rtvIds.add(refId);
+      else if (refType === "PROD" || refType === "PRODUCTION" || tx.transactionType === "PRODUCTION") prodIds.add(refId);
+      // NOTE: ADJUSTMENT referenceId = stock.id (not InventoryAdjustment id), so we skip adjIds lookup
+      // and handle ADJUSTMENT in the fallback party block using the warehouse from the tx itself
+      else if (refType === "DAMAGE" || tx.transactionType === "DAMAGE") damageIds.add(refId);
+    });
+
+    const [grns, tpns, purchases, sales, rtvs, prods, adjs, damages] = await Promise.all([
+      grnIds.size > 0
+        ? prisma.gRN.findMany({
+            where: { id: { in: Array.from(grnIds) } },
+            select: {
+              id: true,
+              grnNumber: true,
+              warehouse: { select: { id: true, name: true, code: true } },
+              purchase: { select: { id: true, supplier: { select: { id: true, name: true } } } },
+              tpn: {
+                select: {
+                  id: true,
+                  sourceWarehouse: { select: { id: true, name: true } },
+                  destinationWarehouse: { select: { id: true, name: true } },
+                },
+              },
+            },
+          })
+        : [],
+      tpnIds.size > 0
+        ? prisma.transferPurchaseNote.findMany({
+            where: { id: { in: Array.from(tpnIds) } },
+            select: {
+              id: true,
+              tpnNumber: true,
+              sourceWarehouse: { select: { id: true, name: true, code: true } },
+              destinationWarehouse: { select: { id: true, name: true, code: true } },
+            },
+          })
+        : [],
+      purchaseIds.size > 0
+        ? prisma.purchase.findMany({
+            where: { id: { in: Array.from(purchaseIds) } },
+            select: {
+              id: true,
+              purchaseNumber: true,
+              supplier: { select: { id: true, name: true } },
+              warehouse: { select: { id: true, name: true, code: true } },
+            },
+          })
+        : [],
+      saleIds.size > 0
+        ? prisma.sale.findMany({
+            where: { id: { in: Array.from(saleIds) } },
+            select: {
+              id: true,
+              saleNumber: true,
+              client: { select: { id: true, name: true } },
+              warehouse: { select: { id: true, name: true, code: true } },
+            },
+          })
+        : [],
+      rtvIds.size > 0
+        ? prisma.returnToVendor.findMany({
+            where: { id: { in: Array.from(rtvIds) } },
+            select: {
+              id: true,
+              rtvNumber: true,
+              supplier: { select: { id: true, name: true } },
+              warehouse: { select: { id: true, name: true, code: true } },
+            },
+          })
+        : [],
+      prodIds.size > 0
+        ? prisma.productionOrder.findMany({
+            where: { id: { in: Array.from(prodIds) } },
+            select: {
+              id: true,
+              code: true,
+              warehouse: { select: { id: true, name: true, code: true } },
+            },
+          })
+        : [],
+      adjIds.size > 0
+        ? prisma.inventoryAdjustment.findMany({
+            where: { id: { in: Array.from(adjIds) } },
+            select: {
+              id: true,
+              adjustmentNumber: true,
+              warehouse: { select: { id: true, name: true, code: true } },
+            },
+          })
+        : [],
+      damageIds.size > 0
+        ? prisma.inventoryDamage.findMany({
+            where: { id: { in: Array.from(damageIds) } },
+            select: {
+              id: true,
+              damageNumber: true,
+              warehouse: { select: { id: true, name: true, code: true } },
+            },
+          })
+        : [],
+    ]);
+
+    const grnMap = new Map(grns.map((g) => [g.id, g]));
+    const tpnMap = new Map(tpns.map((t) => [t.id, t]));
+    const purchaseMap = new Map(purchases.map((p) => [p.id, p]));
+    const saleMap = new Map(sales.map((s) => [s.id, s]));
+    const rtvMap = new Map(rtvs.map((r) => [r.id, r]));
+    const prodMap = new Map(prods.map((p) => [p.id, p]));
+    const adjMap = new Map(adjs.map((a) => [a.id, a]));
+    const damageMap = new Map(damages.map((d) => [d.id, d]));
+
+    let opening = openingStock;
+    let totalInQty = 0;
+    let totalOutQty = 0;
+    let totalAmount = 0;
+    let totalProfitLoss = 0;
+
+    const ledger: any[] = [];
+
+    if (startDate && openingStock !== 0) {
+      ledger.push({
+        sl: 1,
+        date: startDate,
+        type: "Opening Stock",
+        invoiceNo: "N/A",
+        invoiceUrl: null,
+        party: {
+          type: "warehouse",
+          label: "Opening Balance",
+          link: null,
+        },
+        opening: 0,
+        inQty: opening > 0 ? opening : 0,
+        outQty: opening < 0 ? Math.abs(opening) : 0,
+        closing: opening,
+        rate: Number(item.costPrice || 0),
+        total: Math.abs(opening) * Number(item.costPrice || 0),
+        details: `${item.code} | Opening Balance`,
+      });
+      if (opening > 0) totalInQty += opening;
+      else totalOutQty += Math.abs(opening);
+    }
+
+    rawEntries.forEach((tx) => {
+      const qty = Number(tx.quantity);
+      let inQty = 0;
+      let outQty = 0;
+
+      const txType = tx.transactionType as string;
+      const refType = (tx.referenceType || "").toUpperCase();
+      const refId = tx.referenceId || "";
+      let typeLabel = txType;
+
+      if (txType === "IN") {
+        inQty = Math.abs(qty);
+        typeLabel = refType.includes("PURCHASE") || refType.includes("GRN") ? "Purchase / GRN" : refType.includes("PROD") ? "Production" : "Opening Stock";
+      } else if (txType === "OUT") {
+        outQty = Math.abs(qty);
+        typeLabel = refType.includes("SALE") ? "Sale" : refType.includes("DAMAGE") ? "Damage" : "Out / Transfer";
+      } else if (txType === "PRODUCTION") {
+        inQty = Math.abs(qty);
+        typeLabel = "Production";
+      } else if (txType === "PURCHASE_RETURN") {
+        outQty = Math.abs(qty);
+        typeLabel = "Purchase Return";
+      } else if (txType === "DAMAGE") {
+        outQty = Math.abs(qty);
+        typeLabel = "Damage";
+      } else if (txType === "ADJUSTMENT") {
+        if (qty >= 0) {
+          inQty = qty;
+          typeLabel = "Adjustment (+)";
+        } else {
+          outQty = Math.abs(qty);
+          typeLabel = "Adjustment (-)";
+        }
+      } else if (txType === "TRANSFER") {
+        if (qty >= 0) {
+          inQty = qty;
+          typeLabel = "Transfer In";
+        } else {
+          outQty = Math.abs(qty);
+          typeLabel = "Transfer Out";
+        }
+      } else {
+        if (qty >= 0) inQty = qty;
+        else outQty = Math.abs(qty);
+      }
+
+      const rowOpening = ledger.length > 0 ? ledger[ledger.length - 1].closing : opening;
+      const rowClosing = rowOpening + inQty - outQty;
+
+      totalInQty += inQty;
+      totalOutQty += outQty;
+
+      const isSale = refType.includes("SALE") || txType === "OUT";
+      const rate = tx.rate
+        ? Number(tx.rate)
+        : isSale
+        ? Number(item.salesPrice || item.costPrice || 0)
+        : Number(item.costPrice || 0);
+
+      const total = (inQty || outQty) * rate;
+      totalAmount += total;
+
+      let profitLoss = 0;
+      if (isSale && outQty > 0) {
+        const cost = Number(item.costPrice || 0);
+        profitLoss = (rate - cost) * outQty;
+        totalProfitLoss += profitLoss;
+      }
+
+      // Construct exact invoiceNo and Party / Warehouse link details:
+      let invoiceNo = "N/A";
+      let invoiceUrl: string | null = null;
+
+      let party: {
+        type: "client" | "supplier" | "warehouse_transfer" | "warehouse";
+        label: string;
+        link: string | null;
+        fromWarehouse?: string | null;
+        toWarehouse?: string | null;
+      } = {
+        type: "warehouse",
+        label: tx.warehouse ? tx.warehouse.name : "—",
+        link: null,
+      };
+
+      // For ADJUSTMENT entries: referenceId = stock.id (not an InventoryAdjustment id)
+      // Just show warehouse name, no link needed
+      const txRefType = (tx.referenceType || "").toUpperCase();
+      if (txRefType === "ADJUSTMENT" || tx.transactionType === "ADJUSTMENT") {
+        party = {
+          type: "warehouse",
+          label: tx.warehouse ? tx.warehouse.name : "—",
+          link: null,
+        };
+      }
+
+      if (refId) {
+        if (grnMap.has(refId)) {
+          const g = grnMap.get(refId)!;
+          invoiceNo = g.grnNumber;
+          invoiceUrl = `/dashboard/procurements/grn/${refId}`;
+          if (g.purchase?.supplier) {
+            party = {
+              type: "supplier",
+              label: g.purchase.supplier.name || "Supplier",
+              link: `/dashboard/suppliers/details?id=${g.purchase.supplier.id}`,
+            };
+          } else if (g.tpn) {
+            // GRN from TPN: show To warehouse (destination warehouse)
+            party = {
+              type: "warehouse_transfer",
+              label: g.tpn.destinationWarehouse.name,
+              link: `/dashboard/procurements/tpn/${g.tpn.id}`,
+              fromWarehouse: g.tpn.sourceWarehouse.name,
+              toWarehouse: g.tpn.destinationWarehouse.name,
+            };
+          } else if (g.warehouse) {
+            party = {
+              type: "warehouse",
+              label: g.warehouse.name,
+              link: null,
+            };
+          }
+        } else if (tpnMap.has(refId)) {
+          const t = tpnMap.get(refId)!;
+          invoiceNo = t.tpnNumber;
+          invoiceUrl = `/dashboard/procurements/tpn/${refId}`;
+          // TPN: show From warehouse (source warehouse)
+          party = {
+            type: "warehouse_transfer",
+            label: t.sourceWarehouse.name,
+            link: `/dashboard/procurements/tpn/${refId}`,
+            fromWarehouse: t.sourceWarehouse.name,
+            toWarehouse: t.destinationWarehouse.name,
+          };
+        } else if (purchaseMap.has(refId)) {
+          const p = purchaseMap.get(refId)!;
+          invoiceNo = p.purchaseNumber;
+          invoiceUrl = `/dashboard/procurements/purchases/${refId}`;
+          if (p.supplier) {
+            party = {
+              type: "supplier",
+              label: p.supplier.name || "Supplier",
+              link: `/dashboard/suppliers/details?id=${p.supplier.id}`,
+            };
+          }
+        } else if (saleMap.has(refId)) {
+          const s = saleMap.get(refId)!;
+          invoiceNo = s.saleNumber;
+          invoiceUrl = `/dashboard/sales/${refId}`;
+          if (s.client) {
+            party = {
+              type: "client",
+              label: s.client.name || "Client",
+              link: `/dashboard/clients/details?id=${s.client.id}`,
+            };
+          }
+        } else if (rtvMap.has(refId)) {
+          const r = rtvMap.get(refId)!;
+          invoiceNo = r.rtvNumber;
+          invoiceUrl = `/dashboard/procurements/rtv/${refId}`;
+          if (r.supplier) {
+            party = {
+              type: "supplier",
+              label: r.supplier.name || "Supplier",
+              link: `/dashboard/suppliers/details?id=${r.supplier.id}`,
+            };
+          }
+        } else if (prodMap.has(refId)) {
+          const pr = prodMap.get(refId)!;
+          invoiceNo = pr.code;
+          invoiceUrl = `/dashboard/production/orders/${refId}`;
+          if (pr.warehouse) {
+            party = {
+              type: "warehouse",
+              label: pr.warehouse.name,
+              link: null,
+            };
+          }
+        } else if (damageMap.has(refId)) {
+          const d = damageMap.get(refId)!;
+          invoiceNo = d.damageNumber;
+          invoiceUrl = `/dashboard/inventory/damage`;
+          if (d.warehouse) {
+            party = {
+              type: "warehouse",
+              label: d.warehouse.name,
+              link: null,
+            };
+          }
+        } else {
+          // Unknown referenceId — show raw ID and try to guess the URL
+          invoiceNo = refId;
+          if (refType === "GRN") invoiceUrl = `/dashboard/procurements/grn/${refId}`;
+          else if (refType === "TPN" || refType === "TRANSFER") invoiceUrl = `/dashboard/procurements/tpn/${refId}`;
+          else if (refType === "PURCHASE" || refType === "PO") invoiceUrl = `/dashboard/procurements/purchases/${refId}`;
+          else if (refType === "SALE" || refType === "SO" || refType === "POS") invoiceUrl = `/dashboard/sales/${refId}`;
+          else if (refType === "RTV" || refType === "PURCHASE_RETURN") invoiceUrl = `/dashboard/procurements/rtv/${refId}`;
+          else if (refType === "PROD" || refType === "PRODUCTION" || txType === "PRODUCTION") invoiceUrl = `/dashboard/production/orders/${refId}`;
+          else if (refType === "DAMAGE" || txType === "DAMAGE") invoiceUrl = `/dashboard/inventory/damage`;
+          // ADJUSTMENT: no link, warehouse already set as fallback party above
+        }
+      }
+
+      ledger.push({
+        sl: ledger.length + 1,
+        date: tx.createdAt ? new Date(tx.createdAt).toISOString().split("T")[0] : "",
+        type: typeLabel,
+        invoiceNo,
+        invoiceUrl,
+        party,
+        opening: rowOpening,
+        inQty,
+        outQty,
+        closing: rowClosing,
+        rate,
+        total,
+        profitLoss,
+        details: tx.notes || `${item.code} | ${typeLabel}`,
+        warehouse: tx.warehouse ? { name: tx.warehouse.name, code: tx.warehouse.code } : null,
+      });
+    });
+
+    const finalStock = ledger.length > 0 ? ledger[ledger.length - 1].closing : openingStock;
+
+    return {
+      success: true,
+      item: {
+        id: item.id,
+        code: item.code,
+        name: item.name,
+        unitSymbol: item.unit?.symbol || "Pcs",
+        unitDetails: item.unit?.details || "",
+        categoryName: item.category?.name || "-",
+        subCategoryName: item.subCategory?.name || "-",
+        brandName: item.brand?.name || "-",
+        costPrice: Number(item.costPrice || 0),
+        salesPrice: item.salesPrice ? Number(item.salesPrice) : 0,
+        wholesalePrice: item.wholesalePrice ? Number(item.wholesalePrice) : 0,
+        currentStockTotal: finalStock,
+      },
+      ledger,
+      summary: {
+        totalInQty,
+        totalOutQty,
+        currentStock: finalStock,
+        totalAmount,
+        totalProfitLoss,
+        totalEntries: ledger.length,
+      },
+    };
+  } catch (error) {
+    console.error("getItemLedger error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch item ledger",
+    };
+  }
+}
+
+
 

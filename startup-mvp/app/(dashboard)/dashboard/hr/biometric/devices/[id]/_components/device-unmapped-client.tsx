@@ -152,7 +152,7 @@ export default function DeviceUnmappedClient({
           <DialogHeader>
             <DialogTitle>Map Biometric PIN</DialogTitle>
             <DialogDescription>
-              Map Biometric PIN <strong className="font-mono text-black">{selectedLog?.deviceUserId}</strong> to an existing ERP employee.
+              Map Biometric PIN <strong className="font-mono text-foreground">{selectedLog?.deviceUserId}</strong> to an existing ERP employee.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
