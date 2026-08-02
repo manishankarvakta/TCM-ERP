@@ -479,10 +479,35 @@ export async function getAllAdjustmentsForExport(filters: {
     });
 
     const serializedAdjustments = adjustments.map((adj) => {
-      const totalAmount = adj.items.reduce((sum, it) => sum + Number(it.amount || 0), 0);
+      let inQty = 0;
+      let outQty = 0;
+      let inValue = 0;
+      let outValue = 0;
+
+      for (const it of adj.items) {
+        const qty = Number(it.quantity || 0);
+        const rate = Number(it.unitRate || 0);
+        const itemVal = it.amount !== undefined && it.amount !== null ? Math.abs(Number(it.amount)) : Math.abs(qty * rate);
+
+        if (qty > 0) {
+          inQty += qty;
+          inValue += itemVal;
+        } else if (qty < 0) {
+          outQty += Math.abs(qty);
+          outValue += itemVal;
+        }
+      }
+
+      const netDiffValue = inValue - outValue;
+
       return {
         ...adj,
-        totalAmount,
+        inQty,
+        outQty,
+        inValue,
+        outValue,
+        netDiffValue,
+        totalAmount: netDiffValue,
         items: adj.items.map((it) => ({
           ...it,
           quantity: Number(it.quantity || 0),

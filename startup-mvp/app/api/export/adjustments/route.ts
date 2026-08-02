@@ -72,7 +72,27 @@ export async function GET(req: NextRequest) {
     const formattedData = adjustments.map((adj) => {
       const itemNames = adj.items.map((i: any) => `${i.item?.name || "Item"} (${Number(i.quantity) > 0 ? "+" : ""}${Number(i.quantity)})`).join("; ");
       const totalItemCount = adj.items.length;
-      const totalAmount = adj.items.reduce((sum: number, i: any) => sum + Number(i.amount || 0), 0);
+
+      let inQty = 0;
+      let outQty = 0;
+      let inValue = 0;
+      let outValue = 0;
+
+      for (const item of adj.items) {
+        const qty = Number(item.quantity || 0);
+        const rate = Number(item.unitRate || 0);
+        const itemVal = item.amount !== undefined && item.amount !== null ? Math.abs(Number(item.amount)) : Math.abs(qty * rate);
+
+        if (qty > 0) {
+          inQty += qty;
+          inValue += itemVal;
+        } else if (qty < 0) {
+          outQty += Math.abs(qty);
+          outValue += itemVal;
+        }
+      }
+
+      const netDiffValue = inValue - outValue;
 
       return {
         "Adjustment No": adj.adjustmentNumber || "",
@@ -81,7 +101,11 @@ export async function GET(req: NextRequest) {
         "Status": adj.status || "",
         "Items Count": totalItemCount,
         "Items Detail": itemNames,
-        "Total Amount": totalAmount,
+        "In Qty": inQty,
+        "Out Qty": outQty,
+        "In Value": inValue,
+        "Out Value": outValue,
+        "Net Difference Value (In - Out)": netDiffValue,
         "Created By": adj.createdByUser?.name || "-",
         "Notes": adj.notes || "-",
       };
