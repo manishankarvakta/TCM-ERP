@@ -3630,6 +3630,7 @@ export async function getAllSalesForExport(
         deliveryStatus: true,
         courierName: true,
         trackingNumber: true,
+        paymentDetails: true,
         _count: {
           select: {
             items: true,
@@ -3669,14 +3670,22 @@ export async function getAllSalesForExport(
       },
     });
 
-    const serializedSales = sales.map((sale) => ({
-      ...sale,
-      subTotal: Number(sale.subTotal || 0),
-      discount: Number(sale.discount || 0),
-      deliveryCharge: Number(sale.deliveryCharge || 0),
-      tax: Number(sale.tax || 0),
-      grandTotal: Number(sale.grandTotal || 0),
-    }));
+    const serializedSales = sales.map((sale) => {
+      const details = (sale.paymentDetails as any) || {};
+      return {
+        ...sale,
+        subTotal: Number(sale.subTotal || 0),
+        discount: Number(sale.discount || 0),
+        deliveryCharge: Number(sale.deliveryCharge || 0),
+        tax: Number(sale.tax || 0),
+        grandTotal: Number(sale.grandTotal || 0),
+        cashAmount: Number(details.cashAmount || 0),
+        cardAmount: Number(details.cardAmount || 0),
+        mfsAmount: Number(details.mfsAmount || 0),
+        givenAmount: Number(details.givenAmount || 0),
+        changeAmount: Number(details.changeAmount || 0),
+      };
+    });
 
     return { success: true, sales: serializedSales };
   } catch (error) {

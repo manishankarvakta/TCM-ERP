@@ -79,6 +79,7 @@ export async function GET(req: NextRequest) {
         tax: true,
         grandTotal: true,
         isTrash: true,
+        paymentDetails: true,
         _count: { select: { items: true } },
         client: { select: { name: true, phone: true } },
         warehouse: { select: { name: true } },
@@ -87,23 +88,37 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    const formattedData = sales.map((sale) => ({
-      "Sale Number": sale.saleNumber || "",
-      "Date": sale.date ? new Date(sale.date).toISOString().split("T")[0] : "",
-      "Customer Name": sale.client?.name || "-",
-      "Customer Phone": sale.client?.phone || "-",
-      "Warehouse": sale.warehouse?.name || "-",
-      "Order Type": sale.orderType || "-",
-      "Total Items": sale._count?.items ?? 0,
-      "Sub Total": Number(sale.subTotal || 0),
-      "Discount": Number(sale.discount || 0),
-      "Delivery Charge": Number(sale.deliveryCharge || 0),
-      "Tax": Number(sale.tax || 0),
-      "Grand Total": Number(sale.grandTotal || 0),
-      "Status": sale.status || "",
-      "Biller": sale.createdByUser?.name || "-",
-      "Sales Assistant": sale.salesAssistant?.name || "-",
-    }));
+    const formattedData = sales.map((sale) => {
+      const details = (sale.paymentDetails as any) || {};
+      const cashAmount = Number(details.cashAmount || 0);
+      const cardAmount = Number(details.cardAmount || 0);
+      const mfsAmount = Number(details.mfsAmount || 0);
+      const givenAmount = Number(details.givenAmount || 0);
+      const changeAmount = Number(details.changeAmount || 0);
+
+      return {
+        "Sale Number": sale.saleNumber || "",
+        "Date": sale.date ? new Date(sale.date).toISOString().split("T")[0] : "",
+        "Customer Name": sale.client?.name || "-",
+        "Customer Phone": sale.client?.phone || "-",
+        "Warehouse": sale.warehouse?.name || "-",
+        "Order Type": sale.orderType || "-",
+        "Total Items": sale._count?.items ?? 0,
+        "Sub Total": Number(sale.subTotal || 0),
+        "Discount": Number(sale.discount || 0),
+        "Delivery Charge": Number(sale.deliveryCharge || 0),
+        "Tax": Number(sale.tax || 0),
+        "Grand Total": Number(sale.grandTotal || 0),
+        "Cash Paid": cashAmount,
+        "Card Paid": cardAmount,
+        "MFS Paid": mfsAmount,
+        "Given Amount": givenAmount,
+        "Change Amount": changeAmount,
+        "Status": sale.status || "",
+        "Biller": sale.createdByUser?.name || "-",
+        "Sales Assistant": sale.salesAssistant?.name || "-",
+      };
+    });
 
     const dateStr = new Date().toISOString().split("T")[0];
 
