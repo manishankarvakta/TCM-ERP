@@ -3564,6 +3564,13 @@ export async function getAllSalesForExport(
       return { success: false, error: "You do not have permission to view sales", sales: [] };
     }
 
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true }
+    });
+
+    const isAdmin = dbUser ? ['admin', 'superadmin'].includes(dbUser.role.toLowerCase()) : false;
+
     const where: Prisma.SaleWhereInput = {
       isTrash: status === "trash",
     };
@@ -3571,16 +3578,18 @@ export async function getAllSalesForExport(
     if (saleIds && saleIds.length > 0) {
       where.id = { in: saleIds };
     } else {
-      if (filters?.billerId) {
+      if (filters?.billerId && filters.billerId !== "all") {
         where.createdBy = filters.billerId;
       }
-      if (filters?.salesAssistantId) {
+      if (filters?.salesAssistantId && filters.salesAssistantId !== "all") {
         where.salesAssistantId = filters.salesAssistantId;
       }
-      if (filters?.warehouseId) {
+      if (!isAdmin && dbUser?.defaultWarehouseId) {
+        where.warehouseId = dbUser.defaultWarehouseId;
+      } else if (filters?.warehouseId && filters.warehouseId !== "all") {
         where.warehouseId = filters.warehouseId;
       }
-      if (filters?.type) {
+      if (filters?.type && (filters.type as string) !== "all") {
         where.orderType = filters.type;
       }
       if (filters?.startDate || filters?.endDate) {
@@ -3613,14 +3622,14 @@ export async function getAllSalesForExport(
         orderType: true,
         subTotal: true,
         discount: true,
-        shippingCost: true,
+        deliveryCharge: true,
         tax: true,
         grandTotal: true,
-        paidAmount: true,
-        dueAmount: true,
-        paymentStatus: true,
-        paymentMethod: true,
         isTrash: true,
+        notes: true,
+        deliveryStatus: true,
+        courierName: true,
+        trackingNumber: true,
         _count: {
           select: {
             items: true,
@@ -3664,11 +3673,9 @@ export async function getAllSalesForExport(
       ...sale,
       subTotal: Number(sale.subTotal || 0),
       discount: Number(sale.discount || 0),
-      shippingCost: Number(sale.shippingCost || 0),
+      deliveryCharge: Number(sale.deliveryCharge || 0),
       tax: Number(sale.tax || 0),
       grandTotal: Number(sale.grandTotal || 0),
-      paidAmount: Number(sale.paidAmount || 0),
-      dueAmount: Number(sale.dueAmount || 0),
     }));
 
     return { success: true, sales: serializedSales };
@@ -3681,4 +3688,6 @@ export async function getAllSalesForExport(
     };
   }
 }
+
+
 
