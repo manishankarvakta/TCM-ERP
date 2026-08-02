@@ -2036,6 +2036,7 @@ export async function getAllStocksForExport(filters: {
             id: true,
             name: true,
             code: true,
+            itemType: true,
             costPrice: true,
             salesPrice: true,
             wholesalePrice: true,
@@ -2054,6 +2055,7 @@ export async function getAllStocksForExport(filters: {
               select: {
                 name: true,
                 code: true,
+                itemType: true,
                 salesPrice: true,
                 wholesalePrice: true,
                 category: { select: { name: true } },

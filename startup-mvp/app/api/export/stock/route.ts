@@ -91,6 +91,7 @@ export async function GET(req: NextRequest) {
           select: {
             name: true,
             code: true,
+            itemType: true,
             costPrice: true,
             salesPrice: true,
             wholesalePrice: true,
@@ -108,6 +109,7 @@ export async function GET(req: NextRequest) {
               select: {
                 name: true,
                 code: true,
+                itemType: true,
                 salesPrice: true,
                 wholesalePrice: true,
                 category: { select: { name: true } },
@@ -126,6 +128,7 @@ export async function GET(req: NextRequest) {
     const formattedData = stocks.map((s) => {
       const itemName = s.item?.name || s.variant?.item?.name || "-";
       const itemCode = s.item?.code || s.variant?.item?.code || s.variant?.sku || "-";
+      const itemType = s.item?.itemType || s.variant?.item?.itemType || "-";
       const category = s.item?.category?.name || s.variant?.item?.category?.name || "-";
       const unit = s.item?.unit?.symbol || s.variant?.item?.unit?.symbol || "-";
       const qty = Number(s.quantity || 0);
@@ -142,6 +145,7 @@ export async function GET(req: NextRequest) {
       return {
         "Item Code": itemCode,
         "Item Name": itemName,
+        "Item Type": itemType,
         "Category": category,
         "Warehouse": s.warehouse?.name || "-",
         "Quantity": qty,
