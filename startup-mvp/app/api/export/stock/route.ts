@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
             code: true,
             purchasePrice: true,
             category: { select: { name: true } },
-            unit: { select: { code: true } },
+            unit: { select: { symbol: true } },
           },
         },
         variant: {
@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
                 name: true,
                 code: true,
                 category: { select: { name: true } },
-                unit: { select: { code: true } },
+                unit: { select: { symbol: true } },
               },
             },
           },
@@ -113,7 +113,6 @@ export async function GET(req: NextRequest) {
         warehouse: { select: { name: true, code: true } },
       },
       orderBy: [
-        { item: { name: "asc" } },
         { warehouse: { name: "asc" } },
       ],
     });
@@ -122,8 +121,9 @@ export async function GET(req: NextRequest) {
       const itemName = s.item?.name || s.variant?.item?.name || "-";
       const itemCode = s.item?.code || s.variant?.item?.code || s.variant?.sku || "-";
       const category = s.item?.category?.name || s.variant?.item?.category?.name || "-";
-      const unit = s.item?.unit?.code || s.variant?.item?.unit?.code || "-";
+      const unit = s.item?.unit?.symbol || s.variant?.item?.unit?.symbol || "-";
       const qty = Number(s.quantity || 0);
+      const reservedQty = Number(s.reservedQuantity || 0);
       const purchasePrice = Number(s.variant?.purchasePrice || s.item?.purchasePrice || 0);
       const totalValue = qty * purchasePrice;
 
@@ -133,12 +133,10 @@ export async function GET(req: NextRequest) {
         "Category": category,
         "Warehouse": s.warehouse?.name || "-",
         "Quantity": qty,
+        "Reserved Quantity": reservedQty,
         "Unit": unit,
         "Purchase Price": purchasePrice,
         "Total Value": totalValue,
-        "Min Stock Level": s.minStockLevel !== null ? Number(s.minStockLevel) : "-",
-        "Max Stock Level": s.maxStockLevel !== null ? Number(s.maxStockLevel) : "-",
-        "Reorder Level": s.reorderLevel !== null ? Number(s.reorderLevel) : "-",
       };
     });
 

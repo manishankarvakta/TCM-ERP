@@ -2039,7 +2039,7 @@ export async function getAllStocksForExport(filters: {
             purchasePrice: true,
             sellingPrice: true,
             category: { select: { name: true } },
-            unit: { select: { code: true } },
+            unit: { select: { symbol: true } },
           },
         },
         variant: {
@@ -2053,7 +2053,7 @@ export async function getAllStocksForExport(filters: {
                 name: true,
                 code: true,
                 category: { select: { name: true } },
-                unit: { select: { code: true } },
+                unit: { select: { symbol: true } },
               },
             },
           },
@@ -2067,16 +2067,13 @@ export async function getAllStocksForExport(filters: {
         },
       },
       orderBy: [
-        { item: { name: "asc" } },
         { warehouse: { name: "asc" } },
       ],
     });
 
     const serializedStocks = stocks.map((stock) => {
       const quantity = Number(stock.quantity);
-      const minStockLevel = stock.minStockLevel !== null ? Number(stock.minStockLevel) : null;
-      const maxStockLevel = stock.maxStockLevel !== null ? Number(stock.maxStockLevel) : null;
-      const reorderLevel = stock.reorderLevel !== null ? Number(stock.reorderLevel) : null;
+      const reservedQuantity = Number(stock.reservedQuantity);
       
       const purchasePrice = Number(
         stock.variant?.purchasePrice || stock.item?.purchasePrice || 0
@@ -2086,9 +2083,7 @@ export async function getAllStocksForExport(filters: {
       return {
         ...stock,
         quantity,
-        minStockLevel,
-        maxStockLevel,
-        reorderLevel,
+        reservedQuantity,
         purchasePrice,
         totalValue,
       };

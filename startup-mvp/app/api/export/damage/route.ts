@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         warehouse: { select: { name: true, code: true } },
-        creator: { select: { name: true } },
+        createdByUser: { select: { name: true } },
         items: {
           include: {
             item: { select: { name: true, code: true } },
@@ -71,6 +71,7 @@ export async function GET(req: NextRequest) {
     const formattedData = damages.map((d) => {
       const itemNames = d.items.map((i) => `${i.item?.name || "Item"} (${Number(i.quantity)})`).join("; ");
       const totalItemCount = d.items.length;
+      const totalAmount = d.items.reduce((sum, i) => sum + Number(i.amount || 0), 0);
 
       return {
         "Damage No": d.damageNumber || "",
@@ -79,8 +80,8 @@ export async function GET(req: NextRequest) {
         "Status": d.status || "",
         "Items Count": totalItemCount,
         "Items Detail": itemNames,
-        "Total Amount": Number(d.totalAmount || 0),
-        "Created By": d.creator?.name || "-",
+        "Total Amount": totalAmount,
+        "Created By": d.createdByUser?.name || "-",
         "Notes": d.notes || "-",
       };
     });
