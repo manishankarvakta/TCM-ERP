@@ -14,6 +14,7 @@ import {
 import HolidaysListClient from "./_components/holidays";
 import CalendarView from "./_components/calendar-view";
 import CalendarControls from "./_components/calendar-controls";
+import ExportHolidaysButton from "./_components/ExportHolidaysButton";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import { parseISO, format } from "date-fns";
@@ -140,14 +141,17 @@ export default async function HolidaysPage({ searchParams }: HolidaysPageProps) 
             )}
           </div>
         </div>
-        {tab !== "trash" && canEdit && (
-          <Button asChild size="sm" className="h-9">
-            <Link href="/dashboard/hr/holidays/add">
-              <FiPlus className="mr-2 h-4 w-4" />
-              Add Holiday
-            </Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportHolidaysButton search={search} tab={tab} />
+          {tab !== "trash" && canEdit && (
+            <Button asChild size="sm" className="h-9">
+              <Link href="/dashboard/hr/holidays/add">
+                <FiPlus className="mr-2 h-4 w-4" />
+                Add Holiday
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* ── Tabs + list ─────────────────────────────────────────────────── */}

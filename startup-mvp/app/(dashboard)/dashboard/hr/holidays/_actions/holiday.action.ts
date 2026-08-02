@@ -333,3 +333,59 @@ export async function bulkUpdateHolidayStatus(ids: string[], action: "trash" | "
     return { success: false, error: error instanceof Error ? error.message : "Failed to perform bulk action" };
   }
 }
+
+/**
+ * Get all holidays matching filters for export (no pagination limit)
+ */
+export async function getAllHolidaysForExport(
+  search: string = "",
+  status: "active" | "inactive" | "trash" | "all" = "all",
+  holidayIds?: string[]
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", holidays: [] };
+    }
+
+    const where: Prisma.HolidayWhereInput = {};
+
+    if (holidayIds && holidayIds.length > 0) {
+      where.id = { in: holidayIds };
+    } else {
+      if (search) {
+        where.name = { contains: search, mode: "insensitive" };
+      }
+
+      if (status === "trash") {
+        where.isTrash = true;
+      } else if (status === "active") {
+        where.isTrash = false;
+        where.status = "active";
+      } else if (status === "inactive") {
+        where.isTrash = false;
+        where.status = "inactive";
+      } else if (status === "all") {
+        where.isTrash = false;
+      }
+    }
+
+    const holidays = await prisma.holiday.findMany({
+      where,
+      include: {
+        warehouse: { select: { id: true, name: true } },
+      },
+      orderBy: { date: "desc" },
+    });
+
+    return { success: true, holidays };
+  } catch (error) {
+    console.error("getAllHolidaysForExport error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch holidays for export",
+      holidays: [],
+    };
+  }
+}
+
