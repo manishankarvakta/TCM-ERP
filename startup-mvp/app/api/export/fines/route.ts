@@ -37,7 +37,6 @@ export async function GET(req: NextRequest) {
     if (search) {
       where.OR = [
         { reason: { contains: search, mode: "insensitive" } },
-        { fineCode: { contains: search, mode: "insensitive" } },
         {
           employee: {
             OR: [
@@ -59,7 +58,6 @@ export async function GET(req: NextRequest) {
     });
 
     const formattedData = fines.map((f) => ({
-      "Fine Code": f.fineCode || "",
       "Employee Code": f.employee?.employeeCode || "",
       "Employee Name": f.employee?.name || "",
       "Designation": f.employee?.designation || "-",
@@ -68,7 +66,7 @@ export async function GET(req: NextRequest) {
       "Reason": f.reason || "-",
       "Status": f.status || "",
       "Approved By": f.approver?.name || "-",
-      "Effective Date": f.effectiveDate ? new Date(f.effectiveDate).toISOString().split("T")[0] : "-",
+      "Fine Date": f.fineDate ? new Date(f.fineDate).toISOString().split("T")[0] : "-",
       "Created At": f.createdAt ? new Date(f.createdAt).toISOString().split("T")[0] : "-",
     }));
 

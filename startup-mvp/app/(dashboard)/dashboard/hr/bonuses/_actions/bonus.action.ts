@@ -548,8 +548,7 @@ export async function getAllBonusesForExport(
 
     if (search) {
       where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { bonusCode: { contains: search, mode: "insensitive" } },
+        { reason: { contains: search, mode: "insensitive" } },
         {
           employee: {
             OR: [

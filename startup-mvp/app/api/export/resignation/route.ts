@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       include: {
         employee: { select: { name: true, employeeCode: true, designation: true } },
         manager: { select: { name: true } },
-        hr: { select: { name: true } },
+        admin: { select: { name: true } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -53,13 +53,12 @@ export async function GET(req: NextRequest) {
       "Employee Code": r.employee?.employeeCode || "",
       "Employee Name": r.employee?.name || "",
       "Designation": r.employee?.designation || "-",
-      "Resignation Date": r.resignationDate ? new Date(r.resignationDate).toISOString().split("T")[0] : "-",
-      "Notice Date": r.noticeDate ? new Date(r.noticeDate).toISOString().split("T")[0] : "-",
-      "Last Working Day": r.lastWorkingDay ? new Date(r.lastWorkingDay).toISOString().split("T")[0] : "-",
+      "Resign Date": r.resignDate ? new Date(r.resignDate).toISOString().split("T")[0] : "-",
+      "Effective Date": r.effectiveDate ? new Date(r.effectiveDate).toISOString().split("T")[0] : "-",
       "Reason": r.reason || "-",
       "Status": r.status || "",
       "Manager Approved By": r.manager?.name || "-",
-      "HR Approved By": r.hr?.name || "-",
+      "Admin Approved By": r.admin?.name || "-",
       "Submitted At": r.createdAt ? new Date(r.createdAt).toISOString().split("T")[0] : "-",
     }));
 

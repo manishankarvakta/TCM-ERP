@@ -292,7 +292,7 @@ export async function getAllResignationsForExport(
       include: {
         employee: { select: { id: true, name: true, employeeCode: true, designation: true } },
         manager: { select: { id: true, name: true } },
-        hr: { select: { id: true, name: true } }
+        admin: { select: { id: true, name: true } }
       },
       orderBy: { createdAt: "desc" },
     });

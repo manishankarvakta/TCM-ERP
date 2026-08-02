@@ -550,7 +550,6 @@ export async function getAllFinesForExport(
     if (search) {
       where.OR = [
         { reason: { contains: search, mode: "insensitive" } },
-        { fineCode: { contains: search, mode: "insensitive" } },
         {
           employee: {
             OR: [

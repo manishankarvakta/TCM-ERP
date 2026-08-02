@@ -36,8 +36,7 @@ export async function GET(req: NextRequest) {
 
     if (search) {
       where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { bonusCode: { contains: search, mode: "insensitive" } },
+        { reason: { contains: search, mode: "insensitive" } },
         {
           employee: {
             OR: [
@@ -59,16 +58,15 @@ export async function GET(req: NextRequest) {
     });
 
     const formattedData = bonuses.map((b) => ({
-      "Bonus Code": b.bonusCode || "",
       "Employee Code": b.employee?.employeeCode || "",
       "Employee Name": b.employee?.name || "",
       "Designation": b.employee?.designation || "-",
       "Department": b.employee?.department || "-",
-      "Title": b.title || "-",
       "Amount": Number(b.amount || 0),
+      "Reason": b.reason || "-",
       "Status": b.status || "",
       "Approved By": b.approver?.name || "-",
-      "Effective Date": b.effectiveDate ? new Date(b.effectiveDate).toISOString().split("T")[0] : "-",
+      "Bonus Date": b.bonusDate ? new Date(b.bonusDate).toISOString().split("T")[0] : "-",
       "Created At": b.createdAt ? new Date(b.createdAt).toISOString().split("T")[0] : "-",
     }));
 
