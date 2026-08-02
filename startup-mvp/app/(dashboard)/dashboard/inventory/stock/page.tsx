@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { FiPlus, FiPackage } from "react-icons/fi";
 import StocksListClient from "./_components/stocks";
+import ExportStockButton from "./_components/ExportStockButton";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import PageGuard from "@/components/permissions/page-guard";
@@ -128,6 +129,7 @@ export default async function StockPage({ searchParams }: StockPageProps) {
               </div>
             </div>
 
+            <ExportStockButton search={search} itemId={itemId} warehouseId={finalWarehouseId} />
             {canAdjust && (
               <Button asChild>
                 <Link href="/dashboard/inventory/stock/adjust">

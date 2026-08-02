@@ -43,6 +43,7 @@ import {
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { exportToCSV } from "@/lib/utils/export-csv";
+import ExportAdjustmentsButton from "./ExportAdjustmentsButton";
 import Link from "next/link";
 import type { InventoryAdjustmentStatus } from "@prisma/client";
 
@@ -580,22 +581,7 @@ export function AdjustmentsHeaderActions({
 
   return (
     <div className="flex items-center gap-2">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={handleExportCSV}>
-            Export to CSV
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleExportPDF}>
-            Export to PDF
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <ExportAdjustmentsButton />
 
       {canCreate && (
         <Button asChild>

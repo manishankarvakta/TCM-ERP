@@ -470,3 +470,89 @@ export async function deleteDamage(id: string) {
       return { success: false, error: "Failed to delete" };
    }
 }
+
+/**
+ * Get all damages matching filters for export (no pagination limit)
+ */
+export async function getAllDamagesForExport(filters: {
+  warehouseId?: string;
+  search?: string;
+  isTrash?: boolean;
+  startDate?: string;
+  endDate?: string;
+} = {}) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized", damages: [] };
+
+    const canView = await hasPermission(session.user.id, "inventory.damage", "view");
+    if (!canView) return { success: false, error: "Permission denied", damages: [] };
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true }
+    });
+
+    const isNormalUser = user?.role !== "admin" && user?.role !== "superadmin";
+
+    const where: any = {};
+    if (filters.isTrash !== undefined) {
+      where.isTrash = filters.isTrash;
+    }
+
+    if (filters.warehouseId && filters.warehouseId !== "all") {
+      where.warehouseId = filters.warehouseId;
+    } else if (isNormalUser && user?.defaultWarehouseId) {
+      where.warehouseId = user.defaultWarehouseId;
+    }
+
+    if (filters.startDate || filters.endDate) {
+      where.date = {
+        ...(filters.startDate ? { gte: new Date(new Date(filters.startDate).setHours(0, 0, 0, 0)) } : {}),
+        ...(filters.endDate ? { lte: new Date(new Date(filters.endDate).setHours(23, 59, 59, 999)) } : {}),
+      };
+    }
+
+    if (filters.search) {
+      where.OR = [
+        { damageNumber: { contains: filters.search, mode: "insensitive" } },
+        { notes: { contains: filters.search, mode: "insensitive" } },
+      ];
+    }
+
+    const damages = await prisma.inventoryDamage.findMany({
+      where,
+      include: {
+        warehouse: { select: { name: true, code: true } },
+        creator: { select: { name: true } },
+        items: {
+          include: {
+            item: { select: { name: true, code: true } },
+          },
+        },
+      },
+      orderBy: { date: "desc" },
+    });
+
+    const serializedDamages = damages.map((d) => ({
+      ...d,
+      totalAmount: Number(d.totalAmount || 0),
+      items: d.items.map((it) => ({
+        ...it,
+        quantity: Number(it.quantity || 0),
+        unitRate: Number(it.unitRate || 0),
+        totalAmount: Number(it.totalAmount || 0),
+      })),
+    }));
+
+    return { success: true, damages: serializedDamages };
+  } catch (error) {
+    console.error("getAllDamagesForExport error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch damages for export",
+      damages: [],
+    };
+  }
+}
+

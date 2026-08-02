@@ -418,3 +418,85 @@ export async function deleteAdjustment(id: string) {
       return { success: false, error: "Failed to delete" };
    }
 }
+
+/**
+ * Get all adjustments matching filters for export (no pagination limit)
+ */
+export async function getAllAdjustmentsForExport(filters: {
+  warehouseId?: string;
+  search?: string;
+  status?: InventoryAdjustmentStatus;
+  startDate?: string;
+  endDate?: string;
+} = {}) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized", adjustments: [] };
+
+    const canView = await hasPermission(session.user.id, "inventory.adjustments", "view");
+    if (!canView) return { success: false, error: "Permission denied", adjustments: [] };
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, defaultWarehouseId: true }
+    });
+
+    const isNormalUser = user?.role !== "admin" && user?.role !== "superadmin";
+
+    const where: any = {};
+    if (filters.warehouseId && filters.warehouseId !== "all") {
+      where.warehouseId = filters.warehouseId;
+    } else if (isNormalUser && user?.defaultWarehouseId) {
+      where.warehouseId = user.defaultWarehouseId;
+    }
+    if (filters.status) where.status = filters.status;
+    if (filters.startDate || filters.endDate) {
+      where.date = {
+        ...(filters.startDate ? { gte: new Date(new Date(filters.startDate).setHours(0, 0, 0, 0)) } : {}),
+        ...(filters.endDate ? { lte: new Date(new Date(filters.endDate).setHours(23, 59, 59, 999)) } : {}),
+      };
+    }
+    if (filters.search) {
+      where.OR = [
+        { adjustmentNumber: { contains: filters.search, mode: "insensitive" } },
+        { notes: { contains: filters.search, mode: "insensitive" } },
+      ];
+    }
+
+    const adjustments = await prisma.inventoryAdjustment.findMany({
+      where,
+      include: {
+        warehouse: { select: { name: true, code: true } },
+        creator: { select: { name: true } },
+        items: {
+          include: {
+            item: { select: { name: true, code: true, unit: { select: { code: true } } } },
+            variant: { select: { sku: { select: { code: true } } } },
+          },
+        },
+      },
+      orderBy: { date: "desc" },
+    });
+
+    const serializedAdjustments = adjustments.map((adj) => ({
+      ...adj,
+      totalAmount: Number(adj.totalAmount || 0),
+      items: adj.items.map((it) => ({
+        ...it,
+        quantity: Number(it.quantity || 0),
+        unitRate: Number(it.unitRate || 0),
+        totalAmount: Number(it.totalAmount || 0),
+      })),
+    }));
+
+    return { success: true, adjustments: serializedAdjustments };
+  } catch (error) {
+    console.error("getAllAdjustmentsForExport error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch adjustments for export",
+      adjustments: [],
+    };
+  }
+}
+

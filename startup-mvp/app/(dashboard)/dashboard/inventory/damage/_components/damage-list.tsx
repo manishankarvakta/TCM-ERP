@@ -41,6 +41,7 @@ import {
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { exportToCSV } from "@/lib/utils/export-csv";
+import ExportDamageButton from "./ExportDamageButton";
 import type { InventoryDamageStatus } from "@prisma/client";
 
 interface DamageListProps {
@@ -530,22 +531,7 @@ export function DamagesHeaderActions({
 
   return (
     <div className="flex items-center gap-2">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={handleExportCSV}>
-            Export to CSV
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleExportPDF}>
-            Export to PDF
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <ExportDamageButton />
 
       {canCreate && (
         <Button asChild disabled={setupIncomplete}>
