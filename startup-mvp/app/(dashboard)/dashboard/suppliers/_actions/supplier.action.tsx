@@ -1446,4 +1446,108 @@ export async function getWarehousesForSupplier() {
   }
 }
 
+/**
+ * Get all suppliers matching filters for export (no pagination limit)
+ */
+export async function getAllSuppliersForExport(
+  search: string = "",
+  status: "active" | "inactive" | "trash" | "all" = "all",
+  warehouseId: string = "all",
+  supplierIds?: string[]
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", suppliers: [] };
+    }
+
+    const where: Prisma.SupplierWhereInput = {};
+
+    if (supplierIds && supplierIds.length > 0) {
+      where.id = { in: supplierIds };
+    } else {
+      if (search) {
+        where.OR = [
+          { name: { contains: search, mode: "insensitive" } },
+          { supplierCode: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+          { phone: { contains: search, mode: "insensitive" } },
+          { company: { contains: search, mode: "insensitive" } },
+          { address: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      if (status === "trash") {
+        where.status = "trash";
+      } else if (status === "active") {
+        where.status = "active";
+      } else if (status === "inactive") {
+        where.status = "inactive";
+      } else if (status === "all") {
+        where.status = { not: "trash" };
+      }
+
+      if (warehouseId && warehouseId !== "all") {
+        where.warehouseId = warehouseId;
+      }
+    }
+
+    const suppliers = await prisma.supplier.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        supplierCode: true,
+        email: true,
+        phone: true,
+        address: true,
+        city: true,
+        state: true,
+        zip: true,
+        country: true,
+        company: true,
+        openingBalance: true,
+        status: true,
+        warehouse: { select: { name: true } },
+        createdByUser: { select: { name: true } },
+        ChartOfAccount: { select: { id: true } },
+        createdAt: true,
+      },
+    });
+
+    const suppliersWithPayable = await Promise.all(
+      suppliers.map(async (supplier) => {
+        let payableAmount = 0;
+        const coaId = supplier.ChartOfAccount?.id;
+        if (coaId) {
+          const balanceResult = await prisma.journalEntryLine.aggregate({
+            where: { chartOfAccountId: coaId },
+            _sum: { debitAmount: true, creditAmount: true },
+          });
+          const totalDebit = Number(balanceResult._sum.debitAmount || 0);
+          const totalCredit = Number(balanceResult._sum.creditAmount || 0);
+          payableAmount = totalCredit - totalDebit;
+        }
+
+        return {
+          ...supplier,
+          openingBalance: Number(supplier.openingBalance || 0),
+          payableAmount,
+        };
+      })
+    );
+
+    return { success: true, suppliers: suppliersWithPayable };
+  } catch (error) {
+    console.error("getAllSuppliersForExport error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch suppliers for export",
+      suppliers: [],
+    };
+  }
+}
+
+
 

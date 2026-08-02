@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import SuppliersListClient from "./_components/suppliers";
+import ExportSuppliersButton from "./_components/ExportSuppliersButton";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 
@@ -68,14 +69,17 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
           <h1 className="text-2xl font-semibold">Suppliers</h1>
           <p className="text-sm text-muted-foreground">Manage suppliers in your system</p>
         </div>
-        {tab !== "trash" && (
-          <Button asChild>
-            <Link href="/dashboard/suppliers/add">
-              <FiPlus className="mr-2 h-4 w-4" />
-              Add Supplier
-            </Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportSuppliersButton search={search} tab={tab} warehouse={warehouse} />
+          {tab !== "trash" && (
+            <Button asChild>
+              <Link href="/dashboard/suppliers/add">
+                <FiPlus className="mr-2 h-4 w-4" />
+                Add Supplier
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue={tab} className="w-full">

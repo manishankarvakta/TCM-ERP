@@ -46,6 +46,44 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
   const [fromDate, setFromDate] = useState(firstDay.toISOString().split("T")[0]);
   const [toDate, setToDate] = useState(now.toISOString().split("T")[0]);
 
+  const handleExportEmployeeNative = (format: "csv" | "excel") => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      params.set("format", format);
+      if (filters.search) params.set("search", filters.search);
+      if (filters.status) params.set("status", filters.status);
+      if (filters.employeeTypeId && filters.employeeTypeId !== "all") params.set("employeeTypeId", filters.employeeTypeId);
+      if (filters.gender && filters.gender !== "all") params.set("gender", filters.gender);
+      if (filters.departmentId && filters.departmentId !== "all") params.set("departmentId", filters.departmentId);
+
+      const url = `/api/export/employees?${params.toString()}`;
+
+      const iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      iframe.src = url;
+      document.body.appendChild(iframe);
+
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+        setLoading(false);
+        toast({
+          title: "Export Triggered",
+          description: `Downloading employee list as ${format.toUpperCase()}...`,
+        });
+      }, 1200);
+    } catch (err: any) {
+      setLoading(false);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: err.message || "An unexpected error occurred during export",
+      });
+    }
+  };
+
   // Export Employee List
   const handleExportEmployee = async (format: "csv" | "pdf") => {
     try {
@@ -346,13 +384,17 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => handleExportEmployee("csv")}>
+          <DropdownMenuItem onSelect={() => handleExportEmployeeNative("csv")}>
             <FiFileText className="mr-2 h-4 w-4 text-emerald-600" />
-            Export CSV
+            Export as CSV
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleExportEmployee("pdf")}>
+          <DropdownMenuItem onSelect={() => handleExportEmployeeNative("excel")}>
+            <FiFile className="mr-2 h-4 w-4 text-emerald-600" />
+            Export as Excel
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => handleExportEmployee("pdf")}>
             <FiFile className="mr-2 h-4 w-4 text-indigo-600" />
-            Export PDF
+            Export as PDF
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

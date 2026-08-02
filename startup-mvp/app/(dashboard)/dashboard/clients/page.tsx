@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { FiPlus, FiBook } from "react-icons/fi";
 import ClientsListClient from "./_components/clients";
+import ExportClientsButton from "./_components/ExportClientsButton";
 import PageGuard from "@/components/permissions/page-guard";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
@@ -73,14 +74,17 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
             <h1 className="text-2xl font-semibold">Clients</h1>
             <p className="text-sm text-muted-foreground">Manage clients in your system</p>
           </div>
-          {tab !== "trash" && (
-            <Button asChild>
-              <Link href="/dashboard/clients/add">
-                <FiPlus className="mr-2 h-4 w-4" />
-                Add Client
-              </Link>
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <ExportClientsButton search={search} tab={tab} warehouse={warehouse} />
+            {tab !== "trash" && (
+              <Button asChild>
+                <Link href="/dashboard/clients/add">
+                  <FiPlus className="mr-2 h-4 w-4" />
+                  Add Client
+                </Link>
+              </Button>
+            )}
+          </div>
         </div>
 
         <Tabs defaultValue={tab} className="w-full">
