@@ -43,8 +43,14 @@ export default function BeautifulDashboard({
     canViewPayments: false,
   });
 
-  // State for Warehouse selection (defaults to "all" to show all account balances)
-  const [selectedWarehouse, setSelectedWarehouse] = useState<{ id: string; name: string } | "all">("all");
+  // State for Warehouse selection (Admins default to "all", normal users default to assigned warehouse)
+  const [selectedWarehouse, setSelectedWarehouse] = useState<{ id: string; name: string } | "all">(
+    !isAdmin && defaultWarehouse 
+      ? defaultWarehouse 
+      : (!isAdmin && warehouses.length > 0)
+        ? warehouses[0]
+        : "all"
+  );
   const [warehouseMenuOpen, setWarehouseMenuOpen] = useState(false);
 
   // State for Date range filter
@@ -274,14 +280,17 @@ export default function BeautifulDashboard({
           {/* Warehouse Dropdown */}
           <div className="relative">
             <button 
-              onClick={() => setWarehouseMenuOpen(!warehouseMenuOpen)}
-              className="flex items-center gap-2 bg-white dark:bg-zinc-900 px-4 h-10 rounded-xl shadow-sm border border-slate-100 dark:border-zinc-800/80 text-slate-800 dark:text-zinc-200 font-semibold text-sm transition-colors hover:bg-slate-50 dark:hover:bg-zinc-800/80"
+              onClick={() => isAdmin && setWarehouseMenuOpen(!warehouseMenuOpen)}
+              disabled={!isAdmin}
+              className={`flex items-center gap-2 bg-white dark:bg-zinc-900 px-4 h-10 rounded-xl shadow-sm border border-slate-100 dark:border-zinc-800/80 text-slate-800 dark:text-zinc-200 font-semibold text-sm transition-colors ${
+                !isAdmin ? "opacity-60 cursor-not-allowed bg-slate-100/50 dark:bg-zinc-950/50" : "hover:bg-slate-50 dark:hover:bg-zinc-800/80"
+              }`}
             >
               <span>{selectedWarehouse === "all" ? "All Warehouse" : selectedWarehouse.name}</span>
-              <ChevronDown className="h-4 w-4 text-slate-400" />
+              {isAdmin && <ChevronDown className="h-4 w-4 text-slate-400" />}
             </button>
             
-            {warehouseMenuOpen && (
+            {isAdmin && warehouseMenuOpen && (
               <div className="absolute right-0 mt-1.5 w-56 rounded-xl bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-lg py-1 z-50 max-h-60 overflow-y-auto">
                 <button
                   onClick={() => {
