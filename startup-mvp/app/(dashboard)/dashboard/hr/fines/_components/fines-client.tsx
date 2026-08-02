@@ -41,6 +41,7 @@ import {
 } from "../_actions/fine.action";
 import { toast } from "sonner";
 import AddFineDialog from "./add-fine-dialog";
+import ExportFinesButton from "./ExportFinesButton";
 import FineDetailsDialog from "./fine-details-dialog";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
 import { FineStatus } from "@prisma/client";
@@ -518,6 +519,7 @@ export default function FinesClient({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <ExportFinesButton search={currentSearch} status={currentStatus} tab={currentTab} />
           {permissions.canCreate && currentTab !== "trash" && (
             <AddFineDialog onSuccess={() => router.refresh()} />
           )}

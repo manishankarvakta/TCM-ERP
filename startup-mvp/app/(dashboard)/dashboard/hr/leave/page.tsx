@@ -6,6 +6,7 @@ import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import LeaveApplicationsListClient from "./_components/leave-applications-list";
 import LeaveFormPrintButton from "./_components/leave-form-print-button";
+import ExportLeaveButton from "./_components/ExportLeaveButton";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import { LeaveStatus } from "@prisma/client";
@@ -65,6 +66,7 @@ export default async function LeavePage({ searchParams }: LeavePageProps) {
               </Link>
             </Button>
           )}
+          <ExportLeaveButton search={search} status={statusParam} />
           <LeaveFormPrintButton />
           <Button asChild>
             <Link href="/dashboard/hr/leave/apply">

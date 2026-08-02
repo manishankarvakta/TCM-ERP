@@ -369,3 +369,61 @@ export async function getLeaveApplicationById(id: string) {
     return { success: false, error: "Failed to fetch leave application details" };
   }
 }
+
+/**
+ * Get all leave applications matching filters for export (no pagination limit)
+ */
+export async function getAllLeaveApplicationsForExport(
+  search: string = "",
+  status: LeaveStatus | "ALL" | "TRASH" = "ALL",
+  employeeId?: string
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", leaveApplications: [] };
+    }
+
+    const where: Prisma.LeaveApplicationWhereInput = {};
+
+    if (search) {
+      where.employee = {
+        name: { contains: search, mode: "insensitive" }
+      };
+    }
+
+    if (employeeId) {
+      where.employeeId = employeeId;
+    }
+
+    if (status === "TRASH") {
+      where.isTrash = true;
+    } else {
+      where.isTrash = false;
+      if (status !== "ALL") {
+        where.status = status;
+      }
+    }
+
+    const leaveApplications = await prisma.leaveApplication.findMany({
+      where,
+      include: {
+        employee: { select: { id: true, name: true, employeeCode: true, designation: true } },
+        leaveType: { select: { id: true, name: true, isPaid: true } },
+        manager: { select: { id: true, name: true } },
+        hr: { select: { id: true, name: true } }
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return { success: true, leaveApplications };
+  } catch (error) {
+    console.error("getAllLeaveApplicationsForExport error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch leave applications for export",
+      leaveApplications: [],
+    };
+  }
+}
+

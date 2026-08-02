@@ -41,6 +41,7 @@ import {
 } from "../_actions/bonus.action";
 import { toast } from "sonner";
 import AddBonusDialog from "./add-bonus-dialog";
+import ExportBonusesButton from "./ExportBonusesButton";
 import BonusDetailsDialog from "./bonus-details-dialog";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
 import { BonusStatus } from "@prisma/client";
@@ -518,6 +519,7 @@ export default function BonusesClient({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <ExportBonusesButton search={currentSearch} status={currentStatus} tab={currentTab} />
           {permissions.canCreate && currentTab !== "trash" && (
             <AddBonusDialog onSuccess={() => router.refresh()} />
           )}

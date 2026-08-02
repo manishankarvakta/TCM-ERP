@@ -519,3 +519,83 @@ export async function getActiveEmployeesSimple() {
     return { success: false, employees: [] };
   }
 }
+
+/**
+ * Get all bonuses matching filters for export (no pagination limit)
+ */
+export async function getAllBonusesForExport(
+  search: string = "",
+  status: BonusStatus | "ALL" = "ALL",
+  tab: string = "all"
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", bonuses: [] };
+    }
+
+    const where: Prisma.EmployeeBonusWhereInput = {};
+
+    if (tab === "trash") {
+      where.isTrash = true;
+    } else {
+      where.isTrash = false;
+
+      if (status !== "ALL") {
+        where.status = status;
+      }
+    }
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { bonusCode: { contains: search, mode: "insensitive" } },
+        {
+          employee: {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { employeeCode: { contains: search, mode: "insensitive" } },
+            ],
+          },
+        },
+      ];
+    }
+
+    const bonuses = await prisma.employeeBonus.findMany({
+      where,
+      include: {
+        employee: {
+          select: {
+            id: true,
+            name: true,
+            employeeCode: true,
+            designation: true,
+            department: true,
+          },
+        },
+        approver: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const serializedBonuses = bonuses.map((b) => ({
+      ...b,
+      amount: Number(b.amount || 0),
+    }));
+
+    return { success: true, bonuses: serializedBonuses };
+  } catch (error) {
+    console.error("getAllBonusesForExport error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch bonuses for export",
+      bonuses: [],
+    };
+  }
+}
+

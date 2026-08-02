@@ -520,3 +520,83 @@ export async function getActiveEmployeesSimple() {
     return { success: false, employees: [] };
   }
 }
+
+/**
+ * Get all fines matching filters for export (no pagination limit)
+ */
+export async function getAllFinesForExport(
+  search: string = "",
+  status: FineStatus | "ALL" = "ALL",
+  tab: string = "all"
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", fines: [] };
+    }
+
+    const where: Prisma.EmployeeFineWhereInput = {};
+
+    if (tab === "trash") {
+      where.isTrash = true;
+    } else {
+      where.isTrash = false;
+
+      if (status !== "ALL") {
+        where.status = status;
+      }
+    }
+
+    if (search) {
+      where.OR = [
+        { reason: { contains: search, mode: "insensitive" } },
+        { fineCode: { contains: search, mode: "insensitive" } },
+        {
+          employee: {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { employeeCode: { contains: search, mode: "insensitive" } },
+            ],
+          },
+        },
+      ];
+    }
+
+    const fines = await prisma.employeeFine.findMany({
+      where,
+      include: {
+        employee: {
+          select: {
+            id: true,
+            name: true,
+            employeeCode: true,
+            designation: true,
+            department: true,
+          },
+        },
+        approver: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const serializedFines = fines.map((f) => ({
+      ...f,
+      amount: Number(f.amount || 0),
+    }));
+
+    return { success: true, fines: serializedFines };
+  } catch (error) {
+    console.error("getAllFinesForExport error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch fines for export",
+      fines: [],
+    };
+  }
+}
+

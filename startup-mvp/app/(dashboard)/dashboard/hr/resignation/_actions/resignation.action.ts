@@ -243,11 +243,67 @@ export async function getResignationById(id: string) {
       }
     });
 
-    if (!resignation) return { success: false, error: "Resignation request not found" };
+    if (!resignation) return { success: false, error: "Resignation application not found" };
 
     return { success: true, resignation };
   } catch (error) {
     console.error("getResignationById error:", error);
-    return { success: false, error: "Failed to fetch resignation details" };
+    return { success: false, error: "Failed to fetch resignation application details" };
+  }
+}
+
+/**
+ * Get all resignations matching filters for export (no pagination limit)
+ */
+export async function getAllResignationsForExport(
+  search: string = "",
+  status: ResignationStatus | "ALL" | "TRASH" = "ALL",
+  employeeId?: string
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", resignations: [] };
+    }
+
+    const where: Prisma.ResignationWhereInput = {};
+
+    if (search) {
+      where.employee = {
+        name: { contains: search, mode: "insensitive" }
+      };
+    }
+
+    if (employeeId) {
+      where.employeeId = employeeId;
+    }
+
+    if (status === "TRASH") {
+      where.isTrash = true;
+    } else {
+      where.isTrash = false;
+      if (status !== "ALL") {
+        where.status = status;
+      }
+    }
+
+    const resignations = await prisma.resignation.findMany({
+      where,
+      include: {
+        employee: { select: { id: true, name: true, employeeCode: true, designation: true } },
+        manager: { select: { id: true, name: true } },
+        hr: { select: { id: true, name: true } }
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return { success: true, resignations };
+  } catch (error) {
+    console.error("getAllResignationsForExport error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch resignations for export",
+      resignations: [],
+    };
   }
 }

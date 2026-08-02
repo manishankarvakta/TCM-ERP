@@ -6,6 +6,7 @@ import Link from "next/link";
 import { FiPlus } from "react-icons/fi";
 import ResignationList from "./_components/resignation-list";
 import ResignationFormPrintButton from "./_components/resignation-form-print-button";
+import ExportResignationButton from "./_components/ExportResignationButton";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import { ResignationStatus } from "@prisma/client";
@@ -59,6 +60,7 @@ export default async function ResignationPage({ searchParams }: ResignationPageP
           <p className="text-sm text-muted-foreground">Manage employee resignation requests and offboarding status</p>
         </div>
         <div className="flex gap-2">
+          <ExportResignationButton search={search} status={statusParam} />
           <ResignationFormPrintButton />
           {canEdit && (
             <Button asChild>
