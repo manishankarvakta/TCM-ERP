@@ -2038,6 +2038,7 @@ export async function getAllStocksForExport(filters: {
             code: true,
             costPrice: true,
             salesPrice: true,
+            wholesalePrice: true,
             category: { select: { name: true } },
             unit: { select: { symbol: true } },
           },
@@ -2048,10 +2049,13 @@ export async function getAllStocksForExport(filters: {
             sku: true,
             costPrice: true,
             salesPrice: true,
+            wholesalePrice: true,
             item: {
               select: {
                 name: true,
                 code: true,
+                salesPrice: true,
+                wholesalePrice: true,
                 category: { select: { name: true } },
                 unit: { select: { symbol: true } },
               },
@@ -2078,14 +2082,27 @@ export async function getAllStocksForExport(filters: {
       const costPrice = Number(
         stock.variant?.costPrice || stock.item?.costPrice || 0
       );
-      const totalValue = quantity * costPrice;
+      const salesPrice = Number(
+        stock.variant?.salesPrice || stock.item?.salesPrice || stock.variant?.item?.salesPrice || 0
+      );
+      const wholesalePrice = Number(
+        stock.variant?.wholesalePrice || stock.item?.wholesalePrice || stock.variant?.item?.wholesalePrice || 0
+      );
+
+      const totalCostValue = quantity * costPrice;
+      const totalSalesValue = quantity * salesPrice;
+      const totalWholesaleValue = quantity * wholesalePrice;
 
       return {
         ...stock,
         quantity,
         reservedQuantity,
         costPrice,
-        totalValue,
+        totalCostValue,
+        salesPrice,
+        totalSalesValue,
+        wholesalePrice,
+        totalWholesaleValue,
       };
     });
 

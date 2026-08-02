@@ -92,6 +92,8 @@ export async function GET(req: NextRequest) {
             name: true,
             code: true,
             costPrice: true,
+            salesPrice: true,
+            wholesalePrice: true,
             category: { select: { name: true } },
             unit: { select: { symbol: true } },
           },
@@ -100,10 +102,14 @@ export async function GET(req: NextRequest) {
           select: {
             sku: true,
             costPrice: true,
+            salesPrice: true,
+            wholesalePrice: true,
             item: {
               select: {
                 name: true,
                 code: true,
+                salesPrice: true,
+                wholesalePrice: true,
                 category: { select: { name: true } },
                 unit: { select: { symbol: true } },
               },
@@ -124,8 +130,14 @@ export async function GET(req: NextRequest) {
       const unit = s.item?.unit?.symbol || s.variant?.item?.unit?.symbol || "-";
       const qty = Number(s.quantity || 0);
       const reservedQty = Number(s.reservedQuantity || 0);
+      
       const costPrice = Number(s.variant?.costPrice || s.item?.costPrice || 0);
-      const totalValue = qty * costPrice;
+      const salesPrice = Number(s.variant?.salesPrice || s.item?.salesPrice || s.variant?.item?.salesPrice || 0);
+      const wholesalePrice = Number(s.variant?.wholesalePrice || s.item?.wholesalePrice || s.variant?.item?.wholesalePrice || 0);
+
+      const totalCostValue = qty * costPrice;
+      const totalSalesValue = qty * salesPrice;
+      const totalWholesaleValue = qty * wholesalePrice;
 
       return {
         "Item Code": itemCode,
@@ -136,7 +148,11 @@ export async function GET(req: NextRequest) {
         "Reserved Quantity": reservedQty,
         "Unit": unit,
         "Cost Price": costPrice,
-        "Total Value": totalValue,
+        "Total Cost Value": totalCostValue,
+        "Sales Price": salesPrice,
+        "Total Sales Value": totalSalesValue,
+        "Wholesale Price": wholesalePrice,
+        "Total Wholesale Value": totalWholesaleValue,
       };
     });
 
