@@ -4,10 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import VouchersListClient from "./_components/vouchers-list";
 import VoucherQuickCreate from "./_components/voucher-quick-create";
+import ExportVouchersButton from "./_components/ExportVouchersButton";
 import PageGuard from "@/components/permissions/page-guard";
-import { auth } from "@/lib/auth";
-import { hasPermission } from "@/lib/permissions";
-import { prisma } from "@/lib/prisma";
 
 interface VouchersPageProps {
   searchParams: Promise<{
@@ -106,10 +104,23 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
             <h1 className="text-2xl font-semibold">Vouchers</h1>
             <p className="text-sm text-muted-foreground">Create and manage accounting vouchers</p>
           </div>
-          {canCreate && (
-            <VoucherQuickCreate basePath="/dashboard/accounts/vouchers" />
-          )}
+          <div className="flex items-center gap-2">
+            <ExportVouchersButton
+              search={search}
+              tab={tab}
+              filters={{
+                type: params.type,
+                dateFrom: params.dateFrom,
+                dateTo: params.dateTo,
+                warehouseId: selectedWarehouseId,
+              }}
+            />
+            {canCreate && (
+              <VoucherQuickCreate basePath="/dashboard/accounts/vouchers" />
+            )}
+          </div>
         </div>
+
 
         <Tabs defaultValue={tab} className="w-full">
           <TabsList>

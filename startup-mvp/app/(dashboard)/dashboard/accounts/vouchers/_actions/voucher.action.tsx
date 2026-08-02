@@ -1960,3 +1960,213 @@ export async function getWarehouseOptionsForVoucher() {
   }
 }
 
+/**
+ * Get all vouchers matching filters for export (no pagination limit)
+ */
+export async function getAllVouchersForExport(
+  search: string = "",
+  status: "draft" | "posted" | "cancelled" | "all" = "all",
+  type?: string,
+  dateFrom?: Date | string,
+  dateTo?: Date | string,
+  warehouseId?: string,
+  voucherIds?: string[]
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", vouchers: [] };
+    }
+
+    const canView = (await hasPermission(session.user.id, "accounts.vouchers", "read")) ||
+                    (await hasPermission(session.user.id, "accounts.vouchers", "view"));
+
+    if (!canView) {
+      return { success: false, error: "You do not have permission to view vouchers", vouchers: [] };
+    }
+
+    const where: Prisma.VoucherWhereInput = {};
+
+    if (voucherIds && voucherIds.length > 0) {
+      where.id = { in: voucherIds };
+    } else {
+      if (search) {
+        where.OR = [
+          { voucherNumber: { contains: search, mode: "insensitive" } },
+          { reference: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      if (status === "draft") {
+        where.status = "draft";
+      } else if (status === "posted") {
+        where.status = "posted";
+      } else if (status === "cancelled") {
+        where.status = "cancelled";
+      }
+
+      if (type && type !== "all") {
+        where.type = type as any;
+      }
+
+      if (dateFrom || dateTo) {
+        where.date = {};
+        if (dateFrom) {
+          where.date.gte = typeof dateFrom === "string" ? new Date(dateFrom) : dateFrom;
+        }
+        if (dateTo) {
+          const toDate = typeof dateTo === "string" ? new Date(dateTo) : dateTo;
+          toDate.setHours(23, 59, 59, 999);
+          where.date.lte = toDate;
+        }
+      }
+
+      if (warehouseId && warehouseId !== "all") {
+        if (warehouseId === "none") {
+          where.id = "none";
+        } else {
+          where.OR = [
+            { warehouseId },
+            { sales: { some: { warehouseId } } },
+            { purchases: { some: { warehouseId } } },
+            { productionOrders: { some: { warehouseId } } },
+            { inventoryAdjustment: { warehouseId } },
+            { inventoryDamage: { warehouseId } },
+            { grns: { some: { warehouseId } } },
+            { returnToVendors: { some: { warehouseId } } },
+            {
+              User_Voucher_createdByToUser: {
+                defaultWarehouseId: warehouseId,
+              },
+            },
+            {
+              VoucherLine: {
+                some: {
+                  ChartOfAccount: {
+                    CashBankAccount: {
+                      warehouses: {
+                        some: { id: warehouseId },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          ];
+        }
+      }
+    }
+
+    const vouchers = await prisma.voucher.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        voucherNumber: true,
+        date: true,
+        type: true,
+        reference: true,
+        description: true,
+        status: true,
+        createdBy: true,
+        postedById: true,
+        postedAt: true,
+        clientId: true,
+        supplierId: true,
+        userId: true,
+        organizationId: true,
+        User_Voucher_createdByToUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        User_Voucher_postedByIdToUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        Client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        Supplier: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        Organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        VoucherLine: {
+          select: {
+            id: true,
+            lineNumber: true,
+            debitAmount: true,
+            creditAmount: true,
+            description: true,
+            chartOfAccountId: true,
+            ChartOfAccount: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                type: true,
+              },
+            },
+          },
+          orderBy: {
+            lineNumber: "asc",
+          },
+        },
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const serializedVouchers = vouchers.map((voucher: any) => {
+      const { User_Voucher_createdByToUser, User_Voucher_postedByIdToUser, Client, Supplier, Organization, VoucherLine, ...voucherWithoutRelations } = voucher;
+      const lines = (VoucherLine || []).map((line: any) => ({
+        ...line,
+        chartOfAccount: line.ChartOfAccount,
+        debitAmount: Number(line.debitAmount),
+        creditAmount: Number(line.creditAmount),
+      }));
+      const totalAmount = lines.reduce((sum: number, line: any) => sum + line.debitAmount, 0);
+
+      return {
+        ...voucherWithoutRelations,
+        creator: User_Voucher_createdByToUser,
+        postedBy: User_Voucher_postedByIdToUser,
+        client: Client,
+        supplier: Supplier,
+        organization: Organization,
+        voucherLines: lines,
+        totalAmount,
+      };
+    });
+
+    return { success: true, vouchers: serializedVouchers };
+  } catch (error) {
+    console.error("getAllVouchersForExport error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch vouchers for export",
+      vouchers: [],
+    };
+  }
+}
+
