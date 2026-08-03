@@ -7,6 +7,7 @@ import { FiPlus } from "react-icons/fi";
 import ItemsListClient from "./_components/items";
 import ExportItemsButton from "./_components/ExportItemsButton";
 import { auth } from "@/lib/auth";
+import PrintHeader, { PrintStyle } from "../../procurements/_components/print-header";
 import { hasPermission } from "@/lib/permissions";
 import PageGuard from "@/components/permissions/page-guard";
 import { ItemType } from "@prisma/client";
@@ -65,7 +66,9 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
   return (
     <PageGuard permissionKey="master.items">
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <PrintStyle />
+        <PrintHeader docTitle="Items Catalog" docNumber="ITEMS-LIST" hideBarcode={true} />
+        <div className="flex items-center justify-between print:hidden">
           <div>
             <h1 className="text-2xl font-semibold">Items</h1>
             <p className="text-sm text-muted-foreground">Manage items in your system</p>
@@ -85,7 +88,7 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
 
 
         <Tabs defaultValue={tab} className="w-full">
-          <TabsList>
+          <TabsList className="print:hidden">
             <TabsTrigger value="all" asChild>
               <Link href="/dashboard/master/items?tab=all&page=1">All Items</Link>
             </TabsTrigger>

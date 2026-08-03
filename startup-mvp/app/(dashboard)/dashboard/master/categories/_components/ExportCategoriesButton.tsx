@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FiDownload, FiFileText, FiFile } from "react-icons/fi";
+import { FiDownload, FiFileText, FiFile, FiPrinter } from "react-icons/fi";
 import { useToast } from "@/hooks/use-toast";
 
 interface ExportCategoriesButtonProps {
@@ -74,6 +74,10 @@ export default function ExportCategoriesButton({
         <DropdownMenuItem onSelect={() => handleExport("excel")}>
           <FiFile className="mr-2 h-4 w-4" />
           Export as Excel
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => window.print()}>
+          <FiPrinter className="mr-2 h-4 w-4" />
+          Print List
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

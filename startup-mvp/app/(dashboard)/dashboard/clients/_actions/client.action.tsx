@@ -143,9 +143,20 @@ export async function getClients(
         });
 
         // AR is an Asset account: debit increases balance, credit reduces it
-        const due =
-          Number(balanceResult._sum.debitAmount || 0) -
-          Number(balanceResult._sum.creditAmount || 0);
+        const totalDebit = Number(balanceResult._sum.debitAmount || 0);
+        const totalCredit = Number(balanceResult._sum.creditAmount || 0);
+        let due = totalDebit - totalCredit;
+
+        // If there's an opening balance but no posted journal entry voucher for it, add it to outstanding balance
+        const hasOpeningJournal = await prisma.journalEntryLine.findFirst({
+          where: {
+            chartOfAccountId: coaId,
+            description: { contains: "opening balance", mode: "insensitive" },
+          },
+        });
+        if (Number(client.openingBalance || 0) > 0 && !hasOpeningJournal) {
+          due += Number(client.openingBalance || 0);
+        }
 
         return { ...client, dueAmount: Math.max(0, due) };
       })
@@ -1488,25 +1499,43 @@ export async function getClientLedger(
     rawTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     // Date range filtering
-    let filteredTransactions = rawTransactions;
     const start = startDate ? new Date(startDate) : null;
     const end = endDate ? new Date(endDate) : null;
 
     if (start) {
       start.setHours(0, 0, 0, 0);
+    }
+    if (end) {
+      end.setHours(23, 59, 59, 999);
+    }
+
+    // Calculate prior balance of all transactions before the start date
+    let priorBalance = 0;
+    if (start) {
+      const priorTransactions = rawTransactions.filter(
+        (t) => new Date(t.date) < start
+      );
+      priorBalance = priorTransactions.reduce(
+        (sum, t) => sum + (t.debit - t.credit),
+        0
+      );
+    }
+
+    // Filter transactions for the selected range
+    let filteredTransactions = rawTransactions;
+    if (start) {
       filteredTransactions = filteredTransactions.filter(
         (t) => new Date(t.date) >= start
       );
     }
     if (end) {
-      end.setHours(23, 59, 59, 999);
       filteredTransactions = filteredTransactions.filter(
         (t) => new Date(t.date) <= end
       );
     }
 
-    // Compute running balance
-    let runningBalance = 0;
+    // Compute running balance starting with priorBalance
+    let runningBalance = priorBalance;
     let totalBilled = 0;
     let totalPaid = 0;
 
@@ -1520,6 +1549,22 @@ export async function getClientLedger(
         runningBalance,
       };
     });
+
+    // Prepend a virtual Balance Forward transaction if a start date is specified
+    if (start) {
+      ledger.unshift({
+        id: `prior-bal-${client.id}`,
+        date: start,
+        type: "PRIOR_BALANCE",
+        typeLabel: "Balance Forward",
+        reference: "-",
+        description: "Outstanding balance brought forward from previous period",
+        status: "POSTED",
+        debit: 0,
+        credit: 0,
+        runningBalance: priorBalance,
+      } as any);
+    }
 
     return {
       success: true,
@@ -1673,7 +1718,19 @@ export async function getAllClientsForExport(
           });
           const totalDebit = Number(balanceResult._sum.debitAmount || 0);
           const totalCredit = Number(balanceResult._sum.creditAmount || 0);
-          dueAmount = totalDebit - totalCredit;
+          let due = totalDebit - totalCredit;
+
+          // If there's an opening balance but no posted journal entry voucher for it, add it
+          const hasOpeningJournal = await prisma.journalEntryLine.findFirst({
+            where: {
+              chartOfAccountId: coaId,
+              description: { contains: "opening balance", mode: "insensitive" },
+            },
+          });
+          if (Number(client.openingBalance || 0) > 0 && !hasOpeningJournal) {
+            due += Number(client.openingBalance || 0);
+          }
+          dueAmount = due;
         }
 
         return {

@@ -8,6 +8,7 @@ import ClientsListClient from "./_components/clients";
 import ExportClientsButton from "./_components/ExportClientsButton";
 import PageGuard from "@/components/permissions/page-guard";
 import { auth } from "@/lib/auth";
+import PrintHeader, { PrintStyle } from "../procurements/_components/print-header";
 import { hasPermission } from "@/lib/permissions";
 
 interface ClientsPageProps {
@@ -69,7 +70,9 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   return (
     <PageGuard permissionKey="peoples.clients">
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <PrintStyle />
+        <PrintHeader docTitle="Clients List" docNumber="CLNT-LIST" hideBarcode={true} />
+        <div className="flex items-center justify-between print:hidden">
           <div>
             <h1 className="text-2xl font-semibold">Clients</h1>
             <p className="text-sm text-muted-foreground">Manage clients in your system</p>
@@ -88,7 +91,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
         </div>
 
         <Tabs defaultValue={tab} className="w-full">
-          <TabsList>
+          <TabsList className="print:hidden">
             <TabsTrigger value="all" asChild>
               <Link href="/dashboard/clients?tab=all&page=1">All Clients</Link>
             </TabsTrigger>

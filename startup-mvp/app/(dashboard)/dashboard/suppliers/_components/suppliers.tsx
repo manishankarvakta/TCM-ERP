@@ -397,8 +397,18 @@ export default function SuppliersListClient({
 
   return (
     <div className="space-y-4">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          /* Reduce table padding and font size for clean print layout */
+          .print-bordered th,
+          .print-bordered td {
+            padding: 4px 6px !important;
+            font-size: 8.5pt !important;
+          }
+        }
+      `}} />
       {/* Search and Bulk Actions */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 print:hidden">
         <div className="relative flex-1 max-w-sm">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -506,25 +516,25 @@ export default function SuppliersListClient({
 
       {/* Table */}
       <div className="border rounded-lg">
-        <Table>
+        <Table className="print-bordered">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12">
+              <TableHead className="w-12 print:hidden">
                 <Checkbox
                   checked={allSelected}
                   onCheckedChange={handleSelectAll}
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead>Supplier Code</TableHead>
-              <TableHead>Supplier</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Company</TableHead>
-              <TableHead>Warehouse</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Due</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="print:w-[12%] whitespace-nowrap">Supplier Code</TableHead>
+              <TableHead className="print:w-[18%] whitespace-nowrap">Supplier</TableHead>
+              <TableHead className="print:w-[22%]">Email</TableHead>
+              <TableHead className="print:w-[15%] whitespace-nowrap">Phone</TableHead>
+              <TableHead className="print:w-[18%]">Company</TableHead>
+              <TableHead className="print:hidden">Warehouse</TableHead>
+              <TableHead className="print:hidden">Status</TableHead>
+              <TableHead className="text-right print:w-[15%] whitespace-nowrap">Due</TableHead>
+              <TableHead className="text-right print:hidden">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -541,29 +551,29 @@ export default function SuppliersListClient({
                 
                 return (
                   <TableRow key={supplier.id} className={cn(isSelected && "bg-muted/50")}>
-                    <TableCell>
+                    <TableCell className="print:hidden">
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={(checked) => handleSelectSupplier(supplier.id, checked as boolean)}
                         aria-label={`Select ${supplier.name || supplier.email}`}
                       />
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-muted-foreground print:text-black whitespace-nowrap">
                       {supplier.supplierCode || "-"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="print:whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
+                        <Avatar className="h-8 w-8 print:hidden">
                           <AvatarImage src={supplier.image || undefined} alt={supplier.name || supplier.email} />
                           <AvatarFallback>{getInitials(supplier.name, supplier.email)}</AvatarFallback>
                         </Avatar>
                         <span className="font-medium">{supplier.name || "No name"}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{supplier.email}</TableCell>
-                    <TableCell className="text-muted-foreground">{supplier.phone || "-"}</TableCell>
-                    <TableCell className="text-muted-foreground">{supplier.company || "-"}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-muted-foreground print:text-black">{supplier.email}</TableCell>
+                    <TableCell className="text-muted-foreground print:text-black whitespace-nowrap">{supplier.phone || "-"}</TableCell>
+                    <TableCell className="text-muted-foreground print:text-black">{supplier.company || "-"}</TableCell>
+                    <TableCell className="print:hidden">
                       {supplier.warehouse ? (
                         <Badge variant="outline" className="text-xs">
                           {supplier.warehouse.name}
@@ -572,7 +582,7 @@ export default function SuppliersListClient({
                         <span className="text-muted-foreground text-xs">-</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="print:hidden">
                       {supplierStatus === "trash" ? (
                         <Badge variant="destructive">Trash</Badge>
                       ) : supplierStatus === "inactive" ? (
@@ -581,21 +591,22 @@ export default function SuppliersListClient({
                         <Badge variant="default">Active</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right whitespace-nowrap print:text-black print:font-bold">
                       <span
-                        className={
+                        className={cn(
                           (supplier.dueAmount ?? 0) > 0
-                            ? "font-semibold text-amber-600"
-                            : "text-muted-foreground"
-                        }
+                            ? "font-semibold text-amber-600 print:text-black"
+                            : "text-muted-foreground print:text-black"
+                        )}
                       >
-                        ৳{(supplier.dueAmount ?? 0).toLocaleString("en-US", {
+                        <span className="print:hidden">৳</span>
+                        {(supplier.dueAmount ?? 0).toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right print:hidden">
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
@@ -659,7 +670,7 @@ export default function SuppliersListClient({
 
       {/* Pagination */}
       {(initialPagination.totalPages > 1 || initialPagination.total > 0) && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 print:hidden">
           <div className="flex flex-wrap items-center gap-4">
             <div className="text-sm text-muted-foreground">
               Showing {((initialPagination.page - 1) * initialPagination.limit) + 1} to{" "}

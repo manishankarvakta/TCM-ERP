@@ -403,8 +403,18 @@ export default function ClientsListClient({
 
   return (
     <div className="space-y-4">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          /* Reduce table padding and font size for clean print layout */
+          .print-bordered th,
+          .print-bordered td {
+            padding: 4px 6px !important;
+            font-size: 8.5pt !important;
+          }
+        }
+      `}} />
       {/* Search and Bulk Actions */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 print:hidden">
         <div className="relative flex-1 max-w-sm">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -510,29 +520,28 @@ export default function ClientsListClient({
         </div>
       </div>
 
-      {/* Table */}
       <div className="border rounded-lg">
-        <Table>
+        <Table className="print-bordered">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12">
+              <TableHead className="w-12 print:hidden">
                 <Checkbox
                   checked={allSelected}
                   onCheckedChange={handleSelectAll}
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead>Client Code</TableHead>
-              <TableHead>Client</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Company</TableHead>
-              <TableHead>Warehouse</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Membership</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Due</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="print:w-[12%] whitespace-nowrap">Client Code</TableHead>
+              <TableHead className="print:w-[18%] whitespace-nowrap">Client</TableHead>
+              <TableHead className="print:w-[20%]">Email</TableHead>
+              <TableHead className="print:w-[15%] whitespace-nowrap">Phone</TableHead>
+              <TableHead className="print:w-[15%]">Company</TableHead>
+              <TableHead className="print:hidden">Warehouse</TableHead>
+              <TableHead className="print:w-[10%] whitespace-nowrap">Type</TableHead>
+              <TableHead className="print:hidden">Membership</TableHead>
+              <TableHead className="print:hidden">Status</TableHead>
+              <TableHead className="text-right print:w-[10%] whitespace-nowrap">Due</TableHead>
+              <TableHead className="text-right print:hidden">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -549,29 +558,29 @@ export default function ClientsListClient({
                 
                 return (
                   <TableRow key={client.id} className={cn(isSelected && "bg-muted/50")}>
-                    <TableCell>
+                    <TableCell className="print:hidden">
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={(checked) => handleSelectClient(client.id, checked as boolean)}
                         aria-label={`Select ${client.name || client.email}`}
                       />
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-muted-foreground print:text-black whitespace-nowrap">
                       {client.clientCode || "-"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="print:whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
+                        <Avatar className="h-8 w-8 print:hidden">
                           <AvatarImage src={client.image || undefined} alt={client.name || client.email || "Client"} />
                           <AvatarFallback>{getInitials(client.name, client.email)}</AvatarFallback>
                         </Avatar>
                         <span className="font-medium">{client.name || "No name"}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{client.email || "-"}</TableCell>
-                    <TableCell className="text-muted-foreground">{client.phone || "-"}</TableCell>
-                    <TableCell className="text-muted-foreground">{client.company || "-"}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-muted-foreground print:text-black">{client.email || "-"}</TableCell>
+                    <TableCell className="text-muted-foreground print:text-black whitespace-nowrap">{client.phone || "-"}</TableCell>
+                    <TableCell className="text-muted-foreground print:text-black">{client.company || "-"}</TableCell>
+                    <TableCell className="print:hidden">
                       {client.warehouse ? (
                         <Badge variant="outline" className="text-xs">
                           {client.warehouse.name}
@@ -580,18 +589,23 @@ export default function ClientsListClient({
                         <span className="text-muted-foreground text-xs">-</span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      {client.clientType?.toLowerCase() === "wholesale" ? (
-                        <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800">
-                          Wholesale
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-muted-foreground">
-                          Regular
-                        </Badge>
-                      )}
+                    <TableCell className="print:text-black print:whitespace-nowrap">
+                      <div className="print:hidden">
+                        {client.clientType?.toLowerCase() === "wholesale" ? (
+                          <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800">
+                            Wholesale
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-muted-foreground">
+                            Regular
+                          </Badge>
+                        )}
+                      </div>
+                      <span className="hidden print:inline text-black">
+                        {client.clientType?.toLowerCase() === "wholesale" ? "Wholesale" : "Regular"}
+                      </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="print:hidden">
                       {client.membershipTier && client.membershipTier !== "NONE" ? (
                         <div className="flex flex-col gap-0.5">
                           <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800 w-fit text-[10px] font-bold">
@@ -605,7 +619,7 @@ export default function ClientsListClient({
                         <span className="text-muted-foreground text-xs">-</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="print:hidden">
                       {clientStatus === "trash" ? (
                         <Badge variant="destructive">Trash</Badge>
                       ) : clientStatus === "inactive" ? (
@@ -614,21 +628,22 @@ export default function ClientsListClient({
                         <Badge variant="default">Active</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right whitespace-nowrap print:text-black print:font-bold">
                       <span
-                        className={
+                        className={cn(
                           (client.dueAmount ?? 0) > 0
-                            ? "font-semibold text-amber-600"
-                            : "text-muted-foreground"
-                        }
+                            ? "font-semibold text-amber-600 print:text-black"
+                            : "text-muted-foreground print:text-black"
+                        )}
                       >
-                        ৳{(client.dueAmount ?? 0).toLocaleString("en-US", {
+                        <span className="print:hidden">৳</span>
+                        {(client.dueAmount ?? 0).toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right print:hidden">
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
@@ -692,7 +707,7 @@ export default function ClientsListClient({
 
       {/* Pagination */}
       {(initialPagination.totalPages > 1 || initialPagination.total > 0) && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 print:hidden">
           <div className="flex flex-wrap items-center gap-4">
             <div className="text-sm text-muted-foreground">
               Showing {((initialPagination.page - 1) * initialPagination.limit) + 1} to{" "}

@@ -7,6 +7,7 @@ import { FiPlus } from "react-icons/fi";
 import SuppliersListClient from "./_components/suppliers";
 import ExportSuppliersButton from "./_components/ExportSuppliersButton";
 import { auth } from "@/lib/auth";
+import PrintHeader, { PrintStyle } from "../procurements/_components/print-header";
 import { hasPermission } from "@/lib/permissions";
 
 interface SuppliersPageProps {
@@ -64,7 +65,9 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <PrintStyle />
+      <PrintHeader docTitle="Suppliers List" docNumber="SUPP-LIST" hideBarcode={true} />
+      <div className="flex items-center justify-between print:hidden">
         <div>
           <h1 className="text-2xl font-semibold">Suppliers</h1>
           <p className="text-sm text-muted-foreground">Manage suppliers in your system</p>
@@ -83,7 +86,7 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
       </div>
 
       <Tabs defaultValue={tab} className="w-full">
-        <TabsList>
+        <TabsList className="print:hidden">
           <TabsTrigger value="all" asChild>
             <Link href="/dashboard/suppliers?tab=all&page=1">All Suppliers</Link>
           </TabsTrigger>

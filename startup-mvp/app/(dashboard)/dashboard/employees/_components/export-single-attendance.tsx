@@ -92,7 +92,7 @@ export default function ExportSingleAttendance({
           hour: "2-digit",
           minute: "2-digit",
           hour12: true,
-          timeZone: "UTC", // Database stores punch time correctly formatted, display as UTC to match db raw representation
+          timeZone: "Asia/Dhaka", // Database stores punch time correctly formatted, display in business timezone
         });
       };
 
@@ -226,7 +226,7 @@ export default function ExportSingleAttendance({
         doc.text(`Designation   :  ${emp.designation || "N/A"}`, 14, 35);
         doc.text(`Department    :  ${emp.department}`, 14, 40);
 
-        const rightAlignX = hasBreaks ? 180 : 120;
+        const rightAlignX = hasBreaks ? 215 : 145;
         doc.text(`Report Period :  ${fromDate} to ${toDate}`, rightAlignX, 25);
         doc.text(`Printed On    :  ${new Date().toLocaleDateString()}`, rightAlignX, 30);
 
@@ -260,13 +260,21 @@ export default function ExportSingleAttendance({
           startY: 46,
           head: [headers],
           body: tableData,
-          theme: "striped",
-          headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+          theme: "grid",
+          headStyles: { fillColor: [30, 41, 59], textColor: 255 },
           styles: { fontSize: 8 },
         });
 
-        // Summary box after table
-        const finalY = (doc as any).lastAutoTable.finalY + 10;
+        // Summary box after table with page overflow check
+        const pageHeight = doc.internal.pageSize.height || doc.internal.pageSize.getHeight();
+        const requiredSpace = 65; // Height needed for summary stats + signature lines
+        let finalY = (doc as any).lastAutoTable.finalY + 10;
+
+        if (finalY + requiredSpace > pageHeight - 15) {
+          doc.addPage();
+          finalY = 20; // reset to top of new page
+        }
+
         doc.setFont("helvetica", "bold");
         doc.text("Summary statistics:", 14, finalY);
 
