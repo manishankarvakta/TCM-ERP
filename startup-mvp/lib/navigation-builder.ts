@@ -60,6 +60,7 @@ export const MENU_TEMPLATE: MenuItemData[] = [
       { href: "/dashboard/sales/pos", label: "POS", icon: "FiShoppingBag", module: "sales" },
       { href: "/dashboard/sales/ecommerce", label: "E-commerce Orders", icon: "FiShoppingBag", module: "sales" },
       { href: "/dashboard/sales/coupons", label: "Coupons", icon: "FiTag", module: "sales" },
+      { href: "/dashboard/sales/daybook", label: "Daybook / closing", icon: "FiBookOpen", module: "sales" },
     ],
   },
   {

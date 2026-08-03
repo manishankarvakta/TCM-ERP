@@ -79,6 +79,8 @@ model User {
   createdWarehouses                Warehouse[]            @relation("WarehouseCreator")
   createdSettings                  Settings[]             @relation("SettingsCreator")
   settings                         Settings[]             @relation("SettingsUser")
+  billerClosingSessions            POSClosingSession[]    @relation("BillerClosingSessions")
+  managerClosingVerifications       POSClosingSession[]    @relation("ManagerClosingVerifications")
   createdMembershipTiers           MembershipTier[]       @relation("MembershipTierCreator")
   rfidBundleScans                  RFIDBundleScan[]
   createdTPNs                      TransferPurchaseNote[] @relation("TPNCreatedBy")
@@ -454,6 +456,7 @@ model Warehouse {
   vouchers            Voucher[]              @relation("WarehouseVouchers")
   clients             Client[]
   suppliers           Supplier[]
+  posClosingSessions  POSClosingSession[]
 
   @@index([code])
   @@index([name])
@@ -2556,4 +2559,75 @@ model MembershipTier {
   
   clients            Client[]  @relation("ClientMembershipTier")
   creator            User      @relation("MembershipTierCreator", fields: [createdBy], references: [id])
+}
+
+model POSClosingSession {
+  id                 String             @id @default(cuid())
+  billerId           String             // Reconciled cashier (createdBy User ID)
+  warehouseId        String             // Reconciled warehouse
+  businessDate       DateTime           @db.Date // Reconciled calendar date
+  status             POSClosingStatus   @default(DRAFT)
+  openingCash        Decimal            @default(0) @db.Decimal(12, 2)
+  cashOut            Decimal            @default(0) @db.Decimal(12, 2)
+  officeBill         Decimal            @default(0) @db.Decimal(12, 2)
+  cashInHand         Decimal            @default(0) @db.Decimal(12, 2) // Sum of notes counted
+  availableCash      Decimal            @default(0) @db.Decimal(12, 2) // System expected cash in drawer
+  difference         Decimal            @default(0) @db.Decimal(12, 2)
+  todaysCreditSales  Decimal            @default(0) @db.Decimal(12, 2)
+  loyaltyPoints      Int                @default(0)
+  notes              String?
+  createdBy          String             // Biller who performed reconciliation
+  verifiedBy         String?            // Manager who verified
+  verifiedAt         DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  
+  // Relations
+  biller             User               @relation("BillerClosingSessions", fields: [billerId], references: [id])
+  warehouse          Warehouse          @relation(fields: [warehouseId], references: [id])
+  verifier           User?              @relation("ManagerClosingVerifications", fields: [verifiedBy], references: [id])
+  denominations      POSCashDenomination?
+  collections        POSClosingCollection[]
+
+  @@unique([billerId, warehouseId, businessDate])
+  @@index([businessDate])
+  @@index([status])
+}
+
+model POSCashDenomination {
+  id         String             @id @default(cuid())
+  sessionId  String             @unique
+  note1000   Int                @default(0)
+  note500    Int                @default(0)
+  note200    Int                @default(0)
+  note100    Int                @default(0)
+  note50     Int                @default(0)
+  note20     Int                @default(0)
+  note10     Int                @default(0)
+  note5      Int                @default(0)
+  note2      Int                @default(0)
+  note1      Int                @default(0)
+  
+  session    POSClosingSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model POSClosingCollection {
+  id                String             @id @default(cuid())
+  sessionId         String
+  paymentMethodName String             // Cash sales, Bkash, Visa, Nagad, etc.
+  regularCollection Decimal            @default(0) @db.Decimal(12, 2)
+  duesCollection    Decimal            @default(0) @db.Decimal(12, 2)
+  totalCollection   Decimal            @default(0) @db.Decimal(12, 2)
+  totalReceived     Decimal            @default(0) @db.Decimal(12, 2) // Declared by cashier
+  difference        Decimal            @default(0) @db.Decimal(12, 2)
+  
+  session           POSClosingSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@unique([sessionId, paymentMethodName])
+}
+
+enum POSClosingStatus {
+  DRAFT
+  CLOSED
+  VERIFIED
 }
