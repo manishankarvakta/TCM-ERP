@@ -425,7 +425,17 @@ export default function SalesListClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-4 mb-6 bg-muted/20 p-4 rounded-lg border border-border/50">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          /* Reduce table padding and font size for clean print layout */
+          .print-bordered th,
+          .print-bordered td {
+            padding: 4px 6px !important;
+            font-size: 8.5pt !important;
+          }
+        }
+      `}} />
+      <div className="flex flex-col gap-4 mb-6 bg-muted/20 p-4 rounded-lg border border-border/50 print:hidden">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -630,27 +640,27 @@ export default function SalesListClient({
     </div>
 
       <div className="border rounded-lg">
-        <Table>
+        <Table className="print-bordered">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12">
+              <TableHead className="w-12 print:hidden">
                 <Checkbox
                   checked={allSelected}
                   onCheckedChange={(checked) => handleSelectAll(!!checked)}
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead>Sale #</TableHead>
-              <TableHead>Client</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Warehouse</TableHead>
-              <TableHead>Biller</TableHead>
-              <TableHead>Assistant</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="text-right">Items</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="print:w-[15%] whitespace-nowrap">Sale #</TableHead>
+              <TableHead className="print:w-[20%] whitespace-nowrap">Client</TableHead>
+              <TableHead className="print:w-[10%] whitespace-nowrap">Status</TableHead>
+              <TableHead className="print:w-[10%] whitespace-nowrap">Type</TableHead>
+              <TableHead className="print:hidden">Warehouse</TableHead>
+              <TableHead className="print:w-[15%] whitespace-nowrap">Biller</TableHead>
+              <TableHead className="print:hidden">Assistant</TableHead>
+              <TableHead className="print:w-[15%] whitespace-nowrap">Date</TableHead>
+              <TableHead className="text-right print:w-[5%] whitespace-nowrap">Items</TableHead>
+              <TableHead className="text-right print:w-[10%] whitespace-nowrap">Total</TableHead>
+              <TableHead className="text-right print:hidden">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -666,7 +676,7 @@ export default function SalesListClient({
 
                 return (
                   <TableRow key={sale.id} className={cn(isSelected && "bg-muted/50")}>
-                    <TableCell>
+                    <TableCell className="print:hidden">
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={(checked) =>
@@ -675,11 +685,11 @@ export default function SalesListClient({
                         aria-label={`Select ${sale.saleNumber}`}
                       />
                     </TableCell>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium print:text-black print:whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         {sale.saleNumber}
                         <button 
-                          className="text-muted-foreground hover:text-foreground transition-colors"
+                          className="text-muted-foreground hover:text-foreground transition-colors print:hidden"
                           onClick={async (e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -696,10 +706,10 @@ export default function SalesListClient({
                         </button>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-muted-foreground print:text-black print:whitespace-nowrap">
                       {sale.client.name || sale.client.email}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="print:whitespace-nowrap print:text-black">
                       <Badge
                         variant={
                           sale.status === "CANCELLED"
@@ -708,11 +718,13 @@ export default function SalesListClient({
                             ? "default"
                             : "secondary"
                         }
+                        className="print:hidden"
                       >
                         {STATUS_LABELS[sale.status]}
                       </Badge>
+                      <span className="hidden print:inline text-black">{STATUS_LABELS[sale.status]}</span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="print:whitespace-nowrap print:text-black">
                       <Badge
                         variant={
                           sale.orderType === "RETURN"
@@ -722,32 +734,34 @@ export default function SalesListClient({
                             : "secondary"
                         }
                         className={cn(
+                          "print:hidden",
                           sale.orderType === "WHOLESALE" && "border-amber-500/30 text-amber-600 bg-amber-500/5",
                           sale.orderType === "RETAIL" && "border-blue-500/30 text-blue-600 bg-blue-500/5"
                         )}
                       >
                         {sale.orderType}
                       </Badge>
+                      <span className="hidden print:inline text-black">{sale.orderType}</span>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="print:hidden">
                       {sale.warehouse?.name || "N/A"}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-muted-foreground print:text-black print:whitespace-nowrap">
                       {sale.createdByUser?.name || "System"}
                     </TableCell>
-                    <TableCell className="text-muted-foreground font-medium">
+                    <TableCell className="print:hidden">
                       {sale.salesAssistant?.name || "-"}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-muted-foreground print:text-black print:whitespace-nowrap">
                       {format(new Date(sale.date), "MMM d, yyyy")}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-muted-foreground">
+                    <TableCell className="text-right font-mono text-muted-foreground print:text-black print:whitespace-nowrap">
                       {sale._count?.items ?? 0}
                     </TableCell>
-                    <TableCell className="text-right font-medium">
-                      ৳{sale.grandTotal.toFixed(2)}
+                    <TableCell className="text-right font-medium print:text-black print:whitespace-nowrap print:font-bold">
+                      <span className="print:hidden">৳</span>{sale.grandTotal.toFixed(2)}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right print:hidden">
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
@@ -792,7 +806,7 @@ export default function SalesListClient({
       </div>
 
       {(initialPagination.totalPages > 1 || initialPagination.total > 0) && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 print:hidden">
           <div className="flex flex-wrap items-center gap-4">
             <div className="text-sm text-muted-foreground">
               Showing {((initialPagination.page - 1) * initialPagination.limit) + 1} to{" "}

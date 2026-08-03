@@ -7,6 +7,7 @@ import { FiPlus } from "react-icons/fi";
 import CategoriesListClient from "./_components/categories";
 import ExportCategoriesButton from "./_components/ExportCategoriesButton";
 import { auth } from "@/lib/auth";
+import PrintHeader, { PrintStyle } from "../../procurements/_components/print-header";
 import { hasPermission } from "@/lib/permissions";
 import PageGuard from "@/components/permissions/page-guard";
 
@@ -60,7 +61,9 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
   return (
     <PageGuard permissionKey="master.categories" requiredOperation="view">
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <PrintStyle />
+        <PrintHeader docTitle="Categories List" docNumber="CAT-LIST" hideBarcode={true} />
+        <div className="flex items-center justify-between print:hidden">
           <div>
             <h1 className="text-2xl font-semibold">Categories</h1>
             <p className="text-sm text-muted-foreground">Manage categories in your system</p>
@@ -80,7 +83,7 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
 
 
         <Tabs defaultValue={tab} className="w-full">
-          <TabsList>
+          <TabsList className="print:hidden">
             <TabsTrigger value="all" asChild>
               <Link href="/dashboard/master/categories?tab=all&page=1">All Categories</Link>
             </TabsTrigger>

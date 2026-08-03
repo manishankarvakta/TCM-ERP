@@ -7,6 +7,7 @@ import { FiPlus } from "react-icons/fi";
 import SalesListClient from "./_components/sales";
 import ExportSalesButton from "./_components/ExportSalesButton";
 import { auth } from "@/lib/auth";
+import PrintHeader, { PrintStyle } from "../procurements/_components/print-header";
 import { hasPermission } from "@/lib/permissions";
 import PageGuard from "@/components/permissions/page-guard";
 
@@ -127,7 +128,9 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
   return (
     <PageGuard permissionKey="sales.sales" requiredOperation="view">
       <div className="space-y-6">
-      <div className="flex items-center justify-between">
+        <PrintStyle />
+        <PrintHeader docTitle="Sales List" docNumber="SALES-LIST" hideBarcode={true} />
+        <div className="flex items-center justify-between print:hidden">
         <div>
           <h1 className="text-2xl font-semibold">Sales</h1>
           <p className="text-sm text-muted-foreground">Manage sales in your system</p>
@@ -158,7 +161,7 @@ export default async function SalesPage({ searchParams }: SalesPageProps) {
 
 
       <Tabs defaultValue={tab} className="w-full">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 print:hidden">
           <TabsList>
             <TabsTrigger value="all" asChild>
               <Link href="/dashboard/sales?tab=all&page=1">All Sales</Link>

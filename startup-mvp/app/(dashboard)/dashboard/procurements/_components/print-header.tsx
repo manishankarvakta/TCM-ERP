@@ -10,6 +10,7 @@ interface PrintHeaderProps {
   organizationAddress?: string | null;
   organizationEmail?: string | null;
   organizationPhone?: string | null;
+  hideBarcode?: boolean;
 }
 
 function DocBarcode({ value }: { value: string }) {
@@ -139,6 +140,7 @@ export default function PrintHeader({
   organizationAddress,
   organizationEmail,
   organizationPhone,
+  hideBarcode = false,
 }: PrintHeaderProps) {
   return (
     <div className="hidden print:block border-b border-slate-300 pb-3 mb-4">
@@ -175,13 +177,17 @@ export default function PrintHeader({
             {docTitle}
           </h2>
           <div className="text-xs text-slate-700 text-right">
-            <p className="mb-0 leading-none">
-              <span className="italic text-slate-600">Number: </span>
-              <span className="font-bold text-slate-900">{docNumber}</span>
-            </p>
-            <div className="flex justify-end">
-              <DocBarcode value={docNumber} />
-            </div>
+            {!hideBarcode && (
+              <>
+                <p className="mb-0 leading-none">
+                  <span className="italic text-slate-600">Number: </span>
+                  <span className="font-bold text-slate-900">{docNumber}</span>
+                </p>
+                <div className="flex justify-end">
+                  <DocBarcode value={docNumber} />
+                </div>
+              </>
+            )}
           </div>
         </div>
 

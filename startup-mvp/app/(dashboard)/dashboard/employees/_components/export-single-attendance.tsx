@@ -92,7 +92,7 @@ export default function ExportSingleAttendance({
           hour: "2-digit",
           minute: "2-digit",
           hour12: true,
-          timeZone: "UTC", // Database stores punch time correctly formatted, display as UTC to match db raw representation
+          timeZone: "Asia/Dhaka", // Database stores punch time correctly formatted, display in business timezone
         });
       };
 

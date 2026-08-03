@@ -236,19 +236,29 @@ export default function ItemsListClient({
   const allSelected = initialItems.length > 0 && selectedItems.size === initialItems.length;
 
   const getItemTypeBadge = (type: ItemType) => {
-    const variants: Record<ItemType, { label: string; variant: "default" | "secondary" | "outline" }> = {
+    const variants: Record<ItemType, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
       RAW_MATERIAL: { label: "Raw Material", variant: "secondary" },
       READY_PRODUCT: { label: "Ready Product", variant: "default" },
       RETAIL: { label: "Retail", variant: "outline" },
       WHOLESALE: { label: "Wholesale", variant: "secondary" },
     };
     const config = variants[type];
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+    return (
+      <>
+        <Badge variant={config.variant} className="print:hidden">{config.label}</Badge>
+        <span className="hidden print:inline text-black">{config.label}</span>
+      </>
+    );
   };
 
   const formatPrice = (price: any) => {
     if (!price) return "-";
-    return `৳${Number(price).toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return (
+      <>
+        <span className="print:hidden">৳</span>
+        {Number(price).toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      </>
+    );
   };
 
   const getPageNumbers = (currentPage: number, totalPages: number) => {
@@ -361,7 +371,17 @@ export default function ItemsListClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 flex-wrap">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          /* Reduce table padding and font size for clean print layout */
+          .print-bordered th,
+          .print-bordered td {
+            padding: 4px 6px !important;
+            font-size: 8.5pt !important;
+          }
+        }
+      `}} />
+      <div className="flex items-center gap-2 flex-wrap print:hidden">
         <div className="relative flex-1 max-w-sm">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search..." value={search} onChange={(e) => handleSearch(e.target.value)} className="pl-10" />
@@ -407,20 +427,20 @@ export default function ItemsListClient({
       </div>
 
       <div className="rounded-md border bg-card overflow-hidden">
-        <Table>
+        <Table className="print-bordered">
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="w-12"><Checkbox checked={allSelected} onCheckedChange={handleSelectAll} /></TableHead>
-              <TableHead className="w-16 text-center"><FiImage className="mx-auto" /></TableHead>
-              <TableHead>Code & Name</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Sub-category</TableHead>
-              <TableHead>Price (Cost / Sales)</TableHead>
-              <TableHead>Stock & Unit</TableHead>
-              <TableHead>E-com</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="w-12 print:hidden"><Checkbox checked={allSelected} onCheckedChange={handleSelectAll} /></TableHead>
+              <TableHead className="w-16 text-center print:hidden"><FiImage className="mx-auto" /></TableHead>
+              <TableHead className="print:w-[25%] whitespace-nowrap">Code & Name</TableHead>
+              <TableHead className="print:w-[10%] whitespace-nowrap">Type</TableHead>
+              <TableHead className="print:w-[15%]">Category</TableHead>
+              <TableHead className="print:w-[15%]">Sub-category</TableHead>
+              <TableHead className="print:w-[20%] whitespace-nowrap">Price (Cost / Sales)</TableHead>
+              <TableHead className="print:w-[15%] whitespace-nowrap">Stock & Unit</TableHead>
+              <TableHead className="print:hidden">E-com</TableHead>
+              <TableHead className="print:hidden">Status</TableHead>
+              <TableHead className="text-right print:hidden">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -433,50 +453,61 @@ export default function ItemsListClient({
 
                 return (
                   <TableRow key={item.id} className={cn(isSelected && "bg-muted/50")}>
-                    <TableCell><Checkbox checked={isSelected} onCheckedChange={(checked) => handleSelectItem(item.id, checked as boolean)} /></TableCell>
-                    <TableCell>
+                    <TableCell className="print:hidden"><Checkbox checked={isSelected} onCheckedChange={(checked) => handleSelectItem(item.id, checked as boolean)} /></TableCell>
+                    <TableCell className="print:hidden">
                       <div className="w-10 h-10 rounded border bg-muted overflow-hidden flex items-center justify-center mx-auto">
                         {displayImg ? <img src={displayImg} alt="" className="w-full h-full object-cover" /> : <FiImage className="text-muted-foreground" />}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="print:whitespace-nowrap">
                       <div className="flex flex-col">
                         <span className="font-medium text-foreground">{item.name}</span>
                         <span className="text-xs font-mono text-muted-foreground uppercase">{item.code}</span>
                       </div>
                     </TableCell>
-                    <TableCell>{getItemTypeBadge(item.itemType)}</TableCell>
+                    <TableCell className="print:whitespace-nowrap">{getItemTypeBadge(item.itemType)}</TableCell>
                     <TableCell>
                       {item.category ? (
-                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 whitespace-nowrap">
-                          {item.category.name}
-                        </Badge>
+                        <>
+                          <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 whitespace-nowrap print:hidden">
+                            {item.category.name}
+                          </Badge>
+                          <span className="hidden print:inline text-black">{item.category.name}</span>
+                        </>
                       ) : (
-                        <span className="text-muted-foreground text-sm">—</span>
+                        <span className="text-muted-foreground text-sm print:text-black">—</span>
                       )}
                     </TableCell>
                     <TableCell>
                       {item.subCategory ? (
-                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200/50 whitespace-nowrap">
-                          {item.subCategory.name}
-                        </Badge>
+                        <>
+                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200/50 whitespace-nowrap print:hidden">
+                            {item.subCategory.name}
+                          </Badge>
+                          <span className="hidden print:inline text-black">{item.subCategory.name}</span>
+                        </>
                       ) : (
-                        <span className="text-muted-foreground text-sm">—</span>
+                        <span className="text-muted-foreground text-sm print:text-black">—</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="print:whitespace-nowrap print:text-black">
                       <div className="flex flex-col text-sm">
                         <span className="text-muted-foreground line-through decoration-muted-foreground/30">{formatPrice(item.costPrice)}</span>
                         <span className="font-semibold text-primary">{formatPrice(item.salesPrice)}</span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="print:whitespace-nowrap print:text-black">
                       <div className="flex items-center gap-1">
                         <span className="font-medium">{item.unit.symbol}</span>
-                        {item.trackInventory && <Badge variant="outline" className="text-[10px] h-4 px-1">Tracked</Badge>}
+                        {item.trackInventory && (
+                          <>
+                            <Badge variant="outline" className="text-[10px] h-4 px-1 print:hidden">Tracked</Badge>
+                            <span className="hidden print:inline text-[10px] text-black italic">(Tracked)</span>
+                          </>
+                        )}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="print:hidden">
                       <button
                         type="button"
                         onClick={() => handleToggleEcom(item.id, item.isEnableEcom)}
@@ -494,10 +525,10 @@ export default function ItemsListClient({
                         )}
                       </button>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="print:hidden">
                       <Badge variant={item.status === "active" ? "default" : "secondary"} className="capitalize">{item.status}</Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right print:hidden">
                       <div className="flex items-center justify-end gap-1">
                         {!isTrash ? (
                           <>
@@ -536,7 +567,7 @@ export default function ItemsListClient({
       </div>
 
       {(initialPagination.totalPages > 1 || initialPagination.total > 0) && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-2">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-2 print:hidden">
           <div className="flex flex-wrap items-center gap-4">
             <div className="text-sm text-muted-foreground">
               Showing {((initialPagination.page - 1) * initialPagination.limit) + 1} to{" "}

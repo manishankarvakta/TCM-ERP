@@ -357,8 +357,18 @@ export default function CategoriesListClient({
 
   return (
     <div className="space-y-4">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          /* Reduce table padding and font size for clean print layout */
+          .print-bordered th,
+          .print-bordered td {
+            padding: 4px 6px !important;
+            font-size: 8.5pt !important;
+          }
+        }
+      `}} />
       {/* Search and Bulk Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 print:hidden">
         <div className="relative flex-1 max-w-sm">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -464,23 +474,23 @@ export default function CategoriesListClient({
 
       {/* Categories Table */}
       <div className="rounded-md border">
-        <Table>
+        <Table className="print-bordered">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12">
+              <TableHead className="w-12 print:hidden">
                 <Checkbox
                   checked={allSelected}
                   onCheckedChange={handleSelectAll}
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead className="w-16">Photo</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Parent Category</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Created At</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="w-16 print:hidden">Photo</TableHead>
+              <TableHead className="print:w-[25%] whitespace-nowrap">Name</TableHead>
+              <TableHead className="print:w-[25%] whitespace-nowrap">Parent Category</TableHead>
+              <TableHead className="print:w-[35%]">Description</TableHead>
+              <TableHead className="print:hidden">Status</TableHead>
+              <TableHead className="print:w-[15%] whitespace-nowrap">Created At</TableHead>
+              <TableHead className="text-right print:hidden">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -496,14 +506,14 @@ export default function CategoriesListClient({
                 
                 return (
                   <TableRow key={category.id} className={cn(isSelected && "bg-muted/50")}>
-                    <TableCell>
+                    <TableCell className="print:hidden">
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={(checked) => handleSelectCategory(category.id, checked as boolean)}
                         aria-label={`Select ${category.name}`}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="print:hidden">
                       <div className="w-10 h-10 rounded border bg-muted overflow-hidden flex items-center justify-center">
                         {category.image ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -513,20 +523,23 @@ export default function CategoriesListClient({
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium">{category.name}</TableCell>
-                    <TableCell>
+                    <TableCell className="font-medium print:text-black print:whitespace-nowrap">{category.name}</TableCell>
+                    <TableCell className="print:whitespace-nowrap print:text-black">
                       {category.parent ? (
-                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
-                          {category.parent.name}
-                        </Badge>
+                        <>
+                          <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 print:hidden">
+                            {category.parent.name}
+                          </Badge>
+                          <span className="hidden print:inline text-black">{category.parent.name}</span>
+                        </>
                       ) : (
-                        <span className="text-muted-foreground text-sm">—</span>
+                        <span className="text-muted-foreground text-sm print:text-black">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-muted-foreground print:text-black">
                       {category.description || "-"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="print:hidden">
                       {category.status === "trash" ? (
                         <Badge variant="destructive">Trash</Badge>
                       ) : category.status === "inactive" ? (
@@ -535,10 +548,10 @@ export default function CategoriesListClient({
                         <Badge variant="default">Active</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-muted-foreground print:text-black print:whitespace-nowrap">
                       {format(new Date(category.createdAt), "MMM d, yyyy")}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right print:hidden">
                       <div className="flex items-center justify-end gap-2">
                         {!isTrash && (
                           <>
@@ -587,7 +600,7 @@ export default function CategoriesListClient({
 
       {/* Pagination */}
       {(initialPagination.totalPages > 1 || initialPagination.total > 0) && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 print:hidden">
           <div className="flex flex-wrap items-center gap-4">
             <div className="text-sm text-muted-foreground">
               Showing {((initialPagination.page - 1) * initialPagination.limit) + 1} to{" "}
