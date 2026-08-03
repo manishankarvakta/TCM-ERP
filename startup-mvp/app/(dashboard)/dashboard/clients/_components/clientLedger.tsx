@@ -129,17 +129,20 @@ export default function ClientLedger({
   });
 
   const getTypeBadge = (type: string, typeLabel: string) => {
+    const printOverride = "print:border-none print:bg-transparent print:text-black print:p-0 print:font-normal";
     switch (type) {
       case "SALE":
-        return <Badge variant="outline" className="border-blue-500/30 text-blue-600 bg-blue-50/50 dark:bg-blue-950/30 font-medium">Sale</Badge>;
+        return <Badge variant="outline" className={`border-blue-500/30 text-blue-600 bg-blue-50/50 dark:bg-blue-950/30 font-medium ${printOverride}`}>Sale</Badge>;
       case "RECEIPT":
-        return <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 font-medium">Receipt</Badge>;
+        return <Badge variant="outline" className={`border-emerald-500/30 text-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 font-medium ${printOverride}`}>Receipt</Badge>;
       case "PAYMENT":
-        return <Badge variant="outline" className="border-amber-500/30 text-amber-600 bg-amber-50/50 dark:bg-amber-950/30 font-medium">Payment</Badge>;
+        return <Badge variant="outline" className={`border-amber-500/30 text-amber-600 bg-amber-50/50 dark:bg-amber-950/30 font-medium ${printOverride}`}>Payment</Badge>;
       case "OPENING_BALANCE":
-        return <Badge variant="outline" className="border-purple-500/30 text-purple-600 bg-purple-50/50 dark:bg-purple-950/30 font-medium">Opening Balance</Badge>;
+        return <Badge variant="outline" className={`border-purple-500/30 text-purple-600 bg-purple-50/50 dark:bg-purple-950/30 font-medium ${printOverride}`}>Opening Balance</Badge>;
+      case "PRIOR_BALANCE":
+        return <Badge variant="outline" className={`border-slate-500/30 text-slate-600 bg-slate-50/50 dark:bg-slate-950/30 font-semibold ${printOverride}`}>Balance Forward</Badge>;
       default:
-        return <Badge variant="secondary" className="font-medium">{typeLabel}</Badge>;
+        return <Badge variant="secondary" className={`font-medium ${printOverride}`}>{typeLabel}</Badge>;
     }
   };
 
@@ -224,27 +227,27 @@ export default function ClientLedger({
               Account Overview Summary
             </div>
             <div className="flex justify-between border-b border-dashed border-gray-200 pb-1">
-              <span className="text-gray-600">Opening Balance:</span>
-              <span className="font-mono font-medium">
+              <span className="text-gray-600 print:text-slate-700">Opening Balance:</span>
+              <span className="font-mono font-medium print:text-slate-900">
                 ৳{client.openingBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
             <div className="flex justify-between border-b border-dashed border-gray-200 pb-1">
-              <span className="text-gray-600">Total Billed (Sales):</span>
-              <span className="font-mono font-semibold text-blue-700">
+              <span className="text-gray-600 print:text-slate-700">Total Billed (Sales):</span>
+              <span className="font-mono font-semibold text-blue-700 print:text-slate-900">
                 ৳{summary.totalBilled.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
             <div className="flex justify-between border-b border-dashed border-gray-200 pb-1">
-              <span className="text-gray-600">Total Paid (Received):</span>
-              <span className="font-mono font-semibold text-emerald-700">
+              <span className="text-gray-600 print:text-slate-700">Total Paid (Received):</span>
+              <span className="font-mono font-semibold text-emerald-700 print:text-slate-900">
                 ৳{summary.totalPaid.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
             <div className="flex justify-between pt-1">
-              <span className="font-bold uppercase text-[9px] tracking-wide">Net Outstanding Due:</span>
+              <span className="font-bold uppercase text-[9px] tracking-wide print:text-slate-800">Net Outstanding Due:</span>
               <span
-                className={`font-mono font-black text-sm ${
+                className={`font-mono font-black text-sm print:text-slate-900 print:font-bold print:text-xs ${
                   summary.closingBalance > 0
                     ? "text-amber-600"
                     : summary.closingBalance < 0
@@ -443,38 +446,41 @@ export default function ClientLedger({
       </Card>
 
       {/* Detailed Client Activity Ledger Table */}
-      <Card className="shadow-sm">
-        <CardHeader className="pb-3 border-b">
+      <Card className="shadow-sm print:border-none print:shadow-none">
+        <CardHeader className="pb-3 border-b print:pb-1 print:border-none print:px-0">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg font-bold">Client Transaction Activity Ledger</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-lg font-bold print:text-xs print:font-bold print:uppercase print:tracking-wider">Client Transaction Activity Ledger</CardTitle>
+              <CardDescription className="print:hidden">
                 Chronological record of sales, payments, vouchers, and running balance
               </CardDescription>
             </div>
-            <Badge variant="outline" className="font-mono">
+            <Badge variant="outline" className="font-mono print:hidden">
               {filteredLedger.length} Records
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-muted/50">
-                <TableRow>
-                  <TableHead className="w-[100px] font-semibold">Date</TableHead>
-                  <TableHead className="w-[90px] font-semibold">Type</TableHead>
-                  <TableHead className="w-[100px] font-semibold print:hidden">Status</TableHead>
-                  <TableHead className="w-[120px] font-semibold">Reference #</TableHead>
-                  <TableHead className="w-[230px] max-w-[230px] font-semibold">Description / Notes</TableHead>
-                  <TableHead className="text-right w-[110px] font-semibold text-blue-600 dark:text-blue-400">
-                    Billed (Debit)
+        <CardContent className="p-0 print:pt-0">
+          <div className="overflow-x-auto print:overflow-visible">
+            <Table className="print-bordered">
+              <TableHeader className="bg-muted/50 print:bg-transparent">
+                <TableRow className="print:border-b print:border-slate-300">
+                  <TableHead className="w-[100px] print:w-[9%] font-semibold print:text-black print:text-[10px] print:px-1 whitespace-nowrap">Date</TableHead>
+                  <TableHead className="w-[90px] print:w-[6%] font-semibold print:text-black print:text-[10px] print:px-1 whitespace-nowrap">Type</TableHead>
+                  <TableHead className="w-[100px] font-semibold print:!hidden">Status</TableHead>
+                  <TableHead className="w-[120px] print:w-[11%] font-semibold print:text-black print:text-[10px] print:px-1 whitespace-nowrap">Reference #</TableHead>
+                  <TableHead className="min-w-[250px] print:w-[44%] font-semibold print:text-black print:text-[10px] print:px-1 print:whitespace-normal">Description / Notes</TableHead>
+                  <TableHead className="text-right w-[110px] print:w-[10%] font-semibold text-blue-600 dark:text-blue-400 print:text-black print:text-[10px] print:px-1 whitespace-nowrap">
+                    <span className="print:hidden">Billed (Debit)</span>
+                    <span className="hidden print:inline">Debit</span>
                   </TableHead>
-                  <TableHead className="text-right w-[110px] font-semibold text-emerald-600 dark:text-emerald-400">
-                    Paid (Credit)
+                  <TableHead className="text-right w-[110px] print:w-[10%] font-semibold text-emerald-600 dark:text-emerald-400 print:text-black print:text-[10px] print:px-1 whitespace-nowrap">
+                    <span className="print:hidden">Paid (Credit)</span>
+                    <span className="hidden print:inline">Credit</span>
                   </TableHead>
-                  <TableHead className="text-right w-[120px] font-semibold">
-                    Running Balance
+                  <TableHead className="text-right w-[120px] print:w-[10%] font-semibold print:text-black print:text-[10px] print:px-1 whitespace-nowrap">
+                    <span className="print:hidden">Running Balance</span>
+                    <span className="hidden print:inline">Balance</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -487,41 +493,43 @@ export default function ClientLedger({
                   </TableRow>
                 ) : (
                   filteredLedger.map((item) => (
-                    <TableRow key={item.id} className="hover:bg-muted/30 transition-colors">
-                      <TableCell className="font-medium whitespace-nowrap text-xs py-2">
+                    <TableRow key={item.id} className="hover:bg-muted/30 transition-colors print:border-b print:border-slate-200">
+                      <TableCell className="font-medium whitespace-nowrap text-xs py-2 print:text-black print:text-[10px] print:px-1 print:w-[9%]">
                         {format(new Date(item.date), "dd MMM yyyy")}
                       </TableCell>
-                      <TableCell className="py-2">{getTypeBadge(item.type, item.typeLabel)}</TableCell>
-                      <TableCell className="py-2 print:hidden">
+                      <TableCell className="py-2 print:text-black print:text-[10px] print:px-1 print:w-[6%] whitespace-nowrap">
+                        {getTypeBadge(item.type, item.typeLabel)}
+                      </TableCell>
+                      <TableCell className="py-2 print:!hidden">
                         <Badge variant="outline" className="text-[10px] font-mono uppercase bg-muted/30 px-1.5 py-0">
                           {item.status || "COMPLETED"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-mono text-xs font-semibold py-2 whitespace-nowrap">
+                      <TableCell className="font-mono text-xs font-semibold py-2 whitespace-nowrap print:text-black print:text-[10px] print:px-1 print:w-[11%]">
                         {item.reference}
                       </TableCell>
-                      <TableCell className="text-xs text-foreground/90 w-[230px] max-w-[230px] line-clamp-2 leading-snug whitespace-normal break-words py-2">
+                      <TableCell className="text-xs text-foreground/90 min-w-[250px] leading-snug whitespace-normal break-words py-2 print:text-black print:text-[10px] print:px-1 print:w-[44%] print:whitespace-normal">
                         {item.description}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs font-semibold text-blue-700 dark:text-blue-400 py-2">
-                        {item.debit > 0
+                      <TableCell className="text-right font-mono text-xs font-semibold text-blue-700 dark:text-blue-400 py-2 print:text-black print:text-[10px] print:px-1 print:font-normal print:w-[10%] whitespace-nowrap">
+                        {item.debit > 0 && item.type !== "PRIOR_BALANCE"
                           ? `৳${item.debit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                           : "-"}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-400 py-2">
-                        {item.credit > 0
+                      <TableCell className="text-right font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-400 py-2 print:text-black print:text-[10px] print:px-1 print:font-normal print:w-[10%] whitespace-nowrap">
+                        {item.credit > 0 && item.type !== "PRIOR_BALANCE"
                           ? `৳${item.credit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                           : "-"}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs font-bold py-2">
+                      <TableCell className="text-right font-mono text-xs font-bold py-2 print:text-black print:text-[10px] print:px-1 print:font-bold print:w-[10%] whitespace-nowrap">
                         <span
-                          className={
+                          className={`print:text-black print:font-bold ${
                             item.runningBalance > 0
                               ? "text-amber-600 dark:text-amber-400"
                               : item.runningBalance < 0
                               ? "text-emerald-600 dark:text-emerald-400"
                               : "text-muted-foreground"
-                          }
+                          }`}
                         >
                           ৳
                           {item.runningBalance.toLocaleString("en-US", {

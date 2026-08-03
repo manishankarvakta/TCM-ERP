@@ -107,7 +107,7 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
           "Gross Salary": emp.salary || 0,
           "Status": emp.status,
           "Joining Date": emp.joiningDate ? emp.joiningDate.split("T")[0] : "",
-          "Biometric PIN": emp.deviceMappings?.map((m: any) => m.deviceUserId).join("; ") || ""
+          "Biometric PIN": Array.from(new Set(emp.deviceMappings?.map((m: any) => m.deviceUserId).filter(Boolean))).join("; ") || ""
         }));
 
         exportToCSV(dataToExport, { filename: "employees-list.csv" });
@@ -131,7 +131,7 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
           emp.salary ? emp.salary.toFixed(2) : "0.00",
           emp.status,
           emp.joiningDate ? new Date(emp.joiningDate).toLocaleDateString() : "N/A",
-          emp.deviceMappings?.map((m: any) => m.deviceUserId).join("; ") || "N/A"
+          Array.from(new Set(emp.deviceMappings?.map((m: any) => m.deviceUserId).filter(Boolean))).join("; ") || "N/A"
         ]);
 
         autoTable(doc, {
@@ -348,7 +348,7 @@ export default function ExportButtons({ filters }: ExportButtonsProps) {
           body: tableBody,
           theme: "grid",
           styles: { fontSize: 5, cellPadding: 1 },
-          headStyles: { fillColor: [39, 174, 96], textColor: 255, fontStyle: "bold" },
+          headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: "bold" },
           columnStyles: {
             0: { cellWidth: 15 }, // Code
             1: { cellWidth: 25 }, // Name

@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
       "Gross Salary": Number(emp.salary || 0),
       "Status": emp.status || "",
       "Joining Date": emp.joiningDate ? new Date(emp.joiningDate).toISOString().split("T")[0] : "-",
-      "Biometric PIN": emp.deviceMappings?.map((m) => m.deviceUserId).join("; ") || "-",
+      "Biometric PIN": Array.from(new Set(emp.deviceMappings?.map((m) => m.deviceUserId).filter(Boolean))).join("; ") || "-",
     }));
 
     const dateStr = new Date().toISOString().split("T")[0];

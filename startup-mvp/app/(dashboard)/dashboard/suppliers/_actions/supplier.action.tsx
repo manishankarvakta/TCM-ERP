@@ -131,16 +131,28 @@ export async function getSuppliers(
     const suppliersWithDue = await Promise.all(
       suppliers.map(async (supplier) => {
         const coaId = supplier.ChartOfAccount?.id;
-        if (!coaId) return { ...supplier, dueAmount: 0 };
+        if (!coaId) return { ...supplier, dueAmount: Number(supplier.openingBalance || 0) };
 
         const balanceResult = await prisma.journalEntryLine.aggregate({
           where: { chartOfAccountId: coaId },
           _sum: { debitAmount: true, creditAmount: true },
         });
 
-        const due =
+        let due =
           Number(balanceResult._sum.creditAmount || 0) -
           Number(balanceResult._sum.debitAmount || 0);
+
+        // Check if there is an opening balance journal entry
+        const journalLines = await prisma.journalEntryLine.findMany({
+          where: { chartOfAccountId: coaId },
+          select: { description: true },
+        });
+        const hasOpeningJournal = journalLines.some((jl) =>
+          jl.description?.toLowerCase().includes("opening balance")
+        );
+        if (!hasOpeningJournal) {
+          due += Number(supplier.openingBalance || 0);
+        }
 
         return { ...supplier, dueAmount: Math.max(0, due) };
       })
@@ -1343,13 +1355,20 @@ export async function getSupplierLedger(
     // Sort all raw transactions chronologically by date ascending
     rawTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    // Date range filtering
-    let filteredTransactions = rawTransactions;
     const start = startDate ? new Date(startDate) : null;
     const end = endDate ? new Date(endDate) : null;
 
+    // Compute prior balance (before start date)
+    let priorBalance = 0;
     if (start) {
       start.setHours(0, 0, 0, 0);
+      const priorTx = rawTransactions.filter((t) => new Date(t.date) < start);
+      priorBalance = priorTx.reduce((acc, t) => acc + (t.credit - t.debit), 0);
+    }
+
+    // Filter transactions for the requested date range
+    let filteredTransactions = rawTransactions;
+    if (start) {
       filteredTransactions = filteredTransactions.filter(
         (t) => new Date(t.date) >= start
       );
@@ -1363,7 +1382,7 @@ export async function getSupplierLedger(
 
     // Compute running balance (Accounts Payable / Liability):
     // Credit (Purchase) increases payable, Debit (Payment) decreases payable
-    let runningBalance = 0;
+    let runningBalance = priorBalance; // Initialize with prior balance!
     let totalPurchased = 0;
     let totalPaid = 0;
 
@@ -1377,6 +1396,22 @@ export async function getSupplierLedger(
         runningBalance,
       };
     });
+
+    // Prepend Balance Forward virtual row to ledger if filter is applied
+    if (start) {
+      ledger.unshift({
+        id: `prior-bal-${supplier.id}`,
+        date: start,
+        type: "PRIOR_BALANCE",
+        typeLabel: "Balance Forward",
+        reference: "-",
+        description: "Outstanding balance brought forward from previous period",
+        status: "POSTED",
+        debit: 0,
+        credit: 0,
+        runningBalance: priorBalance,
+      } as any);
+    }
 
     return {
       success: true,
@@ -1528,6 +1563,20 @@ export async function getAllSuppliersForExport(
           const totalDebit = Number(balanceResult._sum.debitAmount || 0);
           const totalCredit = Number(balanceResult._sum.creditAmount || 0);
           payableAmount = totalCredit - totalDebit;
+
+          // Check if there is an opening balance journal entry
+          const journalLines = await prisma.journalEntryLine.findMany({
+            where: { chartOfAccountId: coaId },
+            select: { description: true },
+          });
+          const hasOpeningJournal = journalLines.some((jl) =>
+            jl.description?.toLowerCase().includes("opening balance")
+          );
+          if (!hasOpeningJournal) {
+            payableAmount += Number(supplier.openingBalance || 0);
+          }
+        } else {
+          payableAmount = Number(supplier.openingBalance || 0);
         }
 
         return {

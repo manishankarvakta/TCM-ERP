@@ -57,6 +57,65 @@ export function PrintStyle() {
           overflow: visible !important;
         }
 
+        /* Eliminate print-only scrollbars and overflow indicators */
+        .overflow-x-auto,
+        .overflow-auto,
+        div.overflow-x-auto,
+        div.overflow-auto {
+          overflow: visible !important;
+          scrollbar-width: none !important;
+          -ms-overflow-style: none !important;
+        }
+        .overflow-x-auto::-webkit-scrollbar,
+        .overflow-auto::-webkit-scrollbar {
+          display: none !important;
+        }
+
+        /* Force tables to wrap text and stretch full width without horizontal clipping */
+        table {
+          width: 100% !important;
+          table-layout: auto !important;
+        }
+        th, td {
+          word-break: break-word !important;
+          white-space: normal !important;
+        }
+
+        /* Repeat table headers on subsequent pages */
+        thead {
+          display: table-header-group !important;
+        }
+
+        /* Prevent table rows from splitting awkwardly across pages */
+        tr {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+
+        /* Boxed grid layout for financial tables */
+        table.print-bordered {
+          border: 1px solid #94a3b8 !important; /* slate-400 outline */
+          border-collapse: collapse !important;
+        }
+        table.print-bordered th,
+        table.print-bordered td {
+          border: 1px solid #94a3b8 !important; /* slate-400 cell borders */
+          padding: 6px 8px !important; /* Professional cell spacing */
+        }
+        table.print-bordered th {
+          background-color: #f1f5f9 !important; /* slate-100 header background */
+        }
+
+        /* Force hidden elements to display none and collapse borders */
+        .print\:hidden,
+        th.print\:hidden,
+        td.print\:hidden,
+        th.print\:!hidden,
+        td.print\:!hidden {
+          display: none !important;
+        }
+
+
         @page {
           size: A4 portrait;
           margin: 10mm 12mm 18mm 12mm;
