@@ -132,6 +132,8 @@ export async function collectCustomerDue(payload: DueCollectionPayload) {
     const result = await prisma.$transaction(async (tx) => {
       const collectionId = `COLL_${Date.now()}`;
       
+      let resolvedWarehouseId: string | undefined = undefined;
+
       // Update each sale record with proportional payment allocation log
       for (const alloc of allocations) {
         const sale = await tx.sale.findUnique({
@@ -140,6 +142,10 @@ export async function collectCustomerDue(payload: DueCollectionPayload) {
 
         if (!sale) {
           throw new Error(`Sale not found: ${alloc.saleId}`);
+        }
+
+        if (!resolvedWarehouseId) {
+          resolvedWarehouseId = sale.warehouseId || undefined;
         }
 
         const ratio = alloc.amountToPay / totalAllocated;
@@ -226,6 +232,7 @@ export async function collectCustomerDue(payload: DueCollectionPayload) {
         reference: collectionId,
         description: `Due Collection - ${clientObj.name}`,
         clientId: clientId,
+        warehouseId: resolvedWarehouseId,
         isSystemAction: true,
         lines: voucherLines,
       }, tx);

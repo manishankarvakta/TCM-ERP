@@ -50,7 +50,9 @@ export type CustomOperation =
   | "create-expense"
   | "create-deposit"
   | "create-payment"
-  | "ledger";
+  | "ledger"
+  | "verify"
+  | "reopen";
 
 // Standard operations for pages (as per requirements)
 export type StandardOperation = "create" | "view" | "edit" | "move-to-trash" | "delete-permanently";
@@ -443,6 +445,8 @@ export const OPERATIONS: Record<Operation, OperationMetadata> = {
   "create-deposit": { id: "create-deposit", label: "Create Deposit", description: "Create deposit (contra) vouchers via dashboard", category: "custom" },
   "create-payment": { id: "create-payment", label: "Create Payment", description: "Create payment vouchers via dashboard", category: "custom" },
   ledger: { id: "ledger", label: "View Ledger", description: "View ledger statement and transaction history", category: "custom" },
+  verify: { id: "verify", label: "Verify Closing", description: "Verify and lock cashier POS closing", category: "custom" },
+  reopen: { id: "reopen", label: "Reopen Closing", description: "Reopen locked cashier POS closing for edits", category: "custom" },
 };
 
 // Helper function to get all modules
@@ -611,6 +615,12 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         path: "/dashboard/sales/coupons",
         label: "Coupons",
         operations: ["view", "create", "edit", "delete"],
+      },
+      {
+        permissionKey: "sales.daybook",
+        path: "/dashboard/sales/daybook",
+        label: "Daybook / closing",
+        operations: ["view", "create", "edit", "verify", "reopen"],
       },
     ],
   },
