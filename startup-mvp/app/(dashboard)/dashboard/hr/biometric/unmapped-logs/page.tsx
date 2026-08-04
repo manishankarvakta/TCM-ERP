@@ -1,5 +1,5 @@
 import React from "react";
-import { getUnmappedBiometricLogs, getActiveEmployeesForResolve, getActiveDevicesForResolve } from "./_actions/unmapped-logs.action";
+import { getUnmappedBiometricLogs, getActiveEmployeesForResolve, getActiveDevicesForResolve, getUniqueUnmappedPins } from "./_actions/unmapped-logs.action";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import UnmappedLogsListClient from "./_components/unmapped-logs-list";
@@ -12,26 +12,31 @@ interface UnmappedLogsPageProps {
     page?: string;
     search?: string;
     tab?: string;
+    limit?: string;
+    pin?: string;
   }>;
 }
 
 export default async function UnmappedBiometricLogsPage({ searchParams }: UnmappedLogsPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
+  const limit = parseInt(params.limit || "10");
   const search = params.search || "";
   const tab = params.tab || "unresolved";
+  const pin = params.pin || "";
 
   const session = await auth();
   const userId = session?.user?.id;
 
   const status = tab;
 
-  const [result, employees, devices, canView, canManage] = await Promise.all([
-    getUnmappedBiometricLogs(page, 10, search, status),
+  const [result, employees, devices, canView, canManage, uniquePins] = await Promise.all([
+    getUnmappedBiometricLogs(page, limit, search, status, "", pin),
     getActiveEmployeesForResolve(),
     getActiveDevicesForResolve(),
     userId ? hasPermission(userId, "hr.biometric.view", "view") : false,
     userId ? hasPermission(userId, "hr.biometric.manage", "manage") : false,
+    getUniqueUnmappedPins()
   ]);
 
   if (!result.success) {
@@ -81,6 +86,8 @@ export default async function UnmappedBiometricLogsPage({ searchParams }: Unmapp
                 totalPages: 0,
               }}
               initialSearch={search}
+              initialPin={pin}
+              uniquePins={uniquePins || []}
               employees={employees}
               devices={devices}
               permissions={{ view: canView, manage: canManage }}

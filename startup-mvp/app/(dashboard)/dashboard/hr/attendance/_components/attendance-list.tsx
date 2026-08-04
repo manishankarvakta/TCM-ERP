@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -21,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FiSearch, FiCheckSquare, FiAlertCircle, FiEdit } from "react-icons/fi";
-import { processBulkAttendance } from "../_actions/attendance.action";
+import { processBulkAttendance, closeShiftBulk } from "../_actions/attendance.action";
 import { getWarehouses } from "../../../master/warehouses/_actions/warehouse.action";
 import { getEmployees } from "../../../employees/_actions/employee.action";
 import { format } from "date-fns";
@@ -84,6 +85,7 @@ interface AttendanceListClientProps {
     view: boolean;
     edit: boolean;
   };
+  weekends?: number[];
 }
 
 const formatHoursMinutes = (decimalHours: any) => {
@@ -106,6 +108,7 @@ export default function AttendanceListClient({
   pagination,
   filters,
   permissions,
+  weekends = [0, 6],
 }: AttendanceListClientProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -115,6 +118,47 @@ export default function AttendanceListClient({
   const [localFilters, setLocalFilters] = useState(filters);
   const [warehouses, setWarehouses] = useState<{id: string, name: string}[]>([]);
   const [employees, setEmployees] = useState<{id: string, name: string, employeeCode: string | null}[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Clear selections when attendance records change (e.g. after pagination/filtering)
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [initialAttendances]);
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(initialAttendances.map((record) => record.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectRecord = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds((prev) => [...prev, id]);
+    } else {
+      setSelectedIds((prev) => prev.filter((x) => x !== id));
+    }
+  };
+
+  const handleCloseShiftBulk = () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to automatically close the shift for ${selectedIds.length} selected employee(s)?`)) return;
+
+    startTransition(async () => {
+      const result = await closeShiftBulk(selectedIds);
+      if (result.success) {
+        toast({ 
+          title: "Success", 
+          description: result.message + (result.warnings ? ` Warnings: ${result.warnings.join(", ")}` : "")
+        });
+        setSelectedIds([]);
+        router.refresh();
+      } else {
+        toast({ variant: "destructive", title: "Error", description: result.error });
+      }
+    });
+  };
 
   useEffect(() => {
     async function loadDropdowns() {
@@ -346,6 +390,7 @@ export default function AttendanceListClient({
               </SelectTrigger>
               <SelectContent className="max-h-[250px]">
                 <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="ON_DUTY">Still on duty</SelectItem>
                 <SelectItem value="PRESENT">Present</SelectItem>
                 <SelectItem value="ABSENT">Absent</SelectItem>
                 <SelectItem value="LATE">Late</SelectItem>
@@ -396,10 +441,20 @@ export default function AttendanceListClient({
               Apply Search
             </Button>
             {permissions?.edit && (
-              <Button onClick={handleProcessBulk} disabled={isPending || !localFilters.fromDate} variant="secondary">
-                <FiCheckSquare className="mr-2 h-4 w-4" />
-                Process Un-Punched as Absent
-              </Button>
+              <>
+                <Button 
+                  onClick={handleCloseShiftBulk} 
+                  disabled={isPending || selectedIds.length === 0} 
+                  className="bg-green-600 hover:bg-green-700 text-white font-medium"
+                >
+                  <FiCheckSquare className="mr-2 h-4 w-4" />
+                  Close Shift {selectedIds.length > 0 ? `(${selectedIds.length})` : ""}
+                </Button>
+                <Button onClick={handleProcessBulk} disabled={isPending || !localFilters.fromDate} variant="secondary">
+                  <FiCheckSquare className="mr-2 h-4 w-4" />
+                  Process Un-Punched as Absent
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -410,6 +465,12 @@ export default function AttendanceListClient({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[40px]">
+                <Checkbox
+                  checked={initialAttendances.length > 0 && selectedIds.length === initialAttendances.length}
+                  onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                />
+              </TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Employee</TableHead>
               <TableHead>Check In</TableHead>
@@ -424,16 +485,30 @@ export default function AttendanceListClient({
           <TableBody>
             {initialAttendances.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                   No attendance records found.
                 </TableCell>
               </TableRow>
             ) : (
-              initialAttendances.map((record) => (
-                <TableRow key={record.id}>
-                  <TableCell className="font-medium whitespace-nowrap">
-                    {format(new Date(record.date), "MMM d, yyyy")}
-                  </TableCell>
+              initialAttendances.map((record) => {
+                const isWeekend = record.status === "WEEKEND" || weekends.includes(new Date(record.date).getUTCDay());
+                return (
+                  <TableRow key={record.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.includes(record.id)}
+                        onCheckedChange={(checked) => handleSelectRecord(record.id, !!checked)}
+                      />
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <div className="font-medium">{format(new Date(record.date), "MMM d, yyyy")}</div>
+                      <div 
+                        className="text-xs text-muted-foreground"
+                        style={isWeekend ? { color: "tomato" } : undefined}
+                      >
+                        {format(new Date(record.date), "EEEE")}
+                      </div>
+                    </TableCell>
                   <TableCell>
                     <div className="font-medium">{record.employee.name}</div>
                     <div className="text-xs text-muted-foreground">
@@ -507,7 +582,8 @@ export default function AttendanceListClient({
                     </TableCell>
                   )}
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>

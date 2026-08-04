@@ -10,7 +10,8 @@ export async function getUnmappedBiometricLogs(
   limit = 10,
   search = "",
   status = "all", // "unresolved", "resolved", "all"
-  deviceSerialNumber = ""
+  deviceSerialNumber = "",
+  deviceUserId = ""
 ) {
   try {
     const session = await auth();
@@ -37,6 +38,10 @@ export async function getUnmappedBiometricLogs(
 
     if (deviceSerialNumber) {
       where.deviceSerialNumber = deviceSerialNumber;
+    }
+
+    if (deviceUserId) {
+      where.deviceUserId = { contains: deviceUserId, mode: "insensitive" };
     }
 
     if (status === "unresolved") {
@@ -133,6 +138,30 @@ export async function markUnmappedLogIgnored(id: string) {
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to ignore log" };
+  }
+}
+
+export async function bulkMarkUnmappedLogsIgnored(ids: string[]) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const hasManagePerm = await hasPermission(session.user.id, "hr.biometric.manage", "manage");
+    if (!hasManagePerm) {
+      return { success: false, error: "Forbidden: insufficient permissions" };
+    }
+
+    await prisma.unmappedBiometricLog.updateMany({
+      where: { id: { in: ids } },
+      data: { status: "IGNORED" }
+    });
+
+    revalidatePath("/dashboard/hr/biometric/unmapped-logs");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to bulk ignore logs" };
   }
 }
 
@@ -266,6 +295,24 @@ export async function getActiveDevicesForResolve() {
       orderBy: { name: "asc" }
     });
   } catch (e) {
+    return [];
+  }
+}
+
+export async function getUniqueUnmappedPins() {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return [];
+
+    const pins = await prisma.unmappedBiometricLog.findMany({
+      select: { deviceUserId: true },
+      distinct: ["deviceUserId"],
+      orderBy: { deviceUserId: "asc" }
+    });
+
+    return pins.map(p => p.deviceUserId).filter(Boolean);
+  } catch (e) {
+    console.error("Error fetching unique pins:", e);
     return [];
   }
 }

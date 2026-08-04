@@ -61,14 +61,21 @@ export default async function BiometricDevicesPage({ searchParams }: DevicesPage
             <h1 className="text-2xl font-semibold">Biometric Devices</h1>
             <p className="text-sm text-muted-foreground">Manage ZKTeco and biometric attendance devices.</p>
           </div>
-          {canManage && (
-            <Button asChild>
-              <Link href="/dashboard/hr/biometric/devices/add">
-                <FiPlus className="mr-2 h-4 w-4" />
-                Add Device
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/hr/biometric/unmapped-logs">
+                Unprocessed Biometrics
               </Link>
             </Button>
-          )}
+            {canManage && (
+              <Button asChild>
+                <Link href="/dashboard/hr/biometric/devices/add">
+                  <FiPlus className="mr-2 h-4 w-4" />
+                  Add Device
+                </Link>
+              </Button>
+            )}
+          </div>
         </div>
 
         <Tabs defaultValue={tab} className="w-full">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -13,9 +14,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { FiEye, FiSettings } from "react-icons/fi";
+import { FiEye, FiSettings, FiTrash2 } from "react-icons/fi";
 import { format } from "date-fns";
 import { PayrollStatus } from "@prisma/client";
+import { deletePayroll } from "../_actions/payroll.action";
 
 interface Payroll {
   id: string;
@@ -62,6 +64,20 @@ export default function PayrollListClient({
 }: PayrollListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
+
+  const handleDelete = (id: string, payrollNumber: string) => {
+    if (window.confirm(`Are you sure you want to delete Draft Payroll ${payrollNumber}?`)) {
+      startTransition(async () => {
+        const res = await deletePayroll(id);
+        if (res.success) {
+          router.refresh();
+        } else {
+          alert(res.error || "Failed to delete payroll");
+        }
+      });
+    }
+  };
 
   const formatCurrency = (amount: any) => {
     return `৳${Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -201,7 +217,7 @@ export default function PayrollListClient({
                   <TableCell>
                     {getStatusBadge(pr.status)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right flex items-center justify-end gap-2">
                     <Button variant="outline" size="sm" asChild>
                       <Link href={`/dashboard/hr/payroll/${pr.id}`}>
                         {pr.status === "DRAFT" || pr.status === "APPROVED" ? (
@@ -211,6 +227,16 @@ export default function PayrollListClient({
                         )}
                       </Link>
                     </Button>
+                    {pr.status === "DRAFT" && permissions?.edit && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDelete(pr.id, pr.payrollNumber)}
+                        disabled={isPending}
+                      >
+                        <FiTrash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))

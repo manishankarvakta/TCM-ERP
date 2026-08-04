@@ -27,7 +27,7 @@ export async function getPayrollAttendanceWarnings(input: { fromDate: Date, toDa
       severity: "critical",
       count: unknownPunches,
       message: "Some biometric punches are not mapped to employees. Please resolve them before generating payroll to ensure accurate attendance.",
-      href: "/dashboard/hr/biometric/devices"
+      href: "/dashboard/hr/biometric/unmapped-logs"
     });
   }
 

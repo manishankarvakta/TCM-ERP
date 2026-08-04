@@ -24,10 +24,10 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { FiCheck, FiFileText, FiSend, FiDownload, FiPrinter } from "react-icons/fi";
+import { FiCheck, FiFileText, FiSend, FiDownload, FiPrinter, FiTrash2, FiRotateCcw } from "react-icons/fi";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { updatePayrollStatus, postPayroll, disbursePayroll } from "@/app/(dashboard)/dashboard/hr/payroll/_actions/payroll.action";
+import { updatePayrollStatus, postPayroll, disbursePayroll, voidPayroll, deletePayroll } from "@/app/(dashboard)/dashboard/hr/payroll/_actions/payroll.action";
 import { format } from "date-fns";
 
 interface PayrollDetailsClientProps {
@@ -75,6 +75,48 @@ export default function PayrollDetailsClient({
         toast({ title: "Error", description: result.error || "Failed to approve", variant: "destructive" });
       }
     });
+  };
+
+  const handleDelete = () => {
+    if (window.confirm(`Are you sure you want to delete Draft Payroll ${payroll.payrollNumber}?`)) {
+      startTransition(async () => {
+        const result = await deletePayroll(payroll.id);
+        if (result.success) {
+          toast({ title: "Success", description: "Payroll deleted successfully" });
+          router.push("/dashboard/hr/payroll");
+        } else {
+          toast({ title: "Error", description: result.error || "Failed to delete", variant: "destructive" });
+        }
+      });
+    }
+  };
+
+  const handleResetToDraft = () => {
+    if (window.confirm("Are you sure you want to reset this Approved payroll back to Draft?")) {
+      startTransition(async () => {
+        const result = await updatePayrollStatus(payroll.id, "DRAFT");
+        if (result.success) {
+          toast({ title: "Success", description: "Payroll reverted to Draft successfully" });
+          router.refresh();
+        } else {
+          toast({ title: "Error", description: result.error || "Failed to reset status", variant: "destructive" });
+        }
+      });
+    }
+  };
+
+  const handleVoid = () => {
+    if (window.confirm("WARNING: This will void the posted accrual voucher and unlock all attendance records for this period. Are you sure you want to proceed?")) {
+      startTransition(async () => {
+        const result = await voidPayroll(payroll.id);
+        if (result.success) {
+          toast({ title: "Success", description: "Payroll successfully voided and reverted to Draft." });
+          router.refresh();
+        } else {
+          toast({ title: "Error", description: result.error || "Failed to void payroll", variant: "destructive" });
+        }
+      });
+    }
   };
 
   const handlePost = () => {
@@ -157,24 +199,42 @@ export default function PayrollDetailsClient({
           </Button>
 
           {payroll.status === "DRAFT" && permissions.canApprove && (
-            <Button onClick={handleApprove} disabled={isPending}>
-              <FiCheck className="mr-2 h-4 w-4" />
-              Approve Payroll
-            </Button>
+            <>
+              <Button onClick={handleApprove} disabled={isPending}>
+                <FiCheck className="mr-2 h-4 w-4" />
+                Approve Payroll
+              </Button>
+              <Button variant="destructive" onClick={handleDelete} disabled={isPending}>
+                <FiTrash2 className="mr-2 h-4 w-4" />
+                Delete Draft
+              </Button>
+            </>
           )}
           
           {payroll.status === "APPROVED" && permissions.canPost && (
-            <Button onClick={() => setPostModalOpen(true)} disabled={isPending} className="bg-emerald-600 hover:bg-emerald-700">
-              <FiSend className="mr-2 h-4 w-4" />
-              Post to Accounting
-            </Button>
+            <>
+              <Button onClick={() => setPostModalOpen(true)} disabled={isPending} className="bg-emerald-600 hover:bg-emerald-700">
+                <FiSend className="mr-2 h-4 w-4" />
+                Post to Accounting
+              </Button>
+              <Button variant="outline" onClick={handleResetToDraft} disabled={isPending}>
+                <FiRotateCcw className="mr-2 h-4 w-4" />
+                Reset to Draft
+              </Button>
+            </>
           )}
 
           {payroll.status === "POSTED" && !payroll.paymentVchId && permissions.canPost && (
-            <Button onClick={() => setDisburseModalOpen(true)} disabled={isPending} className="bg-purple-600 hover:bg-purple-700">
-              <FiSend className="mr-2 h-4 w-4" />
-              Disburse Salary
-            </Button>
+            <>
+              <Button onClick={() => setDisburseModalOpen(true)} disabled={isPending} className="bg-purple-600 hover:bg-purple-700">
+                <FiSend className="mr-2 h-4 w-4" />
+                Disburse Salary
+              </Button>
+              <Button variant="destructive" onClick={handleVoid} disabled={isPending}>
+                <FiRotateCcw className="mr-2 h-4 w-4" />
+                Void & Revert
+              </Button>
+            </>
           )}
 
           {payroll.status === "POSTED" && payroll.voucherId && (

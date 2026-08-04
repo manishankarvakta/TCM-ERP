@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 interface PayrollHeaderActionsProps {
   canCreate: boolean;
@@ -29,19 +31,20 @@ export default function PayrollHeaderActions({ canCreate, canEdit }: PayrollHead
   const [isPending, startTransition] = useTransition();
   const [isChecking, setIsChecking] = useState(false);
   const [showWarningModal, setShowWarningModal] = useState(false);
+  const [generateModalOpen, setGenerateModalOpen] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth() + 1));
+  const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const [warnings, setWarnings] = useState<any[]>([]);
   const router = useRouter();
 
-  const currentMonth = new Date().getMonth() + 1;
-  const currentYear = new Date().getFullYear();
-
   const handlePreCheck = async () => {
     setIsChecking(true);
-    const result = await getPayrollWarningsAction(currentMonth, currentYear);
+    const result = await getPayrollWarningsAction(Number(selectedMonth), Number(selectedYear));
     setIsChecking(false);
 
     if (result.success && result.data && result.data.warnings.length > 0) {
       setWarnings(result.data.warnings);
+      setGenerateModalOpen(false);
       setShowWarningModal(true);
     } else {
       handleGenerate();
@@ -50,13 +53,14 @@ export default function PayrollHeaderActions({ canCreate, canEdit }: PayrollHead
 
   const handleGenerate = () => {
     setShowWarningModal(false);
+    setGenerateModalOpen(false);
     startTransition(async () => {
-      const result = await generatePayroll(currentMonth, currentYear);
+      const result = await generatePayroll(Number(selectedMonth), Number(selectedYear));
       
       if (result.success) {
         toast({
           title: "Success",
-          description: "Payroll generated successfully for this month.",
+          description: "Payroll generated successfully.",
         });
         router.refresh();
       } else {
@@ -81,12 +85,73 @@ export default function PayrollHeaderActions({ canCreate, canEdit }: PayrollHead
           </Button>
         )}
         {canCreate && (
-          <Button onClick={handlePreCheck} disabled={isPending || isChecking}>
+          <Button onClick={() => setGenerateModalOpen(true)} disabled={isPending || isChecking}>
             <FiPlus className="mr-2 h-4 w-4" />
-            {isChecking ? "Checking..." : isPending ? "Generating..." : "Generate This Month"}
+            {isChecking ? "Checking..." : isPending ? "Generating..." : "Generate Payroll"}
           </Button>
         )}
       </div>
+
+      <Dialog open={generateModalOpen} onOpenChange={setGenerateModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Generate Payroll</DialogTitle>
+            <DialogDescription>
+              Select the month and year for which you want to generate payroll.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="month">Month</Label>
+              <Select modal={false} value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger id="month">
+                  <SelectValue placeholder="Select Month" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const m = i + 1;
+                    const name = new Date(0, i).toLocaleString("default", { month: "long" });
+                    return (
+                      <SelectItem key={m} value={String(m)}>
+                        {name}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="year">Year</Label>
+              <Select modal={false} value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger id="year">
+                  <SelectValue placeholder="Select Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 5 }, (_, i) => {
+                    const y = new Date().getFullYear() - 2 + i;
+                    return (
+                      <SelectItem key={y} value={String(y)}>
+                        {y}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGenerateModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handlePreCheck} disabled={isPending || isChecking}>
+              {isChecking ? "Checking..." : isPending ? "Generating..." : "Generate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showWarningModal} onOpenChange={setShowWarningModal}>
         <DialogContent className="max-w-2xl">
@@ -129,3 +194,4 @@ export default function PayrollHeaderActions({ canCreate, canEdit }: PayrollHead
     </>
   );
 }
+

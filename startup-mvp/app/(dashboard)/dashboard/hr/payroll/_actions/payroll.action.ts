@@ -43,7 +43,6 @@ export interface GeneratePayrollOptions {
 export async function generatePayroll(month: number, year: number, options?: GeneratePayrollOptions) {
   try {
     await syncTimezoneFromDb();
-    
     const session = await auth();
     if (!session?.user) {
       return { success: false, error: "Unauthorized" };
@@ -1332,3 +1331,73 @@ export async function voidPayroll(payrollId: string) {
   }
 }
 
+/**
+ * Delete Payroll (Draft only)
+ */
+export async function deletePayroll(payrollId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const canDelete = await hasPermission(session.user.id, "hr.payroll", "delete");
+    if (!canDelete) return { success: false, error: "Permission denied" };
+
+    const payroll = await prisma.payroll.findUnique({
+      where: { id: payrollId },
+    });
+
+    if (!payroll) return { success: false, error: "Payroll not found" };
+    if (payroll.status !== "DRAFT") {
+      return { success: false, error: "Only draft payrolls can be deleted." };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Revert status of applied fines
+      await tx.employeeFine.updateMany({
+        where: { payrollId },
+        data: {
+          status: "APPROVED",
+          payrollId: null,
+        },
+      });
+
+      // 2. Revert status of applied bonuses
+      await tx.employeeBonus.updateMany({
+        where: { payrollId },
+        data: {
+          status: "APPROVED",
+          payrollId: null,
+        },
+      });
+
+      // 3. Delete payroll items
+      await tx.payrollItem.deleteMany({
+        where: { payrollId },
+      });
+
+      // 4. Soft-delete payroll by setting isTrash: true and renaming payrollNumber to avoid unique constraint collision
+      await tx.payroll.update({
+        where: { id: payrollId },
+        data: {
+          isTrash: true,
+          payrollNumber: `${payroll.payrollNumber}-deleted-${Date.now()}`,
+        },
+      });
+    });
+
+    await logItemUpdated(
+      session.user.id,
+      "Payroll",
+      payrollId,
+      ["isTrash:true"],
+      `Payroll ${payroll.payrollNumber} Deleted (Moved to Trash)`
+    );
+
+    revalidateBothPaths("hr/payroll");
+
+    return { success: true, message: "Payroll deleted successfully" };
+  } catch (error) {
+    console.error("deletePayroll error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to delete payroll" };
+  }
+}

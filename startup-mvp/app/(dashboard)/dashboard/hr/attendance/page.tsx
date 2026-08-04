@@ -7,6 +7,7 @@ import AttendanceListClient from "./_components/attendance-list";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import BiometricSyncButton from "./_components/biometric-sync-button";
+import { getPayrollSettings } from "@/lib/payroll-settings";
 
 interface AttendancePageProps {
   searchParams: Promise<{
@@ -41,8 +42,8 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
   const session = await auth();
   const userId = session?.user?.id;
 
-  // Check permissions
-  const [result, canView, canEdit] = await Promise.all([
+  // Check permissions & settings
+  const [result, canView, canEdit, payrollSettings] = await Promise.all([
     getAttendanceRecordsPaginated({
       page,
       limit,
@@ -56,6 +57,7 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
     }),
     userId ? hasPermission(userId, "hr.attendance", "view") : false,
     userId ? hasPermission(userId, "hr.attendance", "edit") : false,
+    getPayrollSettings(),
   ]);
 
   if (!result.success) {
@@ -122,6 +124,7 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
           view: canView,
           edit: canEdit,
         }}
+        weekends={payrollSettings.calculation.weekends}
       />
     </div>
   );
