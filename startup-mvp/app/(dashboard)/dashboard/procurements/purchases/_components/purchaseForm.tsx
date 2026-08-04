@@ -13,6 +13,7 @@ import {
   setDiscount as setReduxDiscount,
   setTax as setReduxTax,
   addItem as addReduxItem,
+  prependItem as prependReduxItem,
   removeItem as removeReduxItem,
   initializePurchase,
   resetPurchase,
@@ -332,7 +333,7 @@ export default function PurchaseForm({
         },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, prepend, remove } = useFieldArray({
     control,
     name: "items",
   });
@@ -684,8 +685,7 @@ export default function PurchaseForm({
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    const newIndex = fields.length;
-                    append({
+                    prepend({
                       itemId: "",
                       description: "",
                       quantity: 1,
@@ -693,10 +693,10 @@ export default function PurchaseForm({
                       amount: 0,
                     });
                     // Sync with Redux
-                    dispatch(addReduxItem());
-                    // Auto-focus the new item's select dropdown after render
+                    dispatch(prependReduxItem());
+                    // Auto-focus the new item's select dropdown after render (which is at index 0)
                     setTimeout(() => {
-                      const newSelectTrigger = document.querySelector(`[data-item-select-index="${newIndex}"]`);
+                      const newSelectTrigger = document.querySelector(`[data-item-select-index="0"]`);
                       if (newSelectTrigger instanceof HTMLElement) {
                         newSelectTrigger.click();
                       }

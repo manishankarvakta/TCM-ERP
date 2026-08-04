@@ -128,7 +128,7 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, prepend, remove } = useFieldArray({
     control,
     name: "items",
   });
@@ -459,7 +459,7 @@ export default function RTVForm({ suppliers, warehouses, items, purchase }: any)
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => append({ itemId: "", variantId: "", description: "", availableQuantity: 0, quantity: 1, unitPrice: 0, amount: 0, reason: "" })}
+                  onClick={() => prepend({ itemId: "", variantId: "", description: "", availableQuantity: 0, quantity: 1, unitPrice: 0, amount: 0, reason: "" })}
                 >
                   <FiPlus className="mr-2 h-4 w-4" />
                   Add Item

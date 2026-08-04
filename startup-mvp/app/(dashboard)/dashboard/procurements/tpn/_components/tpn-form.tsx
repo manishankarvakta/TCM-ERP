@@ -143,7 +143,7 @@ export default function TpnForm({ warehouses, items, user }: TpnFormProps) {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, prepend, remove } = useFieldArray({
     control: form.control,
     name: "items",
   });
@@ -375,7 +375,7 @@ export default function TpnForm({ warehouses, items, user }: TpnFormProps) {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium">Items to Transfer</h3>
-            <Button type="button" variant="outline" size="sm" onClick={() => append({ itemId: "", quantity: 1, description: "" })}>
+            <Button type="button" variant="outline" size="sm" onClick={() => prepend({ itemId: "", quantity: 1, description: "" })}>
               <Plus className="mr-2 h-4 w-4" /> Add Item
             </Button>
         </div>

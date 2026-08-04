@@ -118,6 +118,18 @@ const purchaseSlice = createSlice({
       });
     },
 
+    // Prepend new item
+    prependItem: (state) => {
+      state.items.unshift({
+        itemId: '',
+        variantId: '',
+        description: '',
+        quantity: 1,
+        unitPrice: 0,
+        amount: 0,
+      });
+    },
+
     // Remove item
     removeItem: (state, action: PayloadAction<number>) => {
       if (state.items.length > 1) {
@@ -170,6 +182,7 @@ export const {
   setUnitPrice,
   setDescription,
   addItem,
+  prependItem,
   removeItem,
   setDiscount,
   setTax,
