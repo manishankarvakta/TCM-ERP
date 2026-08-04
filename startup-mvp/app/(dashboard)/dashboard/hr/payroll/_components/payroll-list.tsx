@@ -14,10 +14,21 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { FiEye, FiSettings, FiTrash2 } from "react-icons/fi";
+import { FiEye, FiSettings, FiTrash2, FiRotateCcw } from "react-icons/fi";
 import { format } from "date-fns";
 import { PayrollStatus } from "@prisma/client";
-import { deletePayroll } from "../_actions/payroll.action";
+import { deletePayroll, restorePayroll, deletePayrollPermanently } from "../_actions/payroll.action";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Payroll {
   id: string;
@@ -54,6 +65,8 @@ interface PayrollListClientProps {
   permissions?: {
     view: boolean;
     edit: boolean;
+    delete?: boolean;
+    deletePermanently?: boolean;
   };
 }
 
@@ -64,19 +77,68 @@ export default function PayrollListClient({
 }: PayrollListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false);
+  const [permanentDeleteConfirmOpen, setPermanentDeleteConfirmOpen] = useState(false);
+  const [targetPayroll, setTargetPayroll] = useState<{ id: string; payrollNumber: string } | null>(null);
 
-  const handleDelete = (id: string, payrollNumber: string) => {
-    if (window.confirm(`Are you sure you want to delete Draft Payroll ${payrollNumber}?`)) {
-      startTransition(async () => {
-        const res = await deletePayroll(id);
-        if (res.success) {
-          router.refresh();
-        } else {
-          alert(res.error || "Failed to delete payroll");
-        }
-      });
-    }
+  const currentStatus = searchParams.get("status") || "ALL";
+  const isTrashTab = currentStatus === "TRASH";
+
+  const triggerDelete = (id: string, payrollNumber: string) => {
+    setTargetPayroll({ id, payrollNumber });
+    setDeleteConfirmOpen(true);
+  };
+
+  const triggerRestore = (id: string, payrollNumber: string) => {
+    setTargetPayroll({ id, payrollNumber });
+    setRestoreConfirmOpen(true);
+  };
+
+  const triggerPermanentDelete = (id: string, payrollNumber: string) => {
+    setTargetPayroll({ id, payrollNumber });
+    setPermanentDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (!targetPayroll) return;
+    startTransition(async () => {
+      const res = await deletePayroll(targetPayroll.id);
+      if (res.success) {
+        toast({ title: "Success", description: `Payroll ${targetPayroll.payrollNumber} moved to trash successfully` });
+        router.refresh();
+      } else {
+        toast({ title: "Error", description: res.error || "Failed to delete payroll", variant: "destructive" });
+      }
+    });
+  };
+
+  const confirmRestore = () => {
+    if (!targetPayroll) return;
+    startTransition(async () => {
+      const res = await restorePayroll(targetPayroll.id);
+      if (res.success) {
+        toast({ title: "Success", description: `Payroll ${targetPayroll.payrollNumber.split("-deleted-")[0]} restored successfully` });
+        router.refresh();
+      } else {
+        toast({ title: "Error", description: res.error || "Failed to restore payroll", variant: "destructive" });
+      }
+    });
+  };
+
+  const confirmPermanentDelete = () => {
+    if (!targetPayroll) return;
+    startTransition(async () => {
+      const res = await deletePayrollPermanently(targetPayroll.id);
+      if (res.success) {
+        toast({ title: "Success", description: `Payroll ${targetPayroll.payrollNumber} permanently deleted` });
+        router.refresh();
+      } else {
+        toast({ title: "Error", description: res.error || "Failed to permanently delete payroll", variant: "destructive" });
+      }
+    });
   };
 
   const formatCurrency = (amount: any) => {
@@ -218,24 +280,53 @@ export default function PayrollListClient({
                     {getStatusBadge(pr.status)}
                   </TableCell>
                   <TableCell className="text-right flex items-center justify-end gap-2">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/dashboard/hr/payroll/${pr.id}`}>
-                        {pr.status === "DRAFT" || pr.status === "APPROVED" ? (
-                          <><FiSettings className="mr-2 h-4 w-4" /> Manage</>
-                        ) : (
-                          <><FiEye className="mr-2 h-4 w-4" /> View</>
+                    {isTrashTab ? (
+                      <>
+                        {permissions?.delete && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => triggerRestore(pr.id, pr.payrollNumber)}
+                            disabled={isPending}
+                            title="Restore Payroll"
+                          >
+                            <FiRotateCcw className="mr-2 h-4 w-4" /> Restore
+                          </Button>
                         )}
-                      </Link>
-                    </Button>
-                    {pr.status === "DRAFT" && permissions?.edit && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(pr.id, pr.payrollNumber)}
-                        disabled={isPending}
-                      >
-                        <FiTrash2 className="h-4 w-4" />
-                      </Button>
+                        {permissions?.deletePermanently && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => triggerPermanentDelete(pr.id, pr.payrollNumber)}
+                            disabled={isPending}
+                            title="Delete Permanently"
+                          >
+                            <FiTrash2 className="mr-2 h-4 w-4" /> Delete
+                          </Button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href={`/dashboard/hr/payroll/${pr.id}`}>
+                            {pr.status === "DRAFT" || pr.status === "APPROVED" ? (
+                              <><FiSettings className="mr-2 h-4 w-4" /> Manage</>
+                            ) : (
+                              <><FiEye className="mr-2 h-4 w-4" /> View</>
+                            )}
+                          </Link>
+                        </Button>
+                        {pr.status === "DRAFT" && permissions?.delete && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => triggerDelete(pr.id, pr.payrollNumber)}
+                            disabled={isPending}
+                          >
+                            <FiTrash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </>
                     )}
                   </TableCell>
                 </TableRow>
@@ -280,6 +371,71 @@ export default function PayrollListClient({
           </div>
         </div>
       )}
+
+      {/* Delete Draft Confirmation */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this draft payroll?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the Draft Payroll {targetPayroll?.payrollNumber} and all its aggregated item records. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmDelete}
+              disabled={isPending}
+            >
+              {isPending ? "Deleting..." : "Delete Draft"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Restore Confirmation */}
+      <AlertDialog open={restoreConfirmOpen} onOpenChange={setRestoreConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore Payroll?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will restore the Payroll {targetPayroll?.payrollNumber?.split("-deleted-")[0]} from Trash back to Draft status.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRestore}
+              disabled={isPending}
+            >
+              {isPending ? "Restoring..." : "Restore"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Permanently Confirmation */}
+      <AlertDialog open={permanentDeleteConfirmOpen} onOpenChange={setPermanentDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">Permanently Delete Payroll?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete Payroll {targetPayroll?.payrollNumber}? This action is irreversible and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmPermanentDelete}
+              disabled={isPending}
+            >
+              {isPending ? "Deleting..." : "Delete Permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

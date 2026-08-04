@@ -18,11 +18,13 @@ export default async function PayrollDetailsPage({ params }: PayrollDetailsPageP
   const session = await auth();
   const userId = session?.user?.id;
 
-  const [result, canEdit, canApprove, canPost] = await Promise.all([
+  const [result, canEdit, canApprove, canPost, canDelete, canVoid] = await Promise.all([
     getPayrollById(id),
     userId ? hasPermission(userId, "hr.payroll", "edit") : false,
     userId ? hasPermission(userId, "hr.payroll", "approve") : false,
     userId ? hasPermission(userId, "hr.payroll", "post" as any) : false, // or accounts.vouchers create
+    userId ? hasPermission(userId, "hr.payroll", "move-to-trash") : false,
+    userId ? hasPermission(userId, "hr.payroll", "delete-permanently") : false,
   ]);
 
   // Fallback for posting if user has voucher creation permission instead of explicit hr.payroll post
@@ -81,7 +83,9 @@ export default async function PayrollDetailsPage({ params }: PayrollDetailsPageP
           permissions={{
             canEdit,
             canApprove,
-            canPost: finalCanPost
+            canPost: finalCanPost,
+            canDelete,
+            canVoid,
           }}
         />
       </div>

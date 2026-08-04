@@ -21,6 +21,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -38,6 +48,8 @@ interface PayrollDetailsClientProps {
     canEdit: boolean;
     canApprove: boolean;
     canPost: boolean;
+    canDelete: boolean;
+    canVoid: boolean;
   };
 }
 
@@ -54,6 +66,10 @@ export default function PayrollDetailsClient({
   const [disburseModalOpen, setDisburseModalOpen] = useState(false);
   const [selectedExpenseAccount, setSelectedExpenseAccount] = useState<string>("");
   const [selectedCashBankAccount, setSelectedCashBankAccount] = useState<string>("");
+
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [voidConfirmOpen, setVoidConfirmOpen] = useState(false);
 
   const formatCurrency = (amount: any) => {
     return `৳${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -77,46 +93,40 @@ export default function PayrollDetailsClient({
     });
   };
 
-  const handleDelete = () => {
-    if (window.confirm(`Are you sure you want to delete Draft Payroll ${payroll.payrollNumber}?`)) {
-      startTransition(async () => {
-        const result = await deletePayroll(payroll.id);
-        if (result.success) {
-          toast({ title: "Success", description: "Payroll deleted successfully" });
-          router.push("/dashboard/hr/payroll");
-        } else {
-          toast({ title: "Error", description: result.error || "Failed to delete", variant: "destructive" });
-        }
-      });
-    }
+  const confirmDelete = () => {
+    startTransition(async () => {
+      const result = await deletePayroll(payroll.id);
+      if (result.success) {
+        toast({ title: "Success", description: "Payroll deleted successfully" });
+        router.push("/dashboard/hr/payroll");
+      } else {
+        toast({ title: "Error", description: result.error || "Failed to delete", variant: "destructive" });
+      }
+    });
   };
 
-  const handleResetToDraft = () => {
-    if (window.confirm("Are you sure you want to reset this Approved payroll back to Draft?")) {
-      startTransition(async () => {
-        const result = await updatePayrollStatus(payroll.id, "DRAFT");
-        if (result.success) {
-          toast({ title: "Success", description: "Payroll reverted to Draft successfully" });
-          router.refresh();
-        } else {
-          toast({ title: "Error", description: result.error || "Failed to reset status", variant: "destructive" });
-        }
-      });
-    }
+  const confirmResetToDraft = () => {
+    startTransition(async () => {
+      const result = await updatePayrollStatus(payroll.id, "DRAFT");
+      if (result.success) {
+        toast({ title: "Success", description: "Payroll reverted to Draft successfully" });
+        router.refresh();
+      } else {
+        toast({ title: "Error", description: result.error || "Failed to reset status", variant: "destructive" });
+      }
+    });
   };
 
-  const handleVoid = () => {
-    if (window.confirm("WARNING: This will void the posted accrual voucher and unlock all attendance records for this period. Are you sure you want to proceed?")) {
-      startTransition(async () => {
-        const result = await voidPayroll(payroll.id);
-        if (result.success) {
-          toast({ title: "Success", description: "Payroll successfully voided and reverted to Draft." });
-          router.refresh();
-        } else {
-          toast({ title: "Error", description: result.error || "Failed to void payroll", variant: "destructive" });
-        }
-      });
-    }
+  const confirmVoid = () => {
+    startTransition(async () => {
+      const result = await voidPayroll(payroll.id);
+      if (result.success) {
+        toast({ title: "Success", description: "Payroll successfully voided and reverted to Draft." });
+        router.refresh();
+      } else {
+        toast({ title: "Error", description: result.error || "Failed to void payroll", variant: "destructive" });
+      }
+    });
   };
 
   const handlePost = () => {
@@ -198,16 +208,20 @@ export default function PayrollDetailsClient({
             </Link>
           </Button>
 
-          {payroll.status === "DRAFT" && permissions.canApprove && (
+          {payroll.status === "DRAFT" && (
             <>
-              <Button onClick={handleApprove} disabled={isPending}>
-                <FiCheck className="mr-2 h-4 w-4" />
-                Approve Payroll
-              </Button>
-              <Button variant="destructive" onClick={handleDelete} disabled={isPending}>
-                <FiTrash2 className="mr-2 h-4 w-4" />
-                Delete Draft
-              </Button>
+              {permissions.canApprove && (
+                <Button onClick={handleApprove} disabled={isPending}>
+                  <FiCheck className="mr-2 h-4 w-4" />
+                  Approve Payroll
+                </Button>
+              )}
+              {permissions.canDelete && (
+                <Button variant="destructive" onClick={() => setDeleteConfirmOpen(true)} disabled={isPending}>
+                  <FiTrash2 className="mr-2 h-4 w-4" />
+                  Delete Draft
+                </Button>
+              )}
             </>
           )}
           
@@ -217,23 +231,27 @@ export default function PayrollDetailsClient({
                 <FiSend className="mr-2 h-4 w-4" />
                 Post to Accounting
               </Button>
-              <Button variant="outline" onClick={handleResetToDraft} disabled={isPending}>
+              <Button variant="outline" onClick={() => setResetConfirmOpen(true)} disabled={isPending}>
                 <FiRotateCcw className="mr-2 h-4 w-4" />
                 Reset to Draft
               </Button>
             </>
           )}
 
-          {payroll.status === "POSTED" && !payroll.paymentVchId && permissions.canPost && (
+          {payroll.status === "POSTED" && !payroll.paymentVchId && (
             <>
-              <Button onClick={() => setDisburseModalOpen(true)} disabled={isPending} className="bg-purple-600 hover:bg-purple-700">
-                <FiSend className="mr-2 h-4 w-4" />
-                Disburse Salary
-              </Button>
-              <Button variant="destructive" onClick={handleVoid} disabled={isPending}>
-                <FiRotateCcw className="mr-2 h-4 w-4" />
-                Void & Revert
-              </Button>
+              {permissions.canPost && (
+                <Button onClick={() => setDisburseModalOpen(true)} disabled={isPending} className="bg-purple-600 hover:bg-purple-700">
+                  <FiSend className="mr-2 h-4 w-4" />
+                  Disburse Salary
+                </Button>
+              )}
+              {permissions.canVoid && (
+                <Button variant="destructive" onClick={() => setVoidConfirmOpen(true)} disabled={isPending}>
+                  <FiRotateCcw className="mr-2 h-4 w-4" />
+                  Void & Revert
+                </Button>
+              )}
             </>
           )}
 
@@ -489,6 +507,71 @@ export default function PayrollDetailsClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Draft Confirmation */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this draft payroll?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the Draft Payroll {payroll.payrollNumber} and all its aggregated item records. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmDelete}
+              disabled={isPending}
+            >
+              {isPending ? "Deleting..." : "Delete Draft"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset to Draft Confirmation */}
+      <AlertDialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset Payroll to Draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will change the status of Approved Payroll {payroll.payrollNumber} back to Draft, allowing you to re-generate or modify it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmResetToDraft}
+              disabled={isPending}
+            >
+              {isPending ? "Resetting..." : "Reset to Draft"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Void & Revert Confirmation */}
+      <AlertDialog open={voidConfirmOpen} onOpenChange={setVoidConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">WARNING: Void posted payroll?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will void the posted accrual general ledger voucher, unlock all attendance records for this period, and revert the payroll back to Draft status.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmVoid}
+              disabled={isPending}
+            >
+              {isPending ? "Voiding..." : "Void & Revert"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

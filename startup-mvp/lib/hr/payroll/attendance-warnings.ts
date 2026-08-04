@@ -120,7 +120,7 @@ export async function getPayrollAttendanceWarnings(input: { fromDate: Date, toDa
       severity: "info",
       count: missingAttendance,
       message: `There are active employees with ZERO attendance records in this period. Ensure logs are synced.`,
-      href: "/dashboard/hr/attendance"
+      href: "/dashboard/hr/biometric/unmapped-logs"
     });
   }
 

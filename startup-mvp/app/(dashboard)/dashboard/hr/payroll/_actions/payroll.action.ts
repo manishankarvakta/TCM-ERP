@@ -556,16 +556,22 @@ export async function generatePayroll(month: number, year: number, options?: Gen
 /**
  * Get paginated list of payrolls
  */
-export async function getPayrolls(page = 1, limit = 10, year?: number, status?: PayrollStatus) {
+export async function getPayrolls(page = 1, limit = 10, year?: number, status?: PayrollStatus | "TRASH") {
   try {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized", payrolls: [], pagination: null };
 
     const skip = (page - 1) * limit;
-    const where: Prisma.PayrollWhereInput = { isTrash: false };
+    const where: Prisma.PayrollWhereInput = {};
+
+    if (status === "TRASH") {
+      where.isTrash = true;
+    } else {
+      where.isTrash = false;
+      if (status) where.status = status;
+    }
 
     if (year) where.year = year;
-    if (status) where.status = status;
 
     const total = await prisma.payroll.count({ where });
     const payrolls = await prisma.payroll.findMany({
@@ -1230,7 +1236,7 @@ export async function voidPayroll(payrollId: string) {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
 
-    const canVoid = await hasPermission(session.user.id, "hr.payroll", "delete");
+    const canVoid = await hasPermission(session.user.id, "hr.payroll", "delete-permanently");
     if (!canVoid) return { success: false, error: "Permission denied" };
 
     const payroll = await prisma.payroll.findUnique({
@@ -1339,7 +1345,7 @@ export async function deletePayroll(payrollId: string) {
     const session = await auth();
     if (!session?.user) return { success: false, error: "Unauthorized" };
 
-    const canDelete = await hasPermission(session.user.id, "hr.payroll", "delete");
+    const canDelete = await hasPermission(session.user.id, "hr.payroll", "move-to-trash");
     if (!canDelete) return { success: false, error: "Permission denied" };
 
     const payroll = await prisma.payroll.findUnique({
@@ -1399,5 +1405,97 @@ export async function deletePayroll(payrollId: string) {
   } catch (error) {
     console.error("deletePayroll error:", error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to delete payroll" };
+  }
+}
+
+/**
+ * Restore Payroll from Trash
+ */
+export async function restorePayroll(payrollId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const canRestore = await hasPermission(session.user.id, "hr.payroll", "move-to-trash");
+    if (!canRestore) return { success: false, error: "Permission denied" };
+
+    const payroll = await prisma.payroll.findUnique({
+      where: { id: payrollId },
+    });
+
+    if (!payroll) return { success: false, error: "Payroll not found" };
+    if (!payroll.isTrash) return { success: false, error: "Payroll is not in trash" };
+
+    const originalNumber = payroll.payrollNumber.split("-deleted-")[0];
+
+    // Check constraint
+    const existing = await prisma.payroll.findUnique({
+      where: { payrollNumber: originalNumber },
+    });
+    if (existing) {
+      return { success: false, error: `A payroll with number ${originalNumber} already exists. Cannot restore.` };
+    }
+
+    await prisma.payroll.update({
+      where: { id: payrollId },
+      data: {
+        isTrash: false,
+        payrollNumber: originalNumber,
+      },
+    });
+
+    await logItemUpdated(
+      session.user.id,
+      "Payroll",
+      payrollId,
+      ["isTrash:false"],
+      `Payroll ${originalNumber} Restored from Trash`
+    );
+
+    revalidateBothPaths("hr/payroll");
+
+    return { success: true, message: "Payroll restored successfully" };
+  } catch (error) {
+    console.error("restorePayroll error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to restore payroll" };
+  }
+}
+
+/**
+ * Permanently Delete Payroll from Trash
+ */
+export async function deletePayrollPermanently(payrollId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const canDelete = await hasPermission(session.user.id, "hr.payroll", "delete-permanently");
+    if (!canDelete) return { success: false, error: "Permission denied" };
+
+    const payroll = await prisma.payroll.findUnique({
+      where: { id: payrollId },
+    });
+
+    if (!payroll) return { success: false, error: "Payroll not found" };
+    if (!payroll.isTrash) return { success: false, error: "Payroll must be in trash to delete permanently" };
+
+    await prisma.payroll.delete({
+      where: { id: payrollId },
+    });
+
+    await logItemUpdated(
+      session.user.id,
+      "Payroll",
+      payrollId,
+      ["deleted:true"],
+      `Payroll ${payroll.payrollNumber} Permanently Deleted`
+    );
+
+    revalidateBothPaths("hr/payroll");
+
+    return { success: true, message: "Payroll permanently deleted" };
+  } catch (error) {
+    console.error("deletePayrollPermanently error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to permanently delete payroll" };
   }
 }

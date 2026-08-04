@@ -29,11 +29,13 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
   const session = await auth();
   const userId = session?.user?.id;
 
-  const [result, canView, canCreate, canEdit] = await Promise.all([
+  const [result, canView, canCreate, canEdit, canDelete, canDeletePermanently] = await Promise.all([
     getPayrolls(page, 10, year, statusParam === "ALL" ? undefined : statusParam as any),
     userId ? hasPermission(userId, "hr.payroll", "view") : false,
     userId ? hasPermission(userId, "hr.payroll", "create") : false,
     userId ? hasPermission(userId, "hr.payroll", "edit") : false,
+    userId ? hasPermission(userId, "hr.payroll", "move-to-trash") : false,
+    userId ? hasPermission(userId, "hr.payroll", "delete-permanently") : false,
   ]);
 
   const hrGuard = await validateHRMAccountingSetup("PAYROLL_GENERATE");
@@ -95,6 +97,9 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
             <TabsTrigger value="POSTED" asChild>
               <Link href="/dashboard/hr/payroll?status=POSTED&page=1">Posted</Link>
             </TabsTrigger>
+            <TabsTrigger value="TRASH" asChild>
+              <Link href="/dashboard/hr/payroll?status=TRASH&page=1">Trash</Link>
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value={statusParam} className="mt-4">
@@ -104,6 +109,8 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
               permissions={{
                 view: canView,
                 edit: canEdit,
+                delete: canDelete,
+                deletePermanently: canDeletePermanently,
               }}
             />
           </TabsContent>
