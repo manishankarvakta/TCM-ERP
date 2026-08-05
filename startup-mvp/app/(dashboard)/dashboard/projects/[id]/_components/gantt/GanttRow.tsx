@@ -215,7 +215,10 @@ export function GanttRow({
                         </div>
                         
                         {/* External Task Label */}
-                        <span className="ml-2 text-xs font-medium text-foreground whitespace-nowrap opacity-80 hover:opacity-100 transition-opacity cursor-default">
+                        <span 
+                            className="ml-2 text-xs font-medium text-foreground whitespace-normal line-clamp-2 max-w-[250px] opacity-80 hover:opacity-100 transition-opacity cursor-default"
+                            title={node.title}
+                        >
                             {node.title}
                         </span>
                     </div>
