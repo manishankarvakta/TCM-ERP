@@ -560,21 +560,21 @@ model JournalEntryLine {
 model Lead {
   id               String     @id @default(cuid())
   leadNumber       String?    @unique
-  name             String
+  name             String?
   email            String?    @unique
-  phone            String
+  phone            String?
   alternativePhone String?
   company          String?
   source           String?
   website          String?
   facebook         String?
   status           LeadStatus @default(NEW)
-  ownerId          String
+  ownerId          String?
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
   isTrash          Boolean    @default(false)
   deletedAt        DateTime?
-  User             User       @relation(fields: [ownerId], references: [id])
+  User             User?      @relation(fields: [ownerId], references: [id])
   Note             Note[]
   Task             Task[]
   Opportunity      Opportunity[]
@@ -586,6 +586,13 @@ model Lead {
   
   startingDate  DateTime?  @default(now())
   closingReason String?
+
+  // Webhook integration fields
+  externalId  String?    @unique
+  formId      String?
+  pageId      String?
+  messageText String?
+  rawPayload  Json?
 
   @@index([ownerId])
   @@index([status])
@@ -2155,3 +2162,13 @@ model ChecklistItem {
   Checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
   createdAt   DateTime  @default(now())
 }
+
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  source      String
+  eventId     String   @unique
+  payload     Json
+  processed   Boolean  @default(false)
+  receivedAt  DateTime @default(now())
+}
+

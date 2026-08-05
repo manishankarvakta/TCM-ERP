@@ -212,6 +212,51 @@ startup-mvp/
 - File storage uses MinIO (S3-compatible)
 - Database uses PostgreSQL with Prisma ORM
 
+## Webhook Integration Guide (Facebook Lead Ads & WhatsApp Cloud API)
+
+This project integrates with Meta's Graph API and WhatsApp Cloud API to automatically capture leads in real-time.
+
+### 1. Environment Variables Configuration
+
+Add the following variables to your `.env` or `.env.docker` file inside the `startup-mvp` folder:
+
+```env
+# Meta / Facebook API Configuration
+FB_APP_SECRET=your_facebook_app_secret
+FB_VERIFY_TOKEN=your_facebook_webhook_verify_token
+FB_PAGE_ACCESS_TOKEN=your_facebook_page_access_token
+
+# WhatsApp Cloud API Configuration
+WHATSAPP_VERIFY_TOKEN=your_whatsapp_webhook_verify_token
+WHATSAPP_ACCESS_TOKEN=your_whatsapp_permanent_access_token
+WHATSAPP_PHONE_NUMBER_ID=your_whatsapp_phone_number_id
+WHATSAPP_BUSINESS_ACCOUNT_ID=your_whatsapp_business_account_id
+```
+
+### 2. Configure Webhooks in Meta App Dashboard
+
+1. Go to the [Meta App Dashboard](https://developers.facebook.com/).
+2. Under **Products**, add **Webhooks** to your app.
+
+#### Facebook Lead Ads
+- **Callback URL**: `https://<your-domain>/api/webhooks/facebook`
+- **Verify Token**: Must match the `FB_VERIFY_TOKEN` environment variable.
+- Under **Page**, subscribe to the `leadgen` field.
+
+#### WhatsApp Cloud API
+- Under **Products**, add **WhatsApp** to your app.
+- Under **WhatsApp** -> **Configuration**:
+  - **Callback URL**: `https://<your-domain>/api/webhooks/whatsapp`
+  - **Verify Token**: Must match the `WHATSAPP_VERIFY_TOKEN` environment variable.
+  - Subscribe to the `messages` field to capture incoming messages and statuses.
+
+### 3. Reliability and Idempotency
+All incoming webhook requests are verified using HMAC SHA256 signature verification headers. Events are logged in the `WebhookEvent` table for audit trail purposes. To ensure high reliability and to prevent timeout errors from Meta:
+1. Incoming webhook POSTs respond with status `200` immediately.
+2. Webhook payloads are processed asynchronously by a background queue system powered by **BullMQ** and **Redis**.
+3. Duplicate events/retries are discarded automatically using the unique idempotency keys in the `WebhookEvent` model.
+
 ## License
 
 See LICENSE file for details.
+
