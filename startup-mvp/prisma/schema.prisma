@@ -339,6 +339,8 @@ model Employee {
   employmentType                                                 EmploymentType?    @default(PERMANENT)
   utilizationTarget                                              Float?             @default(80.0)
   shiftId                                                        String?
+  deviceUserId                                                   String?            @unique
+  fingerprintDeviceId                                            String?
   attendances                                                    Attendance[]
   attendanceLogs                                                 AttendanceLog[]
   advanceAccount                                                 ChartOfAccount?    @relation("Employee_advanceAccountIdToChartOfAccount", fields: [advanceAccountId], references: [id])
@@ -1737,6 +1739,7 @@ model Warehouse {
   employees Employee[] @relation("WarehouseEmployees")
   holidays  Holiday[]
   defaultUsers User[]   @relation("UserDefaultWarehouse")
+  biometricDevices BiometricDevice[] @relation("WarehouseDevices")
 }
 
 model Shift {
@@ -2022,6 +2025,16 @@ model BiometricDevice {
   createdBy      String
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
+  brand          String?
+  model          String?
+  protocol       String?            @default("TCP_IP")
+  company        String?
+  branchId       String?
+  timeZone       String?            @default("Asia/Dhaka")
+  connectionStatus String?          @default("unknown")
+  autoSync       Boolean            @default(false)
+  syncInterval   Int                @default(60)
+  branch         Warehouse?         @relation("WarehouseDevices", fields: [branchId], references: [id])
   attendanceLogs AttendanceLog[]
   syncLogs       BiometricSyncLog[]
 

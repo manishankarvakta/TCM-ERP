@@ -1,11 +1,13 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import ZKLib from "node-zklib";
 import { auth } from "@/lib/auth";
+import { syncBiometricLogs } from "@/lib/hr/biometric/sync-service";
 
 export async function testDeviceConnection(ip: string, port: number = 4370) {
     try {
+        const ZKLibModule = await import("node-zklib");
+        const ZKLib = ZKLibModule.default || ZKLibModule;
         const zkInstance = new ZKLib(ip, port, 10000, 4000);
         await zkInstance.createSocket();
         
@@ -28,6 +30,8 @@ export async function syncDeviceUsers(deviceId: string) {
             return { success: false, error: "Device or IP not found" };
         }
 
+        const ZKLibModule = await import("node-zklib");
+        const ZKLib = ZKLibModule.default || ZKLibModule;
         const zkInstance = new ZKLib(device.ipAddress, device.port || 4370, 10000, 4000);
         await zkInstance.createSocket();
         
@@ -71,12 +75,30 @@ export async function syncDeviceAttendance(deviceId: string) {
             return { success: false, error: "Device or IP not found" };
         }
 
-        const zkInstance = new ZKLib(device.ipAddress, device.port || 4370, 10000, 4000);
-        await zkInstance.createSocket();
-        
-        const attendances = await zkInstance.getAttendances();
-        await zkInstance.disconnect();
-        
+        let attendances: any = null;
+        try {
+            const ZKLibModule = await import("node-zklib");
+            const ZKLib = ZKLibModule.default || ZKLibModule;
+            const zkInstance = new ZKLib(device.ipAddress, device.port || 4370, 10000, 4000);
+            await zkInstance.createSocket();
+            attendances = await zkInstance.getAttendances();
+            await zkInstance.disconnect();
+            
+            // Mark online since connection succeeded
+            await prisma.biometricDevice.update({
+                where: { id: deviceId },
+                data: { connectionStatus: "online" }
+            });
+        } catch (connErr: any) {
+            console.error("Device connection error:", connErr);
+            // Mark offline since connection failed
+            await prisma.biometricDevice.update({
+                where: { id: deviceId },
+                data: { connectionStatus: "offline" }
+            });
+            throw new Error(`Device offline or connection timed out: ${connErr.message}`);
+        }
+
         let newLogsCount = 0;
         
         if (attendances && attendances.data) {
@@ -85,26 +107,21 @@ export async function syncDeviceAttendance(deviceId: string) {
             console.log(`Total Records: ${attendances.data.length}`);
             console.log("==============================");
             
-            // Note: In a production scenario, you must map the `deviceUserId` to your Prisma `Employee` table.
-            // Since this involves complex logic mapping internal ZKTeco IDs to `employeeCode`, 
-            // we will simulate the ingestion here for architectural completeness.
-            
             newLogsCount = attendances.data.length;
+            
+            // Trigger actual sync logs in the background queue
+            await syncBiometricLogs({
+                vendor: device.vendor,
+                rawData: attendances.data,
+                syncedBy: session.user.id,
+                deviceId,
+            });
         }
         
         // Update device sync time
         await prisma.biometricDevice.update({
             where: { id: deviceId },
             data: { lastSyncAt: new Date() }
-        });
-
-        await prisma.biometricSyncLog.create({
-            data: {
-                deviceId,
-                status: "SUCCESS",
-                recordsCount: newLogsCount,
-                syncedBy: session.user.id
-            }
         });
 
         return { success: true, count: newLogsCount };

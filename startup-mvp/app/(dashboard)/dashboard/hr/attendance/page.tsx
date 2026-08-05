@@ -20,7 +20,11 @@ interface AttendancePageProps {
 export default async function AttendancePage({ searchParams }: AttendancePageProps) {
   const params = await searchParams;
   
-  const selectedDate = params.date ? new Date(params.date) : new Date();
+  let selectedDate = new Date();
+  if (params.date) {
+    const [year, month, day] = params.date.split("-").map(Number);
+    selectedDate = new Date(year, month - 1, day);
+  }
   const warehouseId = params.warehouseId || undefined;
 
   const session = await auth();

@@ -25,10 +25,18 @@ export function useProjectSocket(projectId: string, options?: SocketOptions) {
     // Prevent anonymous connections to secure the socket server
     if (!session?.user?.id || !projectId) return;
 
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
+    
+    // In production, if NEXT_PUBLIC_SOCKET_URL is not set, avoid connecting to localhost
+    if (!socketUrl && typeof window !== "undefined" && window.location.hostname !== "localhost") {
+      console.warn("[Socket] NEXT_PUBLIC_SOCKET_URL is not set. Realtime features are disabled on production.");
+      return;
+    }
+
+    const finalSocketUrl = socketUrl || "http://localhost:3001";
     
     // Handshake passes userId for Backend Validation
-    const socket = io(socketUrl, {
+    const socket = io(finalSocketUrl, {
       auth: { userId: session.user.id },
       transports: ["websocket", "polling"],
       reconnectionAttempts: 5,

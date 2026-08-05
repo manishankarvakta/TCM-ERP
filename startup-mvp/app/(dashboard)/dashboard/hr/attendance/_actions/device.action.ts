@@ -36,6 +36,10 @@ export async function upsertBiometricDevice(data: any) {
 
     const { id, ...rest } = data;
 
+    if (rest.branchId === "") {
+      rest.branchId = null;
+    }
+
     if (id) {
       await prisma.biometricDevice.update({
         where: { id },

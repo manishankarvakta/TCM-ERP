@@ -124,7 +124,7 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
             status,
             shiftId: employee.shiftId,
             isManual: false,
-            createdBy: "SYSTEM", // Placeholder for system-generated
+            createdBy: null,
           },
         });
 

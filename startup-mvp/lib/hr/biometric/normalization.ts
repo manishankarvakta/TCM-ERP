@@ -20,12 +20,18 @@ export interface BiometricAdapter {
  */
 class ZKTecoAdapter implements BiometricAdapter {
   normalize(rawData: any[]): NormalizedPunch[] {
-    return rawData.map((item) => ({
-      employeeCode: String(item.EnrollNumber || item.employeeCode),
-      timestamp: new Date(`${item.Date} ${item.Time}`),
-      deviceId: item.DeviceID || item.deviceId,
-      vendor: "ZKTeco",
-    }));
+    return rawData.map((item) => {
+      let timestampStr = item.recordTime || item.timestamp;
+      if (!timestampStr && item.Date && item.Time) {
+        timestampStr = `${item.Date} ${item.Time}`;
+      }
+      return {
+        employeeCode: String(item.deviceUserId || item.EnrollNumber || item.employeeCode || ""),
+        timestamp: timestampStr ? new Date(timestampStr) : new Date(NaN),
+        deviceId: item.ip || item.DeviceID || item.deviceId,
+        vendor: "ZKTeco",
+      };
+    });
   }
 }
 
