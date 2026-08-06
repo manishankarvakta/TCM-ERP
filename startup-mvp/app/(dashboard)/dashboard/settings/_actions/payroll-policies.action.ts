@@ -1333,9 +1333,28 @@ export async function softDeleteHolidayBillPolicy(id: string) {
 export async function listPayrollSettings() {
   try {
     await checkAuth();
-    const settings = await prisma.payrollSetting.findMany({
+    let settings = await prisma.payrollSetting.findMany({
       orderBy: { createdAt: "desc" },
     });
+
+    if (settings.length === 0) {
+      const defaultSetting = await prisma.payrollSetting.create({
+        data: {
+          name: "Default Payroll Setting",
+          defaultMonthlyWorkingDays: 30,
+          defaultPayDivisor: 30,
+          defaultCurrency: "BDT",
+          roundingMethod: "NONE",
+          allowNegativeNetSalary: false,
+          payrollLockAfterApproval: true,
+          recalculateLockedPayroll: false,
+          status: "active",
+          isDefault: true,
+        },
+      });
+      settings = [defaultSetting];
+    }
+
     return { success: true, settings };
   } catch (error) {
     console.error("listPayrollSettings error:", error);
@@ -1377,20 +1396,43 @@ export async function updateDefaultPayrollSetting(
       return { success: false, error: "Invalid rounding method" };
     }
 
-    const settings = await prisma.payrollSetting.update({
-      where: { id },
-      data: {
-        name: data.name,
-        defaultMonthlyWorkingDays: Math.round(data.defaultMonthlyWorkingDays),
-        defaultPayDivisor: Math.round(data.defaultPayDivisor),
-        defaultCurrency: data.defaultCurrency,
-        roundingMethod: data.roundingMethod,
-        allowNegativeNetSalary: !!data.allowNegativeNetSalary,
-        payrollLockAfterApproval: !!data.payrollLockAfterApproval,
-        recalculateLockedPayroll: !!data.recalculateLockedPayroll,
-        status: data.status,
-      },
+    const existing = await prisma.payrollSetting.findFirst({
+      where: { OR: [{ id }, { isDefault: true }] },
     });
+
+    let settings;
+    if (existing) {
+      settings = await prisma.payrollSetting.update({
+        where: { id: existing.id },
+        data: {
+          name: data.name || existing.name,
+          defaultMonthlyWorkingDays: Math.round(data.defaultMonthlyWorkingDays),
+          defaultPayDivisor: Math.round(data.defaultPayDivisor),
+          defaultCurrency: data.defaultCurrency,
+          roundingMethod: data.roundingMethod,
+          allowNegativeNetSalary: !!data.allowNegativeNetSalary,
+          payrollLockAfterApproval: !!data.payrollLockAfterApproval,
+          recalculateLockedPayroll: !!data.recalculateLockedPayroll,
+          status: data.status || existing.status,
+        },
+      });
+    } else {
+      settings = await prisma.payrollSetting.create({
+        data: {
+          id: id && id !== "default-payroll-setting" ? id : undefined,
+          name: data.name || "Default Payroll Setting",
+          defaultMonthlyWorkingDays: Math.round(data.defaultMonthlyWorkingDays),
+          defaultPayDivisor: Math.round(data.defaultPayDivisor),
+          defaultCurrency: data.defaultCurrency,
+          roundingMethod: data.roundingMethod,
+          allowNegativeNetSalary: !!data.allowNegativeNetSalary,
+          payrollLockAfterApproval: !!data.payrollLockAfterApproval,
+          recalculateLockedPayroll: !!data.recalculateLockedPayroll,
+          status: data.status || "active",
+          isDefault: true,
+        },
+      });
+    }
 
     revalidatePath("/dashboard/settings");
     return { success: true, settings };

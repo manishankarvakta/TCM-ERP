@@ -61,6 +61,7 @@ function mergeCalculation(
     weekendOtMultiplier:     partial?.weekendOtMultiplier     ?? def.weekendOtMultiplier,
     holidayOtMultiplier:     partial?.holidayOtMultiplier     ?? def.holidayOtMultiplier,
     absentDeductionMode:     partial?.absentDeductionMode     ?? def.absentDeductionMode,
+    absentDeductionBasis:    partial?.absentDeductionBasis    ?? def.absentDeductionBasis,
     standardWorkingDays:     partial?.standardWorkingDays     ?? def.standardWorkingDays,
     defaultHouseRentPct:     partial?.defaultHouseRentPct     ?? def.defaultHouseRentPct,
     defaultMedicalPct:       partial?.defaultMedicalPct       ?? def.defaultMedicalPct,
@@ -144,26 +145,33 @@ export async function getPayrollSettings(): Promise<PayrollSettings> {
       }
     }
 
-    // 2. Global (fallback when no user session is present)
-    const globalSetting = await fetchSetting({
-      code: PAYROLL_SETTINGS_KEY,
-      userId: null,
-      isGlobal: true,
-      isActive: true,
+    // 2. Global (fallback when no user-specific setting is present)
+    const globalSetting = await prisma.settings.findFirst({
+      where: { code: PAYROLL_SETTINGS_KEY, isGlobal: true, isActive: true },
+      orderBy: { updatedAt: "desc" },
     });
     if (globalSetting?.settings) {
       return mergeWithDefaults(globalSetting.settings as Partial<PayrollSettings>, defaults);
     }
 
+    // 3. Fallback to latest active payroll setting (cross-user fallback)
+    const latestSetting = await prisma.settings.findFirst({
+      where: { code: PAYROLL_SETTINGS_KEY, isActive: true },
+      orderBy: { updatedAt: "desc" },
+    });
+    if (latestSetting?.settings) {
+      return mergeWithDefaults(latestSetting.settings as Partial<PayrollSettings>, defaults);
+    }
+
     return defaults;
   } catch (error) {
     try {
-      const globalSetting = await prisma.settings.findFirst({
-        where: { code: PAYROLL_SETTINGS_KEY, userId: null, isGlobal: true, isActive: true },
-        orderBy: { createdAt: "desc" },
+      const fallbackSetting = await prisma.settings.findFirst({
+        where: { code: PAYROLL_SETTINGS_KEY, isActive: true },
+        orderBy: { updatedAt: "desc" },
       });
-      if (globalSetting?.settings) {
-        return mergeWithDefaults(globalSetting.settings as Partial<PayrollSettings>, defaults);
+      if (fallbackSetting?.settings) {
+        return mergeWithDefaults(fallbackSetting.settings as Partial<PayrollSettings>, defaults);
       }
     } catch (dbErr) {
       console.error("getPayrollSettings database fallback error:", dbErr);

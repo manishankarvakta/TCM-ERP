@@ -34,10 +34,10 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { FiCheck, FiFileText, FiSend, FiDownload, FiPrinter, FiTrash2, FiRotateCcw } from "react-icons/fi";
+import { FiCheck, FiFileText, FiSend, FiDownload, FiPrinter, FiTrash2, FiRotateCcw, FiRefreshCw } from "react-icons/fi";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { updatePayrollStatus, postPayroll, disbursePayroll, voidPayroll, deletePayroll } from "@/app/(dashboard)/dashboard/hr/payroll/_actions/payroll.action";
+import { updatePayrollStatus, postPayroll, disbursePayroll, voidPayroll, deletePayroll, recalculatePayroll } from "@/app/(dashboard)/dashboard/hr/payroll/_actions/payroll.action";
 import { format } from "date-fns";
 
 interface PayrollDetailsClientProps {
@@ -89,6 +89,18 @@ export default function PayrollDetailsClient({
         router.refresh();
       } else {
         toast({ title: "Error", description: result.error || "Failed to approve", variant: "destructive" });
+      }
+    });
+  };
+
+  const handleRecalculate = () => {
+    startTransition(async () => {
+      const result = await recalculatePayroll(payroll.id);
+      if (result.success) {
+        toast({ title: "Success", description: "Payroll recalculated successfully!" });
+        router.refresh();
+      } else {
+        toast({ title: "Error", description: result.error || "Failed to recalculate payroll", variant: "destructive" });
       }
     });
   };
@@ -210,6 +222,12 @@ export default function PayrollDetailsClient({
 
           {payroll.status === "DRAFT" && (
             <>
+              {permissions.canEdit && (
+                <Button variant="outline" onClick={handleRecalculate} disabled={isPending}>
+                  <FiRefreshCw className="mr-2 h-4 w-4" />
+                  Recalculate Payroll
+                </Button>
+              )}
               {permissions.canApprove && (
                 <Button onClick={handleApprove} disabled={isPending}>
                   <FiCheck className="mr-2 h-4 w-4" />

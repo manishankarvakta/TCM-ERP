@@ -144,7 +144,7 @@ export async function processManualAttendance(input: {
 
     let otHours = 0;
     if (checkOutDate && shiftPolicy) {
-      otHours = calculateOTHours(checkOutDate, targetDate, shiftPolicy as any);
+      otHours = calculateOTHours(checkOutDate, targetDate, shiftPolicy as any, workHours);
     }
 
     const status = determineAttendanceStatus(checkInDate as any, targetDate, shiftPolicy as any, breakCheckInDate);
@@ -476,6 +476,62 @@ export async function processBulkAttendance(date: string, warehouseId?: string) 
   }
 }
 
+/**
+ * Bulk process attendance for a DATE RANGE
+ * Loops through every day from fromDate to toDate and marks un-punched employees as ABSENT.
+ */
+export async function processBulkAttendanceRange(fromDate: string, toDate: string, warehouseId?: string) {
+  try {
+    const start = new Date(`${fromDate}T00:00:00.000Z`);
+    const end   = new Date(`${toDate}T00:00:00.000Z`);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+      return { success: false, error: "Invalid date range" };
+    }
+
+    // Limit to a maximum of 31 days to prevent runaway processing
+    const diffDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    if (diffDays > 31) {
+      return { success: false, error: "Date range cannot exceed 31 days" };
+    }
+
+    let totalCreated   = 0;
+    let totalProcessed = 0;
+    const errors: string[] = [];
+
+    // Walk through every day in the range
+    const cursor = new Date(start);
+    while (cursor <= end) {
+      const dateStr = cursor.toISOString().split("T")[0]; // YYYY-MM-DD
+      const result  = await processBulkAttendance(dateStr, warehouseId);
+
+      if (result.success) {
+        totalCreated   += result.createdCount  ?? 0;
+        totalProcessed += result.processedEmployees ?? 0;
+      } else {
+        errors.push(`${dateStr}: ${result.error}`);
+      }
+
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+
+    if (errors.length > 0 && totalCreated === 0) {
+      return { success: false, error: errors.join("; ") };
+    }
+
+    return {
+      success: true,
+      count:   totalCreated,
+      daysProcessed: diffDays,
+      createdCount:  totalCreated,
+      errors: errors.length > 0 ? errors : undefined,
+    };
+  } catch (error) {
+    console.error("processBulkAttendanceRange error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to process bulk attendance range" };
+  }
+}
+
 export async function getAttendanceRecordsPaginated({
   page = 1,
   limit = 10,
@@ -647,7 +703,7 @@ export async function closeShiftBulk(attendanceIds: string[]) {
         breakDurationMins
       );
 
-      const otHours = calculateOTHours(checkOutDate, att.date, shiftPolicy as any);
+      const otHours = calculateOTHours(checkOutDate, att.date, shiftPolicy as any, workHours);
       const status = determineAttendanceStatus(att.checkIn, att.date, shiftPolicy as any, att.breakCheckIn);
 
       const oldAttendance = { ...att };

@@ -114,6 +114,14 @@ export interface PayrollCalculationSettings {
    */
   absentDeductionMode: "calendar" | "working";
 
+  /**
+   * Salary basis used for absenteeism deduction calculation.
+   * "GROSS" = Daily rate calculated from Total Gross Salary (Gross ÷ Divisor)
+   * "BASIC" = Daily rate calculated from Basic Salary (Basic ÷ Divisor)
+   * Default: "BASIC"
+   */
+  absentDeductionBasis?: "GROSS" | "BASIC";
+
   /** Fixed working days per month (used when absentDeductionMode = "working"). Default: 26 */
   standardWorkingDays: number;
 
@@ -247,6 +255,7 @@ export function createDefaultPayrollSettings(): PayrollSettings {
       weekendOtMultiplier: 2.0,
       holidayOtMultiplier: 2.0,
       absentDeductionMode: "calendar",
+      absentDeductionBasis: "BASIC",
       standardWorkingDays: 26,
       defaultHouseRentPct: 0,
       defaultMedicalPct: 0,

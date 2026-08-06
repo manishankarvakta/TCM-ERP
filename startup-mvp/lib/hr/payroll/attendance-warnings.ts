@@ -95,16 +95,25 @@ export async function getPayrollAttendanceWarnings(input: { fromDate: Date, toDa
     });
   }
 
-  // 4. Missing Attendance (Basic check)
-  const activeEmployees = await prisma.employee.count({
+  // 4. Missing Attendance — only count employees who were active DURING this period
+  // (i.e. joined on or before the last day of the period, same logic as payroll generation)
+  const activeEmployeesInPeriod = await prisma.employee.findMany({
     where: {
       status: "active",
-    }
+      OR: [
+        { joiningDate: null },
+        { joiningDate: { lte: toDate } }
+      ]
+    },
+    select: { id: true }
   });
-  
+
+  const activeEmployeeIds = activeEmployeesInPeriod.map(e => e.id);
+
   const employeesWithAttendance = await prisma.attendance.groupBy({
     by: ['employeeId'],
     where: {
+      employeeId: { in: activeEmployeeIds },
       date: {
         gte: fromDate,
         lte: toDate,
@@ -112,7 +121,7 @@ export async function getPayrollAttendanceWarnings(input: { fromDate: Date, toDa
     }
   });
   
-  const missingAttendance = Math.max(0, activeEmployees - employeesWithAttendance.length);
+  const missingAttendance = Math.max(0, activeEmployeeIds.length - employeesWithAttendance.length);
 
   if (missingAttendance > 0) {
     warnings.push({

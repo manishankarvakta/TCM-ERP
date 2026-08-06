@@ -36,6 +36,8 @@ export interface DailyAttendancePolicyInput {
     checkIn: Date | string | null;
     checkOut: Date | string | null;
     breakCheckIn?: Date | string | null;
+    breakCheckOut?: Date | string | null;
+    workHours?: any;
     otHours: any;
     status: string;
     date: Date;
@@ -94,7 +96,7 @@ export function calculateDailyAttendancePolicyValues(input: DailyAttendancePolic
   const { attendance, employeeTypePolicies, shift, isWeekend, isPublicHoliday, workedOnHoliday, grossSalary } = input;
   
   let resolvedStatus = attendance.status;
-  let workHours = attendance.workHours ? Number(attendance.workHours) : 0;
+  let workHours = (attendance as any).workHours ? Number((attendance as any).workHours) : 0;
   let otHours = attendance.otHours ? Number(attendance.otHours) : 0;
   let lateMinutes = 0;
   let lateCountValue = 0;
@@ -139,7 +141,7 @@ export function calculateDailyAttendancePolicyValues(input: DailyAttendancePolic
         if (shiftPolicy.breakStartTime && shiftPolicy.breakEndTime) {
           const { breakStartDateTime, breakEndDateTime } = getShiftWindow(new Date(attendance.date), shiftPolicy);
           if (breakStartDateTime && breakEndDateTime) {
-            breakDurationMins = Math.max(0, differenceInMinutes(new Date(breakEndDateTime), new Date(breakStartDateTime)));
+            breakDurationMins = Math.max(0, Math.round((new Date(breakEndDateTime).getTime() - new Date(breakStartDateTime).getTime()) / 60000));
           } else {
             breakDurationMins = shiftPolicy.breakDuration ?? 60;
           }
@@ -151,7 +153,7 @@ export function calculateDailyAttendancePolicyValues(input: DailyAttendancePolic
       workHours = calculateWorkHoursWithBreak(
         new Date(attendance.checkIn),
         new Date(attendance.checkOut),
-        attendance.breakCheckOut ? new Date(attendance.breakCheckOut) : null,
+        (attendance as any).breakCheckOut ? new Date((attendance as any).breakCheckOut) : null,
         attendance.breakCheckIn ? new Date(attendance.breakCheckIn) : null,
         breakDurationMins,
         shiftPolicy.breakType || "NONE"
@@ -160,7 +162,8 @@ export function calculateDailyAttendancePolicyValues(input: DailyAttendancePolic
       otHours = calculateOTHours(
         new Date(attendance.checkOut),
         new Date(attendance.date),
-        shiftPolicy
+        shiftPolicy,
+        workHours
       );
     }
 
@@ -395,7 +398,7 @@ export async function applyDailyAttendancePolicyValues(
     const updated = await prisma.attendance.update({
       where: { id: attendanceId },
       data: {
-        status: result.status,
+        status: result.status as any,
         workHours: new Prisma.Decimal(result.workHours),
         otHours: new Prisma.Decimal(result.otHours),
         lateMinutes: result.lateMinutes,
@@ -585,7 +588,7 @@ export async function reprocessAttendancePoliciesForDateRange(input: {
         await prisma.attendance.update({
           where: { id: att.id },
           data: {
-            status: result.status,
+            status: result.status as any,
             workHours: new Prisma.Decimal(result.workHours),
             otHours: new Prisma.Decimal(result.otHours),
             lateMinutes: result.lateMinutes,

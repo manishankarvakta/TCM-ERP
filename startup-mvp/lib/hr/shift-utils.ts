@@ -284,8 +284,39 @@ export function calculateBreakLateMinutes(
 /**
  * Determine Overtime Hours
  */
-export function calculateOTHours(checkOut: Date, attendanceDate: Date, shift: ShiftPolicy): number {
-  const { shiftEndDateTime, otStartAfterDateTime } = getShiftWindow(attendanceDate, shift);
+export function calculateOTHours(
+  checkOut: Date,
+  attendanceDate: Date,
+  shift: ShiftPolicy,
+  workHours?: number
+): number {
+  const { shiftStartDateTime, shiftEndDateTime, otStartAfterDateTime } = getShiftWindow(attendanceDate, shift);
+  
+  // Calculate required shift working hours: (shiftEndTime - shiftStartTime) - breakDuration
+  let breakDurationMins = 0;
+  if (shift.breakType === "FIXED") {
+    breakDurationMins = shift.breakDuration ?? 0;
+  } else if (shift.breakType === "TRACKED" || !shift.breakType) {
+    if (shift.breakStartTime && shift.breakEndTime) {
+      const { breakStartDateTime, breakEndDateTime } = getShiftWindow(attendanceDate, shift);
+      if (breakStartDateTime && breakEndDateTime) {
+        breakDurationMins = Math.max(0, differenceInMinutes(breakEndDateTime, breakStartDateTime));
+      } else {
+        breakDurationMins = shift.breakDuration ?? 60;
+      }
+    } else {
+      breakDurationMins = shift.breakDuration ?? 0;
+    }
+  }
+
+  const shiftDurationMins = differenceInMinutes(shiftEndDateTime, shiftStartDateTime);
+  const requiredWorkHours = Math.max(0, shiftDurationMins - breakDurationMins) / 60;
+
+  // If actual net workHours is provided and is less than required shift work hours, no OT is granted!
+  if (typeof workHours === "number" && workHours > 0 && workHours < requiredWorkHours) {
+    return 0;
+  }
+
   const diffFromEnd = differenceInMinutes(checkOut, shiftEndDateTime);
   
   // Only grant OT if they stayed past the otStartAfter threshold

@@ -104,7 +104,7 @@ export default function PayrollHeaderActions({ canCreate, canEdit }: PayrollHead
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="month">Month</Label>
-              <Select modal={false} value={selectedMonth} onValueChange={setSelectedMonth}>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                 <SelectTrigger id="month">
                   <SelectValue placeholder="Select Month" />
                 </SelectTrigger>
@@ -124,7 +124,7 @@ export default function PayrollHeaderActions({ canCreate, canEdit }: PayrollHead
 
             <div className="grid gap-2">
               <Label htmlFor="year">Year</Label>
-              <Select modal={false} value={selectedYear} onValueChange={setSelectedYear}>
+              <Select value={selectedYear} onValueChange={setSelectedYear}>
                 <SelectTrigger id="year">
                   <SelectValue placeholder="Select Year" />
                 </SelectTrigger>

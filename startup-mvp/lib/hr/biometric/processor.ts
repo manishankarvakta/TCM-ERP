@@ -247,7 +247,7 @@ export async function processBiometricAttendance(startDate: Date, endDate: Date,
 
         let otHours = 0;
         if (checkOut && shiftPolicy) {
-          otHours = calculateOTHours(checkOut, date, shiftPolicy);
+          otHours = calculateOTHours(checkOut, date, shiftPolicy, workHours);
         }
 
         let breakLateMinutes = 0;

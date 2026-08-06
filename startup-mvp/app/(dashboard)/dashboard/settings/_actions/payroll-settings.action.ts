@@ -42,6 +42,7 @@ const calculationSchema = z.object({
   weekendOtMultiplier:     z.number().min(1).max(10).default(2.0),
   holidayOtMultiplier:     z.number().min(1).max(10).default(2.0),
   absentDeductionMode:     z.enum(["calendar", "working"]).default("calendar"),
+  absentDeductionBasis:    z.enum(["GROSS", "BASIC"]).default("BASIC"),
   standardWorkingDays:     z.number().int().min(20).max(31).default(26),
   defaultHouseRentPct:     z.number().min(0).max(100).default(0),
   defaultMedicalPct:       z.number().min(0).max(100).default(0),

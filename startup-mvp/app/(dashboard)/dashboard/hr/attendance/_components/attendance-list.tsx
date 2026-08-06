@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FiSearch, FiCheckSquare, FiAlertCircle, FiEdit } from "react-icons/fi";
-import { processBulkAttendance, closeShiftBulk } from "../_actions/attendance.action";
+import { processBulkAttendance, processBulkAttendanceRange, closeShiftBulk } from "../_actions/attendance.action";
 import { getWarehouses } from "../../../master/warehouses/_actions/warehouse.action";
 import { getEmployees } from "../../../employees/_actions/employee.action";
 import { format } from "date-fns";
@@ -310,9 +310,15 @@ export default function AttendanceListClient({
 
   const handleProcessBulk = () => {
     startTransition(async () => {
-      const result = await processBulkAttendance(localFilters.fromDate, localFilters.warehouseId === "all" ? undefined : localFilters.warehouseId);
+      const warehouseId = localFilters.warehouseId === "all" ? undefined : localFilters.warehouseId || undefined;
+      // Use range version if toDate is set and differs from fromDate
+      const useRange = localFilters.toDate && localFilters.toDate !== localFilters.fromDate;
+      const result = useRange
+        ? await processBulkAttendanceRange(localFilters.fromDate, localFilters.toDate, warehouseId)
+        : await processBulkAttendance(localFilters.fromDate, warehouseId);
       if (result.success) {
-        toast({ title: "Success", description: `Processed ${result.count} un-punched attendances as ABSENT.` });
+        const days = (result as any).daysProcessed ? ` across ${(result as any).daysProcessed} days` : "";
+        toast({ title: "Success", description: `Processed ${result.count} un-punched attendances as ABSENT${days}.` });
       } else {
         toast({ variant: "destructive", title: "Error", description: result.error });
       }
@@ -453,6 +459,7 @@ export default function AttendanceListClient({
                 <Button onClick={handleProcessBulk} disabled={isPending || !localFilters.fromDate} variant="secondary">
                   <FiCheckSquare className="mr-2 h-4 w-4" />
                   Process Un-Punched as Absent
+                  {localFilters.toDate && localFilters.toDate !== localFilters.fromDate ? " (Range)" : ""}
                 </Button>
               </>
             )}

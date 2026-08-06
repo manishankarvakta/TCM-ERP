@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -131,6 +132,7 @@ const formSchema = z.object({
   weekendOtMultiplier:     z.number().min(1).max(10),
   holidayOtMultiplier:     z.number().min(1).max(10),
   absentDeductionMode:     z.enum(["calendar", "working"]),
+  absentDeductionBasis:    z.enum(["GROSS", "BASIC"]),
   standardWorkingDays:     z.number().int().min(20).max(31),
   defaultHouseRentPct:     z.number().min(0).max(100),
   defaultMedicalPct:       z.number().min(0).max(100),
@@ -171,6 +173,17 @@ function parseDecimal(val: any): number {
 // ---------------------------------------------------------------------------
 
 export default function PayrollSettings() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get("tab") || "overview";
+
+  const handleTabChange = (newTab: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("section", "payroll");
+    params.set("tab", newTab);
+    router.replace(`/dashboard/settings?${params.toString()}`, { scroll: false });
+  };
+
   const [loading, setLoading]       = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [accounts, setAccounts]     = useState<Account[]>([]);
@@ -487,6 +500,7 @@ export default function PayrollSettings() {
       weekendOtMultiplier:     2.0,
       holidayOtMultiplier:     2.0,
       absentDeductionMode:     "calendar",
+      absentDeductionBasis:    "BASIC",
       standardWorkingDays:     26,
       defaultHouseRentPct:     0,
       defaultMedicalPct:       0,
@@ -572,6 +586,7 @@ export default function PayrollSettings() {
           weekendOtMultiplier:     s.calculation.weekendOtMultiplier,
           holidayOtMultiplier:     s.calculation.holidayOtMultiplier,
           absentDeductionMode:     s.calculation.absentDeductionMode,
+          absentDeductionBasis:    s.calculation.absentDeductionBasis || "BASIC",
           standardWorkingDays:     s.calculation.standardWorkingDays,
           defaultHouseRentPct:     s.calculation.defaultHouseRentPct,
           defaultMedicalPct:       s.calculation.defaultMedicalPct,
@@ -654,6 +669,7 @@ export default function PayrollSettings() {
             weekendOtMultiplier:     data.weekendOtMultiplier,
             holidayOtMultiplier:     data.holidayOtMultiplier,
             absentDeductionMode:     data.absentDeductionMode,
+            absentDeductionBasis:    data.absentDeductionBasis,
             standardWorkingDays:     data.standardWorkingDays,
             defaultHouseRentPct:     data.defaultHouseRentPct,
             defaultMedicalPct:       data.defaultMedicalPct,
@@ -1053,7 +1069,7 @@ export default function PayrollSettings() {
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="flex flex-wrap bg-muted p-1 rounded-lg gap-1.5 mb-6 justify-start">
           <TabsTrigger value="overview" className="text-xs px-3 py-2 flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" /> Overview</TabsTrigger>
           <TabsTrigger value="salary" className="text-xs px-3 py-2 flex items-center gap-1.5"><Banknote className="h-3.5 w-3.5" /> Salary Structure</TabsTrigger>
@@ -2683,7 +2699,7 @@ export default function PayrollSettings() {
 
                   {/* Absent Deduction Mode */}
                   <div className="space-y-3">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Absent Deduction Basis</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Absent Deduction Days Basis</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <Controller name="absentDeductionMode" control={control} render={({ field }) => (
                         <>
@@ -2701,8 +2717,8 @@ export default function PayrollSettings() {
                                 <p className="text-sm font-medium">{mode === "calendar" ? "Calendar Days" : "Fixed Working Days"}</p>
                                 <p className="text-xs text-muted-foreground mt-0.5">
                                   {mode === "calendar"
-                                    ? "Daily rate = Basic ÷ total days in month (28–31)"
-                                    : "Daily rate = Basic ÷ standard working days (below)"}
+                                    ? "Daily rate = Rate ÷ total days in month (28–31)"
+                                    : "Daily rate = Rate ÷ standard working days (below)"}
                                 </p>
                               </div>
                             </button>
@@ -2718,6 +2734,37 @@ export default function PayrollSettings() {
                         {errors.standardWorkingDays && <p className="text-xs text-destructive">{errors.standardWorkingDays.message}</p>}
                       </div>
                     )}
+                  </div>
+
+                  {/* Absent Deduction Salary Rate Basis (Gross vs Basic) */}
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Absent Deduction Salary Rate Basis</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <Controller name="absentDeductionBasis" control={control} render={({ field }) => (
+                        <>
+                          {(["BASIC", "GROSS"] as const).map((basis) => (
+                            <button key={basis} type="button" onClick={() => field.onChange(basis)}
+                              className={`flex items-start gap-3 rounded-lg border-2 p-4 text-left transition-all ${
+                                field.value === basis ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"
+                              }`}>
+                              <div className={`mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                field.value === basis ? "border-primary" : "border-muted-foreground"
+                              }`}>
+                                {field.value === basis && <div className="h-2 w-2 rounded-full bg-primary" />}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium">{basis === "BASIC" ? "Basic Salary Basis (55%)" : "Total Gross Salary Basis (100%)"}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {basis === "BASIC"
+                                    ? "Daily rate = Basic Salary ÷ month days (Executive / Corporate Standard)"
+                                    : "Daily rate = Total Gross Salary ÷ month days (Garments / Industrial Standard)"}
+                                </p>
+                              </div>
+                            </button>
+                          ))}
+                        </>
+                      )} />
+                    </div>
                   </div>
 
                   {/* Default Allowances */}

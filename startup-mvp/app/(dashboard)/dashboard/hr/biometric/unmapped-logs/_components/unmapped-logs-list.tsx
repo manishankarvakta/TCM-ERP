@@ -307,7 +307,7 @@ export default function UnmappedLogsListClient({
             />
           </div>
           <div className="w-full max-w-xs">
-            <Select modal={false} value={pin || "all"} onValueChange={(val) => handlePinChange(val === "all" ? "" : val)}>
+            <Select value={pin || "all"} onValueChange={(val) => handlePinChange(val === "all" ? "" : val)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="All Device PINs" />
               </SelectTrigger>

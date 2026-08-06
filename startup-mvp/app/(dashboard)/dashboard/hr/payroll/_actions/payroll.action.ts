@@ -68,9 +68,31 @@ export async function generatePayroll(month: number, year: number, options?: Gen
       return { success: false, error: `Payroll already generated for ${month}/${year}` };
     }
 
-    // Get all active employees with their salary info and policies
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+    // Get employees: active (who joined on or before endDate) OR inactive (who resigned during or after target month)
     const employees = await prisma.employee.findMany({
-      where: { status: "active" },
+      where: {
+        OR: [
+          {
+            status: "active",
+            OR: [
+              { joiningDate: null },
+              { joiningDate: { lte: endDate } }
+            ]
+          },
+          {
+            status: "inactive",
+            resignations: {
+              some: {
+                status: "APPROVED",
+                effectiveDate: { gte: startDate }
+              }
+            }
+          }
+        ]
+      },
       include: {
         employeeType: {
           include: {
@@ -82,6 +104,11 @@ export async function generatePayroll(month: number, year: number, options?: Gen
             holidayBillPolicy: true,
             salaryStructurePolicy: true,
           }
+        },
+        resignations: {
+          where: { status: "APPROVED" },
+          orderBy: { effectiveDate: "desc" },
+          take: 1
         }
       }
     });
@@ -104,9 +131,6 @@ export async function generatePayroll(month: number, year: number, options?: Gen
     const payrollSettings = await getPayrollSettings();
     const calc = payrollSettings.calculation;
 
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
-    
     // Backend Safety: Check and log attendance warnings
     try {
       const { getPayrollAttendanceWarnings } = await import("@/lib/hr/payroll/attendance-warnings");
@@ -273,17 +297,54 @@ export async function generatePayroll(month: number, year: number, options?: Gen
     let grandTotalAmount = 0;
 
     for (const emp of employees) {
-      const rawSalary = Number(emp.salary) || 0;
+      const originalRawSalary = Number(emp.salary) || 0;
+      
+      // Calculate active date range within this month
+      const latestResign = emp.resignations?.[0];
+      const isFullMonth = (!emp.joiningDate || emp.joiningDate <= startDate) && (!latestResign || latestResign.effectiveDate >= endDate);
+
+      let prorationFactor = 1;
+      let activeStart = startDate;
+      let activeEnd = endDate;
+
+      if (!isFullMonth) {
+        activeStart = emp.joiningDate && emp.joiningDate > startDate ? new Date(emp.joiningDate) : startDate;
+        if (latestResign && latestResign.effectiveDate < endDate) {
+          activeEnd = new Date(latestResign.effectiveDate);
+        }
+
+        if (activeStart > endDate || activeEnd < startDate || activeStart > activeEnd) {
+          continue; // Skip if active range is invalid or out of month bounds
+        }
+
+        const startDay = new Date(Date.UTC(activeStart.getFullYear(), activeStart.getMonth(), activeStart.getDate()));
+        const endDay = new Date(Date.UTC(activeEnd.getFullYear(), activeEnd.getMonth(), activeEnd.getDate()));
+        const activeDays = Math.min(calendarDaysInMonth, Math.max(0, Math.round((endDay.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24)) + 1));
+        prorationFactor = activeDays / calendarDaysInMonth;
+      }
+
+      const rawSalary = originalRawSalary * prorationFactor;
+
       if (rawSalary <= 0) continue; // Skip if no salary setup
 
-      // Resolve salary structure priority
+      // Compute original basic for rate calculations (e.g. daily/hourly rate calculations)
+      const empTypePolicies = emp.employeeType;
+      let originalBasic = 0;
+      if (empTypePolicies?.salaryStructurePolicy) {
+        originalBasic = Number((originalRawSalary * (Number(empTypePolicies.salaryStructurePolicy.basicPercent || 55) / 100)).toFixed(2));
+      } else if (defaultSalaryStructurePolicy) {
+        originalBasic = Number((originalRawSalary * (Number(defaultSalaryStructurePolicy.basicPercent || 55) / 100)).toFixed(2));
+      } else {
+        originalBasic = Number((originalRawSalary * 0.55).toFixed(2));
+      }
+
+      // Resolve prorated salary structure components
       let basic = 0;
       let houseRent = 0;
       let medical = 0;
       let transport = 0;
       let foodAllowance = 0;
 
-      const empTypePolicies = emp.employeeType;
       const empSalary = salaryByEmployee.get(emp.id);
 
       if (empTypePolicies?.salaryStructurePolicy) {
@@ -332,8 +393,36 @@ export async function generatePayroll(month: number, year: number, options?: Gen
       const taxPercentage = empSalary ? Number(empSalary.taxPercentage) : 0;
       const pfPercentage = empSalary ? Number(empSalary.pfPercentage) : 0;
 
-      // Attendance values
-      const att = attendanceByEmployee[emp.id] || {
+      // Filter and aggregate attendance records *only* within the active date range of the month (represented in YYYY-MM-DD comparison format)
+      const activeStartStr = activeStart.toISOString().split("T")[0];
+      const activeEndStr = activeEnd.toISOString().split("T")[0];
+
+      const empAttendance = attendanceRecords.filter(a => {
+        if (a.employeeId !== emp.id) return false;
+        const dateStr = new Date(a.date).toISOString().split("T")[0];
+        return dateStr >= activeStartStr && dateStr <= activeEndStr;
+      });
+
+      const att = empAttendance.reduce((acc, curr) => {
+        if (curr.status === "ABSENT") {
+          acc.absentDays += 1;
+        } else if (curr.status === "HALF_DAY") {
+          acc.absentDays += 0.5;
+        } else if (curr.status === "LEAVE") {
+          const isPaid = curr.leaveApplication?.leaveType?.isPaid ?? true;
+          if (!isPaid) {
+            acc.absentDays += 1;
+          }
+        }
+        
+        acc.otHours += Number(curr.otHours) || 0;
+        acc.lateCountTotal += (Number(curr.lateCountValue) || 0) + (Number(curr.breakLateCountValue) || 0);
+        acc.totalCalculatedOvertimeAmount += Number(curr.calculatedOvertimeAmount) || 0;
+        acc.totalTiffinAllowance += Number(curr.tiffinBillAmount) || 0;
+        acc.totalNightAllowance += Number(curr.nightBillAmount) || 0;
+        acc.totalHolidayAllowance += Number(curr.holidayBillAmount) || 0;
+        return acc;
+      }, {
         absentDays: 0,
         otHours: 0,
         lateCountTotal: 0,
@@ -341,7 +430,7 @@ export async function generatePayroll(month: number, year: number, options?: Gen
         totalTiffinAllowance: 0,
         totalNightAllowance: 0,
         totalHolidayAllowance: 0,
-      };
+      });
 
       // Aggregated policy allowances
       const tiffinAllowance = att.totalTiffinAllowance;
@@ -353,8 +442,8 @@ export async function generatePayroll(month: number, year: number, options?: Gen
       if (empTypePolicies?.overtimePolicy?.isEligible) {
         otAmount = att.totalCalculatedOvertimeAmount;
       } else {
-        // Legacy fallback calculation
-        const hourlyRateForOT = basic / (payDivisor * calc.workingHoursPerDay);
+        // Legacy fallback calculation using originalBasic
+        const hourlyRateForOT = originalBasic / (payDivisor * calc.workingHoursPerDay);
         const effectiveOtHours = Math.max(0, att.otHours - calc.dailyOtThresholdHours);
         otAmount = Number((effectiveOtHours * hourlyRateForOT * calc.otMultiplier).toFixed(2));
       }
@@ -364,8 +453,10 @@ export async function generatePayroll(month: number, year: number, options?: Gen
         ? basic * (calc.defaultFestivalBonusPct / 100)
         : 0;
 
-      // Absent Deduction
-      const dailyRateForAbsent = basic / payDivisor;
+      // Absent Deduction (GROSS vs BASIC rate basis)
+      const absentBasis = calc.absentDeductionBasis || "BASIC";
+      const absentNumerator = absentBasis === "GROSS" ? rawSalary : originalBasic;
+      const dailyRateForAbsent = absentNumerator / payDivisor;
       let absentDeduction = 0;
       const applyAbsentPenalty = empTypePolicies?.attendancePolicy 
         ? empTypePolicies.attendancePolicy.applyAbsentPenalty 
@@ -374,7 +465,7 @@ export async function generatePayroll(month: number, year: number, options?: Gen
         absentDeduction = Number((att.absentDays * dailyRateForAbsent).toFixed(2));
       }
 
-      // Late policy monthly calculation
+      // Late policy monthly calculation using originalRawSalary
       let lateDeduction = 0;
       let attendanceBonusLost = false;
       let convertedAbsentDays = 0;
@@ -384,7 +475,7 @@ export async function generatePayroll(month: number, year: number, options?: Gen
 
       if (applyLatePenalty && empTypePolicies?.latePolicy?.isEnabled) {
         const latePolicy = empTypePolicies.latePolicy;
-        const dailyRateForLate = Number((rawSalary / resolvedLateDeductionDivisor).toFixed(2));
+        const dailyRateForLate = Number((originalRawSalary / resolvedLateDeductionDivisor).toFixed(2));
         const lateRes = calculateLatePolicyPreview({
           latePolicy: {
             isEnabled: latePolicy.isEnabled,
@@ -485,12 +576,27 @@ export async function generatePayroll(month: number, year: number, options?: Gen
       return { success: false, error: "No employees have salary configured." };
     }
 
-    // Safeguard: Verify attendance coverage
-    const actualAttendanceCount = attendanceRecords.length;
-    const expectedAttendanceCount = employees.length * calendarDaysInMonth;
-    const coveragePercentage = (actualAttendanceCount / expectedAttendanceCount) * 100;
+    // Safeguard: Verify attendance coverage based on each employee's active days
+    // We compute how many total employee-days are expected based on joining/resignation dates
+    let totalActiveEmployeeDays = 0;
+    for (const emp of employees) {
+      const activeStart = emp.joiningDate && emp.joiningDate > startDate ? new Date(emp.joiningDate) : startDate;
+      let activeEnd = endDate;
+      const latestResign = emp.resignations?.[0];
+      if (latestResign && latestResign.effectiveDate < endDate) {
+        activeEnd = new Date(latestResign.effectiveDate);
+      }
+      if (activeStart <= endDate && activeEnd >= startDate && activeStart <= activeEnd) {
+        const activeDays = Math.max(0, Math.ceil((activeEnd.getTime() - activeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+        totalActiveEmployeeDays += activeDays;
+      }
+    }
     
-    if (coveragePercentage < 50) {
+    const coveragePercentage = totalActiveEmployeeDays > 0
+      ? (attendanceRecords.length / totalActiveEmployeeDays) * 100
+      : 100;
+    
+    if (coveragePercentage < 10) {
       return { 
         success: false, 
         error: `Attendance coverage is too low (${coveragePercentage.toFixed(1)}%). Please ensure attendance is processed for the entire month before generating payroll.` 
@@ -1499,3 +1605,461 @@ export async function deletePayrollPermanently(payrollId: string) {
     return { success: false, error: error instanceof Error ? error.message : "Failed to permanently delete payroll" };
   }
 }
+
+/**
+ * Recalculate an existing DRAFT Payroll.
+ * Re-runs attendance, overtime, allowances, absent deductions, late deductions, loans, fines, bonuses.
+ */
+export async function recalculatePayroll(payrollId: string) {
+  try {
+    await syncTimezoneFromDb();
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const canEdit = (await hasPermission(session.user.id, "hr.payroll", "edit")) ||
+                    (await hasPermission(session.user.id, "hr.payroll", "create"));
+    if (!canEdit) {
+      return { success: false, error: "You do not have permission to recalculate payroll" };
+    }
+
+    const payroll = await prisma.payroll.findUnique({
+      where: { id: payrollId },
+      include: { items: true }
+    });
+
+    if (!payroll || payroll.isTrash) {
+      return { success: false, error: "Payroll not found" };
+    }
+
+    if (payroll.status !== "DRAFT") {
+      return { success: false, error: "Only draft payrolls can be recalculated" };
+    }
+
+    const month = payroll.month;
+    const year = payroll.year;
+
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+    const employees = await prisma.employee.findMany({
+      where: {
+        OR: [
+          {
+            status: "active",
+            OR: [
+              { joiningDate: null },
+              { joiningDate: { lte: endDate } }
+            ]
+          },
+          {
+            status: "inactive",
+            resignations: {
+              some: {
+                status: "APPROVED",
+                effectiveDate: { gte: startDate }
+              }
+            }
+          }
+        ]
+      },
+      include: {
+        employeeType: {
+          include: {
+            attendancePolicy: true,
+            latePolicy: true,
+            overtimePolicy: true,
+            tiffinBillPolicy: true,
+            nightBillPolicy: true,
+            holidayBillPolicy: true,
+            salaryStructurePolicy: true,
+          }
+        },
+        resignations: {
+          where: { status: "APPROVED" },
+          orderBy: { effectiveDate: "desc" },
+          take: 1
+        }
+      }
+    });
+
+    if (employees.length === 0) {
+      return { success: false, error: "No active employees found to calculate payroll" };
+    }
+
+    const defaultSalaryStructurePolicy = await prisma.salaryStructurePolicy.findFirst({
+      where: { isDefault: true, isTrash: false, status: "active" }
+    });
+
+    const activePayrollSetting = await prisma.payrollSetting.findFirst({
+      where: { status: "active", isDefault: true }
+    });
+
+    const payrollSettings = await getPayrollSettings();
+    const calc = payrollSettings.calculation;
+
+    const calendarDaysInMonth = endDate.getDate();
+    const payDivisor =
+      calc.absentDeductionMode === "working"
+        ? calc.standardWorkingDays
+        : calendarDaysInMonth;
+
+    let resolvedLateDeductionDivisor = 30;
+    if (activePayrollSetting?.defaultPayDivisor) {
+      resolvedLateDeductionDivisor = activePayrollSetting.defaultPayDivisor;
+    } else if (activePayrollSetting?.defaultMonthlyWorkingDays) {
+      resolvedLateDeductionDivisor = activePayrollSetting.defaultMonthlyWorkingDays;
+    } else if (payDivisor) {
+      resolvedLateDeductionDivisor = payDivisor;
+    }
+
+    const attendanceRecords = await prisma.attendance.findMany({
+      where: {
+        date: { gte: startDate, lte: endDate },
+      },
+      include: {
+        leaveApplication: {
+          include: { leaveType: true }
+        }
+      }
+    });
+
+    const loans = await prisma.employeeLoan.findMany({
+      where: {
+        status: "APPROVED",
+        remainingBalance: { gt: 0 },
+      },
+    });
+
+    const approvedFines = await prisma.employeeFine.findMany({
+      where: {
+        status: "APPROVED",
+        fineDate: { gte: startDate, lte: endDate },
+      },
+    });
+
+    const approvedBonuses = await prisma.employeeBonus.findMany({
+      where: {
+        status: "APPROVED",
+        bonusDate: { gte: startDate, lte: endDate },
+      },
+    });
+
+    const loansByEmployee = loans.reduce((acc, curr) => {
+      if (!acc[curr.employeeId]) acc[curr.employeeId] = [];
+      acc[curr.employeeId].push(curr);
+      return acc;
+    }, {} as Record<string, typeof loans>);
+
+    const finesByEmployee = approvedFines.reduce((acc, curr) => {
+      if (!acc[curr.employeeId]) acc[curr.employeeId] = 0;
+      acc[curr.employeeId] += Number(curr.amount);
+      return acc;
+    }, {} as Record<string, number>);
+
+    const bonusesByEmployee = approvedBonuses.reduce((acc, curr) => {
+      if (!acc[curr.employeeId]) acc[curr.employeeId] = 0;
+      acc[curr.employeeId] += Number(curr.amount);
+      return acc;
+    }, {} as Record<string, number>);
+
+    const employeeSalaries = await prisma.employeeSalary.findMany({
+      where: { employeeId: { in: employees.map((e) => e.id) } },
+    });
+    const salaryByEmployee = new Map(
+      employeeSalaries.map((s) => [s.employeeId, s])
+    );
+
+    const { calculateLatePolicyPreview } = await import("@/lib/hr-payroll/policy-calculation");
+
+    const payrollItemsData: Array<{
+      employeeId: string;
+      basic: number;
+      houseRent: number;
+      medical: number;
+      transport: number;
+      foodAllowance: number;
+      otAmount: number;
+      bonus: number;
+      grossPay: number;
+      absentDeduction: number;
+      loanDeduction: number;
+      taxDeduction: number;
+      pfDeduction: number;
+      totalDeduction: number;
+      netPay: number;
+      tiffinAllowance: number;
+      nightAllowance: number;
+      holidayAllowance: number;
+      otherAllowance: number;
+      lateDeduction: number;
+      otherDeduction: number;
+      customFine: number;
+      customBonus: number;
+      status: string;
+    }> = [];
+    let grandTotalAmount = 0;
+
+    for (const emp of employees) {
+      const originalRawSalary = Number(emp.salary) || 0;
+      const latestResign = emp.resignations?.[0];
+      const isFullMonth = (!emp.joiningDate || emp.joiningDate <= startDate) && (!latestResign || latestResign.effectiveDate >= endDate);
+
+      let prorationFactor = 1;
+      let activeStart = startDate;
+      let activeEnd = endDate;
+
+      if (!isFullMonth) {
+        activeStart = emp.joiningDate && emp.joiningDate > startDate ? new Date(emp.joiningDate) : startDate;
+        if (latestResign && latestResign.effectiveDate < endDate) {
+          activeEnd = new Date(latestResign.effectiveDate);
+        }
+
+        if (activeStart > endDate || activeEnd < startDate || activeStart > activeEnd) {
+          continue;
+        }
+
+        const startDay = new Date(Date.UTC(activeStart.getFullYear(), activeStart.getMonth(), activeStart.getDate()));
+        const endDay = new Date(Date.UTC(activeEnd.getFullYear(), activeEnd.getMonth(), activeEnd.getDate()));
+        const activeDays = Math.min(calendarDaysInMonth, Math.max(0, Math.round((endDay.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24)) + 1));
+        prorationFactor = activeDays / calendarDaysInMonth;
+      }
+
+      const rawSalary = originalRawSalary * prorationFactor;
+
+      if (rawSalary <= 0) continue;
+
+      const empTypePolicies = emp.employeeType;
+      let originalBasic = 0;
+      if (empTypePolicies?.salaryStructurePolicy) {
+        originalBasic = Number((originalRawSalary * (Number(empTypePolicies.salaryStructurePolicy.basicPercent || 55) / 100)).toFixed(2));
+      } else if (defaultSalaryStructurePolicy) {
+        originalBasic = Number((originalRawSalary * (Number(defaultSalaryStructurePolicy.basicPercent || 55) / 100)).toFixed(2));
+      } else {
+        originalBasic = Number((originalRawSalary * 0.55).toFixed(2));
+      }
+
+      let basic = 0, houseRent = 0, medical = 0, transport = 0, foodAllowance = 0;
+      const empSalary = salaryByEmployee.get(emp.id);
+
+      if (empTypePolicies?.salaryStructurePolicy) {
+        const policy = empTypePolicies.salaryStructurePolicy;
+        basic = Number((rawSalary * (Number(policy.basicPercent || 55) / 100)).toFixed(2));
+        houseRent = Number((rawSalary * (Number(policy.houseRentPercent || 26) / 100)).toFixed(2));
+        medical = Number((rawSalary * (Number(policy.medicalPercent || 5) / 100)).toFixed(2));
+        transport = Number((rawSalary * (Number(policy.transportPercent || 4) / 100)).toFixed(2));
+        foodAllowance = Number((rawSalary * (Number(policy.foodPercent || 10) / 100)).toFixed(2));
+      } else if (defaultSalaryStructurePolicy) {
+        basic = Number((rawSalary * (Number(defaultSalaryStructurePolicy.basicPercent || 55) / 100)).toFixed(2));
+        houseRent = Number((rawSalary * (Number(defaultSalaryStructurePolicy.houseRentPercent || 26) / 100)).toFixed(2));
+        medical = Number((rawSalary * (Number(defaultSalaryStructurePolicy.medicalPercent || 5) / 100)).toFixed(2));
+        transport = Number((rawSalary * (Number(defaultSalaryStructurePolicy.transportPercent || 4) / 100)).toFixed(2));
+        foodAllowance = Number((rawSalary * (Number(defaultSalaryStructurePolicy.foodPercent || 10) / 100)).toFixed(2));
+      } else {
+        basic = Number((rawSalary * 0.55).toFixed(2));
+        houseRent = Number((rawSalary * 0.26).toFixed(2));
+        medical = Number((rawSalary * 0.05).toFixed(2));
+        transport = Number((rawSalary * 0.04).toFixed(2));
+        foodAllowance = Number((rawSalary * 0.10).toFixed(2));
+      }
+
+      const activeStartStr = activeStart.toISOString().split("T")[0];
+      const activeEndStr = activeEnd.toISOString().split("T")[0];
+
+      const empAttendance = attendanceRecords.filter(a => {
+        if (a.employeeId !== emp.id) return false;
+        const dateStr = new Date(a.date).toISOString().split("T")[0];
+        return dateStr >= activeStartStr && dateStr <= activeEndStr;
+      });
+
+      const att = empAttendance.reduce((acc, curr) => {
+        if (curr.status === "ABSENT") acc.absentDays += 1;
+        else if (curr.status === "HALF_DAY") acc.absentDays += 0.5;
+        else if (curr.status === "LEAVE") {
+          const isPaid = curr.leaveApplication?.leaveType?.isPaid ?? true;
+          if (!isPaid) acc.absentDays += 1;
+        }
+        acc.otHours += Number(curr.otHours) || 0;
+        acc.lateCountTotal += (Number(curr.lateCountValue) || 0) + (Number(curr.breakLateCountValue) || 0);
+        acc.totalCalculatedOvertimeAmount += Number(curr.calculatedOvertimeAmount) || 0;
+        acc.totalTiffinAllowance += Number(curr.tiffinBillAmount) || 0;
+        acc.totalNightAllowance += Number(curr.nightBillAmount) || 0;
+        acc.totalHolidayAllowance += Number(curr.holidayBillAmount) || 0;
+        return acc;
+      }, {
+        absentDays: 0,
+        otHours: 0,
+        lateCountTotal: 0,
+        totalCalculatedOvertimeAmount: 0,
+        totalTiffinAllowance: 0,
+        totalNightAllowance: 0,
+        totalHolidayAllowance: 0,
+      });
+
+      const tiffinAllowance = att.totalTiffinAllowance;
+      const nightAllowance = att.totalNightAllowance;
+      const holidayAllowance = att.totalHolidayAllowance;
+
+      let otAmount = 0;
+      if (empTypePolicies?.overtimePolicy?.isEligible) {
+        otAmount = att.totalCalculatedOvertimeAmount;
+      } else {
+        const hourlyRateForOT = originalBasic / (payDivisor * calc.workingHoursPerDay);
+        const effectiveOtHours = Math.max(0, att.otHours - calc.dailyOtThresholdHours);
+        otAmount = Number((effectiveOtHours * hourlyRateForOT * calc.otMultiplier).toFixed(2));
+      }
+
+      // Absent Deduction (GROSS vs BASIC rate basis)
+      const absentBasis = calc.absentDeductionBasis || "BASIC";
+      const absentNumerator = absentBasis === "GROSS" ? rawSalary : originalBasic;
+      const dailyRateForAbsent = absentNumerator / payDivisor;
+      let absentDeduction = 0;
+      const applyAbsentPenalty = empTypePolicies?.attendancePolicy
+        ? empTypePolicies.attendancePolicy.applyAbsentPenalty
+        : true;
+      if (applyAbsentPenalty) {
+        absentDeduction = Number((att.absentDays * dailyRateForAbsent).toFixed(2));
+      }
+
+      let lateDeduction = 0;
+      let attendanceBonusLost = false;
+      let convertedAbsentDays = 0;
+      const applyLatePenalty = empTypePolicies?.attendancePolicy
+        ? empTypePolicies.attendancePolicy.applyLatePenalty
+        : true;
+
+      if (applyLatePenalty && empTypePolicies?.latePolicy?.isEnabled) {
+        const latePolicy = empTypePolicies.latePolicy;
+        const dailyRateForLate = Number((originalRawSalary / resolvedLateDeductionDivisor).toFixed(2));
+        const lateRes = calculateLatePolicyPreview({
+          latePolicy: {
+            isEnabled: latePolicy.isEnabled,
+            enableLateToAbsentConversion: latePolicy.enableLateToAbsentConversion,
+            lateDaysForOneAbsent: latePolicy.lateDaysForOneAbsent,
+            lateCountForBonusLoss: latePolicy.lateCountForBonusLoss,
+            deductSalaryForLate: latePolicy.deductSalaryForLate,
+            deductAttendanceBonusForLate: latePolicy.deductAttendanceBonusForLate,
+          },
+          lateCountInPeriod: att.lateCountTotal,
+          dailyRate: dailyRateForLate,
+          attendanceBonusAmount: Number(empTypePolicies.attendancePolicy?.attendanceBonusAmount) || 0,
+        });
+
+        lateDeduction = lateRes.lateDeductionAmount;
+        attendanceBonusLost = lateRes.attendanceBonusLost;
+        convertedAbsentDays = lateRes.convertedAbsentDays;
+      }
+
+      const isEligibleBonus = empTypePolicies?.attendancePolicy?.isEligibleForAttendanceBonus;
+      const bonusType = empTypePolicies?.attendancePolicy?.bonusCalculationType || "NONE";
+      const configBonusAmt = Number(empTypePolicies?.attendancePolicy?.attendanceBonusAmount) || 0;
+
+      let otherAllowance = 0;
+      if (isEligibleBonus && !attendanceBonusLost && att.absentDays === 0) {
+        if (bonusType === "FLAT_AMOUNT") {
+          otherAllowance = configBonusAmt;
+        } else if (bonusType === "PERCENTAGE_OF_BASIC") {
+          otherAllowance = Number((basic * (configBonusAmt / 100)).toFixed(2));
+        } else if (bonusType === "PERCENTAGE_OF_GROSS") {
+          otherAllowance = Number((rawSalary * (configBonusAmt / 100)).toFixed(2));
+        }
+      }
+
+      let loanDeduction = 0;
+      const empLoans = loansByEmployee[emp.id] || [];
+      for (const loan of empLoans) {
+        const installment = Number(loan.monthlyInstallment);
+        const rem = Number(loan.remainingBalance);
+        const ded = Math.min(installment, rem);
+        loanDeduction += ded;
+      }
+
+      const customFine = finesByEmployee[emp.id] || 0;
+      const customBonus = bonusesByEmployee[emp.id] || 0;
+
+      const grossPay = Number(
+        (basic + houseRent + medical + transport + foodAllowance + otAmount + tiffinAllowance + nightAllowance + holidayAllowance + otherAllowance + customBonus).toFixed(2)
+      );
+
+      const taxDeduction = 0;
+      const pfDeduction = 0;
+      const otherDeduction = 0;
+
+      const totalDeduction = Number(
+        (absentDeduction + lateDeduction + loanDeduction + taxDeduction + pfDeduction + otherDeduction + customFine).toFixed(2)
+      );
+
+      const netPay = applyNetPayRounding(
+        Number((grossPay - totalDeduction).toFixed(2)),
+        calc.netPayRounding
+      );
+
+      grandTotalAmount += netPay;
+
+      payrollItemsData.push({
+        employeeId: emp.id,
+        basic,
+        houseRent,
+        medical,
+        transport,
+        foodAllowance,
+        otAmount,
+        bonus: 0,
+        grossPay,
+        absentDeduction,
+        loanDeduction,
+        taxDeduction,
+        pfDeduction,
+        totalDeduction,
+        netPay,
+        tiffinAllowance,
+        nightAllowance,
+        holidayAllowance,
+        otherAllowance,
+        lateDeduction,
+        otherDeduction,
+        customFine,
+        customBonus,
+        status: "unpaid",
+      });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.payrollItem.deleteMany({
+        where: { payrollId: payroll.id }
+      });
+
+      await tx.payrollItem.createMany({
+        data: payrollItemsData.map((item) => ({
+          ...item,
+          payrollId: payroll.id,
+        })),
+      });
+
+      await tx.payroll.update({
+        where: { id: payroll.id },
+        data: {
+          totalAmount: grandTotalAmount,
+          updatedAt: new Date(),
+        },
+      });
+    });
+
+    await logItemUpdated(
+      session.user.id,
+      "Payroll",
+      payroll.id,
+      ["status:DRAFT", `totalAmount:${grandTotalAmount}`],
+      `Recalculated DRAFT Payroll ${payroll.payrollNumber} for ${month}/${year}`
+    );
+
+    revalidateBothPaths("hr/payroll");
+
+    return { success: true, message: "Payroll recalculated successfully", totalAmount: grandTotalAmount };
+  } catch (error) {
+    console.error("recalculatePayroll error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to recalculate payroll" };
+  }
+}
+
