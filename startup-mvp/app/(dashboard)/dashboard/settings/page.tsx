@@ -19,6 +19,7 @@ import {
   LucideUserCog,
   LucideDatabaseBackup,
   Lock,
+  Facebook as FacebookIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -42,6 +43,7 @@ import Members from "./_components/Members";
 import Security from "./_components/Security";
 import APIs from "./_components/APIs";
 import Webhooks from "./_components/Webhooks";
+import Facebook from "./_components/Facebook";
 
 import Backup from "./_components/Backup";
 import PermissionsSettings from "./_components/PermissionsSettings";
@@ -52,7 +54,7 @@ import QuotationTerms from "./_components/quotationTerms/QuotationTerms";
 
 
 
-type SettingsSection = "profile" | "organization" | "experience" | "emails" | "calendars" | "backup" | "permissions" | "general" | "members" | "roles" | "data-model" | "integrations" | "security" | "apis" | "webhooks" | "tex" | "lab" | "releases" | "whatsapp" | "telegram" | "sms" | "paymentMethods" | "coverLetter" | "tos" | "accounts" | "preferences";
+type SettingsSection = "profile" | "organization" | "experience" | "emails" | "calendars" | "backup" | "permissions" | "general" | "members" | "roles" | "data-model" | "integrations" | "security" | "apis" | "webhooks" | "tex" | "lab" | "releases" | "whatsapp" | "telegram" | "sms" | "paymentMethods" | "coverLetter" | "tos" | "accounts" | "preferences" | "facebook";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -69,7 +71,7 @@ export default function SettingsPage() {
       startTransition(() => {
         setActiveSection(section);
         // Auto-expand parent items if a child is active
-        if (section === "emails" || section === "calendars" || section === "whatsapp" || section === "telegram" || section === "sms") {
+        if (section === "emails" || section === "calendars" || section === "whatsapp" || section === "telegram" || section === "sms" || section === "facebook") {
           setExpandedItems(new Set(["accounts"]));
         }
       });
@@ -104,13 +106,14 @@ export default function SettingsPage() {
           id: "accounts" as SettingsSection,
           label: "Accounts",
           icon: AtSign,
-          active: activeSection === "emails" || activeSection === "calendars",
+          active: activeSection === "emails" || activeSection === "calendars" || activeSection === "whatsapp" || activeSection === "telegram" || activeSection === "sms" || activeSection === "facebook",
           children: [
             { id: "emails" as SettingsSection, label: "Emails", icon: Mail, active: activeSection === "emails" },
             { id: "calendars" as SettingsSection, label: "Calendars", icon: Calendar, active: activeSection === "calendars" },
             { id: "whatsapp" as SettingsSection, label: "WhatsApp", icon: MdWhatsapp, active: activeSection === "whatsapp" },
             { id: "telegram" as SettingsSection, label: "Telegram", icon: Calendar, active: activeSection === "telegram" },
             { id: "sms" as SettingsSection, label: "SMS", icon: HiEnvelope, active: activeSection === "sms" },
+            { id: "facebook" as SettingsSection, label: "Facebook", icon: FacebookIcon, active: activeSection === "facebook" },
           ],
         },
         { id: "backup" as SettingsSection, label: "Backup", icon: LucideDatabaseBackup, active: activeSection === "backup" },
@@ -188,6 +191,8 @@ export default function SettingsPage() {
         return <APIs />;
       case "webhooks":
         return <Webhooks />;
+      case "facebook":
+        return <Facebook />;
       case "backup":
         return <Backup />;
       case "permissions":
