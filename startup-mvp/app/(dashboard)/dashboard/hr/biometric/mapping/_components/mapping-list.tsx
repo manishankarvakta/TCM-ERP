@@ -32,6 +32,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -178,9 +188,16 @@ export default function MappingListClient({
     });
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to permanently delete this mapping?")) return;
-    
+  const [deleteMappingId, setDeleteMappingId] = useState<string | null>(null);
+
+  const handleDelete = (id: string) => {
+    setDeleteMappingId(id);
+  };
+
+  const confirmDelete = () => {
+    if (!deleteMappingId) return;
+    const id = deleteMappingId;
+    setDeleteMappingId(null);
     startTransition(async () => {
       const result = await deleteEmployeeDeviceMapping(id);
       if (result.success) {
@@ -405,6 +422,23 @@ export default function MappingListClient({
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteMappingId} onOpenChange={(open) => !open && setDeleteMappingId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Employee Device Mapping</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete this mapping?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteMappingId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

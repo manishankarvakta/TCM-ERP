@@ -8,6 +8,15 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { UploadCloud, CheckCircle2, AlertCircle, FileWarning } from "lucide-react";
 
 type Device = { id: string; name: string; serialNumber: string | null };
@@ -29,6 +38,7 @@ export default function CsvImportClient({ devices }: { devices: Device[] }) {
   const [rows, setRows] = useState<CsvRow[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [summary, setSummary] = useState<any>(null);
+  const [alertDialog, setAlertDialog] = useState<{ open: boolean; title: string; description: string }>({ open: false, title: "", description: "" });
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = e.target.files?.[0];
@@ -77,11 +87,11 @@ export default function CsvImportClient({ devices }: { devices: Device[] }) {
 
   const handleImport = async () => {
     if (!selectedDevice) {
-      alert("Please select a device first.");
+      setAlertDialog({ open: true, title: "Device Required", description: "Please select a device first." });
       return;
     }
     if (rows.length === 0) {
-      alert("No valid data to import.");
+      setAlertDialog({ open: true, title: "No Data", description: "No valid data to import." });
       return;
     }
 
@@ -108,7 +118,7 @@ export default function CsvImportClient({ devices }: { devices: Device[] }) {
       setRows([]);
       setFile(null);
     } catch (err: any) {
-      alert("Import failed: " + err.message);
+      setAlertDialog({ open: true, title: "Import Failed", description: err.message || "An unexpected error occurred." });
     } finally {
       setIsProcessing(false);
     }
@@ -206,6 +216,20 @@ export default function CsvImportClient({ devices }: { devices: Device[] }) {
           </div>
         </div>
       )}
+
+      <AlertDialog open={alertDialog.open} onOpenChange={(open) => setAlertDialog(prev => ({ ...prev, open }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{alertDialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>{alertDialog.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setAlertDialog(prev => ({ ...prev, open: false }))}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

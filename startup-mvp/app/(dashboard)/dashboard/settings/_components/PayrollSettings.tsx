@@ -51,6 +51,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -979,9 +989,16 @@ export default function PayrollSettings() {
     }
   };
 
-  // Helper trigger soft deletes
-  const handleDeletePolicy = async (type: string, id: string) => {
-    if (!confirm("Are you sure you want to delete this policy template?")) return;
+  const [deletePolicyTarget, setDeletePolicyTarget] = useState<{ type: string; id: string } | null>(null);
+
+  const handleDeletePolicy = (type: string, id: string) => {
+    setDeletePolicyTarget({ type, id });
+  };
+
+  const confirmDeletePolicy = async () => {
+    if (!deletePolicyTarget) return;
+    const { type, id } = deletePolicyTarget;
+    setDeletePolicyTarget(null);
     setError("");
     try {
       let res;
@@ -3660,6 +3677,23 @@ export default function PayrollSettings() {
           </div>
         </div>
       )}
+
+      <AlertDialog open={!!deletePolicyTarget} onOpenChange={(open) => !open && setDeletePolicyTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Policy Template</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this policy template?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeletePolicyTarget(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeletePolicy} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

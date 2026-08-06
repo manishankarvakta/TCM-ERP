@@ -30,6 +30,16 @@ import {
 } from "../_actions/daybook.action";
 import POSClosingModal from "./POSClosingModal";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface DayBookDashboardClientProps {
   warehouses: Array<{ id: string; name: string }>;
@@ -63,6 +73,8 @@ export default function DayBookDashboardClient({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isClosingModalOpen, setIsClosingModalOpen] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; title: string; description: string; onConfirm: () => void }>({ open: false, title: "", description: "", onConfirm: () => {} });
+  const [alertDialog, setAlertDialog] = useState<{ open: boolean; title: string; description: string }>({ open: false, title: "", description: "" });
 
   const warehouseOptions = React.useMemo(() => {
     const list = (warehouses || []).map((w) => ({
@@ -112,34 +124,46 @@ export default function DayBookDashboardClient({
     fetchData();
   }, [date, selectedWarehouseId]);
 
-  const handleVerify = async (id: string) => {
-    if (!confirm("Are you sure you want to verify and lock this POS closing session?")) return;
-    try {
-      const res = await verifyPOSClosingSession(id);
-      if (res.success) {
-        fetchData();
-      } else {
-        alert(res.error || "Failed to verify session.");
+  const handleVerify = (id: string) => {
+    setConfirmDialog({
+      open: true,
+      title: "Verify & Lock Session",
+      description: "Are you sure you want to verify and lock this POS closing session?",
+      onConfirm: async () => {
+        try {
+          const res = await verifyPOSClosingSession(id);
+          if (res.success) {
+            fetchData();
+          } else {
+            setAlertDialog({ open: true, title: "Verification Failed", description: res.error || "Failed to verify session." });
+          }
+        } catch (err) {
+          console.error(err);
+          setAlertDialog({ open: true, title: "Error", description: "Error verifying session." });
+        }
       }
-    } catch (err) {
-      console.error(err);
-      alert("Error verifying session.");
-    }
+    });
   };
 
-  const handleReopen = async (id: string) => {
-    if (!confirm("Are you sure you want to reopen this POS closing session for edits?")) return;
-    try {
-      const res = await reopenPOSClosingSession(id);
-      if (res.success) {
-        fetchData();
-      } else {
-        alert(res.error || "Failed to reopen session.");
+  const handleReopen = (id: string) => {
+    setConfirmDialog({
+      open: true,
+      title: "Reopen Session",
+      description: "Are you sure you want to reopen this POS closing session for edits?",
+      onConfirm: async () => {
+        try {
+          const res = await reopenPOSClosingSession(id);
+          if (res.success) {
+            fetchData();
+          } else {
+            setAlertDialog({ open: true, title: "Reopen Failed", description: res.error || "Failed to reopen session." });
+          }
+        } catch (err) {
+          console.error(err);
+          setAlertDialog({ open: true, title: "Error", description: "Error reopening session." });
+        }
       }
-    } catch (err) {
-      console.error(err);
-      alert("Error reopening session.");
-    }
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -484,6 +508,45 @@ export default function DayBookDashboardClient({
         currentUserId={currentUserId}
         savedSession={selectedClosing?.status === "DRAFT" ? selectedClosing : null}
       />
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmDialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmDialog.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmDialog(prev => ({ ...prev, open: false }))}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const action = confirmDialog.onConfirm;
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+                action();
+              }}
+            >
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Alert Dialog */}
+      <AlertDialog open={alertDialog.open} onOpenChange={(open) => setAlertDialog(prev => ({ ...prev, open }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{alertDialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>{alertDialog.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setAlertDialog(prev => ({ ...prev, open: false }))}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

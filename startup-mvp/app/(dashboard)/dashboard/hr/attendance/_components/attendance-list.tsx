@@ -29,6 +29,16 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 
@@ -119,6 +129,7 @@ export default function AttendanceListClient({
   const [warehouses, setWarehouses] = useState<{id: string, name: string}[]>([]);
   const [employees, setEmployees] = useState<{id: string, name: string, employeeCode: string | null}[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isCloseShiftModalOpen, setIsCloseShiftModalOpen] = useState(false);
 
   // Clear selections when attendance records change (e.g. after pagination/filtering)
   useEffect(() => {
@@ -143,8 +154,11 @@ export default function AttendanceListClient({
 
   const handleCloseShiftBulk = () => {
     if (selectedIds.length === 0) return;
-    if (!window.confirm(`Are you sure you want to automatically close the shift for ${selectedIds.length} selected employee(s)?`)) return;
+    setIsCloseShiftModalOpen(true);
+  };
 
+  const confirmCloseShiftBulk = () => {
+    setIsCloseShiftModalOpen(false);
     startTransition(async () => {
       const result = await closeShiftBulk(selectedIds);
       if (result.success) {
@@ -610,6 +624,21 @@ export default function AttendanceListClient({
           {renderPaginationButtons()}
         </div>
       )}
+
+      <AlertDialog open={isCloseShiftModalOpen} onOpenChange={setIsCloseShiftModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Auto-Close Shift Confirmation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to automatically close the shift for {selectedIds.length} selected employee(s)?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsCloseShiftModalOpen(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmCloseShiftBulk}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

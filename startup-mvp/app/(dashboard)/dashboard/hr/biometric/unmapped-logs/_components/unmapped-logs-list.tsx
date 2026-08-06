@@ -27,6 +27,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -129,19 +139,26 @@ export default function UnmappedLogsListClient({
     }
   };
 
+  const [isBulkIgnoreOpen, setIsBulkIgnoreOpen] = useState(false);
+  const [ignoreLogId, setIgnoreLogId] = useState<string | null>(null);
+
   const handleBulkIgnore = () => {
-    if (window.confirm(`Are you sure you want to ignore the ${selectedLogIds.length} selected unknown punches?`)) {
-      startTransition(async () => {
-        const res = await bulkMarkUnmappedLogsIgnored(selectedLogIds);
-        if (res.success) {
-          toast({ title: "Success", description: `${selectedLogIds.length} logs ignored successfully.` });
-          setSelectedLogIds([]);
-          router.refresh();
-        } else {
-          toast({ title: "Error", description: res.error || "Failed to bulk ignore logs", variant: "destructive" });
-        }
-      });
-    }
+    if (selectedLogIds.length === 0) return;
+    setIsBulkIgnoreOpen(true);
+  };
+
+  const confirmBulkIgnore = () => {
+    setIsBulkIgnoreOpen(false);
+    startTransition(async () => {
+      const res = await bulkMarkUnmappedLogsIgnored(selectedLogIds);
+      if (res.success) {
+        toast({ title: "Success", description: `${selectedLogIds.length} logs ignored successfully.` });
+        setSelectedLogIds([]);
+        router.refresh();
+      } else {
+        toast({ title: "Error", description: res.error || "Failed to bulk ignore logs", variant: "destructive" });
+      }
+    });
   };
 
   const handlePageChange = (newPage: number) => {
@@ -277,8 +294,14 @@ export default function UnmappedLogsListClient({
     setIsRawModalOpen(true);
   };
 
-  const handleIgnore = async (id: string) => {
-    if (!window.confirm("Are you sure you want to ignore this log? It won't be processed for attendance.")) return;
+  const handleIgnore = (id: string) => {
+    setIgnoreLogId(id);
+  };
+
+  const confirmSingleIgnore = () => {
+    if (!ignoreLogId) return;
+    const id = ignoreLogId;
+    setIgnoreLogId(null);
     startTransition(async () => {
       const result = await markUnmappedLogIgnored(id);
       if (result.success) {
@@ -493,6 +516,38 @@ export default function UnmappedLogsListClient({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Ignore Confirmation Modal */}
+      <AlertDialog open={isBulkIgnoreOpen} onOpenChange={setIsBulkIgnoreOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bulk Ignore Unknown Punches</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to ignore the {selectedLogIds.length} selected unknown punches?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsBulkIgnoreOpen(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkIgnore}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Single Ignore Confirmation Modal */}
+      <AlertDialog open={!!ignoreLogId} onOpenChange={(open) => !open && setIgnoreLogId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ignore Unmapped Log</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to ignore this log? It won't be processed for attendance.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIgnoreLogId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSingleIgnore}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

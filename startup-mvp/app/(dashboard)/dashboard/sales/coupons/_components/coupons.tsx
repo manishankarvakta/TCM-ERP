@@ -15,6 +15,16 @@ import { FiEdit2, FiTrash2, FiPlus, FiPercent, FiDollarSign, FiChevronDown } fro
 import { useToast } from "@/hooks/use-toast";
 import { deleteCoupon, getCoupons, bulkDeleteCoupons, bulkUpdateCouponStatus } from "../_actions/coupon.action";
 import CouponForm from "./couponForm";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface CouponsListProps {
   initialCoupons: any[];
@@ -40,8 +50,17 @@ export default function CouponsList({ initialCoupons }: CouponsListProps) {
     setIsFormOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this coupon?")) return;
+  const [deleteCouponId, setDeleteCouponId] = useState<string | null>(null);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+
+  const handleDelete = (id: string) => {
+    setDeleteCouponId(id);
+  };
+
+  const confirmSingleDelete = async () => {
+    if (!deleteCouponId) return;
+    const id = deleteCouponId;
+    setDeleteCouponId(null);
 
     try {
       const res = await deleteCoupon(id);
@@ -70,10 +89,15 @@ export default function CouponsList({ initialCoupons }: CouponsListProps) {
   const handleBulkAction = async (action: "ACTIVE" | "INACTIVE" | "DELETE") => {
     if (selectedIds.length === 0) return;
 
-    if (action === "DELETE" && !confirm(`Are you sure you want to delete ${selectedIds.length} coupons?`)) {
+    if (action === "DELETE") {
+      setIsBulkDeleteOpen(true);
       return;
     }
 
+    executeBulkAction(action);
+  };
+
+  const executeBulkAction = async (action: "ACTIVE" | "INACTIVE" | "DELETE") => {
     try {
       let res;
       if (action === "DELETE") {
@@ -98,7 +122,7 @@ export default function CouponsList({ initialCoupons }: CouponsListProps) {
     } catch (err) {
       toast({
         title: "Error",
-        description: "Failed to perform bulk action",
+        description: "Failed to execute bulk action",
         variant: "destructive",
       });
     }
@@ -255,6 +279,48 @@ export default function CouponsList({ initialCoupons }: CouponsListProps) {
         couponToEdit={couponToEdit}
         onSuccess={refreshCoupons}
       />
+
+      {/* Single Delete Confirmation Modal */}
+      <AlertDialog open={!!deleteCouponId} onOpenChange={(open) => !open && setDeleteCouponId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Coupon</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this coupon?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteCouponId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSingleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation Modal */}
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bulk Delete Coupons</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedIds.length} coupons?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsBulkDeleteOpen(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setIsBulkDeleteOpen(false);
+                executeBulkAction("DELETE");
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

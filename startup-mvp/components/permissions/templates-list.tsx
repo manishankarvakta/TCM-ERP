@@ -19,6 +19,16 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import type { PermissionTemplateData } from "@/types/permissions";
 import { MODULES } from "@/types/permissions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface PermissionTemplatesListProps {
   initialTemplates: PermissionTemplateData[];
@@ -31,11 +41,16 @@ export default function PermissionTemplatesList({
   const { toast } = useToast();
   const [templates, setTemplates] = useState(initialTemplates);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
-  const handleDelete = async (templateId: string, templateName: string) => {
-    if (!confirm(`Are you sure you want to delete the template "${templateName}"?`)) {
-      return;
-    }
+  const handleDelete = (templateId: string, templateName: string) => {
+    setDeleteTarget({ id: templateId, name: templateName });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const { id: templateId, name: templateName } = deleteTarget;
+    setDeleteTarget(null);
 
     setDeletingId(templateId);
     const result = await deletePermissionTemplate(templateId);
@@ -146,6 +161,23 @@ export default function PermissionTemplatesList({
           </Card>
         );
       })}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Permission Template</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the template "{deleteTarget?.name}"?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1247,7 +1247,7 @@ export async function downloadQuotationPDF(quotation: any, filename?: string) {
   } catch (error) {
     console.error('Error generating PDF:', error);
     console.error('Error details:', error instanceof Error ? error.stack : String(error));
-    alert(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}. Please check the console for details.`);
+    console.error(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}. Please check the console for details.`);
     throw error; // Re-throw to allow caller to handle if needed
   }
 }
