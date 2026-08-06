@@ -49,6 +49,19 @@ interface LedgerRow {
   profitLoss?: number;
   details?: string;
   warehouse?: { name: string; code: string } | null;
+  variant?: {
+    id: string;
+    sku: string;
+    size?: string | null;
+    color?: string | null;
+  } | null;
+}
+
+interface VariantData {
+  id: string;
+  sku: string;
+  size?: string | null;
+  color?: string | null;
 }
 
 interface ItemData {
@@ -77,12 +90,14 @@ interface LedgerSummary {
 
 interface ItemLedgerProps {
   item: ItemData;
+  variants?: VariantData[];
   ledger: LedgerRow[];
   summary: LedgerSummary;
   warehouses: Array<{ id: string; name: string; code: string }>;
   initialStartDate?: string;
   initialEndDate?: string;
   initialWarehouseId?: string;
+  initialVariantId?: string;
   organization?: {
     name?: string | null;
     address?: string | null;
@@ -93,18 +108,21 @@ interface ItemLedgerProps {
 
 export default function ItemLedger({
   item,
+  variants = [],
   ledger,
   summary,
   warehouses,
   initialStartDate = "",
   initialEndDate = "",
   initialWarehouseId = "all",
+  initialVariantId = "all",
   organization,
 }: ItemLedgerProps) {
   const router = useRouter();
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
   const [warehouseId, setWarehouseId] = useState(initialWarehouseId);
+  const [variantId, setVariantId] = useState(initialVariantId);
   const [search, setSearch] = useState("");
 
   const handleFilter = () => {
@@ -113,6 +131,7 @@ export default function ItemLedger({
     if (startDate) params.set("startDate", startDate);
     if (endDate) params.set("endDate", endDate);
     if (warehouseId && warehouseId !== "all") params.set("warehouseId", warehouseId);
+    if (variantId && variantId !== "all") params.set("variantId", variantId);
     router.push(`/dashboard/master/items/ledger?${params.toString()}`);
   };
 
@@ -120,6 +139,7 @@ export default function ItemLedger({
     setStartDate("");
     setEndDate("");
     setWarehouseId("all");
+    setVariantId("all");
     setSearch("");
     router.push(`/dashboard/master/items/ledger?id=${item.id}`);
   };
@@ -137,7 +157,10 @@ export default function ItemLedger({
       row.type.toLowerCase().includes(query) ||
       row.date.toLowerCase().includes(query) ||
       (row.party && row.party.label.toLowerCase().includes(query)) ||
-      (row.details && row.details.toLowerCase().includes(query))
+      (row.details && row.details.toLowerCase().includes(query)) ||
+      (row.variant && row.variant.sku.toLowerCase().includes(query)) ||
+      (row.variant && row.variant.size && row.variant.size.toLowerCase().includes(query)) ||
+      (row.variant && row.variant.color && row.variant.color.toLowerCase().includes(query))
     );
   });
 
@@ -398,6 +421,31 @@ export default function ItemLedger({
                 </Select>
               </div>
 
+              {variants && variants.length > 0 && (
+                <div className="w-full md:w-52 space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                    <FiLayers className="h-3.5 w-3.5" /> SKU / Variant Filter
+                  </label>
+                  <Select value={variantId} onValueChange={setVariantId}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="All SKUs & Base" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All SKUs & Base</SelectItem>
+                      <SelectItem value="base">Base Item Only</SelectItem>
+                      {variants.map((v) => {
+                        const attrStr = [v.size, v.color].filter(Boolean).join(" / ");
+                        return (
+                          <SelectItem key={v.id} value={v.id}>
+                            {v.sku} {attrStr ? `(${attrStr})` : ""}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="w-full md:flex-1 space-y-1">
                 <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                   <FiSearch className="h-3.5 w-3.5" /> Search Ledger
@@ -573,6 +621,19 @@ export default function ItemLedger({
                           <span className="text-foreground/90 font-medium text-[11px]">
                             {row.party?.label || row.warehouse?.name || "—"}
                           </span>
+                        )}
+                        {row.variant && (
+                          <div className="mt-1">
+                            <Badge variant="outline" className="text-[10px] font-mono bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/60 px-1.5 py-0 inline-flex items-center gap-1">
+                              <FiLayers className="h-2.5 w-2.5 opacity-80" />
+                              <span>SKU: {row.variant.sku}</span>
+                              {(row.variant.size || row.variant.color) && (
+                                <span className="opacity-80 font-normal">
+                                  ({[row.variant.size, row.variant.color].filter(Boolean).join(" / ")})
+                                </span>
+                              )}
+                            </Badge>
+                          </div>
                         )}
                       </TableCell>
                       <TableCell className="col-open text-center font-mono py-2 font-semibold text-slate-700 dark:text-slate-300">

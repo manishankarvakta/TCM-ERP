@@ -2074,7 +2074,8 @@ export async function getItemLedger(
   itemId: string,
   startDate?: string,
   endDate?: string,
-  warehouseId?: string
+  warehouseId?: string,
+  variantId?: string
 ) {
   try {
     const session = await auth();
@@ -2094,6 +2095,20 @@ export async function getItemLedger(
         category: { select: { id: true, name: true } },
         subCategory: { select: { id: true, name: true } },
         brand: { select: { id: true, name: true } },
+        variants: {
+          select: {
+            id: true,
+            sku: true,
+            size: true,
+            color: true,
+            stocks: {
+              select: {
+                quantity: true,
+                warehouseId: true,
+              },
+            },
+          },
+        },
         stocks: {
           select: {
             quantity: true,
@@ -2126,9 +2141,23 @@ export async function getItemLedger(
       const sDate = new Date(startDate);
       sDate.setHours(0, 0, 0, 0);
       const priorWhere: any = {
-        itemId,
         createdAt: { lt: sDate },
       };
+
+      if (variantId && variantId !== "all") {
+        if (variantId === "base") {
+          priorWhere.itemId = itemId;
+          priorWhere.variantId = null;
+        } else {
+          priorWhere.variantId = variantId;
+        }
+      } else {
+        priorWhere.OR = [
+          { itemId },
+          { variant: { itemId } },
+        ];
+      }
+
       if (warehouseId && warehouseId !== "all") {
         priorWhere.warehouseId = warehouseId;
       }
@@ -2146,7 +2175,21 @@ export async function getItemLedger(
       }
     }
 
-    const ledgerWhere: any = { itemId };
+    const ledgerWhere: any = {};
+    if (variantId && variantId !== "all") {
+      if (variantId === "base") {
+        ledgerWhere.itemId = itemId;
+        ledgerWhere.variantId = null;
+      } else {
+        ledgerWhere.variantId = variantId;
+      }
+    } else {
+      ledgerWhere.OR = [
+        { itemId },
+        { variant: { itemId } },
+      ];
+    }
+
     if (warehouseId && warehouseId !== "all") {
       ledgerWhere.warehouseId = warehouseId;
     }
@@ -2159,6 +2202,7 @@ export async function getItemLedger(
       include: {
         warehouse: { select: { id: true, name: true, code: true } },
         creator: { select: { id: true, name: true } },
+        variant: { select: { id: true, sku: true, size: true, color: true } },
       },
       orderBy: { createdAt: "asc" },
     });
@@ -2188,8 +2232,6 @@ export async function getItemLedger(
       else if (refType === "SALE" || refType === "SO" || refType === "POS" || refType === "SALE_VOID") saleIds.add(refId);
       else if (refType === "RTV" || refType === "PURCHASE_RETURN") rtvIds.add(refId);
       else if (refType === "PROD" || refType === "PRODUCTION" || tx.transactionType === "PRODUCTION") prodIds.add(refId);
-      // NOTE: ADJUSTMENT referenceId = stock.id (not InventoryAdjustment id), so we skip adjIds lookup
-      // and handle ADJUSTMENT in the fallback party block using the warehouse from the tx itself
       else if (refType === "DAMAGE" || tx.transactionType === "DAMAGE") damageIds.add(refId);
     });
 
@@ -2324,6 +2366,7 @@ export async function getItemLedger(
         rate: Number(item.costPrice || 0),
         total: Math.abs(opening) * Number(item.costPrice || 0),
         details: `${item.code} | Opening Balance`,
+        variant: null,
       });
       if (opening > 0) totalInQty += opening;
       else totalOutQty += Math.abs(opening);
@@ -2414,8 +2457,6 @@ export async function getItemLedger(
         link: null,
       };
 
-      // For ADJUSTMENT entries: referenceId = stock.id (not an InventoryAdjustment id)
-      // Just show warehouse name, no link needed
       const txRefType = (tx.referenceType || "").toUpperCase();
       if (txRefType === "ADJUSTMENT" || tx.transactionType === "ADJUSTMENT") {
         party = {
@@ -2437,7 +2478,6 @@ export async function getItemLedger(
               link: `/dashboard/suppliers/details?id=${g.purchase.supplier.id}`,
             };
           } else if (g.tpn) {
-            // GRN from TPN: show To warehouse (destination warehouse)
             party = {
               type: "warehouse_transfer",
               label: g.tpn.destinationWarehouse.name,
@@ -2456,7 +2496,6 @@ export async function getItemLedger(
           const t = tpnMap.get(refId)!;
           invoiceNo = t.tpnNumber;
           invoiceUrl = `/dashboard/procurements/tpn/${refId}`;
-          // TPN: show From warehouse (source warehouse)
           party = {
             type: "warehouse_transfer",
             label: t.sourceWarehouse.name,
@@ -2520,7 +2559,6 @@ export async function getItemLedger(
             };
           }
         } else {
-          // Unknown referenceId — show raw ID and try to guess the URL
           invoiceNo = refId;
           if (refType === "GRN") invoiceUrl = `/dashboard/procurements/grn/${refId}`;
           else if (refType === "TPN" || refType === "TRANSFER") invoiceUrl = `/dashboard/procurements/tpn/${refId}`;
@@ -2529,7 +2567,6 @@ export async function getItemLedger(
           else if (refType === "RTV" || refType === "PURCHASE_RETURN") invoiceUrl = `/dashboard/procurements/rtv/${refId}`;
           else if (refType === "PROD" || refType === "PRODUCTION" || txType === "PRODUCTION") invoiceUrl = `/dashboard/production/orders/${refId}`;
           else if (refType === "DAMAGE" || txType === "DAMAGE") invoiceUrl = `/dashboard/inventory/damage`;
-          // ADJUSTMENT: no link, warehouse already set as fallback party above
         }
       }
 
@@ -2549,10 +2586,25 @@ export async function getItemLedger(
         profitLoss,
         details: tx.notes || `${item.code} | ${typeLabel}`,
         warehouse: tx.warehouse ? { name: tx.warehouse.name, code: tx.warehouse.code } : null,
+        variant: tx.variant
+          ? {
+              id: tx.variant.id,
+              sku: tx.variant.sku,
+              size: tx.variant.size,
+              color: tx.variant.color,
+            }
+          : null,
       });
     });
 
     const finalStock = ledger.length > 0 ? ledger[ledger.length - 1].closing : openingStock;
+
+    const formattedVariants = (item.variants || []).map((v) => ({
+      id: v.id,
+      sku: v.sku,
+      size: v.size,
+      color: v.color,
+    }));
 
     return {
       success: true,
@@ -2570,6 +2622,7 @@ export async function getItemLedger(
         wholesalePrice: item.wholesalePrice ? Number(item.wholesalePrice) : 0,
         currentStockTotal: finalStock,
       },
+      variants: formattedVariants,
       ledger,
       summary: {
         totalInQty,

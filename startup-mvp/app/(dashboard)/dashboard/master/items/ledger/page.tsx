@@ -12,6 +12,7 @@ interface ItemLedgerPageProps {
     startDate?: string;
     endDate?: string;
     warehouseId?: string;
+    variantId?: string;
   }>;
 }
 
@@ -24,7 +25,7 @@ export default async function ItemLedgerPage({ searchParams }: ItemLedgerPagePro
   }
 
   const [result, warehousesResult, org] = await Promise.all([
-    getItemLedger(itemId, params.startDate, params.endDate, params.warehouseId),
+    getItemLedger(itemId, params.startDate, params.endDate, params.warehouseId, params.variantId),
     getActiveWarehouses(),
     prisma.organization.findFirst({ where: { status: "active" } }).catch(() => null),
   ]);
@@ -45,6 +46,7 @@ export default async function ItemLedgerPage({ searchParams }: ItemLedgerPagePro
     <PageGuard permissionKey="master.items" requiredOperation="view">
       <ItemLedger
         item={result.item}
+        variants={result.variants || []}
         ledger={result.ledger || []}
         summary={
           result.summary || {
@@ -60,6 +62,7 @@ export default async function ItemLedgerPage({ searchParams }: ItemLedgerPagePro
         initialStartDate={params.startDate}
         initialEndDate={params.endDate}
         initialWarehouseId={params.warehouseId}
+        initialVariantId={params.variantId}
         organization={org}
       />
     </PageGuard>
