@@ -730,6 +730,79 @@ async function validateSaleAccounts(
 }
 
 /**
+ * Dynamically resolves the location-specific Cash ChartOfAccount for a given warehouse.
+ * 1. Checks for CashBankAccount explicitly assigned to warehouseId (type: CASH)
+ * 2. Matches location keyword in warehouse name (e.g. Rangpur -> Cash (Rangpur))
+ * 3. Safe fallback: Default active Cash ASSET account (1110 - Cash (Factory))
+ */
+export async function getWarehouseCashAccount(
+  warehouseId?: string | null,
+  tx?: Prisma.TransactionClient
+): Promise<string | null> {
+  const client = tx || prisma;
+
+  if (warehouseId) {
+    // 1. Direct DB lookup on CashBankAccount assigned to warehouseId
+    const assignedCashAccount = await client.cashBankAccount.findFirst({
+      where: {
+        type: "CASH",
+        status: "active",
+        warehouses: {
+          some: { id: warehouseId },
+        },
+      },
+      select: { chartOfAccountId: true },
+    });
+
+    if (assignedCashAccount?.chartOfAccountId) {
+      return assignedCashAccount.chartOfAccountId;
+    }
+
+    // 2. Fetch warehouse details to try location keyword matching
+    const warehouse = await client.warehouse.findUnique({
+      where: { id: warehouseId },
+      select: { name: true },
+    });
+
+    if (warehouse?.name) {
+      const warehouseName = warehouse.name;
+      let keyword = "";
+      if (/rangpur/i.test(warehouseName)) keyword = "Rangpur";
+      else if (/aziz/i.test(warehouseName)) keyword = "Aziz";
+      else if (/gulisthan|city plaza/i.test(warehouseName)) keyword = "Gulisthan";
+      else if (/factory/i.test(warehouseName)) keyword = "Factory";
+
+      if (keyword) {
+        const matchedAcct = await client.chartOfAccount.findFirst({
+          where: {
+            name: { contains: keyword, mode: "insensitive" },
+            type: "ASSET",
+            status: "active",
+          },
+          select: { id: true },
+        });
+
+        if (matchedAcct?.id) {
+          return matchedAcct.id;
+        }
+      }
+    }
+  }
+
+  // 3. Fallback: First active Cash ASSET account (typically 1110 - Cash (Factory))
+  const fallbackAcct = await client.chartOfAccount.findFirst({
+    where: {
+      name: { contains: "Cash", mode: "insensitive" },
+      type: "ASSET",
+      status: "active",
+    },
+    select: { id: true },
+  });
+
+  return fallbackAcct?.id || null;
+}
+
+/**
  * Create accounting voucher for Sale
  * Debit: Accounts Receivable (Client or Default)
  * Credit: Sales Revenue
@@ -893,18 +966,11 @@ export async function createSaleAccountingVoucher(
             debitDescription = `Cash Received - ${sale.saleNumber} - ${sale.client.name}`;
           }
         } catch (_) {}
-        // Fallback: search for a "Cash" ASSET account by name
+        // Fallback: search for location-aware warehouse Cash ASSET account
         if (!debitAccountId) {
-          const cashAcct = await client.chartOfAccount.findFirst({
-            where: {
-              name: { contains: "Cash", mode: "insensitive" },
-              type: "ASSET",
-              status: "active",
-            },
-            select: { id: true },
-          });
-          if (cashAcct) {
-            debitAccountId = cashAcct.id;
+          const warehouseCashAcctId = await getWarehouseCashAccount(sale.warehouseId, client);
+          if (warehouseCashAcctId) {
+            debitAccountId = warehouseCashAcctId;
             debitDescription = `Cash Received - ${sale.saleNumber} - ${sale.client.name}`;
           }
         }
@@ -3291,10 +3357,8 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
         }
       }
 
-      const cashAccount = await tx.chartOfAccount.findFirst({
-        where: { name: { contains: "Cash", mode: "insensitive" }, type: "ASSET", status: "active" }
-      });
-      const creditAccountId = shouldRefundCash && cashAccount ? cashAccount.id : arAccountId;
+      const warehouseCashAccountId = await getWarehouseCashAccount(warehouseId, tx);
+      const creditAccountId = shouldRefundCash && warehouseCashAccountId ? warehouseCashAccountId : arAccountId;
       const debitAccountId = salesRevenueAccountId || arAccountId;
 
       if (debitAccountId && arAccountId) {

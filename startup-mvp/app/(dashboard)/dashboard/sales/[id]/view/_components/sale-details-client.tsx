@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Link from "next/link";
-import { FiArrowLeft, FiEdit, FiFileText, FiUser, FiCalendar, FiClock, FiHome, FiPrinter } from "react-icons/fi";
+import { FiArrowLeft, FiEdit, FiFileText, FiUser, FiCalendar, FiClock, FiHome, FiPrinter, FiBookOpen } from "react-icons/fi";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 import type { SaleStatus } from "@prisma/client";
@@ -30,6 +30,8 @@ interface SaleDetailsClientProps {
   couponDiscountAccount?: { code: string; name: string } | null;
   salesDiscountAccount?: { code: string; name: string } | null;
   extractedMembershipDiscount: number;
+  vouchers?: any[];
+  isAdmin?: boolean;
 }
 
 const STATUS_LABELS: Record<SaleStatus, string> = {
@@ -48,6 +50,8 @@ export default function SaleDetailsClient({
   couponDiscountAccount,
   salesDiscountAccount,
   extractedMembershipDiscount,
+  vouchers = [],
+  isAdmin = false,
 }: SaleDetailsClientProps) {
   const [printMode, setPrintMode] = useState<"a4" | "challan">("a4");
 
@@ -429,57 +433,75 @@ export default function SaleDetailsClient({
                   <span className="font-medium">{formatCurrency(changeAmount)}</span>
                 </div>
               )}
-              {((paymentDetails && (Number(paymentDetails.cashAmount || 0) > 0 || Number(paymentDetails.cardAmount || 0) > 0 || Number(paymentDetails.mfsAmount || 0) > 0)) || totalDiscount > 0) && (
+              {((paymentDetails && (Number(paymentDetails.cashAmount || 0) > 0 || Number(paymentDetails.cardAmount || 0) > 0 || Number(paymentDetails.mfsAmount || 0) > 0)) || totalDiscount > 0 || sale.orderType === "RETURN" || Number(sale.subTotal) < 0 || (vouchers && vouchers.length > 0)) && (
                 <>
                   <Separator className="my-2" />
                   <div className="space-y-1.5 pt-1">
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Payment Split Details</p>
-                    {paymentDetails && Number(paymentDetails.cashAmount || 0) > 0 && (
-                      (() => {
-                        const cashAmount = Number(paymentDetails.cashAmount || 0);
-                        const changeAmt = Number(paymentDetails.changeAmount || 0);
-                        const netCash = cashAmount - changeAmt;
-                        return (
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">
+                      {sale.orderType === "RETURN" || Number(sale.subTotal) < 0 ? "Return Refund & Account Details" : "Payment Split Details"}
+                    </p>
+
+                    {(sale.orderType === "RETURN" || Number(sale.subTotal) < 0) ? (
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-start text-xs gap-2">
+                          <span className="text-muted-foreground text-left leading-normal">
+                            Refund Account {cashAccount ? `(${cashAccount.code} - ${cashAccount.name})` : (sale.client?.name ? `(AR - ${sale.client.name})` : "")}
+                          </span>
+                          <span className="font-semibold shrink-0 text-red-600">
+                            {formatCurrency(Math.abs(Number(sale.grandTotal)))}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {paymentDetails && Number(paymentDetails.cashAmount || 0) > 0 && (
+                          (() => {
+                            const cashAmount = Number(paymentDetails.cashAmount || 0);
+                            const changeAmt = Number(paymentDetails.changeAmount || 0);
+                            const netCash = cashAmount - changeAmt;
+                            return (
+                              <div className="flex justify-between items-start text-xs gap-2">
+                                <span className="text-muted-foreground text-left leading-normal">
+                                  Cash {cashAccount ? `(${cashAccount.code} - ${cashAccount.name})` : ""}
+                                </span>
+                                <span className="font-semibold shrink-0">{formatCurrency(netCash)}</span>
+                              </div>
+                            );
+                          })()
+                        )}
+                        {paymentDetails && Number(paymentDetails.cardAmount || 0) > 0 && (
                           <div className="flex justify-between items-start text-xs gap-2">
                             <span className="text-muted-foreground text-left leading-normal">
-                              Cash {cashAccount ? `(${cashAccount.code} - ${cashAccount.name})` : ""}
+                              Card {cardAccount ? `(${cardAccount.code} - ${cardAccount.name})` : ""}
                             </span>
-                            <span className="font-semibold shrink-0">{formatCurrency(netCash)}</span>
+                            <span className="font-semibold shrink-0">{formatCurrency(Number(paymentDetails.cardAmount))}</span>
                           </div>
-                        );
-                      })()
-                    )}
-                    {paymentDetails && Number(paymentDetails.cardAmount || 0) > 0 && (
-                      <div className="flex justify-between items-start text-xs gap-2">
-                        <span className="text-muted-foreground text-left leading-normal">
-                          Card {cardAccount ? `(${cardAccount.code} - ${cardAccount.name})` : ""}
-                        </span>
-                        <span className="font-semibold shrink-0">{formatCurrency(Number(paymentDetails.cardAmount))}</span>
-                      </div>
-                    )}
-                    {paymentDetails && Number(paymentDetails.mfsAmount || 0) > 0 && (
-                      <div className="flex justify-between items-start text-xs gap-2">
-                        <span className="text-muted-foreground text-left leading-normal">
-                          MFS {mfsAccount ? `(${mfsAccount.code} - ${mfsAccount.name})` : ""}
-                        </span>
-                        <span className="font-semibold shrink-0">{formatCurrency(Number(paymentDetails.mfsAmount))}</span>
-                      </div>
-                    )}
-                    {couponDiscount > 0 && (
-                      <div className="flex justify-between items-start text-xs gap-2">
-                        <span className="text-muted-foreground text-left leading-normal">
-                          Coupon Discount {couponDiscountAccount ? `(${couponDiscountAccount.code} - ${couponDiscountAccount.name})` : ""}
-                        </span>
-                        <span className="font-semibold shrink-0 text-green-600">-{formatCurrency(couponDiscount)}</span>
-                      </div>
-                    )}
-                    {generalDiscount > 0 && (
-                      <div className="flex justify-between items-start text-xs gap-2">
-                        <span className="text-muted-foreground text-left leading-normal">
-                          Sales Discount {salesDiscountAccount ? `(${salesDiscountAccount.code} - ${salesDiscountAccount.name})` : ""}
-                        </span>
-                        <span className="font-semibold shrink-0 text-green-600">-{formatCurrency(generalDiscount)}</span>
-                      </div>
+                        )}
+                        {paymentDetails && Number(paymentDetails.mfsAmount || 0) > 0 && (
+                          <div className="flex justify-between items-start text-xs gap-2">
+                            <span className="text-muted-foreground text-left leading-normal">
+                              MFS {mfsAccount ? `(${mfsAccount.code} - ${mfsAccount.name})` : ""}
+                            </span>
+                            <span className="font-semibold shrink-0">{formatCurrency(Number(paymentDetails.mfsAmount))}</span>
+                          </div>
+                        )}
+                        {couponDiscount > 0 && (
+                          <div className="flex justify-between items-start text-xs gap-2">
+                            <span className="text-muted-foreground text-left leading-normal">
+                              Coupon Discount {couponDiscountAccount ? `(${couponDiscountAccount.code} - ${couponDiscountAccount.name})` : ""}
+                            </span>
+                            <span className="font-semibold shrink-0 text-green-600">-{formatCurrency(couponDiscount)}</span>
+                          </div>
+                        )}
+                        {generalDiscount > 0 && (
+                          <div className="flex justify-between items-start text-xs gap-2">
+                            <span className="text-muted-foreground text-left leading-normal">
+                              Sales Discount {salesDiscountAccount ? `(${salesDiscountAccount.code} - ${salesDiscountAccount.name})` : ""}
+                            </span>
+                            <span className="font-semibold shrink-0 text-green-600">-{formatCurrency(generalDiscount)}</span>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </>
@@ -649,6 +671,75 @@ export default function SaleDetailsClient({
           )}
         </CardContent>
       </Card>
+
+      {/* Accounting Vouchers & Ledger Entries (Admin Only) */}
+      {isAdmin && vouchers && vouchers.length > 0 && (
+        <Card className="print:hidden">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FiBookOpen className="h-5 w-5 text-primary" />
+              Accounting Vouchers & General Ledger Impact
+            </CardTitle>
+            <CardDescription>
+              Double-entry journal vouchers posted for this transaction
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {vouchers.map((v: any) => (
+              <div key={v.id} className="rounded-lg border bg-card p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
+                  <div className="flex items-center gap-2">
+                    <Link href={`/dashboard/accounts/vouchers/${v.id}`} className="font-mono text-sm font-bold text-primary hover:underline">
+                      {v.voucherNumber}
+                    </Link>
+                    <Badge variant="outline" className="text-xs uppercase font-mono">{v.type}</Badge>
+                    <Badge variant={v.status === "posted" ? "default" : "secondary"} className="text-xs uppercase">
+                      {v.status}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground font-mono">{v.reference}</p>
+                </div>
+                <p className="text-xs text-muted-foreground">{v.description}</p>
+                
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-muted/40">
+                      <TableRow>
+                        <TableHead className="w-12 text-xs">#</TableHead>
+                        <TableHead className="text-xs">Account Code</TableHead>
+                        <TableHead className="text-xs">Account Name & Description</TableHead>
+                        <TableHead className="text-right text-xs">Debit (৳)</TableHead>
+                        <TableHead className="text-right text-xs">Credit (৳)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {v.VoucherLine?.map((line: any) => (
+                        <TableRow key={line.id || line.lineNumber}>
+                          <TableCell className="text-xs text-muted-foreground font-mono">{line.lineNumber}</TableCell>
+                          <TableCell className="text-xs font-mono font-medium">{line.ChartOfAccount?.code || "-"}</TableCell>
+                          <TableCell className="text-xs">
+                            <span className="font-semibold text-slate-800">{line.ChartOfAccount?.name || "-"}</span>
+                            {line.ChartOfAccount?.type && (
+                              <span className="ml-2 text-[10px] text-muted-foreground font-mono">({line.ChartOfAccount.type})</span>
+                            )}
+                            {line.description && <p className="text-[11px] text-muted-foreground">{line.description}</p>}
+                          </TableCell>
+                          <TableCell className="text-right text-xs font-mono font-medium">
+                            {Number(line.debitAmount) > 0 ? formatCurrency(Number(line.debitAmount)) : "-"}
+                          </TableCell>
+                          <TableCell className="text-right text-xs font-mono font-medium">
+                            {Number(line.creditAmount) > 0 ? formatCurrency(Number(line.creditAmount)) : "-"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Status Timeline & Audit Information */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:hidden">

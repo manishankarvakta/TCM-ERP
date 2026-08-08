@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import PageGuard from "@/components/permissions/page-guard";
 import SaleDetailsClient from "./_components/sale-details-client";
+import { auth } from "@/lib/auth";
 
 interface SaleDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -64,6 +65,37 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
     }
   }
 
+  // If cashAccount is null (e.g. Return sale or missing paymentDetails), resolve using warehouse location
+  const warehouseId = (sale as any).warehouseId || sale.warehouse?.id;
+  if (!cashAccount && warehouseId) {
+    const { getWarehouseCashAccount } = await import("../../_actions/sale.action");
+    const warehouseCashAcctId = await getWarehouseCashAccount(warehouseId);
+    if (warehouseCashAcctId) {
+      cashAccount = await prisma.chartOfAccount.findUnique({
+        where: { id: warehouseCashAcctId },
+        select: { code: true, name: true }
+      });
+    }
+  }
+
+  // Fetch associated accounting vouchers
+  const vouchers = await prisma.voucher.findMany({
+    where: {
+      OR: [
+        { reference: sale.saleNumber },
+        { id: (sale as any).voucherId || "non-existent" },
+      ],
+    },
+    include: {
+      VoucherLine: {
+        include: {
+          ChartOfAccount: { select: { id: true, code: true, name: true, type: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
   // Load accounting settings to fetch mapped discount accounts
   const { getAccountingOperationSettings } = await import("@/lib/accounting-settings");
   let couponDiscountAccount = null;
@@ -87,6 +119,9 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
     console.error("Failed to load discount accounts in sale details page:", err);
   }
 
+  const session = await auth().catch(() => null);
+  const isAdmin = session?.user?.role === "admin";
+
   return (
     <PageGuard permissionKey="sales.sales" requiredOperation="view">
       <SaleDetailsClient
@@ -98,6 +133,8 @@ export default async function SaleDetailsPage({ params }: SaleDetailsPageProps) 
         couponDiscountAccount={couponDiscountAccount}
         salesDiscountAccount={salesDiscountAccount}
         extractedMembershipDiscount={extractedMembershipDiscount}
+        vouchers={vouchers}
+        isAdmin={isAdmin}
       />
     </PageGuard>
   );
