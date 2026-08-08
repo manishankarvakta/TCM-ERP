@@ -1228,7 +1228,8 @@ export async function createSaleAccountingVoucher(
 
         // Adjust for minor rounding discrepancies from scaling
         const totalScaled = paymentLines.reduce((sum, line) => sum + line.amount, 0);
-        const discrepancy = Number((absGrandTotal - totalScaled).toFixed(2));
+        const expectedTotal = totalPaid > absGrandTotal ? absGrandTotal : totalPaid;
+        const discrepancy = Number((expectedTotal - totalScaled).toFixed(2));
         if (discrepancy !== 0 && paymentLines.length > 0) {
           paymentLines[0].amount = Number((paymentLines[0].amount + discrepancy).toFixed(2));
         }
