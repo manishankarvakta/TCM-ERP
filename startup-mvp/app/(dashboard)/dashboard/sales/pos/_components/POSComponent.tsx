@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { FaSearch, FaHandPaper, FaSync, FaPrint, FaPlus, FaMinus, FaTrashAlt, FaShoppingCart, FaCheckCircle, FaTimes, FaUndoAlt, FaShoppingBag, FaIndustry, FaTicketAlt, FaCreditCard, FaMoneyBillWave, FaMobileAlt, FaUsers, FaGlassCheers } from "react-icons/fa";
+import { FaSearch, FaHandPaper, FaSync, FaPrint, FaPlus, FaMinus, FaTrashAlt, FaShoppingCart, FaCheckCircle, FaTimes, FaUndoAlt, FaShoppingBag, FaIndustry, FaTicketAlt, FaCreditCard, FaMoneyBillWave, FaMobileAlt, FaUsers, FaGlassCheers, FaExclamationTriangle, FaBoxOpen, FaExchangeAlt } from "react-icons/fa";
 import { createSale, getClientItemDiscounts, validateCoupon, voidSale, processSaleReturn, getLastSaleForUser, getSaleByNumber, getSalesByCustomer } from "../../_actions/sale.action";
 import { getOutstandingSales, collectCustomerDue } from "../../_actions/due-payment.action";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -131,6 +131,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const [clients, setClients] = useState<Client[]>(initialClients);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [filterType, setFilterType] = useState<string>("ALL");
   
   // URL mode sync
@@ -350,18 +351,29 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   useEffect(() => {
     if (returnMode === "customer" && returnCustomerId) {
       setIsFetchingCustomerSales(true);
-      getSalesByCustomer(returnCustomerId).then(res => {
-        if(res.success) setCustomerSales(res.sales || []);
-        else toast({ title: "Error", description: "Could not fetch sales", variant: "destructive" });
+      setReturnSearchError(null);
+      setReturnSaleDetails(null);
+      getSalesByCustomer(returnCustomerId, orderType).then(res => {
+        if(res.success) {
+          const sales = res.sales || [];
+          setCustomerSales(sales);
+          if (sales.length === 0) {
+            setReturnSearchError(`No completed invoices found for this customer in ${orderType} mode.`);
+          }
+        } else {
+          toast({ title: "Error", description: "Could not fetch sales", variant: "destructive" });
+          setReturnSearchError(res.error || "Failed to fetch customer sales");
+        }
         setIsFetchingCustomerSales(false);
       });
     } else {
       setCustomerSales([]);
     }
-  }, [returnMode, returnCustomerId]);
+  }, [returnMode, returnCustomerId, orderType]);
 
   const [actionSaleNumber, setActionSaleNumber] = useState('');
   const [returnSaleDetails, setReturnSaleDetails] = useState<any>(null);
+  const [returnSearchError, setReturnSearchError] = useState<string | null>(null);
   const [returnItemsState, setReturnItemsState] = useState<{itemId: string, variantId?: string, maxQty: number, returnQty: number}[]>([]);
   const [barcodeInput, setBarcodeInput] = useState('');
   const [isFetchingSale, setIsFetchingSale] = useState(false);
@@ -796,6 +808,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       }
       return [...prev, itemToAdd];
     });
+
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+      searchInputRef.current.select();
+    }
   };
 
   const handleVariantAddToCart = (item: Item, variant: ItemVariant, quantity: number = 1) => {
@@ -871,6 +888,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       }
       return [...prev, itemToAdd];
     });
+
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+      searchInputRef.current.select();
+    }
   };
 
   const handleUpdateQuantity = (cartKey: string, delta: number) => {
@@ -1242,16 +1264,60 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     const saleNumberToFetch = (typeof saleNum === "string" && saleNum) ? saleNum : actionSaleNumber;
     if(!saleNumberToFetch) return toast({ title: "Error", description: "Sale Number is required", variant: "destructive" });
     setIsFetchingSale(true);
+    setReturnSearchError(null);
     try {
       const res = await getSaleByNumber(saleNumberToFetch);
       if (res.success && res.sale) {
+        const isClientWholesale = !!(
+          res.sale.client?.clientType === "wholesale" ||
+          res.sale.client?.company?.toLowerCase().includes("wholesale") ||
+          res.sale.client?.name?.toLowerCase().includes("wholesale") ||
+          res.sale.client?.email?.toLowerCase().includes("wholesale") ||
+          res.sale.client?.clientCode?.toLowerCase().includes("wholesale")
+        );
+        const hasWholesaleItems = res.sale.items?.some((i: any) => i.item?.itemType === "WHOLESALE");
+        const isSaleWholesale = res.sale.orderType === "WHOLESALE" || isClientWholesale || hasWholesaleItems;
+        const isCurrentWholesale = orderType === "WHOLESALE";
+
+        if (isCurrentWholesale && !isSaleWholesale) {
+          const msg = `Mode Mismatch: Invoice ${saleNumberToFetch} is a Retail invoice. Please switch POS mode to Retail to return this invoice.`;
+          toast({
+            title: "Mode Mismatch",
+            description: msg,
+            variant: "destructive"
+          });
+          setReturnSearchError(msg);
+          setReturnSaleDetails(null);
+          setReturnItemsState([]);
+          setIsFetchingSale(false);
+          return;
+        } else if (!isCurrentWholesale && isSaleWholesale) {
+          const msg = `Mode Mismatch: Invoice ${saleNumberToFetch} is a Wholesale invoice. Please switch POS mode to Wholesale to return this invoice.`;
+          toast({
+            title: "Mode Mismatch",
+            description: msg,
+            variant: "destructive"
+          });
+          setReturnSearchError(msg);
+          setReturnSaleDetails(null);
+          setReturnItemsState([]);
+          setIsFetchingSale(false);
+          return;
+        }
+        setReturnSearchError(null);
         setReturnSaleDetails(res.sale);
         setReturnItemsState(res.sale.items.map((i: any) => ({ itemId: i.itemId, variantId: i.variantId || undefined, maxQty: Number(i.quantity), returnQty: 0 })));
       } else {
-        toast({ title: "Not Found", description: res.error || "Sale not found", variant: "destructive" });
+        const msg = res.error || `Invoice "${saleNumberToFetch}" not found.`;
+        toast({ title: "Not Found", description: msg, variant: "destructive" });
+        setReturnSearchError(msg);
+        setReturnSaleDetails(null);
       }
     } catch (err) {
-      toast({ title: "Error", description: "Failed to fetch sale details", variant: "destructive" });
+      const msg = "Failed to fetch sale details. Please try again.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+      setReturnSearchError(msg);
+      setReturnSaleDetails(null);
     }
     setIsFetchingSale(false);
   };
@@ -1269,12 +1335,12 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const handleProcessVoidReturn = async () => {
     const selectedItems = returnItemsState.filter(i => i.returnQty > 0).map(i => {
       const it = items.find(x => x.id === i.itemId);
-      const variant = i.variantId ? it?.variants?.find(v => v.id === i.variantId) : null;
+      const price = it ? getBasePrice({ ...it, variantId: i.variantId } as any, orderType) : 0;
       return { 
         itemId: i.itemId, 
         variantId: i.variantId || undefined, 
         quantity: i.returnQty, 
-        unitPrice: variant ? (variant.salesPrice || it?.unitPrice || 0) : (it?.unitPrice || 0) 
+        unitPrice: price 
       };
     });
     if(selectedItems.length === 0) return toast({ title: "Error", description: "Please select at least one item to return", variant: "destructive" });
@@ -1826,6 +1892,48 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     return () => window.removeEventListener('keydown', handler);
   }, [isChangeDialogOpen]);
 
+  // Global Escape key shortcut to focus search input
+  useEffect(() => {
+    const handleEscapeFocus = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (
+          isReturnModalOpen ||
+          isConfirmModalOpen ||
+          isHeldCartsModalOpen ||
+          isVoidModalOpen ||
+          isAddCustomerOpen ||
+          isPayDueModalOpen ||
+          isPrintDialogOpen ||
+          isChangeDialogOpen ||
+          !!selectedItemForVariants
+        ) {
+          return;
+        }
+
+        if (searchInputRef.current) {
+          e.preventDefault();
+          searchInputRef.current.focus();
+          searchInputRef.current.select();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleEscapeFocus);
+    return () => {
+      window.removeEventListener("keydown", handleEscapeFocus);
+    };
+  }, [
+    isReturnModalOpen,
+    isConfirmModalOpen,
+    isHeldCartsModalOpen,
+    isVoidModalOpen,
+    isAddCustomerOpen,
+    isPayDueModalOpen,
+    isPrintDialogOpen,
+    isChangeDialogOpen,
+    selectedItemForVariants
+  ]);
+
   return (
     <div className="fixed inset-0 z-50 flex bg-background">
       <div className="flex-1 flex flex-col p-6 overflow-hidden bg-background relative">
@@ -1860,7 +1968,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
             <div className="relative w-80">
               <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
-                placeholder="Search products..." 
+                ref={searchInputRef}
+                placeholder="Search products... (Esc)" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 bg-muted border-none text-foreground h-10"
@@ -2758,7 +2867,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       
       {/* Unified Return Modal */}
       <Dialog open={isReturnModalOpen} onOpenChange={(open) => { setIsReturnModalOpen(open); if(!open) { setReturnSaleDetails(null); setReturnItemsState([]); setBarcodeInput(""); } }}>
-        <DialogContent className="sm:max-w-6xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-6xl h-[85vh] max-h-[85vh] overflow-y-auto">
           <Tabs defaultValue="void-return" className="w-full">
             <DialogHeader className="flex flex-row items-center justify-between border-b pb-4 mb-4">
               <DialogTitle className="text-xl font-bold tracking-tight">Process Return</DialogTitle>
@@ -2776,19 +2885,31 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                     <div className="relative">
                       <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <SearchableSelect 
-                        options={items.flatMap(item => {
-                          if (item.variants && item.variants.length > 0) {
-                            return item.variants.map(v => ({
-                              value: `${item.id}:${v.id}`,
-                              label: `${item.name || item.description} - ${v.color} / ${v.size} (${v.sku})`
-                            }));
-                          } else {
-                            return [{
-                              value: item.id,
-                              label: item.name || item.description
-                            }];
-                          }
-                        })}
+                        options={items
+                          .filter(item => {
+                            const isWholesale = orderType === "WHOLESALE";
+                            return isWholesale
+                              ? item.itemType === "WHOLESALE"
+                              : (item.itemType === "READY_PRODUCT" || item.itemType === "RETAIL");
+                          })
+                          .flatMap(item => {
+                            const codeStr = item.code ? ` [Code: ${item.code}]` : "";
+                            if (item.variants && item.variants.length > 0) {
+                              return item.variants.map(v => {
+                                const stockQty = v.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
+                                return {
+                                  value: `${item.id}:${v.id}`,
+                                  label: `${item.name || item.description}${codeStr} - ${v.color} / ${v.size} (${v.sku}) | Stock: ${stockQty}`
+                                };
+                              });
+                            } else {
+                              const stockQty = item.stocks?.find(s => s.warehouseId === selectedWarehouseId)?.quantity || 0;
+                              return [{
+                                value: item.id,
+                                label: `${item.name || item.description}${codeStr} | Stock: ${stockQty}`
+                              }];
+                            }
+                          })}
                         value=""
                         onValueChange={(val) => {
                           if(val) {
@@ -2837,7 +2958,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                           if(!item) return null;
                           const variant = state.variantId ? item.variants?.find(v => v.id === state.variantId) : null;
                           const label = item.name || item.description;
-                          const price = variant ? (variant.salesPrice || item.unitPrice) : item.unitPrice;
+                          const price = getBasePrice({ ...item, variantId: state.variantId } as any, orderType);
                           const total = price * state.returnQty;
                           return (
                             <tr key={`${state.itemId}-${state.variantId || 'none'}`} className="hover:bg-muted/5 transition-colors">
@@ -2947,6 +3068,32 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 </div>
               )}
 
+              {returnSearchError && (
+                <div className={`mt-4 border rounded-xl p-6 text-center flex flex-col items-center justify-center gap-3 shadow-sm transition-all ${
+                  returnSearchError.includes("Mode Mismatch") 
+                    ? "border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200" 
+                    : "border-destructive/30 bg-destructive/10 text-destructive"
+                }`}>
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                    returnSearchError.includes("Mode Mismatch") 
+                      ? "bg-amber-500/20 text-amber-600 dark:text-amber-400" 
+                      : "bg-destructive/20 text-destructive"
+                  }`}>
+                    {returnSearchError.includes("Mode Mismatch") ? (
+                      <FaExchangeAlt className="w-6 h-6 animate-pulse" />
+                    ) : (
+                      <FaExclamationTriangle className="w-6 h-6" />
+                    )}
+                  </div>
+                  <div className="space-y-1 max-w-lg">
+                    <p className="font-bold text-base tracking-tight">
+                      {returnSearchError.includes("Mode Mismatch") ? "POS Mode Mismatch" : "Notice"}
+                    </p>
+                    <p className="font-medium text-sm leading-relaxed opacity-90">{returnSearchError}</p>
+                  </div>
+                </div>
+              )}
+
               {returnSaleDetails && (
                 <div className="mt-4 border rounded-lg p-4 bg-muted/10">
                   <p className="font-bold text-sm mb-3">Sale Items (Select Quantities to Return)</p>
@@ -2969,7 +3116,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                               type="number"
                               min="0"
                               max={state?.maxQty || 9999}
-                              value={state?.returnQty === 0 ? "" : (state?.returnQty || 0)}
+                              value={state?.returnQty ?? 0}
                               onChange={(e) => {
                                 const val = parseInt(e.target.value, 10);
                                 handleUpdateReturnQty(item.itemId, isNaN(val) ? 0 : val, item.variantId);

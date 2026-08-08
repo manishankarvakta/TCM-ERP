@@ -1641,6 +1641,7 @@ export async function getSaleByNumber(saleNumber: string) {
         discount: true,
         tax: true,
         grandTotal: true,
+        orderType: true,
         isTrash: true,
         client: {
           select: {
@@ -1649,6 +1650,8 @@ export async function getSaleByNumber(saleNumber: string) {
             email: true,
             company: true,
             phone: true,
+            clientType: true,
+            clientCode: true,
           },
         },
         warehouse: {
@@ -1672,6 +1675,7 @@ export async function getSaleByNumber(saleNumber: string) {
                 id: true,
                 code: true,
                 name: true,
+                itemType: true,
                 unit: {
                   select: {
                     symbol: true,
@@ -3524,29 +3528,40 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
   }
 }
 
-export async function getSalesByCustomer(customerId: string) {
+export async function getSalesByCustomer(customerId: string, orderType?: string) {
   try {
     const session = await auth();
     if (!session?.user) {
       return { success: false, error: "Unauthorized" };
     }
 
-    const sales = await prisma.sale.findMany({
-      where: {
-        clientId: customerId,
-        status: "COMPLETED",
-        NOT: {
-          saleNumber: {
-            startsWith: "RET-"
-          }
+    const where: Prisma.SaleWhereInput = {
+      clientId: customerId,
+      status: "COMPLETED",
+      NOT: {
+        saleNumber: {
+          startsWith: "RET-"
         }
-      },
+      }
+    };
+
+    if (orderType) {
+      if (orderType === "WHOLESALE") {
+        where.orderType = "WHOLESALE";
+      } else {
+        where.orderType = { not: "WHOLESALE" };
+      }
+    }
+
+    const sales = await prisma.sale.findMany({
+      where,
       orderBy: {
         createdAt: "desc",
       },
       select: {
         id: true,
         saleNumber: true,
+        orderType: true,
         createdAt: true,
         grandTotal: true,
       },
