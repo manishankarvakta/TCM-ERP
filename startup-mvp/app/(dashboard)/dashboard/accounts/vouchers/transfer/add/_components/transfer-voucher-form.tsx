@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,15 +17,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { FiAlertCircle, FiArrowRight, FiLoader, FiDollarSign, FiSearch } from "react-icons/fi";
-import { getContraAccounts, getAccountBalance } from "../../_actions/contra.action";
-import { createVoucher, postVoucher } from "../../../../vouchers/_actions/voucher.action";
+import { FiAlertCircle, FiArrowRight, FiLoader, FiSearch } from "react-icons/fi";
+import { getContraAccounts, getAccountBalance } from "../../../contra/_actions/contra.action";
+import { createVoucher, postVoucher } from "../../../_actions/voucher.action";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { VoucherType } from "@prisma/client";
 import { PaymentAccountType } from "@/lib/payment-account-config";
 
 // Form validation schema with refinement for From ≠ To
-const contraVoucherSchema = z.object({
+const transferVoucherSchema = z.object({
   fromAccountId: z.string().min(1, "From account is required"),
   toAccountId: z.string().min(1, "To account is required"),
   amount: z.number().positive("Amount must be greater than 0"),
@@ -37,9 +37,9 @@ const contraVoucherSchema = z.object({
   path: ["toAccountId"],
 });
 
-type ContraVoucherFormData = z.infer<typeof contraVoucherSchema>;
+type TransferVoucherFormData = z.infer<typeof transferVoucherSchema>;
 
-interface ContraAccountOption {
+interface TransferAccountOption {
   id: string;
   code: string;
   name: string;
@@ -47,17 +47,16 @@ interface ContraAccountOption {
   type?: PaymentAccountType;
 }
 
-export default function ContraVoucherForm() {
+export default function TransferVoucherForm() {
   const router = useRouter();
   const pathname = usePathname();
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [contraAccounts, setContraAccounts] = useState<{
-    cash: ContraAccountOption[];
-    bank: ContraAccountOption[];
-    digitalWallet: ContraAccountOption[];
-    other: ContraAccountOption[];
-  }>({ cash: [], bank: [], digitalWallet: [], other: [] });
+  const [transferAccounts, setTransferAccounts] = useState<{
+    cash: TransferAccountOption[];
+    bank: TransferAccountOption[];
+    digitalWallet: TransferAccountOption[];
+  }>({ cash: [], bank: [], digitalWallet: [] });
   const [loadingData, setLoadingData] = useState(true);
   
   // Balance states
@@ -68,14 +67,14 @@ export default function ContraVoucherForm() {
   const [fromSearch, setFromSearch] = useState("");
   const [toSearch, setToSearch] = useState("");
 
-  // Fetch contra accounts on mount
+  // Fetch transfer accounts on mount
   useEffect(() => {
     const fetchData = async () => {
       try {
         const result = await getContraAccounts();
         if (result.success && result.accounts) {
           // @ts-ignore
-          setContraAccounts(result.accounts);
+          setTransferAccounts(result.accounts);
         }
       } catch (err) {
         console.error("Failed to fetch data:", err);
@@ -94,8 +93,8 @@ export default function ContraVoucherForm() {
     formState: { errors },
     control,
     watch,
-  } = useForm<ContraVoucherFormData>({
-    resolver: zodResolver(contraVoucherSchema),
+  } = useForm<TransferVoucherFormData>({
+    resolver: zodResolver(transferVoucherSchema),
     defaultValues: {
       date: new Date().toISOString().split("T")[0],
       fromAccountId: "",
@@ -113,10 +112,9 @@ export default function ContraVoucherForm() {
   // Helper to find account details
   const getAccountDetails = (id: string) => {
     const allAccounts = [
-      ...contraAccounts.cash,
-      ...contraAccounts.bank,
-      ...contraAccounts.digitalWallet,
-      ...(contraAccounts.other || []),
+      ...transferAccounts.cash,
+      ...transferAccounts.bank,
+      ...transferAccounts.digitalWallet,
     ];
     return allAccounts.find(a => a.id === id);
   };
@@ -168,8 +166,7 @@ export default function ContraVoucherForm() {
     fetchBalance();
   }, [watchedToAccountId]);
 
-
-  const onSubmit = async (data: ContraVoucherFormData) => {
+  const onSubmit = async (data: TransferVoucherFormData) => {
     try {
       setLoading(true);
       setError("");
@@ -199,7 +196,7 @@ export default function ContraVoucherForm() {
         },
       ];
 
-      // Create the voucher
+      // Create the voucher (uses CONTRA type in database)
       const createResult = await createVoucher({
         date: data.date,
         type: VoucherType.CONTRA,
@@ -209,7 +206,7 @@ export default function ContraVoucherForm() {
       });
 
       if (!createResult.success) {
-        throw new Error(createResult.error || "Failed to create contra voucher");
+        throw new Error(createResult.error || "Failed to create transfer voucher");
       }
 
       // Auto-post the voucher
@@ -251,7 +248,7 @@ export default function ContraVoucherForm() {
     const searchQuery = name === "fromAccountId" ? fromSearch : toSearch;
     const setSearchQuery = name === "fromAccountId" ? setFromSearch : setToSearch;
 
-    const filterList = (list: ContraAccountOption[]) => {
+    const filterList = (list: TransferAccountOption[]) => {
       let result = list.filter((acc) => acc.id !== excludeAccountId);
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -264,12 +261,11 @@ export default function ContraVoucherForm() {
       return result;
     };
 
-    const cashAccounts = filterList(contraAccounts.cash);
-    const bankAccounts = filterList(contraAccounts.bank);
-    const walletAccounts = filterList(contraAccounts.digitalWallet);
-    const otherAccounts = filterList(contraAccounts.other || []);
+    const cashAccounts = filterList(transferAccounts.cash);
+    const bankAccounts = filterList(transferAccounts.bank);
+    const walletAccounts = filterList(transferAccounts.digitalWallet);
 
-    const hasAccounts = cashAccounts.length > 0 || bankAccounts.length > 0 || walletAccounts.length > 0 || otherAccounts.length > 0;
+    const hasAccounts = cashAccounts.length > 0 || bankAccounts.length > 0 || walletAccounts.length > 0;
 
     return (
       <div className="space-y-2">
@@ -345,18 +341,6 @@ export default function ContraVoucherForm() {
                           ))}
                         </>
                       )}
-                      {otherAccounts.length > 0 && (
-                        <>
-                          <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/30 uppercase tracking-wider mt-1">
-                            OTHER ACCOUNTS (EQUITY, CAPITAL, ETC.)
-                          </div>
-                          {otherAccounts.map((account) => (
-                            <SelectItem key={account.id} value={account.id} className="text-left cursor-pointer py-2 focus:bg-accent">
-                              <span className="text-sm font-medium">{account.code} - {account.name}</span>
-                            </SelectItem>
-                          ))}
-                        </>
-                      )}
                     </>
                   )}
                 </div>
@@ -399,7 +383,7 @@ export default function ContraVoucherForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create Contra Voucher</CardTitle>
+        <CardTitle>Create Transfer Voucher</CardTitle>
         <CardDescription>
           Transfer funds between Cash, Bank, and Digital Wallet accounts. This will debit the destination account and credit the source account.
         </CardDescription>

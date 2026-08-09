@@ -744,9 +744,9 @@ export async function createVoucher(input: {
       }
     }
 
-    // CONTRA validation: Only Cash, Bank, or Digital Wallet accounts allowed
+    // CONTRA validation: At least one Cash, Bank, or Digital Wallet account required
     if (input.type === "CONTRA") {
-      for (const account of accounts) {
+      const hasPaymentAccount = accounts.some((account) => {
         const accountType = determineAccountType({
           code: account.code,
           name: account.name,
@@ -754,14 +754,15 @@ export async function createVoucher(input: {
             ? { type: account.CashBankAccount.type as "CASH" | "BANK" }
             : null,
         });
+        return accountType !== null;
+      });
 
-        if (!accountType) {
-          return {
-            success: false,
-            error: "Contra vouchers can only involve Cash, Bank, or Digital Wallet accounts.",
-            voucher: null,
-          };
-        }
+      if (!hasPaymentAccount) {
+        return {
+          success: false,
+          error: "Contra vouchers must involve at least one Cash, Bank, or Digital Wallet account.",
+          voucher: null,
+        };
       }
     }
 

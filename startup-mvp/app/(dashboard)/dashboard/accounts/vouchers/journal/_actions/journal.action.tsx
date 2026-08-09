@@ -3,6 +3,8 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+import { determineAccountType } from "@/lib/payment-account-config";
+
 interface AccountForJournal {
   id: string;
   code: string;
@@ -14,7 +16,7 @@ interface AccountForJournal {
  * Get accounts available for journal entries.
  * Excludes:
  * - Control accounts (isControl = true) - AR, AP, Inventory, Sales Revenue, COGS
- * - Cash/Bank accounts (linked to CashBank table)
+ * - Cash, Bank, and Digital Wallet accounts (both linked and unlinked)
  */
 export async function getAccountsForJournal(): Promise<{
   success: boolean;
@@ -27,28 +29,22 @@ export async function getAccountsForJournal(): Promise<{
       return { success: false, error: "Unauthorized", accounts: [] };
     }
 
-    // Get IDs of accounts linked to CashBank
-    const cashBankAccounts = await prisma.cashBankAccount.findMany({
-      select: {
-        chartOfAccountId: true,
-      },
-    });
-    const cashBankAccountIds = cashBankAccounts.map((cb) => cb.chartOfAccountId);
-
-    // Get non-control accounts that are NOT linked to CashBank
-    const accounts = await prisma.chartOfAccount.findMany({
+    // Get non-control active accounts with CashBankAccount relation
+    const allAccounts = await prisma.chartOfAccount.findMany({
       where: {
         status: "active",
         isControl: false,
-        id: {
-          notIn: cashBankAccountIds,
-        },
       },
       select: {
         id: true,
         code: true,
         name: true,
         type: true,
+        CashBankAccount: {
+          select: {
+            type: true,
+          },
+        },
       },
       orderBy: [
         { type: "asc" },
@@ -56,9 +52,19 @@ export async function getAccountsForJournal(): Promise<{
       ],
     });
 
+    // Filter out all Cash, Bank, and Digital Wallet accounts (both linked and unlinked)
+    const validAccounts = allAccounts.filter((account) => {
+      const paymentType = determineAccountType({
+        code: account.code,
+        name: account.name,
+        CashBankAccount: account.CashBankAccount,
+      });
+      return paymentType === null;
+    });
+
     return {
       success: true,
-      accounts: accounts.map((a) => ({
+      accounts: validAccounts.map((a) => ({
         id: a.id,
         code: a.code,
         name: a.name,
