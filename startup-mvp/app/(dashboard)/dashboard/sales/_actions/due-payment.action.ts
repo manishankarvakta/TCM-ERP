@@ -159,6 +159,7 @@ export async function collectCustomerDue(payload: DueCollectionPayload) {
         collectionsList.push({
           id: collectionId,
           date: new Date(),
+          warehouseId: resolvedWarehouseId || sale.warehouseId,
           cashAmount: allocCash,
           cashAccountId: cashAccountId || null,
           cardAmount: allocCard,

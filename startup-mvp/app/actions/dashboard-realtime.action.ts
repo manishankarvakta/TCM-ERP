@@ -457,6 +457,20 @@ export async function getRealtimeDashboardStats(
       },
     });
 
+    // Filter accounts by warehouse
+    const filteredAccounts = cashBankAccounts.filter((acc: any) => {
+      if (warehouseId === "all") return true;
+      if (acc.warehouses.length === 0) return true; // Global account
+      return acc.warehouses.some((w: any) => w.id === warehouseId);
+    });
+
+    const accountWarehouseMap = new Map<string, Set<string>>();
+    cashBankAccounts.forEach((acc: any) => {
+      if (acc.warehouses && acc.warehouses.length > 0) {
+        accountWarehouseMap.set(acc.id, new Set(acc.warehouses.map((w: any) => w.id)));
+      }
+    });
+
     // Fetch completed, non-trash sales up to currentEnd
     const salesForPayments = await prisma.sale.findMany({
       where: {
@@ -467,6 +481,7 @@ export async function getRealtimeDashboardStats(
       select: {
         date: true,
         paymentDetails: true,
+        warehouseId: true,
       },
     });
 
@@ -481,7 +496,8 @@ export async function getRealtimeDashboardStats(
 
       // 1. Initial Payments (sales up to selected date filter end boundary)
       const saleDate = new Date(sale.date);
-      if (saleDate <= currentEnd) {
+      const isInitialForWarehouse = warehouseId === "all" || sale.warehouseId === warehouseId;
+      if (saleDate <= currentEnd && isInitialForWarehouse) {
         if (details.cashAmount && details.cashAccountId) {
           const netCash = Number(details.cashAmount) - Number(details.changeAmount || 0);
           paymentMap.set(details.cashAccountId, (paymentMap.get(details.cashAccountId) || 0) + netCash);
@@ -500,21 +516,37 @@ export async function getRealtimeDashboardStats(
           const colDate = new Date(col.date);
           const colAmount = Number(col.cashAmount || 0) + Number(col.cardAmount || 0) + Number(col.mfsAmount || 0);
           
-          if (colDate <= currentEnd) {
-            if (colDate >= currentStart) {
-              currentCollectionsReceived += colAmount;
+          const colWarehouseId = col.warehouseId;
+          const colAccountId = col.cashAccountId || col.cardAccountId || col.mfsAccountId;
+
+          let isColForWarehouse = false;
+          if (warehouseId === "all") {
+            isColForWarehouse = true;
+          } else if (colWarehouseId) {
+            isColForWarehouse = colWarehouseId === warehouseId;
+          } else if (colAccountId && accountWarehouseMap.has(colAccountId)) {
+            isColForWarehouse = accountWarehouseMap.get(colAccountId)!.has(warehouseId);
+          } else {
+            isColForWarehouse = sale.warehouseId === warehouseId;
+          }
+
+          if (isColForWarehouse) {
+            if (colDate <= currentEnd) {
+              if (colDate >= currentStart) {
+                currentCollectionsReceived += colAmount;
+              }
+              if (col.cashAmount && col.cashAccountId) {
+                paymentMap.set(col.cashAccountId, (paymentMap.get(col.cashAccountId) || 0) + Number(col.cashAmount));
+              }
+              if (col.cardAmount && col.cardAccountId) {
+                paymentMap.set(col.cardAccountId, (paymentMap.get(col.cardAccountId) || 0) + Number(col.cardAmount));
+              }
+              if (col.mfsAmount && col.mfsAccountId) {
+                paymentMap.set(col.mfsAccountId, (paymentMap.get(col.mfsAccountId) || 0) + Number(col.mfsAmount));
+              }
+            } else if (colDate >= prevStart && colDate <= prevEnd) {
+              prevCollectionsReceived += colAmount;
             }
-            if (col.cashAmount && col.cashAccountId) {
-              paymentMap.set(col.cashAccountId, (paymentMap.get(col.cashAccountId) || 0) + Number(col.cashAmount));
-            }
-            if (col.cardAmount && col.cardAccountId) {
-              paymentMap.set(col.cardAccountId, (paymentMap.get(col.cardAccountId) || 0) + Number(col.cardAmount));
-            }
-            if (col.mfsAmount && col.mfsAccountId) {
-              paymentMap.set(col.mfsAccountId, (paymentMap.get(col.mfsAccountId) || 0) + Number(col.mfsAmount));
-            }
-          } else if (colDate >= prevStart && colDate <= prevEnd) {
-            prevCollectionsReceived += colAmount;
           }
         }
       }
@@ -523,13 +555,6 @@ export async function getRealtimeDashboardStats(
     const collectionsReceivedGrowth = prevCollectionsReceived > 0 
       ? ((currentCollectionsReceived - prevCollectionsReceived) / prevCollectionsReceived) * 100 
       : 0;
-
-    // Filter accounts by warehouse
-    const filteredAccounts = cashBankAccounts.filter((acc: any) => {
-      if (warehouseId === "all") return true;
-      if (acc.warehouses.length === 0) return true; // Global account
-      return acc.warehouses.some((w: any) => w.id === warehouseId);
-    });
 
     // 3. Proper Accounts System: Compute Debit, Credit, and Net Cumulative Balance for each account up to currentEnd
     const accountCoaIds = filteredAccounts.map((acc: any) => acc.chartOfAccountId || acc.ChartOfAccount?.id).filter(Boolean);
