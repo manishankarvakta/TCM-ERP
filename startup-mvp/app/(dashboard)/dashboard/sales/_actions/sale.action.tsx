@@ -139,6 +139,36 @@ async function generateReturnSaleNumber(tx?: Prisma.TransactionClient): Promise<
   return `${prefix}${nextNumber.toString().padStart(4, "0")}`;
 }
 
+async function generateExchangeSaleNumber(tx?: Prisma.TransactionClient): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `EXC-${year}-`;
+  const client = tx || prisma;
+
+  const lastSale = await client.sale.findFirst({
+    where: {
+      saleNumber: {
+        startsWith: prefix,
+      },
+    },
+    orderBy: {
+      saleNumber: "desc",
+    },
+    select: {
+      saleNumber: true,
+    },
+  });
+
+  let nextNumber = 1;
+  if (lastSale?.saleNumber) {
+    const lastNumber = parseInt(lastSale.saleNumber.split("-").pop() || "0", 10);
+    if (!isNaN(lastNumber) && lastNumber >= 1) {
+      nextNumber = lastNumber + 1;
+    }
+  }
+
+  return `${prefix}${nextNumber.toString().padStart(4, "0")}`;
+}
+
 export async function getClientsForSale() {
   try {
     const session = await auth();
@@ -3527,6 +3557,263 @@ export async function processSaleReturn(saleId: string | null, returnItems: { it
   } catch (error) {
     console.error("processSaleReturn error:", error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to process sale return" };
+  }
+}
+
+export async function processSaleExchange(payload: {
+  saleId?: string | null;
+  clientId: string;
+  warehouseId: string;
+  orderType?: "RETAIL" | "WHOLESALE";
+  paymentDetails?: {
+    cashAmount?: number;
+    cashAccountId?: string;
+    cardAmount?: number;
+    cardAccountId?: string;
+    mfsAmount?: number;
+    mfsAccountId?: string;
+    changeAmount?: number;
+  };
+  returnItems: {
+    itemId: string;
+    variantId?: string;
+    quantity: number;
+    unitPrice: number;
+    description?: string;
+  }[];
+  newItems: {
+    itemId: string;
+    variantId?: string;
+    quantity: number;
+    unitPrice: number;
+    description?: string;
+  }[];
+}) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const { clientId, warehouseId, orderType = "RETAIL", paymentDetails, returnItems = [], newItems = [] } = payload;
+
+    if (returnItems.length === 0 && newItems.length === 0) {
+      return { success: false, error: "No items provided for exchange" };
+    }
+
+    const exchangeSaleData = await prisma.$transaction(async (tx) => {
+      // 1. Generate EXC Sale Number
+      const saleNumber = await generateExchangeSaleNumber(tx);
+
+      // 2. Fetch POS Settings for negative sale permissions
+      const posSettingsRaw = await tx.settings.findFirst({
+        where: { code: "pos_settings" }
+      });
+      const posSettings = posSettingsRaw?.settings as any || {};
+
+      let totalReturnSubtotal = 0;
+      let totalNewSubtotal = 0;
+      const saleItemsToCreate: any[] = [];
+
+      // 3. Process Return Items (Restock IN)
+      for (const ret of returnItems) {
+        if (ret.quantity <= 0) continue;
+
+        const dbItem = await tx.item.findUnique({
+          where: { id: ret.itemId },
+          select: { name: true, trackInventory: true, costPrice: true }
+        });
+        if (!dbItem) throw new Error(`Item not found for ID ${ret.itemId}`);
+
+        let desc = ret.description || dbItem.name;
+        if (ret.variantId) {
+          const dbVariant = await tx.productVariant.findUnique({
+            where: { id: ret.variantId },
+            select: { name: true }
+          });
+          if (dbVariant) desc += ` (${dbVariant.name})`;
+        }
+
+        const linePrice = Number(ret.unitPrice || 0);
+        const lineQty = Number(ret.quantity);
+        const lineSubtotal = Number((lineQty * linePrice).toFixed(2));
+        totalReturnSubtotal += lineSubtotal;
+
+        // Update Stock (+Restock)
+        if (dbItem.trackInventory) {
+          const existingStock = await tx.stock.findUnique({
+            where: {
+              itemId_warehouseId_variantId: {
+                itemId: ret.itemId,
+                warehouseId: warehouseId,
+                variantId: ret.variantId || null as any
+              }
+            }
+          });
+
+          if (existingStock) {
+            await tx.stock.update({
+              where: { id: existingStock.id },
+              data: { quantity: { increment: lineQty } }
+            });
+          } else {
+            await tx.stock.create({
+              data: {
+                itemId: ret.itemId,
+                warehouseId: warehouseId,
+                variantId: ret.variantId || null,
+                quantity: lineQty
+              }
+            });
+          }
+
+          // Ledger Entry IN
+          await tx.stockLedger.create({
+            data: {
+              itemId: ret.itemId,
+              variantId: ret.variantId || null,
+              warehouseId: warehouseId,
+              quantity: lineQty,
+              movementType: "IN",
+              reference: saleNumber,
+              notes: `Exchange Return Restock for ${saleNumber}`
+            }
+          });
+        }
+
+        saleItemsToCreate.push({
+          itemId: ret.itemId,
+          variantId: ret.variantId || null,
+          description: desc,
+          quantity: -lineQty,
+          unitPrice: linePrice,
+          amount: -lineSubtotal,
+          isReturnItem: true
+        });
+      }
+
+      // 4. Process New Purchase Items (Deduct OUT)
+      for (const newItem of newItems) {
+        if (newItem.quantity <= 0) continue;
+
+        const dbItem = await tx.item.findUnique({
+          where: { id: newItem.itemId },
+          select: { name: true, trackInventory: true, costPrice: true }
+        });
+        if (!dbItem) throw new Error(`Item not found for ID ${newItem.itemId}`);
+
+        let desc = newItem.description || dbItem.name;
+        if (newItem.variantId) {
+          const dbVariant = await tx.productVariant.findUnique({
+            where: { id: newItem.variantId },
+            select: { name: true }
+          });
+          if (dbVariant) desc += ` (${dbVariant.name})`;
+        }
+
+        const linePrice = Number(newItem.unitPrice || 0);
+        const lineQty = Number(newItem.quantity);
+        const lineSubtotal = Number((lineQty * linePrice).toFixed(2));
+        totalNewSubtotal += lineSubtotal;
+
+        // Check Stock & Deduct
+        if (dbItem.trackInventory) {
+          const existingStock = await tx.stock.findUnique({
+            where: {
+              itemId_warehouseId_variantId: {
+                itemId: newItem.itemId,
+                warehouseId: warehouseId,
+                variantId: newItem.variantId || null as any
+              }
+            }
+          });
+
+          const currentQty = existingStock ? Number(existingStock.quantity) : 0;
+          if (!posSettings?.allowNegativeSale && currentQty < lineQty) {
+            throw new Error(`Insufficient stock for item ${desc}. Available: ${currentQty}`);
+          }
+
+          if (existingStock) {
+            await tx.stock.update({
+              where: { id: existingStock.id },
+              data: { quantity: { decrement: lineQty } }
+            });
+          } else {
+            await tx.stock.create({
+              data: {
+                itemId: newItem.itemId,
+                warehouseId: warehouseId,
+                variantId: newItem.variantId || null,
+                quantity: -lineQty
+              }
+            });
+          }
+
+          // Ledger Entry OUT
+          await tx.stockLedger.create({
+            data: {
+              itemId: newItem.itemId,
+              variantId: newItem.variantId || null,
+              warehouseId: warehouseId,
+              quantity: lineQty,
+              movementType: "OUT",
+              reference: saleNumber,
+              notes: `Exchange New Item Sale for ${saleNumber}`
+            }
+          });
+        }
+
+        saleItemsToCreate.push({
+          itemId: newItem.itemId,
+          variantId: newItem.variantId || null,
+          description: desc,
+          quantity: lineQty,
+          unitPrice: linePrice,
+          amount: lineSubtotal,
+          isReturnItem: false
+        });
+      }
+
+      const netSubtotal = Number((totalNewSubtotal - totalReturnSubtotal).toFixed(2));
+      const grandTotal = netSubtotal;
+
+      // 5. Create Sale Record
+      const newSale = await tx.sale.create({
+        data: {
+          saleNumber,
+          date: new Date(),
+          status: "COMPLETED",
+          orderType: "EXCHANGE",
+          clientId,
+          warehouseId,
+          createdBy: session.user.id,
+          subTotal: netSubtotal,
+          discount: 0,
+          tax: 0,
+          grandTotal,
+          paymentDetails: paymentDetails || {},
+          notes: payload.saleId ? `Exchange for sale ID ${payload.saleId}` : "POS Exchange Sale",
+          items: {
+            create: saleItemsToCreate
+          }
+        },
+        include: {
+          items: true,
+          client: true
+        }
+      });
+
+      // 6. Generate Accounting Voucher
+      await createSaleAccountingVoucher(newSale.id, tx);
+
+      return newSale;
+    });
+
+    revalidateBothPaths("sales");
+    return { success: true, sale: exchangeSaleData };
+  } catch (error) {
+    console.error("processSaleExchange error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to process sale exchange" };
   }
 }
 

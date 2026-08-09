@@ -137,7 +137,7 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
         <h1 className="text-lg font-bold uppercase">{posSettings.headerText || "Ferrari Fashion"}</h1>
         {posSettings.subHeaderText && <p className="text-[10px] text-gray-600">{posSettings.subHeaderText}</p>}
         <p className="font-bold mt-1 text-xs">
-          {isReturn ? "Return Invoice No:" : "Invoice No:"} {sale.saleNumber}
+          {sale.orderType === "EXCHANGE" ? "Exchange Invoice No:" : isReturn ? "Return Invoice No:" : "Invoice No:"} {sale.saleNumber}
         </p>
       </div>
 
@@ -155,7 +155,7 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
       </div>
 
       <div className="text-center font-bold border-y border-dashed border-black py-1 mb-2">
-        {isReturn ? "RETURN DETAILS" : "ORDER DETAILS"}
+        {sale.orderType === "EXCHANGE" ? "EXCHANGE DETAILS" : isReturn ? "RETURN DETAILS" : "ORDER DETAILS"}
       </div>
 
       <table className="w-full text-[10px] mb-4">

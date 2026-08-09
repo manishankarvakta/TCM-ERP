@@ -836,6 +836,7 @@ model SaleItem {
   quantity    Decimal         @db.Decimal(10, 2)
   unitPrice   Decimal         @db.Decimal(10, 2)
   amount      Decimal         @db.Decimal(12, 2)
+  isReturnItem Boolean        @default(false)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   item        Item            @relation(fields: [itemId], references: [id])
@@ -1734,6 +1735,7 @@ enum OrderType {
   WHOLESALE
   RETURN
   ECOM
+  EXCHANGE
 }
 
 enum ItemType {

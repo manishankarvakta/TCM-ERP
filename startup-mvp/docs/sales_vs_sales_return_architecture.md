@@ -1,45 +1,52 @@
-# Sales vs. Sales Return Architecture & Workflow Guide
+# Sales vs. Sales Return vs. Exchange Architecture & Workflow Guide
 
 ## 1. Overview & Architecture
 
-The **Sales** and **Sales Return** modules in **ffERP** provide an integrated dual-cycle framework. While Sales handle outward product billing, revenue recognition, and receivable creation, Sales Returns process reverse-cycle operations: inventory restocking, revenue/COGS reversal, and customer credit or cash refund payouts.
+The **Sales**, **Sales Return**, and **Exchange** modules in **ffERP** provide an integrated 3-cycle framework. While Sales handle outward product billing and Sales Returns process reverse-cycle restocks and refunds, **Sales Exchange (`EXCHANGE`)** combines both cycles into a single unified transaction.
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                                 1. SALES CYCLE                                  │
-│  Billing ➔ Stock OUT ➔ Revenue Recognized ➔ AR Debited ➔ Cash Received (RECEIPT)│
-└────────────────────────────────────────┬────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│                                  1. SALES CYCLE                                   │
+│  Billing ➔ Stock OUT ➔ Revenue Recognized ➔ AR Debited ➔ Cash Received (RECEIPT)  │
+└────────────────────────────────────────┬──────────────────────────────────────────┘
                                          │
                                          ▼
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              2. SALES RETURN CYCLE                              │
-│  Return ➔ Stock IN ➔ Revenue Reversed ➔ AR Credited ➔ Refund Paid (PAYMENT)     │
-└─────────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│                               2. SALES RETURN CYCLE                               │
+│  Return ➔ Stock IN ➔ Revenue Reversed ➔ AR Credited ➔ Refund Paid (PAYMENT)       │
+└────────────────────────────────────────┬──────────────────────────────────────────┘
+                                         │
+                                         ▼
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│                                3. EXCHANGE CYCLE                                  │
+│  Dual Stock (IN/OUT) ➔ Net Revenue Adj ➔ Net AR/Cash Adj (RECEIPT or PAYMENT)    │
+└───────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Master Comparison Matrix
+## 2. Master 3-Way Comparison Matrix
 
-| Architectural Feature / Dimension | 🛒 Sales Module (`createSale`) | 🔄 Sales Return Module (`processSaleReturn`) |
-| :--- | :--- | :--- |
-| **Document Number Prefix** | `SAL-YYYY-XXXX` | `RET-YYYY-XXXX` |
-| **Transaction Purpose** | Outward product billing & revenue creation | Product return, restock & refund processing |
-| **Order Type Enum** | `RETAIL` or `WHOLESALE` | `RETURN` |
-| **Status Enum** | `COMPLETED` | `COMPLETED` |
-| **Quantity Representation** | Positive quantities (`+N`, e.g., `+2`) | Negative quantities (`-N`, e.g., `-2`) |
-| **Grand Total & Subtotal** | Positive (e.g., `+৳11,080.00`) | Negative (e.g., `-৳2,500.00`) |
-| **Stock Ledger Movement** | **`OUT`** (Outward Reduction) | **`IN`** (Inward Restock) |
-| **Warehouse Stock Quantity** | Decremented (`Quantity = Quantity - N`) | Incremented (`Quantity = Quantity + N`) |
-| **Primary Accounting Voucher** | **`VoucherType.SALES`** | **`VoucherType.RETURN`** |
-| **Secondary Payment Voucher** | **`VoucherType.RECEIPT`** | **`VoucherType.PAYMENT`** (Refund Payout) |
-| **Accounts Receivable (`AR`)** | **Debited** (Establishes customer debt) | **Credited** (Reduces customer debt) |
-| **Sales Revenue Account** | **Credited** (Recognizes revenue) | **Debited** (Reduces revenue / Sales return) |
-| **Cost of Goods Sold (`COGS`)** | **Debited** (Recognizes cost expense) | **Credited** (Reduces cost expense) |
-| **Inventory Asset Account** | **Credited** (Reduces physical asset) | **Debited** (Restocks physical asset) |
-| **Cash / Bank Asset Account** | **Debited** (Cash received into register) | **Credited** (Refund paid out to customer) |
-| **Primary Server Action** | `createSale(input)` | `processSaleReturn(saleId, returnItems)` |
-| **Accounting Generator** | `createSaleAccountingVoucher(id)` (`isReturn = false`) | `createSaleAccountingVoucher(id)` (`isReturn = true`) |
+| Architectural Feature / Dimension | 🛒 Sales Module (`createSale`) | 🔄 Sales Return Module (`processSaleReturn`) | 🔁 Exchange Module (`processSaleExchange`) |
+| :--- | :--- | :--- | :--- |
+| **Document Number Prefix** | `SAL-YYYY-XXXX` | `RET-YYYY-XXXX` | `EXC-YYYY-XXXX` |
+| **Transaction Purpose** | Outward product billing | Product return & refund | Simultaneous return & new purchase |
+| **Order Type Enum** | `RETAIL` or `WHOLESALE` | `RETURN` | `EXCHANGE` |
+| **Status Enum** | `COMPLETED` | `COMPLETED` | `COMPLETED` |
+| **Quantity Representation** | Positive (`+N`) | Negative (`-N`) | Mixed (`+N` new items, `-N` return items) |
+| **Grand Total Formula** | $\sum \text{Items Price}$ | $-\sum \text{Return Items Price}$ | $\sum \text{New Items} - \sum \text{Returned Items}$ |
+| **Net Price Result** | **Positive** | **Negative** | **Net Difference** (Positive, 0, or Negative) |
+| **Customer Payout Scenarios** | Customer pays 100% | Business refunds 100% | 1. Customer pays diff<br>2. Net ৳0.00<br>3. Business refunds diff |
+| **Stock Ledger Movement** | **`OUT`** (Inventory Reduction) | **`IN`** (Inventory Restock) | **Dual `IN` & `OUT`** (Per line item type) |
+| **Warehouse Stock Impact** | Decremented (`Qty - N`) | Incremented (`Qty + N`) | Restocked for returned lines, decremented for new lines |
+| **Primary Voucher Type** | `VoucherType.SALES` | `VoucherType.RETURN` | `VoucherType.SALES` / `EXCHANGE` |
+| **Secondary Payment Voucher** | `VoucherType.RECEIPT` | `VoucherType.PAYMENT` | `RECEIPT` (if diff > 0) or `PAYMENT` (if diff < 0) |
+| **Accounts Receivable (`AR`)** | Debited for Grand Total | Credited for Return Amount | Debited/Credited for Net Difference |
+| **Sales Revenue Account** | Credited for Total Sales | Debited for Return Amount | Credited for Net Revenue Difference |
+| **Cost of Goods Sold (`COGS`)** | Debited for Cost | Credited for Returned Cost | Net COGS Adjustment |
+| **Inventory Asset Account** | Credited for Cost | Debited for Restocked Cost | Restocked for returned items, reduced for new items |
+| **Primary Server Action** | `createSale(input)` | `processSaleReturn(...)` | `processSaleExchange(...)` |
+| **Accounting Generator** | `createSaleAccountingVoucher()` | `createSaleAccountingVoucher()` | `createSaleAccountingVoucher()` |
 
 ---
 
@@ -52,14 +59,12 @@ The **Sales** and **Sales Return** modules in **ffERP** provide an integrated du
   - Split payment tenders (`CASH`, `CARD`, `MFS`).
   - Real-time calculation of **Change Returned**, **Remaining Current Invoice Due**, **Previous Customer Due**, and **Total Due**.
 
-### B. Sales Return UI (`POSComponent.tsx`)
-- **Fixed Height Container**: Modal constrained to `h-[85vh] max-h-[85vh] overflow-y-auto`.
-- **Mode Tabs**:
-  1. **Invoice Return**: Search past sales by invoice number or customer.
-  2. **Void Return**: Direct return search displaying item code `[Code: XXX]` and active warehouse stock `(Stock: N)`.
-- **Validation Guardrails**:
-  - Mode mismatch checking between active POS mode and invoice order type (`RETAIL` vs `WHOLESALE`), displaying interactive error banners (`FaExchangeAlt`, `FaExclamationTriangle`).
-  - Default input quantity set to `0` to prevent accidental instant returns.
+### B. Exchange Terminal UI (`POSComponent.tsx`)
+- **Split Cart Display**:
+  - 🔴 **Returned Items Section** (`isReturnItem: true`, red badge `-[Qty 1]`).
+  - 🟢 **New Items Section** (`isReturnItem: false`, green badge `+[Qty 1]`).
+- **Live Net Exchange Summary Card**:
+  - Displays Returned Total, New Purchase Total, Net Balance, and 1 of 3 status badges (Customer Pays Diff / Even Exchange / Refund Due).
 
 ---
 
@@ -68,94 +73,34 @@ The **Sales** and **Sales Return** modules in **ffERP** provide an integrated du
 ### A. Sales Pricing Mechanics
 - Unit price resolved from tier:
   $$\text{Unit Price} = \begin{cases} \text{Wholesale Price} & \text{if } \text{WHOLESALE} \\ \text{Retail / Sales Price} & \text{if } \text{RETAIL} \end{cases}$$
-- Deducts Item Discounts, Customer Membership Tier Discounts, and Coupon Discounts.
 
-### B. Sales Return Mechanics
-- Uses the historical unit price from the original sale invoice.
-- **Max Returnable Quantity Formula**:
-  $$\text{Already Returned Qty} = \sum \text{Previous Return Quantities}$$
-  $$\text{Remaining Returnable Qty} = \max(0, \text{Original Invoice Billed Qty} - \text{Already Returned Qty})$$
-- Rejects return entries exceeding `Remaining Returnable Qty`.
+### B. Exchange Mechanics
+- Returned items are priced based on original invoice rate or current retail rate.
+- New purchase items are priced based on active retail/wholesale tier.
+- Net Exchange Amount is calculated as $\text{New Subtotal} - \text{Returned Subtotal}$.
 
 ---
 
 ## 5. Stock Ledger & Inventory Movements
 
-### A. Sales Transaction (`OUT`)
-1. **Stock Table Update**:
-   ```sql
-   UPDATE "Stock" SET "quantity" = "quantity" - N WHERE "itemId" = X AND "warehouseId" = Y;
-   ```
-2. **Stock Ledger Entry**:
-   - `movementType`: `OUT`
-   - `quantity`: `N`
-   - `reference`: `SAL-YYYY-XXXX`
-
-### B. Sales Return Transaction (`IN`)
-1. **Stock Table Update**:
+### A. Dual Stock Movements for Exchange
+For a single Exchange invoice `EXC-YYYY-XXXX`:
+1. **Returned Lines (`IN`)**:
    ```sql
    UPDATE "Stock" SET "quantity" = "quantity" + N WHERE "itemId" = X AND "warehouseId" = Y;
    ```
-2. **Stock Ledger Entry**:
-   - `movementType`: `IN`
-   - `quantity`: `N`
-   - `reference`: `RET-YYYY-XXXX`
-   - `notes`: `"Return for sale SAL-YYYY-XXXX"` (or `"Standalone Void Return"`)
+2. **New Purchase Lines (`OUT`)**:
+   ```sql
+   UPDATE "Stock" SET "quantity" = "quantity" - N WHERE "itemId" = X AND "warehouseId" = Y;
+   ```
 
 ---
 
 ## 6. Double-Entry Accounting & Financial Vouchers
 
-### A. Sales Vouchers (`isReturn = false`)
-
-#### 1. Primary Invoice Voucher (`VoucherType.SALES`)
-- **Debit**: `Accounts Receivable` (`clientId`) ➔ **Full Grand Total**
-- **Credit**: `Sales Revenue & Tax Account` ➔ **Subtotal + Tax**
-- **Debit**: `Cost of Goods Sold (COGS)` ➔ **Cost of Goods**
-- **Credit**: `Finished Goods Inventory` ➔ **Cost of Goods** *(Reduces physical asset)*
-
-#### 2. Immediate Receipt Voucher (`VoucherType.RECEIPT`)
-- **Debit**: `Cash / Bank / Wallet Accounts` ➔ **Scaled Initial Paid Amount**
-- **Credit**: `Accounts Receivable` (`clientId`) ➔ **Scaled Initial Paid Amount**
-
----
-
-### B. Sales Return Vouchers (`isReturn = true`)
-
-#### 1. Primary Return Voucher (`VoucherType.RETURN`)
-- **Credit**: `Accounts Receivable` (`clientId`) ➔ **Return Amount** *(Reduces customer debt)*
-- **Debit**: `Sales Revenue / Sales Return` Account ➔ **Return Amount** *(Reduces gross revenue)*
-- **Credit**: `Cost of Goods Sold (COGS)` ➔ **Returned Items Cost** *(Reduces expense)*
-- **Debit**: `Finished Goods Inventory` ➔ **Returned Items Cost** *(Restocks physical asset)*
-
-#### 2. Immediate Refund Payout Voucher (`VoucherType.PAYMENT`)
-- **Debit**: `Accounts Receivable` (`clientId`) ➔ **Refund Cash Payout**
-- **Credit**: `Cash / Bank / Wallet Accounts` ➔ **Refund Cash Payout** *(Cash leaves register)*
-
----
-
-## 7. Backend Execution Workflow
-
-```
-               ┌─────────────────────────────────────────┐
-               │              CLIENT REQUEST             │
-               └────────────────────┬────────────────────┘
-                                    │
-           ┌────────────────────────┴────────────────────────┐
-           ▼                                                 ▼
-┌───────────────────────┐                         ┌───────────────────────┐
-│     createSale()      │                         │  processSaleReturn()  │
-└──────────┬────────────┘                         └──────────┬────────────┘
-           │                                                 │
-           ├─ Generate SAL-YYYY-XXXX                         ├─ Generate RET-YYYY-XXXX
-           ├─ Validate negative sale settings                ├─ Fetch past return history
-           ├─ Deduct Warehouse Stock (OUT)                   ├─ Validate max returnable qty
-           ├─ Create Sale (Qty: +N)                          ├─ Restock Warehouse Stock (IN)
-           │                                                 ├─ Create Sale (Qty: -N)
-           ▼                                                 │
-┌────────────────────────────────────────────────────────┐   │
-│            createSaleAccountingVoucher()               │◀──┘
-│  - isReturn=false ➔ SALES Voucher + RECEIPT Voucher    │
-│  - isReturn=true  ➔ RETURN Voucher + PAYMENT Voucher   │
-└────────────────────────────────────────────────────────┘
-```
+Generating a unified `VoucherType.SALES` / `EXCHANGE` voucher:
+- **Debit**: `Finished Goods Inventory` (Restocks cost of returned items)
+- **Credit**: `Cost of Goods Sold (COGS)` (Reverses COGS of returned items)
+- **Debit**: `Cost of Goods Sold (COGS)` (Recognizes COGS of new items)
+- **Credit**: `Finished Goods Inventory` (Deducts asset cost of new items)
+- **Debit/Credit**: `Accounts Receivable` / `Cash` (For the net price difference)
