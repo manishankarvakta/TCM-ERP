@@ -728,6 +728,14 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     }
   }, [searchQuery, filteredItems.length, itemsHiddenDueToStock, selectedWarehouseId]);
 
+  const sortedCart = useMemo(() => {
+    return [...cart].sort((a, b) => {
+      if (a.isReturnItem && !b.isReturnItem) return -1;
+      if (!a.isReturnItem && b.isReturnItem) return 1;
+      return 0;
+    });
+  }, [cart]);
+
   const subTotal = cart.reduce((sum, item) => sum + item.unitPrice * item.cartQuantity, 0);
   const itemVatTotal = cart.reduce((sum, item) => {
     if (item.isVatEnabled && item.vatPercentage) {
@@ -2329,7 +2337,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                     <p>Your cart is empty</p>
                   </div>
                 ) : (
-                  cart.map((item) => (
+                  sortedCart.map((item) => (
                     <div key={item.cartKey} className="flex items-center gap-3">
                       <div className="w-12 h-12 bg-muted rounded-md shrink-0 flex items-center justify-center relative overflow-hidden">
                          {item.imageUrl ? (
@@ -2476,7 +2484,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {cart.map((item) => (
+                    {sortedCart.map((item) => (
                       <tr key={item.cartKey} className="hover:bg-muted/10 transition-colors">
                         <td className="py-2 px-4">
                           <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0">
