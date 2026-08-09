@@ -62,7 +62,7 @@ export function Toaster({ toasts, onClose }: ToasterProps) {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed top-0 right-0 z-[100] flex max-h-screen w-full flex-col gap-2 p-4 sm:top-0 sm:right-0 sm:bottom-auto md:max-w-[420px]">
+    <div className="pointer-events-none fixed bottom-0 right-0 z-[100] flex max-h-screen w-full flex-col-reverse gap-2 p-4 sm:bottom-0 sm:right-0 sm:top-auto md:max-w-[420px]">
       {toasts.map((toast) => (
         <Toast key={toast.id} toast={toast} onClose={onClose} />
       ))}
