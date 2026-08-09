@@ -2488,7 +2488,18 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                           </div>
                         </td>
                         <td className="py-2 px-4">
-                          <span className="font-semibold text-foreground">{item.description}</span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {item.isReturnItem ? (
+                              <span className="text-[10px] font-extrabold px-2 py-0.5 bg-rose-500/10 text-rose-600 border border-rose-500/30 rounded uppercase tracking-wide">
+                                🔴 Return
+                              </span>
+                            ) : isExchangeMode ? (
+                              <span className="text-[10px] font-extrabold px-2 py-0.5 bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 rounded uppercase tracking-wide">
+                                🟢 New Item
+                              </span>
+                            ) : null}
+                            <span className="font-semibold text-foreground">{item.description}</span>
+                          </div>
                           {item.variantSku && (
                             <div className="flex gap-1 mt-1">
                               <span className="text-[9px] px-1.5 py-0.5 bg-muted border border-border text-foreground rounded font-medium">{item.color}</span>
@@ -2496,9 +2507,17 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                             </div>
                           )}
                         </td>
-                        <td className="text-center py-3 px-4 text-muted-foreground font-medium">{item.cartQuantity}</td>
+                        <td className="text-center py-3 px-4 font-bold">
+                          <span className={item.isReturnItem ? "text-rose-600" : "text-foreground"}>
+                            {item.isReturnItem ? `-${item.cartQuantity}` : item.cartQuantity}
+                          </span>
+                        </td>
                         <td className="text-right py-3 px-4 text-muted-foreground">৳{item.unitPrice.toFixed(2)}</td>
-                        <td className="text-right py-3 px-4 font-bold text-foreground">৳{(item.cartQuantity * item.unitPrice).toFixed(2)}</td>
+                        <td className="text-right py-3 px-4 font-bold">
+                          <span className={item.isReturnItem ? "text-rose-600" : "text-foreground"}>
+                            {item.isReturnItem ? `-৳${(item.cartQuantity * item.unitPrice).toFixed(2)}` : `৳${(item.cartQuantity * item.unitPrice).toFixed(2)}`}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
