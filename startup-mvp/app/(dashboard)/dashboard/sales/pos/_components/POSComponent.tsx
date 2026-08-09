@@ -3071,7 +3071,18 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
       
       {/* Unified Return Modal */}
-      <Dialog open={isReturnModalOpen} onOpenChange={(open) => { setIsReturnModalOpen(open); if(!open) { setReturnSaleDetails(null); setReturnItemsState([]); setBarcodeInput(""); } }}>
+      <Dialog open={isReturnModalOpen} onOpenChange={(open) => { 
+        setIsReturnModalOpen(open); 
+        if(!open) { 
+          setReturnSaleDetails(null); 
+          setReturnItemsState([]); 
+          setBarcodeInput(""); 
+          if (isExchangeMode && cart.filter(i => i.isReturnItem).length === 0) {
+            setIsExchangeMode(false);
+            sonnerToast.info("Exchange Mode Exited", { position: "bottom-right" });
+          }
+        } 
+      }}>
         <DialogContent className="sm:max-w-6xl h-[85vh] max-h-[85vh] overflow-y-auto">
           <Tabs defaultValue="void-return" className="w-full">
             <DialogHeader className="flex flex-row items-center justify-between border-b pb-4 mb-4">
@@ -3218,7 +3229,15 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 </div>
                 
                 <div className="flex justify-end gap-2 mt-2">
-                  <Button variant="outline" onClick={() => { setIsReturnModalOpen(false); setReturnItemsState([]); setBarcodeInput(""); }}>Cancel</Button>
+                  <Button variant="outline" onClick={() => { 
+                    setIsReturnModalOpen(false); 
+                    setReturnItemsState([]); 
+                    setBarcodeInput(""); 
+                    if (isExchangeMode && cart.filter(i => i.isReturnItem).length === 0) {
+                      setIsExchangeMode(false);
+                      sonnerToast.info("Exchange Mode Exited", { position: "bottom-right" });
+                    }
+                  }}>Cancel</Button>
                   <Button className="bg-[#d97706] text-white hover:bg-[#d97706]/90 border border-[#d97706]/20 font-bold shadow-sm" onClick={handleAddReturnItemsToCart} disabled={returnItemsState.length === 0}>
                     <FaExchangeAlt className="w-3.5 h-3.5 mr-1.5" /> Add to Exchange Cart
                   </Button>
