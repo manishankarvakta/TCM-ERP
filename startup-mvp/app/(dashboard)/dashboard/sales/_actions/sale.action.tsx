@@ -1392,6 +1392,7 @@ export async function getSales(
           orderType: true,
           grandTotal: true,
           isTrash: true,
+          paymentDetails: true,
           _count: {
             select: {
               items: true,

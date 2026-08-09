@@ -66,6 +66,7 @@ interface Sale {
   orderType: OrderType;
   grandTotal: number;
   isTrash: boolean;
+  paymentDetails?: any;
   client: {
     id: string;
     name: string | null;
@@ -89,6 +90,36 @@ interface Sale {
     items: number;
   };
 }
+
+const getPaymentStatus = (sale: Sale) => {
+  const grandTotal = Number(sale.grandTotal || 0);
+  const paymentDetails = sale.paymentDetails as any;
+
+  let initialPaid = 0;
+  let dueCollectionsPaid = 0;
+
+  if (paymentDetails) {
+    initialPaid = Number(paymentDetails.cashAmount || 0) + Number(paymentDetails.cardAmount || 0) + Number(paymentDetails.mfsAmount || 0) - Number(paymentDetails.changeAmount || 0);
+    if (Array.isArray(paymentDetails.dueCollections)) {
+      for (const col of paymentDetails.dueCollections) {
+        dueCollectionsPaid += Number(col.cashAmount || 0) + Number(col.cardAmount || 0) + Number(col.mfsAmount || 0);
+      }
+    }
+  } else {
+    initialPaid = sale.status === "COMPLETED" ? grandTotal : 0;
+  }
+
+  const netPaid = initialPaid + dueCollectionsPaid;
+  const remainingDue = Number((grandTotal - netPaid).toFixed(2));
+
+  if (remainingDue <= 0.01 || netPaid >= grandTotal - 0.01) {
+    return { label: "Paid", variant: "emerald" as const };
+  } else if (netPaid <= 0.01 || initialPaid <= 0) {
+    return { label: "Due", variant: "rose" as const };
+  } else {
+    return { label: "Partial Paid", variant: "amber" as const };
+  }
+};
 
 interface Pagination {
   page: number;
@@ -653,6 +684,7 @@ export default function SalesListClient({
               <TableHead className="print:w-[15%] whitespace-nowrap">Sale #</TableHead>
               <TableHead className="print:w-[20%] whitespace-nowrap">Client</TableHead>
               <TableHead className="print:w-[10%] whitespace-nowrap">Status</TableHead>
+              <TableHead className="print:w-[10%] whitespace-nowrap">Payment</TableHead>
               <TableHead className="print:w-[10%] whitespace-nowrap">Type</TableHead>
               <TableHead className="print:hidden">Warehouse</TableHead>
               <TableHead className="print:w-[15%] whitespace-nowrap">Biller</TableHead>
@@ -666,7 +698,7 @@ export default function SalesListClient({
           <TableBody>
             {initialSales.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                   {isTrash ? "No trashed sales found" : "No sales found"}
                 </TableCell>
               </TableRow>
@@ -723,6 +755,26 @@ export default function SalesListClient({
                         {STATUS_LABELS[sale.status]}
                       </Badge>
                       <span className="hidden print:inline text-black">{STATUS_LABELS[sale.status]}</span>
+                    </TableCell>
+                    <TableCell className="print:whitespace-nowrap print:text-black">
+                      {(() => {
+                        const payStat = getPaymentStatus(sale);
+                        return (
+                          <>
+                            <Badge
+                              className={cn(
+                                "print:hidden font-semibold border text-xs px-2 py-0.5",
+                                payStat.variant === "emerald" && "border-emerald-500/30 text-emerald-600 bg-emerald-500/10",
+                                payStat.variant === "amber" && "border-amber-500/30 text-amber-600 bg-amber-500/10",
+                                payStat.variant === "rose" && "border-rose-500/30 text-rose-600 bg-rose-500/10"
+                              )}
+                            >
+                              {payStat.label}
+                            </Badge>
+                            <span className="hidden print:inline text-black">{payStat.label}</span>
+                          </>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="print:whitespace-nowrap print:text-black">
                       <Badge

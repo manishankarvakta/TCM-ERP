@@ -109,6 +109,30 @@ export default function SaleDetailsClient({
     changeAmount?: number;
   } | null;
 
+  const initialPaid = paymentDetails 
+    ? (Number(paymentDetails.cashAmount || 0) + Number(paymentDetails.cardAmount || 0) + Number(paymentDetails.mfsAmount || 0) - Number(paymentDetails.changeAmount || 0))
+    : 0;
+
+  let dueCollectionsPaid = 0;
+  if (paymentDetails && Array.isArray((paymentDetails as any).dueCollections)) {
+    for (const col of (paymentDetails as any).dueCollections) {
+      dueCollectionsPaid += Number(col.cashAmount || 0) + Number(col.cardAmount || 0) + Number(col.mfsAmount || 0);
+    }
+  }
+
+  const grandTotalAmount = Number(sale.grandTotal || 0);
+  const netPaid = initialPaid + dueCollectionsPaid;
+  const remainingDue = Number((grandTotalAmount - netPaid).toFixed(2));
+
+  let paymentStatus: "PAID" | "DUE" | "PARTIAL" = "PAID";
+  if (remainingDue <= 0.01 || netPaid >= grandTotalAmount - 0.01) {
+    paymentStatus = "PAID";
+  } else if (netPaid <= 0.01 || initialPaid <= 0) {
+    paymentStatus = "DUE";
+  } else {
+    paymentStatus = "PARTIAL";
+  }
+
   const totalReceived = paymentDetails 
     ? (Number(paymentDetails.cashAmount || 0) + Number(paymentDetails.cardAmount || 0) + Number(paymentDetails.mfsAmount || 0))
     : 0;
@@ -136,6 +160,17 @@ export default function SaleDetailsClient({
             <h1 className="text-3xl font-bold">{sale.saleNumber}</h1>
             <Badge variant={getStatusBadgeVariant(sale.status as SaleStatus)} className="text-sm px-3 py-1">
               {STATUS_LABELS[sale.status as SaleStatus]}
+            </Badge>
+            <Badge
+              className={`text-sm px-3 py-1 border font-bold uppercase ${
+                paymentStatus === "PAID"
+                  ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                  : paymentStatus === "PARTIAL"
+                  ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                  : "bg-rose-500/10 text-rose-600 border-rose-500/30"
+              }`}
+            >
+              {paymentStatus === "PAID" ? "Paid" : paymentStatus === "PARTIAL" ? "Partial Paid" : "Due"}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">Sale Details</p>
@@ -234,6 +269,18 @@ export default function SaleDetailsClient({
                   <span className="text-muted-foreground">Status: </span>
                   <span className="font-semibold uppercase text-slate-800">{STATUS_LABELS[sale.status as SaleStatus]}</span>
                 </p>
+                <p>
+                  <span className="text-muted-foreground">Payment: </span>
+                  <span className={`font-bold uppercase text-[11px] px-2 py-0.5 rounded border ${
+                    paymentStatus === "PAID"
+                      ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                      : paymentStatus === "PARTIAL"
+                      ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                      : "bg-rose-500/10 text-rose-600 border-rose-500/30"
+                  }`}>
+                    {paymentStatus === "PAID" ? "Paid" : paymentStatus === "PARTIAL" ? "Partial Paid" : "Due"}
+                  </span>
+                </p>
               </div>
             </div>
           </div>
@@ -258,9 +305,22 @@ export default function SaleDetailsClient({
             <Separator />
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground">Status</p>
-              <Badge variant={getStatusBadgeVariant(sale.status as SaleStatus)} className="text-sm">
-                {STATUS_LABELS[sale.status as SaleStatus]}
-              </Badge>
+              <div className="flex items-center gap-2 pt-1">
+                <Badge variant={getStatusBadgeVariant(sale.status as SaleStatus)} className="text-sm">
+                  {STATUS_LABELS[sale.status as SaleStatus]}
+                </Badge>
+                <Badge
+                  className={`text-sm border font-bold uppercase ${
+                    paymentStatus === "PAID"
+                      ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                      : paymentStatus === "PARTIAL"
+                      ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                      : "bg-rose-500/10 text-rose-600 border-rose-500/30"
+                  }`}
+                >
+                  {paymentStatus === "PAID" ? "Paid" : paymentStatus === "PARTIAL" ? "Partial Paid" : "Due"}
+                </Badge>
+              </div>
             </div>
             <Separator />
             <div className="space-y-1">
@@ -499,6 +559,12 @@ export default function SaleDetailsClient({
                               Sales Discount {salesDiscountAccount ? `(${salesDiscountAccount.code} - ${salesDiscountAccount.name})` : ""}
                             </span>
                             <span className="font-semibold shrink-0 text-green-600">-{formatCurrency(generalDiscount)}</span>
+                          </div>
+                        )}
+                        {remainingDue > 0.01 && (
+                          <div className="flex justify-between items-start text-xs gap-2 pt-1.5 border-t border-dashed border-border text-rose-600 font-bold">
+                            <span>Remaining Due Balance:</span>
+                            <span>{formatCurrency(remainingDue)}</span>
                           </div>
                         )}
                       </>
