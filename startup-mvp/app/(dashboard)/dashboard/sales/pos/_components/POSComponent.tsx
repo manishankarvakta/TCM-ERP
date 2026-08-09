@@ -10,6 +10,7 @@ import { createSale, getClientItemDiscounts, validateCoupon, voidSale, processSa
 import { getOutstandingSales, collectCustomerDue } from "../../_actions/due-payment.action";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
+import { toast as sonnerToast } from "sonner";
 import { createClient } from "@/app/(dashboard)/dashboard/clients/_actions/client.action";
 import { getMembershipSettingsAction } from "@/app/(dashboard)/dashboard/settings/_actions/membership-settings.action";
 import { getMembershipTiers } from "@/app/(dashboard)/dashboard/settings/_actions/membership-tier.action";
@@ -1320,9 +1321,8 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setIsExchangeMode(true);
     setIsReturnModalOpen(false);
     setReturnItemsState([]);
-    toast({
-      title: "Exchange Items Added",
-      description: `${newCartEntries.length} returned item(s) added to Exchange Cart. Now select new items from the catalog.`,
+    sonnerToast.success(`Exchange Items Added: ${newCartEntries.length} returned item(s) added to cart. Select new items from catalog.`, {
+      position: "bottom-right",
     });
   };
 
@@ -2219,12 +2219,16 @@ export default function POSComponent({ items, clients: initialClients, warehouse
               if (isExchangeMode) {
                 setIsExchangeMode(false);
                 setCart((prev) => prev.filter((i) => !i.isReturnItem));
-                toast({ title: "Exchange Mode Deactivated", description: "Switched to standard POS sale." });
+                sonnerToast.info("Exchange Mode Deactivated: Switched to standard POS sale.", {
+                  position: "bottom-right",
+                });
               } else {
                 setIsExchangeMode(true);
                 setActionSaleNumber("");
                 setIsReturnModalOpen(true);
-                toast({ title: "Exchange Mode Active", description: "Select returned items from the modal or barcode scanner." });
+                sonnerToast.success("Exchange Mode Active: Select returned items from modal or barcode scanner.", {
+                  position: "bottom-right",
+                });
               }
             }}
           >
