@@ -59,6 +59,7 @@ interface AttendanceRecord {
     name: string;
     employeeCode: string | null;
     designation: string | null;
+    biometricDeviceId?: string | null;
   };
   shift: {
     id: string;
@@ -367,7 +368,7 @@ export default function AttendanceListClient({
             <div className="relative">
               <FiSearch className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Name or Code..."
+                placeholder="Name, Code or Device ID..."
                 className="pl-9"
                 value={localFilters.search}
                 onChange={(e) => setLocalFilters({ ...localFilters, search: e.target.value })}
@@ -494,6 +495,7 @@ export default function AttendanceListClient({
               </TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Employee</TableHead>
+              <TableHead>Device ID</TableHead>
               <TableHead>Check In</TableHead>
               <TableHead>Break Out/In</TableHead>
               <TableHead>Check Out</TableHead>
@@ -506,7 +508,7 @@ export default function AttendanceListClient({
           <TableBody>
             {initialAttendances.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                   No attendance records found.
                 </TableCell>
               </TableRow>
@@ -535,6 +537,9 @@ export default function AttendanceListClient({
                     <div className="text-xs text-muted-foreground">
                       {record.employee.employeeCode || "No Code"}
                     </div>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <div className="text-xs font-mono">{record.employee.biometricDeviceId || "-"}</div>
                   </TableCell>
                   <TableCell>
                     {record.checkIn ? format(new Date(record.checkIn), "hh:mm a") : "-"}

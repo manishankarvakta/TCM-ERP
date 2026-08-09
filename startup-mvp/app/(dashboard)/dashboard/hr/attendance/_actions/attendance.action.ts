@@ -272,7 +272,7 @@ export async function getAttendances(startDate: Date, endDate: Date, employeeId?
     const attendances = await prisma.attendance.findMany({
       where,
       include: {
-        employee: { select: { id: true, name: true, employeeCode: true, designation: true } },
+        employee: { select: { id: true, name: true, employeeCode: true, designation: true, biometricDeviceId: true } },
         shift: { select: { id: true, name: true, startTime: true, endTime: true, breakStartTime: true, breakEndTime: true, breakType: true, breakDuration: true } }
       },
       orderBy: [{ date: 'desc' }, { employee: { name: 'asc' } }]
@@ -581,13 +581,14 @@ export async function getAttendanceRecordsPaginated({
       }
     }
 
-    // Search by employee name or code
+    // Search by employee name, code, or device ID
     if (search) {
       where.employee = {
         ...((where.employee as any) || {}),
         OR: [
           { name: { contains: search, mode: "insensitive" } },
-          { employeeCode: { contains: search, mode: "insensitive" } }
+          { employeeCode: { contains: search, mode: "insensitive" } },
+          { biometricDeviceId: { contains: search, mode: "insensitive" } }
         ]
       };
     }
@@ -600,7 +601,7 @@ export async function getAttendanceRecordsPaginated({
       prisma.attendance.findMany({
         where,
         include: {
-          employee: { select: { id: true, name: true, employeeCode: true, designation: true } },
+          employee: { select: { id: true, name: true, employeeCode: true, designation: true, biometricDeviceId: true } },
           shift: { select: { id: true, name: true, startTime: true, endTime: true, breakStartTime: true, breakEndTime: true, breakType: true, breakDuration: true } }
         },
         orderBy: [{ date: 'desc' }, { employee: { name: 'asc' } }],
