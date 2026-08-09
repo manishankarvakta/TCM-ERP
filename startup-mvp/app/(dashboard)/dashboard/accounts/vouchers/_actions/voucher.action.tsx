@@ -339,6 +339,13 @@ export async function listVouchers(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const serializedVouchers = vouchers.map((voucher: any) => {
       const { User_Voucher_createdByToUser, User_Voucher_postedByIdToUser, Client, Supplier, Organization, VoucherLine, ...voucherWithoutRelations } = voucher;
+      const voucherLines = (VoucherLine || []).map((line: any) => ({
+        ...line,
+        chartOfAccount: line.ChartOfAccount,
+        debitAmount: Number(line.debitAmount),
+        creditAmount: Number(line.creditAmount),
+      }));
+      const totalAmount = voucherLines.reduce((sum: number, line: any) => sum + Number(line.debitAmount || 0), 0);
       return {
         ...voucherWithoutRelations,
         creator: User_Voucher_createdByToUser,
@@ -346,12 +353,8 @@ export async function listVouchers(
         client: Client,
         supplier: Supplier,
         organization: Organization,
-        voucherLines: (VoucherLine || []).map((line: any) => ({
-          ...line,
-          chartOfAccount: line.ChartOfAccount,
-          debitAmount: Number(line.debitAmount),
-          creditAmount: Number(line.creditAmount),
-        })),
+        voucherLines,
+        totalAmount,
       };
     });
 

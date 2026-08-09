@@ -46,7 +46,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
 
   const selectedWarehouseId = isAdmin ? params.warehouseId : userWarehouseId;
 
-  const status = tab === "trash" ? "cancelled" : tab === "draft" ? "draft" : tab === "posted" ? "posted" : "all";
+  const status = tab === "cancelled" || tab === "trash" ? "cancelled" : tab === "draft" ? "draft" : tab === "posted" ? "posted" : "all";
   
   // Check permissions on server side
   const [result, canView, canEdit, canCreate] = await Promise.all([

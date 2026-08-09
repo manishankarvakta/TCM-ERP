@@ -30,6 +30,11 @@ interface Voucher {
   reference: string | null;
   description: string | null;
   status: string;
+  totalAmount?: number;
+  voucherLines?: Array<{
+    debitAmount: number;
+    creditAmount: number;
+  }>;
   client: {
     id: string;
     name: string;
@@ -446,6 +451,7 @@ export default function VouchersListClient({
               <TableHead>Voucher Number</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
               <TableHead>Reference</TableHead>
               <TableHead>Client/Supplier</TableHead>
               <TableHead>Status</TableHead>
@@ -456,12 +462,17 @@ export default function VouchersListClient({
           <TableBody>
             {initialVouchers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   No vouchers found
                 </TableCell>
               </TableRow>
             ) : (
               initialVouchers.map((voucher) => {
+                const amount = voucher.totalAmount ?? (
+                  voucher.voucherLines && voucher.voucherLines.length > 0
+                    ? voucher.voucherLines.reduce((sum, l) => sum + Number(l.debitAmount || 0), 0)
+                    : 0
+                );
                 return (
                   <TableRow key={voucher.id}>
                     <TableCell className="font-medium">
@@ -474,6 +485,9 @@ export default function VouchersListClient({
                       <Badge className={getTypeColor(voucher.type)}>
                         {voucher.type}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {voucher.reference || "-"}
