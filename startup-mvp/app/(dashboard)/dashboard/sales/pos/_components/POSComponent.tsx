@@ -736,13 +736,22 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     });
   }, [cart]);
 
-  const subTotal = cart.reduce((sum, item) => sum + item.unitPrice * item.cartQuantity, 0);
-  const itemVatTotal = cart.reduce((sum, item) => {
-    if (item.isVatEnabled && item.vatPercentage) {
-      return sum + (item.unitPrice * item.cartQuantity) * (item.vatPercentage / 100);
-    }
-    return sum;
-  }, 0);
+  const subTotal = useMemo(() => {
+    return cart.reduce((sum, item) => {
+      const lineVal = item.unitPrice * item.cartQuantity;
+      return sum + (item.isReturnItem ? -lineVal : lineVal);
+    }, 0);
+  }, [cart]);
+
+  const itemVatTotal = useMemo(() => {
+    return cart.reduce((sum, item) => {
+      if (item.isVatEnabled && item.vatPercentage) {
+        const lineVal = (item.unitPrice * item.cartQuantity) * (item.vatPercentage / 100);
+        return sum + (item.isReturnItem ? -lineVal : lineVal);
+      }
+      return sum;
+    }, 0);
+  }, [cart]);
   const manualDiscountAmount = discountType === "PERCENTAGE"
     ? Number((subTotal * (discountValue / 100)).toFixed(2))
     : discountValue;
@@ -1721,7 +1730,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       });
       return;
     }
-    setCashAmount(grandTotal);
+    setCashAmount(grandTotal > 0 ? grandTotal : 0);
     setCardAmount(0);
     setMfsAmount(0);
     setIsDueSale(false);
@@ -2886,8 +2895,20 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
                 {/* Price Summary Breakdown */}
                 <div className="pt-3 border-t border-border space-y-1.5">
+                  {isExchangeMode && (
+                    <>
+                      <div className="flex justify-between text-xs font-semibold text-rose-600">
+                        <span>Returned Subtotal:</span>
+                        <span>-৳{cart.filter((i) => i.isReturnItem).reduce((acc, i) => acc + i.unitPrice * i.cartQuantity, 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-semibold text-emerald-600">
+                        <span>New Items Subtotal:</span>
+                        <span>+৳{cart.filter((i) => !i.isReturnItem).reduce((acc, i) => acc + i.unitPrice * i.cartQuantity, 0).toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
                   <div className="flex justify-between text-xs font-semibold text-muted-foreground">
-                    <span>Subtotal:</span>
+                    <span>{isExchangeMode ? "Net Subtotal:" : "Subtotal:"}</span>
                     <span>৳{subTotal.toFixed(2)}</span>
                   </div>
                   {appliedPromo || manualDiscountAmount > 0 ? (
