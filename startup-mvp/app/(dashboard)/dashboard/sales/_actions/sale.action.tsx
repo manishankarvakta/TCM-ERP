@@ -3641,15 +3641,22 @@ export async function processSaleExchange(payload: {
 
         // Update Stock (+Restock)
         if (dbItem.trackInventory) {
-          const existingStock = await tx.stock.findUnique({
-            where: {
-              itemId_warehouseId_variantId: {
-                itemId: ret.itemId,
-                warehouseId: warehouseId,
-                variantId: ret.variantId || null as any
-              }
-            }
-          });
+          const existingStock = ret.variantId
+            ? await tx.stock.findUnique({
+                where: {
+                  variantId_warehouseId: {
+                    variantId: ret.variantId,
+                    warehouseId: warehouseId
+                  }
+                }
+              })
+            : await tx.stock.findFirst({
+                where: {
+                  itemId: ret.itemId,
+                  warehouseId: warehouseId,
+                  variantId: null
+                }
+              });
 
           if (existingStock) {
             await tx.stock.update({
@@ -3718,15 +3725,22 @@ export async function processSaleExchange(payload: {
 
         // Check Stock & Deduct
         if (dbItem.trackInventory) {
-          const existingStock = await tx.stock.findUnique({
-            where: {
-              itemId_warehouseId_variantId: {
-                itemId: newItem.itemId,
-                warehouseId: warehouseId,
-                variantId: newItem.variantId || null as any
-              }
-            }
-          });
+          const existingStock = newItem.variantId
+            ? await tx.stock.findUnique({
+                where: {
+                  variantId_warehouseId: {
+                    variantId: newItem.variantId,
+                    warehouseId: warehouseId
+                  }
+                }
+              })
+            : await tx.stock.findFirst({
+                where: {
+                  itemId: newItem.itemId,
+                  warehouseId: warehouseId,
+                  variantId: null
+                }
+              });
 
           const currentQty = existingStock ? Number(existingStock.quantity) : 0;
           if (!posSettings?.allowNegativeSale && currentQty < lineQty) {
