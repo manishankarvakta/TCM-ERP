@@ -3680,10 +3680,12 @@ export async function processSaleExchange(payload: {
               itemId: ret.itemId,
               variantId: ret.variantId || null,
               warehouseId: warehouseId,
+              transactionType: "IN",
               quantity: lineQty,
-              movementType: "IN",
-              reference: saleNumber,
-              notes: `Exchange Return Restock for ${saleNumber}`
+              referenceType: "EXCHANGE",
+              referenceId: saleNumber,
+              notes: `Exchange Return Restock for ${saleNumber}`,
+              createdBy: session.user.id
             }
           });
         }
@@ -3769,10 +3771,12 @@ export async function processSaleExchange(payload: {
               itemId: newItem.itemId,
               variantId: newItem.variantId || null,
               warehouseId: warehouseId,
+              transactionType: "OUT",
               quantity: lineQty,
-              movementType: "OUT",
-              reference: saleNumber,
-              notes: `Exchange New Item Sale for ${saleNumber}`
+              referenceType: "EXCHANGE",
+              referenceId: saleNumber,
+              notes: `Exchange New Item Sale for ${saleNumber}`,
+              createdBy: session.user.id
             }
           });
         }
