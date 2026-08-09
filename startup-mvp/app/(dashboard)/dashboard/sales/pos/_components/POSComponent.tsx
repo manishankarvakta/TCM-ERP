@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { FaSearch, FaHandPaper, FaSync, FaPrint, FaPlus, FaMinus, FaTrashAlt, FaShoppingCart, FaCheckCircle, FaTimes, FaUndoAlt, FaShoppingBag, FaIndustry, FaTicketAlt, FaCreditCard, FaMoneyBillWave, FaMobileAlt, FaUsers, FaGlassCheers, FaExclamationTriangle, FaBoxOpen, FaExchangeAlt } from "react-icons/fa";
-import { createSale, getClientItemDiscounts, validateCoupon, voidSale, processSaleReturn, getLastSaleForUser, getSaleByNumber, getSalesByCustomer } from "../../_actions/sale.action";
+import { createSale, getClientItemDiscounts, validateCoupon, voidSale, processSaleReturn, processSaleExchange, getLastSaleForUser, getSaleByNumber, getSalesByCustomer } from "../../_actions/sale.action";
 import { getOutstandingSales, collectCustomerDue } from "../../_actions/due-payment.action";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
@@ -90,6 +90,8 @@ interface CartItem extends Item {
   size?: string;
   color?: string;
   cartKey: string;
+  isReturnItem?: boolean;
+  originalSaleId?: string;
 }
 
 interface ActiveSalesman {
@@ -219,6 +221,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const [invoiceAllocations, setInvoiceAllocations] = useState<Record<string, number>>({});
   const [isSubmittingDuePayment, setIsSubmittingDuePayment] = useState(false);
   const [previousCustomerDue, setPreviousCustomerDue] = useState<number>(0);
+  const [isExchangeMode, setIsExchangeMode] = useState(false);
 
   // Filter payment methods based on selected warehouse
   const filteredPaymentAccounts = useMemo(() => {
@@ -1276,6 +1279,53 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     }
   };
 
+  const handleAddReturnItemsToCart = () => {
+    if (returnItemsState.length === 0) {
+      toast({ title: "Warning", description: "No items selected for return.", variant: "destructive" });
+      return;
+    }
+
+    const newCartEntries: CartItem[] = [];
+
+    for (const rState of returnItemsState) {
+      const item = items.find((i) => i.id === rState.itemId);
+      if (!item) continue;
+
+      let variant: ItemVariant | undefined;
+      if (rState.variantId && item.variants) {
+        variant = item.variants.find((v) => v.id === rState.variantId);
+      }
+
+      const displayPrice = variant ? Number(variant.price) : Number(item.salesPrice);
+      const cartKey = `${item.id}-${rState.variantId || "base"}-return`;
+
+      newCartEntries.push({
+        ...item,
+        cartQuantity: rState.returnQty,
+        variantId: rState.variantId,
+        variantSku: variant?.sku,
+        size: variant?.size,
+        color: variant?.color,
+        salesPrice: displayPrice as any,
+        cartKey,
+        isReturnItem: true,
+      });
+    }
+
+    setCart((prev) => {
+      const nonReturn = prev.filter((i) => !i.isReturnItem);
+      return [...nonReturn, ...newCartEntries];
+    });
+
+    setIsExchangeMode(true);
+    setIsReturnModalOpen(false);
+    setReturnItemsState([]);
+    toast({
+      title: "Exchange Items Added",
+      description: `${newCartEntries.length} returned item(s) added to Exchange Cart. Now select new items from the catalog.`,
+    });
+  };
+
   const handleFetchSaleForReturn = async (saleNum?: any) => {
     const saleNumberToFetch = (typeof saleNum === "string" && saleNum) ? saleNum : actionSaleNumber;
     if(!saleNumberToFetch) return toast({ title: "Error", description: "Sale Number is required", variant: "destructive" });
@@ -1670,6 +1720,70 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       }));
 
       const primaryPaymentMethod = cashAmount > 0 ? cashAccountId : (cardAmount > 0 ? cardAccountId : (mfsAmount > 0 ? mfsAccountId : "SPLIT"));
+
+      if (isExchangeMode) {
+        const returnItems = cart
+          .filter((i) => i.isReturnItem)
+          .map((i) => ({
+            itemId: i.id,
+            variantId: i.variantId || undefined,
+            quantity: i.cartQuantity,
+            unitPrice: i.unitPrice,
+            description: i.name,
+          }));
+
+        const newItems = cart
+          .filter((i) => !i.isReturnItem)
+          .map((i) => ({
+            itemId: i.id,
+            variantId: i.variantId || undefined,
+            quantity: i.cartQuantity,
+            unitPrice: i.unitPrice,
+            description: i.name,
+          }));
+
+        const res = await processSaleExchange({
+          clientId: selectedClientId,
+          warehouseId: selectedWarehouseId,
+          orderType: orderType as any,
+          returnItems,
+          newItems,
+          paymentDetails: {
+            cashAmount: cashAmount,
+            cashAccountId: cashAccountId || null,
+            cardAmount: cardAmount,
+            cardAccountId: cardAccountId || null,
+            mfsAmount: mfsAmount,
+            mfsAccountId: mfsAccountId || null,
+          },
+        });
+
+        if (res.success && res.sale) {
+          const saleNum = res.sale.saleNumber || "";
+          const saleId = res.sale.id || "";
+          setCompletedSaleNumber(saleNum);
+          setCompletedSaleId(saleId);
+          setCart([]);
+          setIsExchangeMode(false);
+          setIsConfirmModalOpen(false);
+          toast({
+            title: "Exchange Successful",
+            description: `Exchange Order ${saleNum} processed successfully!`,
+          });
+          if (saleId) {
+            printInvoiceDirect(saleId);
+          }
+          setIsChangeDialogOpen(true);
+        } else {
+          toast({
+            title: "Error processing exchange",
+            description: res.error || "Failed to process exchange.",
+            variant: "destructive",
+          });
+        }
+        setIsProcessing(false);
+        return;
+      }
 
       const res = await createSale({
         clientId: selectedClientId,
@@ -2096,6 +2210,28 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           </button>
 
           <button 
+            className={`flex items-center justify-center gap-2 h-10 px-4 transition-colors border rounded-lg text-xs font-bold shadow-lg ${
+              isExchangeMode
+                ? "bg-amber-600 text-white border-amber-700 animate-pulse"
+                : "bg-[#d97706] text-white hover:bg-[#d97706]/90 border-[#d97706]/20"
+            }`}
+            onClick={() => {
+              if (isExchangeMode) {
+                setIsExchangeMode(false);
+                setCart((prev) => prev.filter((i) => !i.isReturnItem));
+                toast({ title: "Exchange Mode Deactivated", description: "Switched to standard POS sale." });
+              } else {
+                setIsExchangeMode(true);
+                setActionSaleNumber("");
+                setIsReturnModalOpen(true);
+                toast({ title: "Exchange Mode Active", description: "Select returned items from the modal or barcode scanner." });
+              }
+            }}
+          >
+            {isExchangeMode ? "Exit Exchange Mode" : "Exchange"} <FaExchangeAlt className="w-3.5 h-3.5" />
+          </button>
+
+          <button 
             className="flex items-center justify-center gap-2 h-10 px-4 bg-[#6366f1] text-white hover:bg-[#6366f1]/90 transition-colors border border-[#6366f1]/20 rounded-lg text-xs font-bold shadow-lg"
             onClick={() => { setPayDueClientId(""); setOutstandingSales([]); setIsPayDueModalOpen(true); }}
           >
@@ -2199,14 +2335,23 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                          )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">{item.description}</p>
+                        <div className="flex items-center gap-1">
+                          {item.isReturnItem && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 bg-rose-500/10 text-rose-600 border border-rose-500/30 rounded uppercase shrink-0">
+                              Return
+                            </span>
+                          )}
+                          <p className="text-sm font-semibold text-foreground truncate">{item.description}</p>
+                        </div>
                         {item.variantSku && (
                           <div className="flex gap-1 mt-0.5">
                             <span className="text-[9px] px-1.5 py-0.2 bg-muted border border-border text-foreground rounded font-medium">{item.color}</span>
                             <span className="text-[9px] px-1.5 py-0.2 bg-muted border border-border text-foreground rounded font-medium">{item.size}</span>
                           </div>
                         )}
-                        <p className="text-sm font-bold text-foreground">৳{item.unitPrice.toFixed(2)}</p>
+                        <p className={`text-sm font-bold ${item.isReturnItem ? "text-rose-600" : "text-foreground"}`}>
+                          {item.isReturnItem ? "-" : ""}৳{item.unitPrice.toFixed(2)}
+                        </p>
                       </div>
                       <div className="flex items-center justify-between gap-2 bg-muted rounded-full border border-border px-1 py-1 w-[124px] shrink-0">
                         <button 
@@ -2252,24 +2397,56 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
           <div className="pt-3">
             <h3 className="text-sm font-bold text-foreground mb-2">Order Summary</h3>
-            <div className="bg-muted rounded-xl p-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Item ({cart.length})</span>
-                <span className="font-medium text-foreground">৳{subTotal.toFixed(2)}</span>
+            {isExchangeMode ? (
+              (() => {
+                const retSub = cart.filter((i) => i.isReturnItem).reduce((acc, item) => acc + item.unitPrice * item.cartQuantity, 0);
+                const newSub = cart.filter((i) => !i.isReturnItem).reduce((acc, item) => acc + item.unitPrice * item.cartQuantity, 0);
+                const netBal = newSub - retSub;
+                return (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 space-y-2">
+                    <div className="flex justify-between text-xs font-semibold text-rose-600">
+                      <span>Returned Subtotal:</span>
+                      <span>-৳{retSub.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-semibold text-emerald-600">
+                      <span>New Purchase Subtotal:</span>
+                      <span>+৳{newSub.toFixed(2)}</span>
+                    </div>
+                    <div className="border-t border-dashed border-amber-500/40 pt-2 flex justify-between items-center">
+                      <span className="font-bold text-xs text-amber-700 uppercase">
+                        {netBal > 0 ? "Net Payable:" : netBal < 0 ? "Net Refund:" : "Even Exchange:"}
+                      </span>
+                      <span className="text-base font-black text-amber-700">
+                        ৳{Math.abs(netBal).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()
+            ) : (
+              <div className="bg-muted rounded-xl p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Item ({cart.length})</span>
+                  <span className="font-medium text-foreground">৳{subTotal.toFixed(2)}</span>
+                </div>
+                <div className="border-t border-border border-dashed pt-2 flex justify-between items-center">
+                  <span className="font-bold text-foreground">Total</span>
+                  <span className="text-lg font-black text-foreground">৳{grandTotal.toFixed(2)}</span>
+                </div>
               </div>
-              <div className="border-t border-border border-dashed pt-2 flex justify-between items-center">
-                <span className="font-bold text-foreground">Total</span>
-                <span className="text-lg font-black text-foreground">৳{grandTotal.toFixed(2)}</span>
-              </div>
-            </div>
+            )}
 
             <Button 
-              className="w-full mt-3 h-12 text-base font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
+              className={`w-full mt-3 h-12 text-base font-bold rounded-xl text-primary-foreground ${
+                isExchangeMode
+                  ? "bg-amber-600 hover:bg-amber-700"
+                  : "bg-primary hover:bg-primary/90"
+              }`}
               size="lg"
               onClick={handleProcessTransaction}
               disabled={cart.length === 0}
             >
-              Process Transaction
+              {isExchangeMode ? "Process Exchange" : "Process Transaction"}
             </Button>
           </div>
         </div>
@@ -3038,6 +3215,9 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 
                 <div className="flex justify-end gap-2 mt-2">
                   <Button variant="outline" onClick={() => { setIsReturnModalOpen(false); setReturnItemsState([]); setBarcodeInput(""); }}>Cancel</Button>
+                  <Button variant="secondary" className="bg-amber-500/10 text-amber-600 border border-amber-500/30 hover:bg-amber-500/20 font-bold" onClick={handleAddReturnItemsToCart} disabled={returnItemsState.length === 0}>
+                    <FaExchangeAlt className="w-3.5 h-3.5 mr-1.5" /> Add to Exchange Cart
+                  </Button>
                   <Button variant="default" onClick={() => handleProcessVoidReturn()} disabled={isReturning || returnItemsState.length === 0}>{isReturning ? "Processing..." : "Process Void Return"}</Button>
                 </div>
               </div>
