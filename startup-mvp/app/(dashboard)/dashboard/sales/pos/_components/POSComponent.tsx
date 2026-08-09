@@ -1289,36 +1289,69 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   };
 
   const handleAddReturnItemsToCart = () => {
-    if (returnItemsState.length === 0) {
+    const validReturnItems = returnItemsState.filter((r) => r.returnQty > 0);
+    if (validReturnItems.length === 0) {
       toast({ title: "Warning", description: "No items selected for return.", variant: "destructive" });
       return;
     }
 
     const newCartEntries: CartItem[] = [];
 
-    for (const rState of returnItemsState) {
+    for (const rState of validReturnItems) {
       const item = items.find((i) => i.id === rState.itemId);
-      if (!item) continue;
+      if (item) {
+        let variant: ItemVariant | undefined;
+        if (rState.variantId && item.variants) {
+          variant = item.variants.find((v) => v.id === rState.variantId);
+        }
 
-      let variant: ItemVariant | undefined;
-      if (rState.variantId && item.variants) {
-        variant = item.variants.find((v) => v.id === rState.variantId);
+        const displayPrice = variant ? Number(variant.price) : Number(item.salesPrice);
+        const cartKey = `${item.id}-${rState.variantId || "base"}-return`;
+
+        newCartEntries.push({
+          ...item,
+          cartQuantity: rState.returnQty,
+          variantId: rState.variantId,
+          variantSku: variant?.sku,
+          size: variant?.size,
+          color: variant?.color,
+          salesPrice: displayPrice as any,
+          cartKey,
+          isReturnItem: true,
+          originalSaleId: returnSaleDetails?.id,
+        });
+      } else if (returnSaleDetails && returnSaleDetails.items) {
+        const detailItem = returnSaleDetails.items.find(
+          (i: any) => i.itemId === rState.itemId && (rState.variantId ? i.variantId === rState.variantId : !i.variantId)
+        );
+        if (detailItem) {
+          const cartKey = `${detailItem.itemId}-${detailItem.variantId || "base"}-return`;
+          newCartEntries.push({
+            id: detailItem.itemId,
+            code: detailItem.code || "RET",
+            name: detailItem.description,
+            description: detailItem.description,
+            salesPrice: detailItem.unitPrice as any,
+            itemType: "RETAIL",
+            trackInventory: true,
+            unitId: detailItem.unitId || "",
+            cartQuantity: rState.returnQty,
+            variantId: detailItem.variantId || undefined,
+            variantSku: detailItem.variantSku || undefined,
+            size: detailItem.size || undefined,
+            color: detailItem.color || undefined,
+            unitPrice: Number(detailItem.unitPrice),
+            cartKey,
+            isReturnItem: true,
+            originalSaleId: returnSaleDetails.id,
+          } as any);
+        }
       }
+    }
 
-      const displayPrice = variant ? Number(variant.price) : Number(item.salesPrice);
-      const cartKey = `${item.id}-${rState.variantId || "base"}-return`;
-
-      newCartEntries.push({
-        ...item,
-        cartQuantity: rState.returnQty,
-        variantId: rState.variantId,
-        variantSku: variant?.sku,
-        size: variant?.size,
-        color: variant?.color,
-        salesPrice: displayPrice as any,
-        cartKey,
-        isReturnItem: true,
-      });
+    if (newCartEntries.length === 0) {
+      toast({ title: "Warning", description: "No valid return items found to add.", variant: "destructive" });
+      return;
     }
 
     setCart((prev) => {
@@ -1329,6 +1362,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setIsExchangeMode(true);
     setIsReturnModalOpen(false);
     setReturnItemsState([]);
+    setReturnSaleDetails(null);
     sonnerToast.success(`Exchange Items Added: ${newCartEntries.length} returned item(s) added to cart. Select new items from catalog.`, {
       position: "bottom-right",
     });
@@ -3387,7 +3421,23 @@ export default function POSComponent({ items, clients: initialClients, warehouse
               )}
               
               <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline" onClick={() => { setIsReturnModalOpen(false); setReturnSaleDetails(null); setReturnItemsState([]); setBarcodeInput(""); }}>Cancel</Button>
+                <Button variant="outline" onClick={() => { 
+                  setIsReturnModalOpen(false); 
+                  setReturnSaleDetails(null); 
+                  setReturnItemsState([]); 
+                  setBarcodeInput(""); 
+                  if (isExchangeMode && cart.filter(i => i.isReturnItem).length === 0) {
+                    setIsExchangeMode(false);
+                    sonnerToast.info("Exchange Mode Exited", { position: "bottom-right" });
+                  }
+                }}>Cancel</Button>
+                <Button 
+                  className="bg-[#d97706] text-white hover:bg-[#d97706]/90 border border-[#d97706]/20 font-bold shadow-sm" 
+                  onClick={handleAddReturnItemsToCart} 
+                  disabled={!returnSaleDetails || returnItemsState.filter(i => i.returnQty > 0).length === 0}
+                >
+                  <FaExchangeAlt className="w-3.5 h-3.5 mr-1.5" /> Add to Exchange Cart
+                </Button>
                 <Button variant="default" onClick={handleProcessReturn} disabled={isReturning || !returnSaleDetails}>{isReturning ? "Processing..." : "Process Invoice Return"}</Button>
               </div>
             </TabsContent>
