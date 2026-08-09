@@ -218,6 +218,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   const [lumpSumAmount, setLumpSumAmount] = useState<number>(0);
   const [invoiceAllocations, setInvoiceAllocations] = useState<Record<string, number>>({});
   const [isSubmittingDuePayment, setIsSubmittingDuePayment] = useState(false);
+  const [previousCustomerDue, setPreviousCustomerDue] = useState<number>(0);
 
   // Filter payment methods based on selected warehouse
   const filteredPaymentAccounts = useMemo(() => {
@@ -297,6 +298,21 @@ export default function POSComponent({ items, clients: initialClients, warehouse
   useEffect(() => {
     setPaidAmount(cashAmount + cardAmount + mfsAmount);
   }, [cashAmount, cardAmount, mfsAmount]);
+
+  useEffect(() => {
+    if (selectedClientId) {
+      getOutstandingSales(selectedClientId).then(res => {
+        if (res.success && res.sales) {
+          const totalPrev = res.sales.reduce((sum, s) => sum + Number(s.remainingDue || 0), 0);
+          setPreviousCustomerDue(totalPrev);
+        } else {
+          setPreviousCustomerDue(0);
+        }
+      }).catch(() => setPreviousCustomerDue(0));
+    } else {
+      setPreviousCustomerDue(0);
+    }
+  }, [selectedClientId, isConfirmModalOpen]);
 
   useEffect(() => {
     if (payDueClientId) {
@@ -2644,6 +2660,14 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                   <div className="flex justify-between text-base font-extrabold text-foreground pt-1.5 border-t border-dashed border-border">
                     <span>Grand Total:</span>
                     <span>৳{grandTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-semibold text-amber-600 pt-1.5 border-t border-dashed border-border">
+                    <span>Previous Due:</span>
+                    <span>৳{previousCustomerDue.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-bold text-destructive">
+                    <span>Total Due:</span>
+                    <span>৳{(previousCustomerDue + (isReturnMode ? 0 : Math.max(0, grandTotal - paidAmount))).toFixed(2)}</span>
                   </div>
                 </div>
               </div>

@@ -37,6 +37,42 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
     return notFound();
   }
 
+  let previousDue = 0;
+  if (sale.clientId) {
+    const previousSales = await prisma.sale.findMany({
+      where: {
+        clientId: sale.clientId,
+        status: "COMPLETED",
+        isTrash: false,
+        id: { not: sale.id },
+        createdAt: { lte: sale.createdAt },
+      },
+    });
+
+    for (const pSale of previousSales) {
+      const pGrandTotal = pSale.grandTotal.toNumber();
+      const pDetails = pSale.paymentDetails as any;
+
+      let pInitialPaid = 0;
+      let pTotalCollected = 0;
+
+      if (pDetails) {
+        pInitialPaid = Number(pDetails.cashAmount || 0) + Number(pDetails.cardAmount || 0) + Number(pDetails.mfsAmount || 0) - Number(pDetails.changeAmount || 0);
+
+        if (Array.isArray(pDetails.dueCollections)) {
+          for (const col of pDetails.dueCollections) {
+            pTotalCollected += Number(col.cashAmount || 0) + Number(col.cardAmount || 0) + Number(col.mfsAmount || 0);
+          }
+        }
+      }
+
+      const pRemainingDue = Number((pGrandTotal - pInitialPaid - pTotalCollected).toFixed(2));
+      if (pRemainingDue > 0.01) {
+        previousDue += pRemainingDue;
+      }
+    }
+  }
+
   const posSettings = posSettingsRaw?.settings
     ? (posSettingsRaw.settings as any)
     : {
@@ -226,6 +262,14 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
                     <span>{change.toFixed(2)}</span>
                   </div>
                 )}
+                <div className="flex justify-between font-semibold border-t border-dashed border-black pt-1 mt-1">
+                  <span>Previous Due:</span>
+                  <span>{previousDue.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-[11px]">
+                  <span>Total Due:</span>
+                  <span>{(previousDue + (due > 0 ? due : 0)).toFixed(2)}</span>
+                </div>
               </div>
             );
           })()
