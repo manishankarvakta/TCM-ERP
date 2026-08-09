@@ -1359,6 +1359,12 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       return [...nonReturn, ...newCartEntries];
     });
 
+    if (returnSaleDetails?.clientId) {
+      setSelectedClientId(returnSaleDetails.clientId);
+    } else if (returnCustomerId) {
+      setSelectedClientId(returnCustomerId);
+    }
+
     setIsExchangeMode(true);
     setIsReturnModalOpen(false);
     setReturnItemsState([]);
@@ -1415,6 +1421,10 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         setReturnSearchError(null);
         setReturnSaleDetails(res.sale);
         setReturnItemsState(res.sale.items.map((i: any) => ({ itemId: i.itemId, variantId: i.variantId || undefined, maxQty: Number(i.quantity), returnQty: 0 })));
+        if (res.sale.clientId) {
+          setSelectedClientId(res.sale.clientId);
+          setReturnCustomerId(res.sale.clientId);
+        }
       } else {
         const msg = res.error || `Invoice "${saleNumberToFetch}" not found.`;
         toast({ title: "Not Found", description: msg, variant: "destructive" });
@@ -2246,7 +2256,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
         <div className="absolute bottom-0 left-0 p-4 z-20 flex items-center gap-2 bg-transparent">
           <button 
             className="flex items-center justify-center gap-2 h-10 px-4 bg-[#e11d48] text-white hover:bg-[#e11d48]/90 transition-colors border border-[#e11d48]/20 rounded-lg text-xs font-bold shadow-lg"
-            onClick={() => { setActionSaleNumber(""); setIsReturnModalOpen(true); }}
+            onClick={() => { 
+              setActionSaleNumber(""); 
+              if (selectedClientId) setReturnCustomerId(selectedClientId);
+              setIsReturnModalOpen(true); 
+            }}
           >
             Return <FaUndoAlt className="w-3.5 h-3.5" />
           </button>
@@ -2267,6 +2281,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
               } else {
                 setIsExchangeMode(true);
                 setActionSaleNumber("");
+                if (selectedClientId) setReturnCustomerId(selectedClientId);
                 setIsReturnModalOpen(true);
                 sonnerToast.success("Exchange Mode Active: Select returned items from modal or barcode scanner.", {
                   position: "bottom-right",
@@ -3331,7 +3346,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                   <SearchableSelect 
                     options={clientOptions}
                     value={returnCustomerId || null}
-                    onValueChange={(val) => setReturnCustomerId(val || "")}
+                    onValueChange={(val) => {
+                      const newCustId = val || "";
+                      setReturnCustomerId(newCustId);
+                      if (newCustId) {
+                        setSelectedClientId(newCustId);
+                      }
+                    }}
                     placeholder="Search Customer..."
                   />
                   {isFetchingCustomerSales && <p className="text-xs text-muted-foreground mt-1">Loading sales...</p>}
