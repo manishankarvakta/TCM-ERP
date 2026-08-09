@@ -2210,10 +2210,10 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           </button>
 
           <button 
-            className={`flex items-center justify-center gap-2 h-10 px-4 transition-colors border rounded-lg text-xs font-bold shadow-lg ${
+            className={`flex items-center justify-center gap-2 h-10 px-4 transition-all rounded-lg text-xs font-black shadow-lg ${
               isExchangeMode
-                ? "bg-amber-600 text-white border-amber-700 animate-pulse"
-                : "bg-[#d97706] text-white hover:bg-[#d97706]/90 border-[#d97706]/20"
+                ? "bg-amber-500 text-slate-950 border-2 border-amber-400 ring-2 ring-amber-400/50 animate-pulse"
+                : "bg-amber-500 text-slate-950 hover:bg-amber-600 hover:text-white border border-amber-600/30"
             }`}
             onClick={() => {
               if (isExchangeMode) {
@@ -3215,7 +3215,7 @@ export default function POSComponent({ items, clients: initialClients, warehouse
                 
                 <div className="flex justify-end gap-2 mt-2">
                   <Button variant="outline" onClick={() => { setIsReturnModalOpen(false); setReturnItemsState([]); setBarcodeInput(""); }}>Cancel</Button>
-                  <Button variant="secondary" className="bg-amber-500/10 text-amber-600 border border-amber-500/30 hover:bg-amber-500/20 font-bold" onClick={handleAddReturnItemsToCart} disabled={returnItemsState.length === 0}>
+                  <Button className="bg-amber-500 text-slate-950 border border-amber-600/40 hover:bg-amber-600 hover:text-white font-extrabold shadow-sm" onClick={handleAddReturnItemsToCart} disabled={returnItemsState.length === 0}>
                     <FaExchangeAlt className="w-3.5 h-3.5 mr-1.5" /> Add to Exchange Cart
                   </Button>
                   <Button variant="default" onClick={() => handleProcessVoidReturn()} disabled={isReturning || returnItemsState.length === 0}>{isReturning ? "Processing..." : "Process Void Return"}</Button>
