@@ -224,7 +224,32 @@ export default async function EmployeeDetailsPage({ searchParams }: EmployeeDeta
 
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Department</label>
-                    <p className="text-sm">{employee.department || "-"}</p>
+                    <p className="text-sm">{employee.departmentRelation?.name || employee.department || "-"}</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Floor</label>
+                    <p className="text-sm font-medium">{employee.floorRelation?.name || "-"}</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Line</label>
+                    <p className="text-sm font-medium">{employee.lineRelation?.name || "-"}</p>
+                  </div>
+
+                  <div className="space-y-1 md:col-span-2 lg:col-span-3">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-1">Employee Skills</label>
+                    {Array.isArray(employee.skills) && employee.skills.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {(employee.skills as string[]).map((skill: string, idx: number) => (
+                          <Badge key={idx} variant="secondary" className="bg-primary/10 text-primary border border-primary/20 text-xs">
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">-</p>
+                    )}
                   </div>
 
                   <div className="space-y-1">

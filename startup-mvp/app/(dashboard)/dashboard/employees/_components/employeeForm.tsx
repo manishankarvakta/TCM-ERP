@@ -22,6 +22,11 @@ import { getWarehouses } from "../../master/warehouses/_actions/warehouse.action
 import { getShifts } from "../../hr/shifts/_actions/shift.action";
 import { getEmployeeTypes } from "../types/_actions/employee-type.action";
 import { getDepartments } from "../departments/_actions/department.action";
+import { getDesignations } from "../designations/_actions/designation.action";
+import { getFloors } from "../floors/_actions/floor.action";
+import { getLines } from "../lines/_actions/line.action";
+import { getAllEmployeeSkills } from "../_actions/employee.action";
+import { TagInput } from "@/components/ui/tag-input";
 import { getBasePathFromPathname } from "@/lib/route-utils-client";
 import { useEffect } from "react";
 import MediaSelector from "@/components/MediaSelector";
@@ -36,8 +41,12 @@ const employeeFormSchema = z.object({
   phone: z.string().min(1, "Phone is required"),
   status: z.enum(["active", "inactive"]),
   designation: z.string().optional().or(z.literal("")),
+  designationId: z.string().optional().or(z.literal("")),
   department: z.string().optional().or(z.literal("")),
   departmentId: z.string().optional().or(z.literal("")),
+  floorId: z.string().optional().or(z.literal("")),
+  lineId: z.string().optional().or(z.literal("")),
+  skills: z.array(z.string()).optional(),
   salary: z.coerce.number().optional().or(z.literal(0)),
   joiningDate: z.string().optional().or(z.literal("")),
   gender: z.string().optional().or(z.literal("")),
@@ -106,6 +115,13 @@ interface EmployeeFormProps {
     employeeTypeId?: string | null;
     departmentId?: string | null;
     departmentRelation?: any;
+    designationId?: string | null;
+    designationRelation?: any;
+    floorId?: string | null;
+    floorRelation?: any;
+    lineId?: string | null;
+    lineRelation?: any;
+    skills?: any;
     salaryPayableAccount: {
       id: string;
       code: string;
@@ -143,10 +159,14 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           name: initialData.name || "",
           email: initialData.email || "",
           phone: initialData.phone || "",
-          status: (initialData.status === "trash" ? "active" : initialData.status) as "active" | "inactive",
+          status: (initialData.status as "active" | "inactive") || "active",
           designation: initialData.designation || "",
+          designationId: initialData.designationId || "",
           department: initialData.department || "",
           departmentId: initialData.departmentId || "",
+          floorId: initialData.floorId || "",
+          lineId: initialData.lineId || "",
+          skills: Array.isArray(initialData.skills) ? initialData.skills : [],
           salary: initialData.salary ? Number(initialData.salary) : 0,
           joiningDate: initialData.joiningDate ? new Date(initialData.joiningDate).toISOString().split("T")[0] : "",
           gender: initialData.gender || "",
@@ -184,8 +204,12 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           phone: "",
           status: "active",
           designation: "",
+          designationId: "",
           department: "",
           departmentId: "",
+          floorId: "",
+          lineId: "",
+          skills: [],
           salary: 0,
           joiningDate: "",
           gender: "",
@@ -223,6 +247,10 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
   const [shifts, setShifts] = useState<any[]>([]);
   const [employeeTypes, setEmployeeTypes] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
+  const [designations, setDesignations] = useState<any[]>([]);
+  const [floors, setFloors] = useState<any[]>([]);
+  const [lines, setLines] = useState<any[]>([]);
+  const [allSkills, setAllSkills] = useState<string[]>([]);
 
   useEffect(() => {
     async function fetchData() {
@@ -265,6 +293,34 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           }
         }
       }
+
+      const desigResult = await getDesignations(1, 100, "", "active");
+      if (desigResult.success && desigResult.designations) {
+        setDesignations(desigResult.designations);
+        
+        // Auto-match legacy designation string to designationId if not set
+        if (initialData && !initialData.designationId && initialData.designation) {
+          const matchedDesig = desigResult.designations.find(
+            (d: any) => d.name.toLowerCase() === initialData.designation?.toLowerCase()
+          );
+          if (matchedDesig) {
+            setValue("designationId", matchedDesig.id);
+          }
+        }
+      }
+
+      const floorRes = await getFloors(1, 100, "", "active");
+      if (floorRes.success && floorRes.floors) {
+        setFloors(floorRes.floors);
+      }
+
+      const lineRes = await getLines(1, 100, "", "active");
+      if (lineRes.success && lineRes.lines) {
+        setLines(lineRes.lines);
+      }
+
+      const skillsList = await getAllEmployeeSkills();
+      setAllSkills(skillsList);
     }
     fetchData();
   }, [initialData]);
@@ -530,12 +586,16 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="designation">Designation</Label>
-                      <Input
-                        id="designation"
-                        placeholder="Software Engineer"
-                        {...register("designation")}
+                      <Label htmlFor="designationId">Designation</Label>
+                      <SearchableSelect
+                        value={watch("designationId")}
+                        onValueChange={(value) => setValue("designationId", value || "")}
                         disabled={loading}
+                        placeholder="Select designation"
+                        options={designations.map((d) => ({
+                          value: d.id,
+                          label: d.name
+                        }))}
                       />
                     </div>
 
@@ -648,6 +708,57 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
                         id="biometricDeviceId"
                         placeholder="Device ID"
                         {...register("biometricDeviceId")}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    {/* New Fields added after Biometric Device ID */}
+                    <div className="space-y-2">
+                      <Label htmlFor="floorId">Floor (Dynamic)</Label>
+                      <SearchableSelect
+                        value={watch("floorId")}
+                        onValueChange={(value) => {
+                          setValue("floorId", value || "");
+                          const currentLineId = watch("lineId");
+                          if (currentLineId) {
+                            const currentLine = lines.find((l) => l.id === currentLineId);
+                            if (currentLine && currentLine.floorId && currentLine.floorId !== value) {
+                              setValue("lineId", "");
+                            }
+                          }
+                        }}
+                        disabled={loading}
+                        placeholder="Select floor"
+                        options={floors.map((f) => ({
+                          value: f.id,
+                          label: f.name
+                        }))}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="lineId">Line (Dynamic)</Label>
+                      <SearchableSelect
+                        value={watch("lineId")}
+                        onValueChange={(value) => setValue("lineId", value || "")}
+                        disabled={loading}
+                        placeholder="Select line"
+                        options={lines
+                          .filter((l) => !watch("floorId") || !l.floorId || l.floorId === watch("floorId"))
+                          .map((l) => ({
+                            value: l.id,
+                            label: l.floor?.name ? `${l.name} (${l.floor.name})` : l.name
+                          }))}
+                      />
+                    </div>
+
+                    <div className="space-y-2 md:col-span-3">
+                      <Label htmlFor="skills">Employee Skills (Autofills as Tags)</Label>
+                      <TagInput
+                        value={watch("skills") || []}
+                        onChange={(val) => setValue("skills", val)}
+                        suggestions={allSkills}
+                        placeholder="Type a skill (e.g., Sewing, Quality Control) and press Enter..."
                         disabled={loading}
                       />
                     </div>

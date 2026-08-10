@@ -32,6 +32,9 @@ import Link from "next/link";
 import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw, FiImage, FiBook } from "react-icons/fi";
 import { deleteEmployee, bulkUpdateEmployeeStatus, deleteEmployeesPermanently } from "../_actions/employee.action";
 import ProtectedAction from "@/components/permissions/protected-action";
+import { TabsList, TabsTrigger } from "@/components/ui/tabs";
+import SyncBiometricButton from "./sync-biometric-button";
+import ExportButtons from "./export-buttons";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -141,9 +144,18 @@ interface EmployeesListClientProps {
   status?: string;
   departments?: { id: string; name: string }[];
   departmentId?: string;
+  designations?: { id: string; name: string }[];
+  designationId?: string;
+  floors?: { id: string; name: string }[];
+  floorId?: string;
+  lines?: { id: string; name: string }[];
+  lineId?: string;
+  allSkills?: string[];
+  skill?: string;
   permissions?: {
     view: boolean;
     edit: boolean;
+    create?: boolean;
     moveToTrash: boolean;
     deletePermanently: boolean;
     viewLedger?: boolean;
@@ -162,6 +174,14 @@ export default function EmployeesListClient({
   status = "all",
   departments = [],
   departmentId = "all",
+  designations = [],
+  designationId = "all",
+  floors = [],
+  floorId = "all",
+  lines = [],
+  lineId = "all",
+  allSkills = [],
+  skill = "all",
   permissions,
 }: EmployeesListClientProps) {
   const router = useRouter();
@@ -172,7 +192,11 @@ export default function EmployeesListClient({
     (employeeTypeId && employeeTypeId !== "all") || 
     (gender && gender !== "all") || 
     (status && status !== "all") ||
-    (departmentId && departmentId !== "all")
+    (departmentId && departmentId !== "all") ||
+    (designationId && designationId !== "all") ||
+    (floorId && floorId !== "all") ||
+    (lineId && lineId !== "all") ||
+    (skill && skill !== "all")
   );
   const [deleteEmployeeId, setDeleteEmployeeId] = useState<string | null>(null);
   const [restoreEmployeeId, setRestoreEmployeeId] = useState<string | null>(null);
@@ -447,7 +471,105 @@ export default function EmployeesListClient({
 
   return (
     <div className="space-y-4">
-      {/* Search, Filters and Bulk Actions */}
+      {/* Subheader: Tabs & Bulk Actions on left, Actions on right */}
+      <div className="flex justify-between items-center flex-wrap gap-4 mb-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <TabsList>
+            <TabsTrigger value="all" asChild>
+              <Link href="/dashboard/employees?tab=all&page=1">All Employees</Link>
+            </TabsTrigger>
+            <TabsTrigger value="trash" asChild>
+              <Link href="/dashboard/employees?tab=trash&page=1">Trash</Link>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Bulk Actions Dropdown beside Tabs */}
+          <div className="flex items-center gap-2">
+            {selectedEmployees.size > 0 && (
+              <span className="text-sm text-muted-foreground whitespace-nowrap font-medium">
+                {selectedEmployees.size} selected
+              </span>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={isPending || selectedEmployees.size === 0}
+                >
+                  <FiMoreVertical className="mr-2 h-4 w-4" />
+                  Bulk Actions
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {!isTrash ? (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => handleBulkAction("trash")}
+                      disabled={selectedEmployees.size === 0}
+                    >
+                      <FiTrash2 className="mr-2 h-4 w-4" />
+                      Move to Trash
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleBulkAction("active")}
+                      disabled={selectedEmployees.size === 0}
+                    >
+                      <FiCheck className="mr-2 h-4 w-4" />
+                      Activate
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleBulkAction("inactive")}
+                      disabled={selectedEmployees.size === 0}
+                    >
+                      <FiCircle className="mr-2 h-4 w-4" />
+                      Deactivate
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => handleBulkAction("restore")}
+                      disabled={selectedEmployees.size === 0}
+                    >
+                      <FiCheck className="mr-2 h-4 w-4" />
+                      Restore Selected
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleBulkAction("permanent-delete")}
+                      disabled={selectedEmployees.size === 0}
+                      className="text-destructive"
+                    >
+                      <FiTrash2 className="mr-2 h-4 w-4" />
+                      Delete Permanently
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {permissions?.edit && <SyncBiometricButton />}
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/hr/attendance">
+              Attendance Sheet
+            </Link>
+          </Button>
+          <ExportButtons
+            filters={{
+              search,
+              status,
+              employeeTypeId,
+              gender,
+              departmentId,
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Search & Filters Row */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[240px] max-w-sm">
@@ -510,6 +632,86 @@ export default function EmployeesListClient({
             </Select>
           </div>
 
+          {/* Designation Filter */}
+          <div className="w-[180px]">
+            <Select
+              value={designationId}
+              onValueChange={(val) => handleFilterChange("designationId", val)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Designations" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[250px]">
+                <SelectItem value="all">All Designations</SelectItem>
+                {designations.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Floor Filter */}
+          <div className="w-[180px]">
+            <Select
+              value={floorId}
+              onValueChange={(val) => handleFilterChange("floorId", val)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Floors" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[250px]">
+                <SelectItem value="all">All Floors</SelectItem>
+                {floors.map((f) => (
+                  <SelectItem key={f.id} value={f.id}>
+                    {f.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Line Filter */}
+          <div className="w-[180px]">
+            <Select
+              value={lineId}
+              onValueChange={(val) => handleFilterChange("lineId", val)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Lines" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[250px]">
+                <SelectItem value="all">All Lines</SelectItem>
+                {lines.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Skill Filter */}
+          <div className="w-[180px]">
+            <Select
+              value={skill}
+              onValueChange={(val) => handleFilterChange("skill", val)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Skills" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[250px]">
+                <SelectItem value="all">All Skills</SelectItem>
+                {allSkills.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Gender Filter */}
           <div className="w-[140px]">
             <Select
@@ -560,74 +762,8 @@ export default function EmployeesListClient({
               Clear Filters
             </Button>
           )}
-
-          {/* Bulk Actions Dropdown */}
-          <div className="flex items-center gap-2 ml-auto">
-            {selectedEmployees.size > 0 && (
-              <span className="text-sm text-muted-foreground whitespace-nowrap">
-                {selectedEmployees.size} selected
-              </span>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  disabled={isPending || selectedEmployees.size === 0}
-                >
-                  <FiMoreVertical className="mr-2 h-4 w-4" />
-                  Bulk Actions
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-              {!isTrash ? (
-                <>
-                  <DropdownMenuItem
-                    onClick={() => handleBulkAction("trash")}
-                    disabled={selectedEmployees.size === 0}
-                  >
-                    <FiTrash2 className="mr-2 h-4 w-4" />
-                    Move to Trash
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleBulkAction("active")}
-                    disabled={selectedEmployees.size === 0}
-                  >
-                    <FiCheck className="mr-2 h-4 w-4" />
-                    Activate
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleBulkAction("inactive")}
-                    disabled={selectedEmployees.size === 0}
-                  >
-                    <FiCircle className="mr-2 h-4 w-4" />
-                    Deactivate
-                  </DropdownMenuItem>
-                </>
-              ) : (
-                <>
-                  <DropdownMenuItem
-                    onClick={() => handleBulkAction("restore")}
-                    disabled={selectedEmployees.size === 0}
-                  >
-                    <FiCheck className="mr-2 h-4 w-4" />
-                    Restore
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleBulkAction("delete-permanently")}
-                    className="text-destructive"
-                    disabled={selectedEmployees.size === 0}
-                  >
-                    <FiTrash2 className="mr-2 h-4 w-4" />
-                    Delete Permanently
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
-    </div>
 
       {/* Table */}
       <div className="border rounded-lg">

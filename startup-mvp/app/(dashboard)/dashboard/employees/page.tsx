@@ -2,6 +2,10 @@ import React from "react";
 import { getEmployees, getEmployeeStats } from "./_actions/employee.action";
 import { getEmployeeTypes } from "./types/_actions/employee-type.action";
 import { getDepartments } from "./departments/_actions/department.action";
+import { getDesignations } from "./designations/_actions/designation.action";
+import { getFloors } from "./floors/_actions/floor.action";
+import { getLines } from "./lines/_actions/line.action";
+import { getAllEmployeeSkills } from "./_actions/employee.action";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
@@ -23,6 +27,10 @@ interface EmployeesPageProps {
     gender?: string;
     status?: string;
     departmentId?: string;
+    designationId?: string;
+    floorId?: string;
+    lineId?: string;
+    skill?: string;
     limit?: string;
   }>;
 }
@@ -37,6 +45,10 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
   const gender = params.gender || "all";
   const statusParam = params.status || "all";
   const departmentId = params.departmentId || "all";
+  const designationId = params.designationId || "all";
+  const floorId = params.floorId || "all";
+  const lineId = params.lineId || "all";
+  const skill = params.skill || "all";
 
   const session = await auth();
   const userId = session?.user?.id;
@@ -44,11 +56,15 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
   const status = tab === "trash" ? "trash" : (statusParam as any);
   
   // Check permissions and fetch data concurrently
-  const [result, statsResult, typesResult, departmentsResult, canView, canEdit, canCreate, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
-    getEmployees(page, limit, search, status, employeeTypeId, gender, departmentId),
+  const [result, statsResult, typesResult, departmentsResult, designationsResult, floorsResult, linesResult, allSkills, canView, canEdit, canCreate, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
+    getEmployees(page, limit, search, status, employeeTypeId, gender, departmentId, designationId, floorId, lineId, skill),
     getEmployeeStats(),
     getEmployeeTypes(1, 100, "", "active"),
     getDepartments(1, 100, "", "active"),
+    getDesignations(1, 100, "", "active"),
+    getFloors(1, 100, "", "active"),
+    getLines(1, 100, "", "active"),
+    getAllEmployeeSkills(),
     userId ? hasPermission(userId, "peoples.employees", "view") : false,
     userId ? hasPermission(userId, "peoples.employees", "edit") : false,
     userId ? hasPermission(userId, "peoples.employees", "create") : false,
@@ -76,7 +92,8 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
     );
   }
 
-  const employeeTypes = typesResult.success && typesResult.employeeTypes ? typesResult.employeeTypes : [];
+  const employeeTypes = typesResult.success && typesResult.employeeTypes ? (typesResult.employeeTypes as any[]) : [];
+  const designations = designationsResult.success && designationsResult.designations ? (designationsResult.designations as any[]) : [];
 
   return (
     <PageGuard permissionKey="peoples.employees">
@@ -88,9 +105,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="flex gap-2 flex-wrap items-center">
-              {canEdit && (
-                <SyncBiometricButton />
-              )}
+             
               {canEdit && (
                 <Button variant="outline" asChild>
                   <Link href="/dashboard/employees/types">
@@ -102,6 +117,27 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
                 <Button variant="outline" asChild>
                   <Link href="/dashboard/employees/departments">
                     Department Setup
+                  </Link>
+                </Button>
+              )}
+              {canEdit && (
+                <Button variant="outline" asChild>
+                  <Link href="/dashboard/employees/designations">
+                    Designation Setup
+                  </Link>
+                </Button>
+              )}
+              {canEdit && (
+                <Button variant="outline" asChild>
+                  <Link href="/dashboard/employees/floors">
+                    Floor Setup
+                  </Link>
+                </Button>
+              )}
+              {canEdit && (
+                <Button variant="outline" asChild>
+                  <Link href="/dashboard/employees/lines">
+                    Line Setup
                   </Link>
                 </Button>
               )}
@@ -142,32 +178,6 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
         </div>
 
         <Tabs defaultValue={tab} className="w-full">
-          <div className="flex justify-between items-center flex-wrap gap-4 mb-4">
-            <TabsList>
-              <TabsTrigger value="all" asChild>
-                <Link href="/dashboard/employees?tab=all&page=1">All Employees</Link>
-              </TabsTrigger>
-              <TabsTrigger value="trash" asChild>
-                <Link href="/dashboard/employees?tab=trash&page=1">Trash</Link>
-              </TabsTrigger>
-            </TabsList>
-            <div className="flex gap-2">
-              <Button variant="outline" asChild>
-                <Link href="/dashboard/hr/attendance">
-                  Attendance Sheet
-                </Link>
-              </Button>
-              <ExportButtons
-                filters={{
-                  search,
-                  status,
-                  employeeTypeId,
-                  gender,
-                  departmentId,
-                }}
-              />
-            </div>
-          </div>
           <TabsContent value="all" className="mt-0">
             <EmployeesListClient
               initialEmployees={result.employees || []}
@@ -186,9 +196,18 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
               status={statusParam}
               departments={departmentsResult.success && departmentsResult.departments ? (departmentsResult.departments as any[]) : []}
               departmentId={departmentId}
+              designations={designations}
+              designationId={designationId}
+              floors={floorsResult.success && floorsResult.floors ? (floorsResult.floors as any[]) : []}
+              floorId={floorId}
+              lines={linesResult.success && linesResult.lines ? (linesResult.lines as any[]) : []}
+              lineId={lineId}
+              allSkills={allSkills || []}
+              skill={skill}
               permissions={{
                 view: canView,
                 edit: canEdit,
+                create: canCreate,
                 moveToTrash: canMoveToTrash,
                 deletePermanently: canDeletePermanently,
                 viewLedger: canViewLedger,
@@ -213,9 +232,18 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
               status={statusParam}
               departments={departmentsResult.success && departmentsResult.departments ? (departmentsResult.departments as any[]) : []}
               departmentId={departmentId}
+              designations={designations}
+              designationId={designationId}
+              floors={floorsResult.success && floorsResult.floors ? (floorsResult.floors as any[]) : []}
+              floorId={floorId}
+              lines={linesResult.success && linesResult.lines ? (linesResult.lines as any[]) : []}
+              lineId={lineId}
+              allSkills={allSkills || []}
+              skill={skill}
               permissions={{
                 view: canView,
                 edit: canEdit,
+                create: canCreate,
                 moveToTrash: canMoveToTrash,
                 deletePermanently: canDeletePermanently,
                 viewLedger: canViewLedger,

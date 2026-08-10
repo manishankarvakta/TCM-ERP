@@ -50,6 +50,9 @@ model User {
   adminResignations                Resignation[]          @relation("ResignationAdmin")
   createdEmployeeTypes             EmployeeType[]         @relation("EmployeeTypeCreator")
   createdDepartments             Department[]           @relation("DepartmentCreator")
+  createdDesignations            Designation[]          @relation("DesignationCreator")
+  createdFloors                  Floor[]                @relation("FloorCreator")
+  createdLines                   Line[]                 @relation("LineCreator")
   createdNotifications             Notification[]         @relation("NotificationCreator")
   notifications                    Notification[]
   createdOrganizations             Organization[]         @relation("OrganizationCreator")
@@ -136,6 +139,13 @@ model Employee {
   employeeType           EmployeeType?       @relation(fields: [employeeTypeId], references: [id], onDelete: Restrict)
   departmentId           String?
   departmentRelation     Department?         @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  designationId          String?
+  designationRelation    Designation?        @relation(fields: [designationId], references: [id], onDelete: Restrict)
+  floorId                String?
+  floorRelation          Floor?              @relation(fields: [floorId], references: [id], onDelete: Restrict)
+  lineId                 String?
+  lineRelation           Line?               @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  skills                 Json?
   biometricDeviceId      String?
   nominee                Json?
   shiftId                String?
@@ -165,6 +175,9 @@ model Employee {
   @@index([advanceAccountId])
   @@index([warehouseId])
   @@index([departmentId])
+  @@index([designationId])
+  @@index([floorId])
+  @@index([lineId])
 }
 
 model Account {
@@ -1329,6 +1342,58 @@ model Department {
   updatedAt   DateTime   @updatedAt
   employees   Employee[]
   creator     User       @relation("DepartmentCreator", fields: [createdBy], references: [id])
+}
+
+model Designation {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  status      String     @default("active") // "active" | "inactive"
+  isTrash     Boolean    @default(false)
+  createdBy   String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  employees   Employee[]
+  creator     User       @relation("DesignationCreator", fields: [createdBy], references: [id])
+
+  @@index([status])
+  @@index([isTrash])
+}
+
+model Floor {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  status      String     @default("active") // "active" | "inactive"
+  isTrash     Boolean    @default(false)
+  createdBy   String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  employees   Employee[]
+  lines       Line[]
+  creator     User       @relation("FloorCreator", fields: [createdBy], references: [id])
+
+  @@index([status])
+  @@index([isTrash])
+}
+
+model Line {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  floorId     String?
+  floor       Floor?     @relation(fields: [floorId], references: [id], onDelete: SetNull)
+  status      String     @default("active") // "active" | "inactive"
+  isTrash     Boolean    @default(false)
+  createdBy   String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  employees   Employee[]
+  creator     User       @relation("LineCreator", fields: [createdBy], references: [id])
+
+  @@index([status])
+  @@index([isTrash])
+  @@index([floorId])
 }
 
 model LeaveApplication {

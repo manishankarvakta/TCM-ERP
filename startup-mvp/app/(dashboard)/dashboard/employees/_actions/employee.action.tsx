@@ -20,7 +20,11 @@ export async function getEmployees(
   status: "active" | "inactive" | "trash" | "all" = "all",
   employeeTypeId?: string,
   gender?: string,
-  departmentId?: string
+  departmentId?: string,
+  designationId?: string,
+  floorId?: string,
+  lineId?: string,
+  skill?: string
 ) {
   try {
     const session = await auth();
@@ -83,6 +87,20 @@ export async function getEmployees(
     if (departmentId && departmentId !== "all") {
       where.departmentId = departmentId;
     }
+    if (designationId && designationId !== "all") {
+      where.designationId = designationId;
+    }
+    if (floorId && floorId !== "all") {
+      where.floorId = floorId;
+    }
+    if (lineId && lineId !== "all") {
+      where.lineId = lineId;
+    }
+    if (skill && skill !== "all") {
+      where.skills = {
+        array_contains: skill
+      };
+    }
 
     // Get total count
     const total = await prisma.employee.count({ where });
@@ -108,6 +126,13 @@ export async function getEmployees(
         },
         status: true,
         designation: true,
+        designationId: true,
+        designationRelation: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
         department: true,
         departmentId: true,
         departmentRelation: {
@@ -116,6 +141,21 @@ export async function getEmployees(
             name: true,
           }
         },
+        floorId: true,
+        floorRelation: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        lineId: true,
+        lineRelation: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        skills: true,
         salary: true,
         joiningDate: true,
         gender: true,
@@ -232,6 +272,13 @@ export async function getEmployeeById(employeeId: string) {
         },
         status: true,
         designation: true,
+        designationId: true,
+        designationRelation: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
         department: true,
         departmentId: true,
         departmentRelation: {
@@ -240,6 +287,21 @@ export async function getEmployeeById(employeeId: string) {
             name: true,
           }
         },
+        floorId: true,
+        floorRelation: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        lineId: true,
+        lineRelation: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        skills: true,
         salary: true,
         joiningDate: true,
         gender: true,
@@ -553,8 +615,12 @@ export async function createEmployee(input: {
   phone?: string;
   status?: "active" | "inactive";
   designation?: string;
+  designationId?: string;
   department?: string;
   departmentId?: string;
+  floorId?: string;
+  lineId?: string;
+  skills?: string[];
   salary?: number;
   joiningDate?: Date;
   gender?: string;
@@ -860,6 +926,18 @@ export async function createEmployee(input: {
         }
       }
 
+      // Resolve dynamic designation name for backward compatibility
+      let designationName = input.designation || null;
+      if (input.designationId) {
+        const desig = await tx.designation.findUnique({
+          where: { id: input.designationId },
+          select: { name: true },
+        });
+        if (desig) {
+          designationName = desig.name;
+        }
+      }
+
       const employee = await tx.employee.create({
         data: {
           name: input.name,
@@ -867,9 +945,13 @@ export async function createEmployee(input: {
           email: input.email || null,
           phone: input.phone || null,
           status: input.status || "active",
-          designation: input.designation || null,
+          designation: designationName,
+          designationId: input.designationId || null,
           department: departmentName,
           departmentId: input.departmentId || null,
+          floorId: input.floorId || null,
+          lineId: input.lineId || null,
+          skills: (input.skills as any) || undefined,
           salary: input.salary || null,
           joiningDate: input.joiningDate || null,
           gender: input.gender || null,
@@ -988,8 +1070,12 @@ export async function updateEmployee(input: {
   userId?: string;
   status?: "active" | "inactive";
   designation?: string;
+  designationId?: string;
   department?: string;
   departmentId?: string;
+  floorId?: string;
+  lineId?: string;
+  skills?: string[];
   salary?: number;
   joiningDate?: Date;
   gender?: string;
@@ -1268,19 +1354,35 @@ export async function updateEmployee(input: {
       }
 
       // Resolve dynamic department name for backward compatibility
-      let departmentName = undefined;
+      let departmentName: string | null | undefined = undefined;
       if (input.departmentId !== undefined) {
         if (input.departmentId) {
           const dept = await tx.department.findUnique({
             where: { id: input.departmentId },
             select: { name: true },
           });
-          if (dept) {
-            departmentName = dept.name;
-          }
+          departmentName = dept ? dept.name : null;
         } else {
           departmentName = null;
         }
+      } else if (input.department !== undefined) {
+        departmentName = input.department || null;
+      }
+
+      // Resolve dynamic designation name for backward compatibility
+      let designationName: string | null | undefined = undefined;
+      if (input.designationId !== undefined) {
+        if (input.designationId) {
+          const desig = await tx.designation.findUnique({
+            where: { id: input.designationId },
+            select: { name: true },
+          });
+          designationName = desig ? desig.name : null;
+        } else {
+          designationName = null;
+        }
+      } else if (input.designation !== undefined) {
+        designationName = input.designation || null;
       }
 
       // Build update data
@@ -1291,9 +1393,13 @@ export async function updateEmployee(input: {
         phone: input.phone !== undefined ? (input.phone || null) : undefined,
         userId: input.userId !== undefined ? (input.userId || null) : undefined,
         status: input.status !== undefined ? input.status : undefined,
-        designation: input.designation !== undefined ? (input.designation || null) : undefined,
+        designation: designationName !== undefined ? designationName : (input.designation !== undefined ? (input.designation || null) : undefined),
+        designationId: input.designationId !== undefined ? (input.designationId || null) : undefined,
         department: departmentName !== undefined ? departmentName : (input.department !== undefined ? (input.department || null) : undefined),
         departmentId: input.departmentId !== undefined ? (input.departmentId || null) : undefined,
+        floorId: input.floorId !== undefined ? (input.floorId || null) : undefined,
+        lineId: input.lineId !== undefined ? (input.lineId || null) : undefined,
+        skills: input.skills !== undefined ? (input.skills || null) : undefined,
         salary: input.salary !== undefined ? (input.salary || null) : undefined,
         joiningDate: input.joiningDate !== undefined ? (input.joiningDate || null) : undefined,
         gender: input.gender !== undefined ? (input.gender || null) : undefined,
@@ -2292,5 +2398,27 @@ export async function getEmployeeLedger(
   }
 }
 
+export async function getAllEmployeeSkills(): Promise<string[]> {
+  try {
+    const employees = await prisma.employee.findMany({
+      select: { skills: true },
+      where: { status: { not: "trash" } },
+    });
 
+    const skillSet = new Set<string>();
+    for (const emp of employees) {
+      if (Array.isArray(emp.skills)) {
+        for (const s of emp.skills) {
+          if (typeof s === "string" && s.trim()) {
+            skillSet.add(s.trim());
+          }
+        }
+      }
+    }
 
+    return Array.from(skillSet).sort();
+  } catch (error) {
+    console.error("getAllEmployeeSkills error:", error);
+    return [];
+  }
+}
