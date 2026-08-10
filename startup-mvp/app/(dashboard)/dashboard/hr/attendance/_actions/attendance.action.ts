@@ -289,7 +289,15 @@ export async function getAttendances(startDate: Date, endDate: Date, employeeId?
  * Bulk process attendance for a specific date
  * (e.g., mark everyone who hasn't punched as ABSENT)
  */
-export async function processBulkAttendance(date: string, warehouseId?: string) {
+export async function processBulkAttendance(
+  date: string, 
+  warehouseId?: string,
+  departmentId?: string,
+  designationId?: string,
+  floorId?: string,
+  lineId?: string,
+  skill?: string
+) {
   const startTime = Date.now();
   try {
     await syncTimezoneFromDb();
@@ -343,14 +351,17 @@ export async function processBulkAttendance(date: string, warehouseId?: string) 
       targetStatus = "WEEKEND";
     }
     
-    // Find all active employees
+    // Find all active employees matching filters
     const whereClause: Prisma.EmployeeWhereInput = {
       status: "active"
     };
     
-    if (warehouseId) {
-      whereClause.warehouseId = warehouseId;
-    }
+    if (warehouseId && warehouseId !== "all") whereClause.warehouseId = warehouseId;
+    if (departmentId && departmentId !== "all") whereClause.departmentId = departmentId;
+    if (designationId && designationId !== "all") whereClause.designationId = designationId;
+    if (floorId && floorId !== "all") whereClause.floorId = floorId;
+    if (lineId && lineId !== "all") whereClause.lineId = lineId;
+    if (skill && skill !== "all") whereClause.skills = { array_contains: skill };
 
     const employees = await prisma.employee.findMany({
       where: whereClause,
@@ -480,7 +491,16 @@ export async function processBulkAttendance(date: string, warehouseId?: string) 
  * Bulk process attendance for a DATE RANGE
  * Loops through every day from fromDate to toDate and marks un-punched employees as ABSENT.
  */
-export async function processBulkAttendanceRange(fromDate: string, toDate: string, warehouseId?: string) {
+export async function processBulkAttendanceRange(
+  fromDate: string, 
+  toDate: string, 
+  warehouseId?: string,
+  departmentId?: string,
+  designationId?: string,
+  floorId?: string,
+  lineId?: string,
+  skill?: string
+) {
   try {
     const start = new Date(`${fromDate}T00:00:00.000Z`);
     const end   = new Date(`${toDate}T00:00:00.000Z`);
@@ -503,7 +523,7 @@ export async function processBulkAttendanceRange(fromDate: string, toDate: strin
     const cursor = new Date(start);
     while (cursor <= end) {
       const dateStr = cursor.toISOString().split("T")[0]; // YYYY-MM-DD
-      const result  = await processBulkAttendance(dateStr, warehouseId);
+      const result  = await processBulkAttendance(dateStr, warehouseId, departmentId, designationId, floorId, lineId, skill);
 
       if (result.success) {
         totalCreated   += result.createdCount  ?? 0;
@@ -542,6 +562,11 @@ export async function getAttendanceRecordsPaginated({
   fromDate,
   toDate,
   status,
+  departmentId,
+  designationId,
+  floorId,
+  lineId,
+  skill,
 }: {
   page?: number;
   limit?: number;
@@ -552,6 +577,11 @@ export async function getAttendanceRecordsPaginated({
   fromDate?: string;
   toDate?: string;
   status?: string;
+  departmentId?: string;
+  designationId?: string;
+  floorId?: string;
+  lineId?: string;
+  skill?: string;
 }) {
   try {
     const session = await auth();
@@ -571,7 +601,6 @@ export async function getAttendanceRecordsPaginated({
 
     // Filters
     if (employeeId) where.employeeId = employeeId;
-    if (warehouseId && warehouseId !== "all") where.employee = { warehouseId };
     if (status && status !== "ALL") {
       if (status === "ON_DUTY") {
         where.checkIn = { not: null };
@@ -581,16 +610,25 @@ export async function getAttendanceRecordsPaginated({
       }
     }
 
+    const employeeConditions: Prisma.EmployeeWhereInput = {};
+    if (warehouseId && warehouseId !== "all") employeeConditions.warehouseId = warehouseId;
+    if (departmentId && departmentId !== "all") employeeConditions.departmentId = departmentId;
+    if (designationId && designationId !== "all") employeeConditions.designationId = designationId;
+    if (floorId && floorId !== "all") employeeConditions.floorId = floorId;
+    if (lineId && lineId !== "all") employeeConditions.lineId = lineId;
+    if (skill && skill !== "all") employeeConditions.skills = { array_contains: skill };
+
     // Search by employee name, code, or device ID
     if (search) {
-      where.employee = {
-        ...((where.employee as any) || {}),
-        OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { employeeCode: { contains: search, mode: "insensitive" } },
-          { biometricDeviceId: { contains: search, mode: "insensitive" } }
-        ]
-      };
+      employeeConditions.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { employeeCode: { contains: search, mode: "insensitive" } },
+        { biometricDeviceId: { contains: search, mode: "insensitive" } }
+      ];
+    }
+
+    if (Object.keys(employeeConditions).length > 0) {
+      where.employee = employeeConditions;
     }
 
     // Pagination

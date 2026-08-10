@@ -20,6 +20,11 @@ interface AttendancePageProps {
     fromDate?: string;
     toDate?: string;
     status?: string;
+    departmentId?: string;
+    designationId?: string;
+    floorId?: string;
+    lineId?: string;
+    skill?: string;
   }>;
 }
 
@@ -32,6 +37,11 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
   const warehouseId = params.warehouseId || undefined;
   const deviceId = params.deviceId || undefined;
   const employeeId = params.employeeId || undefined;
+  const departmentId = params.departmentId || undefined;
+  const designationId = params.designationId || undefined;
+  const floorId = params.floorId || undefined;
+  const lineId = params.lineId || undefined;
+  const skill = params.skill || undefined;
   
   // Set default date range if not provided (e.g. today)
   const today = new Date().toISOString().split("T")[0];
@@ -53,7 +63,12 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
       employeeId,
       fromDate,
       toDate,
-      status
+      status,
+      departmentId,
+      designationId,
+      floorId,
+      lineId,
+      skill,
     }),
     userId ? hasPermission(userId, "hr.attendance", "view") : false,
     userId ? hasPermission(userId, "hr.attendance", "edit") : false,
@@ -119,6 +134,11 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
           fromDate,
           toDate,
           status: status || "ALL",
+          departmentId: departmentId || "",
+          designationId: designationId || "",
+          floorId: floorId || "",
+          lineId: lineId || "",
+          skill: skill || "",
         }}
         permissions={{
           view: canView,

@@ -24,7 +24,11 @@ import {
 import { FiSearch, FiCheckSquare, FiAlertCircle, FiEdit } from "react-icons/fi";
 import { processBulkAttendance, processBulkAttendanceRange, closeShiftBulk } from "../_actions/attendance.action";
 import { getWarehouses } from "../../../master/warehouses/_actions/warehouse.action";
-import { getEmployees } from "../../../employees/_actions/employee.action";
+import { getEmployees, getAllEmployeeSkills } from "../../../employees/_actions/employee.action";
+import { getDepartments } from "../../../employees/departments/_actions/department.action";
+import { getDesignations } from "../../../employees/designations/_actions/designation.action";
+import { getFloors } from "../../../employees/floors/_actions/floor.action";
+import { getLines } from "../../../employees/lines/_actions/line.action";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -91,6 +95,11 @@ interface AttendanceListClientProps {
     fromDate: string;
     toDate: string;
     status: string;
+    departmentId?: string;
+    designationId?: string;
+    floorId?: string;
+    lineId?: string;
+    skill?: string;
   };
   permissions?: {
     view: boolean;
@@ -129,6 +138,11 @@ export default function AttendanceListClient({
   const [localFilters, setLocalFilters] = useState(filters);
   const [warehouses, setWarehouses] = useState<{id: string, name: string}[]>([]);
   const [employees, setEmployees] = useState<{id: string, name: string, employeeCode: string | null}[]>([]);
+  const [departments, setDepartments] = useState<{id: string, name: string}[]>([]);
+  const [designations, setDesignations] = useState<{id: string, name: string}[]>([]);
+  const [floors, setFloors] = useState<{id: string, name: string}[]>([]);
+  const [lines, setLines] = useState<{id: string, name: string}[]>([]);
+  const [skills, setSkills] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isCloseShiftModalOpen, setIsCloseShiftModalOpen] = useState(false);
 
@@ -177,12 +191,22 @@ export default function AttendanceListClient({
 
   useEffect(() => {
     async function loadDropdowns() {
-      const [whRes, empRes] = await Promise.all([
+      const [whRes, empRes, deptRes, desigRes, floorRes, lineRes, skillRes] = await Promise.all([
         getWarehouses(1, 100),
-        getEmployees(1, 1000)
+        getEmployees(1, 1000),
+        getDepartments(1, 100, "", "active"),
+        getDesignations(1, 100, "", "active"),
+        getFloors(1, 100, "", "active"),
+        getLines(1, 100, "", "active"),
+        getAllEmployeeSkills(),
       ]);
       if (whRes.success && whRes.warehouses) setWarehouses(whRes.warehouses);
       if (empRes.success && empRes.employees) setEmployees(empRes.employees);
+      if (deptRes.success && deptRes.departments) setDepartments(deptRes.departments as any);
+      if (desigRes.success && desigRes.designations) setDesignations(desigRes.designations as any);
+      if (floorRes.success && floorRes.floors) setFloors(floorRes.floors as any);
+      if (lineRes.success && lineRes.lines) setLines(lineRes.lines as any);
+      if (Array.isArray(skillRes)) setSkills(skillRes);
     }
     loadDropdowns();
   }, []);
@@ -306,6 +330,12 @@ export default function AttendanceListClient({
     if (updated.status && updated.status !== "ALL") params.set("status", updated.status);
     if (updated.deviceId) params.set("deviceId", updated.deviceId);
 
+    if (updated.departmentId && updated.departmentId !== "all") params.set("departmentId", updated.departmentId);
+    if (updated.designationId && updated.designationId !== "all") params.set("designationId", updated.designationId);
+    if (updated.floorId && updated.floorId !== "all") params.set("floorId", updated.floorId);
+    if (updated.lineId && updated.lineId !== "all") params.set("lineId", updated.lineId);
+    if (updated.skill && updated.skill !== "all") params.set("skill", updated.skill);
+
     // Keep active limit
     if (updated.limit) params.set("limit", updated.limit.toString());
 
@@ -316,7 +346,10 @@ export default function AttendanceListClient({
 
   const resetFilters = useCallback(() => {
     const todayStr = format(new Date(), "yyyy-MM-dd");
-    setLocalFilters({ page: 1, limit: 20, search: "", warehouseId: "", deviceId: "", employeeId: "", status: "ALL", fromDate: todayStr, toDate: todayStr });
+    setLocalFilters({ 
+      page: 1, limit: 20, search: "", warehouseId: "", deviceId: "", employeeId: "", status: "ALL", 
+      fromDate: todayStr, toDate: todayStr, departmentId: "", designationId: "", floorId: "", lineId: "", skill: "" 
+    });
     startTransition(() => {
       router.push(`/dashboard/hr/attendance?fromDate=${todayStr}&toDate=${todayStr}&limit=20`);
     });
@@ -326,11 +359,17 @@ export default function AttendanceListClient({
   const handleProcessBulk = () => {
     startTransition(async () => {
       const warehouseId = localFilters.warehouseId === "all" ? undefined : localFilters.warehouseId || undefined;
+      const departmentId = localFilters.departmentId === "all" ? undefined : localFilters.departmentId || undefined;
+      const designationId = localFilters.designationId === "all" ? undefined : localFilters.designationId || undefined;
+      const floorId = localFilters.floorId === "all" ? undefined : localFilters.floorId || undefined;
+      const lineId = localFilters.lineId === "all" ? undefined : localFilters.lineId || undefined;
+      const skill = localFilters.skill === "all" ? undefined : localFilters.skill || undefined;
+
       // Use range version if toDate is set and differs from fromDate
       const useRange = localFilters.toDate && localFilters.toDate !== localFilters.fromDate;
       const result = useRange
-        ? await processBulkAttendanceRange(localFilters.fromDate, localFilters.toDate, warehouseId)
-        : await processBulkAttendance(localFilters.fromDate, warehouseId);
+        ? await processBulkAttendanceRange(localFilters.fromDate, localFilters.toDate, warehouseId, departmentId, designationId, floorId, lineId, skill)
+        : await processBulkAttendance(localFilters.fromDate, warehouseId, departmentId, designationId, floorId, lineId, skill);
       if (result.success) {
         const days = (result as any).daysProcessed ? ` across ${(result as any).daysProcessed} days` : "";
         toast({ title: "Success", description: `Processed ${result.count} un-punched attendances as ABSENT${days}.` });
@@ -421,6 +460,71 @@ export default function AttendanceListClient({
                 <SelectItem value="WEEKEND">Weekend</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-1.5 flex-1 min-w-[200px]">
+            <label className="text-xs font-semibold text-muted-foreground">Department</label>
+            <SearchableSelect 
+              value={localFilters.departmentId || "all"} 
+              onValueChange={(val) => pushFilters({ departmentId: val || "all" })}
+              placeholder="All Departments"
+              options={[
+                { value: "all", label: "All Departments" },
+                ...departments.map(d => ({ value: d.id, label: d.name }))
+              ]}
+            />
+          </div>
+
+          <div className="space-y-1.5 flex-1 min-w-[200px]">
+            <label className="text-xs font-semibold text-muted-foreground">Designation</label>
+            <SearchableSelect 
+              value={localFilters.designationId || "all"} 
+              onValueChange={(val) => pushFilters({ designationId: val || "all" })}
+              placeholder="All Designations"
+              options={[
+                { value: "all", label: "All Designations" },
+                ...designations.map(d => ({ value: d.id, label: d.name }))
+              ]}
+            />
+          </div>
+
+          <div className="space-y-1.5 flex-1 min-w-[180px]">
+            <label className="text-xs font-semibold text-muted-foreground">Floor</label>
+            <SearchableSelect 
+              value={localFilters.floorId || "all"} 
+              onValueChange={(val) => pushFilters({ floorId: val || "all" })}
+              placeholder="All Floors"
+              options={[
+                { value: "all", label: "All Floors" },
+                ...floors.map(f => ({ value: f.id, label: f.name }))
+              ]}
+            />
+          </div>
+
+          <div className="space-y-1.5 flex-1 min-w-[180px]">
+            <label className="text-xs font-semibold text-muted-foreground">Line</label>
+            <SearchableSelect 
+              value={localFilters.lineId || "all"} 
+              onValueChange={(val) => pushFilters({ lineId: val || "all" })}
+              placeholder="All Lines"
+              options={[
+                { value: "all", label: "All Lines" },
+                ...lines.map(l => ({ value: l.id, label: l.name }))
+              ]}
+            />
+          </div>
+
+          <div className="space-y-1.5 flex-1 min-w-[180px]">
+            <label className="text-xs font-semibold text-muted-foreground">Skill</label>
+            <SearchableSelect 
+              value={localFilters.skill || "all"} 
+              onValueChange={(val) => pushFilters({ skill: val || "all" })}
+              placeholder="All Skills"
+              options={[
+                { value: "all", label: "All Skills" },
+                ...skills.map(s => ({ value: s, label: s }))
+              ]}
+            />
           </div>
 
           <div className="space-y-1.5 flex-1 min-w-[260px]">
