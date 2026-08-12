@@ -1675,6 +1675,8 @@ export async function getSaleByNumber(saleNumber: string) {
         grandTotal: true,
         orderType: true,
         isTrash: true,
+        clientId: true,
+        warehouseId: true,
         client: {
           select: {
             id: true,
@@ -3629,9 +3631,9 @@ export async function processSaleExchange(payload: {
         if (ret.variantId) {
           const dbVariant = await tx.productVariant.findUnique({
             where: { id: ret.variantId },
-            select: { name: true }
+            select: { color: true, size: true, sku: true }
           });
-          if (dbVariant) desc += ` (${dbVariant.name})`;
+          if (dbVariant) desc += ` (${dbVariant.color} / ${dbVariant.size} - ${dbVariant.sku})`;
         }
 
         const linePrice = Number(ret.unitPrice || 0);
@@ -3715,9 +3717,9 @@ export async function processSaleExchange(payload: {
         if (newItem.variantId) {
           const dbVariant = await tx.productVariant.findUnique({
             where: { id: newItem.variantId },
-            select: { name: true }
+            select: { color: true, size: true, sku: true }
           });
-          if (dbVariant) desc += ` (${dbVariant.name})`;
+          if (dbVariant) desc += ` (${dbVariant.color} / ${dbVariant.size} - ${dbVariant.sku})`;
         }
 
         const linePrice = Number(newItem.unitPrice || 0);

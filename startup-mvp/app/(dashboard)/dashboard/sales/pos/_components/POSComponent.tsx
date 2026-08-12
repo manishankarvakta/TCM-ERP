@@ -1314,17 +1314,19 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           variant = item.variants.find((v) => v.id === rState.variantId);
         }
 
-        const displayPrice = variant ? Number(variant.price) : Number(item.salesPrice);
+        const displayPrice = variant
+          ? getBasePrice({ ...item, variantId: rState.variantId } as any, orderType)
+          : getBasePrice(item, orderType);
         const cartKey = `${item.id}-${rState.variantId || "base"}-return`;
 
         newCartEntries.push({
           ...item,
+          unitPrice: displayPrice,
           cartQuantity: rState.returnQty,
           variantId: rState.variantId,
           variantSku: variant?.sku,
           size: variant?.size,
           color: variant?.color,
-          salesPrice: displayPrice as any,
           cartKey,
           isReturnItem: true,
           originalSaleId: returnSaleDetails?.id,
@@ -1391,15 +1393,16 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     try {
       const res = await getSaleByNumber(saleNumberToFetch);
       if (res.success && res.sale) {
+        const fetchedSale: any = res.sale;
         const isClientWholesale = !!(
-          res.sale.client?.clientType === "wholesale" ||
-          res.sale.client?.company?.toLowerCase().includes("wholesale") ||
-          res.sale.client?.name?.toLowerCase().includes("wholesale") ||
-          res.sale.client?.email?.toLowerCase().includes("wholesale") ||
-          res.sale.client?.clientCode?.toLowerCase().includes("wholesale")
+          fetchedSale.client?.clientType === "wholesale" ||
+          fetchedSale.client?.company?.toLowerCase().includes("wholesale") ||
+          fetchedSale.client?.name?.toLowerCase().includes("wholesale") ||
+          fetchedSale.client?.email?.toLowerCase().includes("wholesale") ||
+          fetchedSale.client?.clientCode?.toLowerCase().includes("wholesale")
         );
-        const hasWholesaleItems = res.sale.items?.some((i: any) => i.item?.itemType === "WHOLESALE");
-        const isSaleWholesale = res.sale.orderType === "WHOLESALE" || isClientWholesale || hasWholesaleItems;
+        const hasWholesaleItems = fetchedSale.items?.some((i: any) => i.item?.itemType === "WHOLESALE");
+        const isSaleWholesale = fetchedSale.orderType === "WHOLESALE" || isClientWholesale || hasWholesaleItems;
         const isCurrentWholesale = orderType === "WHOLESALE";
 
         if (isCurrentWholesale && !isSaleWholesale) {
@@ -1428,11 +1431,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           return;
         }
         setReturnSearchError(null);
-        setReturnSaleDetails(res.sale);
-        setReturnItemsState(res.sale.items.map((i: any) => ({ itemId: i.itemId, variantId: i.variantId || undefined, maxQty: Number(i.quantity), returnQty: 0 })));
-        if (res.sale.clientId) {
-          setSelectedClientId(res.sale.clientId);
-          setReturnCustomerId(res.sale.clientId);
+        setReturnSaleDetails(fetchedSale);
+        setReturnItemsState(fetchedSale.items.map((i: any) => ({ itemId: i.itemId, variantId: i.variantId || undefined, maxQty: Number(i.quantity), returnQty: 0 })));
+        if (fetchedSale.clientId) {
+          setSelectedClientId(fetchedSale.clientId);
+          setReturnCustomerId(fetchedSale.clientId);
         }
       } else {
         const msg = res.error || `Invoice "${saleNumberToFetch}" not found.`;
@@ -1811,11 +1814,11 @@ export default function POSComponent({ items, clients: initialClients, warehouse
           newItems,
           paymentDetails: {
             cashAmount: cashAmount,
-            cashAccountId: cashAccountId || null,
+            cashAccountId: cashAccountId || undefined,
             cardAmount: cardAmount,
-            cardAccountId: cardAccountId || null,
+            cardAccountId: cardAccountId || undefined,
             mfsAmount: mfsAmount,
-            mfsAccountId: mfsAccountId || null,
+            mfsAccountId: mfsAccountId || undefined,
           },
         });
 
