@@ -17,6 +17,7 @@ interface SuppliersPageProps {
     tab?: string;
     warehouse?: string;
     limit?: string;
+    due?: string;
   }>;
 }
 
@@ -27,6 +28,7 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
   const search = params.search || "";
   const tab = params.tab || "all";
   const warehouse = params.warehouse || "all";
+  const due = (params.due === "has_due" || params.due === "no_due") ? params.due : "all";
 
   const session = await auth();
   const userId = session?.user?.id;
@@ -35,7 +37,7 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
   
   // Check permissions on server side for better performance
   const [result, warehousesResult, canView, canEdit, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
-    getSuppliers(page, limit, search, status, warehouse),
+    getSuppliers(page, limit, search, status, warehouse, due),
     getWarehousesForSupplier(),
     userId ? hasPermission(userId, "peoples.suppliers", "view") : false,
     userId ? hasPermission(userId, "peoples.suppliers", "edit") : false,
@@ -73,7 +75,7 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
           <p className="text-sm text-muted-foreground">Manage suppliers in your system</p>
         </div>
         <div className="flex items-center gap-2">
-          <ExportSuppliersButton search={search} tab={tab} warehouse={warehouse} />
+          <ExportSuppliersButton search={search} tab={tab} warehouse={warehouse} due={due} />
           {tab !== "trash" && (
             <Button asChild>
               <Link href="/dashboard/suppliers/add">
@@ -105,6 +107,7 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
             }}
             initialSearch={search}
             initialWarehouse={warehouse}
+            initialDue={due}
             warehouses={warehousesResult.warehouses || []}
             isTrash={false}
             userId={userId || undefined}
@@ -128,6 +131,7 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
             }}
             initialSearch={search}
             initialWarehouse={warehouse}
+            initialDue={due}
             warehouses={warehousesResult.warehouses || []}
             isTrash={true}
             userId={userId || undefined}

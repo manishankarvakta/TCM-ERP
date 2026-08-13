@@ -140,10 +140,8 @@ export default function DashboardSidebar({
 
   const toggleMenu = (label: string) => {
     setExpandedMenus((prev) => {
-      const next = new Set(prev);
-      if (next.has(label)) {
-        next.delete(label);
-      } else {
+      const next = new Set<string>();
+      if (!prev.has(label)) {
         next.add(label);
       }
       return next;

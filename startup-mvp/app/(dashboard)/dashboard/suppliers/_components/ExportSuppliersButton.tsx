@@ -15,12 +15,14 @@ interface ExportSuppliersButtonProps {
   search?: string;
   tab?: string;
   warehouse?: string;
+  due?: string;
 }
 
 export default function ExportSuppliersButton({
   search = "",
   tab = "all",
   warehouse,
+  due = "all",
 }: ExportSuppliersButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
@@ -33,6 +35,7 @@ export default function ExportSuppliersButton({
       if (search) params.set("search", search);
       if (tab) params.set("tab", tab);
       if (warehouse && warehouse !== "all") params.set("warehouse", warehouse);
+      if (due && due !== "all") params.set("due", due);
 
       const url = `/api/export/suppliers?${params.toString()}`;
 

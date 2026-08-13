@@ -15,12 +15,14 @@ interface ExportClientsButtonProps {
   search?: string;
   tab?: string;
   warehouse?: string;
+  due?: string;
 }
 
 export default function ExportClientsButton({
   search = "",
   tab = "all",
   warehouse,
+  due = "all",
 }: ExportClientsButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
@@ -33,6 +35,7 @@ export default function ExportClientsButton({
       if (search) params.set("search", search);
       if (tab) params.set("tab", tab);
       if (warehouse && warehouse !== "all") params.set("warehouse", warehouse);
+      if (due && due !== "all") params.set("due", due);
 
       const url = `/api/export/clients?${params.toString()}`;
 

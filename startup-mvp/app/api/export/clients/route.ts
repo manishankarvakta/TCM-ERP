@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search") || "";
     const tab = searchParams.get("tab") || "all";
     const warehouseId = searchParams.get("warehouse");
+    const dueStatus = searchParams.get("due");
 
     const where: any = {};
 
@@ -84,7 +85,18 @@ export async function GET(req: NextRequest) {
           });
           const totalDebit = Number(balanceResult._sum.debitAmount || 0);
           const totalCredit = Number(balanceResult._sum.creditAmount || 0);
-          dueAmount = totalDebit - totalCredit;
+          let due = totalDebit - totalCredit;
+
+          const hasOpeningJournal = await prisma.journalEntryLine.findFirst({
+            where: {
+              chartOfAccountId: coaId,
+              description: { contains: "opening balance", mode: "insensitive" },
+            },
+          });
+          if (Number(client.openingBalance || 0) > 0 && !hasOpeningJournal) {
+            due += Number(client.openingBalance || 0);
+          }
+          dueAmount = due;
         }
 
         return {
@@ -95,7 +107,13 @@ export async function GET(req: NextRequest) {
       })
     );
 
-    const formattedData = clientsWithDue.map((c) => ({
+    const filteredClients = clientsWithDue.filter((c) => {
+      if (dueStatus === "has_due") return c.dueAmount > 0;
+      if (dueStatus === "no_due") return c.dueAmount <= 0;
+      return true;
+    });
+
+    const formattedData = filteredClients.map((c) => ({
       "Client Code": c.clientCode || "",
       "Client Name": c.name || "",
       "Company": c.company || "-",

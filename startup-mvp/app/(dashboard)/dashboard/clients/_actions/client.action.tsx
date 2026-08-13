@@ -17,7 +17,8 @@ export async function getClients(
   limit: number = 10,
   search: string = "",
   status: "active" | "inactive" | "trash" | "all" = "all",
-  warehouseId: string = "all"
+  warehouseId: string = "all",
+  dueStatus: "all" | "has_due" | "no_due" = "all"
 ) {
   try {
     const session = await auth();
@@ -35,8 +36,6 @@ export async function getClients(
         },
       };
     }
-
-    const skip = (page - 1) * limit;
 
     // Build where clause for search and status
     const where: Prisma.ClientWhereInput = {};
@@ -70,7 +69,115 @@ export async function getClients(
       where.warehouseId = warehouseId;
     }
 
-    // Get total count
+    const selectFields = {
+      id: true,
+      name: true,
+      clientCode: true,
+      email: true,
+      phone: true,
+      address: true,
+      city: true,
+      state: true,
+      zip: true,
+      country: true,
+      company: true,
+      image: true,
+      documents: true,
+      openingBalance: true,
+      status: true,
+      createdBy: true,
+      clientType: true,
+      membershipTier: true,
+      membershipPoints: true,
+      warehouseId: true,
+      warehouse: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
+      },
+      createdByUser: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+      ChartOfAccount: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          type: true,
+        },
+      },
+      createdAt: true,
+      updatedAt: true,
+    };
+
+    if (dueStatus && dueStatus !== "all") {
+      // When filtering by dueStatus, fetch candidate clients, compute due, filter, then paginate
+      const allCandidateClients = await prisma.client.findMany({
+        where,
+        select: selectFields,
+        orderBy: { createdAt: "desc" },
+      });
+
+      const clientsWithDueAll = await Promise.all(
+        allCandidateClients.map(async (client) => {
+          const coaId = client.ChartOfAccount?.id;
+          if (!coaId) return { ...client, dueAmount: 0 };
+
+          const balanceResult = await prisma.journalEntryLine.aggregate({
+            where: { chartOfAccountId: coaId },
+            _sum: { debitAmount: true, creditAmount: true },
+          });
+
+          const totalDebit = Number(balanceResult._sum.debitAmount || 0);
+          const totalCredit = Number(balanceResult._sum.creditAmount || 0);
+          let due = totalDebit - totalCredit;
+
+          const hasOpeningJournal = await prisma.journalEntryLine.findFirst({
+            where: {
+              chartOfAccountId: coaId,
+              description: { contains: "opening balance", mode: "insensitive" },
+            },
+          });
+          if (Number(client.openingBalance || 0) > 0 && !hasOpeningJournal) {
+            due += Number(client.openingBalance || 0);
+          }
+
+          return { ...client, dueAmount: Math.max(0, due) };
+        })
+      );
+
+      const filteredClients = clientsWithDueAll.filter((client) => {
+        if (dueStatus === "has_due") return client.dueAmount > 0;
+        if (dueStatus === "no_due") return client.dueAmount <= 0;
+        return true;
+      });
+
+      const total = filteredClients.length;
+      const totalPages = Math.ceil(total / limit) || 1;
+      const skip = (page - 1) * limit;
+      const paginatedClients = filteredClients.slice(skip, skip + limit);
+
+      return {
+        success: true,
+        clients: paginatedClients,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
+      };
+    }
+
+    const skip = (page - 1) * limit;
+
+    // Standard path (all due statuses)
     const total = await prisma.client.count({ where });
 
     // Get clients
@@ -78,52 +185,7 @@ export async function getClients(
       where,
       skip,
       take: limit,
-      select: {
-        id: true,
-        name: true,
-        clientCode: true,
-        email: true,
-        phone: true,
-        address: true,
-        city: true,
-        state: true,
-        zip: true,
-        country: true,
-        company: true,
-        image: true,
-        documents: true,
-        openingBalance: true,
-        status: true,
-        createdBy: true,
-        clientType: true,
-        membershipTier: true,
-        membershipPoints: true,
-        warehouseId: true,
-        warehouse: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-        createdByUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        ChartOfAccount: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            type: true,
-          },
-        },
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: selectFields,
       orderBy: {
         createdAt: "desc",
       },
@@ -1641,7 +1703,8 @@ export async function getAllClientsForExport(
   search: string = "",
   status: "active" | "inactive" | "trash" | "all" = "all",
   warehouseId: string = "all",
-  clientIds?: string[]
+  clientIds?: string[],
+  dueStatus: "all" | "has_due" | "no_due" = "all"
 ) {
   try {
     const session = await auth();
@@ -1741,7 +1804,13 @@ export async function getAllClientsForExport(
       })
     );
 
-    return { success: true, clients: clientsWithDue };
+    const filteredClients = clientsWithDue.filter((c) => {
+      if (dueStatus === "has_due") return c.dueAmount > 0;
+      if (dueStatus === "no_due") return c.dueAmount <= 0;
+      return true;
+    });
+
+    return { success: true, clients: filteredClients };
   } catch (error) {
     console.error("getAllClientsForExport error:", error);
     return {

@@ -16,7 +16,8 @@ export async function getSuppliers(
   limit: number = 10,
   search: string = "",
   status: "active" | "inactive" | "trash" | "all" = "all",
-  warehouseId: string = "all"
+  warehouseId: string = "all",
+  dueStatus: "all" | "has_due" | "no_due" = "all"
 ) {
   try {
     const session = await auth();
@@ -34,8 +35,6 @@ export async function getSuppliers(
         },
       };
     }
-
-    const skip = (page - 1) * limit;
 
     // Build where clause for search and status
     const where: Prisma.SupplierWhereInput = {};
@@ -69,7 +68,113 @@ export async function getSuppliers(
       where.warehouseId = warehouseId;
     }
 
-    // Get total count
+    const selectFields = {
+      id: true,
+      name: true,
+      supplierCode: true,
+      email: true,
+      phone: true,
+      address: true,
+      city: true,
+      state: true,
+      zip: true,
+      country: true,
+      company: true,
+      image: true,
+      documents: true,
+      openingBalance: true,
+      status: true,
+      createdBy: true,
+      warehouseId: true,
+      warehouse: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
+      },
+      createdByUser: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+      ChartOfAccount: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          type: true,
+        },
+      },
+      createdAt: true,
+      updatedAt: true,
+    };
+
+    if (dueStatus && dueStatus !== "all") {
+      // When filtering by dueStatus, fetch candidate suppliers, compute due, filter, then paginate
+      const allCandidateSuppliers = await prisma.supplier.findMany({
+        where,
+        select: selectFields,
+        orderBy: { createdAt: "desc" },
+      });
+
+      const suppliersWithDueAll = await Promise.all(
+        allCandidateSuppliers.map(async (supplier) => {
+          const coaId = supplier.ChartOfAccount?.id;
+          if (!coaId) return { ...supplier, dueAmount: Number(supplier.openingBalance || 0) };
+
+          const balanceResult = await prisma.journalEntryLine.aggregate({
+            where: { chartOfAccountId: coaId },
+            _sum: { debitAmount: true, creditAmount: true },
+          });
+
+          let due =
+            Number(balanceResult._sum.creditAmount || 0) -
+            Number(balanceResult._sum.debitAmount || 0);
+
+          const journalLines = await prisma.journalEntryLine.findMany({
+            where: { chartOfAccountId: coaId },
+            select: { description: true },
+          });
+          const hasOpeningJournal = journalLines.some((jl) =>
+            jl.description?.toLowerCase().includes("opening balance")
+          );
+          if (!hasOpeningJournal) {
+            due += Number(supplier.openingBalance || 0);
+          }
+
+          return { ...supplier, dueAmount: Math.max(0, due) };
+        })
+      );
+
+      const filteredSuppliers = suppliersWithDueAll.filter((supplier) => {
+        if (dueStatus === "has_due") return supplier.dueAmount > 0;
+        if (dueStatus === "no_due") return supplier.dueAmount <= 0;
+        return true;
+      });
+
+      const total = filteredSuppliers.length;
+      const totalPages = Math.ceil(total / limit) || 1;
+      const skip = (page - 1) * limit;
+      const paginatedSuppliers = filteredSuppliers.slice(skip, skip + limit);
+
+      return {
+        success: true,
+        suppliers: paginatedSuppliers,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
+      };
+    }
+
+    const skip = (page - 1) * limit;
+
+    // Standard path (all due statuses)
     const total = await prisma.supplier.count({ where });
 
     // Get suppliers
@@ -77,49 +182,7 @@ export async function getSuppliers(
       where,
       skip,
       take: limit,
-      select: {
-        id: true,
-        name: true,
-        supplierCode: true,
-        email: true,
-        phone: true,
-        address: true,
-        city: true,
-        state: true,
-        zip: true,
-        country: true,
-        company: true,
-        image: true,
-        documents: true,
-        openingBalance: true,
-        status: true,
-        createdBy: true,
-        warehouseId: true,
-        warehouse: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-        createdByUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        ChartOfAccount: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            type: true,
-          },
-        },
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: selectFields,
       orderBy: {
         createdAt: "desc",
       },
@@ -1488,7 +1551,8 @@ export async function getAllSuppliersForExport(
   search: string = "",
   status: "active" | "inactive" | "trash" | "all" = "all",
   warehouseId: string = "all",
-  supplierIds?: string[]
+  supplierIds?: string[],
+  dueStatus: "all" | "has_due" | "no_due" = "all"
 ) {
   try {
     const session = await auth();
@@ -1587,7 +1651,13 @@ export async function getAllSuppliersForExport(
       })
     );
 
-    return { success: true, suppliers: suppliersWithPayable };
+    const filteredSuppliers = suppliersWithPayable.filter((s) => {
+      if (dueStatus === "has_due") return s.payableAmount > 0;
+      if (dueStatus === "no_due") return s.payableAmount <= 0;
+      return true;
+    });
+
+    return { success: true, suppliers: filteredSuppliers };
   } catch (error) {
     console.error("getAllSuppliersForExport error:", error);
     return {

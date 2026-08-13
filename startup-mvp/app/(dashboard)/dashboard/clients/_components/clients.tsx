@@ -98,6 +98,7 @@ interface ClientsListClientProps {
   initialPagination: Pagination;
   initialSearch: string;
   initialWarehouse?: string;
+  initialDue?: string;
   warehouses?: Array<{ id: string; name: string; code: string }>;
   isTrash?: boolean;
   userId?: string;
@@ -115,6 +116,7 @@ export default function ClientsListClient({
   initialPagination,
   initialSearch,
   initialWarehouse = "all",
+  initialDue = "all",
   warehouses = [],
   isTrash = false,
   userId: providedUserId,
@@ -267,6 +269,21 @@ export default function ClientsListClient({
       params.set("warehouse", value);
     } else {
       params.delete("warehouse");
+    }
+    params.set("page", "1");
+    const tab = searchParams.get("tab") || "all";
+    if (tab) {
+      params.set("tab", tab);
+    }
+    router.push(`/dashboard/clients?${params.toString()}`);
+  };
+
+  const handleDueFilter = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value && value !== "all") {
+      params.set("due", value);
+    } else {
+      params.delete("due");
     }
     params.set("page", "1");
     const tab = searchParams.get("tab") || "all";
@@ -450,6 +467,21 @@ export default function ClientsListClient({
                 {wh.name} ({wh.code})
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+
+        {/* Due Filter */}
+        <Select
+          value={initialDue}
+          onValueChange={(value) => handleDueFilter(value)}
+        >
+          <SelectTrigger className="w-[170px]">
+            <SelectValue placeholder="All Due Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Due Status</SelectItem>
+            <SelectItem value="has_due">Has Due (Outstanding)</SelectItem>
+            <SelectItem value="no_due">No Due (Clear)</SelectItem>
           </SelectContent>
         </Select>
 

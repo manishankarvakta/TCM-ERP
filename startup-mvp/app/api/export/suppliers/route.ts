@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search") || "";
     const tab = searchParams.get("tab") || "all";
     const warehouseId = searchParams.get("warehouse");
+    const dueStatus = searchParams.get("due");
 
     const where: any = {};
 
@@ -81,7 +82,21 @@ export async function GET(req: NextRequest) {
           });
           const totalDebit = Number(balanceResult._sum.debitAmount || 0);
           const totalCredit = Number(balanceResult._sum.creditAmount || 0);
-          payableAmount = totalCredit - totalDebit;
+          let due = totalCredit - totalDebit;
+
+          const journalLines = await prisma.journalEntryLine.findMany({
+            where: { chartOfAccountId: coaId },
+            select: { description: true },
+          });
+          const hasOpeningJournal = journalLines.some((jl) =>
+            jl.description?.toLowerCase().includes("opening balance")
+          );
+          if (!hasOpeningJournal) {
+            due += Number(supplier.openingBalance || 0);
+          }
+          payableAmount = due;
+        } else {
+          payableAmount = Number(supplier.openingBalance || 0);
         }
 
         return {
@@ -92,7 +107,13 @@ export async function GET(req: NextRequest) {
       })
     );
 
-    const formattedData = suppliersWithPayable.map((s) => ({
+    const filteredSuppliers = suppliersWithPayable.filter((s) => {
+      if (dueStatus === "has_due") return s.payableAmount > 0;
+      if (dueStatus === "no_due") return s.payableAmount <= 0;
+      return true;
+    });
+
+    const formattedData = filteredSuppliers.map((s) => ({
       "Supplier Code": s.supplierCode || "",
       "Supplier Name": s.name || "",
       "Company": s.company || "-",
