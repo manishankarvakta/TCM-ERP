@@ -109,7 +109,11 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
             </Link>
           </Button>
           <PrintButton />
-          <PurchaseStatusActions purchaseId={purchase.id} status={purchase.status} />
+          <PurchaseStatusActions 
+            purchaseId={purchase.id} 
+            status={purchase.status} 
+            hasSupplier={Boolean(purchase.supplier)} 
+          />
           {purchase.status === "DRAFT" 
           // || purchase.status === "APPROVED" 
           && (
@@ -122,6 +126,21 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
           )}
         </div>
       </div>
+
+      {/* Missing Supplier Alert */}
+      {!purchase.supplier && (
+        <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 print:hidden">
+          <CardContent className="py-3 px-4 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-300 font-medium">
+              <FiAlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <span>No supplier assigned to this draft purchase. Edit this purchase to select a supplier before approving.</span>
+            </div>
+            <Button size="sm" variant="outline" asChild className="border-amber-300 hover:bg-amber-100 dark:border-amber-800">
+              <Link href={`/dashboard/procurements/purchases/${purchase.id}/edit`}>Assign Supplier</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Status Alert */}
       {purchase.status === "PARTIALLY_RECEIVED" && (

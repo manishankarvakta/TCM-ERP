@@ -730,13 +730,27 @@ export async function bulkUpdatePurchaseStatus(
         data: { isTrash: false },
       });
     } else {
+      if (status === "APPROVED") {
+        const withoutSupplier = await prisma.purchase.findFirst({
+          where: {
+            id: { in: purchaseIds },
+            supplierId: null,
+          },
+          select: { purchaseNumber: true },
+        });
+        if (withoutSupplier) {
+          return {
+            success: false,
+            error: `Purchase ${withoutSupplier.purchaseNumber} has no supplier assigned. Please edit the purchase to assign a supplier before approving.`,
+          };
+        }
+      }
+
       await prisma.$transaction(async (tx) => {
         await tx.purchase.updateMany({
           where: { id: { in: purchaseIds } },
           data: { status, isTrash: false },
         });
-
-
       });
     }
 
