@@ -190,10 +190,10 @@ export async function getAddStockDrafts(warehouseId: string) {
       const key = `${e.itemId}_${e.variantId || "null"}`;
       const existing = consolidatedMap.get(key);
 
-      let name = e.item.name;
-      let code = e.item.code;
+      let name = e.item?.name || "Unknown Item";
+      let code = e.item?.code || "—";
       if (e.variant) {
-        name = `${e.item.name} (${e.variant.color} / ${e.variant.size})`;
+        name = `${e.item?.name || "Item"} (${e.variant.color} / ${e.variant.size})`;
         code = e.variant.sku;
       }
 
@@ -207,9 +207,9 @@ export async function getAddStockDrafts(warehouseId: string) {
           code,
           name,
           barcode: e.barcode,
-          unit: e.item.unit?.symbol || "pcs",
+          unit: e.item?.unit?.symbol || "pcs",
           quantity: Number(e.quantity),
-          costPrice: Number(e.variant?.costPrice || e.item.costPrice || 0),
+          costPrice: Number(e.variant?.costPrice || e.item?.costPrice || 0),
           updatedAt: e.updatedAt
         });
       }
@@ -230,7 +230,10 @@ export async function getAddStockDrafts(warehouseId: string) {
     };
   } catch (error) {
     console.error("getAddStockDrafts error:", error);
-    return { success: false, error: "Failed to load Add Stock entries" };
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Failed to load Add Stock entries" 
+    };
   }
 }
 
@@ -503,10 +506,10 @@ export async function getAllAddStockEntries(filters: {
     });
 
     const formatted = entries.map(e => {
-      let name = e.item.name;
-      let code = e.item.code;
+      let name = e.item?.name || "Unknown Item";
+      let code = e.item?.code || "—";
       if (e.variant) {
-        name = `${e.item.name} (${e.variant.color} / ${e.variant.size})`;
+        name = `${e.item?.name || "Item"} (${e.variant.color} / ${e.variant.size})`;
         code = e.variant.sku;
       }
 
@@ -515,11 +518,11 @@ export async function getAllAddStockEntries(filters: {
         code,
         name,
         barcode: e.barcode || "-",
-        unit: e.item.unit?.symbol || "pcs",
+        unit: e.item?.unit?.symbol || "pcs",
         quantity: Number(e.quantity),
-        warehouseName: e.warehouse.name,
-        warehouseCode: e.warehouse.code,
-        userName: e.creator.name || e.creator.email,
+        warehouseName: e.warehouse?.name || "Unknown Warehouse",
+        warehouseCode: e.warehouse?.code || "—",
+        userName: e.creator?.name || e.creator?.email || "Unknown User",
         status: e.status,
         createdAt: e.createdAt
       };
@@ -562,6 +565,9 @@ export async function getAllAddStockEntries(filters: {
     };
   } catch (error) {
     console.error("getAllAddStockEntries error:", error);
-    return { success: false, error: "Failed to load Add Stock log entries" };
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Failed to load Add Stock log entries" 
+    };
   }
 }
