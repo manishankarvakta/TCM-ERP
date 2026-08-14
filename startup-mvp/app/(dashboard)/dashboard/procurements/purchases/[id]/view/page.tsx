@@ -109,11 +109,7 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
             </Link>
           </Button>
           <PrintButton />
-          <PurchaseStatusActions
-            purchaseId={purchase.id}
-            status={purchase.status}
-            hasSupplier={Boolean(purchase.supplierId || purchase.supplier)}
-          />
+          <PurchaseStatusActions purchaseId={purchase.id} status={purchase.status} />
           {purchase.status === "DRAFT" 
           // || purchase.status === "APPROVED" 
           && (
@@ -128,23 +124,6 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
       </div>
 
       {/* Status Alert */}
-      {!purchase.supplier && purchase.status === "DRAFT" && (
-        <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950 print:hidden">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <FiAlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
-              <div className="flex-1">
-                <h3 className="font-semibold text-amber-900 dark:text-amber-100 mb-1">
-                  Supplier Required for Approval
-                </h3>
-                <p className="text-sm text-amber-800 dark:text-amber-200">
-                  This draft purchase has no supplier assigned. Click <strong>Edit</strong> to select a supplier before approving this purchase order.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
       {purchase.status === "PARTIALLY_RECEIVED" && (
         <Card className="border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950 print:hidden">
           <CardContent className="pt-6">

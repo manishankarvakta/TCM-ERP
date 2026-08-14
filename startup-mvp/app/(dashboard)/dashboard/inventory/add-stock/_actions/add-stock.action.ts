@@ -293,11 +293,10 @@ export async function finishAddStockToDraftPurchase(warehouseId: string, notes?:
       return { success: false, error: "Warehouse ID is required" };
     }
 
-    // Fetch user's active DRAFT scans for this warehouse
+    // Fetch active DRAFT scans for this warehouse
     const draftEntries = await prisma.inventoryAddStockEntry.findMany({
       where: {
         warehouseId,
-        createdBy: session.user.id,
         status: "DRAFT"
       },
       include: {
@@ -348,8 +347,29 @@ export async function finishAddStockToDraftPurchase(warehouseId: string, notes?:
     const grandTotal = subTotal;
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Generate Purchase Number
-      const purchaseNumber = await generatePurchaseNumber(tx);
+      // 1. Generate unique Purchase Number with collision check
+      let purchaseNumber = await generatePurchaseNumber(tx);
+      let purchaseNumberExists = await tx.purchase.findUnique({
+        where: { purchaseNumber },
+        select: { id: true },
+      });
+
+      let attempts = 0;
+      while (purchaseNumberExists && attempts < 10) {
+        const codeWithoutPrefix = purchaseNumber.replace("PUR", "");
+        const number = parseInt(codeWithoutPrefix, 10);
+        if (!isNaN(number) && number >= 1000001) {
+          const newNumber = number + 1;
+          purchaseNumber = `PUR${newNumber.toString().padStart(7, "0")}`;
+        } else {
+          purchaseNumber = `PUR${Date.now().toString().slice(-7)}`;
+        }
+        purchaseNumberExists = await tx.purchase.findUnique({
+          where: { purchaseNumber },
+          select: { id: true },
+        });
+        attempts++;
+      }
 
       // 2. Create DRAFT Purchase without supplier
       const purchase = await tx.purchase.create({
@@ -404,7 +424,10 @@ export async function finishAddStockToDraftPurchase(warehouseId: string, notes?:
     };
   } catch (error) {
     console.error("finishAddStockToDraftPurchase error:", error);
-    return { success: false, error: "Failed to generate draft purchase" };
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Failed to generate draft purchase" 
+    };
   }
 }
 

@@ -157,8 +157,8 @@ export default function AddStockScannerClient({
       toast.success(`Draft Purchase ${res.purchaseNumber} generated successfully!`);
       loadEntries(selectedWarehouseId);
       setTimeout(() => {
-        router.push("/dashboard/procurements/purchases");
-      }, 1200);
+        router.push("/dashboard/procurements/purchases?tab=all&status=all");
+      }, 1000);
     } else {
       toast.error(res.error || "Failed to generate draft purchase");
     }
