@@ -11,15 +11,26 @@ import type { PurchaseStatus } from "@prisma/client";
 export default function PurchaseStatusActions({
   purchaseId,
   status,
+  hasSupplier = true,
 }: {
   purchaseId: string;
   status: PurchaseStatus;
+  hasSupplier?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const router = useRouter();
 
   const handleUpdateStatus = async (newStatus: PurchaseStatus) => {
+    if (newStatus === "APPROVED" && !hasSupplier) {
+      toast({
+        title: "Supplier Required",
+        description: "Please edit the purchase and assign a supplier before approving.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     startTransition(async () => {
       const result = await bulkUpdatePurchaseStatus([purchaseId], newStatus);
       if (result.success) {
@@ -43,8 +54,9 @@ export default function PurchaseStatusActions({
       {status === "DRAFT" && (
         <Button
           onClick={() => handleUpdateStatus("APPROVED")}
-          disabled={isPending}
-          className="bg-blue-600 hover:bg-blue-700 text-white mr-2"
+          disabled={isPending || !hasSupplier}
+          title={!hasSupplier ? "Please assign a supplier before approving this purchase" : "Approve Purchase"}
+          className="bg-blue-600 hover:bg-blue-700 text-white mr-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <FiCheck className="mr-2 h-4 w-4" />
           {isPending ? "Approving..." : "Approve Purchase"}

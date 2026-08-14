@@ -342,6 +342,7 @@ export async function getPurchaseById(purchaseId: string) {
       select: {
         id: true,
         purchaseNumber: true,
+        supplierId: true,
         date: true,
         status: true,
         notes: true,
@@ -417,6 +418,7 @@ export async function getPurchaseById(purchaseId: string) {
       purchase: {
         id: purchase.id,
         purchaseNumber: purchase.purchaseNumber,
+        supplierId: purchase.supplierId,
         date: purchase.date,
         status: purchase.status,
         notes: purchase.notes,
@@ -730,13 +732,28 @@ export async function bulkUpdatePurchaseStatus(
         data: { isTrash: false },
       });
     } else {
+      if (status === "APPROVED") {
+        const missingSupplier = await prisma.purchase.findFirst({
+          where: {
+            id: { in: purchaseIds },
+            supplierId: null,
+          },
+          select: { purchaseNumber: true },
+        });
+
+        if (missingSupplier) {
+          return {
+            success: false,
+            error: `Cannot approve purchase ${missingSupplier.purchaseNumber} because no supplier is assigned. Please edit and assign a supplier first.`,
+          };
+        }
+      }
+
       await prisma.$transaction(async (tx) => {
         await tx.purchase.updateMany({
           where: { id: { in: purchaseIds } },
           data: { status, isTrash: false },
         });
-
-
       });
     }
 
