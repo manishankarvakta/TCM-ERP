@@ -70,12 +70,12 @@ interface Purchase {
   status: PurchaseStatus;
   grandTotal: number;
   isTrash: boolean;
-  supplier: {
+  supplier?: {
     id: string;
     name: string | null;
     email: string;
     company: string | null;
-  };
+  } | null;
   warehouse?: {
     name: string;
   } | null;
@@ -577,7 +577,7 @@ export default function PurchasesListClient({
                       {purchase.purchaseNumber}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {purchase.supplier.name || purchase.supplier.email}
+                      {purchase.supplier ? (purchase.supplier.name || purchase.supplier.company || purchase.supplier.email) : "No Supplier"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {purchase.warehouse?.name || "-"}

@@ -260,7 +260,7 @@ export async function getAdminPurchasePayables() {
         accountsPayable: apSummary,
         recentPending: pendingPurchases.map(p => ({
           number: p.purchaseNumber,
-          supplier: p.supplier.name,
+          supplier: p.supplier?.name || "No Supplier",
           amount: Number(p.grandTotal)
         }))
       }

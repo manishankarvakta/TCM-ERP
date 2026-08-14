@@ -19,7 +19,7 @@ export interface RecentPurchase {
   status: string;
   grandTotal: number;
   date: Date;
-  supplier: { name: string | null; company: string | null };
+  supplier?: { name: string | null; company: string | null } | null;
 }
 
 export interface RecentGRN {
@@ -117,7 +117,7 @@ export default function RecentProcurementsTable({ purchases, grns, rtvs, tpns }:
                         {p.purchaseNumber}
                       </Link>
                     </TableCell>
-                    <TableCell>{p.supplier.company || p.supplier.name || "—"}</TableCell>
+                    <TableCell>{p.supplier ? (p.supplier.company || p.supplier.name || "—") : "No Supplier"}</TableCell>
                     <TableCell>{getStatusBadge(p.status)}</TableCell>
                     <TableCell className="text-right font-medium">{formatCurrency(p.grandTotal)}</TableCell>
                     <TableCell className="text-muted-foreground">{format(new Date(p.date), "MMM d, yyyy")}</TableCell>

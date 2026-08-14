@@ -52,6 +52,7 @@ export type CustomOperation =
   | "create-payment"
   | "ledger"
   | "verify"
+  | "finish"
   | "reopen";
 
 // Standard operations for pages (as per requirements)
@@ -265,6 +266,8 @@ export const MODULES: Record<Module, ModuleMetadata> = {
       { id: "count-scanner", label: "Count Scanner", path: "/dashboard/inventory/count", module: "inventory", permissionKey: "inventory.count.scanner" },
       { id: "count-entries", label: "All Count Entries", path: "/dashboard/inventory/count/entries", module: "inventory", permissionKey: "inventory.count.entries" },
       { id: "count-adjustment", label: "Auto Adjustment", path: "/dashboard/inventory/count/adjustment", module: "inventory", permissionKey: "inventory.count.adjustment" },
+      { id: "add-stock-scanner", label: "Add Stock Scanner", path: "/dashboard/inventory/add-stock", module: "inventory", permissionKey: "inventory.add_stock.scanner" },
+      { id: "add-stock-entries", label: "All Add Stock Entries", path: "/dashboard/inventory/add-stock/entries", module: "inventory", permissionKey: "inventory.add_stock.entries" },
       { id: "inventory-stock-movements", label: "Stock Movements", path: "/dashboard/reports/inventory/stock-movements", module: "inventory", permissionKey: "inventory.stock-movements" },
     ],
   },
@@ -446,6 +449,7 @@ export const OPERATIONS: Record<Operation, OperationMetadata> = {
   "create-payment": { id: "create-payment", label: "Create Payment", description: "Create payment vouchers via dashboard", category: "custom" },
   ledger: { id: "ledger", label: "View Ledger", description: "View ledger statement and transaction history", category: "custom" },
   verify: { id: "verify", label: "Verify Closing", description: "Verify and lock cashier POS closing", category: "custom" },
+  finish: { id: "finish", label: "Finish Scan", description: "Finish scanning session and generate draft purchase", category: "custom" },
   reopen: { id: "reopen", label: "Reopen Closing", description: "Reopen locked cashier POS closing for edits", category: "custom" },
 };
 
@@ -945,6 +949,18 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         path: "/dashboard/inventory/count/adjustment",
         label: "Auto Adjustment Page",
         operations: ["view_adjustment", "approve"],
+      },
+      {
+        permissionKey: "inventory.add_stock.scanner",
+        path: "/dashboard/inventory/add-stock",
+        label: "Add Stock Scanner Page",
+        operations: ["view_scanner", "create", "finish"],
+      },
+      {
+        permissionKey: "inventory.add_stock.entries",
+        path: "/dashboard/inventory/add-stock/entries",
+        label: "All Add Stock Entries Page",
+        operations: ["view_entries", "delete"],
       },
     ],
   },

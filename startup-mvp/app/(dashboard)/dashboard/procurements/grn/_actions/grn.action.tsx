@@ -183,7 +183,7 @@ async function createGRNAccountingVoucher(
         creditAmount: totalInventoryDebit,
         description: `Accounts Payable - ${grn.grnNumber} - ${grn.purchase?.supplier?.name || grn.purchase?.supplier?.email}`,
         chartOfAccountId: payableAccountId,
-        supplierId: grn.purchase?.supplierId,
+        supplierId: grn.purchase?.supplierId || undefined,
       });
     }
 
@@ -196,7 +196,7 @@ async function createGRNAccountingVoucher(
       type: VoucherType.PURCHASE,
       reference: grn.grnNumber,
       description: `GRN ${grn.grnNumber} - ${grn.purchase?.supplier?.name || grn.purchase?.supplier?.email}`,
-      supplierId: grn.purchase?.supplierId,
+      supplierId: grn.purchase?.supplierId || undefined,
       isSystemAction: true,
       lines: voucherLines,
     }, tx);

@@ -146,15 +146,21 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
       <div className="hidden print:grid print:grid-cols-2 print:gap-4 print:border print:border-slate-200 print:rounded-lg print:p-3 print:mb-2 text-xs">
         <div>
           <h3 className="font-semibold text-slate-800 mb-1 uppercase tracking-wide text-xs">Supplier Details:</h3>
-          <p className="font-bold text-slate-900">{purchase.supplier.name || purchase.supplier.company || purchase.supplier.email}</p>
-          {purchase.supplier.company && purchase.supplier.name && (
-            <p className="text-slate-600 text-xs">{purchase.supplier.company}</p>
-          )}
-          {purchase.supplier.email && (
-            <p className="text-slate-600 text-xs">Email: {purchase.supplier.email}</p>
-          )}
-          {purchase.supplier.phone && (
-            <p className="text-slate-600 text-xs">Phone: {purchase.supplier.phone}</p>
+          {purchase.supplier ? (
+            <>
+              <p className="font-bold text-slate-900">{purchase.supplier.name || purchase.supplier.company || purchase.supplier.email}</p>
+              {purchase.supplier.company && purchase.supplier.name && (
+                <p className="text-slate-600 text-xs">{purchase.supplier.company}</p>
+              )}
+              {purchase.supplier.email && (
+                <p className="text-slate-600 text-xs">Email: {purchase.supplier.email}</p>
+              )}
+              {purchase.supplier.phone && (
+                <p className="text-slate-600 text-xs">Phone: {purchase.supplier.phone}</p>
+              )}
+            </>
+          ) : (
+            <p className="text-slate-500 italic">No supplier assigned (Draft from Add Stock)</p>
           )}
         </div>
         <div>
@@ -237,31 +243,37 @@ export default async function PurchaseDetailsPage({ params }: PurchaseDetailsPag
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Supplier Name</p>
-              <Link
-                href={`/dashboard/suppliers/${purchase.supplier.id}`}
-                className="font-semibold text-lg hover:underline block"
-              >
-                {purchase.supplier.name || purchase.supplier.company || purchase.supplier.email}
-              </Link>
-              {purchase.supplier.company && purchase.supplier.name && (
-                <p className="text-xs text-muted-foreground">{purchase.supplier.company}</p>
-              )}
-            </div>
-            <Separator />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Email</p>
-              <p className="text-sm">{purchase.supplier.email}</p>
-            </div>
-            {purchase.supplier.phone && (
+            {purchase.supplier ? (
               <>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">Supplier Name</p>
+                  <Link
+                    href={`/dashboard/suppliers/${purchase.supplier.id}`}
+                    className="font-semibold text-lg hover:underline block"
+                  >
+                    {purchase.supplier.name || purchase.supplier.company || purchase.supplier.email}
+                  </Link>
+                  {purchase.supplier.company && purchase.supplier.name && (
+                    <p className="text-xs text-muted-foreground">{purchase.supplier.company}</p>
+                  )}
+                </div>
                 <Separator />
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Phone</p>
-                  <p className="text-sm">{purchase.supplier.phone}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Email</p>
+                  <p className="text-sm">{purchase.supplier.email}</p>
                 </div>
+                {purchase.supplier.phone && (
+                  <>
+                    <Separator />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-muted-foreground">Phone</p>
+                      <p className="text-sm">{purchase.supplier.phone}</p>
+                    </div>
+                  </>
+                )}
               </>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">No supplier assigned yet. Manager can edit and assign a supplier before approval.</p>
             )}
           </CardContent>
         </Card>

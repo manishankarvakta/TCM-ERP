@@ -109,7 +109,7 @@ interface PurchaseFormProps {
   }>;
   initialData?: {
     id: string;
-    supplier: { id: string };
+    supplier?: { id: string } | null;
     warehouseId?: string | null;
     purchaseNumber: string;
     date: Date;
@@ -310,7 +310,7 @@ export default function PurchaseForm({
     resolver: zodResolver(purchaseFormSchema) as any,
     defaultValues: initialData
       ? {
-          supplierId: initialData.supplier.id,
+          supplierId: initialData.supplier?.id || "",
           warehouseId: initialData.warehouseId || userContext?.defaultWarehouseId || (warehouses.length > 0 ? warehouses[0].id : ""),
           date: defaultDate,
           status: initialData.status,

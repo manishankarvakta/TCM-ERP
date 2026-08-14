@@ -184,6 +184,12 @@ export const MENU_TEMPLATE: MenuItemData[] = [
         icon: "FiCheckSquare", 
         module: "inventory" 
       },
+      { 
+        href: "/dashboard/inventory/add-stock", 
+        label: "Add Stock", 
+        icon: "FiPlusSquare", 
+        module: "inventory" 
+      },
     ],
   },
   {
