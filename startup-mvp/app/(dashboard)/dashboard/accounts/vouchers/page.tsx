@@ -9,6 +9,7 @@ import PageGuard from "@/components/permissions/page-guard";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { FiFileText, FiDollarSign } from "react-icons/fi";
 
 interface VouchersPageProps {
   searchParams: Promise<{
@@ -126,20 +127,38 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
 
 
         <Tabs defaultValue={tab} className="w-full">
-          <TabsList>
-            <TabsTrigger value="all" asChild>
-              <Link href={buildTabHref("all")}>All Vouchers</Link>
-            </TabsTrigger>
-            <TabsTrigger value="draft" asChild>
-              <Link href={buildTabHref("draft")}>Draft</Link>
-            </TabsTrigger>
-            <TabsTrigger value="posted" asChild>
-              <Link href={buildTabHref("posted")}>Posted</Link>
-            </TabsTrigger>
-            <TabsTrigger value="cancelled" asChild>
-              <Link href={buildTabHref("cancelled")}>Cancelled</Link>
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <TabsList>
+              <TabsTrigger value="all" asChild>
+                <Link href={buildTabHref("all")}>All Vouchers</Link>
+              </TabsTrigger>
+              <TabsTrigger value="draft" asChild>
+                <Link href={buildTabHref("draft")}>Draft</Link>
+              </TabsTrigger>
+              <TabsTrigger value="posted" asChild>
+                <Link href={buildTabHref("posted")}>Posted</Link>
+              </TabsTrigger>
+              <TabsTrigger value="cancelled" asChild>
+                <Link href={buildTabHref("cancelled")}>Cancelled</Link>
+              </TabsTrigger>
+            </TabsList>
+
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 px-3.5 py-1.5 rounded-lg border border-border/80 bg-muted/20 text-xs sm:text-sm">
+              <div className="flex items-center gap-1.5">
+                <FiFileText className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-muted-foreground">Total Vouchers:</span>
+                <span className="font-bold text-foreground">{(result.summary?.totalCount ?? 0).toLocaleString()}</span>
+              </div>
+              <div className="h-3.5 w-px bg-border/60 hidden sm:block" />
+              <div className="flex items-center gap-1.5">
+                <FiDollarSign className="h-3.5 w-3.5 text-primary" />
+                <span className="text-muted-foreground">Total Amount:</span>
+                <span className="font-bold text-primary">
+                  ৳{(result.summary?.totalAmount ?? 0).toLocaleString("en-BD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+          </div>
           <TabsContent value="all" className="mt-4">
             <VouchersListClient
               initialVouchers={result.vouchers || []}
@@ -160,6 +179,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
               selectedWarehouseId={selectedWarehouseId || ""}
               selectedType={params.type || "all"}
               isAdmin={isAdmin}
+              summary={result.summary}
             />
           </TabsContent>
           <TabsContent value="draft" className="mt-4">
@@ -182,6 +202,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
               selectedWarehouseId={selectedWarehouseId || ""}
               selectedType={params.type || "all"}
               isAdmin={isAdmin}
+              summary={result.summary}
             />
           </TabsContent>
           <TabsContent value="posted" className="mt-4">
@@ -204,6 +225,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
               selectedWarehouseId={selectedWarehouseId || ""}
               selectedType={params.type || "all"}
               isAdmin={isAdmin}
+              summary={result.summary}
             />
           </TabsContent>
           <TabsContent value="cancelled" className="mt-4">
@@ -226,6 +248,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
               selectedWarehouseId={selectedWarehouseId || ""}
               selectedType={params.type || "all"}
               isAdmin={isAdmin}
+              summary={result.summary}
             />
           </TabsContent>
         </Tabs>

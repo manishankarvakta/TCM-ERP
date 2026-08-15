@@ -358,9 +358,25 @@ export async function listVouchers(
       };
     });
 
+    // Aggregate sum of debit amounts for filtered vouchers
+    const summaryAggregate = await prisma.voucherLine.aggregate({
+      where: {
+        Voucher: where,
+      },
+      _sum: {
+        debitAmount: true,
+      },
+    });
+
+    const totalFilteredAmount = Number(summaryAggregate._sum.debitAmount || 0);
+
     return {
       success: true,
       vouchers: serializedVouchers,
+      summary: {
+        totalCount: total,
+        totalAmount: totalFilteredAmount,
+      },
       pagination: {
         page,
         limit,

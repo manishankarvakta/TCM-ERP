@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { FiSearch, FiEye, FiX, FiCheck } from "react-icons/fi";
+import { FiSearch, FiEye, FiX, FiCheck, FiFileText, FiDollarSign, FiLayers } from "react-icons/fi";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -80,6 +80,10 @@ interface VouchersListClientProps {
   selectedWarehouseId?: string;
   selectedType?: string;
   isAdmin?: boolean;
+  summary?: {
+    totalCount: number;
+    totalAmount: number;
+  };
 }
 
 export default function VouchersListClient({
@@ -92,6 +96,7 @@ export default function VouchersListClient({
   selectedWarehouseId = "",
   selectedType = "all",
   isAdmin = false,
+  summary,
 }: VouchersListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -336,6 +341,18 @@ export default function VouchersListClient({
         return "bg-gray-100 text-gray-800";
     }
   };
+
+  const pageTotalAmount = initialVouchers.reduce((sum, voucher) => {
+    const amount = voucher.totalAmount ?? (
+      voucher.voucherLines && voucher.voucherLines.length > 0
+        ? voucher.voucherLines.reduce((lSum, l) => lSum + Number(l.debitAmount || 0), 0)
+        : 0
+    );
+    return sum + amount;
+  }, 0);
+
+  const totalFilteredCount = summary?.totalCount ?? initialPagination.total;
+  const totalFilteredAmount = summary?.totalAmount ?? pageTotalAmount;
 
   return (
     <div className="space-y-4">
