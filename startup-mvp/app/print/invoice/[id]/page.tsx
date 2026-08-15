@@ -11,7 +11,11 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
     prisma.sale.findUnique({
       where: { id: resolvedParams.id },
       include: {
-        client: true,
+        client: {
+          include: {
+            ChartOfAccount: true,
+          },
+        },
         createdByUser: true,
         warehouse: true,
         items: {
@@ -40,6 +44,25 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
 
   let previousDue = 0;
   if (sale.clientId) {
+    // 1. Include client's initial opening balance if not already in posted journal
+    const openingBal = Number(sale.client?.openingBalance || 0);
+    const coaId = (sale.client as any)?.ChartOfAccount?.id;
+    let hasOpeningJournal = false;
+    if (coaId) {
+      const journalMatch = await prisma.journalEntryLine.findFirst({
+        where: {
+          chartOfAccountId: coaId,
+          description: { contains: "opening balance", mode: "insensitive" },
+        },
+      });
+      if (journalMatch) hasOpeningJournal = true;
+    }
+
+    if (openingBal > 0 && !hasOpeningJournal) {
+      previousDue += openingBal;
+    }
+
+    // 2. Add remaining dues from all previous completed sales
     const previousSales = await prisma.sale.findMany({
       where: {
         clientId: sale.clientId,
@@ -71,6 +94,28 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
       if (pRemainingDue > 0.01) {
         previousDue += pRemainingDue;
       }
+    }
+
+    // 3. Subtract any standalone RECEIPT vouchers for this client before this sale
+    const standaloneReceipts = await prisma.voucher.findMany({
+      where: {
+        clientId: sale.clientId,
+        type: "RECEIPT",
+        status: "posted",
+        createdAt: { lte: sale.createdAt },
+        sales: { none: {} },
+      },
+      include: {
+        VoucherLine: true,
+      },
+    });
+
+    for (const vReceipt of standaloneReceipts) {
+      const vAmount = vReceipt.VoucherLine.reduce(
+        (sum, line) => sum + Number(line.creditAmount || 0),
+        0
+      );
+      previousDue = Math.max(0, previousDue - vAmount);
     }
   }
 
