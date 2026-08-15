@@ -28,8 +28,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Link from "next/link";
-import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw, FiShoppingCart, FiImage, FiFileText } from "react-icons/fi";
+import { FiSearch, FiEdit, FiTrash2, FiX, FiCircle, FiCheck, FiMoreVertical, FiEye, FiRotateCw, FiShoppingCart, FiImage, FiFileText, FiZoomIn } from "react-icons/fi";
 import { deleteItem, bulkUpdateItemStatus, deleteItemsPermanently, toggleItemEcom } from "../_actions/item.action";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -115,6 +121,7 @@ export default function ItemsListClient({
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const [togglingEcomId, setTogglingEcomId] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ src: string; name: string; code: string } | null>(null);
 
   const handleToggleEcom = async (itemId: string, currentStatus: boolean) => {
     try {
@@ -455,8 +462,22 @@ export default function ItemsListClient({
                   <TableRow key={item.id} className={cn(isSelected && "bg-muted/50")}>
                     <TableCell className="print:hidden"><Checkbox checked={isSelected} onCheckedChange={(checked) => handleSelectItem(item.id, checked as boolean)} /></TableCell>
                     <TableCell className="print:hidden">
-                      <div className="w-10 h-10 rounded border bg-muted overflow-hidden flex items-center justify-center mx-auto">
-                        {displayImg ? <img src={displayImg} alt="" className="w-full h-full object-cover" /> : <FiImage className="text-muted-foreground" />}
+                      <div className="w-10 h-10 rounded border bg-muted overflow-hidden flex items-center justify-center mx-auto relative group">
+                        {displayImg ? (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage({ src: displayImg, name: item.name, code: item.code })}
+                            className="w-full h-full relative block focus:outline-none focus:ring-2 focus:ring-primary/20 rounded overflow-hidden cursor-pointer"
+                            title="Click to view photo"
+                          >
+                            <img src={displayImg} alt={item.name} className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110" />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <FiZoomIn className="text-white h-4 w-4" />
+                            </div>
+                          </button>
+                        ) : (
+                          <FiImage className="text-muted-foreground" />
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="print:whitespace-nowrap">
@@ -615,6 +636,30 @@ export default function ItemsListClient({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+        <DialogContent className="max-w-lg p-0 overflow-hidden bg-card border shadow-xl">
+          <DialogHeader className="p-4 border-b bg-muted/30">
+            <DialogTitle className="text-base font-semibold flex items-center justify-between gap-2 pr-6">
+              <span className="truncate">{previewImage?.name}</span>
+              {previewImage?.code && (
+                <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded uppercase">
+                  {previewImage.code}
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-4 flex items-center justify-center bg-black/5 min-h-[280px] max-h-[70vh] overflow-auto">
+            {previewImage?.src && (
+              <img
+                src={previewImage.src}
+                alt={previewImage?.name || "Item photo"}
+                className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-sm"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

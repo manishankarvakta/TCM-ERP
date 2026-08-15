@@ -20,9 +20,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Link from "next/link";
-import { FiSearch, FiX, FiBox, FiPackage } from "react-icons/fi";
+import { FiSearch, FiX, FiBox, FiPackage, FiZoomIn } from "react-icons/fi";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Stock {
   id: string;
@@ -88,6 +94,7 @@ export default function StocksListClient({
   const [itemFilter, setItemFilter] = useState(initialItemId || "all");
   const [warehouseFilter, setWarehouseFilter] = useState(initialWarehouseId || "all");
   const [isPending, startTransition] = useTransition();
+  const [previewImage, setPreviewImage] = useState<{ src: string; name: string; code: string } | null>(null);
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -344,13 +351,26 @@ export default function StocksListClient({
                   <TableRow key={stock.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded border bg-muted overflow-hidden flex items-center justify-center shrink-0">
+                        <div className="w-10 h-10 rounded border bg-muted overflow-hidden flex items-center justify-center shrink-0 relative group">
                           {stock.item.featuredImage || (stock.item.images && Array.isArray(stock.item.images) && stock.item.images.length > 0) ? (
-                            <img 
-                              src={stock.item.featuredImage || stock.item.images[0]} 
-                              alt={stock.item.name} 
-                              className="w-full h-full object-cover"
-                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const imgSrc = stock.item.featuredImage || stock.item.images[0];
+                                setPreviewImage({ src: imgSrc, name: stock.item.name, code: stock.item.code });
+                              }}
+                              className="w-full h-full relative block focus:outline-none focus:ring-2 focus:ring-primary/20 rounded overflow-hidden cursor-pointer"
+                              title="Click to view photo"
+                            >
+                              <img 
+                                src={stock.item.featuredImage || stock.item.images[0]} 
+                                alt={stock.item.name} 
+                                className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <FiZoomIn className="text-white h-4 w-4" />
+                              </div>
+                            </button>
                           ) : (
                             <FiPackage className="h-5 w-5 text-muted-foreground" />
                           )}
@@ -431,6 +451,30 @@ export default function StocksListClient({
           {renderPaginationButtons()}
         </div>
       )}
+
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+        <DialogContent className="max-w-lg p-0 overflow-hidden bg-card border shadow-xl">
+          <DialogHeader className="p-4 border-b bg-muted/30">
+            <DialogTitle className="text-base font-semibold flex items-center justify-between gap-2 pr-6">
+              <span className="truncate">{previewImage?.name}</span>
+              {previewImage?.code && (
+                <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded uppercase">
+                  {previewImage.code}
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-4 flex items-center justify-center bg-black/5 min-h-[280px] max-h-[70vh] overflow-auto">
+            {previewImage?.src && (
+              <img
+                src={previewImage.src}
+                alt={previewImage?.name || "Item photo"}
+                className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-sm"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
