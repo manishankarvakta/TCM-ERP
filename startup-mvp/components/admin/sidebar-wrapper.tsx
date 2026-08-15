@@ -22,16 +22,22 @@ export default async function DashboardSidebarWrapper() {
   // Get user's visible navigation items
   let visibleNavigations = await getNavigationPermissions(session.user.id);
   
+  // Check if user is admin
+  const userRole = session.user.role?.toLowerCase() || "user";
+  const isAdmin = userRole === "admin" || userRole === "super-admin" || userRole === "superadmin";
+
   // Build accessible pages map (permissionKey -> has access)
   const accessiblePages = new Map<string, boolean>();
   
   if (!hasAnyPermissions) {
-    // User has no permissions - only show Dashboard and Profile
-    // Settings is excluded even though it's alwaysVisible
-    visibleNavigations = new Set(["dashboard", "profile"]);
+    // User has no permissions
+    visibleNavigations = new Set(["profile"]);
+    if (isAdmin || ((permissions["dashboard"] as PagePermission | undefined)?.pageAccess === true)) {
+      visibleNavigations.add("dashboard");
+    }
     
-    // Only set Dashboard and Profile as accessible
-    accessiblePages.set("dashboard", true);
+    // Set Dashboard accessibility based on permission/role and Profile as accessible
+    accessiblePages.set("dashboard", isAdmin || ((permissions["dashboard"] as PagePermission | undefined)?.pageAccess === true && (permissions["dashboard"] as PagePermission | undefined)?.navigationVisible !== false));
     accessiblePages.set("profile", true);
     // Explicitly exclude Settings pages
     for (const navItem of NAVIGATION_STRUCTURE) {
@@ -83,8 +89,11 @@ export default async function DashboardSidebarWrapper() {
         
         // For always visible items (Dashboard, Profile)
         if (navItem.alwaysVisible) {
-          if (page.permissionKey === "dashboard" || page.permissionKey === "profile") {
+          if (page.permissionKey === "profile") {
             accessiblePages.set(page.permissionKey, true);
+          } else if (page.permissionKey === "dashboard") {
+            const hasAccess = isAdmin || pagePerm.pageAccess === true;
+            accessiblePages.set("dashboard", hasAccess);
           } else {
             // For Settings sub-pages, check navigationVisible flag (should be true at this point)
             // Also check pageAccess as fallback

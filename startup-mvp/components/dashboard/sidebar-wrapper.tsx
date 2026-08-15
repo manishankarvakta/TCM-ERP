@@ -90,8 +90,7 @@ function filterMenuByPermissions(
     } 
     // Handle items without subMenus (direct links)
     else if (item.href) {
-      // Always visible items (Dashboard, Profile) - show regardless
-      if (item.href === "/dashboard" || item.href === "/dashboard/profile") {
+      if (item.href === "/dashboard/profile") {
         filteredMenu.push(item);
         continue;
       }
@@ -138,8 +137,8 @@ export default async function DashboardSidebarWrapper() {
     // User has no permissions - only show Dashboard and Profile
     // Settings is excluded even though it's alwaysVisible
     
-    // Only set Dashboard and Profile as accessible
-    accessiblePages.set("dashboard", true);
+    // Only set Profile as accessible (Dashboard only if permitted or admin)
+    accessiblePages.set("dashboard", isAdmin || ((permissions["dashboard"] as PagePermission | undefined)?.pageAccess === true && (permissions["dashboard"] as PagePermission | undefined)?.navigationVisible !== false));
     accessiblePages.set("profile", true);
     // Explicitly exclude Settings pages (except for admins)
     for (const navItem of NAVIGATION_STRUCTURE) {
@@ -197,8 +196,11 @@ export default async function DashboardSidebarWrapper() {
         
         // For always visible items (Dashboard, Profile)
         if (navItem.alwaysVisible) {
-          if (page.permissionKey === "dashboard" || page.permissionKey === "profile") {
+          if (page.permissionKey === "profile") {
             accessiblePages.set(page.permissionKey, true);
+          } else if (page.permissionKey === "dashboard") {
+            const hasAccess = isAdmin || pagePerm.pageAccess === true;
+            accessiblePages.set("dashboard", hasAccess);
           } else {
             // For Settings sub-pages, check navigationVisible flag (should be true at this point)
             // Also check pageAccess as fallback

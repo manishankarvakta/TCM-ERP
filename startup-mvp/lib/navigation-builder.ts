@@ -433,10 +433,13 @@ export function buildFilteredMenu(
   let filteredBottomMenu: MenuItemData[];
   
   if (hasNoPermissions) {
-    // User has no permissions - only show Dashboard and Profile
+    // User has no permissions - show Dashboard ONLY if accessible, and Profile
     filteredMainMenu = MENU_TEMPLATE.filter((item) => {
       const navId = getNavigationIdForMenuItem(item);
-      return navId === "dashboard";
+      if (navId === "dashboard") {
+        return visibleNavigations.has("dashboard") && accessiblePages.get("dashboard") === true;
+      }
+      return false;
     });
     
     filteredBottomMenu = BOTTOM_MENU_TEMPLATE.filter(
@@ -515,6 +518,12 @@ export function buildFilteredMenu(
       // Check if navigation is always visible
       const navItem = NAVIGATION_STRUCTURE.find((nav) => nav.id === navId);
       if (navItem?.alwaysVisible) {
+        if (navId === "dashboard") {
+          const hasAccess = accessiblePages.get("dashboard");
+          if (hasAccess !== true || !visibleNavigations.has("dashboard")) {
+            return null;
+          }
+        }
         return itemCopy;
       }
       

@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { canAccessPage, canAccessSubModule, canAccessModule } from "@/lib/permissions";
 import type { Module, Operation } from "@/types/permissions";
 
+import DashboardAccessDenied from "@/components/permissions/dashboard-access-denied";
+
 interface PageGuardProps {
   children: React.ReactNode;
   permissionKey: string; // Module or sub-module (e.g., "items" or "items.groups")
@@ -36,13 +38,13 @@ export default async function PageGuard({
   });
   const isAdmin = session.user.role?.toLowerCase() === "admin" || dbUser?.role?.toLowerCase() === "admin";
 
-  // Dashboard is always accessible, and Settings pages are always accessible to admins
-  if (permissionKey === "dashboard" || (isAdmin && (permissionKey === "settings" || permissionKey.startsWith("settings.")))) {
+  // Settings pages are always accessible to admins
+  if (isAdmin && (permissionKey === "settings" || permissionKey.startsWith("settings."))) {
     return <>{children}</>;
   }
 
   // Try new permission structure first (pageAccess)
-  let hasAccess = await canAccessPage(session.user.id, permissionKey);
+  let hasAccess = isAdmin || (await canAccessPage(session.user.id, permissionKey));
 
   // Fallback to old structure for backward compatibility
   if (!hasAccess) {
@@ -67,6 +69,10 @@ export default async function PageGuard({
   if (!hasAccess) {
     if (fallback !== undefined) {
       return <>{fallback}</>;
+    }
+
+    if (permissionKey === "dashboard") {
+      return <DashboardAccessDenied />;
     }
 
     // Redirect to dashboard with error message

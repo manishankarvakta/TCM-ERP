@@ -259,10 +259,13 @@ export default function DashboardSidebar({
   let filteredBottomMenuItems = bottomMenuItems;
   
   if (hasNoPermissions) {
-    // User has no permissions - show only Dashboard and Profile
+    // User has no permissions - show Dashboard ONLY if permitted, and Profile
     filteredMenuItems = menuItems.filter((item) => {
       const navId = getNavigationIdForMenuItem(item);
-      return navId === "dashboard" || navId === "profile";
+      if (navId === "dashboard") {
+        return visibleNavigations.has("dashboard") && accessiblePages.get("dashboard") === true;
+      }
+      return navId === "profile";
     });
     
     // Bottom menu: only show Profile (hide Settings)
@@ -281,6 +284,12 @@ export default function DashboardSidebar({
       // Check if navigation is visible
       const navItem = NAVIGATION_STRUCTURE.find((nav) => nav.id === navId);
       if (navItem?.alwaysVisible) {
+          if (navId === "dashboard") {
+            const hasAccess = accessiblePages.get("dashboard");
+            if (hasAccess !== true || !visibleNavigations.has("dashboard")) {
+              return null;
+            }
+          }
           // For always visible items, still filter sub-menu items based on permissions
           if (itemCopy.subMenu) {
             itemCopy.subMenu = itemCopy.subMenu.filter((subItem) => {

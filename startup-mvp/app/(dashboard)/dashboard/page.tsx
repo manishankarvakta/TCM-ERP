@@ -4,6 +4,7 @@ export const revalidate = 0;
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import BeautifulDashboard from "@/components/dashboard/BeautifulDashboard";
+import PageGuard from "@/components/permissions/page-guard";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default async function DashboardPage() {
@@ -53,12 +54,14 @@ export default async function DashboardPage() {
   });
 
   return (
-    <BeautifulDashboard 
-      userId={userId} 
-      userName={userName} 
-      userRole={userRole}
-      defaultWarehouse={dbUser?.defaultWarehouse || null}
-      warehouses={warehouses}
-    />
+    <PageGuard permissionKey="dashboard">
+      <BeautifulDashboard 
+        userId={userId} 
+        userName={userName} 
+        userRole={userRole}
+        defaultWarehouse={dbUser?.defaultWarehouse || null}
+        warehouses={warehouses}
+      />
+    </PageGuard>
   );
 }

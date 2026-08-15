@@ -191,14 +191,30 @@ export async function canSeeNavigation(
     const permissions = await getUserPermissionsEnhanced(userId);
     const hasAnyPermissions = Object.keys(permissions).length > 0;
     
-    // Always visible items (Dashboard, Profile)
-    // Settings is always visible but only if user has permissions
-    if (navItem.alwaysVisible) {
-      // If user has no permissions, only Dashboard and Profile are visible
-      if (!hasAnyPermissions) {
-        return navigationId === "dashboard" || navigationId === "profile";
+    // Dashboard visibility check
+    if (navigationId === "dashboard") {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+      const userRole = user?.role?.toLowerCase();
+      if (userRole === "admin" || userRole === "super admin" || userRole === "superadmin") {
+        return true;
       }
-      return true; // User has permissions, show all always visible items
+      const pagePerm = permissions["dashboard"] as PagePermission | undefined;
+      if (!pagePerm) return false;
+      return pagePerm.navigationVisible !== false && pagePerm.pageAccess === true;
+    }
+
+    // Always visible items (Profile)
+    if (navItem.alwaysVisible) {
+      if (navigationId === "profile") {
+        return true;
+      }
+      if (!hasAnyPermissions) {
+        return false;
+      }
+      return true;
     }
     
     // For non-always-visible items, check permissions
