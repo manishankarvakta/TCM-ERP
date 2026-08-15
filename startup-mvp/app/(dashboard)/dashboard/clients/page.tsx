@@ -19,6 +19,7 @@ interface ClientsPageProps {
     warehouse?: string;
     limit?: string;
     due?: string;
+    clientType?: string;
   }>;
 }
 
@@ -30,6 +31,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   const tab = params.tab || "all";
   const warehouse = params.warehouse || "all";
   const due = (params.due === "has_due" || params.due === "no_due") ? params.due : "all";
+  const clientType = (params.clientType === "regular" || params.clientType === "wholesale") ? params.clientType : "all";
 
   // Note: Clients retrieval includes clientType ('regular' / 'wholesale') for list table display
   const session = await auth();
@@ -39,7 +41,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   
   // Check permissions on server side for better performance
   const [result, warehousesResult, canView, canEdit, canMoveToTrash, canDeletePermanently, canViewLedger] = await Promise.all([
-    getClients(page, limit, search, status, warehouse, due),
+    getClients(page, limit, search, status, warehouse, due, clientType),
     getWarehousesForClient(),
     userId ? hasPermission(userId, "peoples.clients", "view") : false,
     userId ? hasPermission(userId, "peoples.clients", "edit") : false,
@@ -80,7 +82,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
             <p className="text-sm text-muted-foreground">Manage clients in your system</p>
           </div>
           <div className="flex items-center gap-2">
-            <ExportClientsButton search={search} tab={tab} warehouse={warehouse} due={due} />
+            <ExportClientsButton search={search} tab={tab} warehouse={warehouse} due={due} clientType={clientType} />
             {tab !== "trash" && (
               <Button asChild>
                 <Link href="/dashboard/clients/add">
@@ -113,6 +115,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
               initialSearch={search}
               initialWarehouse={warehouse}
               initialDue={due}
+              initialClientType={clientType}
               warehouses={warehousesResult.warehouses || []}
               isTrash={false}
               userId={userId || undefined}
@@ -137,6 +140,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
               initialSearch={search}
               initialWarehouse={warehouse}
               initialDue={due}
+              initialClientType={clientType}
               warehouses={warehousesResult.warehouses || []}
               isTrash={true}
               userId={userId || undefined}

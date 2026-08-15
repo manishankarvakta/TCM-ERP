@@ -16,6 +16,7 @@ interface ExportClientsButtonProps {
   tab?: string;
   warehouse?: string;
   due?: string;
+  clientType?: string;
 }
 
 export default function ExportClientsButton({
@@ -23,6 +24,7 @@ export default function ExportClientsButton({
   tab = "all",
   warehouse,
   due = "all",
+  clientType = "all",
 }: ExportClientsButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
@@ -36,6 +38,7 @@ export default function ExportClientsButton({
       if (tab) params.set("tab", tab);
       if (warehouse && warehouse !== "all") params.set("warehouse", warehouse);
       if (due && due !== "all") params.set("due", due);
+      if (clientType && clientType !== "all") params.set("clientType", clientType);
 
       const url = `/api/export/clients?${params.toString()}`;
 

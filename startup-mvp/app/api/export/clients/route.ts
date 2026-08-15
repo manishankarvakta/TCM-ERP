@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
     const tab = searchParams.get("tab") || "all";
     const warehouseId = searchParams.get("warehouse");
     const dueStatus = searchParams.get("due");
+    const clientType = searchParams.get("clientType");
 
     const where: any = {};
 
@@ -45,6 +46,10 @@ export async function GET(req: NextRequest) {
 
     if (warehouseId && warehouseId !== "all") {
       where.warehouseId = warehouseId;
+    }
+
+    if (clientType && clientType !== "all") {
+      where.clientType = clientType;
     }
 
     const clients = await prisma.client.findMany({

@@ -99,6 +99,7 @@ interface ClientsListClientProps {
   initialSearch: string;
   initialWarehouse?: string;
   initialDue?: string;
+  initialClientType?: string;
   warehouses?: Array<{ id: string; name: string; code: string }>;
   isTrash?: boolean;
   userId?: string;
@@ -117,6 +118,7 @@ export default function ClientsListClient({
   initialSearch,
   initialWarehouse = "all",
   initialDue = "all",
+  initialClientType = "all",
   warehouses = [],
   isTrash = false,
   userId: providedUserId,
@@ -284,6 +286,21 @@ export default function ClientsListClient({
       params.set("due", value);
     } else {
       params.delete("due");
+    }
+    params.set("page", "1");
+    const tab = searchParams.get("tab") || "all";
+    if (tab) {
+      params.set("tab", tab);
+    }
+    router.push(`/dashboard/clients?${params.toString()}`);
+  };
+
+  const handleClientTypeFilter = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value && value !== "all") {
+      params.set("clientType", value);
+    } else {
+      params.delete("clientType");
     }
     params.set("page", "1");
     const tab = searchParams.get("tab") || "all";
@@ -482,6 +499,21 @@ export default function ClientsListClient({
             <SelectItem value="all">All Due Status</SelectItem>
             <SelectItem value="has_due">Has Due (Outstanding)</SelectItem>
             <SelectItem value="no_due">No Due (Clear)</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Client Type Filter */}
+        <Select
+          value={initialClientType}
+          onValueChange={(value) => handleClientTypeFilter(value)}
+        >
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="All Client Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Client Types</SelectItem>
+            <SelectItem value="regular">Regular / Retail</SelectItem>
+            <SelectItem value="wholesale">Wholesale</SelectItem>
           </SelectContent>
         </Select>
 

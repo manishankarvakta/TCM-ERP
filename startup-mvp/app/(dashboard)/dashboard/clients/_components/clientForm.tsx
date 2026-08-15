@@ -364,7 +364,7 @@ export default function ClientForm({ mode, initialData }: ClientFormProps) {
       discountValue: value,
     };
 
-    setActiveDiscounts([...activeDiscounts, newDiscount]);
+    setActiveDiscounts([newDiscount, ...activeDiscounts]);
     setSelectedItem(null);
     setSearchQuery("");
     setDiscountValue("");

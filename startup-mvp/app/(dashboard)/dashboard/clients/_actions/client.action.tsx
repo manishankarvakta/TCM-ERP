@@ -18,7 +18,8 @@ export async function getClients(
   search: string = "",
   status: "active" | "inactive" | "trash" | "all" = "all",
   warehouseId: string = "all",
-  dueStatus: "all" | "has_due" | "no_due" = "all"
+  dueStatus: "all" | "has_due" | "no_due" = "all",
+  clientType: "all" | "regular" | "wholesale" = "all"
 ) {
   try {
     const session = await auth();
@@ -67,6 +68,11 @@ export async function getClients(
     // Filter by warehouse if provided
     if (warehouseId && warehouseId !== "all") {
       where.warehouseId = warehouseId;
+    }
+
+    // Filter by client type if provided
+    if (clientType && clientType !== "all") {
+      where.clientType = clientType;
     }
 
     const selectFields = {
@@ -1704,7 +1710,8 @@ export async function getAllClientsForExport(
   status: "active" | "inactive" | "trash" | "all" = "all",
   warehouseId: string = "all",
   clientIds?: string[],
-  dueStatus: "all" | "has_due" | "no_due" = "all"
+  dueStatus: "all" | "has_due" | "no_due" = "all",
+  clientType: "all" | "regular" | "wholesale" = "all"
 ) {
   try {
     const session = await auth();
@@ -1740,6 +1747,10 @@ export async function getAllClientsForExport(
 
       if (warehouseId && warehouseId !== "all") {
         where.warehouseId = warehouseId;
+      }
+
+      if (clientType && clientType !== "all") {
+        where.clientType = clientType;
       }
     }
 
