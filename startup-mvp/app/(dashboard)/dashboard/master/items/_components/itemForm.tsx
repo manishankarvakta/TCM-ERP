@@ -661,7 +661,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                         <Input
                           id="costPrice"
                           type="number"
-                          step="1"
+                          step="any"
                           {...register("costPrice", { valueAsNumber: true })}
                           disabled={loading}
                         />
@@ -672,7 +672,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                         <Input
                           id="salesPrice"
                           type="number"
-                          step="1"
+                          step="any"
                           {...register("salesPrice", { valueAsNumber: true })}
                           disabled={loading}
                         />
@@ -683,7 +683,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                         <Input
                           id="wholesalePrice"
                           type="number"
-                          step="1"
+                          step="any"
                           {...register("wholesalePrice", { valueAsNumber: true })}
                           disabled={loading}
                         />
@@ -694,7 +694,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                         <Input
                           id="wholesaleDiscountAmount"
                           type="number"
-                          step="1"
+                          step="any"
                           {...register("wholesaleDiscountAmount", { valueAsNumber: true })}
                           disabled={loading}
                         />
@@ -705,7 +705,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                         <Input
                           id="discount"
                           type="number"
-                          step="1"
+                          step="any"
                           {...register("discount", { valueAsNumber: true })}
                           disabled={loading}
                         />
@@ -998,6 +998,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                             <td className="p-3">
                               <Input 
                                 type="number"
+                                step="any"
                                 placeholder="Use Base"
                                 disabled={!v.enabled}
                                 value={v.costPrice !== null ? v.costPrice : ""}
@@ -1015,6 +1016,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                             <td className="p-3">
                               <Input 
                                 type="number"
+                                step="any"
                                 placeholder="Use Base"
                                 disabled={!v.enabled}
                                 value={v.salesPrice !== null ? v.salesPrice : ""}
@@ -1032,6 +1034,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                             <td className="p-3">
                               <Input 
                                 type="number"
+                                step="any"
                                 placeholder="Use Base"
                                 disabled={!v.enabled}
                                 value={v.wholesalePrice !== null ? v.wholesalePrice : ""}
@@ -1049,6 +1052,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                             <td className="p-3">
                               <Input 
                                 type="number"
+                                step="any"
                                 placeholder="Use Base"
                                 disabled={!v.enabled}
                                 value={v.wholesaleDiscountAmount !== null ? v.wholesaleDiscountAmount : ""}
@@ -1067,6 +1071,7 @@ export default function ItemForm({ mode, initialData }: ItemFormProps) {
                               <td className="p-3">
                                 <Input 
                                   type="number"
+                                  step="any"
                                   disabled={!v.enabled}
                                   value={v.initialStock || ""}
                                   onChange={(e) => {
