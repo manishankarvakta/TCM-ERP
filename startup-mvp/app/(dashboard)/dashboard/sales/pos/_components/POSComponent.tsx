@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { FaSearch, FaHandPaper, FaSync, FaPrint, FaPlus, FaMinus, FaTrashAlt, FaShoppingCart, FaCheckCircle, FaTimes, FaUndoAlt, FaShoppingBag, FaIndustry, FaTicketAlt, FaCreditCard, FaMoneyBillWave, FaMobileAlt, FaUsers, FaGlassCheers, FaExclamationTriangle, FaBoxOpen, FaExchangeAlt, FaArrowLeft } from "react-icons/fa";
 import { createSale, getClientItemDiscounts, validateCoupon, voidSale, processSaleReturn, processSaleExchange, getLastSaleForUser, getSaleByNumber, getSalesByCustomer } from "../../_actions/sale.action";
-import { getOutstandingSales, collectCustomerDue } from "../../_actions/due-payment.action";
+import { getOutstandingSales, collectCustomerDue, getClientNetARBalance } from "../../_actions/due-payment.action";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToastContext } from "@/components/ui/providers/toast-provider";
 import { toast as sonnerToast } from "sonner";
@@ -305,10 +305,9 @@ export default function POSComponent({ items, clients: initialClients, warehouse
 
   useEffect(() => {
     if (selectedClientId) {
-      getOutstandingSales(selectedClientId).then(res => {
-        if (res.success && res.sales) {
-          const totalPrev = res.sales.reduce((sum, s) => sum + Number(s.remainingDue || 0), 0);
-          setPreviousCustomerDue(totalPrev);
+      getClientNetARBalance(selectedClientId).then(res => {
+        if (res.success) {
+          setPreviousCustomerDue(res.netDue);
         } else {
           setPreviousCustomerDue(0);
         }

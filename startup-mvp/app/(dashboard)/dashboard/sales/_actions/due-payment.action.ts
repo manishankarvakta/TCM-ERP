@@ -261,3 +261,64 @@ export async function collectCustomerDue(payload: DueCollectionPayload) {
     return { success: false, error: error instanceof Error ? error.message : "Failed to process due collection" };
   }
 }
+
+export async function getClientNetARBalance(clientId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized", netDue: 0 };
+    }
+
+    const client = await prisma.client.findUnique({
+      where: { id: clientId },
+      select: {
+        id: true,
+        openingBalance: true,
+        chartOfAccountId: true,
+      },
+    });
+
+    if (!client) {
+      return { success: false, error: "Client not found", netDue: 0 };
+    }
+
+    const coaId = client.chartOfAccountId;
+
+    const balanceResult = await prisma.journalEntryLine.aggregate({
+      where: {
+        OR: [
+          ...(coaId ? [{ chartOfAccountId: coaId }] : []),
+          { clientId: client.id },
+        ],
+      },
+      _sum: { debitAmount: true, creditAmount: true },
+    });
+
+    const totalDebit = Number(balanceResult._sum.debitAmount || 0);
+    const totalCredit = Number(balanceResult._sum.creditAmount || 0);
+    let due = totalDebit - totalCredit;
+
+    const hasOpeningJournal = await prisma.journalEntryLine.findFirst({
+      where: {
+        OR: [
+          ...(coaId ? [{ chartOfAccountId: coaId }] : []),
+          { clientId: client.id },
+        ],
+        description: { contains: "opening balance", mode: "insensitive" },
+      },
+    });
+
+    if (Number(client.openingBalance || 0) > 0 && !hasOpeningJournal) {
+      due += Number(client.openingBalance || 0);
+    }
+
+    return {
+      success: true,
+      netDue: Number(due.toFixed(2)),
+    };
+  } catch (error) {
+    console.error("getClientNetARBalance error:", error);
+    return { success: false, error: "Failed to fetch net AR balance", netDue: 0 };
+  }
+}
+
