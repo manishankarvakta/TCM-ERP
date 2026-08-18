@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { TagInput } from "@/components/ui/tag-input";
 import { toast } from "sonner";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const LEAD_SOURCES = [
   "Website",
@@ -338,28 +339,24 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
             name="source"
             control={control}
             render={({ field }) => (
-              <Select
-                onValueChange={(val) => {
-                  field.onChange(val);
-                  // Scroll to custom input when 'Other' is selected
-                  if (val === 'Other' && customSourceRef.current) {
-                    customSourceRef.current.scrollIntoView({ behavior: 'smooth' });
-                  }
-                }}
-                value={field.value || undefined}
-                disabled={loading}
-              >
-                <SelectTrigger id="source">
-                  <SelectValue placeholder="Select source" />
-                </SelectTrigger>
-                <SelectContent>
-                  {LEAD_SOURCES.map((src) => (
-                    <SelectItem key={src} value={src}>
-                      {src}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <SearchableSelect
+              options={LEAD_SOURCES.map((src) => ({ label: src, value: src }))}
+              value={field.value || ""}
+              onValueChange={(val) => {
+                field.onChange(val);
+                // Scroll to custom input when 'Other' is selected
+                if (val === 'Other') {
+                  setTimeout(() => {
+                    if (customSourceRef.current) {
+                      customSourceRef.current.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }, 100);
+                }
+              }}
+              placeholder="Select source"
+              searchPlaceholder="Search source..."
+              disabled={loading}
+            />
             )}
           />
           {sourceValue === 'Other' && (
@@ -383,22 +380,14 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
             name="categoryId"
             control={control}
             render={({ field }) => (
-              <Select
-                onValueChange={field.onChange}
-                value={field.value || undefined}
-                disabled={loading}
-              >
-                <SelectTrigger id="categoryId">
-                  <SelectValue placeholder="Select Category" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[200px]">
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <SearchableSelect
+              options={categories.map((cat) => ({ label: cat.name, value: cat.id }))}
+              value={field.value || ""}
+              onValueChange={field.onChange}
+              placeholder="Select Category"
+              searchPlaceholder="Search category..."
+              disabled={loading}
+            />
             )}
           />
         </div>

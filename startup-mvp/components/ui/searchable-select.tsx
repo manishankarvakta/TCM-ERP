@@ -36,6 +36,7 @@ export interface SearchableSelectProps {
   className?: string;
   allowClear?: boolean;
   renderOption?: (option: SearchableSelectOption) => React.ReactNode;
+  disablePortal?: boolean;
 }
 
 export function SearchableSelect({
@@ -49,6 +50,7 @@ export function SearchableSelect({
   className,
   allowClear = false,
   renderOption,
+  disablePortal = true,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -117,7 +119,7 @@ export function SearchableSelect({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start" disablePortal={disablePortal}>
         <Command shouldFilter={false}>
           <CommandInput
             placeholder={searchPlaceholder}
