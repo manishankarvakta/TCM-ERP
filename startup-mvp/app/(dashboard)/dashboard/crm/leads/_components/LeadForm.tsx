@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -33,6 +33,7 @@ const LEAD_SOURCES = [
   "Email Campaign",
   "Event",
   "Advertisement",
+  "Whatsapp",
   "Other",
 ];
 
@@ -78,12 +79,18 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [customSource, setCustomSource] = useState('');
+  const customSourceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function fetchCategories() {
       const res = await getActiveCategories();
       if (res.success) {
-        setCategories(res.categories || []);
+        const fetched = res.categories || [];
+        // Ensure ERP category exists
+        const hasERP = fetched.some((c) => c.name === 'ERP');
+        const finalList = hasERP ? fetched : [{ id: 'erp', name: 'ERP' }, ...fetched];
+        setCategories(finalList);
       }
     }
     fetchCategories();
@@ -141,6 +148,7 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
   });
 
   const photoValue = watch("photo");
+  const sourceValue = watch("source");
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -188,8 +196,10 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
         ? `${altPhoneNum.trim()}|${altPhoneType}`
         : "";
 
+      const finalSource = sourceValue === 'Other' ? customSource : rest.source;
       const payload = {
         ...rest,
+        source: finalSource,
         alternativePhone: finalAltPhone,
         startingDate: rest.startingDate ? new Date(rest.startingDate) : undefined,
       };
@@ -329,7 +339,13 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
             control={control}
             render={({ field }) => (
               <Select
-                onValueChange={field.onChange}
+                onValueChange={(val) => {
+                  field.onChange(val);
+                  // Scroll to custom input when 'Other' is selected
+                  if (val === 'Other' && customSourceRef.current) {
+                    customSourceRef.current.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
                 value={field.value || undefined}
                 disabled={loading}
               >
@@ -346,6 +362,18 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
               </Select>
             )}
           />
+          {sourceValue === 'Other' && (
+            <div ref={customSourceRef} className="space-y-2 mt-2">
+              <Label htmlFor="customSource">Custom Source</Label>
+              <Input
+                id="customSource"
+                value={customSource}
+                onChange={(e) => setCustomSource(e.target.value)}
+                disabled={loading}
+                placeholder="Enter custom source"
+              />
+            </div>
+          )}
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -363,7 +391,7 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
                 <SelectTrigger id="categoryId">
                   <SelectValue placeholder="Select Category" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-[200px]">
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       {cat.name}
