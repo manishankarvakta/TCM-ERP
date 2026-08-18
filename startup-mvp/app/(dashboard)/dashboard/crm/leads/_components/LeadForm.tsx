@@ -53,6 +53,7 @@ const leadSchema = z.object({
   reference: z.string().optional().or(z.literal("")),
   photo: z.string().optional().or(z.literal("")),
   startingDate: z.string().optional().or(z.literal("")),
+  location: z.string().optional().or(z.literal("")),
 });
 
 type LeadFormData = z.infer<typeof leadSchema>;
@@ -166,6 +167,7 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
       reference: "",
       photo: "",
       startingDate: new Date().toISOString().split("T")[0],
+      location: "",
     };
 
     const nameParts = (initialData.name || "").split(" ");
@@ -189,6 +191,7 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
       reference: initialData.reference || "",
       photo: initialData.photo || "",
       startingDate: initialData.startingDate ? new Date(initialData.startingDate).toISOString().split("T")[0] : "",
+      location: initialData.location || "",
     };
   };
 
@@ -493,6 +496,14 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
         <div className="space-y-2">
           <Label htmlFor="reference">Reference</Label>
           <Input id="reference" {...register("reference")} disabled={loading} placeholder="External Lead ID, campaign code, etc." />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="location">Location</Label>
+          <Input id="location" {...register("location")} disabled={loading} placeholder="e.g. Dhaka, Bangladesh" />
+          {errors.location && <p className="text-xs text-destructive">{errors.location.message}</p>}
         </div>
       </div>
 

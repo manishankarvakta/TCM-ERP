@@ -55,6 +55,7 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
   const [sortBy, setSortBy] = useState(searchParams.get("sortBy") || "createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">((searchParams.get("sortOrder") as "asc" | "desc") || "desc");
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "all">((searchParams.get("status") as LeadStatus) || "all");
+  const [ownerFilter, setOwnerFilter] = useState<string>(searchParams.get("owner") || "all");
   const [dateFrom, setDateFrom] = useState<string | undefined>(searchParams.get("dateFrom") || undefined);
   const [dateTo, setDateTo] = useState<string | undefined>(searchParams.get("dateTo") || undefined);
 
@@ -69,7 +70,7 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
 
   const fetchLeads = (pageToFetch: number = page) => {
     startTransition(async () => {
-      console.log("fetchLeads calling getLeads with:", { page: pageToFetch, search: debouncedSearch, status: statusFilter, sortBy, sortOrder, dateFrom, dateTo, isTrashView });
+      console.log("fetchLeads calling getLeads with:", { page: pageToFetch, search: debouncedSearch, status: statusFilter, sortBy, sortOrder, dateFrom, dateTo, isTrashView, ownerFilter });
       const result = await getLeads(
         pageToFetch, 
         view === "kanban" ? 100 : 10, 
@@ -79,7 +80,8 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
         sortOrder,
         dateFrom,
         dateTo,
-        isTrashView // Pass trash status
+        isTrashView, // Pass trash status
+        ownerFilter
       );
       if (result.success) {
         setLeads(result.leads || []);
@@ -113,6 +115,9 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
     if (statusFilter !== "all" && params.get("status") !== statusFilter) { params.set("status", statusFilter); filtersChanged = true; }
     else if (statusFilter === "all" && params.has("status")) { params.delete("status"); filtersChanged = true; }
 
+    if (ownerFilter !== "all" && params.get("owner") !== ownerFilter) { params.set("owner", ownerFilter); filtersChanged = true; }
+    else if (ownerFilter === "all" && params.has("owner")) { params.delete("owner"); filtersChanged = true; }
+
     if (dateFrom && params.get("dateFrom") !== dateFrom) { params.set("dateFrom", dateFrom); filtersChanged = true; }
     else if (!dateFrom && params.has("dateFrom")) { params.delete("dateFrom"); filtersChanged = true; }
 
@@ -124,13 +129,13 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
       params.delete("page");
       router.push(`/dashboard/crm/leads?${params.toString()}`, { scroll: false });
     }
-  }, [debouncedSearch, view, sortBy, sortOrder, statusFilter, dateFrom, dateTo, isTrashView, router, searchParams]);
+  }, [debouncedSearch, view, sortBy, sortOrder, statusFilter, ownerFilter, dateFrom, dateTo, isTrashView, router, searchParams]);
 
   // Main fetch effect, triggers when URL page changes or filters change
   useEffect(() => {
     fetchLeads(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, debouncedSearch, view, sortBy, sortOrder, statusFilter, dateFrom, dateTo, isTrashView]);
+  }, [page, debouncedSearch, view, sortBy, sortOrder, statusFilter, ownerFilter, dateFrom, dateTo, isTrashView]);
 
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -200,21 +205,40 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
             />
             </div>
             
-            <div className="flex items-center gap-2 ml-auto">
-                <span className="text-sm font-medium text-muted-foreground">Filter by Status:</span>
-                <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
-                    <SelectTrigger className="w-[140px] bg-background">
-                        <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value={LeadStatus.NEW}>New</SelectItem>
-                        <SelectItem value={LeadStatus.CONTACTED}>Contacted</SelectItem>
-                        <SelectItem value={LeadStatus.QUALIFIED}>Qualified</SelectItem>
-                        <SelectItem value={LeadStatus.UNQUALIFIED}>Unqualified</SelectItem>
-                        <SelectItem value={LeadStatus.CONVERTED}>Converted</SelectItem>
-                    </SelectContent>
-                </Select>
+            <div className="flex flex-wrap items-center gap-4 ml-auto">
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-muted-foreground">Owner:</span>
+                    <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+                        <SelectTrigger className="w-[160px] bg-background">
+                            <SelectValue placeholder="Select Owner" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[200px]">
+                            <SelectItem value="all">All Owners</SelectItem>
+                            {initialOwners.map((owner) => (
+                                <SelectItem key={owner.id} value={owner.id}>
+                                    {owner.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-muted-foreground">Status:</span>
+                    <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+                        <SelectTrigger className="w-[140px] bg-background">
+                            <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Statuses</SelectItem>
+                            <SelectItem value={LeadStatus.NEW}>New</SelectItem>
+                            <SelectItem value={LeadStatus.CONTACTED}>Contacted</SelectItem>
+                            <SelectItem value={LeadStatus.QUALIFIED}>Qualified</SelectItem>
+                            <SelectItem value={LeadStatus.UNQUALIFIED}>Unqualified</SelectItem>
+                            <SelectItem value={LeadStatus.CONVERTED}>Converted</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
         </div>
 

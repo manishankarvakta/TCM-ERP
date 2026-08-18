@@ -586,6 +586,7 @@ model Lead {
   
   startingDate  DateTime?  @default(now())
   closingReason String?
+  location      String?
 
   // Webhook integration fields
   externalId  String?    @unique

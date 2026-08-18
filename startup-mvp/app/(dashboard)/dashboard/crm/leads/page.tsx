@@ -8,6 +8,7 @@ interface LeadsPageProps {
   searchParams: Promise<{
     page?: string;
     search?: string;
+    owner?: string;
   }>;
 }
 
@@ -15,6 +16,7 @@ export default async function AdminLeadsPage({ searchParams }: LeadsPageProps) {
   const params = await searchParams;
   const page = parseInt(params.page || "1");
   const search = params.search || "";
+  const owner = params.owner || "all";
 
   const session = await auth();
   const userId = session?.user?.id;
@@ -22,7 +24,7 @@ export default async function AdminLeadsPage({ searchParams }: LeadsPageProps) {
   if (!userId) return null;
 
   const [leadsResult, ownersResult, canCreate] = await Promise.all([
-    getLeads(page, 10, search, "all"),
+    getLeads(page, 10, search, "all", "createdAt", "desc", undefined, undefined, false, owner),
     getLeadOwners(),
     hasPermission(userId, "crm.leads", "create"),
   ]);

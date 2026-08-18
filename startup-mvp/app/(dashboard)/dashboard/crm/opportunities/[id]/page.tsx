@@ -18,7 +18,7 @@ import FileManager from "../../activities/_components/FileManager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { ArrowLeftIcon, Clock, CheckSquare, FileText, Layout, DollarSign, Calendar, User, UserPlus, CalendarDays, Folder, StickyNote, Hash } from "lucide-react";
+import { Clock, CheckSquare, FileText, Layout, DollarSign, Calendar, User, UserPlus, CalendarDays, Folder, StickyNote, Hash, Phone, MapPin } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -294,6 +294,61 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                             </span>
                         </div>
                     </div>
+
+                    {opportunity.lead && (
+                        <div className="border-t pt-4 space-y-4">
+                            <h4 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">Source Lead Info</h4>
+                            
+                            <div className="flex items-start gap-3">
+                                <div className="bg-slate-100 p-2 rounded text-slate-600">
+                                    <User className="h-4 w-4" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Lead Name</p>
+                                    <span className="font-medium text-slate-700 block truncate">{opportunity.lead.name}</span>
+                                </div>
+                            </div>
+
+                            <div className="flex items-start gap-3">
+                                <div className="bg-slate-100 p-2 rounded text-slate-600">
+                                    <Hash className="h-4 w-4" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Lead Number</p>
+                                    <Link 
+                                        href={`/dashboard/crm/leads/${opportunity.lead.id}`}
+                                        className="font-medium text-primary hover:underline"
+                                    >
+                                        {opportunity.lead.leadNumber}
+                                    </Link>
+                                </div>
+                            </div>
+
+                            {opportunity.lead.phone && (
+                                <div className="flex items-start gap-3">
+                                    <div className="bg-slate-100 p-2 rounded text-slate-600">
+                                        <Phone className="h-4 w-4" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Mobile Number</p>
+                                        <span className="font-medium text-slate-700">{opportunity.lead.phone}</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {opportunity.lead.location && (
+                                <div className="flex items-start gap-3">
+                                    <div className="bg-slate-100 p-2 rounded text-slate-600">
+                                        <MapPin className="h-4 w-4" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Location</p>
+                                        <span className="font-medium text-slate-700">{opportunity.lead.location}</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 

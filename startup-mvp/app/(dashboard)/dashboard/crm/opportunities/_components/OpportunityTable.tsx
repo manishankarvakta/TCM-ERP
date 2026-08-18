@@ -25,6 +25,7 @@ import { format } from "date-fns";
 import { OpportunityStage } from "@prisma/client";
 import Link from "next/link";
 import { FiMoreVertical, FiEdit, FiFileText, FiEye, FiCalendar, FiCheckCircle } from "react-icons/fi";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Opportunity {
   id: string;
@@ -46,6 +47,11 @@ interface OpportunityTableProps {
   onEdit: (opp: Opportunity) => void;
   onRefresh: () => void;
   onStatusUpdate?: (id: string, stage: OpportunityStage) => void;
+  currentPage?: number;
+  pageSize?: number;
+  selectedIds: Set<string>;
+  toggleSelect: (id: string) => void;
+  toggleSelectAll: () => void;
 }
 
 const stageMap: Record<OpportunityStage, { label: string; variant: "default" | "secondary" | "outline" | "destructive" | "success" }> = {
@@ -59,12 +65,29 @@ const stageMap: Record<OpportunityStage, { label: string; variant: "default" | "
   [OpportunityStage.UNQUALIFIED]: { label: "Unqualified", variant: "destructive" },
 };
 
-export default function OpportunityTable({ opportunities, onEdit, onRefresh, onStatusUpdate }: OpportunityTableProps) {
+export default function OpportunityTable({ 
+  opportunities, 
+  onEdit, 
+  onRefresh, 
+  onStatusUpdate,
+  currentPage = 1,
+  pageSize = 10,
+  selectedIds,
+  toggleSelect,
+  toggleSelectAll
+}: OpportunityTableProps) {
   return (
     <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-[40px]">
+              <Checkbox 
+                checked={selectedIds.size === opportunities.length && opportunities.length > 0}
+                onCheckedChange={toggleSelectAll}
+              />
+            </TableHead>
+            <TableHead className="w-[65px]">SL</TableHead>
             <TableHead>Opportunity</TableHead>
             <TableHead>Account / Contact</TableHead>
             <TableHead>Lead</TableHead>
@@ -77,13 +100,22 @@ export default function OpportunityTable({ opportunities, onEdit, onRefresh, onS
         <TableBody>
           {opportunities.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="h-24 text-center">
+              <TableCell colSpan={10} className="h-24 text-center">
                 No opportunities found.
               </TableCell>
             </TableRow>
           ) : (
-            opportunities.map((opp) => (
-              <TableRow key={opp.id}>
+            opportunities.map((opp, index) => (
+              <TableRow key={opp.id} data-state={selectedIds.has(opp.id) && "selected"}>
+                <TableCell>
+                  <Checkbox 
+                    checked={selectedIds.has(opp.id)}
+                    onCheckedChange={() => toggleSelect(opp.id)}
+                  />
+                </TableCell>
+                <TableCell className="font-semibold text-muted-foreground text-xs">
+                  {((currentPage - 1) * pageSize) + index + 1}
+                </TableCell>
                 <TableCell>
                   <div className="flex flex-col">
                     <Link href={`/dashboard/crm/opportunities/${opp.id}`} className="font-medium hover:underline text-primary">

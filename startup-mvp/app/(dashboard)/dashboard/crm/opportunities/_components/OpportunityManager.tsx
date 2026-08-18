@@ -23,16 +23,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/hooks/use-debounce";
-import { FiPlus, FiRefreshCcw, FiSearch, FiTrendingUp, FiList, FiGrid, FiColumns } from "react-icons/fi";
+import { FiPlus, FiRefreshCcw, FiSearch, FiTrendingUp, FiList, FiGrid, FiColumns, FiTrash2 } from "react-icons/fi";
 import { EmptyState } from "@/components/crm/EmptyState";
 import { toast } from "sonner";
 import OpportunityTable from "./OpportunityTable";
 import OpportunityGrid from "./OpportunityGrid";
 import { OpportunityKanban } from "@/components/crm/kanban/OpportunityKanban";
-import { getOpportunities, updateOpportunityStage } from "@/app/actions/crm/opportunity.action";
+import { getOpportunities, updateOpportunityStage, bulkDeleteOpportunities } from "@/app/actions/crm/opportunity.action";
 import { getClients } from "@/app/(dashboard)/dashboard/crm/clients/_actions/client.action";
 import { getActiveUsers } from "@/app/actions/user.action";
 import OpportunitySheet from "./OpportunitySheet";
+import { Badge } from "@/components/ui/badge";
 
 interface Pagination {
   page: number;
@@ -55,6 +56,10 @@ export default function OpportunityManager() {
   
   const [unqualifiedOpp, setUnqualifiedOpp] = useState<{ id: string } | null>(null);
   const [closingReason, setClosingReason] = useState<string>("");
+  
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkActionLoading, setIsBulkActionLoading] = useState(false);
+  const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   
   const page = parseInt(searchParams.get("page") || "1", 10);
   const [pagination, setPagination] = useState<Pagination>({ page: page, limit: 10, total: 0, totalPages: 0 });
@@ -91,6 +96,44 @@ export default function OpportunityManager() {
         toast.error(result.error || "Failed to load opportunities");
       }
     });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === opportunities.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(opportunities.map(o => o.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setIsBulkActionLoading(true);
+    try {
+      const result = await bulkDeleteOpportunities(Array.from(selectedIds));
+      if (result.success) {
+        toast.success(`Deleted ${result.count} opportunities`);
+        setSelectedIds(new Set());
+        setDeleteConfirmationOpen(false);
+        fetchOpportunities(page);
+      } else {
+        toast.error(result.error || "Failed to delete opportunities");
+      }
+    } catch (e) {
+      toast.error("An error occurred");
+    } finally {
+      setIsBulkActionLoading(false);
+    }
   };
 
   const handleStatusUpdate = async (id: string, stage: OpportunityStage) => {
@@ -201,7 +244,12 @@ export default function OpportunityManager() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Opportunities</h2>
+          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+            <span>Opportunities</span>
+            <Badge variant="secondary" className="font-extrabold text-xs px-3 py-1 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all rounded-full shadow-sm">
+              Total: {pagination.total}
+            </Badge>
+          </h2>
           <p className="text-muted-foreground">
             Track your sales pipeline and manage revenue deals.
           </p>
@@ -223,6 +271,28 @@ export default function OpportunityManager() {
           </Button>
         </div>
       </div>
+
+      {/* Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="bg-primary/5 border border-primary/10 p-2 rounded-md flex items-center justify-between animate-in fade-in slide-in-from-top-1">
+          <div className="flex items-center gap-2 px-2">
+            <span className="font-semibold text-primary">{selectedIds.size}</span>
+            <span className="text-muted-foreground text-sm">selected</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              onClick={() => setDeleteConfirmationOpen(true)}
+              disabled={isBulkActionLoading}
+            >
+              <FiTrash2 className="mr-2 h-4 w-4" />
+              Delete Permanently
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>Cancel</Button>
+          </div>
+        </div>
+      )}
 
       <div className="bg-muted/20 p-4 rounded-lg border border-dashed space-y-4">
         <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -327,6 +397,11 @@ export default function OpportunityManager() {
               onEdit={(opp) => { setEditingOpp(opp); setIsDialogOpen(true); }}
               onRefresh={() => fetchOpportunities(page)}
               onStatusUpdate={handleStatusUpdate}
+              currentPage={pagination.page}
+              pageSize={pagination.limit}
+              selectedIds={selectedIds}
+              toggleSelect={toggleSelect}
+              toggleSelectAll={toggleSelectAll}
             />
           )}
           {view === "grid" && (
@@ -399,6 +474,26 @@ export default function OpportunityManager() {
               <DialogFooter>
                   <Button variant="outline" onClick={() => setUnqualifiedOpp(null)}>Cancel</Button>
                   <Button onClick={handleUnqualifiedSubmit}>Submit</Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteConfirmationOpen} onOpenChange={setDeleteConfirmationOpen}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>Permanently Delete Opportunities?</DialogTitle>
+              </DialogHeader>
+              <div className="py-4">
+                  <p className="text-muted-foreground">
+                      Are you sure you want to permanently delete {selectedIds.size} selected opportunities? 
+                      This action cannot be undone.
+                  </p>
+              </div>
+              <DialogFooter>
+                  <Button variant="outline" onClick={() => setDeleteConfirmationOpen(false)} disabled={isBulkActionLoading}>Cancel</Button>
+                  <Button variant="destructive" onClick={handleBulkDelete} disabled={isBulkActionLoading}>
+                      {isBulkActionLoading ? "Deleting..." : "Delete Permanently"}
+                  </Button>
               </DialogFooter>
           </DialogContent>
       </Dialog>

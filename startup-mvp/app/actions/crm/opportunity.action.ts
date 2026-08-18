@@ -765,3 +765,29 @@ export async function getOpportunitiesWithNoUpcomingActivity() {
     return { success: false, error: "Failed to fetch stale opportunities", opportunities: [] };
   }
 }
+
+/**
+ * Bulk delete opportunities
+ */
+export async function bulkDeleteOpportunities(ids: string[]) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: "Unauthorized" };
+
+    const { checkPermission } = await import("@/lib/permissions");
+    if (!(await checkPermission(session.user.id, "crm.opportunities", "delete"))) {
+      return { success: false, error: "Permission Denied: crm.opportunities.delete" };
+    }
+
+    const { count } = await prisma.opportunity.deleteMany({
+      where: { id: { in: ids } }
+    });
+
+    revalidateBothPaths("crm/opportunities");
+
+    return { success: true, count };
+  } catch (error) {
+    console.error("bulkDeleteOpportunities error:", error);
+    return { success: false, error: "Failed to delete opportunities" };
+  }
+}

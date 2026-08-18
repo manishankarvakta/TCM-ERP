@@ -20,7 +20,7 @@ import { LeadEditButton } from "../_components/LeadEditButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { ArrowLeftIcon, MailIcon, PhoneIcon, BuildingIcon, Clock, Calendar, CheckSquare, FileText, Folder, Hash, Globe, CalendarDays, StickyNote, Layers, Fingerprint } from "lucide-react";
+import { ArrowLeftIcon, MailIcon, PhoneIcon, BuildingIcon, Clock, Calendar, CheckSquare, FileText, Folder, Hash, Globe, CalendarDays, StickyNote, Layers, Fingerprint, MapPin } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -316,7 +316,19 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                                 </span>
                             </div>
                         </div>
-                     )}
+                      )}
+
+                      {lead.location && (
+                        <div className="pt-4 border-t flex items-center gap-3">
+                            <div className="bg-slate-100 p-2 rounded">
+                                <MapPin className="h-4 w-4 text-slate-600" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Location</p>
+                                <span className="font-medium">{lead.location}</span>
+                            </div>
+                        </div>
+                      )}
 
                      {lead.leadNumber && (
                         <div className="flex items-center gap-3">

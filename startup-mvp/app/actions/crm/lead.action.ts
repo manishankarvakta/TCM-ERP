@@ -49,7 +49,8 @@ export async function getLeads(
   sortOrder: "asc" | "desc" = "desc",
   dateFrom?: string, // Changed to string
   dateTo?: string,    // Changed to string
-  includeTrash: boolean = false
+  includeTrash: boolean = false,
+  ownerId?: string
 ) {
   try {
     const session = await auth();
@@ -100,7 +101,9 @@ export async function getLeads(
       }
     }
 
-
+    if (ownerId && ownerId !== "all") {
+      where.ownerId = ownerId;
+    }
 
     const orderBy: any = {};
     if (sortBy === "status") {
@@ -254,6 +257,7 @@ export async function createLead(input: {
   reference?: string;
   photo?: string;
   startingDate?: Date;
+  location?: string;
 }) {
   try {
     const session = await auth();
@@ -318,6 +322,7 @@ export async function createLead(input: {
       reference: leadData.reference || null,
       photo: leadData.photo || null,
       startingDate: leadData.startingDate || new Date(),
+      location: leadData.location || null,
     };
 
     const lead = await prisma.lead.create({
@@ -434,6 +439,7 @@ export async function updateLead(leadId: string, input: {
   photo?: string;
   startingDate?: Date;
   closingReason?: string;
+  location?: string;
 }) {
   try {
     const session = await auth();
@@ -497,6 +503,7 @@ export async function updateLead(leadId: string, input: {
       photo: input.photo === "" ? null : input.photo,
       startingDate: input.startingDate || undefined,
       closingReason: input.closingReason === "" ? null : input.closingReason,
+      location: input.location === "" ? null : input.location,
     };
 
     const lead = await prisma.lead.update({
@@ -535,6 +542,10 @@ export async function updateLead(leadId: string, input: {
     if (input.reference !== undefined && input.reference !== oldLead.reference) {
       changes.push(`Reference: ${oldLead.reference || "None"} -> ${input.reference}`);
       structuredChanges.push({ field: "reference", from: oldLead.reference, to: input.reference });
+    }
+    if (input.location !== undefined && input.location !== oldLead.location) {
+      changes.push(`Location: ${oldLead.location || "None"} -> ${input.location}`);
+      structuredChanges.push({ field: "location", from: oldLead.location, to: input.location });
     }
     if (input.photo !== undefined && input.photo !== oldLead.photo) {
       changes.push(`Photo: ${oldLead.photo || "None"} -> ${input.photo}`);
