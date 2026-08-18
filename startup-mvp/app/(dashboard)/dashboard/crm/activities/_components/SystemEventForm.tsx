@@ -192,7 +192,7 @@ export default function SystemEventForm({
                   <SelectItem value="TASK">Task</SelectItem>
                   <SelectItem value="DEADLINE">Deadline</SelectItem>
                   <SelectItem value="EMAIL">Email</SelectItem>
-                  <SelectItem value="LUNCH">Lunch</SelectItem>
+                  {/* <SelectItem value="LUNCH">Lunch</SelectItem> */}
                 </SelectContent>
               </Select>
             )}
