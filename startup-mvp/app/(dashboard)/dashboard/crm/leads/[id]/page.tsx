@@ -278,6 +278,28 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                     <CardTitle className="text-base font-semibold">Lead Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm pt-4">
+                     {lead.Opportunity && lead.Opportunity.length > 0 && (
+                        <div className="flex items-start gap-3 bg-primary/5 border border-primary/20 p-3 rounded-lg mb-2">
+                            <div className="bg-primary/10 p-2 rounded text-primary shrink-0">
+                                <FiLink className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Associated Opportunity</p>
+                                <div className="mt-1 flex flex-col gap-1">
+                                  {lead.Opportunity.map((opp: any) => (
+                                    <Link 
+                                      key={opp.id} 
+                                      href={`/dashboard/crm/opportunities/${opp.id}`} 
+                                      className="text-sm font-semibold hover:underline text-primary block truncate font-mono"
+                                    >
+                                      {opp.opportunityNumber || opp.title}
+                                    </Link>
+                                  ))}
+                                </div>
+                            </div>
+                        </div>
+                     )}
+
                      {lead.status === "UNQUALIFIED" && lead.closingReason && (
                         <div className="flex items-start gap-3 bg-destructive/5 border border-destructive/20 p-3 rounded-lg">
                             <div className="bg-destructive/10 p-2 rounded text-destructive shrink-0">

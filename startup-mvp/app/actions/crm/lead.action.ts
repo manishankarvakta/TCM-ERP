@@ -217,6 +217,13 @@ export async function getLeadById(id: string) {
       include: {
         User: { select: { id: true, name: true, email: true, image: true } },
         Category: { select: { id: true, name: true } },
+        Opportunity: {
+          select: {
+            id: true,
+            opportunityNumber: true,
+            title: true
+          }
+        }
       }
     });
 
