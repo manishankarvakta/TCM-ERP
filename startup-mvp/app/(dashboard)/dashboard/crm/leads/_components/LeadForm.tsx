@@ -63,6 +63,39 @@ interface LeadFormProps {
   initialData?: any; // To be typed if needed
 }
 
+const COUNTRY_CODES = [
+  { code: "+880", label: "🇧🇩 +880" },
+  { code: "+1", label: "🇺🇸 +1" },
+  { code: "+44", label: "🇬🇧 +44" },
+  { code: "+91", label: "🇮🇳 +91" },
+  { code: "+971", label: "🇦🇪 +971" },
+  { code: "+966", label: "🇸🇦 +966" },
+  { code: "+65", label: "🇸🇬 +65" },
+  { code: "+61", label: "🇦🇺 +61" },
+  { code: "+92", label: "🇵🇰 +92" },
+  { code: "+60", label: "🇲🇾 +60" },
+];
+
+const parsePhone = (rawPhone: string | null | undefined) => {
+  if (!rawPhone) return { countryCode: "+880", nationalNumber: "" };
+  const matched = COUNTRY_CODES.find(c => rawPhone.startsWith(c.code));
+  if (matched) {
+    return {
+      countryCode: matched.code,
+      nationalNumber: rawPhone.slice(matched.code.length),
+    };
+  }
+  if (rawPhone.startsWith("+")) {
+    for (let len = 4; len >= 2; len--) {
+      const code = rawPhone.slice(0, len);
+      if (COUNTRY_CODES.some(c => c.code === code)) {
+        return { countryCode: code, nationalNumber: rawPhone.slice(len) };
+      }
+    }
+  }
+  return { countryCode: "+880", nationalNumber: rawPhone };
+};
+
 const parseAlternativePhone = (rawPhone: string | null | undefined) => {
   if (!rawPhone) return { num: "", type: "alternative" };
   if (rawPhone.includes("|")) {
@@ -74,7 +107,10 @@ const parseAlternativePhone = (rawPhone: string | null | undefined) => {
 
 export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormProps) {
   const parsedAlt = parseAlternativePhone(initialData?.alternativePhone);
-  const [altPhoneNum, setAltPhoneNum] = useState(parsedAlt.num);
+  const initialPhoneData = parsePhone(initialData?.phone);
+  const initialAltPhoneData = parsePhone(parsedAlt.num);
+  const [phoneCountryCode, setPhoneCountryCode] = useState(initialPhoneData.countryCode);
+  const [altPhoneCountryCode, setAltPhoneCountryCode] = useState(initialAltPhoneData.countryCode);
   const [altPhoneType, setAltPhoneType] = useState(parsedAlt.type);
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -97,6 +133,22 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
     fetchCategories();
   }, []);
 
+  useEffect(() => {
+    if (initialData) {
+      const initPhone = parsePhone(initialData.phone);
+      setPhoneCountryCode(initPhone.countryCode);
+
+      const initAlt = parseAlternativePhone(initialData.alternativePhone);
+      const initAltPhone = parsePhone(initAlt.num);
+      setAltPhoneCountryCode(initAltPhone.countryCode);
+      setAltPhoneType(initAlt.type);
+    } else {
+      setPhoneCountryCode("+880");
+      setAltPhoneCountryCode("+880");
+      setAltPhoneType("alternative");
+    }
+  }, [initialData]);
+
   // Initialize form with split name if initialData provided
   const getInitialValues = () => {
     if (!initialData) return {
@@ -117,13 +169,17 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
     };
 
     const nameParts = (initialData.name || "").split(" ");
+    const initPhone = parsePhone(initialData.phone);
+    const initAlt = parseAlternativePhone(initialData.alternativePhone);
+    const initAltPhone = parsePhone(initAlt.num);
+
     return {
       ...initialData,
       firstName: nameParts[0] || "",
       lastName: nameParts.slice(1).join(" ") || "",
       email: initialData.email || "",
-      phone: initialData.phone || "",
-      alternativePhone: initialData.alternativePhone || "",
+      phone: initPhone.nationalNumber,
+      alternativePhone: initAltPhone.nationalNumber,
       company: initialData.company || "",
       source: initialData.source || "",
       website: initialData.website || "",
@@ -189,17 +245,21 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
       setLoading(true);
       setError("");
 
-      const { firstName, lastName, notes, ...rest } = data;
+      const { firstName, lastName, notes, phone, alternativePhone, ...rest } = data;
       const leadName = `${firstName} ${lastName}`.trim();
 
-      // Combine altPhoneNum and altPhoneType into alternativePhone string format: "number|type"
-      const finalAltPhone = altPhoneNum.trim()
-        ? `${altPhoneNum.trim()}|${altPhoneType}`
+      // Combine phone country code and national number
+      const finalPhone = phone.trim() ? `${phoneCountryCode}${phone.trim()}` : "";
+
+      // Combine altPhone country code, national number and type
+      const finalAltPhone = alternativePhone.trim()
+        ? `${altPhoneCountryCode}${alternativePhone.trim()}|${altPhoneType}`
         : "";
 
       const finalSource = sourceValue === 'Other' ? customSource : rest.source;
       const payload = {
         ...rest,
+        phone: finalPhone,
         source: finalSource,
         alternativePhone: finalAltPhone,
         startingDate: rest.startingDate ? new Date(rest.startingDate) : undefined,
@@ -258,18 +318,57 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="phone">Phone *</Label>
-          <Input id="phone" {...register("phone")} disabled={loading} placeholder="+1 234 567 890" />
+          <div className="flex gap-2">
+            <Select
+              value={phoneCountryCode}
+              onValueChange={setPhoneCountryCode}
+              disabled={loading}
+            >
+              <SelectTrigger className="w-[110px] shrink-0">
+                <SelectValue placeholder="Code" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[200px]">
+                {COUNTRY_CODES.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input 
+              id="phone" 
+              {...register("phone")} 
+              disabled={loading} 
+              placeholder="1712345678" 
+              className="flex-1"
+            />
+          </div>
           {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
         </div>
         <div className="space-y-2">
           <Label htmlFor="alternativePhone">Alternative Phone</Label>
           <div className="flex gap-2">
+            <Select
+              value={altPhoneCountryCode}
+              onValueChange={altPhoneCountryCode => setAltPhoneCountryCode(altPhoneCountryCode)}
+              disabled={loading}
+            >
+              <SelectTrigger className="w-[110px] shrink-0">
+                <SelectValue placeholder="Code" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[200px]">
+                {COUNTRY_CODES.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Input 
               id="alternativePhone" 
-              value={altPhoneNum}
-              onChange={(e) => setAltPhoneNum(e.target.value)}
+              {...register("alternativePhone")} 
               disabled={loading} 
-              placeholder="+1 234 567 891" 
+              placeholder="1712345679" 
               className="flex-1"
             />
             <Select
@@ -277,7 +376,7 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
               onValueChange={altPhoneType => setAltPhoneType(altPhoneType)}
               disabled={loading}
             >
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[110px] shrink-0">
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent>

@@ -49,14 +49,38 @@ interface EventManagerProps {
     users?: { id: string; name: string | null; email: string; image?: string | null }[];
 }
 
-const getStatusColor = (start: Date, end: Date) => {
+const getStatusColor = (status: string | null | undefined, start: Date, end: Date) => {
+    if (status) {
+        const s = status.toUpperCase();
+        if (s === "DONE") return "bg-muted text-muted-foreground border-border";
+        if (s === "CANCELED") return "bg-destructive/10 text-destructive border-destructive/20";
+        if (s === "IN_PROGRESS") return "bg-green-50 text-green-700 border-green-200";
+        if (s === "TODO") {
+            const now = new Date();
+            if (now > end) return "bg-destructive/10 text-destructive border-destructive/20";
+            return "bg-blue-50 text-blue-700 border-blue-200";
+        }
+    }
+
     const now = new Date();
     if (now > end) return "bg-muted text-muted-foreground border-border";
     if (now >= start && now <= end) return "bg-green-50 text-green-700 border-green-200";
     return "bg-blue-50 text-blue-700 border-blue-200";
 };
 
-const getStatusLabel = (start: Date, end: Date) => {
+const getStatusLabel = (status: string | null | undefined, start: Date, end: Date) => {
+    if (status) {
+        const s = status.toUpperCase();
+        if (s === "DONE") return "Completed";
+        if (s === "CANCELED") return "Canceled";
+        if (s === "IN_PROGRESS") return "In Progress";
+        if (s === "TODO") {
+            const now = new Date();
+            if (now > end) return "Overdue";
+            return "Upcoming";
+        }
+    }
+
     const now = new Date();
     if (now > end) return "Completed";
     if (now >= start && now <= end) return "In Progress";
@@ -159,8 +183,8 @@ export default function EventManager({ entityId, entityType, events, users = [] 
                                                     )}
                                                 </div>
                                                 <div className="mt-1">
-                                                    <Badge variant="outline" className={cn("text-[10px] px-2 py-0.5 font-bold uppercase tracking-wider", getStatusColor(start, end))}>
-                                                        {getStatusLabel(start, end)}
+                                                    <Badge variant="outline" className={cn("text-[10px] px-2 py-0.5 font-bold uppercase tracking-wider", getStatusColor(event.status, start, end))}>
+                                                        {getStatusLabel(event.status, start, end)}
                                                     </Badge>
                                                 </div>
                                             </div>
