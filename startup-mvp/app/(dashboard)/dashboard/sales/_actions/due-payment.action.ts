@@ -283,7 +283,12 @@ export async function collectCustomerDue(payload: DueCollectionPayload) {
         throw new Error(postResult.error || "Failed to post due collection receipt voucher");
       }
 
-      return { success: true };
+      return { 
+        success: true, 
+        collectionId, 
+        voucherId: voucherResult.voucher.id, 
+        voucherNumber: voucherResult.voucher.voucherNumber 
+      };
     });
 
     if (result.success) {

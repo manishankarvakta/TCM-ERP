@@ -1935,11 +1935,54 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setDueMfsAmount(0);
   };
 
+  const printDueReceipt = (id: string) => {
+    const oldIframe = document.getElementById("print-due-receipt-iframe");
+    if (oldIframe) {
+      oldIframe.remove();
+    }
+
+    (window as any).triggerIframePrint = () => {
+      const iframeElement = document.getElementById("print-due-receipt-iframe") as HTMLIFrameElement;
+      if (iframeElement && iframeElement.contentWindow) {
+        iframeElement.contentWindow.focus();
+        iframeElement.contentWindow.print();
+      }
+    };
+
+    const iframe = document.createElement("iframe");
+    iframe.id = "print-due-receipt-iframe";
+    iframe.style.position = "fixed";
+    iframe.style.left = "-9999px";
+    iframe.style.top = "-9999px";
+    iframe.style.width = "800px";
+    iframe.style.height = "600px";
+    iframe.style.border = "0";
+    iframe.src = `/print/due-receipt/${id}`;
+
+    document.body.appendChild(iframe);
+
+    iframe.onload = () => {
+      setTimeout(() => {
+        const iframeElement = document.getElementById("print-due-receipt-iframe") as HTMLIFrameElement;
+        if (iframeElement && iframeElement.contentWindow && (window as any).triggerIframePrint) {
+          iframeElement.contentWindow.focus();
+          iframeElement.contentWindow.print();
+          delete (window as any).triggerIframePrint;
+        }
+      }, 3000);
+    };
+  };
+
   const handleSubmitDuePayment = async () => {
+    if (!payDueClientId) return;
+
+    const totalCollected = dueCashAmount + dueCardAmount + dueMfsAmount;
+    const totalAllocated = Object.values(invoiceAllocations).reduce((sum, amt) => sum + amt, 0);
+
     if (totalCollected <= 0) {
       toast({
         title: "Validation Error",
-        description: "Payment amount must be greater than zero.",
+        description: "Please enter payment amount to collect.",
         variant: "destructive"
       });
       return;
@@ -1984,10 +2027,24 @@ export default function POSComponent({ items, clients: initialClients, warehouse
       });
 
       if (res.success) {
-        toast({
-          title: "Success",
-          description: "Due payment collected successfully!",
-        });
+        const receiptId = (res as any).voucherId || (res as any).collectionId;
+
+        if (receiptId) {
+          sonnerToast.success("Due payment collected successfully!", {
+            action: {
+              label: "Print Receipt",
+              onClick: () => printDueReceipt(receiptId),
+            },
+            position: "bottom-right",
+          });
+          printDueReceipt(receiptId);
+        } else {
+          toast({
+            title: "Success",
+            description: "Due payment collected successfully!",
+          });
+        }
+
         setIsPayDueModalOpen(false);
         setPayDueClientId("");
         setOutstandingSales([]);
