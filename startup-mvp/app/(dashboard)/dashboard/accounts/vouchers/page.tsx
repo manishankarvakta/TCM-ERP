@@ -50,11 +50,12 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
   const status = tab === "cancelled" || tab === "trash" ? "cancelled" : tab === "draft" ? "draft" : tab === "posted" ? "posted" : "all";
   
   // Check permissions on server side
-  const [result, canView, canEdit, canCreate] = await Promise.all([
+  const [result, canView, canEdit, canCreate, canPost] = await Promise.all([
     listVouchers(page, limit, search, status, params.type, params.dateFrom, params.dateTo, selectedWarehouseId),
     userId ? hasPermission(userId, "accounts.vouchers", "view") : false,
     userId ? hasPermission(userId, "accounts.vouchers", "edit") : false,
     userId ? hasPermission(userId, "accounts.vouchers", "create") : false,
+    userId ? (hasPermission(userId, "accounts.vouchers", "post").then(async p => p || (await hasPermission(userId, "accounts.vouchers", "approve")))) : false,
   ]);
 
   // Fetch active warehouses
@@ -172,7 +173,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
               userId={userId}
               permissions={{
                 view: canView,
-                edit: canEdit,
+                edit: canEdit || canPost,
                 create: canCreate,
               }}
               warehouses={warehouses}
@@ -195,7 +196,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
               userId={userId}
               permissions={{
                 view: canView,
-                edit: canEdit,
+                edit: canEdit || canPost,
                 create: canCreate,
               }}
               warehouses={warehouses}
@@ -218,7 +219,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
               userId={userId}
               permissions={{
                 view: canView,
-                edit: canEdit,
+                edit: canEdit || canPost,
                 create: canCreate,
               }}
               warehouses={warehouses}
@@ -241,7 +242,7 @@ export default async function VouchersPage({ searchParams }: VouchersPageProps) 
               userId={userId}
               permissions={{
                 view: canView,
-                edit: canEdit,
+                edit: canEdit || canPost,
                 create: canCreate,
               }}
               warehouses={warehouses}

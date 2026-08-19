@@ -220,18 +220,22 @@ export default function DepositsVoucherForm() {
         throw new Error(createResult.error || "Failed to create deposit voucher");
       }
 
-      // Auto-post the voucher
-      const postResult = await postVoucher(createResult.voucher!.id);
-
-      if (!postResult.success) {
-        throw new Error(postResult.error || "Voucher created but failed to post. Please post it manually.");
+      const isPosted = createResult.voucher?.status === "posted";
+      if (!isPosted) {
+        const postResult = await postVoucher(createResult.voucher!.id);
+        if (!postResult.success) {
+          toast.info("Deposit voucher created as draft.");
+          const basePath = getBasePathFromPathname(pathname);
+          router.push(`${basePath}/accounts/vouchers?tab=draft`);
+          return;
+        }
       }
 
-      toast.success("Deposit voucher created and posted successfully!");
+      toast.success(isPosted ? "Deposit voucher created and posted successfully!" : "Deposit voucher created as draft.");
 
       // Redirect to vouchers list - keep loading true so button remains disabled during page redirect
       const basePath = getBasePathFromPathname(pathname);
-      router.push(`${basePath}/accounts/vouchers?tab=posted`);
+      router.push(`${basePath}/accounts/vouchers?tab=${isPosted ? "posted" : "all"}`);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred. Please try again.";
       setError(errorMessage);

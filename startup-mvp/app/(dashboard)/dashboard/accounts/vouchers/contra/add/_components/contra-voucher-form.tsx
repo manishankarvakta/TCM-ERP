@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -212,19 +213,26 @@ export default function ContraVoucherForm() {
         throw new Error(createResult.error || "Failed to create contra voucher");
       }
 
-      // Auto-post the voucher
-      const postResult = await postVoucher(createResult.voucher!.id);
-
-      if (!postResult.success) {
-        throw new Error(postResult.error || "Voucher created but failed to post. Please post it manually.");
+      const isPosted = createResult.voucher?.status === "posted";
+      if (!isPosted) {
+        const postResult = await postVoucher(createResult.voucher!.id);
+        if (!postResult.success) {
+          toast.info("Contra voucher created as draft.");
+          const basePath = getBasePathFromPathname(pathname);
+          router.push(`${basePath}/accounts/vouchers?tab=draft`);
+          return;
+        }
       }
 
-      // Redirect to vouchers list
+      toast.success(isPosted ? "Contra voucher created and posted successfully!" : "Contra voucher created as draft.");
+
+      // Redirect to vouchers list - keep loading true so button remains disabled during page redirect
       const basePath = getBasePathFromPathname(pathname);
-      router.push(`${basePath}/accounts/vouchers?tab=posted`);
+      router.push(`${basePath}/accounts/vouchers?tab=${isPosted ? "posted" : "all"}`);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");
-    } finally {
+      const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred. Please try again.";
+      setError(errorMessage);
+      toast.error(errorMessage);
       setLoading(false);
     }
   };

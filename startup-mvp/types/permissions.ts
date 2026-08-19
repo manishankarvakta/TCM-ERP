@@ -53,7 +53,8 @@ export type CustomOperation =
   | "ledger"
   | "verify"
   | "finish"
-  | "reopen";
+  | "reopen"
+  | "post";
 
 // Standard operations for pages (as per requirements)
 export type StandardOperation = "create" | "view" | "edit" | "move-to-trash" | "delete-permanently";
@@ -451,6 +452,7 @@ export const OPERATIONS: Record<Operation, OperationMetadata> = {
   verify: { id: "verify", label: "Verify Closing", description: "Verify and lock cashier POS closing", category: "custom" },
   finish: { id: "finish", label: "Finish Scan", description: "Finish scanning session and generate draft purchase", category: "custom" },
   reopen: { id: "reopen", label: "Reopen Closing", description: "Reopen locked cashier POS closing for edits", category: "custom" },
+  post: { id: "post", label: "Post Voucher", description: "Directly post vouchers to General Ledger upon creation or approve draft vouchers", category: "custom" },
 };
 
 // Helper function to get all modules
@@ -648,7 +650,7 @@ export const NAVIGATION_STRUCTURE: NavigationItem[] = [
         permissionKey: "accounts.vouchers",
         path: "/dashboard/accounts/vouchers",
         label: "Vouchers",
-        operations: ["create", "view", "edit", "move-to-trash", "delete-permanently", "create-expense", "create-deposit", "create-payment"],
+        operations: ["create", "view", "edit", "post", "move-to-trash", "delete-permanently", "create-expense", "create-deposit", "create-payment"],
       },
       {
         permissionKey: "accounts.trial-balance",

@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -191,11 +192,16 @@ export default function VoucherCreateForm() {
         throw new Error(result.error || "Failed to create voucher");
       }
 
+      const isPosted = result.voucher?.status === "posted";
+      toast.success(isPosted ? "Voucher created and posted successfully!" : "Voucher created as draft.");
+
+      // Redirect to vouchers list - keep loading true so button remains disabled during page redirect
       const basePath = getBasePathFromPathname(pathname);
-      router.push(`${basePath}/accounts/vouchers`);
+      router.push(`${basePath}/accounts/vouchers?tab=${isPosted ? "posted" : "all"}`);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");
-    } finally {
+      const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred. Please try again.";
+      setError(errorMessage);
+      toast.error(errorMessage);
       setLoading(false);
     }
   };

@@ -966,6 +966,12 @@ export async function createVoucher(input: {
     }
     // --- END OVER-RECEIPT GUARD ---
 
+    // Check post permission
+    const canPost = !input.isSystemAction
+      ? (await hasPermission(session.user.id, "accounts.vouchers", "post") ||
+         await hasPermission(session.user.id, "accounts.vouchers", "approve"))
+      : false;
+
     const performCreate = async (transaction: Prisma.TransactionClient) => {
       let targetWarehouseId = input.warehouseId || null;
       if (!targetWarehouseId && session.user.id) {
@@ -976,6 +982,8 @@ export async function createVoucher(input: {
         targetWarehouseId = creatorUser?.defaultWarehouseId || null;
       }
 
+      const initialStatus = canPost ? "posted" : "draft";
+
       // Create voucher with lines
       const voucher = await transaction.voucher.create({
         data: {
@@ -984,8 +992,10 @@ export async function createVoucher(input: {
           type: input.type as any,
           reference: input.reference || null,
           description: input.description || null,
-          status: "draft",
+          status: initialStatus,
           createdBy: session.user.id,
+          postedById: canPost ? session.user.id : null,
+          postedAt: canPost ? new Date() : null,
           clientId: input.clientId || null,
           supplierId: input.supplierId || null,
           userId: input.userId || null,
@@ -1051,15 +1061,46 @@ export async function createVoucher(input: {
         },
       });
 
+      // If user has post permission, generate JournalEntry & lines in the same transaction
+      if (canPost) {
+        const entryNumber = await generateJournalEntryNumber(transaction);
+        await transaction.journalEntry.create({
+          data: {
+            entryNumber,
+            date: voucher.date,
+            voucherId: voucher.id,
+            description: voucher.description || null,
+            status: "posted",
+            createdBy: session.user.id,
+            postedBy: session.user.id,
+            postedAt: new Date(),
+            JournalEntryLine: {
+              create: input.lines.map((line) => ({
+                lineNumber: line.lineNumber,
+                debitAmount: new Prisma.Decimal(line.debitAmount || 0),
+                creditAmount: new Prisma.Decimal(line.creditAmount || 0),
+                description: line.description || null,
+                chartOfAccountId: line.chartOfAccountId,
+                clientId: line.clientId || null,
+                supplierId: line.supplierId || null,
+                userId: line.userId || null,
+                organizationId: line.organizationId || null,
+              })),
+            },
+          },
+        });
+      }
+
       // Log action with detailed audit trail
       await createUserLog({
         userId: session.user.id,
         action: LogAction.ITEM_CREATED,
-        details: `Created voucher: ${voucherNumber} (${input.type}) - Total: ৳${input.lines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0).toFixed(2)}`,
+        details: `Created voucher: ${voucherNumber} (${input.type}) [${initialStatus}] - Total: ৳${input.lines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0).toFixed(2)}`,
         metadata: { 
           voucherId: voucher.id, 
           voucherNumber, 
           type: input.type,
+          status: initialStatus,
           totalDebit: input.lines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0),
           totalCredit: input.lines.reduce((sum, line) => sum + Number(line.creditAmount || 0), 0),
           linesCount: input.lines.length,
@@ -1147,13 +1188,14 @@ export async function postVoucher(voucherId: string, tx?: Prisma.TransactionClie
 
     const client = tx || prisma;
 
-    // Check permission - allow update, approve, or edit (for UI consistency)
+    // Check permission - allow post, update, approve, or edit (for UI consistency)
     if (!isSystemAction) {
+      const canPost = await hasPermission(session.user.id, "accounts.vouchers", "post");
       const canUpdate = await hasPermission(session.user.id, "accounts.vouchers", "update");
       const canApprove = await hasPermission(session.user.id, "accounts.vouchers", "approve");
       const canEdit = await hasPermission(session.user.id, "accounts.vouchers", "edit");
 
-      if (!canUpdate && !canApprove && !canEdit) {
+      if (!canPost && !canUpdate && !canApprove && !canEdit) {
         return {
           success: false,
           error: "You do not have permission to post vouchers",
@@ -1187,8 +1229,15 @@ export async function postVoucher(voucherId: string, tx?: Prisma.TransactionClie
       };
     }
 
-    // Validate voucher is in draft status
+    // Validate voucher is in draft status (or already posted by createVoucher)
     if (voucher.status !== "draft") {
+      if (voucher.status === "posted") {
+        return {
+          success: true,
+          voucher: voucher as any,
+          journalEntry: null,
+        };
+      }
       return {
         success: false,
         error: `Cannot post voucher with status "${voucher.status}". Only draft vouchers can be posted.`,
