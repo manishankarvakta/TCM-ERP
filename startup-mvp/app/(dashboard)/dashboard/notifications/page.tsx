@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bell, Star, Archive, CheckCircle2, Circle, Eye, Search, Info, AlertTriangle, XCircle, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +27,35 @@ interface Notification {
   isRead: boolean;
   createdAt: Date;
   readAt: Date | null;
+  entityType?: string | null;
+  entityId?: string | null;
 }
+
+const getNotificationLink = (entityType?: string | null, entityId?: string | null) => {
+  if (!entityType || !entityId) return null;
+  
+  const type = entityType.toLowerCase();
+  switch (type) {
+    case "lead":
+      return `/dashboard/crm/leads/${entityId}`;
+    case "opportunity":
+      return `/dashboard/crm/opportunities/${entityId}`;
+    case "client":
+      return `/dashboard/crm/clients/${entityId}`;
+    case "project":
+      return `/dashboard/projects/${entityId}`;
+    case "quotation":
+      return `/dashboard/quotations/${entityId}`;
+    case "work-order":
+      return `/dashboard/work-orders/${entityId}`;
+    case "employee":
+      return `/dashboard/employees/${entityId}`;
+    case "user":
+      return `/dashboard/users/${entityId}`;
+    default:
+      return null;
+  }
+};
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -434,7 +463,7 @@ export default function NotificationsPage() {
                 </div>
 
                 {/* Notification Content */}
-                <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm text-foreground line-clamp-2">
                     {notification.message}
                   </p>
@@ -576,8 +605,15 @@ export default function NotificationsPage() {
                 </div>
               </div>
 
-              <DialogFooter className="pt-4">
-                <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
+              <DialogFooter className="pt-4 flex flex-row items-center justify-between gap-2 w-full">
+                {getNotificationLink(selectedNotification.entityType, selectedNotification.entityId) && (
+                  <Button asChild onClick={() => setViewDialogOpen(false)}>
+                    <Link href={getNotificationLink(selectedNotification.entityType, selectedNotification.entityId)!}>
+                      View Details
+                    </Link>
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => setViewDialogOpen(false)} className="ml-auto">
                   Close
                 </Button>
               </DialogFooter>

@@ -13,6 +13,7 @@ import { formatDistanceToNow, format } from "date-fns";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 interface Notification {
   id: string;
@@ -21,6 +22,8 @@ interface Notification {
   type: string;
   isRead: boolean;
   createdAt: Date;
+  entityType?: string | null;
+  entityId?: string | null;
   creator?: {
     id: string;
     name: string | null;
@@ -29,11 +32,38 @@ interface Notification {
   } | null;
 }
 
+const getNotificationLink = (entityType?: string | null, entityId?: string | null) => {
+  if (!entityType || !entityId) return null;
+  
+  const type = entityType.toLowerCase();
+  switch (type) {
+    case "lead":
+      return `/dashboard/crm/leads/${entityId}`;
+    case "opportunity":
+      return `/dashboard/crm/opportunities/${entityId}`;
+    case "client":
+      return `/dashboard/crm/clients/${entityId}`;
+    case "project":
+      return `/dashboard/projects/${entityId}`;
+    case "quotation":
+      return `/dashboard/quotations/${entityId}`;
+    case "work-order":
+      return `/dashboard/work-orders/${entityId}`;
+    case "employee":
+      return `/dashboard/employees/${entityId}`;
+    case "user":
+      return `/dashboard/users/${entityId}`;
+    default:
+      return null;
+  }
+};
+
 export default function NotificationDropdown() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     if (open) {
@@ -276,6 +306,11 @@ export default function NotificationDropdown() {
                   onClick={() => {
                     if (!notification.isRead) {
                       handleMarkAsRead(notification.id);
+                    }
+                    const link = getNotificationLink(notification.entityType, notification.entityId);
+                    if (link) {
+                      router.push(link);
+                      setOpen(false);
                     }
                   }}
                 >

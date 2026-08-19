@@ -8,7 +8,7 @@ export default async function AdminActivitiesPage() {
   const session = await auth();
   if (!session?.user) return redirect("/login");
 
-  const result = await getActivities();
+  const result = await getActivities(1, 100);
   const activities = result.success ? result.activities : [];
 
   return (

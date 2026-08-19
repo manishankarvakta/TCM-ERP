@@ -24,6 +24,8 @@ export async function createNotification(data: {
   type?: NotificationType;
   userId?: string | string[] | null;
   createdBy?: string | null;
+  entityType?: string | null;
+  entityId?: string | null;
 }): Promise<ActionResult> {
   try {
     console.log("createNotification called with:", { title: data.title, message: data.message, type: data.type, userId: data.userId, createdBy: data.createdBy });
@@ -104,6 +106,8 @@ export async function createNotification(data: {
               type: notificationType,
               userId: userId,
               createdBy,
+              entityType: data.entityType,
+              entityId: data.entityId,
             },
           })
         )
@@ -152,6 +156,8 @@ export async function createNotification(data: {
             type: notificationType,
             userId: user.id,
             createdBy,
+            entityType: data.entityType,
+            entityId: data.entityId,
           },
         })
       )
@@ -241,6 +247,8 @@ export async function getUserNotifications(
         createdAt: true,
         readAt: true,
         createdBy: true,
+        entityType: true,
+        entityId: true,
         // @ts-ignore
         User_Notification_createdByToUser: {
           select: {

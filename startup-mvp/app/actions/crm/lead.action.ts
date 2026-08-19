@@ -381,6 +381,8 @@ export async function createLead(input: {
       type: NotificationType.INFO,
       userId: ownerId, // Notify the lead owner
       createdBy: session.user.id,
+      entityType: "lead",
+      entityId: lead.id,
     });
     
     revalidateBothPaths("crm/leads");
@@ -589,6 +591,8 @@ export async function updateLead(leadId: string, input: {
         type: NotificationType.INFO,
         userId: lead.ownerId, // Notify the lead owner
         createdBy: session.user.id,
+        entityType: "lead",
+        entityId: leadId,
       });
     }
 
@@ -654,6 +658,8 @@ export async function updateLeadStatus(leadId: string, status: LeadStatus, closi
       type: NotificationType.INFO,
       userId: lead.ownerId, // Notify the lead owner
       createdBy: session.user.id,
+      entityType: "lead",
+      entityId: leadId,
     });
       
     revalidateBothPaths("crm/leads");
@@ -877,6 +883,8 @@ export async function convertLeadToOpportunity(leadId: string, input: {
       type: NotificationType.SUCCESS,
       userId: lead.ownerId, // Notify the lead owner
       createdBy: session.user.id,
+      entityType: "opportunity",
+      entityId: result.opportunityId,
     });
 
     // Emit System Event for conversion

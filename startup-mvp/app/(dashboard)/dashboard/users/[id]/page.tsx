@@ -20,7 +20,7 @@ export default async function UserDetailsPage({ params }: UserDetailsPageProps) 
   const { id } = await params;
 
   const userResult = await getUserById(id);
-  const logsResult = await getUserLogs(id, { limit: 20 });
+  const logsResult = await getUserLogs(id, { limit: 100 });
 
   if (!userResult.success || !userResult.user) {
     notFound();

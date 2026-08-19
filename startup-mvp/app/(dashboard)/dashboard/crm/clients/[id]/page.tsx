@@ -164,7 +164,14 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                                     <Card key={contact.id} className="overflow-hidden">
                                         <CardContent className="p-4 flex items-center justify-between">
                                             <div>
-                                                <h4 className="font-semibold">{contact.firstName} {contact.lastName}</h4>
+                                                <h4 className="font-semibold">
+                                                  <Link 
+                                                    href={`/dashboard/crm/contacts/${contact.id}`} 
+                                                    className="hover:underline hover:text-primary transition-colors"
+                                                  >
+                                                    {contact.firstName} {contact.lastName}
+                                                  </Link>
+                                                </h4>
                                                 <div className="text-sm text-muted-foreground flex gap-3 mt-1">
                                                     {contact.email && <span className="flex items-center gap-1"><MailIcon className="h-3 w-3" /> {contact.email}</span>}
                                                     {contact.phone && <span className="flex items-center gap-1"><PhoneIcon className="h-3 w-3" /> {contact.phone}</span>}
@@ -190,9 +197,16 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                                         <CardContent className="p-4">
                                             <div className="flex justify-between items-start">
                                                 <div>
-                                                    <h4 className="font-semibold text-lg">{opp.title}</h4>
+                                                    <h4 className="font-semibold text-lg">
+                                                        <Link 
+                                                          href={`/dashboard/crm/opportunities/${opp.id}`} 
+                                                          className="hover:underline hover:text-primary transition-colors"
+                                                        >
+                                                          {opp.title}
+                                                        </Link>
+                                                    </h4>
                                                     <p className="text-sm text-muted-foreground mt-1">
-                                                        Value: <span className="font-medium text-foreground">${Number(opp.value).toLocaleString()}</span>
+                                                        Value: <span className="font-medium text-foreground">৳{Number(opp.value).toLocaleString("en-BD")}</span>
                                                     </p>
                                                 </div>
                                                 <Badge>{opp.stage}</Badge>
