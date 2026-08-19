@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FiAlertCircle, FiUpload, FiTrash2 } from "react-icons/fi";
-import { createLead, updateLead, getActiveCategories } from "@/app/actions/crm/lead.action";
+import { createLead, updateLead } from "@/app/actions/crm/lead.action";
 import { uploadFileServerSide } from "@/app/actions/files";
 import {
   Select,
@@ -62,6 +62,7 @@ interface LeadFormProps {
   onSuccess: () => void;
   onCancel: () => void;
   initialData?: any; // To be typed if needed
+  categories: { id: string; name: string }[];
 }
 
 const COUNTRY_CODES = [
@@ -106,7 +107,7 @@ const parseAlternativePhone = (rawPhone: string | null | undefined) => {
   return { num: rawPhone, type: "alternative" };
 };
 
-export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormProps) {
+export default function LeadForm({ onSuccess, onCancel, initialData, categories }: LeadFormProps) {
   const parsedAlt = parseAlternativePhone(initialData?.alternativePhone);
   const initialPhoneData = parsePhone(initialData?.phone);
   const initialAltPhoneData = parsePhone(parsedAlt.num);
@@ -115,24 +116,9 @@ export default function LeadForm({ onSuccess, onCancel, initialData }: LeadFormP
   const [altPhoneType, setAltPhoneType] = useState(parsedAlt.type);
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [customSource, setCustomSource] = useState('');
   const customSourceRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    async function fetchCategories() {
-      const res = await getActiveCategories();
-      if (res.success) {
-        const fetched = res.categories || [];
-        // Ensure ERP category exists
-        const hasERP = fetched.some((c) => c.name === 'ERP');
-        const finalList = hasERP ? fetched : [{ id: 'erp', name: 'ERP' }, ...fetched];
-        setCategories(finalList);
-      }
-    }
-    fetchCategories();
-  }, []);
 
   useEffect(() => {
     if (initialData) {

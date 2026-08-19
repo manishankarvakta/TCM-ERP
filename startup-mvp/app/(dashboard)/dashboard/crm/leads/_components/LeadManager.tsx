@@ -35,11 +35,13 @@ interface LeadManagerProps {
   initialPagination: Pagination;
   initialOwners: any[];
   canCreate: boolean;
+  categories: { id: string; name: string }[];
+  sources: string[];
 }
 
 type ViewMode = "table" | "grid" | "kanban";
 
-export default function LeadManager({ initialLeads, initialPagination, initialOwners, canCreate }: LeadManagerProps) {
+export default function LeadManager({ initialLeads, initialPagination, initialOwners, canCreate, categories, sources }: LeadManagerProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -56,6 +58,8 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">((searchParams.get("sortOrder") as "asc" | "desc") || "desc");
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "all">((searchParams.get("status") as LeadStatus) || "all");
   const [ownerFilter, setOwnerFilter] = useState<string>(searchParams.get("owner") || "all");
+  const [categoryFilter, setCategoryFilter] = useState<string>(searchParams.get("category") || "all");
+  const [sourceFilter, setSourceFilter] = useState<string>(searchParams.get("source") || "all");
   const [dateFrom, setDateFrom] = useState<string | undefined>(searchParams.get("dateFrom") || undefined);
   const [dateTo, setDateTo] = useState<string | undefined>(searchParams.get("dateTo") || undefined);
 
@@ -70,7 +74,7 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
 
   const fetchLeads = (pageToFetch: number = page) => {
     startTransition(async () => {
-      console.log("fetchLeads calling getLeads with:", { page: pageToFetch, search: debouncedSearch, status: statusFilter, sortBy, sortOrder, dateFrom, dateTo, isTrashView, ownerFilter });
+      console.log("fetchLeads calling getLeads with:", { page: pageToFetch, search: debouncedSearch, status: statusFilter, sortBy, sortOrder, dateFrom, dateTo, isTrashView, ownerFilter, categoryFilter, sourceFilter });
       const result = await getLeads(
         pageToFetch, 
         view === "kanban" ? 100 : 10, 
@@ -81,7 +85,9 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
         dateFrom,
         dateTo,
         isTrashView, // Pass trash status
-        ownerFilter
+        ownerFilter,
+        categoryFilter,
+        sourceFilter
       );
       if (result.success) {
         setLeads(result.leads || []);
@@ -118,6 +124,12 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
     if (ownerFilter !== "all" && params.get("owner") !== ownerFilter) { params.set("owner", ownerFilter); filtersChanged = true; }
     else if (ownerFilter === "all" && params.has("owner")) { params.delete("owner"); filtersChanged = true; }
 
+    if (categoryFilter !== "all" && params.get("category") !== categoryFilter) { params.set("category", categoryFilter); filtersChanged = true; }
+    else if (categoryFilter === "all" && params.has("category")) { params.delete("category"); filtersChanged = true; }
+
+    if (sourceFilter !== "all" && params.get("source") !== sourceFilter) { params.set("source", sourceFilter); filtersChanged = true; }
+    else if (sourceFilter === "all" && params.has("source")) { params.delete("source"); filtersChanged = true; }
+
     if (dateFrom && params.get("dateFrom") !== dateFrom) { params.set("dateFrom", dateFrom); filtersChanged = true; }
     else if (!dateFrom && params.has("dateFrom")) { params.delete("dateFrom"); filtersChanged = true; }
 
@@ -129,13 +141,13 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
       params.delete("page");
       router.push(`/dashboard/crm/leads?${params.toString()}`, { scroll: false });
     }
-  }, [debouncedSearch, view, sortBy, sortOrder, statusFilter, ownerFilter, dateFrom, dateTo, isTrashView, router, searchParams]);
+  }, [debouncedSearch, view, sortBy, sortOrder, statusFilter, ownerFilter, categoryFilter, sourceFilter, dateFrom, dateTo, isTrashView, router, searchParams]);
 
   // Main fetch effect, triggers when URL page changes or filters change
   useEffect(() => {
     fetchLeads(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, debouncedSearch, view, sortBy, sortOrder, statusFilter, ownerFilter, dateFrom, dateTo, isTrashView]);
+  }, [page, debouncedSearch, view, sortBy, sortOrder, statusFilter, ownerFilter, categoryFilter, sourceFilter, dateFrom, dateTo, isTrashView]);
 
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -217,6 +229,40 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
                             {initialOwners.map((owner) => (
                                 <SelectItem key={owner.id} value={owner.id}>
                                     {owner.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-muted-foreground">Category:</span>
+                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                        <SelectTrigger className="w-[150px] bg-background">
+                            <SelectValue placeholder="All Categories" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[200px]">
+                            <SelectItem value="all">All Categories</SelectItem>
+                            {categories.map((cat) => (
+                                <SelectItem key={cat.id} value={cat.id}>
+                                    {cat.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-muted-foreground">Source:</span>
+                    <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                        <SelectTrigger className="w-[140px] bg-background">
+                            <SelectValue placeholder="All Sources" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[200px]">
+                            <SelectItem value="all">All Sources</SelectItem>
+                            {sources.map((src) => (
+                                <SelectItem key={src} value={src}>
+                                    {src}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -369,6 +415,7 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
         onOpenChange={setIsDrawerOpen}
         lead={editingLead}
         onSuccess={handleCreateSuccess}
+        categories={categories}
       />
     </div>
   );

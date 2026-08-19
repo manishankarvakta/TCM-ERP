@@ -16,6 +16,7 @@ interface LeadSheetProps {
   onOpenChange: (open: boolean) => void;
   lead: any | null; // Pass null for creating new lead
   onSuccess: () => void;
+  categories: { id: string; name: string }[];
 }
 
 export default function LeadSheet({
@@ -23,6 +24,7 @@ export default function LeadSheet({
   onOpenChange,
   lead,
   onSuccess,
+  categories,
 }: LeadSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -52,6 +54,7 @@ export default function LeadSheet({
             initialData={lead}
             onSuccess={onSuccess}
             onCancel={() => onOpenChange(false)}
+            categories={categories}
           />
         </div>
       </SheetContent>

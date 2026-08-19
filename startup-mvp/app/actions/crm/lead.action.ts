@@ -50,7 +50,9 @@ export async function getLeads(
   dateFrom?: string, // Changed to string
   dateTo?: string,    // Changed to string
   includeTrash: boolean = false,
-  ownerId?: string
+  ownerId?: string,
+  categoryId?: string,
+  source?: string
 ) {
   try {
     const session = await auth();
@@ -103,6 +105,14 @@ export async function getLeads(
 
     if (ownerId && ownerId !== "all") {
       where.ownerId = ownerId;
+    }
+
+    if (categoryId && categoryId !== "all") {
+      where.categoryId = categoryId;
+    }
+
+    if (source && source !== "all") {
+      where.source = source;
     }
 
     const orderBy: any = {};
@@ -1100,5 +1110,37 @@ export async function getActiveCategories() {
   } catch (error) {
     console.error("getActiveCategories error:", error);
     return { success: false, error: "Failed to fetch categories", categories: [] };
+  }
+}
+
+/**
+ * Get all unique lead sources
+ */
+export async function getLeadSources() {
+  try {
+    const leads = await prisma.lead.findMany({
+      where: { source: { not: null, not: "" } },
+      select: { source: true },
+      distinct: ["source"],
+      orderBy: { source: "asc" },
+    });
+    const dbSources = leads.map(l => l.source as string);
+    const standardSources = [
+      "Website",
+      "Referral",
+      "Cold Call",
+      "LinkedIn",
+      "Facebook",
+      "X",
+      "Instagram",
+      "Partner",
+      "Email Campaign",
+      "Event",
+    ];
+    const uniqueSources = Array.from(new Set([...standardSources, ...dbSources])).sort();
+    return { success: true, sources: uniqueSources };
+  } catch (error) {
+    console.error("getLeadSources error:", error);
+    return { success: false, error: "Failed to fetch lead sources", sources: [] };
   }
 }
