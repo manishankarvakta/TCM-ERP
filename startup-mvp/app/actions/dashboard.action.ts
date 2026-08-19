@@ -1125,3 +1125,105 @@ export async function getUserQuotationStatusBreakdown() {
   }
 }
 
+/**
+ * Get monthly sales and quotation counts for the last N months
+ */
+export async function getDashboardTrends(monthsCount: number = 6) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user) {
+      return {
+        success: false,
+        error: 'Unauthorized',
+        trends: [],
+      };
+    }
+
+    // Check if user is admin
+    const userRole = session.user.role?.toLowerCase();
+    if (userRole !== 'admin') {
+      return {
+        success: false,
+        error: 'Unauthorized - Admin access required',
+        trends: [],
+      };
+    }
+
+    const now = new Date();
+    // Get start date (first day of the month N months ago)
+    const startDate = new Date(now.getFullYear(), now.getMonth() - (monthsCount - 1), 1);
+
+    const quotations = await prisma.quotation.findMany({
+      where: {
+        isTrash: false,
+        createdAt: {
+          gte: startDate,
+        },
+      },
+      select: {
+        createdAt: true,
+        status: true,
+        grandTotal: true,
+      },
+    });
+
+    // Initialize all months in the range with 0 values to ensure clean visualization
+    const trendsMap: Record<string, { month: string; monthLabel: string; revenue: number; quotations: number; sortKey: string }> = {};
+    
+    for (let i = monthsCount - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const year = d.getFullYear();
+      const monthNum = d.getMonth();
+      const monthKey = `${year}-${String(monthNum + 1).padStart(2, '0')}`;
+      const monthLabel = d.toLocaleString('en-US', { month: 'short' });
+      const displayLabel = `${monthLabel} ${year}`;
+      
+      trendsMap[monthKey] = {
+        month: displayLabel,
+        monthLabel: monthLabel,
+        revenue: 0,
+        quotations: 0,
+        sortKey: monthKey,
+      };
+    }
+
+    // Populate data from database
+    for (const q of quotations) {
+      const qDate = new Date(q.createdAt);
+      const year = qDate.getFullYear();
+      const monthNum = qDate.getMonth();
+      const monthKey = `${year}-${String(monthNum + 1).padStart(2, '0')}`;
+      
+      if (trendsMap[monthKey]) {
+        trendsMap[monthKey].quotations += 1;
+        if (q.status === QuotationStatus.ACCEPTED && q.grandTotal) {
+          trendsMap[monthKey].revenue += Number(q.grandTotal);
+        }
+      }
+    }
+
+    // Sort chronologically and format
+    const trends = Object.values(trendsMap)
+      .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+      .map(({ month, revenue, quotations }) => ({
+        month,
+        revenue,
+        quotations,
+      }));
+
+    return {
+      success: true,
+      trends,
+    };
+  } catch (error) {
+    console.error('Error fetching dashboard trends:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch dashboard trends',
+      trends: [],
+    };
+  }
+}
+
+
