@@ -281,7 +281,7 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
                             <SelectItem value={LeadStatus.CONTACTED}>Contacted</SelectItem>
                             <SelectItem value={LeadStatus.QUALIFIED}>Qualified</SelectItem>
                             <SelectItem value={LeadStatus.UNQUALIFIED}>Unqualified</SelectItem>
-                            <SelectItem value={LeadStatus.CONVERTED}>Converted</SelectItem>
+                            <SelectItem value={LeadStatus.CONVERTED}>Opportunities</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -335,8 +335,8 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
                     <SelectValue placeholder="Order" />
                     </SelectTrigger>
                     <SelectContent>
-                    <SelectItem value="desc">Newest First</SelectItem>
-                    <SelectItem value="asc">Oldest First</SelectItem>
+                    <SelectItem value="desc">DESC</SelectItem>
+                    <SelectItem value="asc">ASC</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -362,6 +362,9 @@ export default function LeadManager({ initialLeads, initialPagination, initialOw
               onEdit={(lead) => { setEditingLead(lead); setIsDrawerOpen(true); }}
               onRefresh={() => fetchLeads(page)}
               isTrashView={isTrashView}
+              page={pagination.page}
+              limit={pagination.limit}
+              total={pagination.total}
             />
           )}
           {view === "grid" && !isTrashView && (

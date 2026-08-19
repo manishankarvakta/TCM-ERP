@@ -74,6 +74,9 @@ interface LeadTableProps {
   onEdit: (lead: Lead) => void;
   onRefresh: () => void;
   isTrashView?: boolean;
+  page?: number;
+  limit?: number;
+  total?: number;
 }
 
 const statusMap: Record<LeadStatus, { label: string; variant: "default" | "secondary" | "outline" | "destructive" | "success" }> = {
@@ -81,10 +84,19 @@ const statusMap: Record<LeadStatus, { label: string; variant: "default" | "secon
   [LeadStatus.CONTACTED]: { label: "Contacted", variant: "secondary" },
   [LeadStatus.QUALIFIED]: { label: "Qualified", variant: "success" },
   [LeadStatus.UNQUALIFIED]: { label: "Unqualified", variant: "destructive" },
-  [LeadStatus.CONVERTED]: { label: "Converted", variant: "outline" },
+  [LeadStatus.CONVERTED]: { label: "Opportunities", variant: "outline" },
 };
 
-export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTrashView = false }: LeadTableProps) {
+export default function LeadTable({
+  leads,
+  owners = [],
+  onEdit,
+  onRefresh,
+  isTrashView = false,
+  page = 1,
+  limit = 10,
+  total = 0,
+}: LeadTableProps) {
   const [conversionLead, setConversionLead] = useState<{ id: string; name: string } | null>(null);
   const [assignOwnerLead, setAssignOwnerLead] = useState<{ id: string; name: string; currentOwnerId?: string | null } | null>(null);
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>("");
@@ -280,6 +292,23 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
         </div>
       )}
 
+      {/* Count Indicator */}
+      <div className="flex items-center justify-between text-xs text-muted-foreground px-1 pb-1">
+        <div>
+          {total > 0 ? (
+            <span>
+              Showing <span className="font-semibold text-foreground">{(page - 1) * limit + 1}</span> to{" "}
+              <span className="font-semibold text-foreground">
+                {Math.min(page * limit, total)}
+              </span>{" "}
+              of <span className="font-semibold text-foreground">{total}</span> lead{total !== 1 ? "s" : ""}
+            </span>
+          ) : (
+            <span>No leads found</span>
+          )}
+        </div>
+      </div>
+
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -290,6 +319,7 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
                   onCheckedChange={toggleSelectAll}
                 />
               </TableHead>
+              <TableHead className="w-[50px] text-center">SL</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Contact Info</TableHead>
               <TableHead>Source</TableHead>
@@ -305,18 +335,21 @@ export default function LeadTable({ leads, owners = [], onEdit, onRefresh, isTra
           <TableBody>
             {leads.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="h-24 text-center">
+                <TableCell colSpan={12} className="h-24 text-center">
                   {isTrashView ? "Trash is empty." : "No leads found."}
                 </TableCell>
               </TableRow>
             ) : (
-              leads.map((lead) => (
+              leads.map((lead, index) => (
                 <TableRow key={lead.id} data-state={selectedIds.has(lead.id) && "selected"}>
                   <TableCell>
                     <Checkbox 
                       checked={selectedIds.has(lead.id)}
                       onCheckedChange={() => toggleSelect(lead.id)}
                     />
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs font-semibold text-center w-[50px]">
+                    {(page - 1) * limit + index + 1}
                   </TableCell>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-3">

@@ -56,7 +56,7 @@ const STAGE_LABELS: Record<LeadStatus, string> = {
   [LeadStatus.CONTACTED]: "Contacted",
   [LeadStatus.QUALIFIED]: "Qualified",
   [LeadStatus.UNQUALIFIED]: "Unqualified",
-  [LeadStatus.CONVERTED]: "Converted",
+  [LeadStatus.CONVERTED]: "Opportunities",
 };
 
 interface ColumnProps {

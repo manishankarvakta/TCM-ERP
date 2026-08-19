@@ -57,7 +57,7 @@ const statusMap: Record<LeadStatus, { label: string; variant: "default" | "secon
   [LeadStatus.CONTACTED]: { label: "Contacted", variant: "secondary" },
   [LeadStatus.QUALIFIED]: { label: "Qualified", variant: "success" },
   [LeadStatus.UNQUALIFIED]: { label: "Unqualified", variant: "destructive" },
-  [LeadStatus.CONVERTED]: { label: "Converted", variant: "outline" },
+  [LeadStatus.CONVERTED]: { label: "Opportunities", variant: "outline" },
 };
 
 export default function LeadGrid({ leads, onEdit, onConvert }: LeadGridProps) {

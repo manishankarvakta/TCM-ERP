@@ -25,7 +25,7 @@ export function LeadConversionButton({
     return (
       <Button variant="outline" disabled className="gap-2 bg-slate-50">
         <FiTrendingUp className="text-muted-foreground" />
-        Already Converted
+        Converted to Opportunity
       </Button>
     );
   }

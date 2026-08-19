@@ -38,6 +38,14 @@ const statusColors: Record<LeadStatus, "default" | "secondary" | "outline" | "de
   CONVERTED: "outline",
 };
 
+const statusLabels: Record<LeadStatus, string> = {
+  NEW: "New",
+  CONTACTED: "Contacted",
+  QUALIFIED: "Qualified",
+  UNQUALIFIED: "Unqualified",
+  CONVERTED: "Opportunities",
+};
+
 export function LeadStatusBadge({ leadId, currentStatus }: LeadStatusBadgeProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -57,7 +65,7 @@ export function LeadStatusBadge({ leadId, currentStatus }: LeadStatusBadgeProps)
       try {
         const result = await updateLeadStatus(leadId, newStatus);
         if (result.success) {
-          toast.success(`Status updated to ${newStatus}`);
+          toast.success(`Status updated to ${statusLabels[newStatus] || newStatus}`);
           router.refresh();
         } else {
           toast.error(result.error || "Failed to update status");
@@ -106,7 +114,7 @@ export function LeadStatusBadge({ leadId, currentStatus }: LeadStatusBadgeProps)
               {isPending ? (
                 <Loader2 className="h-3 w-3 animate-spin mr-1" />
               ) : null}
-              {currentStatus}
+              {statusLabels[currentStatus] || currentStatus}
             </Badge>
           </button>
         </DropdownMenuTrigger>
@@ -121,7 +129,7 @@ export function LeadStatusBadge({ leadId, currentStatus }: LeadStatusBadgeProps)
               )}
               disabled={status === "CONVERTED"} // Conversion should be done via the button
             >
-              {status.toLowerCase()}
+              {statusLabels[status as LeadStatus] || status}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
