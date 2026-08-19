@@ -834,15 +834,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setCart((prev) => {
       const existing = prev.find((i) => i.cartKey === cartKey);
       if (existing) {
-        return prev.map((i) => {
-          if (i.cartKey === cartKey) {
-            const newQ = i.cartQuantity + delta;
-            return { ...i, cartQuantity: newQ };
-          }
-          return i;
-        }).filter((i) => i.cartQuantity !== 0);
+        const updatedItem = { ...existing, cartQuantity: existing.cartQuantity + delta };
+        if (updatedItem.cartQuantity === 0) {
+          return prev.filter((i) => i.cartKey !== cartKey);
+        }
+        return [updatedItem, ...prev.filter((i) => i.cartKey !== cartKey)];
       }
-      return [...prev, itemToAdd];
+      return [itemToAdd, ...prev];
     });
 
     if (searchInputRef.current) {
@@ -914,15 +912,13 @@ export default function POSComponent({ items, clients: initialClients, warehouse
     setCart((prev) => {
       const existing = prev.find((i) => i.cartKey === cartKey);
       if (existing) {
-        return prev.map((i) => {
-          if (i.cartKey === cartKey) {
-            const newQ = i.cartQuantity + delta;
-            return { ...i, cartQuantity: newQ };
-          }
-          return i;
-        }).filter((i) => i.cartQuantity !== 0);
+        const updatedItem = { ...existing, cartQuantity: existing.cartQuantity + delta };
+        if (updatedItem.cartQuantity === 0) {
+          return prev.filter((i) => i.cartKey !== cartKey);
+        }
+        return [updatedItem, ...prev.filter((i) => i.cartKey !== cartKey)];
       }
-      return [...prev, itemToAdd];
+      return [itemToAdd, ...prev];
     });
 
     if (searchInputRef.current) {
