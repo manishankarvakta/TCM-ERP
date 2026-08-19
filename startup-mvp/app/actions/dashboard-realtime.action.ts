@@ -88,6 +88,10 @@ export async function getRealtimeDashboardStats(
           }
         }
       }
+      if (sale.orderType === "RETURN" || sale.status === "RETURN" || grandTotal < 0) {
+        const netDueDiff = grandTotal - initialPaid - totalCollected;
+        return netDueDiff < 0 ? netDueDiff : 0;
+      }
       return Math.max(0, grandTotal - initialPaid - totalCollected);
     };
 
@@ -124,6 +128,8 @@ export async function getRealtimeDashboardStats(
           paymentDetails: true,
           discount: true,
           couponId: true,
+          orderType: true,
+          status: true,
         },
       }),
       prisma.sale.findMany({
@@ -133,6 +139,8 @@ export async function getRealtimeDashboardStats(
           paymentDetails: true,
           discount: true,
           couponId: true,
+          orderType: true,
+          status: true,
         },
       }),
     ]);
@@ -703,7 +711,7 @@ export async function getRealtimeDashboardStats(
         // Due (Client unpaid outstanding amount)
         const intervalSalesForDue = await prisma.sale.findMany({
           where: { ...baseFilter, createdAt: { gte: stepStart, lte: stepEnd } },
-          select: { grandTotal: true, paymentDetails: true },
+          select: { grandTotal: true, paymentDetails: true, orderType: true, status: true },
         });
         const dueTotal = intervalSalesForDue.reduce((acc, s) => acc + getSaleDue(s), 0);
 
@@ -748,7 +756,7 @@ export async function getRealtimeDashboardStats(
 
         const intervalSalesForDue = await prisma.sale.findMany({
           where: { ...baseFilter, createdAt: { gte: stepStart, lte: stepEnd } },
-          select: { grandTotal: true, paymentDetails: true },
+          select: { grandTotal: true, paymentDetails: true, orderType: true, status: true },
         });
         const dueTotal = intervalSalesForDue.reduce((acc, s) => acc + getSaleDue(s), 0);
 
@@ -793,7 +801,7 @@ export async function getRealtimeDashboardStats(
 
         const intervalSalesForDue = await prisma.sale.findMany({
           where: { ...baseFilter, createdAt: { gte: stepStart, lte: stepEnd } },
-          select: { grandTotal: true, paymentDetails: true },
+          select: { grandTotal: true, paymentDetails: true, orderType: true, status: true },
         });
         const dueTotal = intervalSalesForDue.reduce((acc, s) => acc + getSaleDue(s), 0);
 
@@ -838,7 +846,7 @@ export async function getRealtimeDashboardStats(
 
         const intervalSalesForDue = await prisma.sale.findMany({
           where: { ...baseFilter, createdAt: { gte: stepStart, lte: stepEnd } },
-          select: { grandTotal: true, paymentDetails: true },
+          select: { grandTotal: true, paymentDetails: true, orderType: true, status: true },
         });
         const dueTotal = intervalSalesForDue.reduce((acc, s) => acc + getSaleDue(s), 0);
 

@@ -35,11 +35,38 @@ export async function getOutstandingSales(clientId: string) {
     });
 
     const outstanding: OutstandingSale[] = [];
+    let availableReturnCredit = 0;
 
+    // First pass: Calculate available return credit from due sale returns
     for (const sale of sales) {
       const grandTotal = Number(sale.grandTotal);
-      const details = sale.paymentDetails as any;
+      if (sale.orderType === "RETURN" || sale.status === "RETURN" || grandTotal < 0) {
+        const details = sale.paymentDetails as any;
+        let initialPaid = 0;
+        let totalCollected = 0;
+        if (details) {
+          initialPaid = Number(details.cashAmount || 0) + Number(details.cardAmount || 0) + Number(details.mfsAmount || 0) - Number(details.changeAmount || 0);
+          if (Array.isArray(details.dueCollections)) {
+            for (const col of details.dueCollections) {
+              totalCollected += Number(col.cashAmount || 0) + Number(col.cardAmount || 0) + Number(col.mfsAmount || 0);
+            }
+          }
+        }
+        const netCredit = Math.abs(grandTotal) - Math.abs(initialPaid) - Math.abs(totalCollected);
+        if (netCredit > 0) {
+          availableReturnCredit += netCredit;
+        }
+      }
+    }
 
+    // Second pass: Apply return credits to outstanding due sales chronologically
+    for (const sale of sales) {
+      const grandTotal = Number(sale.grandTotal);
+      if (sale.orderType === "RETURN" || sale.status === "RETURN" || grandTotal <= 0) {
+        continue;
+      }
+
+      const details = sale.paymentDetails as any;
       let initialPaid = 0;
       let totalCollected = 0;
 
@@ -53,18 +80,26 @@ export async function getOutstandingSales(clientId: string) {
         }
       }
 
-      const remainingDue = Number((grandTotal - initialPaid - totalCollected).toFixed(2));
+      let remainingDue = Number((grandTotal - initialPaid - totalCollected).toFixed(2));
 
       if (remainingDue > 0.01) {
-        outstanding.push({
-          id: sale.id,
-          saleNumber: sale.saleNumber,
-          date: sale.date,
-          grandTotal,
-          initialPaid,
-          totalCollected,
-          remainingDue,
-        });
+        if (availableReturnCredit > 0) {
+          const creditToApply = Math.min(remainingDue, availableReturnCredit);
+          remainingDue = Number((remainingDue - creditToApply).toFixed(2));
+          availableReturnCredit = Number((availableReturnCredit - creditToApply).toFixed(2));
+        }
+
+        if (remainingDue > 0.01) {
+          outstanding.push({
+            id: sale.id,
+            saleNumber: sale.saleNumber,
+            date: sale.date,
+            grandTotal,
+            initialPaid,
+            totalCollected,
+            remainingDue,
+          });
+        }
       }
     }
 
