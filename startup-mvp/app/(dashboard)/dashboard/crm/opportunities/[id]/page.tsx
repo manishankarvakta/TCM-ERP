@@ -23,6 +23,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PromoteToProject from "./_components/PromoteToProject";
+import { OpportunityStageBadge } from "./_components/OpportunityStageBadge";
 import { BackButton } from "@/components/ui/back-button";
 
 const parseAltPhone = (raw: string | null | undefined) => {
@@ -43,7 +44,10 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
   const session = await auth();
   if (!session?.user) return redirect("/login");
 
-  const canView = await checkPermission(session.user.id, "crm.opportunities", "view");
+  const [canView, canEdit] = await Promise.all([
+    checkPermission(session.user.id, "crm.opportunities", "view"),
+    checkPermission(session.user.id, "crm.opportunities", "edit"),
+  ]);
   if (!canView) {
       return (
         <div className="p-6">
@@ -99,9 +103,13 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
             <div>
             <div className="flex items-center gap-3">
                 <h1 className="text-3xl font-black uppercase tracking-tighter">{opportunity.title}</h1>
-                <Badge variant="outline" className="font-black border-primary/20 text-primary bg-primary/5 uppercase tracking-widest px-4 py-1.5 h-auto text-[10px] rounded-full shadow-sm animate-pulse">
-                    {opportunity.stage}
-                </Badge>
+                {canEdit ? (
+                    <OpportunityStageBadge opportunityId={opportunity.id} currentStage={opportunity.stage} />
+                ) : (
+                    <Badge variant="outline" className="font-black border-primary/20 text-primary bg-primary/5 uppercase tracking-widest px-4 py-1.5 h-auto text-[10px] rounded-full shadow-sm animate-pulse">
+                        {opportunity.stage}
+                    </Badge>
+                )}
             </div>
             <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest mt-1 opacity-70">
                 {opportunity.opportunityNumber} • {opportunity.client?.name} • Created {opportunity.createdAt ? format(new Date(opportunity.createdAt), "MMM dd, yyyy") : "-"}
@@ -259,6 +267,17 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                     <CardTitle className="text-base font-semibold">Deal Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm pt-4">
+                    {opportunity.stage === "UNQUALIFIED" && opportunity.closingReason && (
+                        <div className="flex items-start gap-3 bg-destructive/5 border border-destructive/20 p-3 rounded-lg mb-2">
+                            <div className="bg-destructive/10 p-2 rounded text-destructive shrink-0">
+                                <Clock className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-xs text-destructive-foreground uppercase tracking-wider font-bold">Closing Reason</p>
+                                <p className="text-sm text-destructive mt-1 font-medium">{opportunity.closingReason}</p>
+                            </div>
+                        </div>
+                    )}
                     <div className="flex items-start gap-3">
                         <div className="bg-slate-100 p-2 rounded text-slate-600">
                             <Hash className="h-4 w-4" />
