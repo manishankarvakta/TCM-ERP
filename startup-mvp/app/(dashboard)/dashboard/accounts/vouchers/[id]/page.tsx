@@ -94,6 +94,7 @@ export default async function VoucherDetailPage({ params }: VoucherDetailPagePro
   // Refine the serialization to match exactly what VoucherPrintTemplate needs
   // We need to map the voucherLines to the structure expected by the print template
   const printVoucherData = {
+    id: voucher.id,
     voucherNumber: voucher.voucherNumber,
     date: voucher.date,
     type: voucher.type,

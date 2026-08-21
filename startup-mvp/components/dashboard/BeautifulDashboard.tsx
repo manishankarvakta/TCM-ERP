@@ -219,7 +219,8 @@ export default function BeautifulDashboard({
       {/* Header Row */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Welcome Back, {userName}!</h1>
+          <p className="text-sm">Welcome Back,</p>
+          <h1 className="text-xl font-bold tracking-tight">{userName}!</h1>
         </div>
  
         {/* Action Controls */}
