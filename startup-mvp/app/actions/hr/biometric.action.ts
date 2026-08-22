@@ -21,11 +21,12 @@ export async function testDeviceConnection(ip: string, port: number = 4370) {
 }
 
 export async function syncDeviceUsers(deviceId: string) {
+    let device: any = null;
     try {
         const session = await auth();
         if (!session?.user) return { success: false, error: "Unauthorized" };
 
-        const device = await prisma.biometricDevice.findUnique({ where: { id: deviceId } });
+        device = await prisma.biometricDevice.findUnique({ where: { id: deviceId } });
         if (!device || !device.ipAddress) {
             return { success: false, error: "Device or IP not found" };
         }
@@ -42,6 +43,7 @@ export async function syncDeviceUsers(deviceId: string) {
         await prisma.biometricSyncLog.create({
             data: {
                 deviceId,
+                vendor: device.vendor,
                 status: "SUCCESS",
                 recordsCount: users?.data?.length || 0,
                 syncedBy: session.user.id
@@ -55,8 +57,9 @@ export async function syncDeviceUsers(deviceId: string) {
             await prisma.biometricSyncLog.create({
                 data: {
                     deviceId,
+                    vendor: device?.vendor || "UNKNOWN",
                     status: "FAILED",
-                    errorMessage: error.message,
+                    errorMessage: error.message || "Unknown error",
                     syncedBy: session.user.id
                 }
             });
@@ -66,11 +69,12 @@ export async function syncDeviceUsers(deviceId: string) {
 }
 
 export async function syncDeviceAttendance(deviceId: string) {
+    let device: any = null;
     try {
         const session = await auth();
         if (!session?.user) return { success: false, error: "Unauthorized" };
 
-        const device = await prisma.biometricDevice.findUnique({ where: { id: deviceId } });
+        device = await prisma.biometricDevice.findUnique({ where: { id: deviceId } });
         if (!device || !device.ipAddress) {
             return { success: false, error: "Device or IP not found" };
         }
@@ -131,8 +135,9 @@ export async function syncDeviceAttendance(deviceId: string) {
             await prisma.biometricSyncLog.create({
                 data: {
                     deviceId,
+                    vendor: device?.vendor || "UNKNOWN",
                     status: "FAILED",
-                    errorMessage: error.message,
+                    errorMessage: error.message || "Unknown error",
                     syncedBy: session.user.id
                 }
             });

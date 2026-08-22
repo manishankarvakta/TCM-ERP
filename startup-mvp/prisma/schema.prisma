@@ -1064,6 +1064,8 @@ model User {
   other_User                         User[]                 @relation("UserToUser")
   UserLog                            UserLog[]
   UserPermission                     UserPermission[]
+  ActivityReports                    ActivityReport[]   @relation("ReportOwner")
+  ReviewedReports                    ActivityReport[]   @relation("ReportReviewer")
   Voucher_Voucher_createdByToUser    Voucher[]              @relation("Voucher_createdByToUser")
   Voucher_Voucher_postedByIdToUser   Voucher[]              @relation("Voucher_postedByIdToUser")
   Voucher_Voucher_userIdToUser       Voucher[]              @relation("Voucher_userIdToUser")
@@ -2171,5 +2173,24 @@ model WebhookEvent {
   payload     Json
   processed   Boolean  @default(false)
   receivedAt  DateTime @default(now())
+}
+
+model ActivityReport {
+  id           String    @id @default(cuid())
+  userId       String
+  reportDate   DateTime  // The date of the report (stored at 00:00:00 UTC)
+  status       String    @default("SUBMITTED") // "SUBMITTED" | "APPROVED" | "REJECTED"
+  submittedAt  DateTime  @default(now())
+  feedback     String?   // Review comments from Admin/Manager
+  reviewedAt   DateTime?
+  reviewedById String?
+
+  // Relations
+  User         User      @relation("ReportOwner", fields: [userId], references: [id], onDelete: Cascade)
+  ReviewedBy   User?     @relation("ReportReviewer", fields: [reviewedById], references: [id])
+
+  @@unique([userId, reportDate])
+  @@index([userId])
+  @@index([reportDate])
 }
 
